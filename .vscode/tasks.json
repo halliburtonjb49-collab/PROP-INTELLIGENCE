@@ -1,0 +1,638 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "backend-scoreboard-preflight",
+			"type": "shell",
+			"command": "$openapi = Invoke-RestMethod -Uri 'http://127.0.0.1:8010/openapi.json' -Method Get; $hasScoreboardPath = $openapi.paths.PSObject.Properties.Name -contains '/api/scoreboard'; if (-not $hasScoreboardPath) { throw 'Missing /api/scoreboard in backend OpenAPI on port 8010.' }; $scoreboard = Invoke-RestMethod -Uri 'http://127.0.0.1:8010/api/scoreboard?date=2026-07-07' -Method Get; if ($null -eq $scoreboard.games) { throw 'Scoreboard response missing games field.' }; Write-Output 'BACKEND_SCOREBOARD_PREFLIGHT_OK'",
+			"isBackground": false
+		},
+		{
+			"label": "backend-props-preflight",
+			"type": "shell",
+			"command": "$health = Invoke-RestMethod -Uri 'http://127.0.0.1:8010/health' -Method Get; if ($health.status -ne 'ok') { throw 'Backend health check failed on port 8010.' }; $props = Invoke-RestMethod -Uri 'http://127.0.0.1:8010/api/props' -Method Get; if ($null -eq $props.props) { throw 'Props response missing props field.' }; if (($props.props | Measure-Object).Count -lt 1) { throw 'Props response is empty.' }; $first = $props.props | Select-Object -First 1; $propId = if ($first.prop_id) { $first.prop_id } else { $first.id }; if (-not $propId) { throw 'First prop missing both prop_id and id.' }; Write-Output ('BACKEND_PROPS_PREFLIGHT_OK COUNT=' + (($props.props | Measure-Object).Count))",
+			"isBackground": false
+		},
+		{
+			"label": "flutter-quick-run-windows",
+			"type": "shell",
+			"command": "flutter pub get; flutter run -d windows --debug",
+			"isBackground": true
+		},
+		{
+			"label": "flutter-safe-run-windows",
+			"type": "shell",
+			"command": "flutter pub get; flutter run -d windows --debug --enable-software-rendering",
+			"isBackground": true
+		},
+		{
+			"label": "flutter-final-debug-build",
+			"type": "shell",
+			"dependsOn": [
+				"backend-props-preflight",
+				"backend-scoreboard-preflight"
+			],
+			"dependsOrder": "sequence",
+			"command": "flutter clean; flutter pub get; dart format lib; flutter analyze; flutter test; flutter build windows --debug",
+			"isBackground": false
+		},
+		{
+			"label": "flutter-release-build-validation",
+			"type": "shell",
+			"dependsOn": [
+				"backend-props-preflight",
+				"backend-scoreboard-preflight"
+			],
+			"dependsOrder": "sequence",
+			"command": "flutter clean; flutter pub get; flutter analyze; flutter test; flutter build windows --release",
+			"isBackground": false
+		},
+		{
+			"label": "verify-line-movement-confidence",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"curl -s -X POST \"http://127.0.0.1:8010/api/prop-builder/check-lines?refresh=false\" -H \"Content-Type: application/json\" -d \"{\\\"legs\\\":[{\\\"prop_id\\\":\\\"test-prop\\\",\\\"id\\\":\\\"test-prop\\\",\\\"event_id\\\":\\\"evt-1\\\",\\\"api_sports_game_id\\\":\\\"evt-1\\\",\\\"player_id\\\":\\\"p1\\\",\\\"custom_label\\\":\\\"\\\",\\\"manual_note\\\":\\\"\\\",\\\"player\\\":\\\"Test Player\\\",\\\"sport\\\":\\\"MLB\\\",\\\"matchup\\\":\\\"A @ B\\\",\\\"prop_site\\\":\\\"DraftKings\\\",\\\"sportsbook\\\":\\\"DraftKings\\\",\\\"market\\\":\\\"Total Bases\\\",\\\"line\\\":1.5,\\\"current_line\\\":1.5,\\\"side\\\":\\\"OVER\\\",\\\"pick\\\":\\\"OVER\\\",\\\"odds\\\":0,\\\"current_odds\\\":0,\\\"over_odds\\\":null,\\\"under_odds\\\":null,\\\"multiplier\\\":1.5,\\\"win_probability\\\":62,\\\"edge\\\":58,\\\"confidence\\\":62}]}\""
+			],
+			"isBackground": false
+		},
+		{
+			"label": "verify-line-movement-confidence-powershell",
+			"type": "shell",
+			"command": "$payload = @{ legs = @(@{ prop_id='test-prop'; id='test-prop'; event_id='evt-1'; api_sports_game_id='evt-1'; player_id='p1'; custom_label=''; manual_note=''; player='Test Player'; sport='MLB'; matchup='A @ B'; prop_site='DraftKings'; sportsbook='DraftKings'; market='Total Bases'; line=1.5; current_line=1.5; side='OVER'; pick='OVER'; odds=0; current_odds=0; over_odds=$null; under_odds=$null; multiplier=1.5; win_probability=62; edge=58; confidence=62 }) }; $json = $payload | ConvertTo-Json -Depth 6 -Compress; try { $resp = Invoke-RestMethod -Uri 'http://127.0.0.1:8010/api/prop-builder/check-lines?refresh=false' -Method Post -ContentType 'application/json' -Body $json; Write-Output 'OK'; $resp | ConvertTo-Json -Depth 6 -Compress | Write-Output } catch { Write-Output 'ERROR'; Write-Output $_.Exception.Message; if ($_.ErrorDetails.Message) { Write-Output $_.ErrorDetails.Message } }",
+			"isBackground": false
+		},
+		{
+			"label": "flutter-run-windows-reload",
+			"type": "shell",
+			"command": "flutter",
+			"args": [
+				"run",
+				"-d",
+				"windows"
+			],
+			"isBackground": true
+		},
+		{
+			"label": "flutter-safe-props-run-windows",
+			"type": "shell",
+			"dependsOn": [
+				"backend-props-preflight",
+				"backend-scoreboard-preflight",
+				"flutter-run-windows-reload"
+			],
+			"dependsOrder": "sequence",
+			"command": "Write-Output 'SAFE_RUN_OK'",
+			"isBackground": false,
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"label": "inspect-port-8010-process",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"for /f \"tokens=5\" %a in ('netstat -ano ^| findstr :8010 ^| findstr LISTENING') do @echo PID=%a & wmic process where ProcessId=%a get ProcessId,Name,CommandLine /format:list"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "inspect-port-8010-process-ps",
+			"type": "shell",
+			"command": "$listener = Get-NetTCPConnection -LocalPort 8010 -State Listen -ErrorAction SilentlyContinue; if (-not $listener) { Write-Output 'No listener on 8010'; exit 0 }; $pid = $listener.OwningProcess; Write-Output \"PID=$pid\"; Get-CimInstance Win32_Process -Filter \"ProcessId=$pid\" | Select-Object ProcessId, Name, CommandLine | Format-List",
+			"isBackground": false
+		},
+		{
+			"label": "inspect-port-8010-owner",
+			"type": "shell",
+			"command": "$listener = Get-NetTCPConnection -LocalPort 8010 -State Listen -ErrorAction SilentlyContinue; if (-not $listener) { Write-Output 'No listener on 8010'; exit 0 }; $ownerPid = $listener.OwningProcess; Write-Output \"OWNER_PID=$ownerPid\"; Get-CimInstance Win32_Process -Filter \"ProcessId=$ownerPid\" | Select-Object ProcessId, Name, CommandLine | Format-List",
+			"isBackground": false
+		},
+		{
+			"label": "validate-active-backend-main",
+			"type": "shell",
+			"command": "Push-Location ..\\python_backend; .\\.venv\\Scripts\\python.exe -m py_compile main.py; if ($LASTEXITCODE -eq 0) { 'PY_COMPILE_OK' }; Pop-Location",
+			"isBackground": false
+		},
+		{
+			"label": "restart-backend-8010-stop",
+			"type": "shell",
+			"command": "$listener = Get-NetTCPConnection -LocalPort 8010 -State Listen -ErrorAction SilentlyContinue; if ($listener) { $ownerPid = $listener.OwningProcess; Stop-Process -Id $ownerPid -Force; Write-Output \"STOPPED_PID=$ownerPid\" } else { Write-Output 'NO_EXISTING_8010_LISTENER' }",
+			"isBackground": false
+		},
+		{
+			"label": "start-backend-8010",
+			"type": "shell",
+			"command": "Push-Location ..\\python_backend; .\\.venv\\Scripts\\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8010 --reload",
+			"isBackground": true
+		},
+		{
+			"label": "smoke-ui-test",
+			"type": "shell",
+			"command": "flutter test test/ui_smoke_pass_test.dart",
+			"isBackground": false
+		},
+		{
+			"label": "benchmark-page-switching",
+			"type": "shell",
+			"command": "$thresholdRaw = $env:PAGE_SWITCH_MAX_MS; $thresholdMs = 300; if ($thresholdRaw -and ($thresholdRaw -as [int])) { $thresholdMs = [int]$thresholdRaw }; $lines = flutter test test/ui_smoke_pass_test.dart 2>&1; $lines | Write-Output; $switch = $lines | Select-String 'page switch'; if (-not $switch) { throw 'No page switch timing lines found.' }; Write-Output '--- PAGE SWITCH TIMINGS ---'; $switch | ForEach-Object { $_.Line }; $slow = @(); foreach ($entry in $switch) { $line = $entry.Line; if ($line -match 'in\\s+(\\d+)ms') { $duration = [int]$Matches[1]; if ($duration -gt $thresholdMs) { $slow += ($duration.ToString() + 'ms :: ' + $line) } } }; if ($slow.Count -gt 0) { Write-Output '--- PAGE SWITCH THRESHOLD FAILURES ---'; $slow | ForEach-Object { Write-Output $_ }; throw ('Page switch exceeded ' + $thresholdMs + 'ms threshold.'); }; Write-Output ('PAGE_SWITCH_BENCHMARK_OK threshold=' + $thresholdMs + 'ms')",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "build-installer-now",
+			"type": "shell",
+			"command": ".\\build_installer.bat",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "build-windows-release-now",
+			"type": "shell",
+			"command": "flutter build windows --release",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "build-installer-now-2",
+			"type": "shell",
+			"command": ".\\build_installer.bat",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "verify-backend-category-payload",
+			"type": "shell",
+			"command": "Push-Location ..\\python_backend; .\\.venv\\Scripts\\python.exe -c \"from services.prop_service import get_props; props = get_props(); first = props[0].model_dump(); print(f'COUNT={len(props)}'); print(f\\\"CATEGORY={first.get('category','')}\\\"); print(f\\\"MARKET_KEY={first.get('marketKey','')}\\\"); print(f\\\"MARKET={first.get('market','')}\\\")\"; Pop-Location",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "verify-backend-category-payload-2",
+			"type": "shell",
+			"command": "Push-Location ..\\python_backend; .\\.venv\\Scripts\\python.exe -c \"from services.prop_service import get_props; props = get_props(); first = props[0].model_dump(); print('COUNT=' + str(len(props))); print('CATEGORY=' + str(first.get('category', ''))); print('MARKET_KEY=' + str(first.get('marketKey', ''))); print('MARKET=' + str(first.get('market', '')))\"; Pop-Location",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "verify-category-payload-final",
+			"type": "shell",
+			"command": "..\\python_backend\\.venv\\Scripts\\python.exe",
+			"args": [
+				"-c",
+				"from services.prop_service import get_props; props = get_props(); first = props[0].model_dump(); print('COUNT=' + str(len(props))); print('CATEGORY=' + str(first.get('category', ''))); print('MARKET_KEY=' + str(first.get('marketKey', ''))); print('MARKET=' + str(first.get('market', '')))"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "verify-category-payload-final-2",
+			"type": "shell",
+			"command": "..\\python_backend\\.venv\\Scripts\\python.exe",
+			"args": [
+				"-c",
+				"from services.prop_service import get_props; props = get_props(); first = props[0].model_dump(); print(\"COUNT=%s\" % len(props)); print(\"CATEGORY=%s\" % first.get(\"category\", \"\")); print(\"MARKET_KEY=%s\" % first.get(\"marketKey\", \"\")); print(\"MARKET=%s\" % first.get(\"market\", \"\"))"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "sync-expanded-prop-markets",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"cd /d ..\\python_backend && .venv\\Scripts\\python.exe -c \"from services.sync_service import sync_sport; print(sync_sport('basketball_wnba')); print(sync_sport('basketball_nba'))\""
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "sync-expanded-prop-markets-api",
+			"type": "shell",
+			"command": "$resp = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/sync' -Method Post; $resp | ConvertTo-Json -Depth 6",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "verify-live-prop-payload-api",
+			"type": "shell",
+			"command": "$resp = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/props' -Method Get; Write-Output ('COUNT=' + $resp.count); Write-Output ('FIRST_CATEGORY=' + $resp.props[0].category); Write-Output ('FIRST_MARKET_KEY=' + $resp.props[0].marketKey); Write-Output ('FIRST_MARKET=' + $resp.props[0].market)",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "verify-live-prop-payload-api-2",
+			"type": "shell",
+			"command": "$resp = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/props' -Method Get; Write-Output ('COUNT=' + $resp.count); Write-Output ('FIRST_CATEGORY=' + $resp.props[0].category); Write-Output ('FIRST_MARKET_KEY=' + $resp.props[0].marketKey); Write-Output ('FIRST_MARKET=' + $resp.props[0].market)",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "verify-scoreboard-date-slate",
+			"type": "shell",
+			"command": "$resp = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/scoreboard?date=2026-07-08' -Method Get; Write-Output ('GAME_COUNT=' + (($resp.games | Measure-Object).Count)); Write-Output ('LIVE_COUNT=' + (@($resp.games | Where-Object { $_.status -eq 'LIVE' }).Count)); $resp.games | Select-Object -First 8 sport,status,away_team,home_team,start_time | Format-Table -AutoSize",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "verify-scoreboard-date-slate-2",
+			"type": "shell",
+			"command": "$resp = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/scoreboard?date=2026-07-08' -Method Get; Write-Output ('GAME_COUNT=' + (($resp.games | Measure-Object).Count)); Write-Output ('LIVE_COUNT=' + (@($resp.games | Where-Object { $_.status -eq 'LIVE' }).Count)); $resp.games | Select-Object -First 8 sport,status,away_team,home_team,start_time | Format-Table -AutoSize",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "verify-scoreboard-date-slate-3",
+			"type": "shell",
+			"command": "$resp = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/scoreboard?date=2026-07-08' -Method Get; Write-Output ('GAME_COUNT=' + (($resp.games | Measure-Object).Count)); Write-Output ('LIVE_COUNT=' + (@($resp.games | Where-Object { $_.status -eq 'LIVE' }).Count)); $resp.games | Select-Object -First 8 sport,status,away_team,home_team,start_time | Format-Table -AutoSize",
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "rebuild-windows-release-with-scoreboard-fix",
+			"type": "shell",
+			"command": "flutter build windows --release",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "rebuild-windows-release-final",
+			"type": "shell",
+			"command": "flutter build windows --release",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "rebuild-windows-release-after-scoreboard-fix",
+			"type": "shell",
+			"command": "flutter build windows --release",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "rebuild-installer-after-scoreboard-fix",
+			"type": "shell",
+			"command": ".\\build_installer.bat",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "rebuild-windows-release-date-fix",
+			"type": "shell",
+			"command": "flutter build windows --release",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "rebuild-installer-date-fix",
+			"type": "shell",
+			"command": ".\\build_installer.bat",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "rebuild-windows-release-local-date-fix",
+			"type": "shell",
+			"command": "flutter build windows --release",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "rebuild-windows-release-all-sports-scoreboard",
+			"type": "shell",
+			"command": "flutter build windows --release",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "rebuild-installer-all-sports-scoreboard",
+			"type": "shell",
+			"command": ".\\build_installer.bat",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "probe-mlb-local-dates",
+			"type": "shell",
+			"command": "..\\python_backend\\.venv\\Scripts\\python.exe",
+			"args": [
+				"-c",
+				"from services.odds_service import fetch_scores; from main import _local_event_date; data=fetch_scores('baseball_mlb', days_from=3); rows=[(d.get('away_team'), d.get('home_team'), d.get('commence_time'), str(_local_event_date(d.get('commence_time'))), d.get('completed')) for d in data[:12]]; print(rows)"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "probe-scoreboard-july8",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$resp = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/scoreboard?date=2026-07-08' -Method Get; $resp.games | Select-Object -First 12 sport,status,away_team,home_team,start_time | ConvertTo-Json -Compress"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "rebuild-windows-release-timezone-fix",
+			"type": "shell",
+			"command": "flutter build windows --release",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "rebuild-installer-timezone-fix",
+			"type": "shell",
+			"command": ".\\build_installer.bat",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "point-desktop-shortcut-to-installed-app",
+			"type": "shell",
+			"command": "$desktop = [Environment]::GetFolderPath('Desktop'); $shortcutPath = Join-Path $desktop 'The Daily Spin.lnk'; $candidates = @('C:\\Program Files\\The Daily Spin\\daily_spin_flutter.exe','C:\\Program Files (x86)\\The Daily Spin\\daily_spin_flutter.exe',\"$env:LOCALAPPDATA\\Programs\\The Daily Spin\\daily_spin_flutter.exe\"); $target = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1; if (-not $target) { throw 'Installed packaged executable was not found in expected locations.' }; $shell = New-Object -ComObject WScript.Shell; $shortcut = $shell.CreateShortcut($shortcutPath); $shortcut.TargetPath = $target; $shortcut.WorkingDirectory = Split-Path $target; $iconCandidate = Join-Path (Split-Path $target) 'app_icon.ico'; if (Test-Path $iconCandidate) { $shortcut.IconLocation = $iconCandidate }; $shortcut.Save(); Write-Output ('SHORTCUT_UPDATED=' + $shortcutPath); Write-Output ('TARGET=' + $target)",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "point-desktop-shortcut-to-installed-app-2",
+			"type": "shell",
+			"command": "$desktop = [Environment]::GetFolderPath('Desktop'); $shortcutPath = Join-Path $desktop 'The Daily Spin.lnk'; $localTarget = Join-Path $env:LOCALAPPDATA 'Programs\\The Daily Spin\\daily_spin_flutter.exe'; $candidates = @('C:\\Program Files\\The Daily Spin\\daily_spin_flutter.exe','C:\\Program Files (x86)\\The Daily Spin\\daily_spin_flutter.exe',$localTarget); $target = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1; if (-not $target) { throw 'Installed packaged executable was not found in expected locations.' }; $shell = New-Object -ComObject WScript.Shell; $shortcut = $shell.CreateShortcut($shortcutPath); $shortcut.TargetPath = $target; $shortcut.WorkingDirectory = Split-Path $target; $iconCandidate = Join-Path (Split-Path $target) 'app_icon.ico'; if (Test-Path $iconCandidate) { $shortcut.IconLocation = $iconCandidate }; $shortcut.Save(); Write-Output ('SHORTCUT_UPDATED=' + $shortcutPath); Write-Output ('TARGET=' + $target)",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "point-desktop-shortcut-to-release-build",
+			"type": "shell",
+			"command": "$desktop = [Environment]::GetFolderPath('Desktop'); $shortcutPath = Join-Path $desktop 'The Daily Spin.lnk'; $target = Join-Path $PWD 'build\\windows\\x64\\runner\\Release\\daily_spin_flutter.exe'; if (-not (Test-Path $target)) { throw 'Release executable not found.' }; $shell = New-Object -ComObject WScript.Shell; $shortcut = $shell.CreateShortcut($shortcutPath); $shortcut.TargetPath = $target; $shortcut.WorkingDirectory = Split-Path $target; $iconCandidate = Join-Path (Split-Path $target) 'data\\flutter_assets\\assets\\players\\TheDailySpin_AppIcon_256.png'; $fallbackIcon = Join-Path $PWD 'windows\\runner\\resources\\app_icon.ico'; if (Test-Path $fallbackIcon) { $shortcut.IconLocation = $fallbackIcon }; $shortcut.Save(); Write-Output ('SHORTCUT_UPDATED=' + $shortcutPath); Write-Output ('TARGET=' + $target)",
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "full-backend-diagnostic-check",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$ErrorActionPreference='Stop'; Write-Output '=== PORTS ==='; netstat -ano | Select-String ':8000|:8010|:8011' | ForEach-Object { $_.ToString().Trim() }; Write-Output '=== OWNER 8010 ==='; $listener = Get-NetTCPConnection -LocalPort 8010 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if ($listener) { $proc = Get-CimInstance Win32_Process -Filter (\"ProcessId = \" + $listener.OwningProcess); Write-Output ('PID=' + $listener.OwningProcess); if ($proc) { Write-Output ('CMD=' + $proc.CommandLine) } } else { Write-Output 'NO_8010_LISTENER' }; Write-Output '=== ENDPOINT HEALTH ==='; foreach ($p in 8000,8010,8011) { try { $h=Invoke-RestMethod -Uri (\"http://127.0.0.1:\"+$p+\"/health\") -TimeoutSec 4; Write-Output (\"PORT=\"+$p+\" HEALTH=\"+($h|ConvertTo-Json -Compress)) } catch { Write-Output (\"PORT=\"+$p+\" HEALTH_ERR=\"+$_.Exception.Message) } }; Write-Output '=== PROPS ORDER/PAST/IMAGES ==='; $resp=Invoke-RestMethod -Uri 'http://127.0.0.1:8010/api/props?side=All&tier=All&minConfidence=0&sortBy=time' -TimeoutSec 20; $props=@($resp.props); $today=[DateTime]::Today; $parsed=@(); foreach($x in $props){ try { $dt=[DateTimeOffset]::Parse($x.startTimeUtc).ToLocalTime(); $parsed += [PSCustomObject]@{ dt=$dt; imagePath=$x.imagePath } } catch {} }; $hasPast = ($parsed | Where-Object { $_.dt.Date -lt $today } | Select-Object -First 1) -ne $null; $sorted=$true; for($i=1;$i -lt $parsed.Count;$i++){ if($parsed[$i].dt -lt $parsed[$i-1].dt){ $sorted=$false; break } }; $missingEmpty=($parsed | Where-Object { [string]::IsNullOrWhiteSpace($_.imagePath) }).Count; Write-Output ('COUNT=' + $props.Count); Write-Output ('HAS_PAST=' + $hasPast); Write-Output ('SORTED_ASC=' + $sorted); Write-Output ('EMPTY_IMAGEPATH=' + $missingEmpty); Write-Output ('FILTERS=' + ($resp.filters | ConvertTo-Json -Compress)); Write-Output '=== SYNC ENDPOINT ==='; try { $sync = Invoke-RestMethod -Uri 'http://127.0.0.1:8010/api/sync' -Method Post -TimeoutSec 120; Write-Output ('SYNC_OK=' + ($sync | ConvertTo-Json -Compress)) } catch { if ($_.Exception.Response) { $code=[int]$_.Exception.Response.StatusCode; Write-Output ('SYNC_HTTP_STATUS=' + $code); try { $sr = New-Object IO.StreamReader($_.Exception.Response.GetResponseStream()); $body=$sr.ReadToEnd(); Write-Output ('SYNC_BODY=' + $body) } catch {} } else { Write-Output ('SYNC_ERR=' + $_.Exception.Message) } };"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "full-backend-diagnostic-check-scripted",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\tools\\full_backend_diag.ps1"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "post-sync-sanity-check",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"$base='http://127.0.0.1:8010'; Write-Output '=== POST-SYNC PROPS ==='; $r=Invoke-RestMethod -Uri ($base + '/api/props?side=All&tier=All&minConfidence=0&sortBy=time') -TimeoutSec 20; $today=[DateTime]::Today; $dates=@(); foreach($p in $r.props){ try { $dates += [DateTimeOffset]::Parse($p.startTimeUtc).ToLocalTime().DateTime } catch {} }; if($dates.Count -gt 0){ $min=($dates|Measure-Object -Minimum).Minimum; $max=($dates|Measure-Object -Maximum).Maximum; $hasPast=($dates|Where-Object { $_.Date -lt $today }|Select-Object -First 1) -ne $null; Write-Output ('COUNT='+$r.count); Write-Output ('MIN_LOCAL='+$min.ToString('yyyy-MM-dd HH:mm')); Write-Output ('MAX_LOCAL='+$max.ToString('yyyy-MM-dd HH:mm')); Write-Output ('HAS_PAST='+$hasPast) }; Write-Output '=== PROPS TEST ==='; try { $pt=Invoke-RestMethod -Uri ($base + '/api/props-test') -TimeoutSec 10; Write-Output ('PROPS_TEST=' + ($pt|ConvertTo-Json -Compress)) } catch { Write-Output ('PROPS_TEST_ERR=' + $_.Exception.Message) }; Write-Output '=== ALERTS ==='; try { $a=Invoke-RestMethod -Uri ($base + '/api/prop-alerts') -TimeoutSec 10; $ac = if($a.alerts){ @($a.alerts).Count } else { 0 }; Write-Output ('ALERTS_COUNT=' + $ac) } catch { Write-Output ('ALERTS_ERR=' + $_.Exception.Message) }"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "post-sync-sanity-scripted",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\tools\\post_sync_sanity.ps1"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "force-clear-8010-and-python",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"taskkill /IM python.exe /F | Out-Null; $left = netstat -ano | Select-String ':8010\\s+.*LISTENING' | ForEach-Object { $_.ToString().Trim() }; if ($left) { Write-Output 'LISTENERS:'; $left | ForEach-Object { Write-Output $_ } } else { Write-Output 'PORT_8010_FREE' }"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "accuracy-full-check-run",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\tools\\accuracy_full_check.ps1"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "restart-backend-after-accuracy-fixes",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"taskkill /IM python.exe /F | Out-Null; Start-Sleep -Milliseconds 300; Push-Location 'c:\\Users\\theda\\Projects\\The-Daily-Spin\\python_backend'; Start-Process -WindowStyle Hidden -FilePath '.\\.venv\\Scripts\\python.exe' -ArgumentList '-m','uvicorn','main:app','--host','127.0.0.1','--port','8010'; Pop-Location; Start-Sleep -Seconds 2; try { $h=Invoke-RestMethod -Uri 'http://127.0.0.1:8010/health' -TimeoutSec 5; Write-Output ('HEALTH=' + ($h|ConvertTo-Json -Compress)) } catch { Write-Output ('HEALTH_ERR=' + $_.Exception.Message) }"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "restart-backend-scripted-8010",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\tools\\restart_backend_8010.ps1"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "accuracy-full-check-run-2",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\tools\\accuracy_full_check.ps1"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "restart-backend-new-fields",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\tools\\restart_backend_8010.ps1"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "validate-new-accuracy-fields",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"$resp=Invoke-RestMethod -Uri 'http://127.0.0.1:8010/api/sync' -Method Post -TimeoutSec 180; Write-Output ('SYNC=' + ($resp|ConvertTo-Json -Compress)); $props=Invoke-RestMethod -Uri 'http://127.0.0.1:8010/api/props?side=All&tier=All&minConfidence=0&sortBy=time' -TimeoutSec 30; $first=@($props.props | Select-Object -First 3 player,playerId,sourcePlayerId,canonicalPlayerId,playerIdentityConfidence,injuryStatus,lineupStatus,openingLine,currentLine,lineMovedAtUtc,lastUpdatedUtc,sourceProvider,recommendedSide,confidence,edgeSigned); Write-Output ('FIRST=' + ($first|ConvertTo-Json -Compress)); $movement=@($props.props | Where-Object { $_.openingLine -ne $null -and $_.currentLine -ne $null -and [math]::Abs([double]$_.openingLine - [double]$_.currentLine) -ge 0.01 } | Select-Object -First 5 player,market,openingLine,currentLine,lineMovedAtUtc); Write-Output ('MOVEMENT_SAMPLE=' + ($movement|ConvertTo-Json -Compress)); $audit=Invoke-RestMethod -Uri 'http://127.0.0.1:8010/api/accuracy/audit' -TimeoutSec 30; Write-Output ('AUDIT=' + ($audit|ConvertTo-Json -Compress -Depth 10));"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "validate-new-fields-scripted",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\tools\\validate_new_fields.ps1"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "restart-backend-identity-endpoints",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\tools\\restart_backend_8010.ps1"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "identity-bootstrap-check",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\tools\\identity_bootstrap_check.ps1"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "restart-backend-bulk-endpoints",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\tools\\restart_backend_8010.ps1"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "validate-bulk-and-grouped-endpoints",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"$m=Invoke-RestMethod -Uri 'http://127.0.0.1:8010/api/identity/map' -TimeoutSec 20; Write-Output ('MAP_PROVIDERS=' + ($m.providers.PSObject.Properties | Select-Object -ExpandProperty Name -Join ',')); $u=Invoke-RestMethod -Uri 'http://127.0.0.1:8010/api/identity/unresolved-grouped?sourceProvider=odds-api&limit=2000' -TimeoutSec 20; Write-Output ('UNRESOLVED_GROUPED_COUNT=' + $u.count); Write-Output ('UNRESOLVED_SPORTS=' + (($u.sports.PSObject.Properties | Select-Object -ExpandProperty Name) -join ',')); $bulkBody = @{ players = @{ 'manual:test-player' = @{ injury_status='questionable'; lineup_status='bench'; notes='test' } } } | ConvertTo-Json -Depth 6; $b = Invoke-RestMethod -Uri 'http://127.0.0.1:8010/api/player-availability/bulk?mode=merge' -Method Post -ContentType 'application/json' -Body $bulkBody -TimeoutSec 20; Write-Output ('BULK_AVAIL=' + ($b | ConvertTo-Json -Compress));"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "export-unresolved-grouped-now",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\tools\\export_unresolved_grouped.ps1"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "validate-bulk-grouped-scripted",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\tools\\validate_bulk_grouped_endpoints.ps1"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "verify-identity-availability-readonly",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\tools\\verify_identity_availability_readonly.ps1"
+			],
+			"isBackground": false,
+			"group": "test"
+		}
+	]
+}

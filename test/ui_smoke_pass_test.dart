@@ -1,0 +1,71 @@
+import 'package:daily_spin_flutter/controllers/active_slip_controller.dart';
+import 'package:daily_spin_flutter/main.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  testWidgets(
+    'smoke: scoreboard, analytics, line movement top navigation',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(const DailySpinApp());
+      await tester.pump(const Duration(milliseconds: 800));
+
+      expect(find.text('SCOREBOARD'), findsWidgets);
+      expect(find.text('ANALYTICS'), findsOneWidget);
+      expect(find.text('LINE MOVEMENT'), findsOneWidget);
+
+      await tester.tap(find.text('SCOREBOARD').first);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('ALL GAMES'), findsOneWidget);
+
+      await tester.tap(find.text('ANALYTICS'));
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text('LINE MOVEMENT'));
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  test('smoke: active slip startup and add/remove interactions', () async {
+    final controller = ActiveSlipController();
+    await controller.load();
+
+    expect(controller.legCount, 0);
+    expect(controller.isEmpty, true);
+
+    final added = await controller.addLegs([
+      {
+        'prop_id': 'smoke-prop-1',
+        'player': 'Smoke Test Player',
+        'sport': 'MLB',
+        'market': 'Hits',
+        'line': 0.5,
+        'side': 'OVER',
+        'odds': -110,
+      },
+    ]);
+
+    expect(added, 1);
+    expect(controller.legCount, 1);
+
+    await controller.removeLeg('smoke-prop-1');
+    expect(controller.legCount, 0);
+    expect(controller.isEmpty, true);
+  });
+}
