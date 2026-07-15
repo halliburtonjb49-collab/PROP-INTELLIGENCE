@@ -1,0 +1,840 @@
+{
+  "providers": {
+    "odds-api": {
+      "manual:mlb:alec_bohm": {
+        "canonical_player": "Alec Bohm",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:alex_call": {
+        "canonical_player": "Alex Call",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:anthony_kay": {
+        "canonical_player": "Anthony Kay",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:bo_bichette": {
+        "canonical_player": "Bo Bichette",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:bobby_witt_jr.": {
+        "canonical_player": "Bobby Witt Jr.",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:brady_singer": {
+        "canonical_player": "Brady Singer",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:brandon_lowe": {
+        "canonical_player": "Brandon Lowe",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:brandon_marsh": {
+        "canonical_player": "Brandon Marsh",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:brayan_rocchio": {
+        "canonical_player": "Brayan Rocchio",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:brett_sullivan": {
+        "canonical_player": "Brett Sullivan",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:bryce_elder": {
+        "canonical_player": "Bryce Elder",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:bryce_harper": {
+        "canonical_player": "Bryce Harper",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:bryce_miller": {
+        "canonical_player": "Bryce Miller",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:bryson_stott": {
+        "canonical_player": "Bryson Stott",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:cal_raleigh": {
+        "canonical_player": "Cal Raleigh",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:chase_delauter": {
+        "canonical_player": "Chase DeLauter",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:cole_carrigg": {
+        "canonical_player": "Cole Carrigg",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:cole_young": {
+        "canonical_player": "Cole Young",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:colt_emerson": {
+        "canonical_player": "Colt Emerson",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:corbin_carroll": {
+        "canonical_player": "Corbin Carroll",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:david_peterson": {
+        "canonical_player": "David Peterson",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:denzer_guzman": {
+        "canonical_player": "Denzer Guzman",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:dominic_canzone": {
+        "canonical_player": "Dominic Canzone",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:drake_baldwin": {
+        "canonical_player": "Drake Baldwin",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:edouard_julien": {
+        "canonical_player": "Edouard Julien",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:edwin_arroyo": {
+        "canonical_player": "Edwin Arroyo",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:elias_diaz": {
+        "canonical_player": "Elias Diaz",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:elly_de_la_cruz": {
+        "canonical_player": "Elly De La Cruz",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:eugenio_suarez": {
+        "canonical_player": "Eugenio Suarez",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:evan_carter": {
+        "canonical_player": "Evan Carter",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:ezequiel_duran": {
+        "canonical_player": "Ezequiel Duran",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:ezequiel_tovar": {
+        "canonical_player": "Ezequiel Tovar",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:fernando_tatis_jr.": {
+        "canonical_player": "Fernando Tatis Jr.",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:freddie_freeman": {
+        "canonical_player": "Freddie Freeman",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:gabriel_moreno": {
+        "canonical_player": "Gabriel Moreno",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:gabriel_rincones_jr.": {
+        "canonical_player": "Gabriel Rincones Jr.",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:gavin_sheets": {
+        "canonical_player": "Gavin Sheets",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:griffin_canning": {
+        "canonical_player": "Griffin Canning",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:griffin_conine": {
+        "canonical_player": "Griffin Conine",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:heriberto_hernandez": {
+        "canonical_player": "Heriberto Hernandez",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:ildemaro_vargas": {
+        "canonical_player": "Ildemaro Vargas",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:j.p._crawford": {
+        "canonical_player": "J.P. Crawford",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:j.t._realmuto": {
+        "canonical_player": "J.T. Realmuto",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:jj_bleday": {
+        "canonical_player": "JJ Bleday",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:jackson_merrill": {
+        "canonical_player": "Jackson Merrill",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:jake_burger": {
+        "canonical_player": "Jake Burger",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:jake_cronenworth": {
+        "canonical_player": "Jake Cronenworth",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:jake_mangum": {
+        "canonical_player": "Jake Mangum",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:jake_mccarthy": {
+        "canonical_player": "Jake McCarthy",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:jakob_marsee": {
+        "canonical_player": "Jakob Marsee",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:janson_junk": {
+        "canonical_player": "Janson Junk",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:jase_bowen": {
+        "canonical_player": "Jase Bowen",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:javier_sanoja": {
+        "canonical_player": "Javier Sanoja",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:jesus_luzardo": {
+        "canonical_player": "Jesus Luzardo",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:jo_adell": {
+        "canonical_player": "Jo Adell",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:joe_mack": {
+        "canonical_player": "Joe Mack",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:jose_cabrera": {
+        "canonical_player": "Jose Cabrera",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:josh_lowe": {
+        "canonical_player": "Josh Lowe",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:josh_naylor": {
+        "canonical_player": "Josh Naylor",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:josh_smith": {
+        "canonical_player": "Josh Smith",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:justin_crawford": {
+        "canonical_player": "Justin Crawford",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:ketel_marte": {
+        "canonical_player": "Ketel Marte",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:kyle_karros": {
+        "canonical_player": "Kyle Karros",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:kyle_schwarber": {
+        "canonical_player": "Kyle Schwarber",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:kyle_stowers": {
+        "canonical_player": "Kyle Stowers",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:kyle_tucker": {
+        "canonical_player": "Kyle Tucker",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:liam_hicks": {
+        "canonical_player": "Liam Hicks",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:logan_o'hoppe": {
+        "canonical_player": "Logan O'Hoppe",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:lourdes_gurriel_jr.": {
+        "canonical_player": "Lourdes Gurriel Jr.",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:luis_campusano": {
+        "canonical_player": "Luis Campusano",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:luke_raley": {
+        "canonical_player": "Luke Raley",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:matt_mclain": {
+        "canonical_player": "Matt McLain",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:matt_olson": {
+        "canonical_player": "Matt Olson",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:max_kepler": {
+        "canonical_player": "Max Kepler",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:merrill_kelly": {
+        "canonical_player": "Merrill Kelly",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:michael_harris_ii": {
+        "canonical_player": "Michael Harris II",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:michael_king": {
+        "canonical_player": "Michael King",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:michael_massey": {
+        "canonical_player": "Michael Massey",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:michael_wacha": {
+        "canonical_player": "Michael Wacha",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:mickey_moniak": {
+        "canonical_player": "Mickey Moniak",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:miguel_andujar": {
+        "canonical_player": "Miguel Andujar",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:mike_trout": {
+        "canonical_player": "Mike Trout",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:mitch_keller": {
+        "canonical_player": "Mitch Keller",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:mookie_betts": {
+        "canonical_player": "Mookie Betts",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:nathan_eovaldi": {
+        "canonical_player": "Nathan Eovaldi",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:nicky_lopez": {
+        "canonical_player": "Nicky Lopez",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:noelvi_marte": {
+        "canonical_player": "Noelvi Marte",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:nolan_arenado": {
+        "canonical_player": "Nolan Arenado",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:oswald_peraza": {
+        "canonical_player": "Oswald Peraza",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:otto_lopez": {
+        "canonical_player": "Otto Lopez",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:pavin_smith": {
+        "canonical_player": "Pavin Smith",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:randy_arozarena": {
+        "canonical_player": "Randy Arozarena",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:reid_detmers": {
+        "canonical_player": "Reid Detmers",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:roki_sasaki": {
+        "canonical_player": "Roki Sasaki",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:ryan_kreidler": {
+        "canonical_player": "Ryan Kreidler",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:sal_stewart": {
+        "canonical_player": "Sal Stewart",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:sean_manaea": {
+        "canonical_player": "Sean Manaea",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:shohei_ohtani": {
+        "canonical_player": "Shohei Ohtani",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:spencer_steer": {
+        "canonical_player": "Spencer Steer",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:sung-mun_song": {
+        "canonical_player": "Sung-Mun Song",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:tj_rumfield": {
+        "canonical_player": "TJ Rumfield",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:teoscar_hernandez": {
+        "canonical_player": "Teoscar Hernandez",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:tommy_edman": {
+        "canonical_player": "Tommy Edman",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:tommy_troy": {
+        "canonical_player": "Tommy Troy",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:trea_turner": {
+        "canonical_player": "Trea Turner",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:trevor_rogers": {
+        "canonical_player": "Trevor Rogers",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:troy_johnston": {
+        "canonical_player": "Troy Johnston",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:tyler_stephenson": {
+        "canonical_player": "Tyler Stephenson",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:vaughn_grissom": {
+        "canonical_player": "Vaughn Grissom",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:victor_robles": {
+        "canonical_player": "Victor Robles",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:xander_bogaerts": {
+        "canonical_player": "Xander Bogaerts",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:xavier_edwards": {
+        "canonical_player": "Xavier Edwards",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:mlb:zach_neto": {
+        "canonical_player": "Zach Neto",
+        "sport": "MLB",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:a'ja_wilson": {
+        "canonical_player": "A'ja Wilson",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:allisha_gray": {
+        "canonical_player": "Allisha Gray",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:angel_reese": {
+        "canonical_player": "Angel Reese",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:ariel_atkins": {
+        "canonical_player": "Ariel Atkins",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:awa_fam": {
+        "canonical_player": "Awa Fam",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:bridget_carleton": {
+        "canonical_player": "Bridget Carleton",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:caitlin_clark": {
+        "canonical_player": "Caitlin Clark",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:carla_leite": {
+        "canonical_player": "Carla Leite",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:chelsea_gray": {
+        "canonical_player": "Chelsea Gray",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:dearica_hamby": {
+        "canonical_player": "Dearica Hamby",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:dominique_malonga": {
+        "canonical_player": "Dominique Malonga",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:erica_wheeler": {
+        "canonical_player": "Erica Wheeler",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:flau'jae_johnson": {
+        "canonical_player": "Flau'jae Johnson",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:jackie_young": {
+        "canonical_player": "Jackie Young",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:jade_melbourne": {
+        "canonical_player": "Jade Melbourne",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:jordin_canada": {
+        "canonical_player": "Jordin Canada",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:kelsey_mitchell": {
+        "canonical_player": "Kelsey Mitchell",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:lexie_hull": {
+        "canonical_player": "Lexie Hull",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:megan_gustafson": {
+        "canonical_player": "Megan Gustafson",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:monique_billings": {
+        "canonical_player": "Monique Billings",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:myisha_hines-allen": {
+        "canonical_player": "Myisha Hines-Allen",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:nalyssa_smith": {
+        "canonical_player": "NaLyssa Smith",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:natisha_hiedeman": {
+        "canonical_player": "Natisha Hiedeman",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:nneka_ogwumike": {
+        "canonical_player": "Nneka Ogwumike",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:rae_burrell": {
+        "canonical_player": "Rae Burrell",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      },
+      "manual:wnba:rhyne_howard": {
+        "canonical_player": "Rhyne Howard",
+        "sport": "WNBA",
+        "team": "",
+        "notes": ""
+      }
+    }
+  }
+}

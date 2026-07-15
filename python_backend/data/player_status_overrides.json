@@ -1,0 +1,9 @@
+{
+  "players": {
+    "manual:test-player": {
+      "injury_status": "questionable",
+      "lineup_status": "bench",
+      "notes": "test"
+    }
+  }
+}

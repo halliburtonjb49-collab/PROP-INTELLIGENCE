@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: prop-intelligence-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --app-dir python_backend --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSLMODE
+        value: require
+      - key: DATABASE_POOL_SIZE
+        value: 5
+      - key: ODDS_API_KEY
+        sync: false
+      - key: API_SPORTS_KEY
+        sync: false
+      - key: API_SPORTS_BASEBALL_KEY
+        sync: false
+      - key: WNBA_LEAGUE_ID
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://www.propsintell.com,https://propsintell.com

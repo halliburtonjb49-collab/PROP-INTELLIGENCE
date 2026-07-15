@@ -1,0 +1,838 @@
+{
+  "players": {
+    "Alec Bohm": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Alex Call": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Anthony Kay": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Bo Bichette": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Bobby Witt Jr.": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Brady Singer": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Brandon Lowe": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Brandon Marsh": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Brayan Rocchio": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Brett Sullivan": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Bryce Elder": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Bryce Harper": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Bryce Miller": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Bryson Stott": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Cal Raleigh": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Chase DeLauter": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Cole Carrigg": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Cole Young": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Colt Emerson": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Corbin Carroll": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "David Peterson": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Denzer Guzman": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Dominic Canzone": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Drake Baldwin": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Edouard Julien": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Edwin Arroyo": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Elias Diaz": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Elly De La Cruz": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Eugenio Suarez": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Evan Carter": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Ezequiel Duran": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Ezequiel Tovar": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Fernando Tatis Jr.": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Freddie Freeman": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Gabriel Moreno": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Gabriel Rincones Jr.": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Gavin Sheets": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Griffin Canning": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Griffin Conine": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Heriberto Hernandez": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Ildemaro Vargas": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "J.P. Crawford": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "J.T. Realmuto": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "JJ Bleday": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Jackson Merrill": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Jake Burger": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Jake Cronenworth": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Jake Mangum": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Jake McCarthy": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Jakob Marsee": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Janson Junk": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Jase Bowen": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Javier Sanoja": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Jesus Luzardo": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Jo Adell": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Joe Mack": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Jose Cabrera": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Josh Lowe": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Josh Naylor": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Josh Smith": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Justin Crawford": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Ketel Marte": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Kyle Karros": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Kyle Schwarber": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Kyle Stowers": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Kyle Tucker": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Liam Hicks": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Logan O'Hoppe": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Lourdes Gurriel Jr.": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Luis Campusano": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Luke Raley": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Matt McLain": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Matt Olson": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Max Kepler": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Merrill Kelly": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Michael Harris II": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Michael King": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Michael Massey": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Michael Wacha": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Mickey Moniak": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Miguel Andujar": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Mike Trout": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Mitch Keller": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Mookie Betts": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Nathan Eovaldi": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Nicky Lopez": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Noelvi Marte": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Nolan Arenado": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Oswald Peraza": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Otto Lopez": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Pavin Smith": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Randy Arozarena": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Reid Detmers": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Roki Sasaki": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Ryan Kreidler": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Sal Stewart": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Sean Manaea": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Shohei Ohtani": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Spencer Steer": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Sung-Mun Song": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "TJ Rumfield": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Teoscar Hernandez": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Tommy Edman": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Tommy Troy": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Trea Turner": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Trevor Rogers": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Troy Johnston": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Tyler Stephenson": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Vaughn Grissom": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Victor Robles": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Xander Bogaerts": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Xavier Edwards": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Zach Neto": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "A'ja Wilson": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Allisha Gray": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Angel Reese": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Ariel Atkins": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Awa Fam": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Bridget Carleton": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Caitlin Clark": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Carla Leite": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Chelsea Gray": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Dearica Hamby": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Dominique Malonga": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Erica Wheeler": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Flau'jae Johnson": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Jackie Young": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Jade Melbourne": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Jordin Canada": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Kelsey Mitchell": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Lexie Hull": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Megan Gustafson": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Monique Billings": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Myisha Hines-Allen": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "NaLyssa Smith": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Natisha Hiedeman": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Nneka Ogwumike": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Rae Burrell": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    },
+    "Rhyne Howard": {
+      "injury_status": "",
+      "lineup_status": "",
+      "confidence_penalty": 0.0,
+      "notes": ""
+    }
+  }
+}
