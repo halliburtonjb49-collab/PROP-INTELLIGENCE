@@ -1,0 +1,13 @@
+{
+  "providers": {
+    "odds-api": {
+      "manual-source-id-1": {
+        "aliases": [
+          "Sample P."
+        ],
+        "canonical_player_id": "manual:sample-player",
+        "full_name": "Sample Player"
+      }
+    }
+  }
+}
