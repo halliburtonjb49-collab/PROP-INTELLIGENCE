@@ -55,7 +55,9 @@ class _PropWatchlistScreenState extends State<PropWatchlistScreen> {
     });
 
     try {
-      final props = await _watchlistService.loadWatchlist();
+      final props = await _watchlistService.loadWatchlist(
+        includeCloudSync: true,
+      );
       if (!mounted) {
         return;
       }
@@ -512,33 +514,37 @@ class _PropWatchlistScreenState extends State<PropWatchlistScreen> {
               child: Center(child: Text('No watchlist alerts.')),
             )
           else
-            ..._movementAlerts.map((alert) {
-              final icon = alert.severity == 'CRITICAL'
-                  ? Icons.error_outline
-                  : alert.severity == 'POSITIVE'
-                  ? Icons.trending_up
-                  : Icons.info_outline;
-              return ListTile(
-                leading: Icon(icon),
-                title: Text(
-                  alert.player,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                subtitle: Text(alert.message),
-                trailing: alert.wasRead
-                    ? null
-                    : const Icon(Icons.circle, size: 9),
-                onTap: () {
-                  final index = _movementAlerts.indexOf(alert);
-                  if (index < 0) {
-                    return;
-                  }
-                  setState(() {
-                    _movementAlerts[index] = alert.copyWith(wasRead: true);
-                  });
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 260),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _movementAlerts.length,
+                itemBuilder: (context, index) {
+                  final alert = _movementAlerts[index];
+                  final icon = alert.severity == 'CRITICAL'
+                      ? Icons.error_outline
+                      : alert.severity == 'POSITIVE'
+                      ? Icons.trending_up
+                      : Icons.info_outline;
+                  return ListTile(
+                    leading: Icon(icon),
+                    title: Text(
+                      alert.player,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: Text(alert.message),
+                    trailing: alert.wasRead
+                        ? null
+                        : const Icon(Icons.circle, size: 9),
+                    onTap: () {
+                      setState(() {
+                        _movementAlerts[index] = alert.copyWith(wasRead: true);
+                      });
+                    },
+                  );
                 },
-              );
-            }),
+              ),
+            ),
         ],
       ),
     );
@@ -831,29 +837,48 @@ class _PropWatchlistScreenState extends State<PropWatchlistScreen> {
   }
 
   Widget _buildEmptyWatchlist() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: const Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.visibility_outlined, size: 46),
-          SizedBox(height: 12),
-          Text(
-            'No watched props yet',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxHeight < 180;
+        final verticalPadding = compact ? 16.0 : 36.0;
+        final iconSize = compact ? 32.0 : 46.0;
+        final titleSize = compact ? 15.0 : 17.0;
+
+        return SingleChildScrollView(
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: verticalPadding,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.visibility_outlined, size: iconSize),
+                const SizedBox(height: 12),
+                Text(
+                  'No watched props yet',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: titleSize,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Add props from Prop Builder to monitor line movement and quickly move picks into Active Slip.',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
-          SizedBox(height: 8),
-          Text(
-            'Add props from Prop Builder to monitor line movement and quickly move picks into Active Slip.',
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -946,10 +971,10 @@ class _PropWatchlistScreenState extends State<PropWatchlistScreen> {
                   if (constraints.maxWidth < 1100) {
                     return Column(
                       children: [
-                        Expanded(child: watchlistPane),
+                        Expanded(flex: 3, child: watchlistPane),
                         const SizedBox(height: 18),
-                        SizedBox(
-                          height: 420,
+                        Expanded(
+                          flex: 2,
                           child: SlipHistoryPanel(
                             activeSlipController: widget.activeSlipController,
                           ),

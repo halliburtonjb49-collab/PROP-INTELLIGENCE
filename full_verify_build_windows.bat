@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 
-echo [Daily Spin] Full verify + build (slow) ...
+echo [PROP INTELLIGENCE] Full verify + build (slow) ...
 flutter clean
 if errorlevel 1 goto :fail
 flutter pub get
@@ -13,7 +13,9 @@ flutter analyze
 if errorlevel 1 goto :fail
 flutter test
 if errorlevel 1 goto :fail
-flutter build windows --debug
+set "SUPABASE_FLAGS="
+if exist "%~dp0supabase.local.json" set "SUPABASE_FLAGS=--dart-define-from-file=supabase.local.json"
+flutter build windows --debug %SUPABASE_FLAGS%
 if errorlevel 1 goto :fail
 
 echo Done.

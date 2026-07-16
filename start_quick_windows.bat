@@ -3,12 +3,18 @@ setlocal
 cd /d "%~dp0"
 
 set "SAFE_RENDER=%~1"
+set "SUPABASE_FLAGS="
+if exist "%~dp0supabase.local.json" (
+  set "SUPABASE_FLAGS=--dart-define-from-file=supabase.local.json"
+) else (
+  echo [PROP INTELLIGENCE] Supabase disabled: copy supabase.example.json to supabase.local.json and add the current public key.
+)
 if /I "%SAFE_RENDER%"=="safe" (
   set "RENDER_FLAGS=--enable-software-rendering"
-  echo [Daily Spin] Quick Windows start (SAFE software rendering)...
+  echo [PROP INTELLIGENCE] Quick Windows start (SAFE software rendering)...
 ) else (
   set "RENDER_FLAGS="
-  echo [Daily Spin] Quick Windows start...
+  echo [PROP INTELLIGENCE] Quick Windows start...
 )
 
 where flutter >nul 2>nul
@@ -26,5 +32,5 @@ if errorlevel 1 (
 )
 
 echo Launching app (debug) %RENDER_FLAGS% ...
-flutter run -d windows --debug %RENDER_FLAGS%
+flutter run -d windows --debug %RENDER_FLAGS% %SUPABASE_FLAGS%
 endlocal

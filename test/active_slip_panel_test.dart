@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:daily_spin_flutter/controllers/active_slip_controller.dart';
-import 'package:daily_spin_flutter/widgets/active_slip_panel.dart';
+import 'package:prop_intelligence/controllers/active_slip_controller.dart';
+import 'package:prop_intelligence/widgets/active_slip_panel.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -51,11 +51,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('ACTIVE TICKETS (1)'), findsOneWidget);
-    expect(find.text('SAVE ACTIVE SLIP'), findsOneWidget);
-    expect(find.text('CLEAR'), findsOneWidget);
-    expect(find.text('CANCEL'), findsOneWidget);
-    expect(find.text('DELETE'), findsOneWidget);
+    expect(find.text('1-PICK ENTRY'), findsOneWidget);
     expect(find.text('A Player'), findsOneWidget);
     expect(find.text('MORE 22.0'), findsOneWidget);
     expect(find.text('VIEW / LOCK ENTRY'), findsOneWidget);

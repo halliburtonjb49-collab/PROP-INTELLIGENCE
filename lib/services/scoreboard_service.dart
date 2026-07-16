@@ -73,9 +73,7 @@ class ScoreboardService {
     );
     final now = DateTime.now();
     final isToday =
-        date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day;
+        date.year == now.year && date.month == now.month && date.day == now.day;
 
     // Some backend environments do not expose /api/scoreboard yet.
     // Treat 404 as temporarily unavailable so the UI can fail soft.

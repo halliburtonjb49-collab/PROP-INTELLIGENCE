@@ -376,7 +376,7 @@ class _PropBuilderPerformanceScreenState
     return RefreshIndicator(
       onRefresh: _loadPerformance,
       child: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(14),
         children: [
           Row(
             children: [
@@ -387,8 +387,8 @@ class _PropBuilderPerformanceScreenState
                     Text(
                       'BUILDER PERFORMANCE',
                       style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                     SizedBox(height: 5),
@@ -403,7 +403,7 @@ class _PropBuilderPerformanceScreenState
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 8,
             runSpacing: 8,

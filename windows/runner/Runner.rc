@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "daily_spin_flutter" "\0"
+            VALUE "CompanyName", "PROP INTELLIGENCE" "\0"
+            VALUE "FileDescription", "PROP INTELLIGENCE" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "daily_spin_flutter" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "daily_spin_flutter.exe" "\0"
-            VALUE "ProductName", "daily_spin_flutter" "\0"
+            VALUE "InternalName", "prop_intelligence" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 PROP INTELLIGENCE. All rights reserved." "\0"
+            VALUE "OriginalFilename", "prop_intelligence.exe" "\0"
+            VALUE "ProductName", "PROP INTELLIGENCE" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

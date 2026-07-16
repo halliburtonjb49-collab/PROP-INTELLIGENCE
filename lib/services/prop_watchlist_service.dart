@@ -2,10 +2,19 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-class PropWatchlistService {
-  static const String _storageKey = 'daily_spin_prop_watchlist_v1';
+import 'auth_service.dart';
 
-  Future<List<Map<String, dynamic>>> loadWatchlist() async {
+class PropWatchlistService {
+  static const String _storageKey = 'prop_intelligence_prop_watchlist_v1';
+  final SportsAppAuthService _authService = SportsAppAuthService();
+
+  Future<List<Map<String, dynamic>>> loadWatchlist({
+    bool includeCloudSync = false,
+  }) async {
+    if (includeCloudSync) {
+      return syncLocalAndCloudWatchlist();
+    }
+
     final preferences = await SharedPreferences.getInstance();
     final rawValue = preferences.getString(_storageKey);
     if (rawValue == null || rawValue.trim().isEmpty) {
@@ -17,13 +26,63 @@ class PropWatchlistService {
       if (decoded is! List<dynamic>) {
         return [];
       }
-      return decoded
+      final props = decoded
           .whereType<Map>()
           .map((item) => Map<String, dynamic>.from(item))
           .toList();
+      return props;
     } catch (_) {
       return [];
     }
+  }
+
+  Future<List<Map<String, dynamic>>> syncLocalAndCloudWatchlist() async {
+    final localProps = await loadWatchlist(includeCloudSync: false);
+
+    List<Map<String, dynamic>> cloudRows;
+    try {
+      cloudRows = await _authService.loadCloudWatchlist();
+    } catch (_) {
+      cloudRows = const [];
+    }
+
+    final merged = <String, Map<String, dynamic>>{};
+
+    for (final row in cloudRows) {
+      final playerId = row['player_id']?.toString().trim() ?? '';
+      if (playerId.isEmpty) {
+        continue;
+      }
+
+      merged[playerId] = {
+        'prop_id': playerId,
+        'player_name': row['player_name']?.toString() ?? '',
+        'player': row['player_name']?.toString() ?? '',
+        'watchlisted_at':
+            row['updated_at']?.toString() ?? row['created_at']?.toString(),
+      };
+    }
+
+    for (final prop in localProps) {
+      final propId = prop['prop_id']?.toString().trim() ?? '';
+      if (propId.isEmpty) {
+        continue;
+      }
+
+      final existing = merged[propId] ?? const {};
+      merged[propId] = {...existing, ...Map<String, dynamic>.from(prop)};
+    }
+
+    final mergedList = merged.values.toList(growable: false);
+    await saveWatchlist(mergedList);
+
+    try {
+      await _authService.upsertCloudWatchlist(mergedList);
+    } catch (_) {
+      // Cloud sync should not block local experience.
+    }
+
+    return mergedList;
   }
 
   Future<void> saveWatchlist(List<Map<String, dynamic>> props) async {
@@ -56,6 +115,18 @@ class PropWatchlistService {
     }
 
     await saveWatchlist(props);
+
+    final playerName =
+        storedProp['player_name']?.toString() ??
+        storedProp['player']?.toString() ??
+        '';
+    if (playerName.trim().isNotEmpty) {
+      try {
+        await _authService.savePlayerToCloudWatchlist(propId, playerName);
+      } catch (_) {
+        // Keep local watchlist functional even when cloud sync is unavailable.
+      }
+    }
   }
 
   Future<void> removeProp(String propId) async {

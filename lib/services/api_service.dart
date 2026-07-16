@@ -1,10 +1,28 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/prop_data.dart';
 import '../models/saved_slip.dart';
 import '../models/slip_selection.dart';
+
+class BackendRefreshStatus {
+  final DateTime? lastRefreshAt;
+  final String sourceUrl;
+  final String message;
+
+  const BackendRefreshStatus({
+    required this.lastRefreshAt,
+    required this.sourceUrl,
+    required this.message,
+  });
+
+  const BackendRefreshStatus.empty()
+    : lastRefreshAt = null,
+      sourceUrl = '',
+      message = 'No refresh yet';
+}
 
 class ApiService {
   static const String _configuredBaseUrl = String.fromEnvironment(
@@ -12,6 +30,8 @@ class ApiService {
     defaultValue: 'http://127.0.0.1:8010',
   );
   static String? _resolvedBaseUrl;
+  static final ValueNotifier<BackendRefreshStatus> refreshStatusNotifier =
+      ValueNotifier<BackendRefreshStatus>(const BackendRefreshStatus.empty());
   int _lastPropsCount = 0;
 
   static String get baseUrl => _resolvedBaseUrl ?? _configuredBaseUrl;
@@ -83,6 +103,96 @@ class ApiService {
     return deduped.values.toList(growable: false);
   }
 
+  Future<bool> wakeBackend() async {
+    for (final candidate in _candidateBaseUrls) {
+      final uris = <Uri>[
+        Uri.parse('$candidate/api/props/NBA'),
+        Uri.parse('$candidate/api/props'),
+      ];
+
+      for (final uri in uris) {
+        try {
+          final response = await http
+              .get(uri)
+              .timeout(const Duration(seconds: 4));
+          if (response.statusCode == 200) {
+            _resolvedBaseUrl = candidate;
+            refreshStatusNotifier.value = BackendRefreshStatus(
+              lastRefreshAt: DateTime.now(),
+              sourceUrl: candidate,
+              message: 'Backend wake check successful',
+            );
+            return true;
+          }
+        } catch (_) {
+          // Keep trying other candidate endpoints.
+        }
+      }
+    }
+    return false;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchRawPropsFeed({
+    String sport = 'NBA',
+  }) async {
+    Object? lastError;
+
+    for (final candidate in _candidateBaseUrls) {
+      final uris = <Uri>[
+        Uri.parse('$candidate/api/props/$sport'),
+        Uri.parse('$candidate/api/props'),
+      ];
+
+      for (final uri in uris) {
+        try {
+          final response = await http
+              .get(uri)
+              .timeout(const Duration(seconds: 8));
+          if (response.statusCode != 200) {
+            lastError = Exception(
+              'Unable to load props: ${response.statusCode}',
+            );
+            continue;
+          }
+
+          final decoded = jsonDecode(response.body);
+          List<dynamic>? rawList;
+          if (decoded is List) {
+            rawList = decoded;
+          } else if (decoded is Map<String, dynamic> &&
+              decoded['props'] is List) {
+            rawList = decoded['props'] as List<dynamic>;
+          }
+
+          if (rawList == null) {
+            lastError = const FormatException(
+              'The backend did not return a props list.',
+            );
+            continue;
+          }
+
+          _resolvedBaseUrl = candidate;
+          refreshStatusNotifier.value = BackendRefreshStatus(
+            lastRefreshAt: DateTime.now(),
+            sourceUrl: candidate,
+            message: 'Props refreshed',
+          );
+          return rawList
+              .whereType<Map>()
+              .map((raw) => Map<String, dynamic>.from(raw))
+              .toList(growable: false);
+        } catch (error) {
+          lastError = error;
+        }
+      }
+    }
+
+    if (lastError is Exception) {
+      throw lastError;
+    }
+    throw Exception('Unable to load raw props from local backend candidates.');
+  }
+
   Future<bool> checkBackendHealth() async {
     for (final candidate in _candidateBaseUrls) {
       try {
@@ -132,9 +242,7 @@ class ApiService {
     Object? lastError;
 
     for (final candidate in _candidateBaseUrls) {
-      final uri = Uri.parse(
-        '$candidate/api/props',
-      ).replace(
+      final uri = Uri.parse('$candidate/api/props').replace(
         queryParameters: {
           'side': selectedSide,
           'tier': selectedTier,
@@ -145,7 +253,10 @@ class ApiService {
       try {
         final response = await http
             .get(uri)
-            .timeout(const Duration(seconds: 15));
+            // The live feed can contain well over 1,000 props. Allow the local
+            // backend enough time to serialize the complete response instead
+            // of incorrectly reporting a healthy service as offline.
+            .timeout(const Duration(seconds: 60));
 
         if (response.statusCode != 200) {
           lastError = Exception('Unable to load props: ${response.statusCode}');
@@ -176,10 +287,9 @@ class ApiService {
             .map((raw) => Map<String, dynamic>.from(raw))
             .map(PropData.fromJson)
             .toList();
-        _lastPropsCount =
-          (decoded['count'] is num)
-          ? (decoded['count'] as num).toInt()
-          : parsedProps.length;
+        _lastPropsCount = (decoded['count'] is num)
+            ? (decoded['count'] as num).toInt()
+            : parsedProps.length;
         return _dedupePropsById(parsedProps);
       } catch (error) {
         lastError = error;
@@ -190,8 +300,76 @@ class ApiService {
       throw lastError;
     }
     throw Exception(
-      'Unable to load props from local backend candidates. Start the real backend in ../python_backend on port 8010 or 8000.',
+      'Unable to load props from local backend candidates. Start python_backend/main.py on port 8010 or 8000.',
     );
+  }
+
+  Future<List<PropData>> fetchPositiveEvProps({
+    double minEv = 0.0,
+    String? sport,
+  }) async {
+    Object? lastError;
+
+    final minEvText = minEv.toStringAsFixed(2);
+    for (final candidate in _candidateBaseUrls) {
+      final query = <String, String>{'min_ev': minEvText};
+      final normalizedSport = sport?.trim() ?? '';
+      if (normalizedSport.isNotEmpty &&
+          normalizedSport.toUpperCase() != 'ALL') {
+        query['sport'] = normalizedSport;
+      }
+
+      final uri = Uri.parse(
+        '$candidate/api/props/ev',
+      ).replace(queryParameters: query);
+
+      try {
+        final response = await http
+            .get(uri)
+            .timeout(const Duration(seconds: 15));
+
+        if (response.statusCode != 200) {
+          lastError = Exception(
+            'Unable to load +EV props: ${response.statusCode}',
+          );
+          continue;
+        }
+
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map<String, dynamic>) {
+          lastError = const FormatException(
+            'The backend returned invalid +EV data.',
+          );
+          continue;
+        }
+
+        final rawProps = decoded['props'];
+        if (rawProps is! List) {
+          lastError = const FormatException(
+            'The backend did not return a +EV props list.',
+          );
+          continue;
+        }
+
+        _resolvedBaseUrl = candidate;
+        final parsedProps = rawProps
+            .whereType<Map>()
+            .map((raw) => Map<String, dynamic>.from(raw))
+            .map(PropData.fromJson)
+            .toList(growable: false);
+        _lastPropsCount = (decoded['count'] is num)
+            ? (decoded['count'] as num).toInt()
+            : parsedProps.length;
+        return _dedupePropsById(parsedProps);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (lastError is Exception) {
+      throw lastError;
+    }
+    throw Exception('Unable to load +EV props from local backend candidates.');
   }
 
   Future<List<Map<String, dynamic>>> fetchPropAlerts() async {
@@ -240,22 +418,28 @@ class ApiService {
     if (lastError is Exception) {
       throw lastError;
     }
-    throw Exception('Unable to load prop alerts from local backend candidates.');
+    throw Exception(
+      'Unable to load prop alerts from local backend candidates.',
+    );
   }
 
   Future<Map<String, dynamic>> fetchIdentityUnresolvedGrouped({
     String sourceProvider = 'odds-api',
     int limit = 5000,
   }) async {
-    final query = Uri(queryParameters: {
-      'sourceProvider': sourceProvider,
-      'limit': limit.toString(),
-    }).query;
+    final query = Uri(
+      queryParameters: {
+        'sourceProvider': sourceProvider,
+        'limit': limit.toString(),
+      },
+    ).query;
     final uri = Uri.parse('$baseUrl/api/identity/unresolved-grouped?$query');
     final response = await http.get(uri).timeout(const Duration(seconds: 20));
 
     if (response.statusCode != 200) {
-      throw Exception('Unable to fetch unresolved identities: ${response.body}');
+      throw Exception(
+        'Unable to fetch unresolved identities: ${response.body}',
+      );
     }
 
     final decoded = jsonDecode(response.body);
@@ -307,7 +491,9 @@ class ApiService {
         .timeout(const Duration(seconds: 30));
 
     if (response.statusCode != 200) {
-      throw Exception('Unable to bulk update player availability: ${response.body}');
+      throw Exception(
+        'Unable to bulk update player availability: ${response.body}',
+      );
     }
 
     final decoded = jsonDecode(response.body);
@@ -319,7 +505,7 @@ class ApiService {
 
   Future<void> syncProps() async {
     final uri = Uri.parse('$baseUrl/api/sync');
-    final response = await http.post(uri).timeout(const Duration(seconds: 90));
+    final response = await http.post(uri).timeout(const Duration(seconds: 20));
 
     if (response.statusCode != 200) {
       String message = 'Sync failed: ${response.statusCode}';
@@ -333,6 +519,52 @@ class ApiService {
       }
       throw Exception(message);
     }
+
+    Map<String, dynamic>? payload;
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        payload = decoded;
+      }
+    } catch (_) {
+      // Older backends returned no structured sync status.
+    }
+
+    var status = payload?['status']?.toString().toLowerCase() ?? 'complete';
+    if (status == 'complete') {
+      return;
+    }
+    if (status == 'failed') {
+      throw Exception(payload?['error']?.toString() ?? 'Sync failed.');
+    }
+
+    final statusUri = Uri.parse('$baseUrl/api/sync/status');
+    final deadline = DateTime.now().add(const Duration(seconds: 90));
+    while (DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(seconds: 1));
+      final statusResponse = await http
+          .get(statusUri)
+          .timeout(const Duration(seconds: 10));
+      if (statusResponse.statusCode != 200) {
+        throw Exception(
+          'Unable to check sync status: ${statusResponse.statusCode}',
+        );
+      }
+      final decoded = jsonDecode(statusResponse.body);
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('Invalid sync status response.');
+      }
+      status = decoded['status']?.toString().toLowerCase() ?? 'running';
+      if (status == 'complete') {
+        return;
+      }
+      if (status == 'failed') {
+        throw Exception(decoded['error']?.toString() ?? 'Sync failed.');
+      }
+    }
+    throw Exception(
+      'The live prop sync is still running. Please retry shortly.',
+    );
   }
 
   Future<Map<String, dynamic>> saveSlip({
@@ -413,8 +645,9 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> fetchActiveTicket({String? season}) async {
-    final query =
-        season == null || season.trim().isEmpty ? '' : '?season=${season.trim()}';
+    final query = season == null || season.trim().isEmpty
+        ? ''
+        : '?season=${season.trim()}';
     final uri = Uri.parse('$baseUrl/api/active-ticket$query');
     final response = await http.get(uri).timeout(const Duration(seconds: 20));
 

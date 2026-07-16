@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ActiveSlipController extends ChangeNotifier {
-  static const String _storageKey = 'daily_spin_active_slip_v1';
+  static const String _storageKey = 'prop_intelligence_active_slip_v1';
 
   final List<Map<String, dynamic>> _legs = [];
   bool _isLoaded = false;
@@ -58,7 +58,24 @@ class ActiveSlipController extends ChangeNotifier {
   Future<void> load() async {
     final preferences = await SharedPreferences.getInstance();
     _legs.clear();
-    await preferences.remove(_storageKey);
+
+    final storedValue = preferences.getString(_storageKey);
+    if (storedValue != null && storedValue.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(storedValue);
+        if (decoded is List) {
+          for (final entry in decoded) {
+            if (entry is Map) {
+              _legs.add(Map<String, dynamic>.from(entry));
+            }
+          }
+        }
+      } catch (_) {
+        await preferences.remove(_storageKey);
+      }
+    }
+
+    _normalizePositions();
     _isLoaded = true;
     notifyListeners();
   }

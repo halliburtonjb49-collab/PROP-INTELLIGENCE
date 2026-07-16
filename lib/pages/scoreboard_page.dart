@@ -7,6 +7,7 @@ import '../controllers/scoreboard_controller.dart';
 import '../models/scoreboard_game.dart';
 import '../services/api_service.dart';
 import '../services/scoreboard_service.dart';
+import '../theme/app_colors.dart';
 
 enum ScoreboardFilter { all, live, upcoming, finalGames }
 
@@ -51,7 +52,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFF050B11),
+      color: AppColors.background,
       child: Column(
         children: [
           _buildHeader(),
@@ -64,9 +65,10 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   }
 
   Widget _buildHeader() {
-    const sportLabel = 'Games and live scores across all sports for the selected date';
+    const sportLabel =
+        'Games and live scores across all sports for the selected date';
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
       child: Row(
         children: [
           Expanded(
@@ -77,7 +79,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                   'SCOREBOARD',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
+                    fontSize: 16,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -135,7 +137,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
 
   Widget _buildFilterRow() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
       child: Row(
         children: [
           _scoreFilterButton(filter: ScoreboardFilter.all, label: 'ALL GAMES'),
@@ -173,7 +175,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 120),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
         decoration: BoxDecoration(
           color: selected ? const Color(0xFFFFC400) : const Color(0xFF101D28),
           borderRadius: BorderRadius.circular(18),
@@ -264,9 +266,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
               ),
             ),
             SizedBox(height: 4),
-            Text(
-              'Try another date or filter.',
-            ),
+            Text('Try another date or filter.'),
           ],
         ),
       );

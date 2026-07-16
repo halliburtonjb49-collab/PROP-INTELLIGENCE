@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Continue'
 
-$outPath = 'c:\Users\theda\Projects\The-Daily-Spin\python_backend\data\identity_unresolved_grouped.json'
+$outPath = 'c:\Users\theda\Projects\PROP INTELLIGENCE\prop_intelligence\python_backend\data\identity_unresolved_grouped.json'
 
 $payload = Invoke-RestMethod -Uri 'http://127.0.0.1:8010/api/identity/unresolved-grouped?sourceProvider=odds-api&limit=5000' -TimeoutSec 30
 $json = $payload | ConvertTo-Json -Depth 12

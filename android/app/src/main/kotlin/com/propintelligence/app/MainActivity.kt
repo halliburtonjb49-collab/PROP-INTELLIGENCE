@@ -1,4 +1,4 @@
-package com.example.daily_spin_flutter
+package com.propintelligence.app
 
 import io.flutter.embedding.android.FlutterActivity
 
