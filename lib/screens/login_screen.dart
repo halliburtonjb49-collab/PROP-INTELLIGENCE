@@ -1062,24 +1062,111 @@ class _AnalyticsBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        const ColoredBox(color: _pageBackground),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(
-              center: const Alignment(-0.35, -0.1),
-              radius: 0.8,
-              colors: [
-                const Color(0xFF17202A).withValues(alpha: 0.64),
-                Colors.transparent,
-              ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showSportsAtmosphere = constraints.maxWidth >= 900;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            const ColoredBox(color: _pageBackground),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF02080D),
+                    Color(0xFF06101A),
+                    Color(0xFF010305),
+                  ],
+                  stops: [0, 0.48, 1],
+                ),
+              ),
             ),
-          ),
-        ),
-        CustomPaint(painter: _MarketGridPainter()),
-      ],
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(-0.38, -0.18),
+                  radius: 0.86,
+                  colors: [
+                    const Color(0xFF1A2B39).withValues(alpha: 0.6),
+                    const Color(0xFF071019).withValues(alpha: 0.18),
+                    Colors.transparent,
+                  ],
+                  stops: const [0, 0.56, 1],
+                ),
+              ),
+            ),
+            CustomPaint(painter: _MarketGridPainter()),
+            if (showSportsAtmosphere) ...[
+              const Positioned(
+                left: 24,
+                top: 120,
+                child: _BackgroundSportIcon(
+                  icon: Icons.sports_basketball_rounded,
+                  size: 116,
+                  rotation: -0.18,
+                ),
+              ),
+              const Positioned(
+                left: 42,
+                bottom: 90,
+                child: _BackgroundSportIcon(
+                  icon: Icons.sports_baseball_rounded,
+                  size: 104,
+                  rotation: 0.16,
+                ),
+              ),
+              const Positioned(
+                right: 34,
+                top: 155,
+                child: _BackgroundSportIcon(
+                  icon: Icons.sports_football_rounded,
+                  size: 94,
+                  rotation: -0.48,
+                ),
+              ),
+            ],
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  radius: 0.82,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.68),
+                  ],
+                  stops: const [0.5, 1],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _BackgroundSportIcon extends StatelessWidget {
+  final IconData icon;
+  final double size;
+  final double rotation;
+
+  const _BackgroundSportIcon({
+    required this.icon,
+    required this.size,
+    required this.rotation,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.rotate(
+      angle: rotation,
+      child: Icon(
+        icon,
+        size: size,
+        color: const Color(0xFF9EB0BE).withValues(alpha: 0.055),
+        shadows: [Shadow(color: _gold.withValues(alpha: 0.08), blurRadius: 28)],
+      ),
     );
   }
 }
@@ -1087,10 +1174,12 @@ class _AnalyticsBackground extends StatelessWidget {
 class _MarketGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
+    final bounds = Offset.zero & size;
+    final isCompact = size.width < 900;
     final gridPaint = Paint()
-      ..color = _gold.withValues(alpha: 0.055)
-      ..strokeWidth = 0.6;
-    const spacing = 38.0;
+      ..color = _gold.withValues(alpha: isCompact ? 0.035 : 0.052)
+      ..strokeWidth = 0.55;
+    final spacing = isCompact ? 44.0 : 38.0;
     for (double x = 0; x < size.width; x += spacing) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
     }
@@ -1098,28 +1187,184 @@ class _MarketGridPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
 
+    _drawDiagonalGeometry(canvas, size);
+    _drawDotField(
+      canvas,
+      origin: Offset(size.width * 0.39, size.height * 0.08),
+      columns: isCompact ? 10 : 22,
+      rows: isCompact ? 6 : 14,
+      step: isCompact ? 12 : 9,
+    );
+    _drawDotField(
+      canvas,
+      origin: Offset(size.width * 0.53, size.height * 0.69),
+      columns: isCompact ? 9 : 20,
+      rows: isCompact ? 6 : 13,
+      step: isCompact ? 13 : 9,
+      fadeRight: false,
+    );
+
     final chartPaint = Paint()
-      ..color = _gold.withValues(alpha: 0.2)
+      ..color = _gold.withValues(alpha: isCompact ? 0.12 : 0.24)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
+      ..strokeWidth = 1.25;
     final path = Path()
-      ..moveTo(0, size.height * 0.73)
-      ..lineTo(size.width * 0.12, size.height * 0.66)
-      ..lineTo(size.width * 0.21, size.height * 0.7)
-      ..lineTo(size.width * 0.34, size.height * 0.48)
-      ..lineTo(size.width * 0.44, size.height * 0.56)
-      ..lineTo(size.width * 0.57, size.height * 0.39)
-      ..lineTo(size.width * 0.7, size.height * 0.44)
-      ..lineTo(size.width * 0.84, size.height * 0.25)
-      ..lineTo(size.width, size.height * 0.31);
+      ..moveTo(0, size.height * 0.67)
+      ..lineTo(size.width * 0.09, size.height * 0.6)
+      ..lineTo(size.width * 0.17, size.height * 0.64)
+      ..lineTo(size.width * 0.28, size.height * 0.43)
+      ..lineTo(size.width * 0.39, size.height * 0.52)
+      ..lineTo(size.width * 0.51, size.height * 0.31)
+      ..lineTo(size.width * 0.64, size.height * 0.39)
+      ..lineTo(size.width * 0.79, size.height * 0.2)
+      ..lineTo(size.width, size.height * 0.28);
     canvas.drawPath(path, chartPaint);
 
-    final vignette = Paint()
-      ..shader = RadialGradient(
-        radius: 0.75,
-        colors: [Colors.transparent, Colors.black.withValues(alpha: 0.78)],
-      ).createShader(Offset.zero & size);
-    canvas.drawRect(Offset.zero & size, vignette);
+    final secondaryChart = Path()
+      ..moveTo(size.width * 0.12, size.height * 0.36)
+      ..cubicTo(
+        size.width * 0.24,
+        size.height * 0.29,
+        size.width * 0.31,
+        size.height * 0.42,
+        size.width * 0.44,
+        size.height * 0.27,
+      )
+      ..cubicTo(
+        size.width * 0.57,
+        size.height * 0.12,
+        size.width * 0.71,
+        size.height * 0.3,
+        size.width * 0.9,
+        size.height * 0.14,
+      );
+    canvas.drawPath(
+      secondaryChart,
+      Paint()
+        ..color = const Color(0xFF95A6B3).withValues(alpha: 0.075)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.9,
+    );
+
+    if (!isCompact) {
+      _drawCallout(
+        canvas,
+        '+12.45%',
+        Offset(size.width * 0.52, size.height * 0.15),
+        18,
+      );
+      _drawCallout(
+        canvas,
+        '5.8',
+        Offset(size.width * 0.55, size.height * 0.43),
+        27,
+      );
+      _drawCallout(
+        canvas,
+        'EDGE',
+        Offset(size.width * 0.55, size.height * 0.465),
+        11,
+      );
+      _drawCallout(
+        canvas,
+        '67%',
+        Offset(size.width * 0.12, size.height * 0.52),
+        24,
+      );
+      _drawCallout(
+        canvas,
+        'PROBABILITY',
+        Offset(size.width * 0.12, size.height * 0.555),
+        9,
+      );
+    }
+
+    final lowerGlow = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.transparent,
+          const Color(0xFF07131C).withValues(alpha: 0.46),
+          Colors.black.withValues(alpha: 0.22),
+        ],
+      ).createShader(bounds);
+    canvas.drawRect(bounds, lowerGlow);
+  }
+
+  void _drawDiagonalGeometry(Canvas canvas, Size size) {
+    final linePaint = Paint()
+      ..color = _gold.withValues(alpha: 0.13)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+    final softLinePaint = Paint()
+      ..color = const Color(0xFF8EA0AC).withValues(alpha: 0.065)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.7;
+
+    for (var index = -2; index < 9; index++) {
+      final startX = size.width * (index * 0.17);
+      canvas.drawLine(
+        Offset(startX, size.height),
+        Offset(startX + size.height * 0.72, 0),
+        index.isEven ? linePaint : softLinePaint,
+      );
+    }
+
+    final rightFacet = Path()
+      ..moveTo(size.width * 0.77, 0)
+      ..lineTo(size.width, size.height * 0.28)
+      ..lineTo(size.width * 0.9, size.height * 0.55)
+      ..lineTo(size.width, size.height * 0.7);
+    canvas.drawPath(rightFacet, linePaint);
+  }
+
+  void _drawDotField(
+    Canvas canvas, {
+    required Offset origin,
+    required int columns,
+    required int rows,
+    required double step,
+    bool fadeRight = true,
+  }) {
+    final dotPaint = Paint()..style = PaintingStyle.fill;
+    for (var row = 0; row < rows; row++) {
+      for (var column = 0; column < columns; column++) {
+        final horizontalFade = fadeRight
+            ? 1 - (column / columns)
+            : (column + 1) / columns;
+        final verticalFade = 1 - ((row - rows / 2).abs() / rows);
+        dotPaint.color = _gold.withValues(
+          alpha: 0.22 * horizontalFade * verticalFade,
+        );
+        canvas.drawCircle(
+          origin + Offset(column * step, row * step),
+          column % 4 == 0 ? 1.25 : 0.8,
+          dotPaint,
+        );
+      }
+    }
+  }
+
+  void _drawCallout(
+    Canvas canvas,
+    String text,
+    Offset offset,
+    double fontSize,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: _gold.withValues(alpha: 0.2),
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.5,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    painter.paint(canvas, offset);
   }
 
   @override
