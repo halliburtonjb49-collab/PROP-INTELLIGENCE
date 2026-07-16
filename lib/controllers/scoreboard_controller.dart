@@ -80,6 +80,12 @@ class ScoreboardController extends ChangeNotifier {
     await load();
   }
 
+  Future<void> selectDate(DateTime value) async {
+    _selectedDate = DateTime(value.year, value.month, value.day);
+    notifyListeners();
+    await load();
+  }
+
   void beginLiveRefresh() {
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {

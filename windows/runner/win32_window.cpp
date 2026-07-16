@@ -145,12 +145,13 @@ bool Win32Window::Create(const std::wstring& title,
   }
 
   UpdateTheme(window);
+  ShowWindow(window, SW_MAXIMIZE);
 
   return OnCreate();
 }
 
 bool Win32Window::Show() {
-  return ShowWindow(window_handle_, SW_SHOWNORMAL);
+  return ShowWindow(window_handle_, SW_MAXIMIZE);
 }
 
 // static

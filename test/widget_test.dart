@@ -7,11 +7,11 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:daily_spin_flutter/main.dart';
+import 'package:prop_intelligence/main.dart';
 
 void main() {
   testWidgets('App builds', (WidgetTester tester) async {
-    await tester.pumpWidget(const DailySpinApp());
-    expect(find.byType(DailySpinApp), findsOneWidget);
+    await tester.pumpWidget(const PropIntelligenceApp());
+    expect(find.byType(PropIntelligenceApp), findsOneWidget);
   });
 }

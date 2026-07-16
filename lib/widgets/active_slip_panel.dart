@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../controllers/active_slip_controller.dart';
 import '../services/api_service.dart';
 
-class DailySpinColors {
+class PropIntelligenceColors {
   static const Color background = Color(0xFF09141D);
   static const Color deepBackground = Color(0xFF0B151E);
   static const Color surface = Color(0xFF111D27);
@@ -23,12 +23,14 @@ class ActiveSlipPanel extends StatefulWidget {
     super.key,
     required this.controller,
     this.onViewOrLock,
+    this.onClear,
     this.isSaving = false,
     this.message,
   });
 
   final ActiveSlipController controller;
   final Future<void> Function()? onViewOrLock;
+  final Future<void> Function()? onClear;
   final bool isSaving;
   final String? message;
 
@@ -38,11 +40,8 @@ class ActiveSlipPanel extends StatefulWidget {
 
 class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   final ApiService _apiService = ApiService();
-  String _prizePicksPlayType = 'POWER';
-  double _entryAmount = 25;
-  double _underdogEntryAmount = 25;
-  double _sleeperEntryAmount = 25;
-  String _draftKingsView = 'BETSLIP';
+  final double _underdogEntryAmount = 25;
+  final double _sleeperEntryAmount = 25;
   final ScrollController _activeSlipScrollController = ScrollController();
   final TextEditingController _entryController = TextEditingController(
     text: '25.00',
@@ -62,7 +61,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   String _lastPrefetchKey = '';
   Timer? _liveTicketRefreshTimer;
   Map<String, dynamic>? _activeTicketPayload;
-  bool _hideRemoteActiveTicket = false;
+  bool _hideRemoteActiveTicket = true;
 
   @override
   void initState() {
@@ -100,15 +99,15 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
           data: ScrollbarThemeData(
             thumbColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.dragged)) {
-                return DailySpinColors.gold;
+                return PropIntelligenceColors.gold;
               }
-              return DailySpinColors.gold.withValues(alpha: 0.88);
+              return PropIntelligenceColors.gold.withValues(alpha: 0.88);
             }),
             trackColor: WidgetStatePropertyAll(
-              DailySpinColors.darkGold.withValues(alpha: 0.18),
+              PropIntelligenceColors.darkGold.withValues(alpha: 0.18),
             ),
             trackBorderColor: const WidgetStatePropertyAll(
-              DailySpinColors.darkGold,
+              PropIntelligenceColors.darkGold,
             ),
             radius: const Radius.circular(8),
             thickness: const WidgetStatePropertyAll(8),
@@ -120,14 +119,10 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             child: SingleChildScrollView(
               controller: _activeSlipScrollController,
               primary: false,
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 18),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildSlipNavigation(legs),
-                  const SizedBox(height: 10),
-                  _buildSlipBody(legs),
-                ],
+                children: [_buildSlipBody(legs)],
               ),
             ),
           ),
@@ -274,244 +269,24 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     await widget.onViewOrLock!();
   }
 
-  Widget _buildSlipNavigation(List<Map<String, dynamic>> legs) {
-    final ticketCount = legs.length;
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: const BoxDecoration(
-        color: DailySpinColors.deepBackground,
-        border: Border(bottom: BorderSide(color: DailySpinColors.divider)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 170),
-                child: Text(
-                  'ACTIVE TICKETS ($ticketCount)',
-                  style: TextStyle(
-                    color: ticketCount > 0
-                        ? DailySpinColors.gold
-                        : Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-              ),
-              _ticketActionButton(
-                label: 'CLEAR',
-                onTap: legs.isEmpty ? null : _confirmClearSlip,
-              ),
-              _ticketActionButton(
-                label: 'CANCEL',
-                onTap: legs.isEmpty ? null : _confirmCancelSlip,
-              ),
-              _ticketActionButton(
-                label: 'DELETE',
-                onTap: legs.isEmpty ? null : _confirmDeleteActiveSlip,
-                danger: true,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _ticketActionButton({
-    required String label,
-    required VoidCallback? onTap,
-    bool danger = false,
-  }) {
-    return OutlinedButton(
-      onPressed: onTap,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: danger ? DailySpinColors.loss : DailySpinColors.gold,
-        side: BorderSide(
-          color: danger ? DailySpinColors.loss : DailySpinColors.gold,
-        ),
-        minimumSize: const Size(0, 30),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        textStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
-      ),
-      child: Text(label),
-    );
-  }
-
-  Future<void> _clearActiveSlipState() async {
+  Future<void> _clearSlip() async {
+    if (mounted) {
+      setState(() {
+        _hideRemoteActiveTicket = true;
+        _activeTicketPayload = null;
+      });
+    }
+    if (widget.onClear != null) {
+      await widget.onClear!();
+      return;
+    }
     await widget.controller.clear();
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _hideRemoteActiveTicket = true;
-    });
-  }
-
-  Future<void> _confirmCancelSlip() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: DailySpinColors.surface,
-          title: const Text(
-            'Cancel Active Slip?',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: const Text(
-            'This cancels the active slip and clears all current picks.',
-            style: TextStyle(color: DailySpinColors.secondaryText),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('KEEP'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              style: FilledButton.styleFrom(
-                backgroundColor: DailySpinColors.gold,
-                foregroundColor: DailySpinColors.deepBackground,
-              ),
-              child: const Text('CANCEL SLIP'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true) {
-      return;
-    }
-    await _clearActiveSlipState();
-  }
-
-  Future<void> _confirmDeleteActiveSlip() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: DailySpinColors.surface,
-          title: const Text(
-            'Delete Active Slip?',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: const Text(
-            'Delete this active slip? This will remove all current picks.',
-            style: TextStyle(color: DailySpinColors.secondaryText),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('CANCEL'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              style: FilledButton.styleFrom(
-                backgroundColor: DailySpinColors.loss,
-              ),
-              child: const Text('DELETE'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true) {
-      return;
-    }
-    await _clearActiveSlipState();
-  }
-
-  Future<void> _confirmClearSlip() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: DailySpinColors.surface,
-          title: const Text(
-            'Clear Current Slip?',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: const Text(
-            'This removes every pick from the current slip.',
-            style: TextStyle(color: DailySpinColors.secondaryText),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, false);
-              },
-              child: const Text('CANCEL'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, true);
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: DailySpinColors.loss,
-              ),
-              child: const Text('CLEAR SLIP'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirmed != true) {
-      return;
-    }
-
-    await widget.controller.clear();
-    if (!mounted) {
-      return;
-    }
-    setState(() {});
-  }
-
-  void _saveCurrentSlip() {
-    if (widget.controller.legs.isEmpty) {
-      return;
-    }
-    setState(() {
-      _hideRemoteActiveTicket = true;
-    });
-    unawaited(widget.controller.clear());
-  }
-
-  Widget _buildSaveSlipButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 38,
-      child: OutlinedButton.icon(
-        onPressed: widget.controller.legs.isEmpty ? null : _saveCurrentSlip,
-        icon: const Icon(Icons.bookmark_add_outlined, size: 16),
-        label: const Text(
-          'SAVE ACTIVE SLIP',
-          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
-        ),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: DailySpinColors.gold,
-          side: const BorderSide(color: DailySpinColors.gold),
-        ),
-      ),
-    );
   }
 
   Widget _buildSlipBody(List<Map<String, dynamic>> legs) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildSiteSpecificSlip(legs),
-        const SizedBox(height: 10),
-        _buildSaveSlipButton(),
-      ],
+      children: [_buildSiteSpecificSlip(legs)],
     );
   }
 
@@ -616,11 +391,11 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               .join();
     return Container(
       alignment: Alignment.center,
-      color: DailySpinColors.surface,
+      color: PropIntelligenceColors.surface,
       child: Text(
         initials,
         style: const TextStyle(
-          color: DailySpinColors.gold,
+          color: PropIntelligenceColors.gold,
           fontSize: 13,
           fontWeight: FontWeight.w900,
         ),
@@ -632,45 +407,99 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     final imageUrl = _playerImageUrl(prop);
     final playerName = (prop['player'] ?? prop['player_name'] ?? '?')
         .toString();
+    final specialType = _specialTypeForLeg(prop);
+    final borderColor = specialType == 'demon'
+        ? const Color(0xFFFF5656)
+        : specialType == 'goblin'
+        ? const Color(0xFF56F08F)
+        : PropIntelligenceColors.gold;
+    final markerIcon = specialType == 'demon'
+        ? Icons.whatshot
+        : specialType == 'goblin'
+        ? Icons.masks_outlined
+        : null;
+    final markerColor = specialType == 'demon'
+        ? const Color(0xFFFF5656)
+        : specialType == 'goblin'
+        ? const Color(0xFF56F08F)
+        : PropIntelligenceColors.gold;
+
     return RepaintBoundary(
-      child: Container(
+      child: SizedBox(
         width: size,
         height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: DailySpinColors.gold, width: 1.3),
-        ),
-        child: ClipOval(
-          child: imageUrl.isEmpty
-              ? _playerInitials(playerName)
-              : imageUrl.startsWith('assets/')
-              ? Image.asset(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  gaplessPlayback: true,
-                  filterQuality: FilterQuality.low,
-                  errorBuilder: (context, error, stackTrace) {
-                    return _playerInitials(playerName);
-                  },
-                )
-              : CachedNetworkImage(
-                  imageUrl: imageUrl,
-                  fit: BoxFit.cover,
-                  fadeInDuration: Duration.zero,
-                  fadeOutDuration: Duration.zero,
-                  memCacheWidth: (size * 2).round(),
-                  memCacheHeight: (size * 2).round(),
-                  useOldImageOnUrlChange: true,
-                  placeholder: (context, url) {
-                    return _playerInitials(playerName);
-                  },
-                  errorWidget: (context, url, error) {
-                    return _playerInitials(playerName);
-                  },
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: borderColor, width: 1.3),
+              ),
+              child: ClipOval(
+                child: imageUrl.isEmpty
+                    ? _playerInitials(playerName)
+                    : imageUrl.startsWith('assets/')
+                    ? Image.asset(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                        filterQuality: FilterQuality.low,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _playerInitials(playerName);
+                        },
+                      )
+                    : CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.cover,
+                        fadeInDuration: Duration.zero,
+                        fadeOutDuration: Duration.zero,
+                        memCacheWidth: (size * 2).round(),
+                        memCacheHeight: (size * 2).round(),
+                        useOldImageOnUrlChange: true,
+                        placeholder: (context, url) {
+                          return _playerInitials(playerName);
+                        },
+                        errorWidget: (context, url, error) {
+                          return _playerInitials(playerName);
+                        },
+                      ),
+              ),
+            ),
+            if (markerIcon != null)
+              Positioned(
+                right: -2,
+                bottom: -2,
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0B151E),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: markerColor, width: 1),
+                  ),
+                  child: Icon(markerIcon, size: 10, color: markerColor),
                 ),
+              ),
+          ],
         ),
       ),
     );
+  }
+
+  String _specialTypeForLeg(Map<String, dynamic> leg) {
+    final corpus =
+        '${leg['custom_label'] ?? ''} ${leg['manual_note'] ?? ''} ${leg['tier'] ?? ''} ${leg['pick_text'] ?? ''}'
+            .toLowerCase();
+    if (corpus.contains('demon') || corpus.contains('red_demon')) {
+      return 'demon';
+    }
+    if (corpus.contains('goblin') || corpus.contains('green_goblin')) {
+      return 'goblin';
+    }
+    return '';
   }
 
   Widget _sportIcon(String rawSport, {double size = 17}) {
@@ -681,31 +510,31 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
         return Icon(
           Icons.sports_basketball,
           size: size,
-          color: DailySpinColors.gold,
+          color: PropIntelligenceColors.gold,
         );
       case 'NFL':
         return Icon(
           Icons.sports_football,
           size: size,
-          color: DailySpinColors.gold,
+          color: PropIntelligenceColors.gold,
         );
       case 'MLB':
         return Icon(
           Icons.sports_baseball,
           size: size,
-          color: DailySpinColors.gold,
+          color: PropIntelligenceColors.gold,
         );
       case 'SOCCER':
         return Icon(
           Icons.sports_soccer,
           size: size,
-          color: DailySpinColors.gold,
+          color: PropIntelligenceColors.gold,
         );
       case 'TENNIS':
         return Icon(
           Icons.sports_tennis,
           size: size,
-          color: DailySpinColors.gold,
+          color: PropIntelligenceColors.gold,
         );
       case 'PGA':
         return Icon(
@@ -723,7 +552,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
         return Icon(
           Icons.sports,
           size: size,
-          color: DailySpinColors.secondaryText,
+          color: PropIntelligenceColors.secondaryText,
         );
     }
   }
@@ -880,45 +709,6 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
         .where((id) => id.isNotEmpty)
         .toSet();
     return eventIds.length == 1;
-  }
-
-  double _prizePicksPowerMultiplier(int legCount) {
-    switch (legCount) {
-      case 2:
-        return 3;
-      case 3:
-        return 5;
-      case 4:
-        return 10;
-      case 5:
-        return 20;
-      case 6:
-        return 37.5;
-      default:
-        return 1;
-    }
-  }
-
-  double _prizePicksFlexMultiplier(int legCount) {
-    switch (legCount) {
-      case 3:
-        return 2.25;
-      case 4:
-        return 5;
-      case 5:
-        return 10;
-      case 6:
-        return 25;
-      default:
-        return 1;
-    }
-  }
-
-  double _selectedPrizePicksMultiplier(int legCount) {
-    if (_prizePicksPlayType == 'FLEX') {
-      return _prizePicksFlexMultiplier(legCount);
-    }
-    return _prizePicksPowerMultiplier(legCount);
   }
 
   double _underdogMultiplier(int legCount) {
@@ -1151,11 +941,11 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             ),
           ),
           TextButton.icon(
-            onPressed: legs.isEmpty ? null : widget.controller.clear,
+            onPressed: legs.isEmpty ? null : _clearSlip,
             icon: const Icon(
               Icons.delete_outline,
               size: 16,
-              color: DailySpinColors.gold,
+              color: PropIntelligenceColors.gold,
             ),
             label: const Text('CLEAR SLIP'),
           ),
@@ -1165,8 +955,6 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   }
 
   Widget _buildPrizePicksHeader(List<Map<String, dynamic>> legs) {
-    final multiplier = _selectedPrizePicksMultiplier(legs.length);
-    final payout = _entryAmount * multiplier;
     final sport = legs.isEmpty
         ? ''
         : (legs.first['sport'] ?? legs.first['league'] ?? '').toString();
@@ -1186,7 +974,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF201A06),
                   borderRadius: BorderRadius.circular(9),
-                  border: Border.all(color: DailySpinColors.gold),
+                  border: Border.all(color: PropIntelligenceColors.gold),
                 ),
                 child: _sportIcon(sport, size: 18),
               ),
@@ -1196,7 +984,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${legs.length}-PICK ${_prizePicksPlayType == 'POWER' ? 'POWER PLAY' : 'FLEX PLAY'}',
+                      '${legs.length}-PICK ENTRY',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -1204,9 +992,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      '\$${_entryAmount.toStringAsFixed(2)} to pay \$${payout.toStringAsFixed(2)}',
-                      style: const TextStyle(
+                    const Text(
+                      'Choose Power/Flex on Lock Slip',
+                      style: TextStyle(
                         color: Color(0xFFFFC400),
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -1217,32 +1005,11 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               ),
               IconButton(
                 tooltip: 'Clear slip',
-                onPressed: legs.isEmpty ? null : widget.controller.clear,
-                color: DailySpinColors.gold,
+                onPressed: legs.isEmpty ? null : _clearSlip,
+                color: PropIntelligenceColors.gold,
                 icon: const Icon(Icons.delete_outline, size: 18),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment<String>(
-                value: 'POWER',
-                label: Text('POWER'),
-                icon: Icon(Icons.bolt),
-              ),
-              ButtonSegment<String>(
-                value: 'FLEX',
-                label: Text('FLEX'),
-                icon: Icon(Icons.shield_outlined),
-              ),
-            ],
-            selected: {_prizePicksPlayType},
-            onSelectionChanged: (selection) {
-              setState(() {
-                _prizePicksPlayType = selection.first;
-              });
-            },
           ),
         ],
       ),
@@ -1269,7 +1036,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             decoration: BoxDecoration(
               color: const Color(0xFF201A06),
               borderRadius: BorderRadius.circular(9),
-              border: Border.all(color: DailySpinColors.gold),
+              border: Border.all(color: PropIntelligenceColors.gold),
             ),
             child: _sportIcon(sport, size: 18),
           ),
@@ -1318,7 +1085,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
           const SizedBox(width: 5),
           IconButton(
             tooltip: 'Clear entry',
-            onPressed: legs.isEmpty ? null : widget.controller.clear,
+            onPressed: legs.isEmpty ? null : _clearSlip,
             icon: const Icon(Icons.close, size: 18),
           ),
         ],
@@ -1346,7 +1113,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             decoration: BoxDecoration(
               color: const Color(0xFF201A06),
               borderRadius: BorderRadius.circular(9),
-              border: Border.all(color: DailySpinColors.gold),
+              border: Border.all(color: PropIntelligenceColors.gold),
             ),
             child: _sportIcon(sport, size: 18),
           ),
@@ -1395,7 +1162,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
           const SizedBox(width: 5),
           IconButton(
             tooltip: 'Clear entry',
-            onPressed: legs.isEmpty ? null : widget.controller.clear,
+            onPressed: legs.isEmpty ? null : _clearSlip,
             icon: const Icon(Icons.close, size: 18),
           ),
         ],
@@ -1473,8 +1240,8 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                     const SizedBox(height: 3),
                     Row(
                       children: [
-                        _sportIcon(sport, size: 12),
-                        const SizedBox(width: 4),
+                        _sportIcon(sport, size: 10),
+                        const SizedBox(width: 2),
                         Expanded(
                           child: Text(
                             market,
@@ -1523,6 +1290,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               const SizedBox(width: 5),
               IconButton(
                 tooltip: 'Remove pick',
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
                 onPressed: () {
                   widget.controller.removeLeg(_propId(leg));
                 },
@@ -1664,8 +1434,8 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                     ),
                     Row(
                       children: [
-                        _sportIcon(sport, size: 12),
-                        const SizedBox(width: 4),
+                        _sportIcon(sport, size: 10),
+                        const SizedBox(width: 2),
                         Expanded(
                           child: Text(
                             market,
@@ -1706,6 +1476,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               ),
               IconButton(
                 tooltip: 'Remove pick',
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
                 onPressed: () {
                   widget.controller.removeLeg(_propId(leg));
                 },
@@ -1841,8 +1614,8 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                     ),
                     Row(
                       children: [
-                        _sportIcon(sport, size: 12),
-                        const SizedBox(width: 4),
+                        _sportIcon(sport, size: 10),
+                        const SizedBox(width: 2),
                         Expanded(
                           child: Text(
                             market,
@@ -1886,6 +1659,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               const SizedBox(width: 4),
               IconButton(
                 tooltip: 'Remove pick',
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
                 onPressed: () {
                   widget.controller.removeLeg(_propId(leg));
                 },
@@ -1953,180 +1729,15 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   }
 
   Widget _buildPrizePicksFooter(List<Map<String, dynamic>> legs) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        children: [
-          TextField(
-            controller: _entryController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-            ),
-            decoration: const InputDecoration(
-              labelText: 'ENTRY',
-              prefixText: r'$ ',
-              isDense: true,
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (value) {
-              setState(() {
-                _entryAmount = double.tryParse(value) ?? 0;
-              });
-            },
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 42,
-            child: FilledButton(
-              onPressed:
-                  legs.length < 2 ||
-                      widget.isSaving ||
-                      widget.onViewOrLock == null
-                  ? null
-                  : _viewOrLockSlip,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFE7A713),
-                foregroundColor: const Color(0xFF050A0F),
-              ),
-              child: widget.isSaving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.black,
-                      ),
-                    )
-                  : const Text(
-                      'VIEW / LOCK ENTRY',
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return _buildLockOnlyFooter(legs, label: 'VIEW / LOCK ENTRY');
   }
 
   Widget _buildUnderdogFooter(List<Map<String, dynamic>> legs) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        children: [
-          TextField(
-            controller: _underdogEntryController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-            ),
-            decoration: const InputDecoration(
-              labelText: 'ENTRY',
-              prefixText: r'$ ',
-              isDense: true,
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (value) {
-              setState(() {
-                _underdogEntryAmount = double.tryParse(value) ?? 0;
-              });
-            },
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 42,
-            child: FilledButton(
-              onPressed:
-                  legs.length < 2 ||
-                      widget.isSaving ||
-                      widget.onViewOrLock == null
-                  ? null
-                  : _viewOrLockSlip,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFE7A713),
-                foregroundColor: const Color(0xFF050A0F),
-              ),
-              child: widget.isSaving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.black,
-                      ),
-                    )
-                  : const Text(
-                      'VIEW / LOCK ENTRY',
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return _buildLockOnlyFooter(legs, label: 'VIEW / LOCK ENTRY');
   }
 
   Widget _buildSleeperFooter(List<Map<String, dynamic>> legs) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        children: [
-          TextField(
-            controller: _sleeperEntryController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-            ),
-            decoration: const InputDecoration(
-              labelText: 'ENTRY',
-              prefixText: r'$ ',
-              isDense: true,
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (value) {
-              setState(() {
-                _sleeperEntryAmount = double.tryParse(value) ?? 0;
-              });
-            },
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 42,
-            child: FilledButton(
-              onPressed:
-                  legs.length < 2 ||
-                      widget.isSaving ||
-                      widget.onViewOrLock == null
-                  ? null
-                  : _viewOrLockSlip,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFE7A713),
-                foregroundColor: const Color(0xFF050A0F),
-              ),
-              child: widget.isSaving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.black,
-                      ),
-                    )
-                  : const Text(
-                      'VIEW / LOCK ENTRY',
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return _buildLockOnlyFooter(legs, label: 'VIEW / LOCK ENTRY');
   }
 
   Widget _buildFanDuelHeader(List<Map<String, dynamic>> legs) {
@@ -2150,7 +1761,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             decoration: BoxDecoration(
               color: const Color(0xFF201A06),
               borderRadius: BorderRadius.circular(9),
-              border: Border.all(color: DailySpinColors.gold),
+              border: Border.all(color: PropIntelligenceColors.gold),
             ),
             child: _sportIcon(sport, size: 18),
           ),
@@ -2202,7 +1813,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             ),
           IconButton(
             tooltip: 'Clear bet slip',
-            onPressed: legs.isEmpty ? null : widget.controller.clear,
+            onPressed: legs.isEmpty ? null : _clearSlip,
             icon: const Icon(Icons.close, size: 18),
           ),
         ],
@@ -2293,8 +1904,8 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 ),
                 Row(
                   children: [
-                    _sportIcon(sport, size: 12),
-                    const SizedBox(width: 4),
+                    _sportIcon(sport, size: 10),
+                    const SizedBox(width: 2),
                     Expanded(
                       child: Text(
                         market,
@@ -2421,92 +2032,56 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   }
 
   Widget _buildFanDuelFooter(List<Map<String, dynamic>> legs) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        children: [
-          TextField(
-            controller: _fanDuelWagerController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-            ),
-            decoration: const InputDecoration(
-              labelText: 'WAGER',
-              prefixText: r'$ ',
-              isDense: true,
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (_) {},
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 42,
-            child: FilledButton(
-              onPressed: legs.isEmpty ? null : _viewOrLockSlip,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFE7A713),
-                foregroundColor: const Color(0xFF050A0F),
-              ),
-              child: const Text(
-                'VIEW / LOCK BET',
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return _buildLockOnlyFooter(legs, label: 'VIEW / LOCK BET');
   }
 
-  Widget _buildDraftKingsTabs() {
+  Widget _buildDraftKingsTabs(List<Map<String, dynamic>> legs) {
     return Container(
       height: 40,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: DailySpinColors.deepBackground,
+        color: PropIntelligenceColors.deepBackground,
         borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: DailySpinColors.divider),
+        border: Border.all(color: PropIntelligenceColors.divider),
       ),
       child: Row(
         children: [
           Expanded(
-            child: _buildDraftKingsTab(value: 'BETSLIP', label: 'BETSLIP'),
+            child: Container(
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: PropIntelligenceColors.gold,
+                borderRadius: BorderRadius.circular(7),
+              ),
+              child: const Text(
+                'BETSLIP',
+                style: TextStyle(
+                  color: PropIntelligenceColors.deepBackground,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
           ),
+          const SizedBox(width: 6),
           Expanded(
-            child: _buildDraftKingsTab(value: 'MY_BETS', label: 'MY BETS'),
+            child: FilledButton(
+              onPressed: legs.isEmpty ? null : _clearSlip,
+              style: FilledButton.styleFrom(
+                backgroundColor: PropIntelligenceColors.gold,
+                foregroundColor: PropIntelligenceColors.deepBackground,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              child: const Text(
+                'CLEAR',
+                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
+              ),
+            ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildDraftKingsTab({required String value, required String label}) {
-    final selected = _draftKingsView == value;
-    return InkWell(
-      borderRadius: BorderRadius.circular(7),
-      onTap: () {
-        setState(() {
-          _draftKingsView = value;
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? DailySpinColors.gold : Colors.transparent,
-          borderRadius: BorderRadius.circular(7),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? DailySpinColors.deepBackground : Colors.white,
-            fontSize: 9,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
       ),
     );
   }
@@ -2520,11 +2095,13 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: DailySpinColors.divider)),
+        border: Border(
+          bottom: BorderSide(color: PropIntelligenceColors.divider),
+        ),
       ),
       child: Column(
         children: [
-          _buildDraftKingsTabs(),
+          _buildDraftKingsTabs(legs),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -2535,7 +2112,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF211C0B),
                   borderRadius: BorderRadius.circular(9),
-                  border: Border.all(color: DailySpinColors.gold),
+                  border: Border.all(color: PropIntelligenceColors.gold),
                 ),
                 child: _sportIcon(sport, size: 18),
               ),
@@ -2558,7 +2135,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                     Text(
                       _formatAmericanOdds(combinedOdds),
                       style: const TextStyle(
-                        color: DailySpinColors.gold,
+                        color: PropIntelligenceColors.gold,
                         fontSize: 11,
                         fontWeight: FontWeight.w900,
                       ),
@@ -2571,7 +2148,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               IconButton(
                 tooltip: 'Clear bet slip',
                 visualDensity: VisualDensity.compact,
-                onPressed: legs.isEmpty ? null : widget.controller.clear,
+                onPressed: legs.isEmpty ? null : _clearSlip,
                 icon: const Icon(Icons.close, size: 18),
               ),
             ],
@@ -2586,7 +2163,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     Color background;
     switch (status) {
       case 'WON':
-        foreground = DailySpinColors.gold;
+        foreground = PropIntelligenceColors.gold;
         background = const Color(0xFF3A2E0B);
         break;
       case 'LOST':
@@ -2594,12 +2171,12 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
         background = const Color(0xFF16263D);
         break;
       case 'LIVE':
-        foreground = DailySpinColors.gold;
+        foreground = PropIntelligenceColors.gold;
         background = const Color(0xFF3A2E0B);
         break;
       default:
         foreground = Colors.white;
-        background = DailySpinColors.surface;
+        background = PropIntelligenceColors.surface;
     }
 
     return Container(
@@ -2639,22 +2216,24 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     Color statusColor;
     switch (resultStatus) {
       case 'won':
-        statusColor = DailySpinColors.win;
+        statusColor = PropIntelligenceColors.win;
         break;
       case 'lost':
-        statusColor = DailySpinColors.loss;
+        statusColor = PropIntelligenceColors.loss;
         break;
       case 'push':
-        statusColor = DailySpinColors.gold;
+        statusColor = PropIntelligenceColors.gold;
         break;
       default:
-        statusColor = DailySpinColors.secondaryText;
+        statusColor = PropIntelligenceColors.secondaryText;
     }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: DailySpinColors.divider)),
+        border: Border(
+          bottom: BorderSide(color: PropIntelligenceColors.divider),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2666,7 +2245,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               child: Icon(
                 Icons.drag_indicator,
                 size: 17,
-                color: DailySpinColors.secondaryText,
+                color: PropIntelligenceColors.secondaryText,
               ),
             ),
           ),
@@ -2692,7 +2271,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: DailySpinColors.secondaryText,
+                    color: PropIntelligenceColors.secondaryText,
                     fontSize: 8,
                   ),
                 ),
@@ -2700,15 +2279,15 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 Text(
                   '$side $line',
                   style: const TextStyle(
-                    color: DailySpinColors.gold,
+                    color: PropIntelligenceColors.gold,
                     fontSize: 12,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
                 Row(
                   children: [
-                    _sportIcon(sport, size: 12),
-                    const SizedBox(width: 4),
+                    _sportIcon(sport, size: 10),
+                    const SizedBox(width: 2),
                     Expanded(
                       child: Text(
                         market,
@@ -2765,7 +2344,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                     _formatAmericanOdds(odds),
                     maxLines: 1,
                     style: const TextStyle(
-                      color: DailySpinColors.gold,
+                      color: PropIntelligenceColors.gold,
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
                     ),
@@ -2816,13 +2395,13 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
       decoration: BoxDecoration(
         color: const Color(0xFF112D1D),
         borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: DailySpinColors.win),
+        border: Border.all(color: PropIntelligenceColors.win),
       ),
       child: Row(
         children: [
           const Icon(
             Icons.payments_outlined,
-            color: DailySpinColors.win,
+            color: PropIntelligenceColors.win,
             size: 18,
           ),
           const SizedBox(width: 8),
@@ -2841,7 +2420,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 Text(
                   '\$${offer.toStringAsFixed(2)}',
                   style: const TextStyle(
-                    color: DailySpinColors.win,
+                    color: PropIntelligenceColors.win,
                     fontSize: 15,
                     fontWeight: FontWeight.w900,
                   ),
@@ -2854,8 +2433,8 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               _showCashOutDetails(offer);
             },
             style: OutlinedButton.styleFrom(
-              foregroundColor: DailySpinColors.win,
-              side: const BorderSide(color: DailySpinColors.win),
+              foregroundColor: PropIntelligenceColors.win,
+              side: const BorderSide(color: PropIntelligenceColors.win),
               visualDensity: VisualDensity.compact,
             ),
             child: const Text(
@@ -2873,7 +2452,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: DailySpinColors.surface,
+          backgroundColor: PropIntelligenceColors.surface,
           title: const Text(
             'Cash Out Offer',
             style: TextStyle(color: Colors.white),
@@ -2883,7 +2462,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             '\$${offer.toStringAsFixed(2)}.\n\n'
             'Complete the actual cash out '
             'inside DraftKings.',
-            style: const TextStyle(color: DailySpinColors.secondaryText),
+            style: const TextStyle(color: PropIntelligenceColors.secondaryText),
           ),
           actions: [
             TextButton(
@@ -2899,81 +2478,54 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   }
 
   Widget _buildDraftKingsFooter(List<Map<String, dynamic>> legs) {
-    final combinedAmerican = _draftKingsCombinedAmerican(legs);
+    return _buildLockOnlyFooter(legs, label: 'LOCK ENTRY');
+  }
+
+  Widget _buildLockOnlyFooter(
+    List<Map<String, dynamic>> legs, {
+    required String label,
+  }) {
+    final site = _activeSlipSite(legs);
+    final minimumLegs =
+        (site.contains('PRIZEPICKS') ||
+            site.contains('UNDERDOG') ||
+            site.contains('SLEEPER'))
+        ? 2
+        : 1;
 
     return Padding(
-      padding: const EdgeInsets.all(11),
-      child: Column(
-        children: [
-          TextField(
-            controller: _draftKingsWagerController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
-            ),
-            decoration: const InputDecoration(
-              labelText: 'TOTAL WAGER',
-              prefixText: r'$ ',
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 9, vertical: 10),
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (_) {},
+      padding: const EdgeInsets.all(12),
+      child: SizedBox(
+        height: 42,
+        width: double.infinity,
+        child: FilledButton(
+          onPressed:
+              legs.length < minimumLegs ||
+                  widget.isSaving ||
+                  widget.onViewOrLock == null
+              ? null
+              : _viewOrLockSlip,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFE7A713),
+            foregroundColor: const Color(0xFF050A0F),
           ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-            decoration: BoxDecoration(
-              color: DailySpinColors.deepBackground,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: DailySpinColors.divider),
-            ),
-            child: Row(
-              children: [
-                const Text(
-                  'PARLAY ODDS',
-                  style: TextStyle(
-                    color: DailySpinColors.secondaryText,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
+          child: widget.isSaving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.black,
                   ),
-                ),
-                const Spacer(),
-                Text(
-                  _formatAmericanOdds(combinedAmerican),
+                )
+              : Text(
+                  label,
                   style: const TextStyle(
-                    color: DailySpinColors.gold,
-                    fontSize: 13,
+                    fontSize: 10,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            height: 40,
-            child: FilledButton(
-              onPressed: legs.isEmpty ? null : _viewOrLockSlip,
-              style: FilledButton.styleFrom(
-                backgroundColor: DailySpinColors.gold,
-                foregroundColor: DailySpinColors.deepBackground,
-              ),
-              child: Text(
-                _draftKingsView == 'MY_BETS'
-                    ? 'VIEW TRACKED BET'
-                    : 'LOCK ENTRY',
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -2991,6 +2543,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
           _buildFanDuelStatusBanner(legs),
           _buildFanDuelHeader(legs),
           ReorderableListView.builder(
+            buildDefaultDragHandles: false,
             shrinkWrap: true,
             primary: false,
             physics: const NeverScrollableScrollPhysics(),
@@ -3013,15 +2566,16 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   Widget _buildDraftKingsStyleSlip(List<Map<String, dynamic>> legs) {
     return Container(
       decoration: BoxDecoration(
-        color: DailySpinColors.background,
+        color: PropIntelligenceColors.background,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: DailySpinColors.darkGold),
+        border: Border.all(color: PropIntelligenceColors.darkGold),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildDraftKingsHeader(legs),
           ReorderableListView.builder(
+            buildDefaultDragHandles: false,
             shrinkWrap: true,
             primary: false,
             physics: const NeverScrollableScrollPhysics(),
@@ -3060,11 +2614,6 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               border: OutlineInputBorder(),
               isDense: true,
             ),
-            onChanged: (value) {
-              setState(() {
-                _entryAmount = double.tryParse(value) ?? 0;
-              });
-            },
           ),
           if (widget.message != null) ...[
             const SizedBox(height: 10),
@@ -3147,7 +2696,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
       decoration: BoxDecoration(
         color: const Color(0xFF101A23),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: DailySpinColors.gold.withValues(alpha: 0.55)),
+        border: Border.all(
+          color: PropIntelligenceColors.gold.withValues(alpha: 0.55),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.25),
@@ -3169,14 +2720,14 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               children: [
                 Icon(
                   Icons.confirmation_number_outlined,
-                  color: DailySpinColors.gold,
+                  color: PropIntelligenceColors.gold,
                   size: 15,
                 ),
                 SizedBox(width: 8),
                 Text(
                   'TICKET SLIP',
                   style: TextStyle(
-                    color: DailySpinColors.gold,
+                    color: PropIntelligenceColors.gold,
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.6,
@@ -3187,6 +2738,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
           ),
           _buildTicketHeader(legs),
           ReorderableListView.builder(
+            buildDefaultDragHandles: false,
             shrinkWrap: true,
             primary: false,
             physics: const NeverScrollableScrollPhysics(),
@@ -3223,6 +2775,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
         children: [
           _buildPrizePicksHeader(legs),
           ReorderableListView.builder(
+            buildDefaultDragHandles: false,
             shrinkWrap: true,
             primary: false,
             physics: const NeverScrollableScrollPhysics(),
@@ -3259,6 +2812,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
         children: [
           _buildUnderdogHeader(legs),
           ReorderableListView.builder(
+            buildDefaultDragHandles: false,
             shrinkWrap: true,
             primary: false,
             physics: const NeverScrollableScrollPhysics(),
@@ -3295,6 +2849,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
         children: [
           _buildSleeperHeader(legs),
           ReorderableListView.builder(
+            buildDefaultDragHandles: false,
             shrinkWrap: true,
             primary: false,
             physics: const NeverScrollableScrollPhysics(),
@@ -3352,6 +2907,10 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   }
 
   Widget _buildSiteSpecificSlip(List<Map<String, dynamic>> legs) {
+    if (legs.isEmpty) {
+      return _buildCurrentSlipSetupCard();
+    }
+
     final site = _activeSlipSite(legs);
     if (site.contains('PRIZEPICKS')) {
       return _buildPrizePicksStyleSlip(legs);
@@ -3369,5 +2928,38 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
       return _buildDraftKingsStyleSlip(legs);
     }
     return _buildCompactTicket(legs);
+  }
+
+  Widget _buildCurrentSlipSetupCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF011224),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF8B6813)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF041A2E),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF2A3B48)),
+            ),
+            child: const Text(
+              'No props selected',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF9AB0C3),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -115,7 +115,7 @@
 		{
 			"label": "validate-active-backend-main",
 			"type": "shell",
-			"command": "Push-Location ..\\python_backend; .\\.venv\\Scripts\\python.exe -m py_compile main.py; if ($LASTEXITCODE -eq 0) { 'PY_COMPILE_OK' }; Pop-Location",
+			"command": "Push-Location python_backend; .\\.venv\\Scripts\\python.exe -m py_compile main.py; if ($LASTEXITCODE -eq 0) { 'PY_COMPILE_OK' }; Pop-Location",
 			"isBackground": false
 		},
 		{
@@ -127,7 +127,7 @@
 		{
 			"label": "start-backend-8010",
 			"type": "shell",
-			"command": "Push-Location ..\\python_backend; .\\.venv\\Scripts\\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8010 --reload",
+			"command": "Push-Location python_backend; .\\.venv\\Scripts\\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8010 --reload",
 			"isBackground": true
 		},
 		{
@@ -167,21 +167,21 @@
 		{
 			"label": "verify-backend-category-payload",
 			"type": "shell",
-			"command": "Push-Location ..\\python_backend; .\\.venv\\Scripts\\python.exe -c \"from services.prop_service import get_props; props = get_props(); first = props[0].model_dump(); print(f'COUNT={len(props)}'); print(f\\\"CATEGORY={first.get('category','')}\\\"); print(f\\\"MARKET_KEY={first.get('marketKey','')}\\\"); print(f\\\"MARKET={first.get('market','')}\\\")\"; Pop-Location",
+			"command": "Push-Location python_backend; .\\.venv\\Scripts\\python.exe -c \"from services.prop_service import get_props; props = get_props(); first = props[0].model_dump(); print(f'COUNT={len(props)}'); print(f\\\"CATEGORY={first.get('category','')}\\\"); print(f\\\"MARKET_KEY={first.get('marketKey','')}\\\"); print(f\\\"MARKET={first.get('market','')}\\\")\"; Pop-Location",
 			"isBackground": false,
 			"group": "test"
 		},
 		{
 			"label": "verify-backend-category-payload-2",
 			"type": "shell",
-			"command": "Push-Location ..\\python_backend; .\\.venv\\Scripts\\python.exe -c \"from services.prop_service import get_props; props = get_props(); first = props[0].model_dump(); print('COUNT=' + str(len(props))); print('CATEGORY=' + str(first.get('category', ''))); print('MARKET_KEY=' + str(first.get('marketKey', ''))); print('MARKET=' + str(first.get('market', '')))\"; Pop-Location",
+			"command": "Push-Location python_backend; .\\.venv\\Scripts\\python.exe -c \"from services.prop_service import get_props; props = get_props(); first = props[0].model_dump(); print('COUNT=' + str(len(props))); print('CATEGORY=' + str(first.get('category', ''))); print('MARKET_KEY=' + str(first.get('marketKey', ''))); print('MARKET=' + str(first.get('market', '')))\"; Pop-Location",
 			"isBackground": false,
 			"group": "test"
 		},
 		{
 			"label": "verify-category-payload-final",
 			"type": "shell",
-			"command": "..\\python_backend\\.venv\\Scripts\\python.exe",
+			"command": "python_backend\\.venv\\Scripts\\python.exe",
 			"args": [
 				"-c",
 				"from services.prop_service import get_props; props = get_props(); first = props[0].model_dump(); print('COUNT=' + str(len(props))); print('CATEGORY=' + str(first.get('category', ''))); print('MARKET_KEY=' + str(first.get('marketKey', ''))); print('MARKET=' + str(first.get('market', '')))"
@@ -192,7 +192,7 @@
 		{
 			"label": "verify-category-payload-final-2",
 			"type": "shell",
-			"command": "..\\python_backend\\.venv\\Scripts\\python.exe",
+			"command": "python_backend\\.venv\\Scripts\\python.exe",
 			"args": [
 				"-c",
 				"from services.prop_service import get_props; props = get_props(); first = props[0].model_dump(); print(\"COUNT=%s\" % len(props)); print(\"CATEGORY=%s\" % first.get(\"category\", \"\")); print(\"MARKET_KEY=%s\" % first.get(\"marketKey\", \"\")); print(\"MARKET=%s\" % first.get(\"market\", \"\"))"
@@ -206,7 +206,7 @@
 			"command": "cmd",
 			"args": [
 				"/c",
-				"cd /d ..\\python_backend && .venv\\Scripts\\python.exe -c \"from services.sync_service import sync_sport; print(sync_sport('basketball_wnba')); print(sync_sport('basketball_nba'))\""
+				"cd /d python_backend && .venv\\Scripts\\python.exe -c \"from services.sync_service import sync_sport; print(sync_sport('basketball_wnba')); print(sync_sport('basketball_nba'))\""
 			],
 			"isBackground": false,
 			"group": "test"
@@ -319,7 +319,7 @@
 		{
 			"label": "probe-mlb-local-dates",
 			"type": "shell",
-			"command": "..\\python_backend\\.venv\\Scripts\\python.exe",
+			"command": "python_backend\\.venv\\Scripts\\python.exe",
 			"args": [
 				"-c",
 				"from services.odds_service import fetch_scores; from main import _local_event_date; data=fetch_scores('baseball_mlb', days_from=3); rows=[(d.get('away_team'), d.get('home_team'), d.get('commence_time'), str(_local_event_date(d.get('commence_time'))), d.get('completed')) for d in data[:12]]; print(rows)"
@@ -356,21 +356,21 @@
 		{
 			"label": "point-desktop-shortcut-to-installed-app",
 			"type": "shell",
-			"command": "$desktop = [Environment]::GetFolderPath('Desktop'); $shortcutPath = Join-Path $desktop 'The Daily Spin.lnk'; $candidates = @('C:\\Program Files\\The Daily Spin\\daily_spin_flutter.exe','C:\\Program Files (x86)\\The Daily Spin\\daily_spin_flutter.exe',\"$env:LOCALAPPDATA\\Programs\\The Daily Spin\\daily_spin_flutter.exe\"); $target = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1; if (-not $target) { throw 'Installed packaged executable was not found in expected locations.' }; $shell = New-Object -ComObject WScript.Shell; $shortcut = $shell.CreateShortcut($shortcutPath); $shortcut.TargetPath = $target; $shortcut.WorkingDirectory = Split-Path $target; $iconCandidate = Join-Path (Split-Path $target) 'app_icon.ico'; if (Test-Path $iconCandidate) { $shortcut.IconLocation = $iconCandidate }; $shortcut.Save(); Write-Output ('SHORTCUT_UPDATED=' + $shortcutPath); Write-Output ('TARGET=' + $target)",
+			"command": "$desktop = [Environment]::GetFolderPath('Desktop'); $shortcutPath = Join-Path $desktop 'PROP INTELLIGENCE.lnk'; $candidates = @('C:\\Program Files\\PROP INTELLIGENCE\\prop_intelligence.exe','C:\\Program Files (x86)\\PROP INTELLIGENCE\\prop_intelligence.exe',\"$env:LOCALAPPDATA\\Programs\\PROP INTELLIGENCE\\prop_intelligence.exe\"); $target = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1; if (-not $target) { throw 'Installed packaged executable was not found in expected locations.' }; $shell = New-Object -ComObject WScript.Shell; $shortcut = $shell.CreateShortcut($shortcutPath); $shortcut.TargetPath = $target; $shortcut.WorkingDirectory = Split-Path $target; $iconCandidate = Join-Path (Split-Path $target) 'app_icon.ico'; if (Test-Path $iconCandidate) { $shortcut.IconLocation = $iconCandidate }; $shortcut.Save(); Write-Output ('SHORTCUT_UPDATED=' + $shortcutPath); Write-Output ('TARGET=' + $target)",
 			"isBackground": false,
 			"group": "build"
 		},
 		{
 			"label": "point-desktop-shortcut-to-installed-app-2",
 			"type": "shell",
-			"command": "$desktop = [Environment]::GetFolderPath('Desktop'); $shortcutPath = Join-Path $desktop 'The Daily Spin.lnk'; $localTarget = Join-Path $env:LOCALAPPDATA 'Programs\\The Daily Spin\\daily_spin_flutter.exe'; $candidates = @('C:\\Program Files\\The Daily Spin\\daily_spin_flutter.exe','C:\\Program Files (x86)\\The Daily Spin\\daily_spin_flutter.exe',$localTarget); $target = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1; if (-not $target) { throw 'Installed packaged executable was not found in expected locations.' }; $shell = New-Object -ComObject WScript.Shell; $shortcut = $shell.CreateShortcut($shortcutPath); $shortcut.TargetPath = $target; $shortcut.WorkingDirectory = Split-Path $target; $iconCandidate = Join-Path (Split-Path $target) 'app_icon.ico'; if (Test-Path $iconCandidate) { $shortcut.IconLocation = $iconCandidate }; $shortcut.Save(); Write-Output ('SHORTCUT_UPDATED=' + $shortcutPath); Write-Output ('TARGET=' + $target)",
+			"command": "$desktop = [Environment]::GetFolderPath('Desktop'); $shortcutPath = Join-Path $desktop 'PROP INTELLIGENCE.lnk'; $localTarget = Join-Path $env:LOCALAPPDATA 'Programs\\PROP INTELLIGENCE\\prop_intelligence.exe'; $candidates = @('C:\\Program Files\\PROP INTELLIGENCE\\prop_intelligence.exe','C:\\Program Files (x86)\\PROP INTELLIGENCE\\prop_intelligence.exe',$localTarget); $target = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1; if (-not $target) { throw 'Installed packaged executable was not found in expected locations.' }; $shell = New-Object -ComObject WScript.Shell; $shortcut = $shell.CreateShortcut($shortcutPath); $shortcut.TargetPath = $target; $shortcut.WorkingDirectory = Split-Path $target; $iconCandidate = Join-Path (Split-Path $target) 'app_icon.ico'; if (Test-Path $iconCandidate) { $shortcut.IconLocation = $iconCandidate }; $shortcut.Save(); Write-Output ('SHORTCUT_UPDATED=' + $shortcutPath); Write-Output ('TARGET=' + $target)",
 			"isBackground": false,
 			"group": "build"
 		},
 		{
 			"label": "point-desktop-shortcut-to-release-build",
 			"type": "shell",
-			"command": "$desktop = [Environment]::GetFolderPath('Desktop'); $shortcutPath = Join-Path $desktop 'The Daily Spin.lnk'; $target = Join-Path $PWD 'build\\windows\\x64\\runner\\Release\\daily_spin_flutter.exe'; if (-not (Test-Path $target)) { throw 'Release executable not found.' }; $shell = New-Object -ComObject WScript.Shell; $shortcut = $shell.CreateShortcut($shortcutPath); $shortcut.TargetPath = $target; $shortcut.WorkingDirectory = Split-Path $target; $iconCandidate = Join-Path (Split-Path $target) 'data\\flutter_assets\\assets\\players\\TheDailySpin_AppIcon_256.png'; $fallbackIcon = Join-Path $PWD 'windows\\runner\\resources\\app_icon.ico'; if (Test-Path $fallbackIcon) { $shortcut.IconLocation = $fallbackIcon }; $shortcut.Save(); Write-Output ('SHORTCUT_UPDATED=' + $shortcutPath); Write-Output ('TARGET=' + $target)",
+			"command": "$desktop = [Environment]::GetFolderPath('Desktop'); $shortcutPath = Join-Path $desktop 'PROP INTELLIGENCE.lnk'; $target = Join-Path $PWD 'build\\windows\\x64\\runner\\Release\\prop_intelligence.exe'; if (-not (Test-Path $target)) { throw 'Release executable not found.' }; $shell = New-Object -ComObject WScript.Shell; $shortcut = $shell.CreateShortcut($shortcutPath); $shortcut.TargetPath = $target; $shortcut.WorkingDirectory = Split-Path $target; $fallbackIcon = Join-Path $PWD 'windows\\runner\\resources\\app_icon.ico'; if (Test-Path $fallbackIcon) { $shortcut.IconLocation = $fallbackIcon }; $shortcut.Save(); Write-Output ('SHORTCUT_UPDATED=' + $shortcutPath); Write-Output ('TARGET=' + $target)",
 			"isBackground": false,
 			"group": "build"
 		},
@@ -461,7 +461,7 @@
 			"args": [
 				"-NoProfile",
 				"-Command",
-				"taskkill /IM python.exe /F | Out-Null; Start-Sleep -Milliseconds 300; Push-Location 'c:\\Users\\theda\\Projects\\The-Daily-Spin\\python_backend'; Start-Process -WindowStyle Hidden -FilePath '.\\.venv\\Scripts\\python.exe' -ArgumentList '-m','uvicorn','main:app','--host','127.0.0.1','--port','8010'; Pop-Location; Start-Sleep -Seconds 2; try { $h=Invoke-RestMethod -Uri 'http://127.0.0.1:8010/health' -TimeoutSec 5; Write-Output ('HEALTH=' + ($h|ConvertTo-Json -Compress)) } catch { Write-Output ('HEALTH_ERR=' + $_.Exception.Message) }"
+				"taskkill /IM python.exe /F | Out-Null; Start-Sleep -Milliseconds 300; Push-Location 'c:\\Users\\theda\\Projects\\PROP INTELLIGENCE\\prop_intelligence\\python_backend'; Start-Process -WindowStyle Hidden -FilePath '.\\.venv\\Scripts\\python.exe' -ArgumentList '-m','uvicorn','main:app','--host','127.0.0.1','--port','8010'; Pop-Location; Start-Sleep -Seconds 2; try { $h=Invoke-RestMethod -Uri 'http://127.0.0.1:8010/health' -TimeoutSec 5; Write-Output ('HEALTH=' + ($h|ConvertTo-Json -Compress)) } catch { Write-Output ('HEALTH_ERR=' + $_.Exception.Message) }"
 			],
 			"isBackground": false,
 			"group": "test"
@@ -633,6 +633,79 @@
 			],
 			"isBackground": false,
 			"group": "test"
+		},
+		{
+			"label": "debug-main-dart-lines-3212",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"$path='lib/main.dart'; $start=3198; $end=3238; $i=1; Get-Content $path | ForEach-Object { if ($i -ge $start -and $i -le $end) { '{0,5}: {1}' -f $i, $_ }; $i++ }"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "debug-main-dart-lines-3212-2",
+			"type": "shell",
+			"command": "$path='lib/main.dart'; $start=3198; $end=3238; $i=1; Get-Content $path | ForEach-Object { if ($i -ge $start -and $i -le $end) { '{0,5}: {1}' -f $i, $_ }; $i++ }",
+			"isBackground": false
+		},
+		{
+			"label": "debug-topnavigation-lines",
+			"type": "shell",
+			"command": "$path='lib/main.dart'; $start=3070; $end=3250; $i=1; Get-Content $path | ForEach-Object { if ($i -ge $start -and $i -le $end) { '{0,5}: {1}' -f $i, $_ }; $i++ }",
+			"isBackground": false
+		},
+		{
+			"label": "analyze-main-dart-now",
+			"type": "shell",
+			"command": "flutter analyze lib/main.dart",
+			"isBackground": false
+		},
+		{
+			"label": "inspect-main-line-bytes",
+			"type": "shell",
+			"command": "$lines = Get-Content lib/main.dart; 3212..3230 | ForEach-Object { $line=$lines[$_-1]; Write-Output ('LINE ' + $_ + ': ' + $line); $bytes=[System.Text.Encoding]::UTF8.GetBytes($line); Write-Output (($bytes | ForEach-Object { $_.ToString('X2') }) -join ' ') }",
+			"isBackground": false
+		},
+		{
+			"label": "format-main-dart-debug",
+			"type": "shell",
+			"command": "dart format lib/main.dart",
+			"isBackground": false
+		},
+		{
+			"label": "format-main-dart-debug-2",
+			"type": "shell",
+			"command": "dart format lib/main.dart",
+			"isBackground": false
+		},
+		{
+			"label": "debug-lines-3208-3234",
+			"type": "shell",
+			"command": "$path='lib/main.dart'; $start=3208; $end=3234; $i=1; Get-Content $path | ForEach-Object { if ($i -ge $start -and $i -le $end) { '{0,5}: {1}' -f $i, $_ }; $i++ }",
+			"isBackground": false
+		},
+		{
+			"label": "format-main-dart-debug-3",
+			"type": "shell",
+			"command": "dart format lib/main.dart",
+			"isBackground": false
+		},
+		{
+			"label": "format-main-dart-debug-4",
+			"type": "shell",
+			"command": "dart format lib/main.dart",
+			"isBackground": false
+		},
+		{
+			"label": "format-main-dart-debug-5",
+			"type": "shell",
+			"command": "dart format lib/main.dart",
+			"isBackground": false
 		}
 	]
 }

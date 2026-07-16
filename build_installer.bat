@@ -35,7 +35,7 @@ if %ERRORLEVEL% neq 0 (
 
 echo Installer created in dist\
 
-powershell -NoProfile -Command "$desktop=[Environment]::GetFolderPath('Desktop'); $dist='%ROOT%dist'; $all=Get-ChildItem -Path $dist -Filter 'TheDailySpin-Setup-*.exe' | Sort-Object LastWriteTime -Descending; $src=$all | Select-Object -First 1; if(-not $src){ Write-Output 'No installer exe found in dist after build.'; exit 2 }; $base=[System.IO.Path]::GetFileNameWithoutExtension($src.Name); $ext=[System.IO.Path]::GetExtension($src.Name); $stamp=Get-Date -Format 'yyyyMMdd-HHmmss'; $dest=Join-Path $desktop ($base + '-' + $stamp + $ext); Copy-Item -Path $src.FullName -Destination $dest -Force; $stale=$all | Select-Object -Skip 1; if($stale){ $stale | Remove-Item -Force; Write-Output ('Pruned old installers in dist: ' + $stale.Count) }; Write-Output ('Installer copied to Desktop: ' + $dest)"
+powershell -NoProfile -Command "$desktop=[Environment]::GetFolderPath('Desktop'); $dist='%ROOT%dist'; $all=Get-ChildItem -Path $dist -Filter 'PROP-INTELLIGENCE-Setup-*.exe' | Sort-Object LastWriteTime -Descending; $src=$all | Select-Object -First 1; if(-not $src){ Write-Output 'No installer exe found in dist after build.'; exit 2 }; $base=[System.IO.Path]::GetFileNameWithoutExtension($src.Name); $ext=[System.IO.Path]::GetExtension($src.Name); $stamp=Get-Date -Format 'yyyyMMdd-HHmmss'; $dest=Join-Path $desktop ($base + '-' + $stamp + $ext); Copy-Item -Path $src.FullName -Destination $dest -Force; $stale=$all | Select-Object -Skip 1; if($stale){ $stale | Remove-Item -Force; Write-Output ('Pruned old installers in dist: ' + $stale.Count) }; Write-Output ('Installer copied to Desktop: ' + $dest)"
 if %ERRORLEVEL% neq 0 (
   echo Warning: Installer was built but Desktop copy failed.
 )

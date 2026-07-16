@@ -4,30 +4,63 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
+import 'layout/app_shell.dart';
 import 'controllers/active_slip_controller.dart';
 import 'models/prop_data.dart';
 import 'pages/analytics_page.dart';
 import 'pages/line_movement_page.dart';
-import 'pages/scoreboard_page.dart';
 import 'screens/prop_builder_performance_screen.dart';
-import 'screens/prop_builder_screen.dart';
-import 'screens/prop_watchlist_screen.dart';
+import 'screens/goblins_demons_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/paywall_screen.dart';
+import 'screens/cloud_watchlist_screen.dart';
+import 'screens/central_props_display_grid_canvas.dart';
 import 'models/slip_selection.dart';
 import 'services/api_service.dart';
+import 'services/auth_manager.dart';
+import 'services/developer_mode_service.dart';
+import 'services/goblin_manager.dart';
+import 'services/prop_watchlist_service.dart';
+import 'services/slip_manager.dart';
+import 'services/supabase_service.dart';
 import 'theme/app_scroll_behavior.dart';
+import 'theme/app_colors.dart' as app_colors;
+import 'theme/prop_intelligence_colors.dart' as brand;
 import 'widgets/active_slip_panel.dart';
+import 'widgets/auth_account_panel.dart';
+import 'widgets/current_slip_panel.dart';
+import 'widgets/ev_scanner_card.dart';
+import 'widgets/interactive_prop_builder.dart';
+import 'widgets/scoreboard_view.dart';
+import 'widgets/selected_prop_slip.dart';
 
 final Stopwatch _startupStopwatch = Stopwatch()..start();
+final ValueNotifier<int> boardPropCountNotifier = ValueNotifier<int>(0);
+final ValueNotifier<int> boardRefreshRequestNotifier = ValueNotifier<int>(0);
+
+const String kSupabaseProjectUrl = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: '',
+);
+const String kSupabaseAnonPublicApiKey = String.fromEnvironment(
+  'SUPABASE_ANON_KEY',
+  defaultValue: '',
+);
 
 void _startupLog(String message) {
   debugPrint('[startup +${_startupStopwatch.elapsedMilliseconds}ms] $message');
 }
 
 Future<void> _configureDesktopWindow() async {
+  if (kIsWeb) {
+    return;
+  }
+
   // On Windows we rely on native runner window styles to preserve
   // standard caption buttons (minimize/maximize/close).
   if (Platform.isWindows) {
@@ -47,7 +80,7 @@ Future<void> _configureDesktopWindow() async {
       size: Size(1280, 800),
       minimumSize: Size(1024, 680),
       center: true,
-      title: 'The Daily Spin',
+      title: 'PROP INTELLIGENCE',
       backgroundColor: Color(0xFF050A0F),
       titleBarStyle: TitleBarStyle.normal,
     );
@@ -87,7 +120,7 @@ Future<void> main() async {
   WidgetsBinding.instance.platformDispatcher.onError =
       (Object error, StackTrace stackTrace) {
         _startupLog('Unhandled async error: $error');
-        return false;
+        return true;
       };
 
   ErrorWidget.builder = (FlutterErrorDetails details) {
@@ -112,11 +145,27 @@ Future<void> main() async {
 
   await _configureDesktopWindow();
 
-  runApp(const DailySpinApp());
+  SupabaseService.configure(
+    url: kSupabaseProjectUrl,
+    anonKey: kSupabaseAnonPublicApiKey,
+  );
+
+  runApp(const PropIntelligenceApp());
   _startupLog('runApp() called');
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
     _startupLog('first frame rendered');
+    unawaited(() async {
+      try {
+        await SupabaseService.initialize().timeout(const Duration(seconds: 5));
+        AuthManager.instance.attach();
+        await PropWatchlistService().syncLocalAndCloudWatchlist().timeout(
+          const Duration(seconds: 5),
+        );
+      } catch (error) {
+        _startupLog('Cloud startup skipped: $error');
+      }
+    }());
   });
 }
 
@@ -131,6 +180,8 @@ enum AppPage {
   propBuilder,
   watchlist,
   builderPerformance,
+  goblinsDemons,
+  evScanner,
   searchPlayers,
   scoreboard,
   propAlerts,
@@ -222,10 +273,40 @@ class AppColors {
   static const rightSidebar = Color(0xFF071019);
   static const panel = Color(0xFF0C1824);
   static const border = Color(0xFF283846);
-  static const gold = Color(0xFFD99A17);
-  static const goldBright = Color(0xFFF2BC35);
+  static const gold = Color(0xFFFFC400);
+  static const goldBright = Color(0xFFFFC400);
   static const text = Color(0xFFF3F1EC);
   static const muted = Color(0xFF8996A6);
+}
+
+ThemeData buildPropIntelligenceBrandedTheme() {
+  return ThemeData.dark().copyWith(
+    scaffoldBackgroundColor: brand.PropIntelligenceColors.darkCanvasBg,
+    cardColor: brand.PropIntelligenceColors.darkCardBg,
+    dividerColor: Colors.white10,
+    textTheme: const TextTheme(
+      bodyLarge: TextStyle(color: brand.PropIntelligenceColors.metallicSilver),
+      titleLarge: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+    ),
+    scrollbarTheme: ScrollbarThemeData(
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.dragged)) {
+          return brand.PropIntelligenceColors.premiumGold;
+        }
+        if (states.contains(WidgetState.hovered)) {
+          return brand.PropIntelligenceColors.premiumGold.withValues(
+            alpha: 0.9,
+          );
+        }
+        return brand.PropIntelligenceColors.premiumGold.withValues(alpha: 0.82);
+      }),
+      trackColor: WidgetStateProperty.all(const Color(0xFF101D28)),
+      trackBorderColor: WidgetStateProperty.all(const Color(0xFF8B6813)),
+      radius: const Radius.circular(8),
+      thickness: WidgetStateProperty.all(9),
+      interactive: true,
+    ),
+  );
 }
 
 String _resolvePlayerImagePath(String rawPath) {
@@ -247,69 +328,65 @@ String _resolvePlayerImagePath(String rawPath) {
   return '$normalizedBase$normalizedPath';
 }
 
-class DailySpinApp extends StatelessWidget {
-  const DailySpinApp({super.key});
+class PropIntelligenceApp extends StatelessWidget {
+  const PropIntelligenceApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'The Daily Spin',
+      title: 'PROP INTELLIGENCE',
       debugShowCheckedModeBanner: false,
       scrollBehavior: const AppScrollBehavior(),
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: AppColors.background,
-        fontFamily: 'Segoe UI',
-        scrollbarTheme: ScrollbarThemeData(
-          thumbColor: MaterialStateProperty.resolveWith((states) {
-            if (states.contains(MaterialState.dragged)) {
-              return AppColors.goldBright;
-            }
-            if (states.contains(MaterialState.hovered)) {
-              return AppColors.gold;
-            }
-            return AppColors.gold.withValues(alpha: 0.82);
-          }),
-          trackColor: MaterialStateProperty.all(const Color(0xFF101D28)),
-          trackBorderColor: MaterialStateProperty.all(const Color(0xFF8B6813)),
-          radius: const Radius.circular(8),
-          thickness: MaterialStateProperty.all(9),
-          interactive: true,
-        ),
-      ),
-      home: const DailySpinShell(),
+      theme: buildPropIntelligenceBrandedTheme(),
+      home: const PropIntelligenceShell(),
     );
   }
 }
 
-class DailySpinShell extends StatelessWidget {
-  const DailySpinShell({super.key});
+class PropIntelligenceShell extends StatelessWidget {
+  const PropIntelligenceShell({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF050C13),
-      body: Container(
-        margin: const EdgeInsets.all(3),
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFD9A514), width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFD9A514).withValues(alpha: 0.2),
-              blurRadius: 10,
-              spreadRadius: 1,
-            ),
-          ],
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth >= 1100) {
-              return const DesktopDashboard();
+    if (!SupabaseService.isConfigured) {
+      return _buildDashboardShell();
+    }
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: DeveloperModeService.unlocked,
+      builder: (context, devUnlocked, _) {
+        return ValueListenableBuilder<AuthSessionState>(
+          valueListenable: AuthManager.instance.sessionState,
+          builder: (context, state, _) {
+            if (!state.ready) {
+              return const Scaffold(
+                backgroundColor: Color(0xFF050C13),
+                body: Center(child: CircularProgressIndicator()),
+              );
             }
 
-            return const MobilePlaceholder();
+            if (!state.authenticated && !devUnlocked) {
+              return const CorporateLoginScreen();
+            }
+
+            return _buildDashboardShell();
           },
-        ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDashboardShell() {
+    return Scaffold(
+      backgroundColor: const Color(0xFF050C13),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= 1100) {
+            return const DesktopDashboard();
+          }
+
+          return const MobilePlaceholder();
+        },
       ),
     );
   }
@@ -325,14 +402,10 @@ class DesktopDashboard extends StatefulWidget {
 class _DesktopDashboardState extends State<DesktopDashboard> {
   final ApiService _apiService = ApiService();
   final ActiveSlipController _activeSlipController = ActiveSlipController();
-  bool _showSavedSlips = false;
   final List<SlipSelection> _slipSelections = [];
   bool _isSavingSlip = false;
-  String? _slipMessage;
   AppPage _selectedPage = AppPage.board;
   String _selectedBoardSport = 'ALL';
-  final Set<String> _selectedBuilderSports = {'WNBA'};
-  bool _hasManualBuilderSportsSelection = false;
 
   @override
   void initState() {
@@ -340,7 +413,14 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     _startupLog('active slip load start');
     unawaited(
       _activeSlipController.load().then(
-        (_) {
+        (_) async {
+          final loadedCount = _activeSlipController.legCount;
+          if (loadedCount > 0) {
+            await _activeSlipController.clear();
+            _startupLog(
+              'active slip startup reset cleared $loadedCount persisted legs',
+            );
+          }
           _startupLog(
             'active slip load complete (${_activeSlipController.legCount} legs)',
           );
@@ -358,12 +438,6 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     super.dispose();
   }
 
-  void _openSavedSlips() {
-    setState(() {
-      _showSavedSlips = true;
-    });
-  }
-
   void _switchToPage(AppPage page, {String source = 'ui'}) {
     if (_selectedPage == page) {
       return;
@@ -379,50 +453,9 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     });
   }
 
-  void _openBuilder() {
-    setState(() {
-      _showSavedSlips = false;
-      _seedBuilderSportFromBoardIfNeeded();
-    });
-    _switchToPage(AppPage.propBuilder, source: 'quick-open-builder');
-  }
-
-  void _seedBuilderSportFromBoardIfNeeded() {
-    if (_hasManualBuilderSportsSelection || _selectedBoardSport == 'ALL') {
-      return;
-    }
-    _selectedBuilderSports
-      ..clear()
-      ..add(_selectedBoardSport);
-  }
-
-  void _handleBuilderSportsChanged(List<String> sports) {
-    setState(() {
-      _selectedBuilderSports
-        ..clear()
-        ..addAll(sports.where((sport) => sport.trim().isNotEmpty));
-      if (_selectedBuilderSports.isNotEmpty) {
-        _hasManualBuilderSportsSelection = true;
-      }
-    });
-  }
-
-  void _resetBuilderSportsAutoSync() {
-    setState(() {
-      _hasManualBuilderSportsSelection = false;
-      _seedBuilderSportFromBoardIfNeeded();
-    });
-  }
-
   void _selectBoardSport(String sport) {
     setState(() {
-      _showSavedSlips = false;
       _selectedBoardSport = sport;
-      if (!_hasManualBuilderSportsSelection && sport != 'ALL') {
-        _selectedBuilderSports
-          ..clear()
-          ..add(sport);
-      }
     });
     _switchToPage(AppPage.board, source: 'sport-filter');
   }
@@ -430,6 +463,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   int _mainPageIndex() {
     switch (_selectedPage) {
       case AppPage.board:
+      case AppPage.evScanner:
       case AppPage.searchPlayers:
       case AppPage.scoreboard:
       case AppPage.propAlerts:
@@ -443,31 +477,201 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         return 2;
       case AppPage.builderPerformance:
         return 3;
+      case AppPage.goblinsDemons:
+        return 4;
     }
   }
 
   Widget _buildMainContent() {
-    return IndexedStack(
-      index: _mainPageIndex(),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF06131E), Color(0xFF030A10)],
+        ),
+      ),
+      child: IndexedStack(
+        index: _mainPageIndex(),
+        children: [
+          MainDashboard(
+            selections: _slipSelections,
+            onSelect: _toggleSelection,
+            sportFilter: _selectedBoardSport,
+            selectedPage: _selectedPage,
+          ),
+          const InteractiveConstructorEngineWidget(),
+          const CloudWatchlistScreen(),
+          const PropBuilderPerformanceScreen(),
+          GoblinsDemonsScreen(onSelect: _toggleSelection),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeftSidebar() {
+    return AnimatedBuilder(
+      animation: _activeSlipController,
+      builder: (context, _) {
+        return Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF0B1A28), Color(0xFF06111B)],
+            ),
+          ),
+          child: LeftSidebar(
+            selectedPage: _selectedPage,
+            selectedSport: _selectedBoardSport,
+            activeSlipCount: _activeSlipController.legCount,
+            onSelectPage: (page) {
+              setState(() {
+                if (page != AppPage.board) {
+                  _selectedBoardSport = 'ALL';
+                }
+              });
+              _switchToPage(page, source: 'left-sidebar');
+            },
+            onSelectSport: _selectBoardSport,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTopNavigation() {
+    return TopNavigation(
+      selectedPage: _selectedPage,
+      onOpenPropAlerts: () {
+        _switchToPage(AppPage.propAlerts, source: 'top-nav-alerts');
+      },
+      onTabSelected: (page) {
+        _switchToPage(page, source: 'top-nav');
+      },
+    );
+  }
+
+  Widget _buildRightPanel() {
+    return AnimatedBuilder(
+      animation: _activeSlipController,
+      builder: (context, _) {
+        return Container(
+          color: app_colors.AppColors.sidebar,
+          padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+          child: Column(
+            children: [
+              _buildRightPanelLogo(),
+              const SizedBox(height: 8),
+              const AuthAccountPanel(),
+              const SizedBox(height: 10),
+              Expanded(
+                child: SelectedPropSlip(
+                  props: _selectedPropModels(),
+                  onRemove: (prop) {
+                    unawaited(_activeSlipController.removeLeg(prop.id));
+                  },
+                  onClear: _clearCurrentSlip,
+                  onBuildTicket: _openLockSlipDialog,
+                  isBuilding: _isSavingSlip,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  int _selectedPropAmericanOdds(Object? rawValue) {
+    final value = rawValue is num
+        ? rawValue.toDouble()
+        : double.tryParse(rawValue?.toString() ?? '') ?? -110;
+    if (value.abs() >= 100) return value.round();
+    if (value > 1 && value < 2) return (-100 / (value - 1)).round();
+    if (value >= 2) return ((value - 1) * 100).round();
+    return -110;
+  }
+
+  List<SelectedProp> _selectedPropModels() {
+    return _activeSlipController.legs
+        .map((leg) {
+          final side = (leg['side'] ?? leg['pick'] ?? 'OVER').toString();
+          final selectedOdds = leg['current_odds'] ?? leg['odds'];
+          final bestRaw = side.toUpperCase() == 'UNDER'
+              ? leg['under_odds'] ?? selectedOdds
+              : leg['over_odds'] ?? selectedOdds;
+          return SelectedProp(
+            id: leg['prop_id']?.toString() ?? leg['id']?.toString() ?? '',
+            playerName: leg['player']?.toString() ?? 'Unknown Player',
+            team: leg['matchup']?.toString() ?? '',
+            position: leg['sport']?.toString() ?? '',
+            propType: leg['market']?.toString() ?? 'PLAYER PROP',
+            gameTime:
+                leg['display_time']?.toString() ??
+                leg['game_time']?.toString() ??
+                '',
+            sportsbook:
+                leg['prop_site']?.toString() ??
+                leg['sportsbook']?.toString() ??
+                '',
+            imageUrl:
+                leg['player_image']?.toString() ??
+                leg['image_url']?.toString() ??
+                leg['image_path']?.toString() ??
+                '',
+            line:
+                ((leg['current_line'] as num?) ?? (leg['line'] as num?))
+                    ?.toDouble() ??
+                0,
+            selectedSide: side,
+            edge: (leg['edge'] as num?)?.toDouble() ?? 0,
+            hitRate: (leg['confidence'] as num?)?.round() ?? 0,
+            bestOdds: _selectedPropAmericanOdds(bestRaw),
+            liveOdds: _selectedPropAmericanOdds(selectedOdds),
+          );
+        })
+        .toList(growable: false);
+  }
+
+  Widget _buildRightPanelLogo() {
+    return Column(
       children: [
-        MainDashboard(
-          selections: _slipSelections,
-          onSelect: _toggleSelection,
-          sportFilter: _selectedBoardSport,
-          selectedPage: _selectedPage,
-          onSelectTopPage: (page) {
-            _switchToPage(page, source: 'top-nav');
-          },
+        Container(
+          width: 156,
+          height: 156,
+          padding: const EdgeInsets.all(7),
+          decoration: const BoxDecoration(color: Colors.transparent),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(19),
+            child: Image.asset(
+              'assets/branding/prop_intelligence_icon.png',
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: const Color(0xFF07111B),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.track_changes_rounded,
+                    color: app_colors.AppColors.gold,
+                    size: 70,
+                  ),
+                );
+              },
+            ),
+          ),
         ),
-        PropBuilderScreen(
-          activeSlipController: _activeSlipController,
-          isManualSportsMode: _hasManualBuilderSportsSelection,
-          initialSelectedSports: _selectedBuilderSports.toList(),
-          onSelectedSportsChanged: _handleBuilderSportsChanged,
-          onResetSportsAutoSync: _resetBuilderSportsAutoSync,
+        const SizedBox(height: 9),
+        const Text(
+          'PROP INTELLIGENCE',
+          style: TextStyle(
+            color: app_colors.AppColors.gold,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 3.1,
+          ),
         ),
-        PropWatchlistScreen(activeSlipController: _activeSlipController),
-        const PropBuilderPerformanceScreen(),
       ],
     );
   }
@@ -485,17 +689,99 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         if (existing.side == side) {
           _slipSelections.removeAt(existingIndex);
           unawaited(_activeSlipController.removeLeg(existing.prop.id));
+          SlipManager.removePropById(existing.prop.id);
         } else {
           _slipSelections[existingIndex] = selection;
           unawaited(
             _activeSlipController.updateLeg(_selectionToLeg(selection)),
           );
+          SlipManager.upsertProp(_selectionToLeg(selection));
         }
       } else {
+        if (_isMixedSiteAttempt(selection)) {
+          _showMixedSiteNotAllowedMessage();
+          return;
+        }
         _slipSelections.add(selection);
         unawaited(_activeSlipController.addLegs([_selectionToLeg(selection)]));
+        SlipManager.upsertProp(_selectionToLeg(selection));
       }
     });
+  }
+
+  bool _isMixedSiteAttempt(SlipSelection incoming) {
+    if (_activeSlipController.legs.isEmpty) {
+      return false;
+    }
+    final activeSite = _normalizedSiteFromLeg(_activeSlipController.legs.first);
+    final incomingSite = _normalizedSite(incoming.prop.sportsbook);
+    if (activeSite.isEmpty || incomingSite.isEmpty) {
+      return false;
+    }
+    return activeSite != incomingSite;
+  }
+
+  String _normalizedSiteFromLeg(Map<String, dynamic> leg) {
+    return _normalizedSite(
+      leg['prop_site']?.toString() ??
+          leg['sportsbook']?.toString() ??
+          leg['site']?.toString() ??
+          '',
+    );
+  }
+
+  String _normalizedSite(String value) {
+    final normalized = value
+        .trim()
+        .toUpperCase()
+        .replaceAll(' ', '')
+        .replaceAll('_', '')
+        .replaceAll('-', '');
+    if (normalized.contains('PRIZEPICKS')) {
+      return 'PRIZEPICKS';
+    }
+    if (normalized.contains('UNDERDOG')) {
+      return 'UNDERDOG';
+    }
+    if (normalized.contains('SLEEPER')) {
+      return 'SLEEPER';
+    }
+    if (normalized.contains('FANDUEL')) {
+      return 'FANDUEL';
+    }
+    if (normalized.contains('DRAFTKINGS')) {
+      return 'DRAFTKINGS';
+    }
+    if (normalized.contains('DRAFTPICKS')) {
+      return 'DRAFT PICKS';
+    }
+    return normalized;
+  }
+
+  void _showMixedSiteNotAllowedMessage() {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Color(0xFFE9A713),
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(10)),
+        ),
+        content: Text(
+          'Not allowed: picks must be from the same prop site.',
+          style: TextStyle(
+            color: Color(0xFF050A0F),
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.2,
+          ),
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   Map<String, dynamic> _selectionToLeg(SlipSelection selection) {
@@ -530,6 +816,9 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       'multiplier': prop.multiplier,
       'win_probability': prop.winProbability,
       'edge': prop.edge,
+      'confidence': prop.confidence,
+      'display_time': prop.localGameTimeDisplay,
+      'game_time': prop.gameTime,
       'player_image': prop.imagePath,
       'image_url': prop.imagePath,
       'headshot': prop.imagePath,
@@ -618,7 +907,6 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 
     setState(() {
       _isSavingSlip = true;
-      _slipMessage = null;
     });
 
     try {
@@ -629,16 +917,11 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       await _activeSlipController.clear();
       setState(() {
         _slipSelections.clear();
-        _slipMessage = 'Slip saved successfully.';
-        _showSavedSlips = true;
       });
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
-      setState(() {
-        _slipMessage = error.toString();
-      });
     } finally {
       if (mounted) {
         setState(() {
@@ -648,44 +931,24 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     }
   }
 
+  Future<void> _clearCurrentSlip() async {
+    await _activeSlipController.clear();
+    SlipManager.clearAllSlips();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _slipSelections.clear();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: leftSidebarWidth,
-          child: LeftSidebar(
-            selectedPage: _selectedPage,
-            selectedSport: _selectedBoardSport,
-            onSelectPage: (page) {
-              setState(() {
-                _showSavedSlips = false;
-                if (page == AppPage.propBuilder) {
-                  _seedBuilderSportFromBoardIfNeeded();
-                }
-                if (page != AppPage.board) {
-                  _selectedBoardSport = 'ALL';
-                }
-              });
-              _switchToPage(page, source: 'left-sidebar');
-            },
-            onSelectSport: _selectBoardSport,
-          ),
-        ),
-        Expanded(child: _buildMainContent()),
-        SizedBox(
-          width: rightSidebarWidth,
-          child: RightSidebar(
-            activeSlipController: _activeSlipController,
-            onSave: _openLockSlipDialog,
-            isSaving: _isSavingSlip,
-            message: _slipMessage,
-            showSavedSlips: _showSavedSlips,
-            onShowSavedSlips: _openSavedSlips,
-            onShowBuilder: _openBuilder,
-          ),
-        ),
-      ],
+    return AppShell(
+      leftSidebar: _buildLeftSidebar(),
+      topNavigation: _buildTopNavigation(),
+      content: _buildMainContent(),
+      rightSidebar: _buildRightPanel(),
     );
   }
 }
@@ -693,6 +956,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 class LeftSidebar extends StatefulWidget {
   final AppPage selectedPage;
   final String selectedSport;
+  final int activeSlipCount;
   final ValueChanged<AppPage>? onSelectPage;
   final ValueChanged<String>? onSelectSport;
 
@@ -700,6 +964,7 @@ class LeftSidebar extends StatefulWidget {
     super.key,
     required this.selectedPage,
     required this.selectedSport,
+    required this.activeSlipCount,
     this.onSelectPage,
     this.onSelectSport,
   });
@@ -710,6 +975,91 @@ class LeftSidebar extends StatefulWidget {
 
 class _LeftSidebarState extends State<LeftSidebar> {
   final ScrollController _sidebarScrollController = ScrollController();
+
+  void _openPremiumPaywallSheetMenu() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const BrandedPaywallModalSheet(),
+    );
+  }
+
+  Widget buildGoblinSidebarToggle() {
+    const primaryYellow = Color(0xFFFFD700);
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: GoblinManager.showGoblinsOnly,
+      builder: (context, goblinsActive, child) {
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+          child: InkWell(
+            onTap: GoblinManager.toggleGoblinFilter,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              decoration: BoxDecoration(
+                color: goblinsActive
+                    ? primaryYellow.withValues(alpha: 0.15)
+                    : const Color(0xFF1E222A),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: goblinsActive ? primaryYellow : Colors.white10,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.local_fire_department,
+                    color: goblinsActive ? primaryYellow : Colors.grey,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'GOBLINS TIER',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: goblinsActive ? primaryYellow : Colors.white70,
+                        fontWeight: goblinsActive
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _sportEmoji(String sport) {
+    switch (sport) {
+      case 'MLB':
+        return '⚾';
+      case 'NFL':
+        return '🏈';
+      case 'NBA':
+        return '🏀';
+      case 'WNBA':
+        return '🏀';
+      case 'PGA':
+        return '⛳';
+      case 'TENNIS':
+        return '🎾';
+      case 'SOCCER':
+        return '⚽';
+      case 'UFC':
+        return '🥊';
+      default:
+        return '•';
+    }
+  }
 
   @override
   void dispose() {
@@ -723,11 +1073,10 @@ class _LeftSidebarState extends State<LeftSidebar> {
       'MLB',
       'NFL',
       'NBA',
-      'PGA',
       'WNBA',
+      'PGA',
       'TENNIS',
       'SOCCER',
-      'NHL',
       'UFC',
     ];
 
@@ -756,6 +1105,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                 children: [
                   SidebarButton(
                     label: 'BOARD',
+                    leadingIcons: const [Icons.tune_rounded],
                     selected:
                         widget.selectedPage == AppPage.board &&
                         widget.selectedSport == 'ALL',
@@ -764,22 +1114,89 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   const SizedBox(height: 6),
                   SidebarButton(
                     label: 'PROP BUILDER',
+                    leadingIcons: const [Icons.category_outlined],
                     selected: widget.selectedPage == AppPage.propBuilder,
                     premium: true,
+                    showGoldBar: true,
                     onTap: () => widget.onSelectPage?.call(AppPage.propBuilder),
                   ),
                   const SizedBox(height: 6),
                   SidebarButton(
-                    label: 'WATCHLIST',
+                    label: 'ACTIVE WATCHLIST',
+                    leadingIcons: const [Icons.groups_outlined],
                     selected: widget.selectedPage == AppPage.watchlist,
+                    badge: '${widget.activeSlipCount}',
                     onTap: () => widget.onSelectPage?.call(AppPage.watchlist),
                   ),
                   const SizedBox(height: 6),
                   SidebarButton(
                     label: 'BUILDER PERFORMANCE',
+                    leadingIcons: const [Icons.grid_view_rounded],
                     selected: widget.selectedPage == AppPage.builderPerformance,
+                    premium: true,
+                    showGoldBar: true,
                     onTap: () =>
                         widget.onSelectPage?.call(AppPage.builderPerformance),
+                  ),
+                  const SizedBox(height: 6),
+                  SidebarButton(
+                    label: 'EV SCANNER',
+                    selected: widget.selectedPage == AppPage.evScanner,
+                    premium: true,
+                    showGoldBar: true,
+                    leadingIcons: const [Icons.auto_graph],
+                    leadingIconColors: const [Color(0xFF00E676)],
+                    onTap: () => widget.onSelectPage?.call(AppPage.evScanner),
+                  ),
+                  ValueListenableBuilder<AuthSessionState>(
+                    valueListenable: AuthManager.instance.sessionState,
+                    builder: (context, authState, _) {
+                      if (authState.isPremium) {
+                        return Container(
+                          margin: const EdgeInsets.only(top: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF122030),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF24C47E)),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.verified,
+                                color: Color(0xFF24C47E),
+                                size: 16,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'ELITE ACTIVE',
+                                style: TextStyle(
+                                  color: Color(0xFF24C47E),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: SidebarButton(
+                          label: 'UPGRADE',
+                          premium: true,
+                          showGoldBar: true,
+                          leadingIcons: const [Icons.workspace_premium],
+                          leadingIconColors: const [Color(0xFFFFC72C)],
+                          onTap: _openPremiumPaywallSheetMenu,
+                        ),
+                      );
+                    },
                   ),
                   const Divider(height: 22, color: AppColors.border),
                   ...sports.map(
@@ -787,6 +1204,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                       padding: const EdgeInsets.only(bottom: 3),
                       child: SidebarButton(
                         label: sport,
+                        leadingEmojis: [_sportEmoji(sport)],
                         selected:
                             widget.selectedPage == AppPage.board &&
                             widget.selectedSport == sport,
@@ -794,7 +1212,71 @@ class _LeftSidebarState extends State<LeftSidebar> {
                       ),
                     ),
                   ),
+                  buildGoblinSidebarToggle(),
+                  const Divider(height: 24, color: AppColors.border),
+                  SidebarButton(
+                    label: 'GOBLINS / DEMONS',
+                    selected: widget.selectedPage == AppPage.goblinsDemons,
+                    premium: true,
+                    leadingIcons: const [Icons.masks_outlined, Icons.whatshot],
+                    leadingIconColors: const [
+                      Color(0xFF56F08F),
+                      Color(0xFFFF5656),
+                    ],
+                    onTap: () =>
+                        widget.onSelectPage?.call(AppPage.goblinsDemons),
+                  ),
                 ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            child: ValueListenableBuilder<int>(
+              valueListenable: boardPropCountNotifier,
+              builder: (context, count, _) => Container(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF07131D),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'TOTAL PROPS',
+                      style: TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '$count',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        const Text(
+                          'LIVE',
+                          style: TextStyle(
+                            color: Color(0xFF52E33F),
+                            fontSize: 8,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -813,12 +1295,12 @@ class _SidebarHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'THE DAILY SPIN',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+          'PROP',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
         ),
         SizedBox(height: 5),
         Text(
-          'PROP INTELLIGENCE',
+          'INTELLIGENCE',
           style: TextStyle(
             color: AppColors.goldBright,
             fontSize: 10,
@@ -835,7 +1317,12 @@ class SidebarButton extends StatelessWidget {
   final String label;
   final bool selected;
   final bool premium;
+  final bool showGoldBar;
   final String? badge;
+  final List<IconData>? leadingIcons;
+  final List<Color>? leadingIconColors;
+  final List<String>? leadingEmojis;
+  final List<Color>? leadingEmojiGradient;
   final VoidCallback? onTap;
 
   const SidebarButton({
@@ -843,32 +1330,100 @@ class SidebarButton extends StatelessWidget {
     required this.label,
     this.selected = false,
     this.premium = false,
+    this.showGoldBar = false,
     this.badge,
+    this.leadingIcons,
+    this.leadingIconColors,
+    this.leadingEmojis,
+    this.leadingEmojiGradient,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final textColor = selected ? const Color(0xFFFFC400) : Colors.white;
+    final isActiveWatchlist = label.toUpperCase() == 'ACTIVE WATCHLIST';
+    final watchlistHasActiveSlips =
+        isActiveWatchlist && (int.tryParse((badge ?? '0').trim()) ?? 0) > 0;
+    final textColor = selected || watchlistHasActiveSlips
+        ? const Color(0xFFFFC400)
+        : Colors.white;
+    final textWeight = selected || watchlistHasActiveSlips
+        ? FontWeight.w900
+        : FontWeight.w700;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
         child: Row(
           children: [
+            if (leadingEmojis != null) ...[
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: leadingEmojis!
+                    .map(
+                      (emoji) => Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Container(
+                          width: 20,
+                          height: 20,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors:
+                                  leadingEmojiGradient ??
+                                  const [Color(0xFF203246), Color(0xFF314A60)],
+                            ),
+                            border: Border.all(color: const Color(0x73FFC72C)),
+                          ),
+                          child: Text(
+                            emoji,
+                            style: const TextStyle(fontSize: 10),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+              const SizedBox(width: 8),
+            ] else if (leadingIcons != null) ...[
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(leadingIcons!.length, (index) {
+                  final icon = leadingIcons![index];
+                  final color =
+                      leadingIconColors != null &&
+                          index < leadingIconColors!.length
+                      ? leadingIconColors![index]
+                      : textColor;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(icon, size: 14, color: color),
+                  );
+                }),
+              ),
+              const SizedBox(width: 8),
+            ],
             Expanded(
               child: Text(
                 label,
                 style: TextStyle(
                   color: textColor,
-                  fontSize: 14,
-                  fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+                  fontSize: 10,
+                  fontWeight: textWeight,
                   letterSpacing: 0.2,
                 ),
               ),
             ),
-            if (premium || badge != null)
+            if (badge != null)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -876,12 +1431,40 @@ class SidebarButton extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  badge ?? 'PRO',
-                  style: TextStyle(
+                  badge!,
+                  style: const TextStyle(
                     color: Color(0xFF07131F),
                     fontSize: 9,
                     fontWeight: FontWeight.w900,
                   ),
+                ),
+              ),
+            if (badge == null && premium)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFC400),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.workspace_premium,
+                      size: 12,
+                      color: Color(0xFF07131F),
+                    ),
+                    SizedBox(width: 5),
+                    Text(
+                      'PRO',
+                      style: TextStyle(
+                        color: Color(0xFF07131F),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
           ],
@@ -896,7 +1479,6 @@ class MainDashboard extends StatefulWidget {
   final void Function(PropData prop, PickSide side) onSelect;
   final String sportFilter;
   final AppPage selectedPage;
-  final ValueChanged<AppPage> onSelectTopPage;
 
   const MainDashboard({
     super.key,
@@ -904,7 +1486,6 @@ class MainDashboard extends StatefulWidget {
     required this.onSelect,
     required this.sportFilter,
     required this.selectedPage,
-    required this.onSelectTopPage,
   });
 
   @override
@@ -917,24 +1498,29 @@ class _MainDashboardState extends State<MainDashboard> {
   final ScrollController _boardVerticalController = ScrollController();
   final ScrollController _categoryHorizontalController = ScrollController();
   Timer? _searchDebounce;
-  String _searchQuery = '';
+  final String _searchQuery = '';
   String _selectedSite = 'ALL';
   String _selectedCategory = 'ALL';
-  String _selectedSide = 'All';
-  String _selectedTier = 'All';
+  final String _selectedSide = 'All';
+  final String _selectedTier = 'All';
   int _minConfidence = 0;
-  String _sortBy = 'confidence';
-  int _propCount = 0;
+  String _sortBy = 'source';
   DateTime _currentTime = DateTime.now();
   Timer? _clockTimer;
   DateTime? _lastUpdated;
   List<PropData> _latestProps = const [];
-  List<_PropAlertData> _propAlerts = const [];
+  List<PropData> _evScannerProps = const [];
+  bool _isEvScannerLoading = false;
+  String? _evScannerError;
+  List<PropAlertData> _propAlerts = const [];
 
   @override
   void initState() {
     super.initState();
     unawaited(_loadPropAlerts());
+    if (widget.selectedPage == AppPage.evScanner) {
+      unawaited(_loadEvScannerProps());
+    }
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) {
         return;
@@ -962,6 +1548,50 @@ class _MainDashboardState extends State<MainDashboard> {
       setState(() {
         _selectedCategory = 'ALL';
       });
+      if (widget.selectedPage == AppPage.evScanner) {
+        unawaited(_loadEvScannerProps());
+      }
+    }
+    if (oldWidget.selectedPage != widget.selectedPage &&
+        widget.selectedPage == AppPage.evScanner) {
+      unawaited(_loadEvScannerProps());
+    }
+  }
+
+  Future<void> _loadEvScannerProps() async {
+    if (_isEvScannerLoading) {
+      return;
+    }
+
+    setState(() {
+      _isEvScannerLoading = true;
+      _evScannerError = null;
+    });
+
+    try {
+      final props = await _apiService.fetchPositiveEvProps(
+        minEv: 0.0,
+        sport: widget.sportFilter,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _evScannerProps = props;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _evScannerError = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isEvScannerLoading = false;
+        });
+      }
     }
   }
 
@@ -977,18 +1607,18 @@ class _MainDashboardState extends State<MainDashboard> {
     }
     setState(() {
       _latestProps = props;
-      _propCount = propCount;
       _lastUpdated = DateTime.now();
     });
+    boardPropCountNotifier.value = propCount;
     unawaited(_loadPropAlerts(fallbackProps: props));
   }
 
-  _PropAlertData _parsePropAlert(Map<String, dynamic> value) {
+  PropAlertData _parsePropAlert(Map<String, dynamic> value) {
     final edgeRaw = value['edge'];
     final edge = edgeRaw is num
         ? edgeRaw.toInt()
         : int.tryParse('$edgeRaw') ?? 0;
-    return _PropAlertData(
+    return PropAlertData(
       sport: value['sport']?.toString() ?? 'ALL',
       title: value['title']?.toString() ?? 'Prop Alert',
       message: value['message']?.toString() ?? '',
@@ -998,10 +1628,10 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
-  List<_PropAlertData> _fallbackPropAlertsFromProps(List<PropData> props) {
+  List<PropAlertData> _fallbackPropAlertsFromProps(List<PropData> props) {
     if (props.isEmpty) {
       return const [
-        _PropAlertData(
+        PropAlertData(
           sport: 'ALL',
           title: 'No Props Loaded',
           message:
@@ -1026,7 +1656,7 @@ class _MainDashboardState extends State<MainDashboard> {
     final hot = props.where((p) => p.confidence >= 90).length;
 
     return [
-      _PropAlertData(
+      PropAlertData(
         sport: _normalizeSport(top.sport),
         title: 'Best Edge Alert',
         message:
@@ -1035,7 +1665,7 @@ class _MainDashboardState extends State<MainDashboard> {
         book: top.sportsbook,
         time: 'now',
       ),
-      _PropAlertData(
+      PropAlertData(
         sport: topSport.key,
         title: 'Most Active Sport',
         message:
@@ -1045,7 +1675,7 @@ class _MainDashboardState extends State<MainDashboard> {
         time: 'now',
       ),
       if (hot > 0)
-        _PropAlertData(
+        PropAlertData(
           sport: 'ALL',
           title: 'High Edge Cluster',
           message: '$hot props are at 90%+ edge right now.',
@@ -1081,18 +1711,6 @@ class _MainDashboardState extends State<MainDashboard> {
     }
   }
 
-  String _formatLocalTime(DateTime value) {
-    final hour = value.hour == 0
-        ? 12
-        : value.hour > 12
-        ? value.hour - 12
-        : value.hour;
-    final minute = value.minute.toString().padLeft(2, '0');
-    final second = value.second.toString().padLeft(2, '0');
-    final period = value.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute:$second $period';
-  }
-
   String _formatLocalDate(DateTime value) {
     const months = [
       'JAN',
@@ -1126,11 +1744,6 @@ class _MainDashboardState extends State<MainDashboard> {
     return '$hour:$minute $period';
   }
 
-  String _formatDayOfWeek(DateTime value) {
-    const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-    return days[value.weekday - 1];
-  }
-
   String _normalizeSite(String value) {
     final normalized = value
         .trim()
@@ -1146,6 +1759,9 @@ class _MainDashboardState extends State<MainDashboard> {
     }
     if (normalized.contains('DRAFTKINGS')) {
       return 'DRAFTKINGS';
+    }
+    if (normalized.contains('DRAFTPICKS')) {
+      return 'DRAFT PICKS';
     }
     if (normalized.contains('FANDUEL')) {
       return 'FANDUEL';
@@ -1296,6 +1912,18 @@ class _MainDashboardState extends State<MainDashboard> {
 
   List<String> get _currentCategories {
     final sport = _normalizeSport(widget.sportFilter);
+    if (sport == 'ALL') {
+      return const [
+        'ALL',
+        'POINTS',
+        'REBOUNDS',
+        'ASSISTS',
+        'PRA',
+        'PTS+REBS+ASTS',
+        'BLOCKS+STEALS',
+        '3PT MADE',
+      ];
+    }
     return sportPropCategories[sport] ?? const ['ALL'];
   }
 
@@ -1704,14 +2332,6 @@ class _MainDashboardState extends State<MainDashboard> {
         .toList();
   }
 
-  int _categoryCount(String category) {
-    final scoped = _propsBeforeCategoryFilter;
-    if (category == 'ALL') {
-      return scoped.length;
-    }
-    return scoped.where((prop) => _marketCategory(prop) == category).length;
-  }
-
   // ignore: unused_element
   Future<void> _showPropAlertsOverlay(List<PropData> visibleProps) async {
     if (_propAlerts.isEmpty) {
@@ -1799,9 +2419,399 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
+  Widget _buildBoardSearchAndBooks() {
+    const books = [
+      'ALL',
+      'PRIZEPICKS',
+      'UNDERDOG',
+      'FANDUEL',
+      'SLEEPER',
+      'DRAFT PICKS',
+    ];
+    Widget bookMark(String book) {
+      if (book == 'ALL') {
+        return const Icon(Icons.keyboard_arrow_down, size: 13);
+      }
+      final (letter, color) = switch (book) {
+        'PRIZEPICKS' => ('P', const Color(0xFF9B5CFF)),
+        'UNDERDOG' => ('U', const Color(0xFFFFC400)),
+        'FANDUEL' => ('F', const Color(0xFF1685F8)),
+        'SLEEPER' => ('S', const Color(0xFF65D8EF)),
+        _ => ('D', const Color(0xFF8D4DFF)),
+      };
+      return Container(
+        width: 15,
+        height: 15,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        child: Text(
+          letter,
+          style: const TextStyle(
+            color: Color(0xFF06111B),
+            fontSize: 7,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 42,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: books.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 6),
+              itemBuilder: (context, index) {
+                final book = books[index];
+                final selected = _selectedSite == book;
+                return OutlinedButton(
+                  onPressed: () => setState(() {
+                    _selectedSite = book;
+                    _selectedCategory = 'ALL';
+                  }),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: selected ? AppColors.gold : Colors.white,
+                    backgroundColor: selected
+                        ? AppColors.gold.withValues(alpha: .10)
+                        : const Color(0xFF07131D),
+                    side: BorderSide(
+                      color: selected ? AppColors.gold : AppColors.border,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (book != 'ALL') ...[
+                        bookMark(book),
+                        const SizedBox(width: 6),
+                      ],
+                      Text(
+                        book == 'ALL' ? 'All Prop Sites' : book,
+                        style: const TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (book == 'ALL') ...[
+                        const SizedBox(width: 5),
+                        bookMark(book),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBoardIntelligence() {
+    final props = _visibleProps;
+    final top = props.isEmpty
+        ? null
+        : ([...props]..sort((a, b) => b.edge.compareTo(a.edge))).first;
+    final averageEdge = props.isEmpty
+        ? 0.0
+        : props.fold<double>(0, (sum, prop) => sum + prop.edge) / props.length;
+    final hitLeader = props.isEmpty
+        ? null
+        : ([
+            ...props,
+          ]..sort((a, b) => b.confidence.compareTo(a.confidence))).first;
+    final entries = <(String, String, String)>[
+      (
+        'TOP EDGE',
+        top?.player ?? 'Waiting for props',
+        top == null ? '--' : '+${top.edge.toStringAsFixed(2)}%',
+      ),
+      (
+        'AVG EDGE',
+        '${averageEdge >= 0 ? '+' : ''}${averageEdge.toStringAsFixed(2)}%',
+        'Across visible props',
+      ),
+      (
+        'HIGHEST HIT RATE',
+        hitLeader?.player ?? '--',
+        hitLeader == null ? '--' : '${hitLeader.confidence}%',
+      ),
+      (
+        'PROPS WITH EDGE',
+        '${props.where((p) => p.edge > 0).length}',
+        '${props.length} visible',
+      ),
+      (
+        'LAST UPDATED',
+        _formatLastUpdated(_lastUpdated),
+        _formatLocalDate(_currentTime),
+      ),
+    ];
+    return Container(
+      height: 68,
+      decoration: BoxDecoration(
+        color: const Color(0xFF07131D),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < entries.length; i++) ...[
+            Expanded(
+              flex: i == 0 || i == 2 ? 3 : 2,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      entries[i].$1,
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 7,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            entries[i].$2,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        if (i == 0 || i == 2)
+                          const SizedBox(
+                            width: 40,
+                            height: 20,
+                            child: CustomPaint(
+                              painter: _BoardSparklinePainter(),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      entries[i].$3,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: i < 3
+                            ? const Color(0xFF62E34F)
+                            : AppColors.muted,
+                        fontSize: 7,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (i < entries.length - 1)
+              Container(width: 1, height: 44, color: AppColors.border),
+          ],
+          OutlinedButton.icon(
+            onPressed: _showBoardFilterOptions,
+            icon: const Icon(Icons.filter_alt_outlined, size: 14),
+            label: const Text('Filter Options', style: TextStyle(fontSize: 8)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: AppColors.border),
+              padding: const EdgeInsets.symmetric(horizontal: 9),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showBoardFilterOptions() async {
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        backgroundColor: const Color(0xFF07131D),
+        title: const Text(
+          'Filter Options',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        children: [
+          RadioGroup<String>(
+            groupValue: _sortBy,
+            onChanged: (value) => Navigator.pop(dialogContext, value),
+            child: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioListTile<String>(
+                  value: 'source',
+                  activeColor: AppColors.gold,
+                  title: Text(
+                    'Board order',
+                    style: TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
+                RadioListTile<String>(
+                  value: 'edge',
+                  activeColor: AppColors.gold,
+                  title: Text(
+                    'Highest edge',
+                    style: TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
+                RadioListTile<String>(
+                  value: 'confidence',
+                  activeColor: AppColors.gold,
+                  title: Text(
+                    'Highest confidence',
+                    style: TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (selected != null && mounted) {
+      setState(() => _sortBy = selected);
+    }
+  }
+
+  Widget _buildBoardCategories() {
+    final categories = _currentCategories;
+    IconData categoryIcon(String category) => switch (category) {
+      'ALL' => Icons.grid_view_rounded,
+      'POINTS' => Icons.control_point_rounded,
+      'REBOUNDS' => Icons.sports_basketball,
+      'ASSISTS' => Icons.hub_outlined,
+      'PRA' => Icons.person_pin_circle_outlined,
+      'PTS+REBS+ASTS' => Icons.account_tree_outlined,
+      'BLOCKS+STEALS' => Icons.swap_calls_rounded,
+      '3PT MADE' => Icons.adjust_rounded,
+      _ => Icons.apps,
+    };
+    int categoryCount(String category) => category == 'ALL'
+        ? _latestProps.length
+        : _latestProps
+              .where((prop) => _marketCategory(prop) == category)
+              .length;
+    return SizedBox(
+      height: 49,
+      child: Row(
+        children: [
+          Expanded(
+            child: ListView.separated(
+              controller: _categoryHorizontalController,
+              scrollDirection: Axis.horizontal,
+              itemCount: categories.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 4),
+              itemBuilder: (context, index) {
+                final category = categories[index];
+                final selected = _effectiveSelectedCategory == category;
+                return OutlinedButton(
+                  onPressed: () => setState(() => _selectedCategory = category),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: selected ? AppColors.gold : Colors.white,
+                    backgroundColor: const Color(0xFF07131D),
+                    side: BorderSide(
+                      color: selected ? AppColors.gold : AppColors.border,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(categoryIcon(category), size: 13),
+                      const SizedBox(width: 6),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            category,
+                            style: const TextStyle(
+                              fontSize: 7.5,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            '${categoryCount(category)}',
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 6,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 5),
+          SizedBox(
+            width: 42,
+            height: 49,
+            child: OutlinedButton(
+              onPressed: () {
+                if (!_categoryHorizontalController.hasClients) return;
+                final target = (_categoryHorizontalController.offset + 220)
+                    .clamp(
+                      0.0,
+                      _categoryHorizontalController.position.maxScrollExtent,
+                    )
+                    .toDouble();
+                _categoryHorizontalController.animateTo(
+                  target,
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOut,
+                );
+              },
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.zero,
+                side: const BorderSide(color: AppColors.border),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(7),
+                ),
+              ),
+              child: const Icon(
+                Icons.chevron_right,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final visibleProps = _visibleProps;
     final alertsForPage = _propAlerts.isNotEmpty
         ? _propAlerts
         : _fallbackPropAlertsFromProps(_latestProps);
@@ -1809,18 +2819,77 @@ class _MainDashboardState extends State<MainDashboard> {
       color: AppColors.background,
       child: Column(
         children: [
-          TopNavigation(
-            selectedPage: widget.selectedPage,
-            onOpenPropAlerts: () {
-              unawaited(_showPropAlertsOverlay(visibleProps));
-            },
-            onTabSelected: widget.onSelectTopPage,
-          ),
           Expanded(
             child: widget.selectedPage == AppPage.searchPlayers
                 ? SearchPlayersPage(props: _latestProps)
+                : widget.selectedPage == AppPage.evScanner
+                ? _isEvScannerLoading && _evScannerProps.isEmpty
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.gold,
+                          ),
+                        )
+                      : _evScannerError != null && _evScannerProps.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Unable to load +EV feed.',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  _evScannerError!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Color(0xFF9AA7B6),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                OutlinedButton(
+                                  onPressed: () {
+                                    unawaited(_loadEvScannerProps());
+                                  },
+                                  child: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : _evScannerProps.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No positive EV props available yet.',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        )
+                      : RefreshIndicator(
+                          color: AppColors.gold,
+                          onRefresh: _loadEvScannerProps,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.only(top: 8, bottom: 16),
+                            itemCount: _evScannerProps.length,
+                            itemBuilder: (context, index) {
+                              final prop = _evScannerProps[index];
+                              final market = _propMarket(prop);
+                              return PositiveEvScannerCard(
+                                player: prop.player,
+                                propType: market.isEmpty ? prop.market : market,
+                                lineValue: prop.line,
+                                slowBookmaker: prop.sportsbook,
+                                slowBookOdds: (prop.overOdds ?? -110).round(),
+                                evPercentage: prop.evPercentage ?? 0,
+                                fairProbability: prop.fairProbability ?? 0,
+                              );
+                            },
+                          ),
+                        )
                 : widget.selectedPage == AppPage.scoreboard
-                ? ScoreboardPage(selectedSport: widget.sportFilter)
+                ? const LiveScoreboardTickerGridWidget()
                 : widget.selectedPage == AppPage.propAlerts
                 ? PropAlertsPage(alerts: alertsForPage)
                 : widget.selectedPage == AppPage.analytics
@@ -1834,192 +2903,33 @@ class _MainDashboardState extends State<MainDashboard> {
                     thumbVisibility: true,
                     trackVisibility: true,
                     interactive: true,
-                    thickness: 8,
+                    thickness: 9,
                     radius: const Radius.circular(8),
+                    scrollbarOrientation: ScrollbarOrientation.right,
                     child: SingleChildScrollView(
                       controller: _boardVerticalController,
                       primary: false,
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(22, 18, 22, 30),
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 22),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          StatsPanel(
-                            totalProps: _latestProps.length,
-                            dayOfWeek: _formatDayOfWeek(_currentTime),
-                            currentTime: _formatLocalTime(_currentTime),
-                            currentDate: _formatLocalDate(_currentTime),
-                            lastUpdated: _formatLastUpdated(_lastUpdated),
-                          ),
-                          const SizedBox(height: 20),
-                          FilterBar(
-                            selectedSite: _selectedSite,
-                            onSelectSite: (site) {
-                              setState(() {
-                                _selectedSite = site;
-                                _selectedCategory = 'ALL';
-                              });
-                            },
-                            onReset: () {
-                              setState(() {
-                                _selectedSite = 'ALL';
-                                _selectedCategory = 'ALL';
-                                _selectedSide = 'All';
-                                _selectedTier = 'All';
-                                _minConfidence = 0;
-                                _sortBy = 'confidence';
-                                _searchQuery = '';
-                                _searchController.clear();
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              const Text(
-                                'PROP CATEGORIES',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const Spacer(),
-                              Text(
-                                '${visibleProps.length} visible',
-                                style: const TextStyle(
-                                  color: Color(0xFF8191A5),
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          SizedBox(
-                            height: 42,
-                            child: Scrollbar(
-                              controller: _categoryHorizontalController,
-                              thumbVisibility: false,
-                              child: ListView.separated(
-                                controller: _categoryHorizontalController,
-                                scrollDirection: Axis.horizontal,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                                itemCount: _currentCategories.length,
-                                separatorBuilder: (_, _) =>
-                                    const SizedBox(width: 7),
-                                itemBuilder: (context, index) {
-                                  final category = _currentCategories[index];
-                                  final selected =
-                                      _effectiveSelectedCategory == category;
-                                  final count = _categoryCount(category);
-                                  return InkWell(
-                                    borderRadius: BorderRadius.circular(18),
-                                    onTap: () {
-                                      setState(() {
-                                        _selectedCategory = category;
-                                      });
-                                    },
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 120,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 8,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: selected
-                                            ? AppColors.goldBright
-                                            : const Color(0xFF0C1C2A),
-                                        borderRadius: BorderRadius.circular(18),
-                                        border: Border.all(
-                                          color: selected
-                                              ? AppColors.goldBright
-                                              : const Color(0xFF294052),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Text(
-                                            category,
-                                            style: TextStyle(
-                                              color: selected
-                                                  ? const Color(0xFF07131F)
-                                                  : Colors.white,
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.w900,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 5),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 5,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: selected
-                                                  ? const Color(0xFF07131F)
-                                                  : const Color(0xFF050A0F),
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
-                                            child: Text(
-                                              '$count',
-                                              style: TextStyle(
-                                                color: selected
-                                                    ? AppColors.goldBright
-                                                    : AppColors.muted,
-                                                fontSize: 8,
-                                                fontWeight: FontWeight.w800,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
+                          _buildBoardSearchAndBooks(),
+                          const SizedBox(height: 12),
+                          _buildBoardIntelligence(),
+                          const SizedBox(height: 12),
+                          if (_selectedSite != 'ALL') ...[
+                            _buildBoardCategories(),
+                            const SizedBox(height: 10),
+                          ],
+                          /*Text(
+                            '${visibleProps.length} visible props • $_propCount total loaded',
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 11,
                             ),
                           ),
-                          const SizedBox(height: 18),
-                          ClipRRect(
-                            borderRadius: const BorderRadius.all(
-                              Radius.circular(3),
-                            ),
-                            child: const LinearProgressIndicator(
-                              minHeight: 4,
-                              value: 0.56,
-                              backgroundColor: AppColors.border,
-                              valueColor: AlwaysStoppedAnimation(
-                                AppColors.gold,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Text(
-                                'Props showing: $_propCount',
-                                style: const TextStyle(
-                                  color: AppColors.muted,
-                                  fontSize: 10,
-                                ),
-                              ),
-                              const Spacer(),
-                              Text(
-                                'Sort: ${_sortBy[0].toUpperCase()}${_sortBy.substring(1)}',
-                                style: TextStyle(
-                                  color: AppColors.text,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 10),*/
                           PropGrid(
                             selections: widget.selections,
                             onSelect: widget.onSelect,
@@ -3031,97 +3941,32 @@ class SearchPlayersPage extends StatelessWidget {
   }
 }
 
-class ActiveTicketBadge extends StatefulWidget {
-  final bool isSaving;
-  final String? message;
-
-  const ActiveTicketBadge({
-    super.key,
-    required this.isSaving,
-    required this.message,
-  });
-
-  @override
-  State<ActiveTicketBadge> createState() => _ActiveTicketBadgeState();
-}
-
-class _ActiveTicketBadgeState extends State<ActiveTicketBadge> {
-  final ApiService _apiService = ApiService();
-  int _activeTicketCount = 0;
-  Timer? _refreshTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_refreshActiveTickets());
-    _refreshTimer = Timer.periodic(
-      const Duration(minutes: 1),
-      (_) => _refreshActiveTickets(),
-    );
-  }
-
-  @override
-  void didUpdateWidget(covariant ActiveTicketBadge oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.isSaving && !widget.isSaving) {
-      unawaited(_refreshActiveTickets());
-    }
-    if (oldWidget.message != widget.message && widget.message != null) {
-      unawaited(_refreshActiveTickets());
-    }
-  }
-
-  @override
-  void dispose() {
-    _refreshTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _refreshActiveTickets() async {
-    try {
-      final slips = await _apiService.fetchSlips();
-      final active = slips.where((slip) {
-        final status = slip.status.trim().toLowerCase();
-        return status == 'active' ||
-            status == 'open' ||
-            status == 'live' ||
-            status == 'pending';
-      }).length;
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _activeTicketCount = active;
-      });
-    } catch (_) {}
-  }
+class PropIntelligenceBrandBadge extends StatelessWidget {
+  const PropIntelligenceBrandBadge({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(
-          Icons.confirmation_number_rounded,
-          size: 16,
-          color: AppColors.goldBright,
-        ),
-        const SizedBox(width: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: const Color(0xFF5A3B08),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text(
-            '$_activeTicketCount',
-            style: const TextStyle(
-              color: AppColors.goldBright,
-              fontWeight: FontWeight.bold,
-            ),
+    return SizedBox(
+      width: double.infinity,
+      height: double.infinity,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: ClipOval(
+          child: Image.asset(
+            'assets/branding/prop_intelligence_logo.png',
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return const Center(
+                child: Icon(
+                  Icons.sports,
+                  color: AppColors.goldBright,
+                  size: 24,
+                ),
+              );
+            },
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -3138,91 +3983,136 @@ class TopNavigation extends StatelessWidget {
     required this.onTabSelected,
   });
 
-  Widget _topNavItem(
-    String title, {
-    required bool selected,
-    required VoidCallback onTap,
+  Widget _buildNavItem({
+    required String label,
+    required AppPage page,
+    required IconData icon,
+    bool premium = false,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 24),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: selected ? const Color(0xFFFFC400) : Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+    final selected = selectedPage == page;
 
-  Widget _searchIconButton(VoidCallback onTap) {
-    final isSelected = selectedPage == AppPage.searchPlayers;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 34,
-        height: 34,
+    return InkWell(
+      onTap: () => onTabSelected(page),
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.fromLTRB(14, 15, 14, 13),
         decoration: BoxDecoration(
-          color: const Color(0xFF07111C),
-          borderRadius: BorderRadius.circular(10),
+          color: selected
+              ? app_colors.AppColors.gold.withValues(alpha: .07)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: const Color(
-              0xFFFFC400,
-            ).withValues(alpha: isSelected ? 1 : 0.75),
-            width: 1,
+            color: selected ? app_colors.AppColors.gold : Colors.transparent,
           ),
         ),
-        child: const Icon(Icons.search, color: Color(0xFFFFC400), size: 18),
-      ),
-    );
-  }
-
-  Widget compactPropAlertsButton(VoidCallback onTap) {
-    final isSelected = selectedPage == AppPage.propAlerts;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 34,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xFF07111C),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: const Color(
-              0xFFFFC72C,
-            ).withValues(alpha: isSelected ? 1 : 0.75),
-            width: 1,
-          ),
-        ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.notifications_active,
-              color: Color(0xFFFFC72C),
+              icon,
               size: 16,
+              color: selected
+                  ? app_colors.AppColors.gold
+                  : app_colors.AppColors.textSecondary,
             ),
-            SizedBox(width: 6),
+            const SizedBox(width: 7),
             Text(
-              'ALERTS',
+              label,
               style: TextStyle(
-                color: Color(0xFFFFC72C),
-                fontSize: 11,
+                color: selected
+                    ? app_colors.AppColors.gold
+                    : app_colors.AppColors.white,
+                fontSize: 9,
                 fontWeight: FontWeight.w900,
-                letterSpacing: 0.4,
+                letterSpacing: 0.5,
               ),
             ),
+            if (premium) ...[
+              const SizedBox(width: 7),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: app_colors.AppColors.gold,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Text(
+                  'PRO',
+                  style: TextStyle(
+                    color: Color(0xFF06111B),
+                    fontSize: 7,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchPlayersButton() {
+    return InkWell(
+      onTap: () => onTabSelected(AppPage.searchPlayers),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: const Color(0xFF091722),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: app_colors.AppColors.borderGold),
+        ),
+        child: const Icon(
+          Icons.search_rounded,
+          color: app_colors.AppColors.gold,
+          size: 18,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAlertButton() {
+    return InkWell(
+      onTap: onOpenPropAlerts,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: const Color(0xFF091722),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: app_colors.AppColors.border),
+        ),
+        child: const Icon(
+          Icons.notifications_none_rounded,
+          color: app_colors.AppColors.gold,
+          size: 19,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRefreshButton() {
+    return Tooltip(
+      message: 'Refresh props',
+      child: InkWell(
+        onTap: () => boardRefreshRequestNotifier.value++,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFF091722),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: app_colors.AppColors.border),
+          ),
+          child: const Icon(
+            Icons.refresh_rounded,
+            color: app_colors.AppColors.gold,
+            size: 19,
+          ),
         ),
       ),
     );
@@ -3231,45 +4121,84 @@ class TopNavigation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 22),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.border)),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _searchIconButton(() {
-              onTabSelected(AppPage.searchPlayers);
-            }),
-            const SizedBox(width: 14),
-            _topNavItem(
-              'SCOREBOARD',
-              selected: selectedPage == AppPage.scoreboard,
-              onTap: () => onTabSelected(AppPage.scoreboard),
+      color: Colors.transparent,
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      child: Row(
+        children: [
+          _buildSearchPlayersButton(),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Container(
+              padding: EdgeInsets.zero,
+              decoration: const BoxDecoration(color: Colors.transparent),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildNavItem(
+                      label: 'BOARD',
+                      page: AppPage.board,
+                      icon: Icons.dashboard_customize_outlined,
+                    ),
+                    const SizedBox(width: 6),
+                    _buildNavItem(
+                      label: 'SCOREBOARD',
+                      page: AppPage.scoreboard,
+                      icon: Icons.sports_score_rounded,
+                    ),
+                    const SizedBox(width: 6),
+                    _buildNavItem(
+                      label: 'ANALYTICS',
+                      page: AppPage.analytics,
+                      icon: Icons.analytics_outlined,
+                      premium: true,
+                    ),
+                    const SizedBox(width: 6),
+                    _buildNavItem(
+                      label: 'LINE MOVEMENT',
+                      page: AppPage.lineMovement,
+                      icon: Icons.stacked_line_chart_rounded,
+                      premium: true,
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const SizedBox(width: 28),
-            _topNavItem(
-              'ANALYTICS',
-              selected: selectedPage == AppPage.analytics,
-              onTap: () => onTabSelected(AppPage.analytics),
-            ),
-            const SizedBox(width: 28),
-            _topNavItem(
-              'LINE MOVEMENT',
-              selected: selectedPage == AppPage.lineMovement,
-              onTap: () => onTabSelected(AppPage.lineMovement),
-            ),
-            const SizedBox(width: 18),
-            compactPropAlertsButton(() {
-              onOpenPropAlerts();
-            }),
-          ],
-        ),
+          ),
+          const SizedBox(width: 12),
+          _buildRefreshButton(),
+          const SizedBox(width: 7),
+          _buildAlertButton(),
+        ],
       ),
     );
   }
+}
+
+class _BoardSparklinePainter extends CustomPainter {
+  const _BoardSparklinePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF52E33F)
+      ..strokeWidth = 1.3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final path = Path()
+      ..moveTo(0, size.height * .82)
+      ..lineTo(size.width * .12, size.height * .58)
+      ..lineTo(size.width * .25, size.height * .70)
+      ..lineTo(size.width * .42, size.height * .25)
+      ..lineTo(size.width * .57, size.height * .47)
+      ..lineTo(size.width * .72, size.height * .18)
+      ..lineTo(size.width * .86, size.height * .28)
+      ..lineTo(size.width, 0);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class StatsPanel extends StatelessWidget {
@@ -3432,8 +4361,8 @@ class StatsPanel extends StatelessWidget {
   }
 }
 
-class _PropAlertData {
-  const _PropAlertData({
+class PropAlertData {
+  const PropAlertData({
     required this.sport,
     required this.title,
     required this.message,
@@ -3453,7 +4382,7 @@ class _PropAlertData {
 class _PropAlertCard extends StatelessWidget {
   const _PropAlertCard({required this.alert});
 
-  final _PropAlertData alert;
+  final PropAlertData alert;
 
   @override
   Widget build(BuildContext context) {
@@ -3545,7 +4474,7 @@ class _PropAlertCard extends StatelessWidget {
 class PropAlertsPage extends StatelessWidget {
   const PropAlertsPage({super.key, required this.alerts});
 
-  final List<_PropAlertData> alerts;
+  final List<PropAlertData> alerts;
 
   @override
   Widget build(BuildContext context) {
@@ -3713,6 +4642,171 @@ class _FilterBarState extends State<FilterBar> {
   }
 }
 
+// TODO: Reconnect this curated preview dataset to the public demo experience.
+// ignore: unused_element
+List<PropData> _boardPreviewProps() {
+  const rows = <Map<String, dynamic>>[
+    {
+      'id': 'preview-jokic',
+      'player': 'Nikola Jokic',
+      'sport': 'NBA',
+      'matchup': 'DEN @ MIN',
+      'sportsbook': 'PRIZEPICKS',
+      'market': 'POINTS',
+      'line': 25.5,
+      'projection': 27.8,
+      'edge': 12.45,
+      'confidence': 68,
+      'pick': 'OVER',
+      'pick_text': 'OVER 25.5',
+      'recommended_side': 'OVER',
+      'over_odds': 1.85,
+      'under_odds': 1.85,
+      'player_image': 'assets/players/nikola_jokic.png',
+      'display_time': 'Today • 8:00 PM',
+    },
+    {
+      'id': 'preview-shai',
+      'player': 'Shai Gilgeous-Alexander',
+      'sport': 'NBA',
+      'matchup': 'OKC @ DAL',
+      'sportsbook': 'UNDERDOG',
+      'market': 'POINTS',
+      'line': 29.5,
+      'projection': 31.6,
+      'edge': 9.31,
+      'confidence': 64,
+      'pick': 'OVER',
+      'pick_text': 'OVER 29.5',
+      'recommended_side': 'OVER',
+      'over_odds': 1.90,
+      'under_odds': 1.80,
+      'player_image':
+          'https://cdn.nba.com/headshots/nba/latest/1040x760/1628983.png',
+      'display_time': 'Today • 8:30 PM',
+    },
+    {
+      'id': 'preview-luka',
+      'player': 'Luka Doncic',
+      'sport': 'NBA',
+      'matchup': 'LAL @ GS',
+      'sportsbook': 'FANDUEL',
+      'market': 'ASSISTS',
+      'line': 8.5,
+      'projection': 7.9,
+      'edge': 8.72,
+      'confidence': 63,
+      'pick': 'UNDER',
+      'pick_text': 'UNDER 8.5',
+      'recommended_side': 'UNDER',
+      'over_odds': 1.88,
+      'under_odds': 1.88,
+      'player_image':
+          'https://cdn.nba.com/headshots/nba/latest/1040x760/1629029.png',
+      'display_time': 'Today • 10:00 PM',
+    },
+    {
+      'id': 'preview-aja',
+      'player': "A'ja Wilson",
+      'sport': 'WNBA',
+      'matchup': 'LVA @ PHX',
+      'sportsbook': 'SLEEPER',
+      'market': 'POINTS',
+      'line': 19.5,
+      'projection': 21.7,
+      'edge': 11.21,
+      'confidence': 78,
+      'pick': 'OVER',
+      'pick_text': 'OVER 19.5',
+      'recommended_side': 'OVER',
+      'over_odds': 1.92,
+      'under_odds': 1.78,
+      'player_image': 'assets/players/a_ja_wilson.png',
+      'display_time': 'Today • 9:00 PM',
+    },
+    {
+      'id': 'preview-allen',
+      'player': 'Josh Allen',
+      'sport': 'NFL',
+      'matchup': 'BUF @ KC',
+      'sportsbook': 'PRIZEPICKS',
+      'market': 'PASS YARDS',
+      'line': 275.5,
+      'projection': 289.3,
+      'edge': 7.18,
+      'confidence': 62,
+      'pick': 'OVER',
+      'pick_text': 'OVER 275.5',
+      'recommended_side': 'OVER',
+      'over_odds': 1.86,
+      'under_odds': 1.84,
+      'player_image': 'assets/players/josh_allen.png',
+      'display_time': 'Sun 1:00 PM',
+    },
+    {
+      'id': 'preview-burnes',
+      'player': 'Corbin Burnes',
+      'sport': 'MLB',
+      'matchup': 'BAL @ NYY',
+      'sportsbook': 'FANDUEL',
+      'market': 'STRIKEOUTS',
+      'line': 7.5,
+      'projection': 6.8,
+      'edge': 9.74,
+      'confidence': 66,
+      'pick': 'UNDER',
+      'pick_text': 'UNDER 7.5',
+      'recommended_side': 'UNDER',
+      'over_odds': 1.80,
+      'under_odds': 1.95,
+      'player_image':
+          'https://a.espncdn.com/i/headshots/mlb/players/full/39878.png',
+      'display_time': 'Today • 7:05 PM',
+    },
+    {
+      'id': 'preview-scottie',
+      'player': 'Scottie Scheffler',
+      'sport': 'PGA',
+      'matchup': 'PGA Championship',
+      'sportsbook': 'UNDERDOG',
+      'market': 'TOURNAMENT',
+      'line': 1.0,
+      'projection': 19.4,
+      'edge': 10.32,
+      'confidence': 70,
+      'pick': 'OVER',
+      'pick_text': 'WINNER',
+      'recommended_side': 'OVER',
+      'over_odds': 1.95,
+      'under_odds': 1.85,
+      'player_image':
+          'https://a.espncdn.com/i/headshots/golf/players/full/9478.png',
+      'display_time': 'May 18 • 10:20 AM',
+    },
+    {
+      'id': 'preview-israel',
+      'player': 'Israel Adesanya',
+      'sport': 'UFC',
+      'matchup': 'ADESANYA vs STRICKLAND 2',
+      'sportsbook': 'DRAFT PICKS',
+      'market': 'FIGHT TO GO',
+      'line': 5.0,
+      'projection': 4.3,
+      'edge': 6.55,
+      'confidence': 52,
+      'pick': 'UNDER',
+      'pick_text': 'UNDER 5.0',
+      'recommended_side': 'UNDER',
+      'over_odds': 2.05,
+      'under_odds': 1.70,
+      'player_image':
+          'https://a.espncdn.com/i/headshots/mma/players/full/4285679.png',
+      'display_time': 'Sat 10:00 PM',
+    },
+  ];
+  return rows.map(PropData.fromJson).toList(growable: false);
+}
+
 class PropGrid extends StatefulWidget {
   final List<SlipSelection> selections;
   final void Function(PropData prop, PickSide side) onSelect;
@@ -3767,8 +4861,8 @@ class _PropGridState extends State<PropGrid> {
   late Future<List<PropData>> _propsFuture;
   List<_PreparedProp> _preparedProps = const [];
   bool _isRefreshing = false;
-  String? _refreshError;
   int _visiblePropLimit = _visiblePropStep;
+  final Set<String> _favoritePropIds = <String>{};
 
   Future<void> _showMetricMeaningOverlay({
     required String title,
@@ -3801,6 +4895,9 @@ class _PropGridState extends State<PropGrid> {
     }
     if (normalized.contains('DRAFTKINGS')) {
       return 'DRAFTKINGS';
+    }
+    if (normalized.contains('DRAFTPICKS')) {
+      return 'DRAFT PICKS';
     }
     if (normalized.contains('FANDUEL')) {
       return 'FANDUEL';
@@ -4248,8 +5345,20 @@ class _PropGridState extends State<PropGrid> {
     if (!isNetwork) {
       return Image.asset(
         imagePath,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         errorBuilder: (_, _, _) {
+          final officialUrl = _officialMlbHeadshot(prop.player);
+          if (officialUrl != null) {
+            return CachedNetworkImage(
+              imageUrl: officialUrl,
+              fit: BoxFit.contain,
+              fadeInDuration: Duration.zero,
+              placeholder: (_, _) =>
+                  _playerPlaceholder(prop.player, size: size),
+              errorWidget: (_, _, _) =>
+                  _playerPlaceholder(prop.player, size: size),
+            );
+          }
           return _playerPlaceholder(prop.player, size: size);
         },
       );
@@ -4257,7 +5366,7 @@ class _PropGridState extends State<PropGrid> {
 
     return CachedNetworkImage(
       imageUrl: imagePath,
-      fit: BoxFit.cover,
+      fit: BoxFit.contain,
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,
       memCacheWidth: (size * 2).round(),
@@ -4304,6 +5413,612 @@ class _PropGridState extends State<PropGrid> {
   }
 
   Widget _buildPortraitPropCard(PropData prop, PickSide? selectedSide) {
+    final advisedSide =
+        prop.recommendedSide.toUpperCase().contains('UNDER') ||
+            prop.pick.toUpperCase() == 'UNDER'
+        ? PickSide.under
+        : PickSide.over;
+    final market = _marketCategory(prop);
+    final confidence = prop.confidence.clamp(0, 100);
+
+    Widget sideButton(PickSide side) {
+      final selected = side == selectedSide;
+      final advised = side == advisedSide;
+      final label = side == PickSide.over ? 'OVER' : 'UNDER';
+      return Expanded(
+        child: OutlinedButton(
+          onPressed: () => widget.onSelect(prop, side),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 36),
+            foregroundColor: selected || advised
+                ? AppColors.gold
+                : Colors.white,
+            backgroundColor: selected
+                ? AppColors.gold.withValues(alpha: .16)
+                : const Color(0xFF091620),
+            side: BorderSide(
+              color: selected || advised ? AppColors.gold : AppColors.border,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF0A1823), Color(0xFF06111A)],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gold, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '$market • ${prop.localGameTimeDisplay}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              InkWell(
+                onTap: () => setState(() {
+                  if (!_favoritePropIds.add(prop.id)) {
+                    _favoritePropIds.remove(prop.id);
+                  }
+                }),
+                child: Icon(
+                  _favoritePropIds.contains(prop.id)
+                      ? Icons.star
+                      : Icons.star_border,
+                  color: AppColors.gold,
+                  size: 19,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.gold.withValues(alpha: .13),
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(color: AppColors.gold),
+            ),
+            child: Text(
+              '★ BEST PICK: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}',
+              style: const TextStyle(
+                color: AppColors.gold,
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'EDGE • Model leans $confidence%',
+            style: const TextStyle(color: AppColors.muted, fontSize: 7.5),
+          ),
+          const SizedBox(height: 3),
+          const Text(
+            'Live market model',
+            style: TextStyle(color: AppColors.muted, fontSize: 7),
+          ),
+          const SizedBox(height: 8),
+          Center(
+            child: Container(
+              width: 66,
+              height: 66,
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.gold),
+              ),
+              child: ClipOval(child: _fastPlayerPhoto(prop, size: 62)),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.gold.withValues(alpha: .08),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: AppColors.gold),
+              ),
+              child: Text(
+                prop.sportsbook.toUpperCase(),
+                style: const TextStyle(
+                  color: AppColors.gold,
+                  fontSize: 7,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            prop.player,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            prop.matchup,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: AppColors.muted, fontSize: 7),
+          ),
+          const Spacer(),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Text(
+                  '${prop.line.toStringAsFixed(1)} PLAYER $market',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.gold,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '$confidence%',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const Text(
+                    'EDGE',
+                    style: TextStyle(color: AppColors.muted, fontSize: 6),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              value: confidence / 100,
+              minHeight: 7,
+              color: AppColors.gold,
+              backgroundColor: AppColors.border,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              sideButton(PickSide.over),
+              const SizedBox(width: 8),
+              sideButton(PickSide.under),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // TODO: Remove after the redesigned production prop card is accepted.
+  // ignore: unused_element
+  Widget _buildCompactPortraitPropCardOld(
+    PropData prop,
+    PickSide? selectedSide,
+  ) {
+    final advisedSide =
+        prop.recommendedSide.toUpperCase().contains('UNDER') ||
+            prop.pick.toUpperCase() == 'UNDER'
+        ? PickSide.under
+        : PickSide.over;
+    final projection = prop.projection ?? prop.line;
+    final overOdds = prop.overOdds ?? 1.85;
+    final underOdds = prop.underOdds ?? 1.85;
+    final market = _marketCategory(prop);
+
+    String displayOdds(double odds) {
+      if (odds.abs() >= 100) {
+        final decimal = odds > 0 ? 1 + (odds / 100) : 1 + (100 / odds.abs());
+        return decimal.toStringAsFixed(2);
+      }
+      return odds.toStringAsFixed(2);
+    }
+
+    Widget sideButton(PickSide side, double odds) {
+      final advised = side == advisedSide;
+      final selected = side == selectedSide;
+      final isOver = side == PickSide.over;
+      return Expanded(
+        child: Tooltip(
+          message: advised
+              ? 'Model advised pick'
+              : 'Select ${isOver ? 'OVER' : 'UNDER'}',
+          child: OutlinedButton(
+            onPressed: () => widget.onSelect(prop, side),
+            style: OutlinedButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(0, 24),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+              foregroundColor: selected ? AppColors.gold : Colors.white,
+              backgroundColor: selected
+                  ? AppColors.gold.withValues(alpha: .18)
+                  : const Color(0xFF091620),
+              side: BorderSide(
+                color: selected ? AppColors.gold : AppColors.border,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(5),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isOver ? Icons.arrow_upward : Icons.arrow_downward,
+                      size: 13,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      isOver ? 'OVER' : 'UNDER',
+                      style: const TextStyle(
+                        fontSize: 7.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(displayOdds(odds), style: const TextStyle(fontSize: 7)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0A1823), Color(0xFF06111A)],
+        ),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 8, 5),
+            child: Row(
+              children: [
+                Text(
+                  prop.sport.toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 7,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const Spacer(),
+                _sportsbookMark(prop.sportsbook),
+                const SizedBox(width: 7),
+                InkWell(
+                  onTap: () => setState(() {
+                    if (!_favoritePropIds.add(prop.id)) {
+                      _favoritePropIds.remove(prop.id);
+                    }
+                  }),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: Icon(
+                      _favoritePropIds.contains(prop.id)
+                          ? Icons.star
+                          : Icons.star_border,
+                      color: AppColors.gold,
+                      size: 15,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 65,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 9),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  SizedBox(
+                    width: 58,
+                    height: 64,
+                    child: _fastPlayerPhoto(prop, size: 58),
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            prop.player,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            prop.matchup,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 7,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            prop.localGameTimeDisplay,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFFB9C3CD),
+                              fontSize: 6.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Container(height: 1, color: AppColors.border),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(9, 4, 9, 1),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        market,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.gold,
+                          fontSize: 7,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const Text(
+                      'BEST',
+                      style: TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 6,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    Tooltip(
+                      message: advisedSide == PickSide.over
+                          ? 'Model suggests OVER'
+                          : 'Model suggests UNDER',
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: AppColors.gold,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          advisedSide == PickSide.over ? 'O' : 'U',
+                          style: const TextStyle(
+                            color: Color(0xFF06111B),
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Text(
+                      'O/U ${prop.line.toStringAsFixed(1)}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    sideButton(PickSide.over, overOdds),
+                    const SizedBox(width: 6),
+                    sideButton(PickSide.under, underOdds),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _compactMetric(
+                        'EDGE',
+                        '+${prop.edge.toStringAsFixed(2)}%',
+                        const Color(0xFF61E34D),
+                      ),
+                    ),
+                    Expanded(
+                      child: _compactMetric(
+                        'PROJ',
+                        projection.toStringAsFixed(1),
+                        Colors.white,
+                      ),
+                    ),
+                    Expanded(
+                      child: _compactMetric(
+                        'HIT RATE',
+                        '${prop.confidence}%',
+                        prop.confidence >= 75
+                            ? const Color(0xFF61E34D)
+                            : Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String? _officialMlbHeadshot(String player) {
+    const ids = <String, int>{
+      'Drew Cavanaugh': 701852,
+      'Drew Gilbert': 687551,
+      'Jacob Wilson': 805779,
+      'Joey Meneses': 608841,
+      'Joey Ortiz': 687401,
+      'JT Ginn': 669372,
+      'Kyle Teel': 691019,
+      'Munetaka Murakami': 808959,
+      'Noah Schultz': 702273,
+      'Paul Skenes': 694973,
+      'Trevor McDonald': 686790,
+      'Troy Johnston': 687859,
+      'Tyler Soderstrom': 691016,
+    };
+    final id = ids[player.trim()];
+    if (id == null) return null;
+    return 'https://img.mlbstatic.com/mlb-photos/image/upload/'
+        'w_240,d_people:generic:headshot:67:current.png,q_auto:best/'
+        'v1/people/$id/headshot/67/current';
+  }
+
+  Widget _compactMetric(String label, String value, Color valueColor) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: AppColors.muted, fontSize: 6),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(
+            color: valueColor,
+            fontSize: 7.5,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _sportsbookMark(String sportsbook) {
+    final key = sportsbook.toUpperCase();
+    final color = key.contains('FANDUEL')
+        ? const Color(0xFF1685F8)
+        : key.contains('PRIZE')
+        ? const Color(0xFF9B5CFF)
+        : key.contains('UNDERDOG')
+        ? const Color(0xFFFFC400)
+        : key.contains('SLEEPER')
+        ? const Color(0xFF65D8EF)
+        : const Color(0xFF8D4DFF);
+    final label = key.contains('FANDUEL')
+        ? 'F'
+        : key.contains('PRIZE')
+        ? 'P'
+        : key.contains('UNDERDOG')
+        ? 'U'
+        : key.contains('SLEEPER')
+        ? 'S'
+        : 'D';
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 14,
+          height: 14,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF06111B),
+              fontSize: 7,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          sportsbook,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 7,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Retained temporarily while the compact reference card is validated.
+  // ignore: unused_element
+  Widget _buildLegacyPortraitPropCard(PropData prop, PickSide? selectedSide) {
     final side = prop.pick.trim().isEmpty ? 'BEST' : prop.pick.toUpperCase();
     final recommendationText = prop.pickText.trim().isEmpty
         ? 'No Pick'
@@ -4686,6 +6401,17 @@ class _PropGridState extends State<PropGrid> {
   void initState() {
     super.initState();
     _propsFuture = _loadProps();
+    boardRefreshRequestNotifier.addListener(_handleBoardRefreshRequest);
+  }
+
+  void _handleBoardRefreshRequest() {
+    unawaited(_refreshProps());
+  }
+
+  @override
+  void dispose() {
+    boardRefreshRequestNotifier.removeListener(_handleBoardRefreshRequest);
+    super.dispose();
   }
 
   @override
@@ -4722,12 +6448,13 @@ class _PropGridState extends State<PropGrid> {
   Future<List<PropData>> _loadProps() async {
     final fetchTimer = Stopwatch()..start();
     _startupLog('fetchProps() start');
-    final props = await _apiService.fetchProps(
+    final liveProps = await _apiService.fetchProps(
       selectedSide: widget.selectedSide,
       selectedTier: widget.selectedTier,
       minConfidence: widget.minConfidence,
       sortBy: widget.sortBy,
     );
+    final props = liveProps;
     _startupLog(
       'fetchProps() complete in ${fetchTimer.elapsedMilliseconds}ms (${props.length} props)',
     );
@@ -4747,24 +6474,22 @@ class _PropGridState extends State<PropGrid> {
 
     setState(() {
       _isRefreshing = true;
-      _refreshError = null;
     });
 
     try {
+      await _apiService.wakeBackend();
       await _apiService.syncProps();
+      await SlipManager.refreshSelectedProps(_apiService);
       if (!mounted) {
         return;
       }
       setState(() {
         _propsFuture = _loadProps();
       });
-    } catch (error) {
+    } catch (_) {
       if (!mounted) {
         return;
       }
-      setState(() {
-        _refreshError = error.toString();
-      });
     } finally {
       if (mounted) {
         setState(() {
@@ -4776,7 +6501,6 @@ class _PropGridState extends State<PropGrid> {
 
   void _retryLoad() {
     setState(() {
-      _refreshError = null;
       _propsFuture = _loadProps();
     });
   }
@@ -4786,11 +6510,6 @@ class _PropGridState extends State<PropGrid> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _PropToolbar(
-          isRefreshing: _isRefreshing,
-          errorMessage: _refreshError,
-          onRefresh: _refreshProps,
-        ),
         FutureBuilder<List<PropData>>(
           future: _propsFuture,
           builder: (context, snapshot) {
@@ -4840,7 +6559,7 @@ class _PropGridState extends State<PropGrid> {
 
             final props = filtered.map((prepared) => prepared.prop).toList();
 
-            int _tierRank(String tier) {
+            int tierRank(String tier) {
               switch (tier.trim().toLowerCase()) {
                 case 'premium':
                   return 3;
@@ -4853,7 +6572,7 @@ class _PropGridState extends State<PropGrid> {
               }
             }
 
-            DateTime _propStartTime(PropData prop) {
+            DateTime propStartTime(PropData prop) {
               final raw = prop.startTimeUtc.isNotEmpty
                   ? prop.startTimeUtc
                   : prop.gameStartTime;
@@ -4864,39 +6583,33 @@ class _PropGridState extends State<PropGrid> {
             final sortedProps = [...props]
               ..sort((left, right) {
                 switch (widget.sortBy) {
+                  case 'source':
+                    return 0;
                   case 'edge':
                     return right.edge.compareTo(left.edge);
                   case 'premium':
-                    final rankDiff =
-                        _tierRank(right.tier) - _tierRank(left.tier);
+                    final rankDiff = tierRank(right.tier) - tierRank(left.tier);
                     if (rankDiff != 0) {
                       return rankDiff;
                     }
                     return right.confidence.compareTo(left.confidence);
                   case 'time':
-                    return _propStartTime(
-                      left,
-                    ).compareTo(_propStartTime(right));
+                    return propStartTime(left).compareTo(propStartTime(right));
                   case 'confidence':
                   default:
                     return right.confidence.compareTo(left.confidence);
                 }
               });
             if (props.isEmpty) {
-              return const Center(
-                child: Text(
-                  'No props are currently available for this filter.',
-                  style: TextStyle(color: AppColors.muted, fontSize: 13),
-                ),
-              );
+              return const CentralPropsDisplayGridCanvas();
             }
 
             return LayoutBuilder(
               builder: (context, constraints) {
                 int columns;
-                if (constraints.maxWidth >= 980) {
-                  columns = 4;
-                } else if (constraints.maxWidth >= 640) {
+                if (constraints.maxWidth >= 760) {
+                  columns = 3;
+                } else if (constraints.maxWidth >= 560) {
                   columns = 3;
                 } else if (constraints.maxWidth >= 480) {
                   columns = 2;
@@ -4923,7 +6636,7 @@ class _PropGridState extends State<PropGrid> {
                         crossAxisCount: columns,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
-                        mainAxisExtent: 420,
+                        mainAxisExtent: 330,
                       ),
                       itemBuilder: (context, index) {
                         final prop = visibleProps[index];
@@ -4966,6 +6679,8 @@ class _PropGridState extends State<PropGrid> {
   }
 }
 
+// TODO: Reconnect this toolbar when manual feed refresh is exposed to users.
+// ignore: unused_element
 class _PropToolbar extends StatelessWidget {
   final bool isRefreshing;
   final String? errorMessage;
@@ -4977,6 +6692,24 @@ class _PropToolbar extends StatelessWidget {
     required this.onRefresh,
   });
 
+  String _formatStatus(BackendRefreshStatus status) {
+    if (status.lastRefreshAt == null || status.sourceUrl.isEmpty) {
+      return status.message;
+    }
+    final value = status.lastRefreshAt!.toLocal();
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    final second = value.second.toString().padLeft(2, '0');
+    return 'Last refresh $hour:$minute:$second via ${status.sourceUrl}';
+  }
+
+  Color _statusColor(BackendRefreshStatus status) {
+    if (status.lastRefreshAt == null || status.sourceUrl.isEmpty) {
+      return const Color(0xFFFFC72C);
+    }
+    return const Color(0xFF56D38A);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -4984,11 +6717,31 @@ class _PropToolbar extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              errorMessage ?? '',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: AppColors.muted, fontSize: 11),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  errorMessage ?? '',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                ),
+                ValueListenableBuilder<BackendRefreshStatus>(
+                  valueListenable: ApiService.refreshStatusNotifier,
+                  builder: (context, status, _) {
+                    return Text(
+                      _formatStatus(status),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: _statusColor(status),
+                        fontSize: 10,
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 12),
@@ -5027,6 +6780,9 @@ class _LoadError extends StatelessWidget {
 
   String _friendlyMessage() {
     final lower = message.toLowerCase();
+    if (lower.contains('timeoutexception') || lower.contains('timed out')) {
+      return 'The live prop feed is taking longer than expected. The backend is online; retry while it finishes loading the full dataset.';
+    }
     if (lower.contains('unable to connect') ||
         lower.contains('connection refused') ||
         lower.contains('socketexception') ||
@@ -5558,6 +7314,7 @@ class StatItem extends StatelessWidget {
 class RightSidebar extends StatelessWidget {
   final ActiveSlipController activeSlipController;
   final Future<void> Function() onSave;
+  final Future<void> Function() onClear;
   final bool isSaving;
   final String? message;
   final bool showSavedSlips;
@@ -5568,6 +7325,7 @@ class RightSidebar extends StatelessWidget {
     super.key,
     required this.activeSlipController,
     required this.onSave,
+    required this.onClear,
     required this.isSaving,
     required this.message,
     required this.showSavedSlips,
@@ -5585,67 +7343,37 @@ class RightSidebar extends StatelessWidget {
           padding: const EdgeInsets.all(18),
           child: Column(
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0B151E),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'ACTIVE TICKETS',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        ActiveTicketBadge(isSaving: isSaving, message: message),
-                        const Spacer(),
-                        Text(
-                          'Current: ${activeSlipController.legCount} picks',
-                          style: const TextStyle(
-                            color: AppColors.muted,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  const Text(
-                    'CURRENT TICKET',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-                  ),
-                  const Spacer(),
-                  Icon(
-                    Icons.receipt_long,
-                    color: AppColors.goldBright,
-                    size: 18,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
               Expanded(
-                child: ActiveSlipPanel(
-                  controller: activeSlipController,
-                  onViewOrLock: onSave,
-                  isSaving: isSaving,
-                  message: message,
+                flex: 2,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.only(top: 4, bottom: 14),
+                  decoration: const BoxDecoration(
+                    border: Border(bottom: BorderSide(color: AppColors.border)),
+                  ),
+                  child: const PropIntelligenceBrandBadge(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              const AuthAccountPanel(),
+              const SizedBox(height: 10),
+              Expanded(
+                flex: 8,
+                child: ValueListenableBuilder<List<Map<String, dynamic>>>(
+                  valueListenable: SlipManager.selectedProps,
+                  builder: (context, selectedProps, child) {
+                    if (selectedProps.isNotEmpty) {
+                      return const CurrentSlipPanelContainer();
+                    }
+
+                    return ActiveSlipPanel(
+                      controller: activeSlipController,
+                      onViewOrLock: onSave,
+                      onClear: onClear,
+                      isSaving: isSaving,
+                      message: message,
+                    );
+                  },
                 ),
               ),
             ],
@@ -5673,14 +7401,128 @@ class LockSlipDialog extends StatefulWidget {
 class _LockSlipDialogState extends State<LockSlipDialog> {
   final _formKey = GlobalKey<FormState>();
   final _stakeController = TextEditingController(text: '10.00');
+  String _selectedSite = 'PRIZEPICKS';
+  String _prizePicksPlayType = 'POWER';
   bool _loadingPreview = false;
   String? _error;
   double? _potentialPayout;
   double? _potentialProfit;
 
+  bool get _isPrizePicksSlip {
+    return _selectedSite == 'PRIZEPICKS';
+  }
+
+  List<String> get _siteOptions {
+    final options = <String>{
+      for (final selection in widget.selections)
+        _normalizeSite(
+          '${selection.prop.sportsbook} ${selection.prop.sourceProvider}',
+        ),
+    }..removeWhere((site) => site.isEmpty);
+    if (options.isEmpty) {
+      options.add('PRIZEPICKS');
+    }
+    return options.toList(growable: false);
+  }
+
+  String _normalizeSite(String value) {
+    final source = value.toUpperCase();
+    if (source.contains('PRIZEPICKS') || source.contains('PRIZE PICKS')) {
+      return 'PRIZEPICKS';
+    }
+    if (source.contains('UNDERDOG')) {
+      return 'UNDERDOG';
+    }
+    if (source.contains('SLEEPER')) {
+      return 'SLEEPER';
+    }
+    if (source.contains('FANDUEL')) {
+      return 'FANDUEL';
+    }
+    if (source.contains('DRAFTKINGS')) {
+      return 'DRAFTKINGS';
+    }
+    return 'PRIZEPICKS';
+  }
+
+  List<String> _entryTypesForSite(String site) {
+    switch (site) {
+      case 'PRIZEPICKS':
+        return const ['POWER', 'FLEX'];
+      case 'UNDERDOG':
+        return const ['POWER'];
+      case 'SLEEPER':
+        return const ['POWER'];
+      case 'FANDUEL':
+      case 'DRAFTKINGS':
+        return const ['PARLAY'];
+      default:
+        return const ['POWER'];
+    }
+  }
+
+  double _prizePicksPowerMultiplier(int legCount) {
+    switch (legCount) {
+      case 2:
+        return 3;
+      case 3:
+        return 5;
+      case 4:
+        return 10;
+      case 5:
+        return 20;
+      case 6:
+        return 37.5;
+      default:
+        return 1;
+    }
+  }
+
+  double _prizePicksFlexMultiplier(int legCount) {
+    switch (legCount) {
+      case 3:
+        return 2.25;
+      case 4:
+        return 5;
+      case 5:
+        return 10;
+      case 6:
+        return 25;
+      default:
+        return 1;
+    }
+  }
+
+  double _selectedPrizePicksMultiplier(int legCount) {
+    if (_prizePicksPlayType == 'FLEX') {
+      return _prizePicksFlexMultiplier(legCount);
+    }
+    return _prizePicksPowerMultiplier(legCount);
+  }
+
+  double _underdogMultiplier(int legCount) {
+    switch (legCount) {
+      case 2:
+        return 3;
+      case 3:
+        return 6;
+      case 4:
+        return 10;
+      case 5:
+        return 20;
+      case 6:
+        return 40;
+      default:
+        return 1;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _selectedSite = _siteOptions.first;
+    final entryTypes = _entryTypesForSite(_selectedSite);
+    _prizePicksPlayType = entryTypes.first;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updatePreview();
     });
@@ -5702,6 +7544,30 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
       setState(() {
         _potentialPayout = null;
         _potentialProfit = null;
+      });
+      return;
+    }
+
+    if (_selectedSite == 'PRIZEPICKS' || _selectedSite == 'UNDERDOG') {
+      final multiplier = _selectedSite == 'PRIZEPICKS'
+          ? _selectedPrizePicksMultiplier(widget.selections.length)
+          : _underdogMultiplier(widget.selections.length);
+      if (multiplier <= 1) {
+        setState(() {
+          _error =
+              'Selected play type is not available for ${widget.selections.length} legs.';
+          _potentialPayout = null;
+          _potentialProfit = null;
+          _loadingPreview = false;
+        });
+        return;
+      }
+
+      setState(() {
+        _error = null;
+        _potentialPayout = stake * multiplier;
+        _potentialProfit = _potentialPayout! - stake;
+        _loadingPreview = false;
       });
       return;
     }
@@ -5749,6 +7615,16 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final entryTypes = _entryTypesForSite(_selectedSite);
+    final selectedEntryType = entryTypes.contains(_prizePicksPlayType)
+        ? _prizePicksPlayType
+        : entryTypes.first;
+    final entryTypeLabel = selectedEntryType == 'PARLAY'
+        ? 'Parlay'
+        : selectedEntryType == 'POWER'
+        ? 'Power Play'
+        : 'Flex Play';
+
     return AlertDialog(
       backgroundColor: AppColors.panel,
       title: const Text(
@@ -5768,6 +7644,73 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
                 style: const TextStyle(
                   color: AppColors.goldBright,
                   fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedSite,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Prop Site',
+                  border: OutlineInputBorder(),
+                ),
+                items: _siteOptions
+                    .map(
+                      (site) =>
+                          DropdownMenuItem(value: site, child: Text(site)),
+                    )
+                    .toList(growable: false),
+                onChanged: (value) {
+                  if (value == null) {
+                    return;
+                  }
+                  setState(() {
+                    _selectedSite = value;
+                  });
+                  _updatePreview();
+                },
+              ),
+              if (_isPrizePicksSlip) ...[
+                const SizedBox(height: 12),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment<String>(
+                      value: 'POWER',
+                      label: Text('POWER PLAY'),
+                      icon: Icon(Icons.bolt),
+                    ),
+                    ButtonSegment<String>(
+                      value: 'FLEX',
+                      label: Text('FLEX PLAY'),
+                      icon: Icon(Icons.shield_outlined),
+                    ),
+                  ],
+                  selected: {selectedEntryType},
+                  onSelectionChanged: (selection) {
+                    setState(() {
+                      _prizePicksPlayType = selection.first;
+                    });
+                    _updatePreview();
+                  },
+                ),
+              ] else ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Entry Type: ${entryTypes.first}',
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
+              Text(
+                'Site: $_selectedSite • Entry: $entryTypeLabel',
+                style: const TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 11,
                   fontWeight: FontWeight.w800,
                 ),
               ),

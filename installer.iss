@@ -1,10 +1,10 @@
-; Inno Setup script for The Daily Spin desktop app
+; Inno Setup script for PROP INTELLIGENCE desktop app
 ; Compile with: ISCC installer.iss
 
-#define MyAppName "The Daily Spin"
+#define MyAppName "PROP INTELLIGENCE"
 #define MyAppVersion "1.0.0"
-#define MyAppPublisher "The Daily Spin"
-#define MyAppExeName "daily_spin_flutter.exe"
+#define MyAppPublisher "PROP INTELLIGENCE"
+#define MyAppExeName "prop_intelligence.exe"
 
 [Setup]
 AppId={{D5C9E433-9E93-49B0-9A73-6A5D14F63878}
@@ -15,7 +15,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=dist
-OutputBaseFilename=TheDailySpin-Setup-{#MyAppVersion}
+OutputBaseFilename=PROP-INTELLIGENCE-Setup-{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -40,19 +40,3 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilen
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
-
-[Code]
-procedure RemoveStaleDesktopExe;
-var
-	DesktopExe: string;
-begin
-	DesktopExe := ExpandConstant('{userdesktop}\The Daily Spin.exe');
-	if FileExists(DesktopExe) then
-		DeleteFile(DesktopExe);
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
-begin
-	if CurStep = ssInstall then
-		RemoveStaleDesktopExe;
-end;

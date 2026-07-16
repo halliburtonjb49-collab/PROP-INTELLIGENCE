@@ -122,7 +122,8 @@ class ScoreboardGame {
               .toString(),
       awayLogo: (json['away_logo'] ?? json['away_team_logo'] ?? '').toString(),
       homeLogo: (json['home_logo'] ?? json['home_team_logo'] ?? '').toString(),
-      displayTime: (json['display_time'] ?? json['displayTime'] ?? '').toString(),
+      displayTime: (json['display_time'] ?? json['displayTime'] ?? '')
+          .toString(),
       startTime: parseDate(
         json['startTimeUtc'] ??
             json['start_time_utc'] ??

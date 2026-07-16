@@ -33,6 +33,21 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local runtime data
+*.db
+*.duckdb
+python_backend/active_watchlist.json
+.codex_tmp/
+
 # Symbolication related
 app.*.symbols
 
@@ -47,13 +62,6 @@ app.*.map.json
 # Environment files
 .env
 **/.env
-
-dist/
-
-dist/
-
-dist/
-
-dist/
+supabase.local.json
 
 dist/

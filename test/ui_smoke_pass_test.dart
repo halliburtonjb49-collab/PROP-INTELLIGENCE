@@ -1,5 +1,5 @@
-import 'package:daily_spin_flutter/controllers/active_slip_controller.dart';
-import 'package:daily_spin_flutter/main.dart';
+import 'package:prop_intelligence/controllers/active_slip_controller.dart';
+import 'package:prop_intelligence/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,36 +11,37 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets(
-    'smoke: scoreboard, analytics, line movement top navigation',
-    (tester) async {
-      tester.view.physicalSize = const Size(1600, 1000);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+  testWidgets('smoke: scoreboard, analytics, line movement top navigation', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1600, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
 
-      await tester.pumpWidget(const DailySpinApp());
-      await tester.pump(const Duration(milliseconds: 800));
+    await tester.pumpWidget(const PropIntelligenceApp());
+    await tester.pump(const Duration(milliseconds: 800));
 
-      expect(find.text('SCOREBOARD'), findsWidgets);
-      expect(find.text('ANALYTICS'), findsOneWidget);
-      expect(find.text('LINE MOVEMENT'), findsOneWidget);
+    expect(find.text('SCOREBOARD'), findsWidgets);
+    expect(find.text('ANALYTICS'), findsOneWidget);
+    expect(find.text('LINE MOVEMENT'), findsOneWidget);
+    expect(tester.takeException(), isNull);
 
-      await tester.tap(find.text('SCOREBOARD').first);
-      await tester.pump(const Duration(seconds: 1));
-      expect(find.text('ALL GAMES'), findsOneWidget);
+    await tester.tap(find.text('SCOREBOARD').first);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('ALL GAMES'), findsOneWidget);
+    expect(tester.takeException(), isNull);
 
-      await tester.tap(find.text('ANALYTICS'));
-      await tester.pump(const Duration(seconds: 1));
-      expect(tester.takeException(), isNull);
+    await tester.tap(find.text('ANALYTICS'));
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.takeException(), isNull);
 
-      await tester.tap(find.text('LINE MOVEMENT'));
-      await tester.pump(const Duration(seconds: 1));
-      expect(tester.takeException(), isNull);
-    },
-  );
+    await tester.tap(find.text('LINE MOVEMENT'));
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.takeException(), isNull);
+  });
 
   test('smoke: active slip startup and add/remove interactions', () async {
     final controller = ActiveSlipController();

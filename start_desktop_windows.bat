@@ -10,10 +10,6 @@ set "BACKEND_DIR=%ROOT%python_backend"
 set "APP_EXE="
 set "PYTHON_EXE="
 
-if exist "%ROOT%..\python_backend\main.py" (
-  set "BACKEND_DIR=%ROOT%..\python_backend"
-)
-
 call :resolve_app_exe
 if not defined APP_EXE goto :no_app
 
@@ -22,34 +18,34 @@ if errorlevel 1 (
   call :resolve_python
   if not defined PYTHON_EXE goto :no_python
 
-  echo [Daily Spin] Starting backend...
-  start "Daily Spin Backend" /min /D "%BACKEND_DIR%" "%PYTHON_EXE%" -m uvicorn main:app --host 127.0.0.1 --port 8000
+  echo [PROP INTELLIGENCE] Starting backend...
+  start "PROP INTELLIGENCE Backend" /min /D "%BACKEND_DIR%" "%PYTHON_EXE%" -m uvicorn main:app --host 127.0.0.1 --port 8000
 
   call :wait_for_backend
   if errorlevel 1 goto :backend_failed
 ) else (
-  echo [Daily Spin] Backend already running.
+  echo [PROP INTELLIGENCE] Backend already running.
 )
 
-echo [Daily Spin] Launching desktop app...
+echo [PROP INTELLIGENCE] Launching desktop app...
 start "" "%APP_EXE%"
 exit /b 0
 
 :resolve_app_exe
-if exist "%ProgramFiles%\The Daily Spin\daily_spin_flutter.exe" (
-  set "APP_EXE=%ProgramFiles%\The Daily Spin\daily_spin_flutter.exe"
+if exist "%ProgramFiles%\PROP INTELLIGENCE\prop_intelligence.exe" (
+  set "APP_EXE=%ProgramFiles%\PROP INTELLIGENCE\prop_intelligence.exe"
   goto :eof
 )
-if defined ProgramFiles(x86) if exist "%ProgramFiles(x86)%\The Daily Spin\daily_spin_flutter.exe" (
-  set "APP_EXE=%ProgramFiles(x86)%\The Daily Spin\daily_spin_flutter.exe"
+if defined ProgramFiles(x86) if exist "%ProgramFiles(x86)%\PROP INTELLIGENCE\prop_intelligence.exe" (
+  set "APP_EXE=%ProgramFiles(x86)%\PROP INTELLIGENCE\prop_intelligence.exe"
   goto :eof
 )
-if exist "%ROOT%build\windows\x64\runner\Release\daily_spin_flutter.exe" (
-  set "APP_EXE=%ROOT%build\windows\x64\runner\Release\daily_spin_flutter.exe"
+if exist "%ROOT%build\windows\x64\runner\Release\prop_intelligence.exe" (
+  set "APP_EXE=%ROOT%build\windows\x64\runner\Release\prop_intelligence.exe"
   goto :eof
 )
-if exist "%ROOT%build\windows\x64\runner\Debug\daily_spin_flutter.exe" (
-  set "APP_EXE=%ROOT%build\windows\x64\runner\Debug\daily_spin_flutter.exe"
+if exist "%ROOT%build\windows\x64\runner\Debug\prop_intelligence.exe" (
+  set "APP_EXE=%ROOT%build\windows\x64\runner\Debug\prop_intelligence.exe"
 )
 goto :eof
 
@@ -81,17 +77,17 @@ powershell -NoProfile -Command "$deadline=(Get-Date).AddSeconds(30); while((Get-
 exit /b %ERRORLEVEL%
 
 :no_app
-echo [Daily Spin] No desktop app executable was found.
+echo [PROP INTELLIGENCE] No desktop app executable was found.
 echo Install the app, or build Windows first, then rerun this launcher.
 echo Development fallback: use start_quick_windows.bat
 exit /b 1
 
 :no_python
-echo [Daily Spin] Could not find a Python interpreter with FastAPI and Uvicorn installed.
+echo [PROP INTELLIGENCE] Could not find a Python interpreter with FastAPI and Uvicorn installed.
 echo Install backend dependencies, then rerun this launcher.
 exit /b 1
 
 :backend_failed
-echo [Daily Spin] Backend did not become healthy on port 8000.
-echo Check the "Daily Spin Backend" window for startup errors.
+echo [PROP INTELLIGENCE] Backend did not become healthy on port 8000.
+echo Check the "PROP INTELLIGENCE Backend" window for startup errors.
 exit /b 1

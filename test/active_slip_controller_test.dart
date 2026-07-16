@@ -1,4 +1,6 @@
-import 'package:daily_spin_flutter/controllers/active_slip_controller.dart';
+import 'dart:convert';
+
+import 'package:prop_intelligence/controllers/active_slip_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -50,5 +52,22 @@ void main() {
 
     expect(controller.legs.first['prop_id'], 'prop-2');
     expect(controller.legs.last['prop_id'], 'prop-1');
+  });
+
+  test('loads persisted slips from storage', () async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      'prop_intelligence_active_slip_v1',
+      jsonEncode([
+        {'prop_id': 'prop-1', 'player': 'Player One', 'line': 15.5},
+      ]),
+    );
+
+    final controller = ActiveSlipController();
+    await controller.load();
+
+    expect(controller.legCount, 1);
+    expect(controller.legs.first['prop_id'], 'prop-1');
+    expect(controller.legs.first['player'], 'Player One');
   });
 }

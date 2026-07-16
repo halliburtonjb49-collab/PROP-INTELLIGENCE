@@ -45,6 +45,9 @@ class PropData {
   final double? winProbability;
   final double? overOdds;
   final double? underOdds;
+  final double? evPercentage;
+  final double? fairProbability;
+  final bool isPositiveEv;
 
   const PropData({
     required this.id,
@@ -93,6 +96,9 @@ class PropData {
     this.winProbability,
     this.overOdds,
     this.underOdds,
+    this.evPercentage,
+    this.fairProbability,
+    this.isPositiveEv = false,
   });
 
   static double? _safeDoubleOrNull(dynamic rawValue) {
@@ -127,10 +133,8 @@ class PropData {
       category: json['category']?.toString() ?? '',
       propType: json['prop_type']?.toString() ?? '',
       displayMarket: json['display_market']?.toString() ?? '',
-        marketKey:
-          json['market_key']?.toString() ??
-          json['marketKey']?.toString() ??
-          '',
+      marketKey:
+          json['market_key']?.toString() ?? json['marketKey']?.toString() ?? '',
       displayTime:
           json['displayTime']?.toString() ??
           json['display_time']?.toString() ??
@@ -143,33 +147,34 @@ class PropData {
           json['gameStatus']?.toString() ??
           json['game_status']?.toString() ??
           '',
-        sourceProvider:
+      sourceProvider:
           json['sourceProvider']?.toString() ??
           json['source_provider']?.toString() ??
           '',
-        lastUpdatedUtc:
+      lastUpdatedUtc:
           json['lastUpdatedUtc']?.toString() ??
           json['last_updated_utc']?.toString() ??
           json['sourceUpdatedUtc']?.toString() ??
           '',
-        sourcePlayerId:
+      sourcePlayerId:
           json['sourcePlayerId']?.toString() ??
           json['source_player_id']?.toString() ??
           '',
-        canonicalPlayerId:
+      canonicalPlayerId:
           json['canonicalPlayerId']?.toString() ??
           json['canonical_player_id']?.toString() ??
           '',
-        playerIdentityConfidence:
+      playerIdentityConfidence:
           _safeDoubleOrNull(
-          json['playerIdentityConfidence'] ?? json['player_identity_confidence'],
+            json['playerIdentityConfidence'] ??
+                json['player_identity_confidence'],
           ) ??
           0,
-        injuryStatus:
+      injuryStatus:
           json['injuryStatus']?.toString() ??
           json['injury_status']?.toString() ??
           'unknown',
-        lineupStatus:
+      lineupStatus:
           json['lineupStatus']?.toString() ??
           json['lineup_status']?.toString() ??
           'unknown',
@@ -178,8 +183,7 @@ class PropData {
           json['recommendedSide']?.toString() ??
           json['recommended_side']?.toString() ??
           'N/A',
-      confidence:
-          (json['confidence'] is num)
+      confidence: (json['confidence'] is num)
           ? (json['confidence'] as num).toInt()
           : int.tryParse('${json['confidence']}') ?? 0,
       recommendationEdge:
@@ -188,11 +192,12 @@ class PropData {
           ) ??
           0,
       tier: json['tier']?.toString() ?? 'No Pick',
-      pickText: json['pickText']?.toString() ?? json['pick_text']?.toString() ?? 'No Pick',
-        gameTime:
-          json['game_time']?.toString() ??
-          json['gameTime']?.toString() ??
-          '',
+      pickText:
+          json['pickText']?.toString() ??
+          json['pick_text']?.toString() ??
+          'No Pick',
+      gameTime:
+          json['game_time']?.toString() ?? json['gameTime']?.toString() ?? '',
       gameStartTime:
           json['startTimeUtc']?.toString() ??
           json['start_time_utc']?.toString() ??
@@ -201,15 +206,15 @@ class PropData {
           json['commence_time']?.toString() ??
           '',
       line: (json['line'] as num?)?.toDouble() ?? 0,
-        openingLine:
+      openingLine:
           _safeDoubleOrNull(json['openingLine'] ?? json['opening_line']) ??
           (json['line'] as num?)?.toDouble() ??
           0,
-        currentLine:
+      currentLine:
           _safeDoubleOrNull(json['currentLine'] ?? json['current_line']) ??
           (json['line'] as num?)?.toDouble() ??
           0,
-        lineMovedAtUtc:
+      lineMovedAtUtc:
           json['lineMovedAtUtc']?.toString() ??
           json['line_moved_at_utc']?.toString() ??
           json['line_updated_at']?.toString() ??
@@ -217,7 +222,9 @@ class PropData {
       pick: json['pick']?.toString() ?? '',
       edge:
           _safeDoubleOrNull(
-            json['edge'] ?? json['recommendationEdge'] ?? json['recommendation_edge'],
+            json['edge'] ??
+                json['recommendationEdge'] ??
+                json['recommendation_edge'],
           ) ??
           0,
       imagePath:
@@ -240,6 +247,14 @@ class PropData {
       ),
       overOdds: _safeDoubleOrNull(json['overOdds'] ?? json['over_odds']),
       underOdds: _safeDoubleOrNull(json['underOdds'] ?? json['under_odds']),
+      evPercentage: _safeDoubleOrNull(
+        json['evPercentage'] ?? json['ev_percentage'],
+      ),
+      fairProbability: _safeDoubleOrNull(
+        json['fairProbability'] ?? json['fair_probability'],
+      ),
+      isPositiveEv:
+          json['isPositiveEv'] == true || json['is_positive_ev'] == true,
     );
   }
 

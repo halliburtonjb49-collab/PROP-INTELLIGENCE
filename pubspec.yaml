@@ -1,5 +1,5 @@
-name: daily_spin_flutter
-description: "A new Flutter project."
+name: prop_intelligence
+description: "PROP INTELLIGENCE sports analytics application."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -30,11 +30,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  url_launcher: ^6.3.0       # Opens sportsbook affiliate links
+  web_socket_channel: ^3.0.1 # Connects to live Python data feeds
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  http: ^1.6.0
+  http: ^1.2.1               # Handles basic network requests
   fl_chart: ^0.69.2
   file_picker: ^11.0.2
   pdf: ^3.12.0
@@ -43,6 +45,8 @@ dependencies:
   local_notifier: ^0.1.6
   window_manager: ^0.5.2
   cached_network_image: ^3.4.1
+  supabase_flutter: ^2.9.1
+  purchases_flutter: ^7.0.0
 
 dev_dependencies:
   flutter_test:

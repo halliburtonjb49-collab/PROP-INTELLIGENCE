@@ -1,12 +1,12 @@
 {
-    "name": "daily_spin_flutter",
-    "short_name": "daily_spin_flutter",
+    "name": "PROP INTELLIGENCE",
+    "short_name": "PROP INTELLIGENCE",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#020609",
+    "theme_color": "#020609",
+    "description": "PROP INTELLIGENCE sports analytics and prop research.",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

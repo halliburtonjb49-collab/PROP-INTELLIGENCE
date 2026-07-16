@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Continue'
 taskkill /IM python.exe /F | Out-Null
 Start-Sleep -Milliseconds 300
 
-Push-Location 'c:\Users\theda\Projects\The-Daily-Spin\python_backend'
+Push-Location 'c:\Users\theda\Projects\PROP INTELLIGENCE\prop_intelligence\python_backend'
 Start-Process -WindowStyle Hidden -FilePath '.\.venv\Scripts\python.exe' -ArgumentList @('-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', '8010')
 Pop-Location
 
