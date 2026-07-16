@@ -54,8 +54,12 @@ class SupabaseService {
     await Supabase.initialize(
       url: _supabaseUrl,
       publishableKey: _supabaseAnonKey,
-      authOptions: const FlutterAuthClientOptions(
+      authOptions: FlutterAuthClientOptions(
         authFlowType: AuthFlowType.pkce,
+        autoRefreshToken: true,
+        localStorage: SharedPreferencesLocalStorage(
+          persistSessionKey: 'props-intelligence-auth-session',
+        ),
       ),
     );
 

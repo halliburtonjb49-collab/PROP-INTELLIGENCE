@@ -324,7 +324,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                         ),
                         child: Center(
                           child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 1320),
+                            constraints: const BoxConstraints(maxWidth: 1420),
                             child: compact
                                 ? Column(
                                     children: [
@@ -349,9 +349,9 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                                               _openDeveloperBypassPrompt,
                                         ),
                                       ),
-                                      SizedBox(width: tightDesktop ? 26 : 54),
+                                      SizedBox(width: tightDesktop ? 26 : 60),
                                       SizedBox(
-                                        width: tightDesktop ? 360 : 430,
+                                        width: tightDesktop ? 360 : 460,
                                         child: _buildLoginCard(
                                           dense: tightDesktop,
                                         ),
@@ -376,12 +376,12 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
   Widget _buildLoginCard({required bool dense}) {
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(maxWidth: 430),
+      constraints: const BoxConstraints(maxWidth: 460),
       padding: EdgeInsets.fromLTRB(
-        dense ? 20 : 24,
-        dense ? 20 : 24,
-        dense ? 20 : 24,
-        dense ? 16 : 20,
+        dense ? 20 : 28,
+        dense ? 20 : 27,
+        dense ? 20 : 28,
+        dense ? 16 : 23,
       ),
       decoration: BoxDecoration(
         color: _panelBackground,
@@ -403,9 +403,9 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             Text(
               _isRegistering ? 'CREATE YOUR ACCOUNT' : 'WELCOME BACK',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: _gold,
-                fontSize: 22,
+                fontSize: dense ? 22 : 24,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0.5,
               ),
@@ -415,7 +415,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               _isRegistering
                   ? 'Join PROP INTELLIGENCE and find your edge'
                   : 'Log in to access your dashboard',
-              style: const TextStyle(color: _mutedText, fontSize: 15),
+              style: TextStyle(color: _mutedText, fontSize: dense ? 15 : 16),
             ),
             const SizedBox(height: 12),
             Container(
@@ -438,7 +438,10 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 autofillHints: const [AutofillHints.email],
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: dense ? 14 : 16,
+                ),
                 decoration: _fieldDecoration(
                   hint: 'Enter your email',
                   prefixIcon: Icons.mail_outline_rounded,
@@ -456,7 +459,10 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 autofillHints: _isRegistering
                     ? const [AutofillHints.newPassword]
                     : const [AutofillHints.password],
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: dense ? 14 : 16,
+                ),
                 decoration: _fieldDecoration(
                   hint: _isRegistering
                       ? 'Create a secure password'
@@ -498,7 +504,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
-              height: 48,
+              height: dense ? 48 : 52,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _handleAuthentication,
                 style: ElevatedButton.styleFrom(
@@ -614,12 +620,12 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
   }) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+      hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
       prefixIcon: Icon(prefixIcon, color: Colors.white54, size: 20),
       suffixIcon: suffixIcon,
       filled: true,
       fillColor: _fieldBackground,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
       enabledBorder: OutlineInputBorder(
         borderSide: const BorderSide(color: Color(0xFF34383B)),
         borderRadius: BorderRadius.circular(6),
@@ -761,8 +767,8 @@ class _HeroBrand extends StatelessWidget {
           onLongPress: onLongPress,
           child: Image.asset(
             'assets/branding/prop_intelligence_logo.png',
-            width: compact ? 290 : (dense ? 355 : 420),
-            height: compact ? 290 : (dense ? 355 : 420),
+            width: compact ? 290 : (dense ? 355 : 450),
+            height: compact ? 290 : (dense ? 355 : 450),
             fit: BoxFit.contain,
           ),
         ),
