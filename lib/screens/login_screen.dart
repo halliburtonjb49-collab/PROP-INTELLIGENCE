@@ -315,51 +315,71 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                       onSignUp: _startRegistration,
                     ),
                     Expanded(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.fromLTRB(
-                          compact ? 20 : (tightDesktop ? 24 : 42),
-                          compact ? 26 : (tightDesktop ? 22 : 38),
-                          compact ? 20 : (tightDesktop ? 24 : 42),
-                          28,
-                        ),
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 1420),
-                            child: compact
-                                ? Column(
-                                    children: [
-                                      _HeroBrand(
-                                        compact: true,
-                                        dense: false,
-                                        onLongPress: _openDeveloperBypassPrompt,
-                                      ),
-                                      const SizedBox(height: 28),
-                                      _buildLoginCard(dense: false),
-                                    ],
-                                  )
-                                : Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Expanded(
-                                        child: _HeroBrand(
-                                          compact: false,
-                                          dense: tightDesktop,
-                                          onLongPress:
-                                              _openDeveloperBypassPrompt,
-                                        ),
-                                      ),
-                                      SizedBox(width: tightDesktop ? 26 : 60),
-                                      SizedBox(
-                                        width: tightDesktop ? 360 : 460,
-                                        child: _buildLoginCard(
-                                          dense: tightDesktop,
-                                        ),
-                                      ),
-                                    ],
+                      child: LayoutBuilder(
+                        builder: (context, bodyConstraints) {
+                          final horizontalPadding = compact
+                              ? 20.0
+                              : (tightDesktop ? 24.0 : 42.0);
+                          final verticalPadding = compact
+                              ? 26.0
+                              : (tightDesktop ? 22.0 : 28.0);
+                          return SingleChildScrollView(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: horizontalPadding,
+                              vertical: verticalPadding,
+                            ),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight:
+                                    bodyConstraints.maxHeight -
+                                    (verticalPadding * 2),
+                              ),
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 1420,
                                   ),
-                          ),
-                        ),
+                                  child: compact
+                                      ? Column(
+                                          children: [
+                                            _HeroBrand(
+                                              compact: true,
+                                              dense: false,
+                                              onLongPress:
+                                                  _openDeveloperBypassPrompt,
+                                            ),
+                                            const SizedBox(height: 28),
+                                            _buildLoginCard(dense: false),
+                                          ],
+                                        )
+                                      : Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.center,
+                                          children: [
+                                            Expanded(
+                                              child: _HeroBrand(
+                                                compact: false,
+                                                dense: tightDesktop,
+                                                onLongPress:
+                                                    _openDeveloperBypassPrompt,
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              width: tightDesktop ? 26 : 60,
+                                            ),
+                                            SizedBox(
+                                              width: tightDesktop ? 360 : 460,
+                                              child: _buildLoginCard(
+                                                dense: tightDesktop,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                     const _Footer(),
