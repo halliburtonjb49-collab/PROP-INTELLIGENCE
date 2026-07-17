@@ -85,6 +85,16 @@ class SportsAppAuthService {
   }
 
   String? get _redirectUrlOrNull {
+    // On web, always return to the origin that launched authentication. This
+    // prevents a stale deployment variable or Supabase Site URL from sending
+    // production users to a development address such as localhost:3000.
+    if (kIsWeb) {
+      final origin = Uri.base.origin;
+      if (origin.startsWith('https://') || origin.startsWith('http://')) {
+        return origin;
+      }
+    }
+
     final value = _authEmailRedirectUrl.trim();
     return value.isEmpty ? null : value;
   }
