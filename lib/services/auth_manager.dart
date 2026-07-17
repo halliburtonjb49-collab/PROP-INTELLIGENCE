@@ -9,6 +9,7 @@ class AuthSessionState {
   final bool ready;
   final bool authenticated;
   final bool isPremium;
+  final String role;
   final String? userId;
   final String? email;
   final String message;
@@ -17,6 +18,7 @@ class AuthSessionState {
     required this.ready,
     required this.authenticated,
     required this.isPremium,
+    required this.role,
     required this.userId,
     required this.email,
     required this.message,
@@ -26,6 +28,7 @@ class AuthSessionState {
     : ready = false,
       authenticated = false,
       isPremium = false,
+      role = 'user',
       userId = null,
       email = null,
       message = 'Initializing auth...';
@@ -34,6 +37,7 @@ class AuthSessionState {
     : ready = true,
       authenticated = false,
       isPremium = false,
+      role = 'user',
       userId = null,
       email = null,
       message = 'Supabase auth is not configured.';
@@ -42,6 +46,7 @@ class AuthSessionState {
     : ready = true,
       authenticated = false,
       isPremium = false,
+      role = 'user',
       userId = null,
       email = null,
       message = 'Signed out';
@@ -185,7 +190,13 @@ class AuthManager {
       return;
     }
 
-    var isPremium = false;
+    final role = (user.appMetadata['role'] ?? 'user')
+        .toString()
+        .trim()
+        .toLowerCase();
+    final hasPrivilegedRole =
+        role == 'owner' || role == 'admin' || role == 'tester';
+    var isPremium = hasPrivilegedRole;
     try {
       final row = await _client
           ?.from('user_profiles')
@@ -195,18 +206,19 @@ class AuthManager {
       if (row is Map<String, dynamic>) {
         final raw = row['is_premium'];
         if (raw is bool) {
-          isPremium = raw;
+          isPremium = raw || hasPrivilegedRole;
         }
       }
     } catch (_) {
-      // Keep auth usable even if profile table/column is not ready.
-      isPremium = false;
+      // Privileged roles retain full access even if profile lookup is unavailable.
+      isPremium = hasPrivilegedRole;
     }
 
     sessionState.value = AuthSessionState(
       ready: true,
       authenticated: true,
       isPremium: isPremium,
+      role: role,
       userId: user.id,
       email: user.email,
       message: 'Authenticated',

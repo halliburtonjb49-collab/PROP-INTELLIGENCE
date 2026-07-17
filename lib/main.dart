@@ -157,7 +157,7 @@ Future<void> main() async {
     _startupLog('first frame rendered');
     unawaited(() async {
       try {
-        await SupabaseService.initialize().timeout(const Duration(seconds: 5));
+        await SupabaseService.initialize();
         AuthManager.instance.attach();
         await PropWatchlistService().syncLocalAndCloudWatchlist().timeout(
           const Duration(seconds: 5),
