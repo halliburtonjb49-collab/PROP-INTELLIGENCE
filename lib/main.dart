@@ -381,7 +381,7 @@ class PropIntelligenceShell extends StatelessWidget {
       backgroundColor: const Color(0xFF050C13),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          if (constraints.maxWidth >= 1100) {
+          if (constraints.maxWidth >= 700) {
             return const DesktopDashboard();
           }
 
