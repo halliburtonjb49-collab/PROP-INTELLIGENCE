@@ -98,6 +98,7 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
           child: state.authenticated
               ? _SignedInView(
                   email: state.email ?? 'Unknown',
+                  role: state.role,
                   onSignOut: () async {
                     try {
                       await AuthManager.instance.signOut();
@@ -218,26 +219,84 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
 
 class _SignedInView extends StatelessWidget {
   final String email;
+  final String role;
   final Future<void> Function() onSignOut;
 
-  const _SignedInView({required this.email, required this.onSignOut});
+  const _SignedInView({
+    required this.email,
+    required this.role,
+    required this.onSignOut,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final normalizedRole = role.trim().toLowerCase();
+    final roleLetter = switch (normalizedRole) {
+      'owner' => 'O',
+      'admin' => 'A',
+      'tester' => 'T',
+      _ => 'U',
+    };
+    final roleLabel = switch (normalizedRole) {
+      'owner' => 'OWNER',
+      'admin' => 'ADMIN',
+      'tester' => 'TESTER',
+      _ => 'USER',
+    };
+    final roleColor = switch (normalizedRole) {
+      'owner' => const Color(0xFFFFC400),
+      'admin' => const Color(0xFF6DB8FF),
+      'tester' => const Color(0xFFE0E0E0),
+      _ => const Color(0xFF56D38A),
+    };
+
     return Row(
       children: [
-        const Icon(Icons.verified_user, color: Color(0xFF56D38A), size: 18),
+        Container(
+          width: 26,
+          height: 26,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: roleColor.withValues(alpha: 0.12),
+            border: Border.all(color: roleColor, width: 1.5),
+          ),
+          child: Text(
+            roleLetter,
+            style: TextStyle(
+              color: roleColor,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(
-            email,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                roleLabel,
+                style: TextStyle(
+                  color: roleColor,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                email,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
         ),
         TextButton(
