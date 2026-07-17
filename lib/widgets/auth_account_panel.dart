@@ -79,6 +79,110 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
     );
   }
 
+  Future<void> _showRoleManager() async {
+    final emailController = TextEditingController();
+    var selectedRole = 'admin';
+    var saving = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF0B151E),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFFFFC400)),
+          ),
+          title: const Text(
+            'O  MANAGE USER ROLE',
+            style: TextStyle(
+              color: Color(0xFFFFC400),
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'The user must create an account before a role can be assigned.',
+                  style: TextStyle(color: Color(0xFFE0E0E0), fontSize: 12),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: emailController,
+                  enabled: !saving,
+                  keyboardType: TextInputType.emailAddress,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _fieldDecoration('User email'),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedRole,
+                  dropdownColor: const Color(0xFF0F1620),
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _fieldDecoration('Role'),
+                  items: const [
+                    DropdownMenuItem(value: 'admin', child: Text('A - ADMIN')),
+                    DropdownMenuItem(
+                      value: 'tester',
+                      child: Text('T - TESTER'),
+                    ),
+                    DropdownMenuItem(value: 'user', child: Text('U - USER')),
+                  ],
+                  onChanged: saving
+                      ? null
+                      : (value) {
+                          if (value != null) {
+                            setDialogState(() => selectedRole = value);
+                          }
+                        },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: saving ? null : () => Navigator.pop(dialogContext),
+              child: const Text('CANCEL'),
+            ),
+            ElevatedButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      setDialogState(() => saving = true);
+                      try {
+                        final result = await AuthManager.instance
+                            .assignUserRole(
+                              email: emailController.text,
+                              role: selectedRole,
+                            );
+                        if (!dialogContext.mounted) return;
+                        Navigator.pop(dialogContext);
+                        _showMessage(
+                          '${result['email']} is now ${result['role'].toString().toUpperCase()}.',
+                        );
+                      } catch (error) {
+                        if (!dialogContext.mounted) return;
+                        setDialogState(() => saving = false);
+                        _showMessage('Unable to assign role: $error');
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFC400),
+                foregroundColor: const Color(0xFF050A0F),
+              ),
+              child: Text(saving ? 'SAVING...' : 'ASSIGN ROLE'),
+            ),
+          ],
+        ),
+      ),
+    );
+    emailController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<AuthSessionState>(
@@ -99,6 +203,7 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
               ? _SignedInView(
                   email: state.email ?? 'Unknown',
                   role: state.role,
+                  onManageRoles: state.isOwner ? _showRoleManager : null,
                   onSignOut: () async {
                     try {
                       await AuthManager.instance.signOut();
@@ -220,11 +325,13 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
 class _SignedInView extends StatelessWidget {
   final String email;
   final String role;
+  final VoidCallback? onManageRoles;
   final Future<void> Function() onSignOut;
 
   const _SignedInView({
     required this.email,
     required this.role,
+    required this.onManageRoles,
     required this.onSignOut,
   });
 
@@ -299,6 +406,11 @@ class _SignedInView extends StatelessWidget {
             ],
           ),
         ),
+        if (onManageRoles != null)
+          TextButton(
+            onPressed: onManageRoles,
+            child: const Text('ROLES', style: TextStyle(fontSize: 10)),
+          ),
         TextButton(
           onPressed: onSignOut,
           child: const Text('SIGN OUT', style: TextStyle(fontSize: 10)),

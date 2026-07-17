@@ -14,6 +14,10 @@ class AuthSessionState {
   final String? email;
   final String message;
 
+  bool get isOwner => role == 'owner';
+  bool get isAdmin => role == 'admin';
+  bool get isTester => role == 'tester';
+
   const AuthSessionState({
     required this.ready,
     required this.authenticated,
@@ -119,6 +123,33 @@ class AuthManager {
     final client = _requireClient();
     await client.auth.signOut();
     sessionState.value = const AuthSessionState.signedOut();
+  }
+
+  Future<Map<String, dynamic>> assignUserRole({
+    required String email,
+    required String role,
+  }) async {
+    if (!sessionState.value.isOwner) {
+      throw StateError('Only an owner can assign account roles.');
+    }
+
+    final normalizedEmail = email.trim().toLowerCase();
+    final normalizedRole = role.trim().toLowerCase();
+    if (normalizedEmail.isEmpty) {
+      throw ArgumentError('Enter the user email address.');
+    }
+    if (!const {'admin', 'tester', 'user'}.contains(normalizedRole)) {
+      throw ArgumentError('Role must be admin, tester, or user.');
+    }
+
+    final response = await _requireClient().rpc(
+      'assign_user_role',
+      params: {'target_email': normalizedEmail, 'target_role': normalizedRole},
+    );
+    if (response is Map<String, dynamic>) {
+      return response;
+    }
+    return <String, dynamic>{'email': normalizedEmail, 'role': normalizedRole};
   }
 
   Future<void> refreshSessionState() async {
