@@ -785,11 +785,24 @@ class _HeroBrand extends StatelessWidget {
       children: [
         GestureDetector(
           onLongPress: onLongPress,
-          child: Image.asset(
-            'assets/branding/prop_intelligence_logo.png',
-            width: compact ? 290 : (dense ? 355 : 450),
-            height: compact ? 290 : (dense ? 355 : 450),
-            fit: BoxFit.contain,
+          child: Container(
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(
+                compact ? 72 : (dense ? 88 : 112),
+              ),
+              border: Border.all(color: _gold, width: compact ? 5 : 7),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(
+                compact ? 72 : (dense ? 88 : 112),
+              ),
+              child: Image.asset(
+                'assets/branding/prop_intelligence_logo.png',
+                width: compact ? 290 : (dense ? 355 : 450),
+                height: compact ? 290 : (dense ? 355 : 450),
+                fit: BoxFit.contain,
+              ),
+            ),
           ),
         ),
         SizedBox(height: compact ? 8 : 12),
@@ -1075,8 +1088,8 @@ class _AnalyticsBackground extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color(0xFF02080D),
-                    Color(0xFF06101A),
+                    Color(0xFF0B2233),
+                    Color(0xFF0A1926),
                     Color(0xFF010305),
                   ],
                   stops: [0, 0.48, 1],
@@ -1089,7 +1102,7 @@ class _AnalyticsBackground extends StatelessWidget {
                   center: const Alignment(-0.38, -0.18),
                   radius: 0.86,
                   colors: [
-                    const Color(0xFF1A2B39).withValues(alpha: 0.6),
+                    const Color(0xFF3E6B87).withValues(alpha: 0.92),
                     const Color(0xFF071019).withValues(alpha: 0.18),
                     Colors.transparent,
                   ],
@@ -1106,6 +1119,7 @@ class _AnalyticsBackground extends StatelessWidget {
                   icon: Icons.sports_basketball_rounded,
                   size: 116,
                   rotation: -0.18,
+                  opacity: 0.48,
                 ),
               ),
               const Positioned(
@@ -1115,6 +1129,7 @@ class _AnalyticsBackground extends StatelessWidget {
                   icon: Icons.sports_baseball_rounded,
                   size: 104,
                   rotation: 0.16,
+                  opacity: 0.48,
                 ),
               ),
               const Positioned(
@@ -1133,7 +1148,7 @@ class _AnalyticsBackground extends StatelessWidget {
                   radius: 0.82,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withValues(alpha: 0.68),
+                    Colors.black.withValues(alpha: 0.24),
                   ],
                   stops: const [0.5, 1],
                 ),
@@ -1150,11 +1165,13 @@ class _BackgroundSportIcon extends StatelessWidget {
   final IconData icon;
   final double size;
   final double rotation;
+  final double opacity;
 
   const _BackgroundSportIcon({
     required this.icon,
     required this.size,
     required this.rotation,
+    this.opacity = 0.055,
   });
 
   @override
@@ -1164,8 +1181,10 @@ class _BackgroundSportIcon extends StatelessWidget {
       child: Icon(
         icon,
         size: size,
-        color: const Color(0xFF9EB0BE).withValues(alpha: 0.055),
-        shadows: [Shadow(color: _gold.withValues(alpha: 0.08), blurRadius: 28)],
+        color: const Color(0xFFB8C8D3).withValues(alpha: opacity),
+        shadows: [
+          Shadow(color: _gold.withValues(alpha: opacity * 0.9), blurRadius: 28),
+        ],
       ),
     );
   }
@@ -1177,7 +1196,7 @@ class _MarketGridPainter extends CustomPainter {
     final bounds = Offset.zero & size;
     final isCompact = size.width < 900;
     final gridPaint = Paint()
-      ..color = _gold.withValues(alpha: isCompact ? 0.035 : 0.052)
+      ..color = _gold.withValues(alpha: isCompact ? 0.08 : 0.13)
       ..strokeWidth = 0.55;
     final spacing = isCompact ? 44.0 : 38.0;
     for (double x = 0; x < size.width; x += spacing) {
