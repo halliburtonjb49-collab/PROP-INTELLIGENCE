@@ -2,13 +2,17 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../services/auth_service.dart';
 import '../services/developer_mode_service.dart';
 import '../theme/prop_intelligence_colors.dart';
 
 const _gold = PropIntelligenceColors.premiumGold;
+const _silver = PropIntelligenceColors.metallicSilver;
+const _silver70 = _silver;
+const _silver60 = _silver;
+const _silver54 = _silver;
+const _silver38 = _silver;
 const _pageBackground = Color(0xFF020609);
 const _panelBackground = Color(0xE6070B0E);
 const _fieldBackground = Color(0xFF111518);
@@ -141,10 +145,186 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
   }
 
   Future<void> _openSiteSection(String section) async {
-    final uri = Uri.parse('https://www.propsintell.com/#$section');
-    if (!await launchUrl(uri, webOnlyWindowName: '_self')) {
-      _showFeedbackMessage('Could not open that section.');
+    late final String title;
+    late final String subtitle;
+    late final IconData icon;
+    late final List<Widget> content;
+
+    switch (section) {
+      case 'features':
+        title = 'FEATURES';
+        subtitle = 'THE INFORMATION BEHIND THE PLAY';
+        icon = Icons.query_stats_rounded;
+        content = const [
+          _AboutBullet('Live player props and sportsbook lines'),
+          _AboutBullet('Clear model confidence and edge indicators'),
+          _AboutBullet('Line movement and market comparison tools'),
+          _AboutBullet('Slip building, saving and performance tracking'),
+          _AboutBullet('Research across NBA, NFL, MLB, WNBA, NHL and more'),
+        ];
+      case 'how-it-works':
+        title = 'HOW IT WORKS';
+        subtitle = 'A SIMPLER RESEARCH PROCESS';
+        icon = Icons.route_rounded;
+        content = const [
+          _OverlayStep(
+            number: '01',
+            title: 'CHOOSE YOUR MARKET',
+            text: 'Select a sport, game, player and prop market to research.',
+          ),
+          _OverlayStep(
+            number: '02',
+            title: 'COMPARE THE INFORMATION',
+            text:
+                'Review lines, projections, confidence, trends and market movement in one place.',
+          ),
+          _OverlayStep(
+            number: '03',
+            title: 'BUILD YOUR SLIP',
+            text:
+                'Save the props that stand out and organize them before making a decision.',
+          ),
+          _OverlayStep(
+            number: '04',
+            title: 'TRACK AND LEARN',
+            text:
+                'Follow results over time and use performance history to improve your process.',
+          ),
+        ];
+      case 'about':
+        title = 'ABOUT';
+        subtitle = 'WHY I BUILT PROP INTELLIGENCE';
+        icon = Icons.person_outline_rounded;
+        content = const [
+          Text(
+            'I created PROP INTELLIGENCE after spending money on prop bets and realizing I was not getting as much useful information as I needed before making a pick.',
+            style: TextStyle(color: _silver70, fontSize: 14, height: 1.65),
+          ),
+          SizedBox(height: 14),
+          Text(
+            'The information was often scattered across different places, difficult to compare, or presented in a way that felt more complicated than it needed to be. I wanted a simpler way to see the lines, trends, projections and other details that could help me make a more informed decision.',
+            style: TextStyle(color: _silver70, fontSize: 14, height: 1.65),
+          ),
+          SizedBox(height: 14),
+          Text(
+            'That idea became PROP INTELLIGENCE: one place that brings the most important prop research together in a clear, practical format. It does not promise a winning bet. It is designed to help people understand the information in front of them before they spend their money.',
+            style: TextStyle(color: _silver70, fontSize: 14, height: 1.65),
+          ),
+          SizedBox(height: 26),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'JBH',
+                  style: TextStyle(
+                    color: _gold,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    fontStyle: FontStyle.italic,
+                    letterSpacing: 4.5,
+                    shadows: [Shadow(color: _gold, blurRadius: 8)],
+                  ),
+                ),
+                SizedBox(height: 5),
+                SizedBox(
+                  width: 154,
+                  child: Divider(color: _gold, height: 1, thickness: 1),
+                ),
+                SizedBox(height: 7),
+                Text(
+                  'FOUNDER | PROP INTELLIGENCE',
+                  style: TextStyle(
+                    color: _silver60,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ];
+      case 'contact':
+        title = 'CONTACT';
+        subtitle = 'QUESTIONS, FEEDBACK OR BETA ACCESS';
+        icon = Icons.forum_outlined;
+        content = const [
+          Text(
+            'PROP INTELLIGENCE is being shaped with real user feedback. If you have a question, find an issue or want to share an idea, we want to hear it.',
+            style: TextStyle(color: _silver70, fontSize: 14, height: 1.65),
+          ),
+          SizedBox(height: 16),
+          _AboutNotice(title: 'EMAIL', text: 'propsintell@gmail.com'),
+          SizedBox(height: 10),
+          _AboutNotice(
+            title: 'PRIVATE BETA FEEDBACK',
+            text:
+                'Private beta users can also continue using the channel where they received access.',
+          ),
+        ];
+      default:
+        return;
     }
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: _panelBackground,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: _gold.withValues(alpha: 0.72)),
+        ),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        contentPadding: const EdgeInsets.fromLTRB(24, 18, 24, 8),
+        title: Row(
+          children: [
+            Icon(icon, color: _gold, size: 26),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: _gold,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: _gold,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.7,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ...content,
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('BACK TO LOGIN'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showAboutDialog() {
@@ -195,7 +375,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 Text(
                   'PROP INTELLIGENCE transforms live player, matchup and market data into clear prop research. Compare lines, monitor movement, review model confidence and build smarter slips across multiple sports.',
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: _silver70,
                     fontSize: 14,
                     height: 1.55,
                   ),
@@ -204,7 +384,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 Text(
                   'WHAT YOU CAN DO',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: _silver,
                     fontSize: 12,
                     fontWeight: FontWeight.w900,
                   ),
@@ -262,14 +442,11 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: PropIntelligenceColors.darkCardBg,
-        title: const Text(
-          'Developer Access',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Developer Access', style: TextStyle(color: _silver)),
         content: TextField(
           controller: pinController,
           obscureText: true,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: _silver),
           decoration: const InputDecoration(labelText: 'Developer PIN'),
         ),
         actions: [
@@ -458,10 +635,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 autofillHints: const [AutofillHints.email],
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: dense ? 14 : 16,
-                ),
+                style: TextStyle(color: _silver, fontSize: dense ? 14 : 16),
                 decoration: _fieldDecoration(
                   hint: 'Enter your email',
                   prefixIcon: Icons.mail_outline_rounded,
@@ -479,10 +653,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 autofillHints: _isRegistering
                     ? const [AutofillHints.newPassword]
                     : const [AutofillHints.password],
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: dense ? 14 : 16,
-                ),
+                style: TextStyle(color: _silver, fontSize: dense ? 14 : 16),
                 decoration: _fieldDecoration(
                   hint: _isRegistering
                       ? 'Create a secure password'
@@ -498,7 +669,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                       _obscurePassword
                           ? Icons.visibility_outlined
                           : Icons.visibility_off_outlined,
-                      color: Colors.white54,
+                      color: _silver54,
                       size: 20,
                     ),
                   ),
@@ -560,13 +731,11 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             const SizedBox(height: 13),
             _SocialButton(
               label: 'Continue with Google',
-              leading: const Text(
-                'G',
-                style: TextStyle(
-                  color: Color(0xFF4285F4),
-                  fontWeight: FontWeight.w900,
-                  fontSize: 19,
-                ),
+              leading: Image.asset(
+                'assets/branding/google_g_logo.png',
+                width: 20,
+                height: 20,
+                fit: BoxFit.contain,
               ),
               onPressed: _isLoading
                   ? null
@@ -575,7 +744,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             const SizedBox(height: 8),
             _SocialButton(
               label: 'Continue with Apple',
-              leading: const Icon(Icons.apple, color: Colors.white, size: 23),
+              leading: const Icon(Icons.apple, color: _silver, size: 23),
               onPressed: _isLoading
                   ? null
                   : () => _handleSocialSignIn(OAuthProvider.apple),
@@ -624,7 +793,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                   _resendCooldownSeconds > 0
                       ? 'Resend verification in $_resendCooldownSeconds s'
                       : 'Resend verification email',
-                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                  style: const TextStyle(color: _silver54, fontSize: 11),
                 ),
               ),
           ],
@@ -640,8 +809,8 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
   }) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
-      prefixIcon: Icon(prefixIcon, color: Colors.white54, size: 20),
+      hintStyle: const TextStyle(color: _silver38, fontSize: 14),
+      prefixIcon: Icon(prefixIcon, color: _gold, size: 20),
       suffixIcon: suffixIcon,
       filled: true,
       fillColor: _fieldBackground,
@@ -706,7 +875,7 @@ class _TopNavigation extends StatelessWidget {
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: _gold,
-                side: const BorderSide(color: Color(0xFF9C7410)),
+                side: BorderSide(color: _gold.withValues(alpha: 0.65)),
                 padding: EdgeInsets.symmetric(
                   horizontal: compact ? 8 : (tight ? 10 : 16),
                   vertical: compact ? 9 : (tight ? 10 : 12),
@@ -722,14 +891,13 @@ class _TopNavigation extends StatelessWidget {
             for (final item in const [
               ('FEATURES', 'features'),
               ('HOW IT WORKS', 'how-it-works'),
-              ('PRICING', 'pricing'),
               ('ABOUT', 'about'),
               ('CONTACT', 'contact'),
             ])
               TextButton(
                 onPressed: () => onNavigate(item.$2),
                 style: TextButton.styleFrom(
-                  foregroundColor: Colors.white70,
+                  foregroundColor: _silver70,
                   padding: EdgeInsets.symmetric(horizontal: tight ? 4 : 8),
                 ),
                 child: Text(
@@ -743,7 +911,7 @@ class _TopNavigation extends StatelessWidget {
             onPressed: onSignUp,
             style: OutlinedButton.styleFrom(
               foregroundColor: _gold,
-              side: const BorderSide(color: Color(0xFF9C7410)),
+              side: BorderSide(color: _gold.withValues(alpha: 0.65)),
               padding: EdgeInsets.symmetric(
                 horizontal: compact ? 10 : (tight ? 14 : 22),
                 vertical: compact ? 9 : (tight ? 11 : 15),
@@ -785,24 +953,11 @@ class _HeroBrand extends StatelessWidget {
       children: [
         GestureDetector(
           onLongPress: onLongPress,
-          child: Container(
-            foregroundDecoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(
-                compact ? 72 : (dense ? 88 : 112),
-              ),
-              border: Border.all(color: _gold, width: compact ? 5 : 7),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(
-                compact ? 72 : (dense ? 88 : 112),
-              ),
-              child: Image.asset(
-                'assets/branding/prop_intelligence_logo.png',
-                width: compact ? 290 : (dense ? 355 : 450),
-                height: compact ? 290 : (dense ? 355 : 450),
-                fit: BoxFit.contain,
-              ),
-            ),
+          child: Image.asset(
+            'assets/branding/prop_intelligence_logo_transparent.png',
+            width: compact ? 290 : (dense ? 355 : 450),
+            height: compact ? 290 : (dense ? 355 : 450),
+            fit: BoxFit.contain,
           ),
         ),
         SizedBox(height: compact ? 8 : 12),
@@ -863,10 +1018,78 @@ class _AboutBullet extends StatelessWidget {
             child: Text(
               text,
               style: const TextStyle(
-                color: Colors.white70,
+                color: _silver70,
                 fontSize: 13,
                 height: 1.4,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OverlayStep extends StatelessWidget {
+  final String number;
+  final String title;
+  final String text;
+
+  const _OverlayStep({
+    required this.number,
+    required this.title,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: _gold.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _gold.withValues(alpha: 0.55)),
+            ),
+            child: Text(
+              number,
+              style: const TextStyle(
+                color: _gold,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: _silver,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  text,
+                  style: const TextStyle(
+                    color: _silver60,
+                    fontSize: 12,
+                    height: 1.45,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -907,7 +1130,7 @@ class _AboutNotice extends StatelessWidget {
           Text(
             text,
             style: const TextStyle(
-              color: Colors.white60,
+              color: _silver60,
               fontSize: 11,
               height: 1.45,
             ),
@@ -937,26 +1160,22 @@ class _Feature extends StatelessWidget {
       width: width,
       child: Column(
         children: [
-          Icon(icon, color: _gold, size: 30),
-          const SizedBox(height: 8),
+          Icon(icon, color: _gold, size: 36),
+          const SizedBox(height: 10),
           Text(
             title,
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: _gold,
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: 8),
           Text(
             detail,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 10,
-              height: 1.55,
-            ),
+            style: const TextStyle(color: _silver54, fontSize: 11, height: 1.5),
           ),
         ],
       ),
@@ -975,7 +1194,7 @@ class _FieldLabel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+        Text(label, style: const TextStyle(color: _silver, fontSize: 12)),
         const SizedBox(height: 8),
         child,
       ],
@@ -999,16 +1218,23 @@ class _SocialButton extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       height: 44,
-      child: OutlinedButton.icon(
+      child: OutlinedButton(
         onPressed: onPressed,
-        icon: SizedBox(width: 24, child: Center(child: leading)),
-        label: Text(label),
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.white,
+          foregroundColor: _silver,
           backgroundColor: const Color(0xFF0D1114),
-          side: const BorderSide(color: Color(0xFF35393B)),
+          side: const BorderSide(color: _gold, width: 1.2),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          padding: EdgeInsets.zero,
           textStyle: const TextStyle(fontSize: 14),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(width: 24, child: Center(child: leading)),
+            const SizedBox(width: 10),
+            SizedBox(width: 150, child: Text(label, textAlign: TextAlign.left)),
+          ],
         ),
       ),
     );
@@ -1025,10 +1251,7 @@ class _OrDivider extends StatelessWidget {
         Expanded(child: Divider(color: Color(0xFF303335))),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 14),
-          child: Text(
-            'OR',
-            style: TextStyle(color: Colors.white54, fontSize: 10),
-          ),
+          child: Text('OR', style: TextStyle(color: _silver54, fontSize: 10)),
         ),
         Expanded(child: Divider(color: Color(0xFF303335))),
       ],
@@ -1051,14 +1274,14 @@ class _Footer extends StatelessWidget {
       child: const Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.lock_outline_rounded, color: Colors.white38, size: 12),
+          Icon(Icons.lock_outline_rounded, color: _gold, size: 12),
           SizedBox(width: 7),
           Flexible(
             child: Text(
-              '© 2026 PI PROP INTELLIGENCE. ALL RIGHTS RESERVED.',
+              '(C) 2026 PI PROP INTELLIGENCE. ALL RIGHTS RESERVED.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white38,
+                color: _silver38,
                 fontSize: 9,
                 letterSpacing: 1.3,
               ),
@@ -1082,34 +1305,8 @@ class _AnalyticsBackground extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             const ColoredBox(color: _pageBackground),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF0B2233),
-                    Color(0xFF0A1926),
-                    Color(0xFF010305),
-                  ],
-                  stops: [0, 0.48, 1],
-                ),
-              ),
-            ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(-0.38, -0.18),
-                  radius: 0.86,
-                  colors: [
-                    const Color(0xFF3E6B87).withValues(alpha: 0.92),
-                    const Color(0xFF071019).withValues(alpha: 0.18),
-                    Colors.transparent,
-                  ],
-                  stops: const [0, 0.56, 1],
-                ),
-              ),
-            ),
+            const ColoredBox(color: Color(0xFF12364D)),
+
             CustomPaint(painter: _MarketGridPainter()),
             if (showSportsAtmosphere) ...[
               const Positioned(
@@ -1142,18 +1339,6 @@ class _AnalyticsBackground extends StatelessWidget {
                 ),
               ),
             ],
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  radius: 0.82,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.24),
-                  ],
-                  stops: const [0.5, 1],
-                ),
-              ),
-            ),
           ],
         );
       },
@@ -1181,7 +1366,7 @@ class _BackgroundSportIcon extends StatelessWidget {
       child: Icon(
         icon,
         size: size,
-        color: const Color(0xFFB8C8D3).withValues(alpha: opacity),
+        color: _gold.withValues(alpha: opacity),
         shadows: [
           Shadow(color: _gold.withValues(alpha: opacity * 0.9), blurRadius: 28),
         ],
