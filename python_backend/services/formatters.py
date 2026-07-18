@@ -47,6 +47,13 @@ CATEGORY_LABELS = {
     "player_steals": "steals",
     "steals": "steals",
     "player_threes": "3-pointers",
+    "player_blocks_steals": "blocks + steals",
+    "player_turnovers": "turnovers",
+    "player_points_rebounds": "points + rebounds",
+    "player_points_assists": "points + assists",
+    "player_rebounds_assists": "rebounds + assists",
+    "player_field_goals": "field goals",
+    "player_fantasy_points": "fantasy points",
     "player_3_pointers_made": "3-pointers",
     "threes": "3-pointers",
 
@@ -63,6 +70,16 @@ CATEGORY_LABELS = {
     "pitcher_strikeouts": "strikeouts",
     "strikeouts": "strikeouts",
     "pitcher_outs": "outs recorded",
+    "batter_hits_runs_rbis": "hits + runs + rbis",
+    "batter_singles": "singles",
+    "batter_doubles": "doubles",
+    "batter_triples": "triples",
+    "batter_walks": "batter walks",
+    "batter_strikeouts": "batter strikeouts",
+    "batter_stolen_bases": "stolen bases",
+    "pitcher_hits_allowed": "hits allowed",
+    "pitcher_walks": "pitcher walks",
+    "pitcher_earned_runs": "earned runs",
     "outs_recorded": "outs recorded",
     "hits_allowed": "hits allowed",
 
@@ -82,6 +99,26 @@ CATEGORY_LABELS = {
     "pass_tds": "touchdowns",
     "rush_attempts": "rushing attempts",
     "completions": "completions",
+    "player_pass_attempts": "pass attempts",
+    "player_pass_completions": "completions",
+    "player_pass_interceptions": "passing interceptions",
+    "player_pass_rush_yds": "pass + rush yards",
+    "player_reception_longest": "longest reception",
+    "player_reception_tds": "receiving touchdowns",
+    "player_rush_attempts": "rushing attempts",
+    "player_rush_longest": "longest rush",
+    "player_rush_reception_yds": "rush + receiving yards",
+    "player_rush_tds": "rushing touchdowns",
+    "player_sacks": "sacks",
+    "player_solo_tackles": "solo tackles",
+    "player_tackles_assists": "tackles + assists",
+
+    # NHL
+    "player_power_play_points": "power play points",
+    "player_blocked_shots": "blocked shots",
+    "player_shots_on_goal": "shots on goal",
+    "player_goals": "goals",
+    "player_total_saves": "goalie saves",
 
     # Tennis
     "player_aces": "aces",
@@ -104,6 +141,8 @@ CATEGORY_LABELS = {
     "goals": "goals",
     "shots": "shots",
     "shots_on_target": "shots on target",
+    "player_shots": "shots",
+    "player_shots_on_target": "shots on target",
 
     # UFC
     "fighter_significant_strikes": "significant strikes",
@@ -144,6 +183,7 @@ def format_sport_label(sport_key: str) -> str:
         "basketball_wnba": "WNBA",
         "americanfootball_nfl": "NFL",
         "baseball_mlb": "MLB",
+        "icehockey_nhl": "NHL",
     }
 
     if sport_key in mappings:

@@ -22,6 +22,13 @@ DEFAULT_SYNC_SPORTS = (
     "basketball_wnba",
     "basketball_nba",
     "americanfootball_nfl",
+    "icehockey_nhl",
+    "soccer_epl",
+    "soccer_usa_mls",
+    "soccer_france_ligue_one",
+    "soccer_germany_bundesliga",
+    "soccer_italy_serie_a",
+    "soccer_spain_la_liga",
 )
 
 

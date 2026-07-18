@@ -7,6 +7,13 @@ SPORT_MARKETS = {
         "player_blocks",
         "player_steals",
         "player_threes",
+        "player_blocks_steals",
+        "player_turnovers",
+        "player_points_rebounds",
+        "player_points_assists",
+        "player_rebounds_assists",
+        "player_field_goals",
+        "player_fantasy_points",
     ],
     "basketball_wnba": [
         "player_points",
@@ -16,6 +23,13 @@ SPORT_MARKETS = {
         "player_blocks",
         "player_steals",
         "player_threes",
+        "player_blocks_steals",
+        "player_turnovers",
+        "player_points_rebounds",
+        "player_points_assists",
+        "player_rebounds_assists",
+        "player_field_goals",
+        "player_fantasy_points",
     ],
     "baseball_mlb": [
         "batter_hits",
@@ -24,6 +38,17 @@ SPORT_MARKETS = {
         "batter_rbis",
         "pitcher_strikeouts",
         "pitcher_walks",
+        "batter_runs_scored",
+        "batter_hits_runs_rbis",
+        "batter_singles",
+        "batter_doubles",
+        "batter_triples",
+        "batter_walks",
+        "batter_strikeouts",
+        "batter_stolen_bases",
+        "pitcher_hits_allowed",
+        "pitcher_earned_runs",
+        "pitcher_outs",
     ],
     "americanfootball_nfl": [
         "player_pass_yds",
@@ -31,8 +56,41 @@ SPORT_MARKETS = {
         "player_rush_yds",
         "player_reception_yds",
         "player_receptions",
+        "player_pass_attempts",
+        "player_pass_completions",
+        "player_pass_interceptions",
+        "player_pass_rush_yds",
+        "player_reception_longest",
+        "player_reception_tds",
+        "player_rush_attempts",
+        "player_rush_longest",
+        "player_rush_reception_yds",
+        "player_rush_tds",
+        "player_sacks",
+        "player_solo_tackles",
+        "player_tackles_assists",
+    ],
+    "icehockey_nhl": [
+        "player_points",
+        "player_power_play_points",
+        "player_assists",
+        "player_blocked_shots",
+        "player_shots_on_goal",
+        "player_goals",
+        "player_total_saves",
     ],
 }
+
+SOCCER_PROP_MARKETS = ["player_shots_on_target", "player_shots", "player_assists"]
+for _soccer_key in (
+    "soccer_epl",
+    "soccer_usa_mls",
+    "soccer_france_ligue_one",
+    "soccer_germany_bundesliga",
+    "soccer_italy_serie_a",
+    "soccer_spain_la_liga",
+):
+    SPORT_MARKETS[_soccer_key] = SOCCER_PROP_MARKETS
 
 
 def markets_for_sport(sport_key: str) -> list[str]:
