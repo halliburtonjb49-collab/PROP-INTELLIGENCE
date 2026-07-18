@@ -197,7 +197,12 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
           decoration: BoxDecoration(
             color: const Color(0xFF0B151E),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF273445)),
+            border: Border.all(
+              color: state.isOwner
+                  ? const Color(0xFFFFC400)
+                  : const Color(0xFF273445),
+              width: state.isOwner ? 1.4 : 1,
+            ),
           ),
           child: state.authenticated
               ? _SignedInView(
@@ -397,8 +402,8 @@ class _SignedInView extends StatelessWidget {
                 email,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: normalizedRole == 'owner' ? roleColor : Colors.white,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),

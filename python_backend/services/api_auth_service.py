@@ -4,6 +4,17 @@ import requests
 from fastapi import Header, HTTPException
 from config import HTTP_TIMEOUT_SECONDS
 
+_DEFAULT_OWNER_EMAILS = {"halliburtonjb49@gmail.com"}
+
+
+def _owner_emails() -> set[str]:
+    configured = {
+        value.strip().lower()
+        for value in os.getenv("OWNER_EMAILS", "").split(",")
+        if value.strip()
+    }
+    return _DEFAULT_OWNER_EMAILS | configured
+
 def _supabase_user(token: str) -> dict[str, object] | None:
     url = os.getenv("SUPABASE_URL", "").rstrip("/")
     anon_key = os.getenv("SUPABASE_ANON_KEY", "").strip()
@@ -42,6 +53,7 @@ def require_admin(x_admin_key: str = Header(default=""), authorization: str = He
     metadata = (user or {}).get("app_metadata") or {}
     user_metadata = (user or {}).get("user_metadata") or {}
     role = str(metadata.get("role") or user_metadata.get("role") or "").lower() if isinstance(metadata, dict) and isinstance(user_metadata, dict) else ""
-    if user and role in {"owner", "admin"}:
+    email = str((user or {}).get("email") or "").strip().lower()
+    if user and (role in {"owner", "admin"} or email in _owner_emails()):
         return str(user.get("id"))
     raise HTTPException(status_code=401, detail="Administrator access required")

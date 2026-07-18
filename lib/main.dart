@@ -1431,6 +1431,26 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     onTap: () =>
                         widget.onSelectPage?.call(AppPage.goblinsDemons),
                   ),
+                  ValueListenableBuilder<AuthSessionState>(
+                    valueListenable: AuthManager.instance.sessionState,
+                    builder: (context, authState, _) {
+                      if (!authState.isOwner) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: SidebarButton(
+                          label: 'DATA ADMIN',
+                          selected: widget.selectedPage == AppPage.dataAdmin,
+                          showGoldBar: true,
+                          leadingIcons: const [
+                            Icons.admin_panel_settings_outlined,
+                          ],
+                          leadingIconColors: const [app_colors.AppColors.gold],
+                          onTap: () =>
+                              widget.onSelectPage?.call(AppPage.dataAdmin),
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),

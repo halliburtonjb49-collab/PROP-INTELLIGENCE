@@ -5,6 +5,20 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_service.dart';
 
+const Set<String> _ownerEmails = {'halliburtonjb49@gmail.com'};
+
+@visibleForTesting
+String resolveAccountRole({required String? email, required Object? role}) {
+  final normalizedEmail = email?.trim().toLowerCase() ?? '';
+  if (_ownerEmails.contains(normalizedEmail)) {
+    return 'owner';
+  }
+  final normalizedRole = role?.toString().trim().toLowerCase() ?? '';
+  return const {'owner', 'admin', 'tester'}.contains(normalizedRole)
+      ? normalizedRole
+      : 'user';
+}
+
 enum SubscriptionTier {
   free,
   core,
@@ -277,10 +291,10 @@ class AuthManager {
       return;
     }
 
-    final role = (user.appMetadata['role'] ?? 'user')
-        .toString()
-        .trim()
-        .toLowerCase();
+    final role = resolveAccountRole(
+      email: user.email,
+      role: user.appMetadata['role'],
+    );
     final hasPrivilegedRole =
         role == 'owner' || role == 'admin' || role == 'tester';
     var isPremium = hasPrivilegedRole;
