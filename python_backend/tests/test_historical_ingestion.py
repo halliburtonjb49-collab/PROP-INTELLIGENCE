@@ -1,4 +1,5 @@
 from services.historical_ingestion_service import build_official_assignments, normalize_basketball_logs, normalize_statcast
+from providers.historical_data import MlbHistoricalProvider
 
 
 def test_normalizes_basketball_game_log() -> None:
@@ -33,3 +34,22 @@ def test_builds_basketball_official_assignment_context() -> None:
     assert rows[0]["official_name"] == "Pat Ref"
     assert rows[0]["total_fouls"] == 5
     assert rows[0]["total_free_throw_attempts"] == 12
+
+
+def test_mlb_provider_extracts_home_plate_assignment(monkeypatch) -> None:
+    class Response:
+        def raise_for_status(self): pass
+        def json(self):
+            return {"dates": [{"date": "2026-07-17", "games": [{"gamePk": 1,
+                "officialDate": "2026-07-17", "officials": [
+                    {"officialType": "First Base", "official": {"id": 2, "fullName": "Other"}},
+                    {"officialType": "Home Plate", "official": {"id": 9, "fullName": "Pat Ump"}},
+                ]}]}]}
+    monkeypatch.setattr("providers.historical_data.requests.get", lambda *args, **kwargs: Response())
+    rows = MlbHistoricalProvider().umpire_assignments(
+        start=__import__("datetime").date(2026, 7, 17),
+        end=__import__("datetime").date(2026, 7, 17),
+    )
+    assert rows == [{"game_pk": "1", "game_date": "2026-07-17", "official_id": "9",
+                     "official_name": "Pat Ump", "source": "MLB Stats API",
+                     "raw": {"officialType": "Home Plate", "official": {"id": 9, "fullName": "Pat Ump"}}}]

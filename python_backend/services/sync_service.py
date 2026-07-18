@@ -9,6 +9,7 @@ from services.odds_service import (
     estimate_event_odds_cost, fetch_event_odds, fetch_events, quota_allows,
 )
 from services.prop_processor import process_and_cache_props
+from services.prediction_automation_service import snapshot_live_predictions
 
 cache = PropCache(DB_PATH)
 logger = logging.getLogger(__name__)
@@ -113,5 +114,8 @@ def run_global_sync_pipeline() -> list[dict[str, object]]:
         sync_sport(sport_key)
         for sport_key in sports
     ]
+    snapshot = snapshot_live_predictions()
+    results.append({"sport": "prediction_snapshots", "events": 0,
+                    "props": int(snapshot.get("created", 0))})
     logger.info("sync_global sports=%s", ",".join(sports))
     return results

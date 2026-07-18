@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Any
+import requests
 
 
 class MissingHistoricalDependency(RuntimeError):
@@ -43,6 +44,13 @@ class NbaHistoricalProvider:
             season_type_all_star=season_type,
             player_or_team_abbreviation="P",
             timeout=timeout,
+        )
+        return _records(endpoint.get_data_frames()[0])
+
+    def league_schedule(self, *, season: str, league_id: str,
+                        timeout: int = 60) -> list[dict[str, object]]:
+        endpoint = self._endpoints().ScheduleLeagueV2(
+            season=season, league_id=league_id, timeout=timeout,
         )
         return _records(endpoint.get_data_frames()[0])
 
@@ -102,3 +110,30 @@ class MlbHistoricalProvider:
             ) from exc
         cache.enable()
         return _records(statcast(start.isoformat(), end.isoformat()))
+
+    def umpire_assignments(self, *, start: date, end: date,
+                           timeout: int = 30) -> list[dict[str, object]]:
+        response = requests.get(
+            "https://statsapi.mlb.com/api/v1/schedule",
+            params={"sportId": 1, "startDate": start.isoformat(),
+                    "endDate": end.isoformat(), "hydrate": "officials"},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        assignments = []
+        for day in payload.get("dates", []):
+            for game in day.get("games", []):
+                for row in game.get("officials", []):
+                    if row.get("officialType") != "Home Plate":
+                        continue
+                    official = row.get("official") or {}
+                    assignments.append({
+                        "game_pk": str(game.get("gamePk") or ""),
+                        "game_date": game.get("officialDate") or day.get("date"),
+                        "official_id": str(official.get("id") or ""),
+                        "official_name": str(official.get("fullName") or ""),
+                        "source": "MLB Stats API",
+                        "raw": row,
+                    })
+        return [row for row in assignments if row["game_pk"] and row["official_id"]]

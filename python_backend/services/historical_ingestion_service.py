@@ -7,6 +7,7 @@ import json
 import logging
 import math
 from numbers import Real
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta, timezone
 from typing import Iterable
 
@@ -22,7 +23,8 @@ logger = logging.getLogger(__name__)
 
 def _as_date(value: object) -> date | None:
     text = str(value or "").strip()
-    for pattern in ("%Y-%m-%d", "%b %d, %Y", "%m/%d/%Y"):
+    for pattern in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%SZ", "%b %d, %Y",
+                    "%m/%d/%Y", "%m/%d/%Y %H:%M:%S"):
         try:
             return datetime.strptime(text, pattern).date()
         except ValueError:
@@ -159,6 +161,23 @@ class HistoricalRepository:
                 where umpire <> '' and plate_x is not null and game_date >= current_date - interval '730 days'""")
             return [{"umpire": row[0], "plate_x": row[1], "description": row[2]} for row in cursor.fetchall()]
 
+    def upsert_mlb_umpire_assignments(self, rows: list[dict[str, object]]) -> int:
+        if not rows or not database_is_configured():
+            return 0
+        with get_database_pool().connection() as connection, connection.cursor() as cursor:
+            cursor.executemany("""insert into mlb_umpire_game_assignments
+                (game_pk,game_date,official_id,official_name,source,raw)
+                values(%s,%s,%s,%s,%s,%s::jsonb) on conflict(game_pk) do update set
+                game_date=excluded.game_date,official_id=excluded.official_id,
+                official_name=excluded.official_name,source=excluded.source,raw=excluded.raw,updated_at=now()""",
+                [(r["game_pk"], r["game_date"], r["official_id"], r["official_name"],
+                  r["source"], json.dumps(r["raw"], default=str)) for r in rows])
+            cursor.execute("""update historical_mlb_pitches p set umpire=a.official_name
+                from mlb_umpire_game_assignments a where p.game_pk=a.game_pk
+                and (p.umpire is null or p.umpire='')""")
+            connection.commit()
+        return len(rows)
+
 
 def run_daily_historical_sync(target_date: date | None = None, season: str | None = None) -> dict[str, object]:
     target = target_date or (datetime.now(timezone.utc).date() - timedelta(days=1))
@@ -204,13 +223,79 @@ def run_daily_historical_sync(target_date: date | None = None, season: str | Non
             logger.exception("Historical %s sync failed", sport)
             results[sport] = {"error": str(exc)}
     try:
-        pitches = normalize_statcast(MlbHistoricalProvider().statcast(start=target, end=target))
+        mlb = MlbHistoricalProvider()
+        pitches = normalize_statcast(mlb.statcast(start=target, end=target))
         upserted = repository.upsert_mlb_pitches(pitches)
+        umpire_assignments = mlb.umpire_assignments(start=target, end=target)
+        assignments_upserted = repository.upsert_mlb_umpire_assignments(umpire_assignments)
         profiles = calculate_mlb_umpire_profiles(repository.load_mlb_umpire_pitches())
         results["MLB"] = {"fetched": len(pitches), "upserted": upserted,
+                          "umpireAssignmentsUpserted": assignments_upserted,
                           "officiatingProfilesUpserted": persist_officiating_profiles(profiles)}
     except Exception as exc:
         logger.exception("Historical MLB sync failed")
         results["MLB"] = {"error": str(exc)}
     results["finishedAt"] = datetime.now(timezone.utc).isoformat()
     return results
+
+
+def backfill_basketball_officiating(*, sport: str, season: str,
+                                    days: int = 30, max_games: int = 60) -> dict[str, object]:
+    """Backfill recent official crews without re-downloading full player logs."""
+    if not database_is_configured():
+        return {"persisted": False, "reason": "DATABASE_URL is not configured"}
+    league_id = "10" if sport.upper() == "WNBA" else "00"
+    provider = NbaHistoricalProvider()
+    cutoff = datetime.now(timezone.utc).date() - timedelta(days=max(1, days))
+    schedule = provider.league_schedule(season=season, league_id=league_id)
+    game_ids = []
+    for row in schedule:
+        game_date = _as_date(row.get("gameDate") or row.get("gameDateUTC"))
+        if game_date and game_date >= cutoff and str(row.get("gameId") or ""):
+            game_ids.append(str(row["gameId"]))
+    with get_database_pool().connection() as connection, connection.cursor() as cursor:
+        cursor.execute("""select league_game_id,game_date,personal_fouls,free_throw_attempts
+            from historical_basketball_game_logs where sport=%s and game_date >= %s""",
+            (sport.upper(), cutoff))
+        rows = cursor.fetchall()
+        cursor.execute("""select distinct league_game_id from basketball_official_game_assignments
+            where sport=%s and game_date >= %s""", (sport.upper(), cutoff))
+        existing = {str(row[0]) for row in cursor.fetchall()}
+    totals: dict[str, dict[str, object]] = {}
+    for game_id, game_date, fouls, attempts in rows:
+        item = totals.setdefault(str(game_id), {"game_date": game_date, "fouls": 0.0, "attempts": 0.0})
+        item["fouls"] = float(item["fouls"]) + float(fouls or 0)
+        item["attempts"] = float(item["attempts"]) + float(attempts or 0)
+    candidate_ids = sorted((set(game_ids) & set(totals)) - existing, reverse=True)[:max_games]
+    assignments = []
+    failures = 0
+    def fetch(game_id: str) -> tuple[str, list[dict[str, object]]]:
+        return game_id, provider.game_officials(game_id=game_id, timeout=30)
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {executor.submit(fetch, game_id): game_id for game_id in candidate_ids}
+        completed = []
+        for future in as_completed(futures):
+            try:
+                completed.append(future.result())
+            except Exception:
+                failures += 1
+                logger.warning("Official backfill failed sport=%s game=%s error=%s",
+                               sport, futures[future], future.exception())
+    for game_id, officials in completed:
+        try:
+            total = totals[game_id]
+            for official in officials:
+                official_id = str(official.get("PERSON_ID") or "").strip()
+                if official_id:
+                    assignments.append({"sport": sport.upper(), "league_game_id": game_id,
+                        "official_id": official_id,
+                        "official_name": f"{official.get('FIRST_NAME') or ''} {official.get('LAST_NAME') or ''}".strip(),
+                        "game_date": total["game_date"], "total_fouls": total["fouls"],
+                        "total_free_throw_attempts": total["attempts"], "raw": official})
+        except Exception:
+            failures += 1
+            logger.warning("Official normalization failed sport=%s game=%s", sport, game_id, exc_info=True)
+    persisted = persist_basketball_assignments(assignments)
+    profiles = refresh_basketball_profiles(sport.upper())
+    return {"persisted": True, "candidateGames": len(candidate_ids),
+            "assignments": persisted, "profiles": profiles, "failures": failures}

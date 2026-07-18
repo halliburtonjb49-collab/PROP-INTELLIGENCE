@@ -20,6 +20,7 @@ MIGRATIONS = (
     "supabase_subscription_tiers.sql",
     "supabase_historical_data.sql",
     "supabase_intelligence_features.sql",
+    "supabase_operational_pipeline.sql",
 )
 
 

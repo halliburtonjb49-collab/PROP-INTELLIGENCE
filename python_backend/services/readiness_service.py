@@ -49,7 +49,8 @@ def production_readiness() -> dict[str, object]:
             counts[table] = int(cursor.fetchone()[0])
         graded = 0
         if counts.get("prediction_snapshots") is not None:
-            cursor.execute("select count(*) from prediction_snapshots where graded_at is not null")
+            cursor.execute("""select count(*) from prediction_snapshots where graded_at is not null
+                and created_at < event_time - interval '5 minutes'""")
             graded = int(cursor.fetchone()[0])
         cursor.execute("""select exists(select 1 from information_schema.columns
             where table_schema='public' and table_name='user_profiles' and column_name='subscription_tier')""")
