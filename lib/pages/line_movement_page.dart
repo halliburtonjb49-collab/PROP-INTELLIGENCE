@@ -341,7 +341,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
       ),
       _summaryCard(
         icon: Icons.trending_up_rounded,
-        iconColor: AppColors.green,
+        iconColor: AppColors.blue,
         value: '${largestMovement == 0 ? 0 : 82}%',
         label: 'MARKET CONFIDENCE',
         detail: 'High',
@@ -879,7 +879,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
                     const CircularProgressIndicator(
                       value: .82,
                       strokeWidth: 10,
-                      color: AppColors.green,
+                      color: AppColors.blue,
                       backgroundColor: AppColors.border,
                     ),
                     const Text(
@@ -942,7 +942,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
-              child: CircularProgressIndicator(color: Color(0xFFFFC400)),
+              child: CircularProgressIndicator(color: AppColors.blue),
             );
           }
           const defaultAlerts = <String>[
@@ -1007,7 +1007,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
           final changed = data.items.isEmpty
               ? 12
               : data.items.where((item) => item.status != 'UNCHANGED').length;
-          final _ = <String>[
+          final movementAlerts = <String>[
             if (top.isNotEmpty)
               'Largest movement signal: ${top.first.player} (${top.first.movementMagnitude.toStringAsFixed(2)})',
             'Changed lines detected: $changed',
@@ -1022,7 +1022,9 @@ class _LineMovementPageState extends State<LineMovementPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _referenceHeader(),
+                _buildPageHeader(),
+                const SizedBox(height: 10),
+                _alertsTicker(movementAlerts),
                 const SizedBox(height: 9),
                 _buildMovementSummaryCards(
                   changedCount: changed,
@@ -1239,7 +1241,7 @@ class _MovementStatusFooter extends StatelessWidget {
                 children: [
                   Icon(
                     items[i].$1,
-                    color: i == 2 ? AppColors.green : AppColors.textMuted,
+                    color: i == 2 ? AppColors.blue : AppColors.textMuted,
                     size: 17,
                   ),
                   const SizedBox(width: 9),
@@ -1259,7 +1261,7 @@ class _MovementStatusFooter extends StatelessWidget {
                       Text(
                         items[i].$3,
                         style: TextStyle(
-                          color: i == 2 ? AppColors.green : AppColors.white,
+                          color: i == 2 ? AppColors.blue : AppColors.white,
                           fontSize: 8,
                         ),
                       ),

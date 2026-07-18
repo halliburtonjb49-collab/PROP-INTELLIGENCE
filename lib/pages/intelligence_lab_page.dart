@@ -19,6 +19,13 @@ class IntelligenceLabPage extends StatefulWidget {
 }
 
 class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
+  static String _scriptLabel(String value) => switch (value) {
+    'HOME_BLOWOUT' => 'Home team blowout',
+    'AWAY_BLOWOUT' => 'Away team blowout',
+    'LOW_SCORING' => 'Low-scoring game',
+    'SHOOTOUT' => 'High-scoring shootout',
+    _ => 'Close game',
+  };
   final _api = ApiService();
   final _alertUpdates = LiveUpdateService(channels: const {'alerts'});
   StreamSubscription<dynamic>? _alertSubscription;
@@ -114,11 +121,11 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: calibrated
-            ? Colors.greenAccent.withValues(alpha: .08)
+            ? const Color(0xFF36B9FF).withValues(alpha: .08)
             : AppColors.gold.withValues(alpha: .08),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: calibrated ? Colors.greenAccent : AppColors.gold,
+          color: calibrated ? const Color(0xFF36B9FF) : AppColors.gold,
         ),
       ),
       child: Column(
@@ -128,14 +135,16 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
             children: [
               Icon(
                 calibrated ? Icons.verified_outlined : Icons.science_outlined,
-                color: calibrated ? Colors.greenAccent : AppColors.gold,
+                color: calibrated ? const Color(0xFF36B9FF) : AppColors.gold,
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   calibrated ? 'MODEL CALIBRATED' : 'MODEL WARMING UP',
                   style: TextStyle(
-                    color: calibrated ? Colors.greenAccent : AppColors.gold,
+                    color: calibrated
+                        ? const Color(0xFF36B9FF)
+                        : AppColors.gold,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -156,7 +165,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
           const SizedBox(height: 12),
           LinearProgressIndicator(
             value: _calibrationLoading ? null : progress,
-            color: calibrated ? Colors.greenAccent : AppColors.gold,
+            color: calibrated ? const Color(0xFF36B9FF) : AppColors.gold,
             backgroundColor: Colors.white12,
           ),
           const SizedBox(height: 10),
@@ -461,7 +470,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
               child: Text(
                 'INTELLIGENCE LAB',
                 style: TextStyle(
-                  color: AppColors.gold,
+                  color: AppColors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
                 ),
@@ -585,13 +594,21 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
           DropdownButton<String>(
             value: _script,
             isExpanded: true,
-            items: const [
-              'CLOSE',
-              'HOME_BLOWOUT',
-              'AWAY_BLOWOUT',
-              'SHOOTOUT',
-              'LOW_SCORING',
-            ].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+            items:
+                const [
+                      'CLOSE',
+                      'HOME_BLOWOUT',
+                      'AWAY_BLOWOUT',
+                      'SHOOTOUT',
+                      'LOW_SCORING',
+                    ]
+                    .map(
+                      (v) => DropdownMenuItem(
+                        value: v,
+                        child: Text(_scriptLabel(v)),
+                      ),
+                    )
+                    .toList(),
             onChanged: _busy ? null : (v) => setState(() => _script = v!),
           ),
           step: 2,
@@ -632,7 +649,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
             'LIVE ALERT DELIVERY',
             Text(
               _alertDeliveryMessage!,
-              style: const TextStyle(color: Colors.greenAccent),
+              style: const TextStyle(color: Color(0xFF36B9FF)),
             ),
           ),
         if (_correlation != null)
@@ -657,7 +674,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
                 Text(
                   '${_simulation?['simulations']} simulations | portfolio hit '
                   '${_simulation?['portfolioHitProbability'] == null ? '--' : '${((_simulation?['portfolioHitProbability'] as num) * 100).toStringAsFixed(1)}%'}',
-                  style: const TextStyle(color: Colors.greenAccent),
+                  style: const TextStyle(color: Color(0xFF36B9FF)),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -715,7 +732,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
                       : 'Monitoring — conditions not yet met.',
                   style: TextStyle(
                     color: _alert?['triggered'] == true
-                        ? Colors.greenAccent
+                        ? const Color(0xFF36B9FF)
                         : Colors.white,
                   ),
                 ),

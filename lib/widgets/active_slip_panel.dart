@@ -412,7 +412,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     final borderColor = specialType == 'demon'
         ? const Color(0xFFFF5656)
         : specialType == 'goblin'
-        ? const Color(0xFF56F08F)
+        ? const Color(0xFF36B9FF)
         : PropIntelligenceColors.gold;
     final markerIcon = specialType == 'demon'
         ? Icons.whatshot
@@ -422,7 +422,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     final markerColor = specialType == 'demon'
         ? const Color(0xFFFF5656)
         : specialType == 'goblin'
-        ? const Color(0xFF56F08F)
+        ? const Color(0xFF36B9FF)
         : PropIntelligenceColors.gold;
 
     return RepaintBoundary(

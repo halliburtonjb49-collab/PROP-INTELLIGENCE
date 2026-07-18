@@ -142,7 +142,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
-              child: CircularProgressIndicator(color: Color(0xFFFFC400)),
+              child: CircularProgressIndicator(color: AppColors.blue),
             );
           }
           if (snapshot.hasError) {
@@ -261,28 +261,31 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               const SizedBox(height: 14),
               _newsTicker(alerts),
               const SizedBox(height: 14),
-              GridView.count(
-                crossAxisCount: 4,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                shrinkWrap: true,
-                childAspectRatio: 2.8,
-                children: [
-                  _statCard('TOTAL PROPS', '$total'),
-                  _statCard('AVG EDGE', '${avgEdge.toStringAsFixed(1)}%'),
-                  _statCard(
-                    'TOP SPORT',
-                    topSport == null
-                        ? 'N/A'
-                        : '${topSport.key} (${topSport.value})',
-                  ),
-                  _statCard(
-                    'TOP BOOK',
-                    topBook == null
-                        ? 'N/A'
-                        : '${topBook.key} (${topBook.value})',
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) => GridView.count(
+                  crossAxisCount: constraints.maxWidth < 620 ? 2 : 4,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  childAspectRatio: constraints.maxWidth < 620 ? 2.4 : 2.8,
+                  children: [
+                    _statCard('TOTAL PROPS', '$total'),
+                    _statCard('AVG EDGE', '${avgEdge.toStringAsFixed(1)}%'),
+                    _statCard(
+                      'TOP SPORT',
+                      topSport == null
+                          ? 'N/A'
+                          : '${topSport.key} (${topSport.value})',
+                    ),
+                    _statCard(
+                      'TOP BOOK',
+                      topBook == null
+                          ? 'N/A'
+                          : '${topBook.key} (${topBook.value})',
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 14),
               Text(
@@ -306,42 +309,51 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               ),
               const SizedBox(height: 8),
               Expanded(
-                child: ListView.separated(
-                  itemCount: topEdges.take(12).length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final p = topEdges[index];
-                    return Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0D1F2E),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF294052)),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${p.player} • ${p.market} • ${p.sport}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
+                child: topEdges.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No analytics are available for this sport yet.',
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      )
+                    : ListView.separated(
+                        itemCount: topEdges.take(12).length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final p = topEdges[index];
+                          return Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0D1F2E),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFF294052),
                               ),
                             ),
-                          ),
-                          Text(
-                            '${p.edge}%',
-                            style: const TextStyle(
-                              color: Color(0xFFFFC400),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${p.player} • ${p.market} • ${p.sport}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  '${p.edge}%',
+                                  style: const TextStyle(
+                                    color: Color(0xFFFFC400),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
               ),
             ],
           );

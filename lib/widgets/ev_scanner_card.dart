@@ -68,13 +68,13 @@ class PositiveEvScannerCard extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.15),
+                      color: const Color(0xFF36B9FF).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       '+$evPercentage% EV',
                       style: const TextStyle(
-                        color: Color(0xFF00E676),
+                        color: Color(0xFF36B9FF),
                         fontWeight: FontWeight.w900,
                         fontSize: 10,
                       ),

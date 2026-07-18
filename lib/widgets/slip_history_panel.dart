@@ -444,7 +444,7 @@ class _ClvSummary extends StatelessWidget {
           Icon(
             Icons.show_chart_rounded,
             size: 16,
-            color: positive ? const Color(0xFF25D97D) : const Color(0xFFF2BC35),
+            color: positive ? const Color(0xFF36B9FF) : const Color(0xFFF2BC35),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -668,7 +668,7 @@ class _SavedSlipCard extends StatelessWidget {
                                       : 'MISSED CLOSE'}  ${leg.lineClvPercent == null ? '' : '${leg.lineClvPercent! >= 0 ? '+' : ''}${leg.lineClvPercent!.toStringAsFixed(2)}%'}',
                                   style: TextStyle(
                                     color: leg.beatClosingLine == true
-                                        ? const Color(0xFF25D97D)
+                                        ? const Color(0xFF36B9FF)
                                         : const Color(0xFFFFB74D),
                                     fontSize: 9,
                                     fontWeight: FontWeight.w800,

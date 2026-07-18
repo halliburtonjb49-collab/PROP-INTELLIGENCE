@@ -83,7 +83,7 @@ class PlayerAnalyticsChart extends StatelessWidget {
                   BarChartRodData(
                     toY: actualStat,
                     color: hitOver
-                        ? const Color(0xFF00E676)
+                        ? const Color(0xFF36B9FF)
                         : const Color(0xFFFF5252),
                     width: 14,
                     borderRadius: const BorderRadius.vertical(

@@ -97,7 +97,6 @@ class _SelectedPropSlipState extends State<SelectedPropSlip> {
       child: Column(
         children: [
           _buildHeader(),
-          if (widget.props.isNotEmpty) _buildClearButton(),
           Expanded(
             child: widget.props.isEmpty
                 ? _buildEmptyState()
@@ -150,16 +149,34 @@ class _SelectedPropSlipState extends State<SelectedPropSlip> {
           ),
           const SizedBox(width: 10),
           const Expanded(
-            child: Text(
-              'SELECTED PLAYERS',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
-                letterSpacing: .5,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ACTIVE SLIP',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .5,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Review your selections',
+                  style: TextStyle(color: mutedText, fontSize: 9),
+                ),
+              ],
             ),
           ),
+          if (widget.props.isNotEmpty)
+            IconButton(
+              onPressed: widget.onClear == null
+                  ? null
+                  : () => widget.onClear!(),
+              tooltip: 'Clear active slip',
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+            ),
           Container(
             width: 28,
             height: 28,
@@ -170,7 +187,7 @@ class _SelectedPropSlipState extends State<SelectedPropSlip> {
             ),
             child: Text(
               '${widget.props.length}',
-              style: const TextStyle(
+              style: TextStyle(
                 color: Color(0xFF06111B),
                 fontSize: 10,
                 fontWeight: FontWeight.w900,
@@ -178,31 +195,6 @@ class _SelectedPropSlipState extends State<SelectedPropSlip> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildClearButton() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 10, 17, 5),
-      child: SizedBox(
-        width: double.infinity,
-        height: 34,
-        child: OutlinedButton.icon(
-          onPressed: widget.onClear == null ? null : () => widget.onClear!(),
-          icon: const Icon(Icons.delete_outline, size: 16),
-          label: const Text(
-            'CLEAR SELECTED PLAYERS',
-            style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900),
-          ),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: gold,
-            side: const BorderSide(color: gold),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(9),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -248,13 +240,23 @@ class _SelectedPropSlipState extends State<SelectedPropSlip> {
         children: [
           Row(
             children: [
-              Text(
-                '${widget.props.length} ${widget.props.length == 1 ? 'PICK' : 'PICKS'}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 11,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'READY TO BUILD',
+                    style: TextStyle(color: mutedText, fontSize: 7),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${widget.props.length} ${widget.props.length == 1 ? 'PICK' : 'PICKS'}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ),
               const Spacer(),
               Column(
@@ -320,8 +322,7 @@ class _SelectedPropCard extends StatelessWidget {
   static const raisedBackground = Color(0xFF0C1C28);
   static const borderColor = Color(0xFF273B49);
   static const gold = Color(0xFFFFC400);
-  static const green = Color(0xFF23D75F);
-  static const red = Color(0xFFE53935);
+  static const blue = Color(0xFF36B9FF);
   static const mutedText = Color(0xFF8EA0AD);
 
   bool get isOver => prop.selectedSide.toLowerCase() == 'over';
@@ -353,7 +354,7 @@ class _SelectedPropCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: cardBackground,
         borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: gold.withValues(alpha: .75)),
+        border: Border.all(color: borderColor),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
@@ -369,7 +370,7 @@ class _SelectedPropCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: gold,
+                        color: blue,
                         fontSize: 8,
                         fontWeight: FontWeight.w900,
                       ),
@@ -403,7 +404,7 @@ class _SelectedPropCard extends StatelessWidget {
                     height: 46,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: gold),
+                      border: Border.all(color: const Color(0xFF34495A)),
                     ),
                     child: ClipOval(child: _playerImage()),
                   ),
@@ -453,14 +454,14 @@ class _SelectedPropCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: raisedBackground,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: gold.withValues(alpha: .5)),
+                border: Border.all(color: const Color(0xFF34495A)),
               ),
               child: Row(
                 children: [
                   Expanded(
                     child: _sideLabel(
                       '▲ OVER',
-                      isOver ? green : Colors.transparent,
+                      isOver ? blue : Colors.transparent,
                     ),
                   ),
                   SizedBox(
@@ -480,7 +481,7 @@ class _SelectedPropCard extends StatelessWidget {
                   Expanded(
                     child: _sideLabel(
                       '▼ UNDER',
-                      !isOver ? red : Colors.transparent,
+                      !isOver ? blue : Colors.transparent,
                     ),
                   ),
                 ],
@@ -494,7 +495,7 @@ class _SelectedPropCard extends StatelessWidget {
                     child: _metric(
                       'EDGE',
                       '+${prop.edge.toStringAsFixed(1)}%',
-                      green,
+                      blue,
                     ),
                   ),
                   Expanded(

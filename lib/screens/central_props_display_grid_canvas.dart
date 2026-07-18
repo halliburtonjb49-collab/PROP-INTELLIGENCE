@@ -121,7 +121,7 @@ class _CentralPropsDisplayGridCanvasState
     if (status.lastRefreshAt == null || status.sourceUrl.isEmpty) {
       return const Color(0xFFFFC72C);
     }
-    return const Color(0xFF56D38A);
+    return const Color(0xFF36B9FF);
   }
 
   Future<void> triggerManualBackendRefresh() async {
@@ -136,7 +136,7 @@ class _CentralPropsDisplayGridCanvasState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Props database updated successfully!'),
-            backgroundColor: Colors.green,
+            backgroundColor: Color(0xFF36B9FF),
             duration: Duration(seconds: 1),
           ),
         );
@@ -170,46 +170,65 @@ class _CentralPropsDisplayGridCanvasState
     return ValueListenableBuilder<Set<String>>(
       valueListenable: FilterManager.activeBookFilter,
       builder: (context, currentFilters, child) {
-        return SizedBox(
-          height: 50,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: books.length,
-            itemBuilder: (context, index) {
-              final bookName = books[index];
-              final isSelected = currentFilters.contains(bookName);
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: OutlinedButton(
-                  onPressed: () => FilterManager.updateFilter(bookName),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: isSelected
-                        ? const Color(0xFFFFD700)
-                        : const Color(0xFF1E222A),
-                    side: BorderSide(
-                      color: isSelected
-                          ? const Color(0xFFFFD700)
-                          : Colors.white10,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'SPORTSBOOK',
+              style: TextStyle(
+                color: Color(0xFF8EA0AD),
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 38,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: books.length,
+                itemBuilder: (context, index) {
+                  final bookName = books[index];
+                  final isSelected = currentFilters.contains(bookName);
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 7),
+                    child: OutlinedButton(
+                      onPressed: () => FilterManager.updateFilter(bookName),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 38),
+                        backgroundColor: isSelected
+                            ? const Color(0xFF36B9FF).withValues(alpha: .14)
+                            : const Color(0xFF182633),
+                        foregroundColor: isSelected
+                            ? const Color(0xFF36B9FF)
+                            : const Color(0xFFD7DEE5),
+                        side: BorderSide(
+                          color: isSelected
+                              ? const Color(0xFF36B9FF)
+                              : const Color(0xFF34495A),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                      ),
+                      child: Text(
+                        bookName,
+                        style: TextStyle(
+                          fontWeight: isSelected
+                              ? FontWeight.w900
+                              : FontWeight.w700,
+                          fontSize: 10,
+                          letterSpacing: .25,
+                        ),
+                      ),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                  ),
-                  child: Text(
-                    bookName,
-                    style: TextStyle(
-                      color: isSelected ? Colors.black : Colors.white70,
-                      fontWeight: isSelected
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
+                  );
+                },
+              ),
+            ),
+          ],
         );
       },
     );
@@ -307,61 +326,91 @@ class _CentralPropsDisplayGridCanvasState
 
                 return Column(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-                      child: Row(
+                    Container(
+                      margin: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0C1824),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF263746)),
+                      ),
+                      child: Column(
                         children: [
-                          Expanded(
-                            child: ValueListenableBuilder<BackendRefreshStatus>(
-                              valueListenable: ApiService.refreshStatusNotifier,
-                              builder: (context, status, _) {
-                                return Text(
-                                  _formatStatus(status),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: _statusColor(status),
-                                    fontSize: 10,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          InkWell(
-                            onTap: triggerManualBackendRefresh,
-                            borderRadius: BorderRadius.circular(8),
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 6,
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.radar_rounded,
+                                color: Color(0xFF36B9FF),
+                                size: 18,
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.refresh,
-                                    color: Color(0xFFFFD700),
-                                    size: 16,
+                              const SizedBox(width: 8),
+                              const Text(
+                                'LIVE PROP BOARD',
+                                style: TextStyle(
+                                  color: Color(0xFFD7DEE5),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: .65,
+                                ),
+                              ),
+                              const SizedBox(width: 9),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(
+                                    0xFF36B9FF,
+                                  ).withValues(alpha: .12),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${displayedProps.length} RESULTS',
+                                  style: const TextStyle(
+                                    color: Color(0xFF36B9FF),
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w900,
                                   ),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'REFRESH',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const Spacer(),
+                              IconButton(
+                                onPressed: triggerManualBackendRefresh,
+                                tooltip: 'Refresh live props',
+                                icon: const Icon(Icons.refresh_rounded),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          Row(
+                            children: [
+                              Expanded(
+                                child:
+                                    ValueListenableBuilder<
+                                      BackendRefreshStatus
+                                    >(
+                                      valueListenable:
+                                          ApiService.refreshStatusNotifier,
+                                      builder: (context, status, _) {
+                                        return Text(
+                                          _formatStatus(status),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: _statusColor(status),
+                                            fontSize: 10,
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  ),
-                                ],
                               ),
-                            ),
+                            ],
                           ),
+                          const SizedBox(height: 12),
+                          buildSportsbookFilterBar(),
                         ],
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: buildSportsbookFilterBar(),
                     ),
                     if (displayedProps.isEmpty)
                       Expanded(

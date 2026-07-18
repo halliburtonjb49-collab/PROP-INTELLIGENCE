@@ -339,7 +339,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
                           : Icons.warning_amber_rounded,
                       size: 15,
                       color: signal.positive
-                          ? const Color(0xFF24C47E)
+                          ? const Color(0xFF36B9FF)
                           : const Color(0xFFFFB74D),
                     ),
                     const SizedBox(width: 7),
@@ -455,12 +455,12 @@ class _ElitePropCardState extends State<ElitePropCard> {
                   ),
                   decoration: BoxDecoration(
                     color: index == 0
-                        ? const Color(0xFF24C47E).withValues(alpha: .10)
+                        ? const Color(0xFF36B9FF).withValues(alpha: .10)
                         : Colors.white.withValues(alpha: .03),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: index == 0
-                          ? const Color(0xFF24C47E)
+                          ? const Color(0xFF36B9FF)
                           : const Color(0xFF273445),
                     ),
                   ),
@@ -473,7 +473,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
                             : offers[index].book,
                         style: TextStyle(
                           color: index == 0
-                              ? const Color(0xFF24C47E)
+                              ? const Color(0xFF36B9FF)
                               : const Color(0xFF98A6B8),
                           fontSize: 9,
                           fontWeight: FontWeight.w800,
@@ -549,7 +549,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
 
     final bool edgePositive = widget.edgePercentage >= 0;
     final Color edgeColor = edgePositive
-        ? const Color(0xFF24C47E)
+        ? const Color(0xFF36B9FF)
         : const Color(0xFFF0616B);
 
     return AnimatedContainer(
@@ -646,6 +646,15 @@ class _ElitePropCardState extends State<ElitePropCard> {
                       ),
                       onPressed: _toggleCloudFavorite,
                     ),
+                    AnimatedRotation(
+                      turns: _isExpanded ? .5 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      child: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: Color(0xFF8EA0AD),
+                        size: 21,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 2),
@@ -657,48 +666,71 @@ class _ElitePropCardState extends State<ElitePropCard> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _StatColumn(
-                        label: 'Sportsbook',
-                        value:
-                            '${widget.sportsbookLine}  (${widget.americanOdds})',
-                        valueColor: const Color(0xFFDCE8F4),
-                      ),
-                    ),
-                    Expanded(
-                      child: PremiumFeatureGateGuard(
-                        isUserPremium: widget.isUserPremium,
-                        lockedChild: const _StatColumn(
-                          label: 'Projection',
-                          value: 'LOCKED',
-                          valueColor: Color(0xFF7F8EA2),
-                        ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 11,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF182633),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF34495A)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
                         child: _StatColumn(
-                          label: 'Projection',
-                          value: widget.aiProjection.toStringAsFixed(1),
-                          valueColor: const Color(0xFF87B7FF),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: PremiumFeatureGateGuard(
-                        isUserPremium: widget.isUserPremium,
-                        lockedChild: const _StatColumn(
-                          label: 'Edge',
-                          value: 'LOCKED',
-                          valueColor: Color(0xFF7F8EA2),
-                        ),
-                        child: _StatColumn(
-                          label: 'Edge',
+                          label: 'LINE / ODDS',
                           value:
-                              '${edgePositive ? '+' : ''}${widget.edgePercentage.toStringAsFixed(1)}%',
-                          valueColor: edgeColor,
+                              '${widget.sportsbookLine}  (${widget.americanOdds})',
+                          valueColor: const Color(0xFFD7DEE5),
                         ),
                       ),
-                    ),
-                  ],
+                      Container(
+                        width: 1,
+                        height: 30,
+                        color: const Color(0xFF34495A),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: PremiumFeatureGateGuard(
+                          isUserPremium: widget.isUserPremium,
+                          lockedChild: const _StatColumn(
+                            label: 'PROJECTION',
+                            value: 'LOCKED',
+                            valueColor: Color(0xFF7F8EA2),
+                          ),
+                          child: _StatColumn(
+                            label: 'PROJECTION',
+                            value: widget.aiProjection.toStringAsFixed(1),
+                            valueColor: const Color(0xFF36B9FF),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 30,
+                        color: const Color(0xFF34495A),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: PremiumFeatureGateGuard(
+                          isUserPremium: widget.isUserPremium,
+                          lockedChild: const _StatColumn(
+                            label: 'EDGE',
+                            value: 'LOCKED',
+                            valueColor: Color(0xFF7F8EA2),
+                          ),
+                          child: _StatColumn(
+                            label: 'EDGE',
+                            value:
+                                '${edgePositive ? '+' : ''}${widget.edgePercentage.toStringAsFixed(1)}%',
+                            valueColor: edgeColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Container(
@@ -784,7 +816,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
                         (((widget.propData['current_progress_value'] as num?) ??
                                     0) >=
                                 widget.sportsbookLine)
-                            ? Colors.greenAccent
+                            ? const Color(0xFF36B9FF)
                             : const Color(0xFFFFD700),
                       ),
                       minHeight: 6,
@@ -833,7 +865,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
                               style: TextStyle(
                                 color: last10GameStats.isEmpty
                                     ? const Color(0xFF98A6B8)
-                                    : const Color(0xFF00E676),
+                                    : const Color(0xFF36B9FF),
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                               ),

@@ -246,6 +246,53 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             ),
           ),
         ];
+      case 'pricing':
+        title = 'PRICING';
+        subtitle = 'CHOOSE THE INTELLIGENCE THAT FITS YOUR PROCESS';
+        icon = Icons.workspace_premium_outlined;
+        content = const [
+          Text(
+            'Choose the tools that match how deeply you want to analyze each play. Both subscriptions are month-to-month and can be canceled anytime.',
+            style: TextStyle(color: _silver70, fontSize: 14, height: 1.65),
+          ),
+          SizedBox(height: 20),
+          _PricingTierCard(
+            name: 'CORE',
+            price: '\$29.99 / MONTH',
+            description: 'The daily essentials for organized prop research.',
+            features: [
+              'Full prop builder and player analytics',
+              'Live scoreboard and standard stat tracking',
+              'Save, organize and track prop slips',
+              'Market comparisons and line movement tools',
+              'Multi-sport research across major leagues',
+            ],
+          ),
+          SizedBox(height: 12),
+          _PricingTierCard(
+            name: 'PRO / EDGE',
+            price: '\$89.99 / MONTH',
+            description:
+                'The complete intelligence suite for advanced decision support.',
+            featured: true,
+            features: [
+              'Everything in Core',
+              'AI projections, confidence scores and edge metrics',
+              'Fatigue, travel, officiating and matchup context',
+              'Correlation engine and parlay compatibility flags',
+              'Game-script and Monte Carlo simulations',
+              'Historical similarity matching and sentiment signals',
+              'Custom compound alerts and stale-line notifications',
+              'Prediction history, grading and model calibration',
+            ],
+          ),
+          SizedBox(height: 16),
+          _AboutNotice(
+            title: 'NO GUARANTEED OUTCOMES',
+            text:
+                'Plans provide research, modeling and organizational tools. Predictions are informational and do not guarantee winning wagers.',
+          ),
+        ];
       case 'contact':
         title = 'CONTACT';
         subtitle = 'QUESTIONS, FEEDBACK OR BETA ACCESS';
@@ -891,6 +938,7 @@ class _TopNavigation extends StatelessWidget {
             for (final item in const [
               ('FEATURES', 'features'),
               ('HOW IT WORKS', 'how-it-works'),
+              ('PRICING', 'pricing'),
               ('ABOUT', 'about'),
               ('CONTACT', 'contact'),
             ])
@@ -1024,6 +1072,141 @@ class _AboutBullet extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PricingTierCard extends StatelessWidget {
+  final String name;
+  final String price;
+  final String description;
+  final List<String> features;
+  final bool featured;
+
+  const _PricingTierCard({
+    required this.name,
+    required this.price,
+    required this.description,
+    required this.features,
+    this.featured = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: featured
+            ? _gold.withValues(alpha: 0.08)
+            : Colors.white.withValues(alpha: 0.025),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: featured
+              ? _gold.withValues(alpha: 0.82)
+              : _silver.withValues(alpha: 0.16),
+          width: featured ? 1.4 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            name,
+                            style: const TextStyle(
+                              color: _silver,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ),
+                        if (featured) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _gold,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Text(
+                              'BEST VALUE',
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.7,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      description,
+                      style: const TextStyle(
+                        color: _silver70,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                price,
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  color: featured ? _gold : _silver,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          for (final feature in features)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.check_circle_rounded,
+                    color: featured ? _gold : const Color(0xFF36B9FF),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      feature,
+                      style: const TextStyle(
+                        color: _silver70,
+                        fontSize: 12,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

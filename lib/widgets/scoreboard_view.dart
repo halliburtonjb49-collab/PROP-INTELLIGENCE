@@ -26,7 +26,7 @@ class _LiveScoreboardTickerGridWidgetState
   static const _white = Color(0xFFF7F8FA);
   static const _silver = Color(0xFFA4B1BB);
   static const _muted = Color(0xFF71818D);
-  static const _green = Color(0xFF24D65A);
+  static const _green = Color(0xFF36B9FF);
 
   late final ScoreboardController _controller;
   final ScrollController _scrollController = ScrollController();

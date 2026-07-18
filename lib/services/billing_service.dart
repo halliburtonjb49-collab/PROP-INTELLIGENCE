@@ -72,7 +72,7 @@ class RevenueCatBillingService {
               content: Text(
                 'Subscription active. Access will unlock after secure verification.',
               ),
-              backgroundColor: Color(0xFF24C47E),
+              backgroundColor: Color(0xFF36B9FF),
             ),
           );
         }

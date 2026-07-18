@@ -230,7 +230,7 @@ class _GoblinsDemonsScreenState extends State<GoblinsDemonsScreen> {
     return Icon(
       isGoblin ? Icons.masks_outlined : Icons.whatshot,
       size: size,
-      color: isGoblin ? const Color(0xFF56F08F) : const Color(0xFFFF5656),
+      color: isGoblin ? const Color(0xFF36B9FF) : const Color(0xFFFF5656),
     );
   }
 
@@ -261,7 +261,7 @@ class _GoblinsDemonsScreenState extends State<GoblinsDemonsScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.masks_outlined, size: 20, color: Color(0xFF56F08F)),
+                Icon(Icons.masks_outlined, size: 20, color: Color(0xFF36B9FF)),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -417,7 +417,7 @@ class _GoblinsDemonsScreenState extends State<GoblinsDemonsScreen> {
     final type = _classify(prop);
     final cardBorderColor = type == _SpecialType.demon
         ? const Color(0xFFFF5656)
-        : const Color(0xFF56F08F);
+        : const Color(0xFF36B9FF);
     final selectedSide = _selectedSides[prop.id] ?? _preferredSide(prop);
     final side = prop.pick.trim().isEmpty ? 'BEST' : prop.pick.toUpperCase();
     final lineValue = prop.currentLine == 0 ? prop.line : prop.currentLine;

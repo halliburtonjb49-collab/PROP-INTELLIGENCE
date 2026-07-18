@@ -72,6 +72,27 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('pricing navigation explains every available tier', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(const MaterialApp(home: CorporateLoginScreen()));
+    await tester.pump();
+    await tester.tap(find.text('PRICING'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('EXPLORE'), findsNothing);
+    expect(find.text('FREE'), findsNothing);
+    expect(find.text('CORE'), findsOneWidget);
+    expect(find.text('PRO / EDGE'), findsOneWidget);
+    expect(find.text(r'$29.99 / MONTH'), findsOneWidget);
+    expect(find.text(r'$89.99 / MONTH'), findsOneWidget);
+    expect(find.text('BEST VALUE'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('login page stacks safely on a mobile viewport', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));

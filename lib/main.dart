@@ -336,6 +336,56 @@ ThemeData buildPropIntelligenceBrandedTheme() {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: app_colors.AppColors.gold,
+        foregroundColor: const Color(0xFF06111B),
+        elevation: 0,
+        minimumSize: const Size(44, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+        textStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+          letterSpacing: .35,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: app_colors.AppColors.white,
+        minimumSize: const Size(44, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+        side: const BorderSide(color: app_colors.AppColors.border),
+        textStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          letterSpacing: .3,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: app_colors.AppColors.textSecondary,
+        minimumSize: const Size(40, 40),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        textStyle: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: .25,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+      ),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(
+        foregroundColor: app_colors.AppColors.textSecondary,
+        minimumSize: const Size(40, 40),
+        padding: const EdgeInsets.all(10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    ),
     scrollbarTheme: ScrollbarThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.dragged)) {
@@ -1152,6 +1202,8 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   vertical: 10,
                 ),
                 children: [
+                  const _SidebarSectionLabel('WORKSPACE'),
+                  const SizedBox(height: 7),
                   SidebarButton(
                     label: 'BOARD',
                     leadingIcons: const [Icons.tune_rounded],
@@ -1194,7 +1246,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     premium: true,
                     showGoldBar: true,
                     leadingIcons: const [Icons.auto_graph],
-                    leadingIconColors: const [Color(0xFF00E676)],
+                    leadingIconColors: const [Color(0xFF36B9FF)],
                     onTap: () => widget.onSelectPage?.call(AppPage.evScanner),
                   ),
                   ValueListenableBuilder<AuthSessionState>(
@@ -1210,20 +1262,20 @@ class _LeftSidebarState extends State<LeftSidebar> {
                           decoration: BoxDecoration(
                             color: const Color(0xFF122030),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF24C47E)),
+                            border: Border.all(color: const Color(0xFF36B9FF)),
                           ),
                           child: const Row(
                             children: [
                               Icon(
                                 Icons.verified,
-                                color: Color(0xFF24C47E),
+                                color: Color(0xFF36B9FF),
                                 size: 16,
                               ),
                               SizedBox(width: 8),
                               Text(
                                 'ELITE ACTIVE',
                                 style: TextStyle(
-                                  color: Color(0xFF24C47E),
+                                  color: Color(0xFF36B9FF),
                                   fontSize: 11,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 0.3,
@@ -1247,7 +1299,9 @@ class _LeftSidebarState extends State<LeftSidebar> {
                       );
                     },
                   ),
-                  const Divider(height: 22, color: AppColors.border),
+                  const SizedBox(height: 18),
+                  const _SidebarSectionLabel('SPORTS'),
+                  const SizedBox(height: 7),
                   ...sports.map(
                     (sport) => Padding(
                       padding: const EdgeInsets.only(bottom: 3),
@@ -1262,14 +1316,16 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     ),
                   ),
                   buildGoblinSidebarToggle(),
-                  const Divider(height: 24, color: AppColors.border),
+                  const SizedBox(height: 12),
+                  const _SidebarSectionLabel('SPECIALTY'),
+                  const SizedBox(height: 7),
                   SidebarButton(
                     label: 'GOBLINS / DEMONS',
                     selected: widget.selectedPage == AppPage.goblinsDemons,
                     premium: true,
                     leadingIcons: const [Icons.masks_outlined, Icons.whatshot],
                     leadingIconColors: const [
-                      Color(0xFF56F08F),
+                      Color(0xFF36B9FF),
                       Color(0xFFFF5656),
                     ],
                     onTap: () =>
@@ -1317,7 +1373,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                         const Text(
                           'LIVE',
                           style: TextStyle(
-                            color: Color(0xFF52E33F),
+                            color: Color(0xFF36B9FF),
                             fontSize: 8,
                             fontWeight: FontWeight.w800,
                           ),
@@ -1362,6 +1418,28 @@ class _SidebarHeader extends StatelessWidget {
   }
 }
 
+class _SidebarSectionLabel extends StatelessWidget {
+  final String label;
+
+  const _SidebarSectionLabel(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: app_colors.AppColors.textMuted,
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.35,
+        ),
+      ),
+    );
+  }
+}
+
 class SidebarButton extends StatelessWidget {
   final String label;
   final bool selected;
@@ -1401,16 +1479,38 @@ class SidebarButton extends StatelessWidget {
         : FontWeight.w700;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+        constraints: const BoxConstraints(minHeight: 42),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
+          color: selected
+              ? app_colors.AppColors.gold.withValues(alpha: 0.10)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(
+            color: selected
+                ? app_colors.AppColors.gold.withValues(alpha: 0.52)
+                : Colors.transparent,
+          ),
         ),
         child: Row(
           children: [
+            if (showGoldBar) ...[
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 3,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? app_colors.AppColors.gold
+                      : app_colors.AppColors.gold.withValues(alpha: 0.34),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
             if (leadingEmojis != null) ...[
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1466,7 +1566,7 @@ class SidebarButton extends StatelessWidget {
                 label,
                 style: TextStyle(
                   color: textColor,
-                  fontSize: 10,
+                  fontSize: 10.5,
                   fontWeight: textWeight,
                   letterSpacing: 0.2,
                 ),
@@ -4463,7 +4563,7 @@ class _BoardSparklinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF52E33F)
+      ..color = const Color(0xFF36B9FF)
       ..strokeWidth = 1.3
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;

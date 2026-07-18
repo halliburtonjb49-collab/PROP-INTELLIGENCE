@@ -1075,7 +1075,7 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               color: resultStatus == 'won'
-                                  ? Colors.greenAccent
+                                  ? const Color(0xFF36B9FF)
                                   : resultStatus == 'lost'
                                   ? Colors.redAccent
                                   : null,
@@ -1145,7 +1145,7 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
                                 color: movementStatus == 'BETTER'
-                                    ? Colors.greenAccent
+                                    ? const Color(0xFF36B9FF)
                                     : movementStatus == 'WORSE'
                                     ? Colors.redAccent
                                     : Theme.of(
