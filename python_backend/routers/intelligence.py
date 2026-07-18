@@ -14,13 +14,15 @@ from services.prediction_tracking_service import (
     calibration_summary, grade_prediction, historical_features, save_prediction,
 )
 from services.api_auth_service import require_user_id
-from services.compound_alert_service import create_alert, delete_alert, evaluate_user_alerts, list_alerts
+from services.compound_alert_service import create_alert, delete_alert, evaluate_user_alerts, list_alerts, list_deliveries
 from routers.realtime import hub as realtime_hub
 from services.engagement_service import record_engagement, sentiment_rollup
 from services.vector_similarity_service import database_similarity
 from services.officiating_profile_service import get_officiating_profile
 from services.matchup_profile_service import get_matchup_profile
 from services.clv_service import closing_line_value
+from services.model_performance_service import model_performance, operations_summary
+from services.api_auth_service import require_admin
 
 router = APIRouter(prefix="/api/intelligence", tags=["intelligence"])
 
@@ -137,6 +139,12 @@ def get_compound_alerts(user_id: str = Depends(require_user_id)) -> dict[str, ob
     return {"count": len(alerts), "alerts": alerts}
 
 
+@router.get("/alerts/deliveries")
+def get_alert_deliveries(limit: int = 50, user_id: str = Depends(require_user_id)) -> dict[str, object]:
+    deliveries = list_deliveries(user_id, max(1, min(limit, 100)))
+    return {"count": len(deliveries), "deliveries": deliveries}
+
+
 @router.delete("/alerts/{alert_id}")
 def remove_compound_alert(alert_id: UUID, user_id: str = Depends(require_user_id)) -> dict[str, object]:
     if not delete_alert(user_id, alert_id):
@@ -175,6 +183,16 @@ def get_calibration(model_version: str = "intelligence-v1") -> dict[str, object]
     return calibration_summary(model_version)
 
 
+@router.get("/performance")
+def get_model_performance(model_version: str = "intelligence-v1") -> dict[str, object]:
+    return model_performance(model_version)
+
+
+@router.get("/operations")
+def get_operations_summary(_admin: str = Depends(require_admin)) -> dict[str, object]:
+    return operations_summary()
+
+
 @router.post("/closing-line-value")
 def calculate_closing_line_value(request: ClosingLineValueRequest) -> dict[str, object]:
     return closing_line_value(request)
@@ -186,4 +204,4 @@ def capabilities() -> dict[str, object]:
                          "gameScript", "similarity", "sentiment", "compoundAlerts",
                          "historicalFeatures", "predictionTracking", "calibration",
                          "closingLineValue"],
-            "version": "1.2.0", "explainable": True}
+            "version": "1.3.0", "explainable": True}

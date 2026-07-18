@@ -3025,6 +3025,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
   String _identityPreviewText = 'Identity preview: 0 entries';
   String _availabilityPreviewText = 'Availability preview: 0 players';
   Map<String, dynamic>? _lastUnresolvedGrouped;
+  Map<String, dynamic>? _operations;
   final List<String> _uploadAuditEntries = [];
 
   static const String _auditPrefKey = 'data_admin_upload_audit_v1';
@@ -3043,6 +3044,81 @@ class _DataAdminPageState extends State<DataAdminPage> {
     _refreshPreviewCounts();
     unawaited(_loadAuditEntries());
     unawaited(_refreshUnresolved());
+    unawaited(_refreshOperations());
+  }
+
+  Future<void> _refreshOperations() async {
+    try {
+      final result = await _apiService.fetchAdminOperations();
+      if (mounted) {
+        setState(() => _operations = result);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _statusText = 'Pipeline monitoring failed: $error');
+      }
+    }
+  }
+
+  Widget _buildOperationsPanel() {
+    final runs = _operations?['runs'] as List? ?? const [];
+    final latest = runs.isNotEmpty && runs.first is Map
+        ? runs.first as Map
+        : null;
+    final valid =
+        (_operations?['validCalibrationResults'] as num?)?.toInt() ?? 0;
+    final pending = (_operations?['pendingPredictions'] as num?)?.toInt() ?? 0;
+    final status = latest?['status']?.toString() ?? 'NO RUNS';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A1520),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF2A3D51)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.monitor_heart_outlined,
+            color: Color(0xFFFFC400),
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'PIPELINE $status',
+            style: TextStyle(
+              color: status == 'FAILED'
+                  ? const Color(0xFFFF8A80)
+                  : const Color(0xFF8CFFB2),
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(width: 18),
+          Text(
+            'Today: ${_operations?['snapshotsToday'] ?? 0} snapshots',
+            style: const TextStyle(color: Color(0xFF9EB1C4), fontSize: 11),
+          ),
+          const SizedBox(width: 18),
+          Text(
+            'Pending: $pending',
+            style: const TextStyle(color: Color(0xFF9EB1C4), fontSize: 11),
+          ),
+          const SizedBox(width: 18),
+          Text(
+            'Calibration: $valid / 100',
+            style: const TextStyle(color: Color(0xFF9EB1C4), fontSize: 11),
+          ),
+          const Spacer(),
+          IconButton(
+            onPressed: _refreshOperations,
+            tooltip: 'Refresh pipeline status',
+            icon: const Icon(Icons.refresh, color: Colors.white70, size: 18),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -3710,6 +3786,8 @@ class _DataAdminPageState extends State<DataAdminPage> {
               ],
             ],
           ),
+          const SizedBox(height: 8),
+          _buildOperationsPanel(),
           const SizedBox(height: 8),
           Text(
             _unresolvedSummary,

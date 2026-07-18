@@ -15,6 +15,7 @@ from models.intelligence import (
     SimilarityRequest,
     ScheduleFatigueRequest, TravelLeg,
 )
+from services.historical_correlation_service import empirical_pair
 
 
 def derive_schedule_fatigue(request: ScheduleFatigueRequest) -> dict[str, object]:
@@ -135,11 +136,18 @@ def correlation_matrix(request: CorrelationRequest) -> dict[str, object]:
     scores = []
     for index, first in enumerate(request.legs):
         for second in request.legs[index + 1:]:
-            score, reason = _pair_correlation(first, second)
+            empirical = empirical_pair(first, second)
+            if empirical is not None:
+                score = float(empirical["coefficient"])
+                reason = f"Measured across {empirical['sampleSize']} overlapping historical games"
+            else:
+                score, reason = _pair_correlation(first, second)
             scores.append(score)
             pairs.append({"firstId": first.id, "secondId": second.id, "coefficient": round(score, 2),
                           "classification": "POSITIVE" if score >= .15 else "NEGATIVE" if score <= -.15 else "NEUTRAL",
-                          "reason": reason})
+                          "reason": reason, "source": empirical["source"] if empirical else "heuristic-fallback",
+                          "sampleSize": empirical["sampleSize"] if empirical else 0,
+                          "jointHitRate": empirical["jointHitRate"] if empirical else None})
     portfolio = fmean(abs(score) for score in scores) if scores else 0
     return {"pairs": pairs, "correlationRisk": round(portfolio, 2),
             "warning": "Concentrated outcome risk" if portfolio >= .35 else "Correlation is within a balanced range"}

@@ -66,8 +66,14 @@ def sync_schedule_and_fatigue(*, nba_season: str, wnba_season: str) -> dict[str,
     provider = NbaHistoricalProvider()
     normalized: list[dict[str, object]] = []
     venues: dict[str, tuple[str, float, float, str]] = {}
+    provider_errors: list[dict[str, str]] = []
     for sport, league, season in (("NBA", "00", nba_season), ("WNBA", "10", wnba_season)):
-        for row in provider.league_schedule(season=season, league_id=league):
+        try:
+            schedule = provider.league_schedule(season=season, league_id=league, timeout=20)
+        except Exception as exc:
+            provider_errors.append({"sport": sport, "error": str(exc)})
+            continue
+        for row in schedule:
             game_id = str(row.get("gameId") or "").strip()
             home_id, away_id = str(row.get("homeTeam_teamId") or ""), str(row.get("awayTeam_teamId") or "")
             home_code = str(row.get("homeTeam_teamTricode") or "").upper()
@@ -96,7 +102,8 @@ def sync_schedule_and_fatigue(*, nba_season: str, wnba_season: str) -> dict[str,
         connection.commit()
     fatigue_count = _compute_fatigue()
     return {"persisted": True, "venues": len(venues), "scheduleRows": len(normalized),
-            "fatigueFeatures": fatigue_count}
+            "fatigueFeatures": fatigue_count, "providerErrors": provider_errors,
+            "usedCachedSchedule": bool(provider_errors)}
 
 
 def _compute_fatigue() -> int:

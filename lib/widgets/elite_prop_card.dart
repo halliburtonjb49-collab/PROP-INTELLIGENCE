@@ -266,6 +266,18 @@ class _ElitePropCardState extends State<ElitePropCard> {
     if (matchup != null) {
       signals.add((text: matchup, positive: true));
     }
+    final sentiment = _text(const ['sentimentLabel', 'sentiment_label']);
+    final sentimentSample = _number(const [
+      'sentimentSampleSize',
+      'sentiment_sample_size',
+    ]);
+    if (sentiment != null && (sentimentSample ?? 0) > 0) {
+      signals.add((
+        text:
+            'Community signal: $sentiment (${sentimentSample!.round()} recent actions).',
+        positive: sentiment.toUpperCase() == 'FOLLOW',
+      ));
+    }
     return signals.take(6).toList(growable: false);
   }
 

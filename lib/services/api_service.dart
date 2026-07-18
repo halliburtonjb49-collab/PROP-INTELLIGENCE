@@ -116,6 +116,32 @@ class ApiService {
     throw Exception(lastError ?? 'Intelligence API unavailable');
   }
 
+  Future<Map<String, dynamic>> fetchAdminOperations() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/intelligence/operations'),
+      headers: _authenticatedHeaders(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load pipeline operations: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAlertDeliveries() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/intelligence/alerts/deliveries'),
+      headers: _authenticatedHeaders(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load alert deliveries: ${response.body}');
+    }
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    return (decoded['deliveries'] as List? ?? const [])
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList(growable: false);
+  }
+
   Future<Map<String, dynamic>> saveCompoundAlert(
     Map<String, dynamic> rule,
   ) async {

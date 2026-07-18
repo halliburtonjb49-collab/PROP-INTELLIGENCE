@@ -71,6 +71,26 @@ services:
       - key: API_SPORTS_KEY
         sync: false
 
+  - type: cron
+    name: prop-intelligence-pregame-sync
+    runtime: python
+    schedule: "*/30 * * * *"
+    buildCommand: pip install -r requirements.txt -r requirements-historical.txt
+    startCommand: python python_backend/scripts/sync_pregame.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSLMODE
+        value: require
+      - key: ODDS_API_KEY
+        sync: false
+      - key: API_SPORTS_KEY
+        sync: false
+      - key: API_SPORTS_BASEBALL_KEY
+        sync: false
+
   - type: web
     name: props-intelligence-app
     runtime: static

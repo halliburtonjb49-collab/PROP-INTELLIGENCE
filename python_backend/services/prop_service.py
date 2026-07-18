@@ -25,6 +25,7 @@ from services.player_availability_service import (
 	get_player_availability,
 	adjust_confidence_for_availability,
 )
+from services.prop_context_service import enrich_props
 
 cache = PropCache(DB_PATH)
 
@@ -331,4 +332,5 @@ def get_props() -> list[PropResponse]:
 			)
 		)
 
+	enrich_props(results)
 	return results

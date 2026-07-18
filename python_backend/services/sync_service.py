@@ -10,9 +10,25 @@ from services.odds_service import (
 )
 from services.prop_processor import process_and_cache_props
 from services.prediction_automation_service import snapshot_live_predictions
+from services.compound_alert_service import evaluate_all_alerts
+from services.prop_service import get_props
 
 cache = PropCache(DB_PATH)
 logger = logging.getLogger(__name__)
+
+
+def _with_retries(operation, *, attempts: int = 3, label: str = "provider call"):
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return operation()
+        except Exception as exc:
+            last_error = exc
+            logger.warning("%s failed attempt=%s/%s error=%s", label, attempt, attempts, exc)
+            if attempt < attempts:
+                time.sleep(2 ** (attempt - 1))
+    assert last_error is not None
+    raise last_error
 
 
 def _event_start(event: dict[str, object]) -> datetime:
@@ -43,7 +59,9 @@ def sync_sport(sport_key: str) -> dict[str, object]:
             "props": 0,
         }
 
-    events = prioritize_events(fetch_events(sport_key))
+    events = prioritize_events(_with_retries(
+        lambda: fetch_events(sport_key), label=f"events {sport_key}",
+    ))
     active_event_ids = [
         str(event.get("id", "")).strip()
         for event in events
@@ -73,10 +91,13 @@ def sync_sport(sport_key: str) -> dict[str, object]:
             )
             break
 
-        odds_payload = fetch_event_odds(
-            sport_key=sport_key,
-            event_id=event_id,
-            markets=markets,
+        odds_payload = _with_retries(
+            lambda: fetch_event_odds(
+                sport_key=sport_key,
+                event_id=event_id,
+                markets=markets,
+            ),
+            label=f"odds {sport_key} {event_id}",
         )
         fetched_events += 1
         prop_count += process_and_cache_props(
@@ -110,12 +131,24 @@ def run_global_sync_pipeline() -> list[dict[str, object]]:
         "baseball_mlb",
         "basketball_wnba",
     ]
-    results = [
-        sync_sport(sport_key)
-        for sport_key in sports
-    ]
+    results = []
+    for sport_key in sports:
+        try:
+            results.append(sync_sport(sport_key))
+        except Exception as exc:
+            logger.exception("sync_sport failed sport=%s", sport_key)
+            results.append({"sport": sport_key, "events": 0, "props": 0, "error": str(exc)})
     snapshot = snapshot_live_predictions()
     results.append({"sport": "prediction_snapshots", "events": 0,
                     "props": int(snapshot.get("created", 0))})
+    alert_snapshots = [{
+        "propId": prop.id, "player": prop.player, "playerId": prop.playerId,
+        "sport": prop.sport, "market": prop.market, "marketKey": prop.marketKey,
+        "line": prop.line, "side": prop.recommendedSide, "confidence": prop.confidence,
+        "edge": prop.recommendationEdge, "injuryStatus": prop.injuryStatus,
+        "lineupStatus": prop.lineupStatus, "gameId": prop.gameId,
+    } for prop in get_props()]
+    deliveries = evaluate_all_alerts(alert_snapshots)
+    results.append({"sport": "compound_alerts", "events": len(alert_snapshots), "props": len(deliveries)})
     logger.info("sync_global sports=%s", ",".join(sports))
     return results

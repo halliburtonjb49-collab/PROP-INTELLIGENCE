@@ -42,6 +42,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
   Map<String, dynamic>? _alert;
   Map<String, dynamic>? _similarity;
   Map<String, dynamic>? _calibration;
+  Map<String, dynamic>? _performance;
   bool _calibrationLoading = true;
   SlipSelection? _selectionA;
   SlipSelection? _selectionB;
@@ -53,6 +54,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
     super.initState();
     _loadActiveSlip(widget.selections);
     unawaited(_loadCalibration());
+    unawaited(_loadAlertDeliveries());
     _alertSubscription = _alertUpdates.stream.listen((raw) {
       try {
         final event = jsonDecode(raw.toString());
@@ -70,12 +72,34 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
 
   Future<void> _loadCalibration() async {
     try {
-      final result = await _api.fetchIntelligence('calibration');
-      if (mounted) setState(() => _calibration = result);
+      final results = await Future.wait([
+        _api.fetchIntelligence('calibration'),
+        _api.fetchIntelligence('performance'),
+      ]);
+      if (mounted) {
+        setState(() {
+          _calibration = results[0];
+          _performance = results[1];
+        });
+      }
     } catch (_) {
       // Analysis remains usable if readiness telemetry is temporarily offline.
     } finally {
       if (mounted) setState(() => _calibrationLoading = false);
+    }
+  }
+
+  Future<void> _loadAlertDeliveries() async {
+    try {
+      final deliveries = await _api.fetchAlertDeliveries();
+      if (mounted && deliveries.isNotEmpty) {
+        setState(
+          () => _alertDeliveryMessage =
+              'LATEST ALERT: ${deliveries.first['name']}',
+        );
+      }
+    } catch (_) {
+      // Signed-out users and an empty delivery feed do not block the lab.
     }
   }
 
@@ -85,6 +109,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
     final progress = (sampleSize / requiredSamples).clamp(0.0, 1.0);
     final calibrated = sampleSize >= requiredSamples;
     final score = _calibration?['brierScore'] as num?;
+    final roi = _performance?['simulatedRoi'] as num?;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -144,6 +169,17 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
               height: 1.35,
             ),
           ),
+          if (sampleSize > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Accuracy ${(((_performance?['accuracy'] as num?)?.toDouble() ?? 0) * 100).toStringAsFixed(1)}%'
+              '  •  Simulated ROI ${roi == null ? '--' : '${(roi.toDouble() * 100).toStringAsFixed(1)}%'}',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+          ],
         ],
       ),
     );

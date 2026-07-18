@@ -56,3 +56,14 @@ class PropResponse(BaseModel):
     noVigOverProbability: float | None = None
     noVigUnderProbability: float | None = None
     edgeSigned: float = 0.0
+    fatigueIndex: float | None = None
+    fatigueMultiplier: float | None = None
+    travelMiles: float | None = None
+    timezoneChangeHours: float | None = None
+    matchupContext: str = ""
+    matchupMultiplier: float | None = None
+    officiatingContext: str = ""
+    officiatingAdjustment: float | None = None
+    sentimentLabel: str = ""
+    sentimentScore: float | None = None
+    sentimentSampleSize: int = 0

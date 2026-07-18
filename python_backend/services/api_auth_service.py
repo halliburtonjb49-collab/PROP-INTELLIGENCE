@@ -4,7 +4,7 @@ import requests
 from fastapi import Header, HTTPException
 from config import HTTP_TIMEOUT_SECONDS
 
-def verify_supabase_token(token: str) -> str | None:
+def _supabase_user(token: str) -> dict[str, object] | None:
     url = os.getenv("SUPABASE_URL", "").rstrip("/")
     anon_key = os.getenv("SUPABASE_ANON_KEY", "").strip()
     if not url or not anon_key or not token:
@@ -12,7 +12,12 @@ def verify_supabase_token(token: str) -> str | None:
     response = requests.get(f"{url}/auth/v1/user", headers={"apikey": anon_key, "Authorization": f"Bearer {token}"}, timeout=HTTP_TIMEOUT_SECONDS)
     if response.status_code != 200:
         return None
-    return str(response.json().get("id") or "").strip() or None
+    payload = response.json()
+    return payload if isinstance(payload, dict) else None
+
+def verify_supabase_token(token: str) -> str | None:
+    user = _supabase_user(token)
+    return str(user.get("id") or "").strip() or None if user else None
 
 def require_user_id(authorization: str = Header(default="")) -> str:
     token = authorization.removeprefix("Bearer ").strip()
@@ -25,10 +30,18 @@ def require_user_id(authorization: str = Header(default="")) -> str:
     return user_id
 
 
-def require_admin(x_admin_key: str = Header(default="")) -> str:
+def require_admin(x_admin_key: str = Header(default=""), authorization: str = Header(default="")) -> str:
     expected = os.getenv("ADMIN_API_KEY", "").strip()
-    if not expected:
-        raise HTTPException(status_code=503, detail="Administrative API is not configured")
-    if not x_admin_key or not __import__("hmac").compare_digest(x_admin_key, expected):
-        raise HTTPException(status_code=401, detail="Valid administrative key required")
-    return "admin"
+    if expected and x_admin_key and __import__("hmac").compare_digest(x_admin_key, expected):
+        return "admin"
+    token = authorization.removeprefix("Bearer ").strip()
+    try:
+        user = _supabase_user(token)
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable") from exc
+    metadata = (user or {}).get("app_metadata") or {}
+    user_metadata = (user or {}).get("user_metadata") or {}
+    role = str(metadata.get("role") or user_metadata.get("role") or "").lower() if isinstance(metadata, dict) and isinstance(user_metadata, dict) else ""
+    if user and role in {"owner", "admin"}:
+        return str(user.get("id"))
+    raise HTTPException(status_code=401, detail="Administrator access required")
