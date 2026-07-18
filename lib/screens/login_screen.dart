@@ -175,14 +175,50 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
     switch (section) {
       case 'features':
         title = 'FEATURES';
-        subtitle = 'THE INFORMATION BEHIND THE PLAY';
+        subtitle = 'A COMPLETE PROP RESEARCH WORKSPACE';
         icon = Icons.query_stats_rounded;
         content = const [
-          _AboutBullet('Live player props and sportsbook lines'),
-          _AboutBullet('Clear model confidence and edge indicators'),
-          _AboutBullet('Line movement and market comparison tools'),
-          _AboutBullet('Slip building, saving and performance tracking'),
-          _AboutBullet('Research across NBA, NFL, MLB, WNBA, NHL and more'),
+          _FeatureGroup(
+            icon: Icons.travel_explore_rounded,
+            title: 'DISCOVER & COMPARE',
+            items: [
+              'Live player props, game boards and multi-sportsbook lines',
+              'Player search, market comparison and line-movement tracking',
+              'Live, upcoming and final scoreboards across major sports',
+            ],
+          ),
+          _FeatureGroup(
+            icon: Icons.psychology_alt_rounded,
+            title: 'MODEL INTELLIGENCE',
+            items: [
+              'Projections, confidence, edge and expected-value signals',
+              'Matchup, fatigue, travel, officiating and game-script context',
+              'Correlation analysis, simulations and historical analogs',
+            ],
+          ),
+          _FeatureGroup(
+            icon: Icons.receipt_long_rounded,
+            title: 'BUILD & TRACK',
+            items: [
+              'Guided prop builder with same-sportsbook slip protection',
+              'Saved watchlists, active slips and performance history',
+              'Alerts for monitored conditions and stale-line changes',
+            ],
+          ),
+          _FeatureGroup(
+            icon: Icons.auto_awesome_rounded,
+            title: 'ADVANCED EDGE TOOLS',
+            items: [
+              'EV Scanner and Goblins / Demons risk-tier views',
+              'Prediction grading, calibration and model performance review',
+              'Contextual tips and plain-language guidance throughout the app',
+            ],
+          ),
+          _AboutNotice(
+            title: 'BUILT FOR INFORMED DECISIONS',
+            text:
+                'PROP INTELLIGENCE organizes research and model estimates. It does not guarantee outcomes or replace your own judgment.',
+          ),
         ];
       case 'how-it-works':
         title = 'HOW IT WORKS';
@@ -335,6 +371,52 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             title: 'MEMBER FEEDBACK',
             text:
                 'Members can also continue using the support channel where they received assistance.',
+          ),
+        ];
+      case 'terms':
+        title = 'TERMS & CONDITIONS';
+        subtitle = 'SUBSCRIPTIONS, RESPONSIBLE USE & ACCOUNT TERMS';
+        icon = Icons.gavel_rounded;
+        content = const [
+          _LegalSection(
+            title: 'SUBSCRIPTIONS & BILLING',
+            text:
+                'Core is \$29.99 per month and Edge is \$89.99 per month. Subscriptions renew automatically each month until canceled. Prices and applicable taxes are shown before purchase.',
+          ),
+          _LegalSection(
+            title: 'CANCELLATION & ACCESS',
+            text:
+                'You may cancel at any time through the billing portal or the platform used to purchase. Cancellation stops future renewals; access generally continues through the end of the paid billing period.',
+          ),
+          _LegalSection(
+            title: 'REFUNDS',
+            text:
+                'Except where required by law, subscription charges are non-refundable once a billing period begins. Contact support promptly if you believe a charge was made in error.',
+          ),
+          _LegalSection(
+            title: 'INFORMATIONAL SERVICE',
+            text:
+                'PROP INTELLIGENCE provides sports information, analytics, projections and organizational tools. Results are estimates, not guarantees. Nothing in the service is financial, legal or gambling advice.',
+          ),
+          _LegalSection(
+            title: 'RESPONSIBLE PLAY',
+            text:
+                'Only participate where lawful and only if you meet the legal age requirement in your location. Set limits, never chase losses and seek help if play stops being recreational.',
+          ),
+          _LegalSection(
+            title: 'ACCOUNT RESPONSIBILITIES',
+            text:
+                'Keep your credentials secure, provide accurate account information and do not share, resell, scrape, reverse engineer or misuse the service. You are responsible for activity under your account.',
+          ),
+          _LegalSection(
+            title: 'AVAILABILITY & LIABILITY',
+            text:
+                'Data may be delayed, incomplete or inaccurate, and features may change. Always verify live lines and market rules. To the fullest extent permitted by law, use of the service is at your own risk.',
+          ),
+          _AboutNotice(
+            title: 'SUPPORT & EFFECTIVE DATE',
+            text:
+                'Questions: propsintell@gmail.com. Effective July 18, 2026. The complete published Terms and Privacy Policy govern use of the service.',
           ),
         ];
       default:
@@ -966,6 +1048,7 @@ class _TopNavigation extends StatelessWidget {
               ('HOW IT WORKS', 'how-it-works'),
               ('PRICING', 'pricing'),
               ('ABOUT', 'about'),
+              ('TERMS', 'terms'),
               ('CONTACT', 'contact'),
             ])
               TextButton(
@@ -1096,6 +1179,91 @@ class _AboutBullet extends StatelessWidget {
                 fontSize: 13,
                 height: 1.4,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeatureGroup extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final List<String> items;
+
+  const _FeatureGroup({
+    required this.icon,
+    required this.title,
+    required this.items,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.025),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _silver.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: _gold, size: 20),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: _silver,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 11),
+          for (final item in items) _AboutBullet(item),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegalSection extends StatelessWidget {
+  final String title;
+  final String text;
+
+  const _LegalSection({required this.title, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 17),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: _gold,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.7,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              color: _silver70,
+              fontSize: 13,
+              height: 1.55,
             ),
           ),
         ],

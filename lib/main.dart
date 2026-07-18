@@ -1440,21 +1440,61 @@ class _SidebarHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'PROP',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+        Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: const Color(0xFF07131D),
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: app_colors.AppColors.borderGold),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset(
+                  'assets/branding/prop_intelligence_icon.png',
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'PROP',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                  ),
+                  SizedBox(height: 3),
+                  Text(
+                    'INTELLIGENCE',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.goldBright,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        SizedBox(height: 5),
-        Text(
-          'INTELLIGENCE',
+        const SizedBox(height: 10),
+        const Text(
+          'RESEARCH WORKSPACE',
           style: TextStyle(
-            color: AppColors.goldBright,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
+            color: AppColors.muted,
+            fontSize: 8,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.35,
           ),
         ),
       ],
@@ -4244,6 +4284,161 @@ class PropIntelligenceBrandBadge extends StatelessWidget {
   }
 }
 
+class _GuideSectionHeader extends StatelessWidget {
+  const _GuideSectionHeader({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: app_colors.AppColors.gold.withValues(alpha: .1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: app_colors.AppColors.borderGold),
+            ),
+            child: Icon(icon, color: app_colors.AppColors.gold, size: 19),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: app_colors.AppColors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .6,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: app_colors.AppColors.textMuted,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GuideTip extends StatelessWidget {
+  const _GuideTip({
+    required this.number,
+    required this.title,
+    required this.body,
+  });
+
+  final String number;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 13,
+            backgroundColor: app_colors.AppColors.gold,
+            child: Text(
+              number,
+              style: const TextStyle(
+                color: Color(0xFF06111B),
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: app_colors.AppColors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  body,
+                  style: const TextStyle(
+                    color: app_colors.AppColors.textSecondary,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GuideCallout extends StatelessWidget {
+  const _GuideCallout({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: app_colors.AppColors.gold.withValues(alpha: .06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: app_colors.AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: app_colors.AppColors.gold, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: app_colors.AppColors.textSecondary,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _GuideTerm extends StatelessWidget {
   const _GuideTerm({required this.term, required this.definition});
 
@@ -4303,11 +4498,46 @@ class TopNavigation extends StatelessWidget {
           ],
         ),
         content: const SizedBox(
-          width: 520,
+          width: 580,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _GuideSectionHeader(
+                  icon: Icons.route_rounded,
+                  title: 'QUICK START',
+                  subtitle: 'A repeatable four-step research workflow',
+                ),
+                _GuideTip(
+                  number: '1',
+                  title: 'Start with the board',
+                  body:
+                      'Choose a sport, compare available lines and open a player when the market fits your research goal.',
+                ),
+                _GuideTip(
+                  number: '2',
+                  title: 'Check multiple signals',
+                  body:
+                      'Use projection, edge, recent form, matchup and line movement together—not one metric alone.',
+                ),
+                _GuideTip(
+                  number: '3',
+                  title: 'Verify before saving',
+                  body:
+                      'Confirm the live line, injury status and game time before adding a selection to your slip.',
+                ),
+                _GuideTip(
+                  number: '4',
+                  title: 'Track and learn',
+                  body:
+                      'Save researched slips and review graded performance to identify what is and is not working.',
+                ),
+                SizedBox(height: 18),
+                _GuideSectionHeader(
+                  icon: Icons.menu_book_rounded,
+                  title: 'KEY TERMS',
+                  subtitle: 'Plain-language definitions used across the app',
+                ),
                 _GuideTerm(
                   term: 'Edge',
                   definition:
@@ -4343,14 +4573,26 @@ class TopNavigation extends StatelessWidget {
                   definition:
                       'A hypothetical game environment—such as a blowout or shootout—used to stress-test projections.',
                 ),
-                SizedBox(height: 6),
-                Text(
-                  'All analytics are decision-support estimates, not guaranteed outcomes.',
-                  style: TextStyle(
-                    color: app_colors.AppColors.textSecondary,
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
+                SizedBox(height: 12),
+                _GuideSectionHeader(
+                  icon: Icons.lightbulb_outline_rounded,
+                  title: 'PRO TIPS',
+                  subtitle: 'Small habits that strengthen the process',
+                ),
+                _GuideCallout(
+                  icon: Icons.compare_arrows_rounded,
+                  text:
+                      'Shop the line. Even a half-point difference can materially change the quality of a prop.',
+                ),
+                _GuideCallout(
+                  icon: Icons.warning_amber_rounded,
+                  text:
+                      'Treat unusually strong outputs as a reason to investigate—not as a guaranteed result.',
+                ),
+                _GuideCallout(
+                  icon: Icons.health_and_safety_outlined,
+                  text:
+                      'Set limits, never chase losses and keep play recreational. Analytics are decision support only.',
                 ),
               ],
             ),

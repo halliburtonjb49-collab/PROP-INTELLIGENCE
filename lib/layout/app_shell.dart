@@ -40,22 +40,53 @@ class AppShell extends StatelessWidget {
         final widths = _sidebarWidths(constraints.maxWidth);
         return Scaffold(
           backgroundColor: AppColors.background,
-          body: Row(
-            children: [
-              SizedBox(width: widths.left, child: leftSidebar),
-              Container(width: 1, color: AppColors.border),
-              Expanded(
-                child: Column(
-                  children: [
-                    SizedBox(height: topHeight, child: topNavigation),
-                    Container(height: 1, color: AppColors.border),
-                    Expanded(child: content),
-                  ],
-                ),
+          body: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF07131E), AppColors.background],
               ),
-              Container(width: 1, color: AppColors.border),
-              SizedBox(width: widths.right, child: rightSidebar),
-            ],
+            ),
+            child: SafeArea(
+              child: Row(
+                children: [
+                  SizedBox(width: widths.left, child: leftSidebar),
+                  Container(width: 1, color: AppColors.border),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        SizedBox(height: topHeight, child: topNavigation),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: AppColors.border),
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x66000000),
+                                      blurRadius: 22,
+                                      offset: Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: content,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(width: 1, color: AppColors.border),
+                  SizedBox(width: widths.right, child: rightSidebar),
+                ],
+              ),
+            ),
           ),
         );
       },

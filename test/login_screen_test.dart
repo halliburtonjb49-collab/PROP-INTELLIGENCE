@@ -92,6 +92,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('features navigation reflects the complete research suite', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(const MaterialApp(home: CorporateLoginScreen()));
+    await tester.pump();
+    await tester.tap(find.text('FEATURES'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('DISCOVER & COMPARE'), findsOneWidget);
+    expect(find.text('MODEL INTELLIGENCE'), findsOneWidget);
+    expect(find.text('BUILD & TRACK'), findsOneWidget);
+    expect(find.text('ADVANCED EDGE TOOLS'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('terms are available from the public navigation', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(const MaterialApp(home: CorporateLoginScreen()));
+    await tester.pump();
+    await tester.tap(find.text('TERMS'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('TERMS & CONDITIONS'), findsOneWidget);
+    expect(find.text('SUBSCRIPTIONS & BILLING'), findsOneWidget);
+    expect(find.text('RESPONSIBLE PLAY'), findsOneWidget);
+    expect(find.text('ACCOUNT RESPONSIBILITIES'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('login page stacks safely on a mobile viewport', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
