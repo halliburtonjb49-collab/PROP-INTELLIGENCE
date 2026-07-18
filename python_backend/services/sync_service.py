@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 from config import DB_PATH
@@ -104,23 +105,27 @@ def sync_sport(sport_key: str) -> dict[str, object]:
     failed_events = 0
     estimated_event_cost = estimate_event_odds_cost(markets)
 
+    eligible_events: list[dict[str, object]] = []
     for event in events:
         event_id = str(event.get("id", ""))
         if not event_id:
             continue
 
-        budget = quota_allows(estimated_event_cost)
+        budget = quota_allows(estimated_event_cost * (len(eligible_events) + 1))
         if budget["allowed"] is not True:
-            skipped_for_quota = len(events) - fetched_events
+            skipped_for_quota = len(events) - len(eligible_events)
             logger.warning(
                 "sync_sport quota_guard sport=%s remaining=%s estimatedCost=%s reserve=%s skipped=%s",
                 sport_key, budget["remaining"], estimated_event_cost,
                 budget["reserve"], skipped_for_quota,
             )
             break
+        eligible_events.append(event)
 
+    def fetch_one(event: dict[str, object]):
+        event_id = str(event.get("id", ""))
         try:
-            odds_payload = _with_retries(
+            payload = _with_retries(
                 lambda: fetch_event_odds(
                     sport_key=sport_key,
                     event_id=event_id,
@@ -128,6 +133,26 @@ def sync_sport(sport_key: str) -> dict[str, object]:
                 ),
                 label=f"odds {sport_key} {event_id}",
             )
+            return event, payload, None
+        except Exception as exc:
+            return event, None, exc
+
+    configured_workers = max(1, int(os.getenv("PROP_SYNC_EVENT_WORKERS", "6")))
+    worker_count = min(configured_workers, max(1, len(eligible_events)))
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        fetched_payloads = executor.map(fetch_one, eligible_events)
+        # Cache mutations stay serialized while network requests overlap.
+        for event, odds_payload, error in fetched_payloads:
+            event_id = str(event.get("id", ""))
+            if error is not None or odds_payload is None:
+                failed_events += 1
+                logger.error(
+                    "sync_event failed; preserving cached props sport=%s event=%s error=%s",
+                    sport_key,
+                    event_id,
+                    error,
+                )
+                continue
             fetched_events += 1
             prop_count += process_and_cache_props(
                 cache=cache,
@@ -135,14 +160,6 @@ def sync_sport(sport_key: str) -> dict[str, object]:
                 event=event,
                 odds_payload=odds_payload,
             )
-        except Exception:
-            failed_events += 1
-            logger.exception(
-                "sync_event failed; preserving cached props sport=%s event=%s",
-                sport_key,
-                event_id,
-            )
-            continue
 
     elapsed_ms = int((time.perf_counter() - started_at) * 1000)
     logger.info(
@@ -160,6 +177,7 @@ def sync_sport(sport_key: str) -> dict[str, object]:
         "skippedForQuota": skipped_for_quota,
         "failedEvents": failed_events,
         "estimatedCostPerEvent": estimated_event_cost,
+        "eventWorkers": worker_count,
         "props": prop_count,
     }
 

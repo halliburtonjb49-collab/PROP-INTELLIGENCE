@@ -41,7 +41,7 @@ class AppShell extends StatelessWidget {
       borderRadius: borderRadius,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xF207111B),
+          color: const Color(0xE607111B),
           borderRadius: borderRadius,
           border: Border.all(
             color: highlighted ? AppColors.borderGold : AppColors.border,
@@ -78,7 +78,7 @@ class AppShell extends StatelessWidget {
           backgroundColor: AppColors.background,
           body: Stack(
             children: [
-              const Positioned.fill(child: _CommandCenterBackground()),
+              const Positioned.fill(child: _FrontPageWorkspaceBackground()),
               SafeArea(
                 child: Padding(
                   padding: EdgeInsets.all(metrics.padding),
@@ -175,7 +175,7 @@ class _MobileAppShellState extends State<_MobileAppShell> {
       ),
       body: Stack(
         children: [
-          const Positioned.fill(child: _CommandCenterBackground()),
+          const Positioned.fill(child: _FrontPageWorkspaceBackground()),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(7),
@@ -185,7 +185,7 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                     height: 62,
                     padding: const EdgeInsets.symmetric(horizontal: 7),
                     decoration: BoxDecoration(
-                      color: const Color(0xF207111B),
+                      color: const Color(0xE607111B),
                       borderRadius: BorderRadius.circular(15),
                       border: Border.all(color: AppColors.borderGold),
                     ),
@@ -219,7 +219,7 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                       borderRadius: BorderRadius.circular(15),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: const Color(0xF207111B),
+                          color: const Color(0xE607111B),
                           border: Border.all(color: AppColors.border),
                           borderRadius: BorderRadius.circular(15),
                         ),
@@ -247,6 +247,54 @@ class _CommandCenterBackground extends StatelessWidget {
       child: const SizedBox.expand(),
     );
   }
+}
+
+class _FrontPageWorkspaceBackground extends StatelessWidget {
+  const _FrontPageWorkspaceBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const _CommandCenterBackground(),
+        Center(
+          child: Opacity(
+            opacity: .11,
+            child: FractionallySizedBox(
+              widthFactor: .62,
+              heightFactor: .78,
+              child: Image.asset(
+                'assets/branding/prop_intelligence_logo_transparent.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        ),
+        const Positioned(
+          left: 22,
+          top: 92,
+          child: _WorkspaceSportIcon(Icons.sports_basketball_rounded, 92),
+        ),
+        const Positioned(
+          right: 28,
+          bottom: 74,
+          child: _WorkspaceSportIcon(Icons.sports_baseball_rounded, 82),
+        ),
+      ],
+    );
+  }
+}
+
+class _WorkspaceSportIcon extends StatelessWidget {
+  const _WorkspaceSportIcon(this.icon, this.size);
+
+  final IconData icon;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) =>
+      Icon(icon, size: size, color: AppColors.gold.withValues(alpha: .12));
 }
 
 class _CommandCenterBackgroundPainter extends CustomPainter {
