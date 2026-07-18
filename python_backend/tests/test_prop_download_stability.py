@@ -4,6 +4,7 @@ from services.prop_processor import (
     count_valid_prop_rows,
     process_and_cache_props,
 )
+from database.cache import PropCache
 
 
 class CacheThatMustNotBeCleared:
@@ -53,3 +54,34 @@ def test_binary_player_markets_accept_named_and_yes_no_formats() -> None:
     }]}]}
     assert count_valid_prop_rows(payload) == 1
     assert _opposite_american_odds(100) == -100
+
+
+def test_event_props_are_replaced_in_one_cache_transaction(tmp_path) -> None:
+    cache = PropCache(tmp_path / "props.db")
+    payload = {"bookmakers": [{
+        "title": "Book",
+        "markets": [{
+            "key": "player_points",
+            "outcomes": [
+                {"name": "Over", "description": "Player One", "point": 20.5, "price": -105},
+                {"name": "Under", "description": "Player One", "point": 20.5, "price": -115},
+            ],
+        }],
+    }]}
+
+    inserted = process_and_cache_props(
+        cache=cache,
+        sport_key="basketball_nba",
+        event={
+            "id": "event-1", "home_team": "Home", "away_team": "Away",
+            "commence_time": "2026-07-18T23:00:00Z",
+        },
+        odds_payload=payload,
+    )
+
+    assert inserted == 1
+    rows = cache.load_props()
+    assert len(rows) == 1
+    assert rows[0]["player_name"] == "Player One"
+    assert rows[0]["over_odds"] == -105
+    assert rows[0]["under_odds"] == -115

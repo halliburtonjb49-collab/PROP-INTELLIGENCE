@@ -119,21 +119,8 @@ def process_and_cache_props(
 
     updated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     previous_snapshots = cache.get_existing_prop_snapshots(game_id=event_id)
-    cache.replace_games(
-        sport_key,
-        [
-            {
-                "id": event_id,
-                "home_team": event.get("home_team", ""),
-                "away_team": event.get("away_team", ""),
-                "commence_time": event.get("commence_time", ""),
-                "game_status": _normalize_event_status(event),
-            }
-        ],
-    )
-
-    cache.clear_game_props(event_id)
     inserted = 0
+    prop_rows: list[tuple[object, ...]] = []
     skipped_missing_player_or_line = 0
     skipped_duplicate_market = 0
     skipped_duplicate_event = 0
@@ -221,28 +208,43 @@ def process_and_cache_props(
                     under_odds,
                 )
 
-                cache.insert_prop(
-                    game_id=event_id,
-                    player_name=player_name,
-                    prop_type=market_key,
-                    line=current_line,
-                    opening_line=opening_line,
-                    current_line=current_line,
-                    line_updated_at=line_updated_at,
-                    over_odds=over_odds or -110,
-                    under_odds=under_odds or -110,
-                    bookmaker=bookmaker_name,
-                    prediction=prediction,
-                    confidence=confidence,
-                    source_player_id=str(
-                        outcome.get("player_id")
-                        or outcome.get("participant_id")
-                        or outcome.get("id")
-                        or ""
-                    ),
-                    updated_at=updated_at,
+                prop_rows.append(
+                    (
+                        event_id,
+                        player_name,
+                        market_key,
+                        current_line,
+                        opening_line,
+                        current_line,
+                        line_updated_at,
+                        over_odds or -110,
+                        under_odds or -110,
+                        bookmaker_name,
+                        prediction,
+                        confidence,
+                        str(
+                            outcome.get("player_id")
+                            or outcome.get("participant_id")
+                            or outcome.get("id")
+                            or ""
+                        ),
+                        updated_at,
+                    )
                 )
                 inserted += 1
+
+    if prop_rows:
+        cache.replace_event_props(
+            sport=sport_key,
+            game={
+                "id": event_id,
+                "home_team": event.get("home_team", ""),
+                "away_team": event.get("away_team", ""),
+                "commence_time": event.get("commence_time", ""),
+                "game_status": _normalize_event_status(event),
+            },
+            props=prop_rows,
+        )
 
     logger.info(
         "prop_processor event_id=%s sport=%s inserted=%s skipped_missing=%s skipped_dup_market=%s skipped_dup_event=%s",

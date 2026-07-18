@@ -308,6 +308,47 @@ class PropCache:
                 ),
             )
 
+    def replace_event_props(
+        self,
+        *,
+        sport: str,
+        game: dict[str, Any],
+        props: list[tuple[object, ...]],
+    ) -> None:
+        """Replace one event and all of its props in a single transaction."""
+        with self.connect() as connection:
+            connection.execute(
+                """
+                INSERT OR REPLACE INTO games (
+                    id, sport, home_team, away_team, commence_time,
+                    api_sports_game_id, game_status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    game["id"],
+                    sport,
+                    game.get("home_team", ""),
+                    game.get("away_team", ""),
+                    game.get("commence_time", ""),
+                    game.get("api_sports_game_id", ""),
+                    game.get("game_status", ""),
+                ),
+            )
+            connection.execute(
+                "DELETE FROM props WHERE game_id = ?",
+                (game["id"],),
+            )
+            connection.executemany(
+                """
+                INSERT INTO props (
+                    game_id, player_name, prop_type, line, opening_line,
+                    current_line, line_updated_at, over_odds, under_odds,
+                    bookmaker, prediction, confidence, source_player_id, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                props,
+            )
+
     def load_props(self) -> list[sqlite3.Row]:
         with self.connect() as connection:
             return connection.execute(
