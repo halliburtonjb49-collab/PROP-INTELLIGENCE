@@ -183,6 +183,209 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
     emailController.dispose();
   }
 
+  Future<void> _submitChangeRequest() async {
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF0B151E),
+        title: const Text(
+          'A  REQUEST OWNER APPROVAL',
+          style: TextStyle(
+            color: Color(0xFF6DB8FF),
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: SizedBox(
+          width: 480,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Describe the proposed application change. The owner must approve it before implementation or release.',
+                style: TextStyle(color: Color(0xFFB7C2CE), height: 1.45),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: titleController,
+                maxLength: 120,
+                style: const TextStyle(color: Colors.white),
+                decoration: _fieldDecoration('Request title'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: descriptionController,
+                minLines: 4,
+                maxLines: 8,
+                maxLength: 4000,
+                style: const TextStyle(color: Colors.white),
+                decoration: _fieldDecoration(
+                  'What should change, why, and what users are affected?',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              try {
+                await AuthManager.instance.submitChangeRequest(
+                  title: titleController.text,
+                  description: descriptionController.text,
+                );
+                if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+              } catch (error) {
+                _showMessage('Unable to submit request: $error');
+              }
+            },
+            child: const Text('SEND TO OWNER'),
+          ),
+        ],
+      ),
+    );
+    titleController.dispose();
+    descriptionController.dispose();
+    if (submitted == true) {
+      _showMessage('Change request sent to the owner for approval.');
+    }
+  }
+
+  Future<void> _showChangeRequests() async {
+    try {
+      final requests = await AuthManager.instance.listChangeRequests();
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: const Color(0xFF0B151E),
+          title: Row(
+            children: [
+              const Icon(Icons.approval_rounded, color: Color(0xFFFFC400)),
+              const SizedBox(width: 9),
+              Text(
+                AuthManager.instance.sessionState.value.isOwner
+                    ? 'OWNER CHANGE APPROVALS'
+                    : 'MY CHANGE REQUESTS',
+                style: const TextStyle(
+                  color: Color(0xFFFFC400),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 650,
+            height: 460,
+            child: requests.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No change requests yet.',
+                      style: TextStyle(color: Color(0xFFB7C2CE)),
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: requests.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final request = requests[index];
+                      return _ChangeRequestCard(
+                        request: request,
+                        canReview:
+                            AuthManager.instance.sessionState.value.isOwner &&
+                            request.isPending,
+                        onApprove: () => _reviewChangeRequest(
+                          dialogContext,
+                          request,
+                          approved: true,
+                        ),
+                        onDeny: () => _reviewChangeRequest(
+                          dialogContext,
+                          request,
+                          approved: false,
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('CLOSE'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      _showMessage('Unable to load change requests: $error');
+    }
+  }
+
+  Future<void> _reviewChangeRequest(
+    BuildContext requestsDialogContext,
+    AppChangeRequest request, {
+    required bool approved,
+  }) async {
+    final responseController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF0B151E),
+        title: Text(
+          approved ? 'APPROVE CHANGE REQUEST' : 'DENY CHANGE REQUEST',
+          style: TextStyle(
+            color: approved ? const Color(0xFF56D38A) : const Color(0xFFFF6B72),
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: SizedBox(
+          width: 440,
+          child: TextField(
+            controller: responseController,
+            minLines: 3,
+            maxLines: 6,
+            style: const TextStyle(color: Colors.white),
+            decoration: _fieldDecoration('Owner response (optional)'),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(approved ? 'APPROVE' : 'DENY'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      try {
+        await AuthManager.instance.reviewChangeRequest(
+          requestId: request.id,
+          approved: approved,
+          response: responseController.text,
+        );
+        if (requestsDialogContext.mounted) {
+          Navigator.pop(requestsDialogContext);
+        }
+        _showMessage(approved ? 'Request approved.' : 'Request denied.');
+        if (mounted) await _showChangeRequests();
+      } catch (error) {
+        _showMessage('Unable to review request: $error');
+      }
+    }
+    responseController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<AuthSessionState>(
@@ -209,6 +412,12 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
                   email: state.email ?? 'Unknown',
                   role: state.role,
                   onManageRoles: state.isOwner ? _showRoleManager : null,
+                  onChangeRequests: state.isOwner || state.isAdmin
+                      ? _showChangeRequests
+                      : null,
+                  onSubmitChangeRequest: state.isAdmin
+                      ? _submitChangeRequest
+                      : null,
                   onSignOut: () async {
                     try {
                       await AuthManager.instance.signOut();
@@ -331,12 +540,16 @@ class _SignedInView extends StatelessWidget {
   final String email;
   final String role;
   final VoidCallback? onManageRoles;
+  final VoidCallback? onChangeRequests;
+  final VoidCallback? onSubmitChangeRequest;
   final Future<void> Function() onSignOut;
 
   const _SignedInView({
     required this.email,
     required this.role,
     required this.onManageRoles,
+    required this.onChangeRequests,
+    required this.onSubmitChangeRequest,
     required this.onSignOut,
   });
 
@@ -416,11 +629,143 @@ class _SignedInView extends StatelessWidget {
             onPressed: onManageRoles,
             child: const Text('ROLES', style: TextStyle(fontSize: 10)),
           ),
+        if (onSubmitChangeRequest != null)
+          TextButton(
+            onPressed: onSubmitChangeRequest,
+            child: const Text('REQUEST', style: TextStyle(fontSize: 9)),
+          ),
+        if (onChangeRequests != null)
+          IconButton(
+            tooltip: normalizedRole == 'owner'
+                ? 'Review admin change requests'
+                : 'View my change requests',
+            onPressed: onChangeRequests,
+            icon: const Icon(Icons.approval_outlined, size: 17),
+            color: roleColor,
+            visualDensity: VisualDensity.compact,
+          ),
         TextButton(
           onPressed: onSignOut,
           child: const Text('SIGN OUT', style: TextStyle(fontSize: 10)),
         ),
       ],
+    );
+  }
+}
+
+class _ChangeRequestCard extends StatelessWidget {
+  const _ChangeRequestCard({
+    required this.request,
+    required this.canReview,
+    required this.onApprove,
+    required this.onDeny,
+  });
+
+  final AppChangeRequest request;
+  final bool canReview;
+  final VoidCallback onApprove;
+  final VoidCallback onDeny;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = switch (request.status) {
+      'approved' => const Color(0xFF56D38A),
+      'denied' => const Color(0xFFFF6B72),
+      _ => const Color(0xFFFFC400),
+    };
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F1C28),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: statusColor.withValues(alpha: .55)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  request.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: statusColor),
+                ),
+                child: Text(
+                  request.status.toUpperCase(),
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'ADMIN: ${request.requesterEmail}',
+            style: const TextStyle(
+              color: Color(0xFF6DB8FF),
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 9),
+          Text(
+            request.description,
+            style: const TextStyle(
+              color: Color(0xFFB7C2CE),
+              fontSize: 12,
+              height: 1.45,
+            ),
+          ),
+          if (request.ownerResponse?.isNotEmpty == true) ...[
+            const SizedBox(height: 10),
+            Text(
+              'OWNER RESPONSE: ${request.ownerResponse}',
+              style: const TextStyle(
+                color: Color(0xFFFFC400),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          if (canReview) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: onDeny,
+                  icon: const Icon(Icons.close_rounded, size: 16),
+                  label: const Text('DENY'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFFF6B72),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: onApprove,
+                  icon: const Icon(Icons.check_rounded, size: 16),
+                  label: const Text('APPROVE'),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

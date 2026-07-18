@@ -36,6 +36,43 @@ enum SubscriptionTier {
   }
 }
 
+class AppChangeRequest {
+  const AppChangeRequest({
+    required this.id,
+    required this.requesterEmail,
+    required this.title,
+    required this.description,
+    required this.status,
+    required this.ownerResponse,
+    required this.createdAt,
+    required this.reviewedAt,
+  });
+
+  final int id;
+  final String requesterEmail;
+  final String title;
+  final String description;
+  final String status;
+  final String? ownerResponse;
+  final DateTime? createdAt;
+  final DateTime? reviewedAt;
+
+  bool get isPending => status == 'pending';
+
+  factory AppChangeRequest.fromJson(Map<String, dynamic> json) {
+    return AppChangeRequest(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      requesterEmail: json['requester_email']?.toString() ?? 'Unknown admin',
+      title: json['title']?.toString() ?? 'Untitled request',
+      description: json['description']?.toString() ?? '',
+      status: json['status']?.toString().toLowerCase() ?? 'pending',
+      ownerResponse: json['owner_response']?.toString(),
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
+      reviewedAt: DateTime.tryParse(json['reviewed_at']?.toString() ?? ''),
+    );
+  }
+}
+
 class AuthSessionState {
   final bool ready;
   final bool authenticated;
@@ -220,6 +257,59 @@ class AuthManager {
       return response;
     }
     return <String, dynamic>{'email': normalizedEmail, 'role': normalizedRole};
+  }
+
+  Future<AppChangeRequest> submitChangeRequest({
+    required String title,
+    required String description,
+  }) async {
+    if (!sessionState.value.isAdmin) {
+      throw StateError('Only administrators can submit change requests.');
+    }
+    final response = await _requireClient().rpc(
+      'submit_app_change_request',
+      params: {
+        'request_title': title.trim(),
+        'request_description': description.trim(),
+      },
+    );
+    return AppChangeRequest.fromJson(
+      Map<String, dynamic>.from(response as Map),
+    );
+  }
+
+  Future<List<AppChangeRequest>> listChangeRequests() async {
+    final state = sessionState.value;
+    if (!state.isOwner && !state.isAdmin) {
+      throw StateError(
+        'Change requests require owner or administrator access.',
+      );
+    }
+    final response = await _requireClient().rpc('list_app_change_requests');
+    final rows = response is List ? response : const <dynamic>[];
+    return rows
+        .whereType<Map>()
+        .map((row) => AppChangeRequest.fromJson(Map<String, dynamic>.from(row)))
+        .toList(growable: false);
+  }
+
+  Future<AppChangeRequest> reviewChangeRequest({
+    required int requestId,
+    required bool approved,
+    String? response,
+  }) async {
+    if (!sessionState.value.isOwner) {
+      throw StateError('Only the owner can review change requests.');
+    }
+    final result = await _requireClient().rpc(
+      'review_app_change_request',
+      params: {
+        'request_id': requestId,
+        'decision': approved ? 'approved' : 'denied',
+        'response': response?.trim(),
+      },
+    );
+    return AppChangeRequest.fromJson(Map<String, dynamic>.from(result as Map));
   }
 
   Future<void> refreshSessionState() async {
