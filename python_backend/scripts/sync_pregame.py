@@ -28,7 +28,9 @@ def run_live_api_sync() -> dict[str, object] | None:
     if str(payload.get("status", "")).lower() == "complete":
         return payload
 
-    deadline = time.monotonic() + 240
+    # Expanded professional coverage can span 150+ events. Keep the monitor
+    # comfortably above the normal four-minute sync without changing cadence.
+    deadline = time.monotonic() + 600
     while time.monotonic() < deadline:
         time.sleep(3)
         status_response = requests.get(
@@ -42,7 +44,7 @@ def run_live_api_sync() -> dict[str, object] | None:
             return payload
         if status == "failed":
             raise RuntimeError(str(payload.get("error") or "Live API sync failed"))
-    raise TimeoutError("Live API prop sync did not finish within four minutes")
+    raise TimeoutError("Live API prop sync did not finish within ten minutes")
 
 
 def main() -> int:
