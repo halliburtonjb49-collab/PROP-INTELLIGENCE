@@ -13,13 +13,42 @@ enum PurchaseTier {
   final String entitlementId;
 }
 
+@visibleForTesting
+String selectRevenueCatPublicApiKey({
+  required bool isWeb,
+  required TargetPlatform platform,
+  required String webKey,
+  required String androidKey,
+  required String iosKey,
+  required String legacyKey,
+}) {
+  if (isWeb && webKey.trim().isNotEmpty) return webKey.trim();
+  if (platform == TargetPlatform.android && androidKey.trim().isNotEmpty) {
+    return androidKey.trim();
+  }
+  if (platform == TargetPlatform.iOS && iosKey.trim().isNotEmpty) {
+    return iosKey.trim();
+  }
+  return legacyKey.trim();
+}
+
 class RevenueCatBillingService {
   RevenueCatBillingService({String? publicApiKey})
-    : _publicApiKey =
-          publicApiKey ??
-          const String.fromEnvironment('REVENUECAT_PUBLIC_API_KEY');
+    : _publicApiKeyOverride = publicApiKey;
 
-  final String _publicApiKey;
+  final String? _publicApiKeyOverride;
+  String get _publicApiKey =>
+      _publicApiKeyOverride ??
+      selectRevenueCatPublicApiKey(
+        isWeb: kIsWeb,
+        platform: defaultTargetPlatform,
+        webKey: const String.fromEnvironment('REVENUECAT_WEB_PUBLIC_API_KEY'),
+        androidKey: const String.fromEnvironment(
+          'REVENUECAT_ANDROID_PUBLIC_API_KEY',
+        ),
+        iosKey: const String.fromEnvironment('REVENUECAT_IOS_PUBLIC_API_KEY'),
+        legacyKey: const String.fromEnvironment('REVENUECAT_PUBLIC_API_KEY'),
+      );
   static bool _configured = false;
 
   Future<void> initializeBillingEngine() async {

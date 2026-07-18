@@ -41,6 +41,10 @@ class SportsAppAuthService {
     'AUTH_EMAIL_REDIRECT_URL',
     defaultValue: '',
   );
+  static const String _mobileAuthRedirectUrl = String.fromEnvironment(
+    'MOBILE_AUTH_REDIRECT_URL',
+    defaultValue: 'com.propintelligence.app://login-callback/',
+  );
   static Set<String>? _cachedCloudWatchlistPlayerNames;
 
   static String _normalizePlayerName(String value) =>
@@ -94,6 +98,12 @@ class SportsAppAuthService {
       if (origin.startsWith('https://') || origin.startsWith('http://')) {
         return origin;
       }
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS) {
+      final mobileValue = _mobileAuthRedirectUrl.trim();
+      return mobileValue.isEmpty ? null : mobileValue;
     }
 
     final value = _authEmailRedirectUrl.trim();

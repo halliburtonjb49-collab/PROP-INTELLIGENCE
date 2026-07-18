@@ -45,6 +45,22 @@ Public signup is disabled in the UI unless `ALLOW_PUBLIC_SIGNUP=true` is
 explicitly supplied at build time. During private beta, signup must also remain
 disabled in Supabase Authentication settings.
 
+## Mobile build configuration
+
+Register `com.propintelligence.app://login-callback/` in Supabase Authentication
+as an allowed redirect URL. Android and iOS already register that callback in
+their platform manifests.
+
+Release builds use public, platform-specific RevenueCat SDK keys:
+
+- `REVENUECAT_ANDROID_PUBLIC_API_KEY` for Google Play
+- `REVENUECAT_IOS_PUBLIC_API_KEY` for the App Store
+- `REVENUECAT_WEB_PUBLIC_API_KEY` for RevenueCat Web Billing
+
+Pass the correct public keys with `--dart-define`. Never embed a RevenueCat
+secret key in a client build. Android release builds also require a private
+upload keystore configured outside source control.
+
 ## Validation
 
 ```powershell
