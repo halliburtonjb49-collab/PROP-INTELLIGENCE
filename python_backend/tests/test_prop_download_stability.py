@@ -1,4 +1,9 @@
-from services.prop_processor import count_valid_prop_rows, process_and_cache_props
+from services.prop_processor import (
+    _opposite_american_odds,
+    _player_and_line,
+    count_valid_prop_rows,
+    process_and_cache_props,
+)
 
 
 class CacheThatMustNotBeCleared:
@@ -33,3 +38,18 @@ def test_valid_prop_rows_require_player_and_numeric_line() -> None:
         ]
     }
     assert count_valid_prop_rows(payload) == 1
+
+
+def test_binary_player_markets_accept_named_and_yes_no_formats() -> None:
+    assert _player_and_line(
+        "player_anytime_td", {"name": "Josh Allen", "price": 130}
+    ) == ("Josh Allen", 0.5)
+    assert _player_and_line(
+        "player_double_double", {"name": "Yes", "description": "A'ja Wilson", "price": -120}
+    ) == ("A'ja Wilson", 0.5)
+    payload = {"bookmakers": [{"markets": [{
+        "key": "player_goal_scorer_anytime",
+        "outcomes": [{"name": "Lionel Messi", "price": 115}],
+    }]}]}
+    assert count_valid_prop_rows(payload) == 1
+    assert _opposite_american_odds(100) == -100

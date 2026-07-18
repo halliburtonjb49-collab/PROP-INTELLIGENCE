@@ -7,6 +7,45 @@ from database.cache import PropCache
 
 logger = logging.getLogger(__name__)
 
+BINARY_PLAYER_MARKETS = {
+    "player_double_double",
+    "player_anytime_td",
+    "player_goal_scorer_anytime",
+    "player_first_goal_scorer",
+    "player_last_goal_scorer",
+    "player_to_receive_card",
+    "player_to_receive_red_card",
+}
+
+
+def _player_and_line(market_key: str, outcome: dict[str, Any]) -> tuple[str, float | None]:
+    player = str(outcome.get("description") or outcome.get("player") or "").strip()
+    point = outcome.get("point")
+    if player and isinstance(point, (int, float)):
+        return player, float(point)
+    if market_key in BINARY_PLAYER_MARKETS:
+        name = str(outcome.get("name") or "").strip()
+        if not player and name.lower() not in {"yes", "no", "over", "under"}:
+            player = name
+        if player:
+            return player, 0.5
+    return "", None
+
+
+def _opposite_american_odds(yes_odds: float) -> float:
+    probability = (
+        100 / (yes_odds + 100)
+        if yes_odds > 0
+        else abs(yes_odds) / (abs(yes_odds) + 100)
+    )
+    opposite = max(0.001, min(0.999, 1 - probability))
+    return round(
+        -100 * opposite / (1 - opposite)
+        if opposite >= 0.5
+        else 100 * (1 - opposite) / opposite,
+        2,
+    )
+
 
 def count_valid_prop_rows(odds_payload: dict[str, Any]) -> int:
     """Count usable player/line rows before replacing a healthy event cache."""
@@ -20,10 +59,8 @@ def count_valid_prop_rows(odds_payload: dict[str, Any]) -> int:
             for outcome in market.get("outcomes", []):
                 if not isinstance(outcome, dict):
                     continue
-                player = str(
-                    outcome.get("description") or outcome.get("player") or ""
-                ).strip()
-                if player and isinstance(outcome.get("point"), (int, float)):
+                player, point = _player_and_line(str(market.get("key", "")), outcome)
+                if player and point is not None:
                     count += 1
     return count
 
@@ -114,14 +151,9 @@ def process_and_cache_props(
             seen_market_rows: set[tuple[str, float]] = set()
 
             for outcome in market.get("outcomes", []):
-                player_name = str(
-                    outcome.get("description")
-                    or outcome.get("player")
-                    or ""
-                )
-                point = outcome.get("point")
+                player_name, point = _player_and_line(market_key, outcome)
 
-                if not player_name or not isinstance(point, (int, float)):
+                if not player_name or point is None:
                     skipped_missing_player_or_line += 1
                     continue
 
@@ -168,14 +200,22 @@ def process_and_cache_props(
                     candidate
                     for candidate in market.get("outcomes", [])
                     if (
-                        candidate.get("description")
-                        == outcome.get("description")
-                        and candidate.get("point") == point
+                        _player_and_line(market_key, candidate)[0] == player_name
+                        and _player_and_line(market_key, candidate)[1] == point
                     )
                 ]
 
                 over_odds = _find_price(matching_outcomes, "Over")
                 under_odds = _find_price(matching_outcomes, "Under")
+                if market_key in BINARY_PLAYER_MARKETS:
+                    over_odds = _find_price(matching_outcomes, "Yes")
+                    under_odds = _find_price(matching_outcomes, "No")
+                    if over_odds is None:
+                        price = outcome.get("price")
+                        if isinstance(price, (int, float)):
+                            over_odds = float(price)
+                    if under_odds is None and over_odds is not None:
+                        under_odds = _opposite_american_odds(over_odds)
                 prediction, confidence = calculate_prediction(
                     over_odds,
                     under_odds,

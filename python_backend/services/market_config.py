@@ -14,6 +14,7 @@ SPORT_MARKETS = {
         "player_rebounds_assists",
         "player_field_goals",
         "player_fantasy_points",
+        "player_double_double",
     ],
     "basketball_wnba": [
         "player_points",
@@ -30,6 +31,7 @@ SPORT_MARKETS = {
         "player_rebounds_assists",
         "player_field_goals",
         "player_fantasy_points",
+        "player_double_double",
     ],
     "baseball_mlb": [
         "batter_hits",
@@ -69,6 +71,7 @@ SPORT_MARKETS = {
         "player_sacks",
         "player_solo_tackles",
         "player_tackles_assists",
+        "player_anytime_td",
     ],
     "icehockey_nhl": [
         "player_points",
@@ -81,7 +84,16 @@ SPORT_MARKETS = {
     ],
 }
 
-SOCCER_PROP_MARKETS = ["player_shots_on_target", "player_shots", "player_assists"]
+SOCCER_PROP_MARKETS = [
+    "player_shots_on_target",
+    "player_shots",
+    "player_assists",
+    "player_goal_scorer_anytime",
+    "player_first_goal_scorer",
+    "player_last_goal_scorer",
+    "player_to_receive_card",
+    "player_to_receive_red_card",
+]
 for _soccer_key in (
     "soccer_epl",
     "soccer_usa_mls",

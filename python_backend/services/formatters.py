@@ -54,6 +54,7 @@ CATEGORY_LABELS = {
     "player_rebounds_assists": "rebounds + assists",
     "player_field_goals": "field goals",
     "player_fantasy_points": "fantasy points",
+    "player_double_double": "double-double",
     "player_3_pointers_made": "3-pointers",
     "threes": "3-pointers",
 
@@ -112,6 +113,7 @@ CATEGORY_LABELS = {
     "player_sacks": "sacks",
     "player_solo_tackles": "solo tackles",
     "player_tackles_assists": "tackles + assists",
+    "player_anytime_td": "anytime touchdown",
 
     # NHL
     "player_power_play_points": "power play points",
@@ -143,6 +145,11 @@ CATEGORY_LABELS = {
     "shots_on_target": "shots on target",
     "player_shots": "shots",
     "player_shots_on_target": "shots on target",
+    "player_goal_scorer_anytime": "anytime goalscorer",
+    "player_first_goal_scorer": "first goalscorer",
+    "player_last_goal_scorer": "last goalscorer",
+    "player_to_receive_card": "player card",
+    "player_to_receive_red_card": "player red card",
 
     # UFC
     "fighter_significant_strikes": "significant strikes",
