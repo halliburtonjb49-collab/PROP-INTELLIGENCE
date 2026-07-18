@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
@@ -778,44 +777,101 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   }
 
   Widget _buildRightPanelLogo() {
-    return Column(
-      children: [
-        Container(
-          width: 156,
-          height: 156,
-          padding: const EdgeInsets.all(7),
-          decoration: const BoxDecoration(color: Colors.transparent),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(19),
-            child: Image.asset(
-              'assets/branding/prop_intelligence_icon.png',
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.high,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: const Color(0xFF07111B),
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.track_changes_rounded,
-                    color: app_colors.AppColors.gold,
-                    size: 70,
-                  ),
-                );
-              },
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF102538), Color(0xFF07131D)],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: app_colors.AppColors.borderGold),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: const Color(0xFF040A0F),
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(
+                color: app_colors.AppColors.gold.withValues(alpha: .5),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.asset(
+                'assets/branding/prop_intelligence_icon.png',
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.high,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: const Color(0xFF07111B),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.track_changes_rounded,
+                      color: app_colors.AppColors.gold,
+                      size: 30,
+                    ),
+                  );
+                },
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 9),
-        const Text(
-          'PROP INTELLIGENCE',
-          style: TextStyle(
-            color: app_colors.AppColors.gold,
-            fontSize: 10,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 3.1,
+          const SizedBox(width: 11),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'PROP INTELLIGENCE',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: app_colors.AppColors.gold,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                SizedBox(height: 5),
+                Text(
+                  'ACTIVE RESEARCH DESK',
+                  style: TextStyle(
+                    color: app_colors.AppColors.textSecondary,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: .5,
+                  ),
+                ),
+                SizedBox(height: 7),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.circle,
+                      color: app_colors.AppColors.blue,
+                      size: 7,
+                    ),
+                    SizedBox(width: 5),
+                    Text(
+                      'SYSTEM ONLINE',
+                      style: TextStyle(
+                        color: app_colors.AppColors.blue,
+                        fontSize: 7.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -4777,68 +4833,182 @@ class TopNavigation extends StatelessWidget {
     );
   }
 
+  String get _pageTitle => switch (selectedPage) {
+    AppPage.board => 'MARKET BOARD',
+    AppPage.scoreboard => 'LIVE SCOREBOARD',
+    AppPage.analytics => 'PERFORMANCE ANALYTICS',
+    AppPage.lineMovement => 'LINE MOVEMENT',
+    AppPage.intelligenceLab => 'INTELLIGENCE LAB',
+    AppPage.searchPlayers => 'PLAYER SEARCH',
+    AppPage.propAlerts => 'PROP ALERTS',
+    AppPage.propBuilder => 'PROP BUILDER',
+    AppPage.watchlist => 'ACTIVE WATCHLIST',
+    AppPage.builderPerformance => 'BUILDER PERFORMANCE',
+    AppPage.evScanner => 'EV SCANNER',
+    AppPage.goblinsDemons => 'GOBLINS / DEMONS',
+    AppPage.dataAdmin => 'DATA ADMIN',
+  };
+
+  String get _pageSubtitle => switch (selectedPage) {
+    AppPage.board => 'Scan today’s markets and compare available value',
+    AppPage.scoreboard => 'Follow live, upcoming and completed games',
+    AppPage.analytics => 'Measure model signals and market coverage',
+    AppPage.lineMovement => 'Monitor number and price changes in real time',
+    AppPage.intelligenceLab => 'Stress-test correlation, context and scenarios',
+    AppPage.searchPlayers => 'Open focused player and market research',
+    AppPage.propAlerts => 'Review monitored conditions and changes',
+    AppPage.propBuilder => 'Build a disciplined, research-backed slip',
+    AppPage.watchlist => 'Return to props you are actively monitoring',
+    AppPage.builderPerformance => 'Review outcomes and improve your process',
+    AppPage.evScanner => 'Surface estimated positive-value opportunities',
+    AppPage.goblinsDemons => 'Compare conservative and aggressive profiles',
+    AppPage.dataAdmin => 'Manage platform data sources',
+  };
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.transparent,
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      child: Row(
-        children: [
-          _buildSearchPlayersButton(),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Container(
-              padding: EdgeInsets.zero,
-              decoration: const BoxDecoration(color: Colors.transparent),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildNavItem(
-                      label: 'BOARD',
-                      page: AppPage.board,
-                      icon: Icons.dashboard_customize_outlined,
-                    ),
-                    const SizedBox(width: 6),
-                    _buildNavItem(
-                      label: 'SCOREBOARD',
-                      page: AppPage.scoreboard,
-                      icon: Icons.sports_score_rounded,
-                    ),
-                    const SizedBox(width: 6),
-                    _buildNavItem(
-                      label: 'ANALYTICS',
-                      page: AppPage.analytics,
-                      icon: Icons.analytics_outlined,
-                      premium: true,
-                    ),
-                    const SizedBox(width: 6),
-                    _buildNavItem(
-                      label: 'LINE MOVEMENT',
-                      page: AppPage.lineMovement,
-                      icon: Icons.stacked_line_chart_rounded,
-                      premium: true,
-                    ),
-                    const SizedBox(width: 6),
-                    _buildNavItem(
-                      label: 'INTELLIGENCE LAB',
-                      page: AppPage.intelligenceLab,
-                      icon: Icons.science_outlined,
-                      premium: true,
-                    ),
-                  ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showContext = constraints.maxWidth >= 1150;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15),
+          child: Row(
+            children: [
+              if (showContext) ...[
+                Container(
+                  width: 4,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: app_colors.AppColors.gold,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x88FFC400), blurRadius: 10),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 210,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              _pageTitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: app_colors.AppColors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: .6,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: app_colors.AppColors.blue.withValues(
+                                alpha: .12,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: app_colors.AppColors.blue.withValues(
+                                  alpha: .55,
+                                ),
+                              ),
+                            ),
+                            child: const Text(
+                              'LIVE',
+                              style: TextStyle(
+                                color: app_colors.AppColors.blue,
+                                fontSize: 7,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _pageSubtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: app_colors.AppColors.textMuted,
+                          fontSize: 9.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  width: 1,
+                  height: 42,
+                  color: app_colors.AppColors.border,
+                ),
+                const SizedBox(width: 10),
+              ],
+              _buildSearchPlayersButton(),
+              const SizedBox(width: 9),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildNavItem(
+                        label: 'BOARD',
+                        page: AppPage.board,
+                        icon: Icons.dashboard_customize_outlined,
+                      ),
+                      const SizedBox(width: 6),
+                      _buildNavItem(
+                        label: 'SCOREBOARD',
+                        page: AppPage.scoreboard,
+                        icon: Icons.sports_score_rounded,
+                      ),
+                      const SizedBox(width: 6),
+                      _buildNavItem(
+                        label: 'ANALYTICS',
+                        page: AppPage.analytics,
+                        icon: Icons.analytics_outlined,
+                        premium: true,
+                      ),
+                      const SizedBox(width: 6),
+                      _buildNavItem(
+                        label: 'LINE MOVEMENT',
+                        page: AppPage.lineMovement,
+                        icon: Icons.stacked_line_chart_rounded,
+                        premium: true,
+                      ),
+                      const SizedBox(width: 6),
+                      _buildNavItem(
+                        label: 'LAB',
+                        page: AppPage.intelligenceLab,
+                        icon: Icons.science_outlined,
+                        premium: true,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: 9),
+              _buildGuideButton(context),
+              _buildRefreshButton(),
+              const SizedBox(width: 6),
+              _buildAlertButton(),
+            ],
           ),
-          const SizedBox(width: 12),
-          _buildGuideButton(context),
-          const SizedBox(width: 4),
-          _buildRefreshButton(),
-          const SizedBox(width: 7),
-          _buildAlertButton(),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -8619,39 +8789,6 @@ class MobileDashboardViewport extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const desktopCanvasWidth = 1024.0;
-        final fittedScale = constraints.maxWidth / desktopCanvasWidth;
-        final desktopCanvasHeight = math.max(
-          720.0,
-          constraints.maxHeight / fittedScale,
-        );
-
-        return ClipRect(
-          child: InteractiveViewer(
-            alignment: Alignment.topLeft,
-            constrained: true,
-            minScale: 1,
-            maxScale: 3.5,
-            panEnabled: true,
-            scaleEnabled: true,
-            child: SizedBox(
-              width: constraints.maxWidth,
-              height: constraints.maxHeight,
-              child: FittedBox(
-                alignment: Alignment.topLeft,
-                fit: BoxFit.fitWidth,
-                child: SizedBox(
-                  width: desktopCanvasWidth,
-                  height: desktopCanvasHeight,
-                  child: const DesktopDashboard(),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
+    return const DesktopDashboard();
   }
 }

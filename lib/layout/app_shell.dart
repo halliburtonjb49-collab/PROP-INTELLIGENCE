@@ -16,80 +16,291 @@ class AppShell extends StatelessWidget {
   final Widget content;
   final Widget rightSidebar;
 
-  static const double leftWidth = 245;
-  static const double rightWidth = 340;
-  static const double topHeight = 72;
+  static const double leftWidth = 244;
+  static const double rightWidth = 332;
+  static const double topHeight = 84;
 
-  ({double left, double right}) _sidebarWidths(double width) {
-    // Flutter reports logical pixels. On a typical 150% scaled Windows display
-    // a 1920px window is only 1280 logical pixels wide, so using the full-size
-    // desktop rails leaves almost no room for the primary workspace.
-    if (width < 1360) {
-      return (left: 180, right: 240);
+  ({double left, double right, double gap, double padding}) _metrics(
+    double width,
+  ) {
+    if (width < 1180) {
+      return (left: 178, right: 224, gap: 7, padding: 7);
     }
-    if (width < 1600) {
-      return (left: 210, right: 285);
+    if (width < 1450) {
+      return (left: 204, right: 270, gap: 9, padding: 9);
     }
-    return (left: leftWidth, right: rightWidth);
+    return (left: leftWidth, right: rightWidth, gap: 12, padding: 12);
+  }
+
+  Widget _surface({
+    required Widget child,
+    required BorderRadius borderRadius,
+    bool highlighted = false,
+  }) {
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xF207111B),
+          borderRadius: borderRadius,
+          border: Border.all(
+            color: highlighted ? AppColors.borderGold : AppColors.border,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x99000000),
+              blurRadius: 28,
+              offset: Offset(0, 14),
+            ),
+          ],
+        ),
+        child: child,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final widths = _sidebarWidths(constraints.maxWidth);
+        if (constraints.maxWidth < 800) {
+          return _MobileAppShell(
+            leftSidebar: leftSidebar,
+            topNavigation: topNavigation,
+            content: content,
+            rightSidebar: rightSidebar,
+          );
+        }
+        final metrics = _metrics(constraints.maxWidth);
+        final radius = BorderRadius.circular(18);
+
         return Scaffold(
           backgroundColor: AppColors.background,
-          body: DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF07131E), AppColors.background],
-              ),
-            ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  SizedBox(width: widths.left, child: leftSidebar),
-                  Container(width: 1, color: AppColors.border),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        SizedBox(height: topHeight, child: topNavigation),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(14),
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: AppColors.border),
-                                  borderRadius: BorderRadius.circular(14),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0x66000000),
-                                      blurRadius: 22,
-                                      offset: Offset(0, 8),
-                                    ),
-                                  ],
-                                ),
+          body: Stack(
+            children: [
+              const Positioned.fill(child: _CommandCenterBackground()),
+              SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.all(metrics.padding),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: metrics.left,
+                        child: _surface(
+                          borderRadius: radius,
+                          child: leftSidebar,
+                        ),
+                      ),
+                      SizedBox(width: metrics.gap),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            SizedBox(
+                              height: topHeight,
+                              child: _surface(
+                                borderRadius: radius,
+                                highlighted: true,
+                                child: topNavigation,
+                              ),
+                            ),
+                            SizedBox(height: metrics.gap),
+                            Expanded(
+                              child: _surface(
+                                borderRadius: radius,
                                 child: content,
                               ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                      SizedBox(width: metrics.gap),
+                      SizedBox(
+                        width: metrics.right,
+                        child: _surface(
+                          borderRadius: radius,
+                          child: rightSidebar,
+                        ),
+                      ),
+                    ],
                   ),
-                  Container(width: 1, color: AppColors.border),
-                  SizedBox(width: widths.right, child: rightSidebar),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         );
       },
     );
   }
+}
+
+class _MobileAppShell extends StatefulWidget {
+  const _MobileAppShell({
+    required this.leftSidebar,
+    required this.topNavigation,
+    required this.content,
+    required this.rightSidebar,
+  });
+
+  final Widget leftSidebar;
+  final Widget topNavigation;
+  final Widget content;
+  final Widget rightSidebar;
+
+  @override
+  State<_MobileAppShell> createState() => _MobileAppShellState();
+}
+
+class _MobileAppShellState extends State<_MobileAppShell> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  Widget build(BuildContext context) {
+    final drawerWidth = MediaQuery.sizeOf(context).width.clamp(260.0, 340.0);
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: AppColors.background,
+      drawer: SizedBox(
+        width: drawerWidth,
+        child: Drawer(
+          backgroundColor: Colors.transparent,
+          child: SafeArea(child: widget.leftSidebar),
+        ),
+      ),
+      endDrawer: SizedBox(
+        width: drawerWidth,
+        child: Drawer(
+          backgroundColor: Colors.transparent,
+          child: SafeArea(child: widget.rightSidebar),
+        ),
+      ),
+      body: Stack(
+        children: [
+          const Positioned.fill(child: _CommandCenterBackground()),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(7),
+              child: Column(
+                children: [
+                  Container(
+                    height: 62,
+                    padding: const EdgeInsets.symmetric(horizontal: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xF207111B),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: AppColors.borderGold),
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          tooltip: 'Open workspace navigation',
+                          onPressed: () =>
+                              _scaffoldKey.currentState?.openDrawer(),
+                          icon: const Icon(
+                            Icons.menu_rounded,
+                            color: AppColors.gold,
+                          ),
+                        ),
+                        Expanded(child: widget.topNavigation),
+                        IconButton(
+                          tooltip: 'Open account and active slip',
+                          onPressed: () =>
+                              _scaffoldKey.currentState?.openEndDrawer(),
+                          icon: const Icon(
+                            Icons.receipt_long_rounded,
+                            color: AppColors.gold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: const Color(0xF207111B),
+                          border: Border.all(color: AppColors.border),
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: widget.content,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CommandCenterBackground extends StatelessWidget {
+  const _CommandCenterBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: const _CommandCenterBackgroundPainter(),
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+class _CommandCenterBackgroundPainter extends CustomPainter {
+  const _CommandCenterBackgroundPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final background = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF0B2638), Color(0xFF04101A), Color(0xFF020609)],
+        stops: [0, .58, 1],
+      ).createShader(Offset.zero & size);
+    canvas.drawRect(Offset.zero & size, background);
+
+    final grid = Paint()
+      ..color = AppColors.gold.withValues(alpha: .055)
+      ..strokeWidth = .7;
+    const spacing = 56.0;
+    for (double x = 0; x <= size.width; x += spacing) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
+    }
+    for (double y = 0; y <= size.height; y += spacing) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+
+    final blueGlow = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [AppColors.blue.withValues(alpha: .13), Colors.transparent],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(size.width * .48, size.height * .2),
+              radius: size.shortestSide * .65,
+            ),
+          );
+    canvas.drawRect(Offset.zero & size, blueGlow);
+
+    final accent = Paint()
+      ..color = AppColors.gold.withValues(alpha: .16)
+      ..strokeWidth = 1.1;
+    canvas.drawLine(
+      Offset(size.width * .05, size.height * .86),
+      Offset(size.width * .38, size.height * .52),
+      accent,
+    );
+    canvas.drawLine(
+      Offset(size.width * .38, size.height * .52),
+      Offset(size.width * .64, size.height * .66),
+      accent,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
