@@ -88,6 +88,34 @@ class ApiService {
     throw Exception(lastError ?? 'Intelligence API unavailable');
   }
 
+  Future<Map<String, dynamic>> fetchIntelligence(String path) async {
+    Object? lastError;
+    for (final candidate in _candidateBaseUrls) {
+      try {
+        final response = await http
+            .get(Uri.parse('$candidate/api/intelligence/$path'))
+            .timeout(const Duration(seconds: 12));
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          _resolvedBaseUrl = candidate;
+          final decoded = jsonDecode(response.body);
+          if (decoded is! Map<String, dynamic>) {
+            throw const FormatException('Invalid intelligence response.');
+          }
+          return decoded;
+        }
+        lastError = 'Intelligence API ${response.statusCode}: ${response.body}';
+        if (response.statusCode >= 400 && response.statusCode < 500) {
+          throw _IntelligenceRequestException(lastError.toString());
+        }
+      } catch (error) {
+        if (error is _IntelligenceRequestException) rethrow;
+        lastError = error;
+        if (error is FormatException) rethrow;
+      }
+    }
+    throw Exception(lastError ?? 'Intelligence API unavailable');
+  }
+
   Future<Map<String, dynamic>> saveCompoundAlert(
     Map<String, dynamic> rule,
   ) async {

@@ -41,6 +41,8 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
   Map<String, dynamic>? _sentiment;
   Map<String, dynamic>? _alert;
   Map<String, dynamic>? _similarity;
+  Map<String, dynamic>? _calibration;
+  bool _calibrationLoading = true;
   String? _savedAlertMessage;
   String? _alertDeliveryMessage;
 
@@ -48,6 +50,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
   void initState() {
     super.initState();
     _loadActiveSlip(widget.selections);
+    unawaited(_loadCalibration());
     _alertSubscription = _alertUpdates.stream.listen((raw) {
       try {
         final event = jsonDecode(raw.toString());
@@ -61,6 +64,87 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
       } catch (_) {}
     }, onError: (_) {});
     _alertUpdates.connect();
+  }
+
+  Future<void> _loadCalibration() async {
+    try {
+      final result = await _api.fetchIntelligence('calibration');
+      if (mounted) setState(() => _calibration = result);
+    } catch (_) {
+      // Analysis remains usable if readiness telemetry is temporarily offline.
+    } finally {
+      if (mounted) setState(() => _calibrationLoading = false);
+    }
+  }
+
+  Widget _calibrationPanel() {
+    const requiredSamples = 100;
+    final sampleSize = (_calibration?['sampleSize'] as num?)?.toInt() ?? 0;
+    final progress = (sampleSize / requiredSamples).clamp(0.0, 1.0);
+    final calibrated = sampleSize >= requiredSamples;
+    final score = _calibration?['brierScore'] as num?;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: calibrated
+            ? Colors.greenAccent.withValues(alpha: .08)
+            : AppColors.gold.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: calibrated ? Colors.greenAccent : AppColors.gold,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                calibrated ? Icons.verified_outlined : Icons.science_outlined,
+                color: calibrated ? Colors.greenAccent : AppColors.gold,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  calibrated ? 'MODEL CALIBRATED' : 'MODEL WARMING UP',
+                  style: TextStyle(
+                    color: calibrated ? Colors.greenAccent : AppColors.gold,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (_calibrationLoading)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Text(
+                  '$sampleSize / $requiredSamples graded',
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(
+            value: _calibrationLoading ? null : progress,
+            color: calibrated ? Colors.greenAccent : AppColors.gold,
+            backgroundColor: Colors.white12,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            calibrated
+                ? 'Probabilities are backed by the minimum graded sample. Brier score: ${score?.toStringAsFixed(3) ?? '--'}.'
+                : 'Probabilities are experimental until at least 100 genuine pregame predictions are graded. No retrospective results are counted.',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -328,6 +412,8 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
           'Model prop relationships, game scripts, market sentiment, and compound triggers.',
           style: TextStyle(color: Color(0xFF9DB0C2)),
         ),
+        const SizedBox(height: 16),
+        _calibrationPanel(),
         const SizedBox(height: 16),
         _card(
           'PROP CORRELATION WORKFLOW',
