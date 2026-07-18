@@ -43,6 +43,8 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
   Map<String, dynamic>? _similarity;
   Map<String, dynamic>? _calibration;
   bool _calibrationLoading = true;
+  SlipSelection? _selectionA;
+  SlipSelection? _selectionB;
   String? _savedAlertMessage;
   String? _alertDeliveryMessage;
 
@@ -156,6 +158,8 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
   }
 
   void _loadActiveSlip(List<SlipSelection> selections) {
+    _selectionA = selections.firstOrNull;
+    _selectionB = selections.length > 1 ? selections[1] : null;
     if (selections.isEmpty) return;
     void load(
       SlipSelection selection,
@@ -226,18 +230,43 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
     String projection,
     String line,
     String side,
+    SlipSelection? source,
   ) => {
-    'id': id,
+    'id': source?.prop.id.isNotEmpty == true ? source!.prop.id : id,
     'player': player,
     'team': '',
     'opponent': '',
-    'game_id': 'lab-game',
-    'sport': 'NFL',
+    'game_id': source?.prop.eventId.isNotEmpty == true
+        ? source!.prop.eventId
+        : 'lab-game',
+    'sport': source?.prop.sport.isNotEmpty == true
+        ? source!.prop.sport.toUpperCase()
+        : _analysisSport,
     'market': market,
     'side': side,
     'baseline_projection': double.tryParse(projection),
     'line': double.tryParse(line),
   };
+
+  String get _analysisSport {
+    final selectedSport = _selectionA?.prop.sport.trim();
+    if (selectedSport != null && selectedSport.isNotEmpty) {
+      return selectedSport.toUpperCase();
+    }
+    final markets = '${_marketA.text} ${_marketB.text}'.toLowerCase();
+    if (markets.contains('passing') || markets.contains('receiving')) {
+      return 'NFL';
+    }
+    return 'NBA';
+  }
+
+  String get _similarityMarket {
+    final sourceMarket = _selectionA?.prop.market.trim();
+    return sourceMarket?.isNotEmpty == true ? sourceMarket! : _marketA.text;
+  }
+
+  String get _sentimentPropId =>
+      _selectionA?.prop.id.isNotEmpty == true ? _selectionA!.prop.id : 'a';
 
   Future<void> _run() async {
     setState(() {
@@ -252,6 +281,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
         _projectionA.text,
         _lineA.text,
         _sideA,
+        _selectionA,
       ),
       _leg(
         'b',
@@ -260,6 +290,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
         _projectionB.text,
         _lineB.text,
         _sideB,
+        _selectionB,
       ),
     ];
     final stretch = _recentStretch.text
@@ -279,20 +310,20 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
         _api.postIntelligence('correlations', {'legs': legs}),
         _api.postIntelligence('game-script', {
           'script': _script,
-          'sport': 'NFL',
+          'sport': _analysisSport,
           'props': legs,
           'simulations': 10000,
           'seed': 42,
         }),
-        _api.fetchPropSentiment('a'),
+        _api.fetchPropSentiment(_sentimentPropId),
         _api.postIntelligence('alerts/evaluate', {
           ..._compoundRule,
           'snapshot': {'correlation': .62, 'interest': 10},
         }),
         _api.postIntelligence('similarity/database', {
           'player': _playerA.text,
-          'sport': 'NBA',
-          'market': 'points',
+          'sport': _analysisSport,
+          'market': _similarityMarket,
           'recent_stretch': stretch,
           'limit': 5,
         }),
@@ -415,6 +446,18 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
         const SizedBox(height: 16),
         _calibrationPanel(),
         const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Chip(
+            avatar: const Icon(Icons.link_rounded, size: 16),
+            label: Text(
+              _selectionA == null
+                  ? 'DEMO CONTEXT: $_analysisSport'
+                  : 'ACTIVE SLIP CONTEXT: $_analysisSport',
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         _card(
           'PROP CORRELATION WORKFLOW',
           Column(

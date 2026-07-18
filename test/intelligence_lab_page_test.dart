@@ -64,5 +64,6 @@ void main() {
     expect(find.widgetWithText(TextField, 'Assists'), findsOneWidget);
     expect(find.widgetWithText(TextField, '8.2'), findsOneWidget);
     expect(find.widgetWithText(TextField, '7.5'), findsOneWidget);
+    expect(find.text('ACTIVE SLIP CONTEXT: NBA'), findsOneWidget);
   });
 }
