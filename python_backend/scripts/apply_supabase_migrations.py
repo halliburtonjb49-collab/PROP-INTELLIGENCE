@@ -18,6 +18,7 @@ MIGRATIONS = (
     "supabase_owner_role_manager.sql",
     "supabase_add_is_premium_column.sql",
     "supabase_subscription_tiers.sql",
+    "supabase_billing_webhook_integrity.sql",
     "supabase_historical_data.sql",
     "supabase_intelligence_features.sql",
     "supabase_operational_pipeline.sql",

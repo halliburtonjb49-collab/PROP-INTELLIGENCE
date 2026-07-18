@@ -1,4 +1,4 @@
-from services.subscription_service import tier_from_event
+from services.subscription_service import has_event_identity, tier_from_event
 
 
 def test_edge_entitlement_wins() -> None:
@@ -15,3 +15,10 @@ def test_expiration_removes_access() -> None:
 
 def test_unknown_product_does_not_grant_access() -> None:
     assert tier_from_event({"type": "INITIAL_PURCHASE", "product_id": "unknown"}) is None
+
+
+def test_webhook_identity_requires_positive_integer_timestamp() -> None:
+    assert has_event_identity({"id": "event-id", "event_timestamp_ms": 1}) is True
+    assert has_event_identity({"id": "event-id", "event_timestamp_ms": True}) is False
+    assert has_event_identity({"id": "event-id", "event_timestamp_ms": 0}) is False
+    assert has_event_identity({"id": "", "event_timestamp_ms": 1}) is False

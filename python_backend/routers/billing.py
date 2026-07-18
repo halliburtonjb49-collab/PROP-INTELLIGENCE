@@ -3,7 +3,7 @@ import os
 
 from fastapi import APIRouter, Header, HTTPException
 
-from services.subscription_service import apply_subscription_event
+from services.subscription_service import apply_subscription_event, has_event_identity
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 
@@ -17,4 +17,6 @@ def revenuecat_webhook(payload: dict[str, object], authorization: str = Header(d
     event = payload.get("event")
     if not isinstance(event, dict):
         raise HTTPException(status_code=422, detail="RevenueCat event is missing")
+    if not has_event_identity(event):
+        raise HTTPException(status_code=422, detail="RevenueCat event identity is missing")
     return apply_subscription_event(event)

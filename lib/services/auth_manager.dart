@@ -89,6 +89,9 @@ class AuthManager {
 
   final ValueNotifier<AuthSessionState> sessionState =
       ValueNotifier<AuthSessionState>(const AuthSessionState.loading());
+  final ValueNotifier<bool> passwordRecoveryRequested = ValueNotifier<bool>(
+    false,
+  );
 
   StreamSubscription<AuthState>? _authSubscription;
 
@@ -104,8 +107,34 @@ class AuthManager {
     unawaited(_setSession(client.auth.currentSession));
 
     _authSubscription ??= client.auth.onAuthStateChange.listen((event) {
+      if (event.event == AuthChangeEvent.passwordRecovery) {
+        passwordRecoveryRequested.value = true;
+      }
       unawaited(_setSession(event.session));
     });
+  }
+
+  Future<void> completePasswordRecovery(String password) async {
+    final trimmedPassword = password.trim();
+    if (trimmedPassword.length < 8) {
+      throw ArgumentError('Password must be at least 8 characters.');
+    }
+
+    final client = _requireClient();
+    if (client.auth.currentSession == null) {
+      throw StateError(
+        'This password-reset link has expired. Request a new link and try again.',
+      );
+    }
+
+    await client.auth.updateUser(UserAttributes(password: trimmedPassword));
+    passwordRecoveryRequested.value = false;
+    await _setSession(client.auth.currentSession);
+  }
+
+  Future<void> cancelPasswordRecovery() async {
+    passwordRecoveryRequested.value = false;
+    await signOut();
   }
 
   Future<void> signUp({
@@ -148,6 +177,7 @@ class AuthManager {
   Future<void> signOut() async {
     final client = _requireClient();
     await client.auth.signOut();
+    passwordRecoveryRequested.value = false;
     sessionState.value = const AuthSessionState.signedOut();
   }
 

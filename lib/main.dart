@@ -18,6 +18,7 @@ import 'screens/prop_builder_performance_screen.dart';
 import 'screens/goblins_demons_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/paywall_screen.dart';
+import 'screens/password_recovery_screen.dart';
 import 'screens/cloud_watchlist_screen.dart';
 import 'screens/central_props_display_grid_canvas.dart';
 import 'models/slip_selection.dart';
@@ -464,11 +465,18 @@ class PropIntelligenceShell extends StatelessWidget {
               );
             }
 
-            if (!state.authenticated && !devUnlocked) {
-              return const CorporateLoginScreen();
-            }
-
-            return _buildDashboardShell();
+            return ValueListenableBuilder<bool>(
+              valueListenable: AuthManager.instance.passwordRecoveryRequested,
+              builder: (context, recoveringPassword, _) {
+                if (recoveringPassword) {
+                  return const PasswordRecoveryScreen();
+                }
+                if (!state.authenticated && !devUnlocked) {
+                  return const CorporateLoginScreen();
+                }
+                return _buildDashboardShell();
+              },
+            );
           },
         );
       },
