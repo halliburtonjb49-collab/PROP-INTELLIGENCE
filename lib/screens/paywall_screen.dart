@@ -127,8 +127,12 @@ class BrandedPaywallModalSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => billingService.restorePurchases(context),
+            child: const Text('RESTORE PURCHASES'),
+          ),
           Text(
-            'Cancel anytime. Managed securely via Apple App Store / Google Play billing pipelines.',
+            'Cancel anytime. Purchases and renewals are managed securely by the billing platform available on your device.',
             style: TextStyle(color: Colors.grey[500], fontSize: 10),
           ),
         ],

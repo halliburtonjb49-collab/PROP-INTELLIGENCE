@@ -22,59 +22,6 @@ class _LineMovementPageState extends State<LineMovementPage> {
   bool _alertsEnabled = true;
   bool _criticalAlertsOnly = false;
 
-  static const _previewMovements = <_LineMovementItem>[
-    _LineMovementItem(
-      player: 'Nikola Jokic',
-      sport: 'NBA',
-      market: 'Points  O/U 25.5',
-      status: 'BETTER',
-      previousLine: 24.5,
-      currentLine: 26.5,
-      previousBook: 'DraftKings',
-      currentBook: 'FanDuel',
-    ),
-    _LineMovementItem(
-      player: 'Josh Allen',
-      sport: 'NFL',
-      market: 'Pass Yards  O/U 275.5',
-      status: 'BETTER',
-      previousLine: 254.5,
-      currentLine: 259.5,
-      previousBook: 'BetMGM',
-      currentBook: 'DraftKings',
-    ),
-    _LineMovementItem(
-      player: 'Shohei Ohtani',
-      sport: 'MLB',
-      market: 'Hits  O/U 1.5',
-      status: 'UNCHANGED',
-      previousLine: 1.5,
-      currentLine: 1.5,
-      previousBook: 'Caesars',
-      currentBook: 'FanDuel',
-    ),
-    _LineMovementItem(
-      player: "A'ja Wilson",
-      sport: 'WNBA',
-      market: 'Points  O/U 19.5',
-      status: 'BETTER',
-      previousLine: 18.5,
-      currentLine: 19.5,
-      previousBook: 'DraftKings',
-      currentBook: 'BetMGM',
-    ),
-    _LineMovementItem(
-      player: 'Conor McGregor',
-      sport: 'UFC',
-      market: 'Fight Result  Moneyline',
-      status: 'BETTER',
-      previousLine: -130,
-      currentLine: -145,
-      previousBook: 'FanDuel',
-      currentBook: 'Caesars',
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -1002,11 +949,10 @@ class _LineMovementPageState extends State<LineMovementPage> {
           }
 
           final data = snapshot.data ?? const _LineMovementViewData(items: []);
-          final top = (data.items.isEmpty ? _previewMovements : data.items)
-              .toList();
-          final changed = data.items.isEmpty
-              ? 12
-              : data.items.where((item) => item.status != 'UNCHANGED').length;
+          final top = data.items.toList();
+          final changed = data.items
+              .where((item) => item.status != 'UNCHANGED')
+              .length;
           final movementAlerts = <String>[
             if (top.isNotEmpty)
               'Largest movement signal: ${top.first.player} (${top.first.movementMagnitude.toStringAsFixed(2)})',

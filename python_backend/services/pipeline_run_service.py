@@ -8,6 +8,7 @@ from time import perf_counter
 from uuid import UUID
 
 from database.postgres import database_is_configured, get_database_pool
+from services.operations_notification_service import notify_pipeline_issue
 
 
 def start_pipeline_run(pipeline: str) -> tuple[UUID | None, float]:
@@ -33,8 +34,13 @@ def finish_pipeline_run(
 ) -> dict[str, object]:
     duration_ms = int((perf_counter() - started) * 1000)
     status = "PARTIAL" if errors else "SUCCEEDED"
+    pipeline = "unknown"
     if identifier is not None:
         with get_database_pool().connection() as connection, connection.cursor() as cursor:
+            cursor.execute("select pipeline from pipeline_runs where id=%s", (identifier,))
+            row = cursor.fetchone()
+            if row:
+                pipeline = str(row[0])
             cursor.execute(
                 """update pipeline_runs set status=%s,finished_at=now(),duration_ms=%s,
                    metrics=%s::jsonb,errors=%s::jsonb where id=%s""",
@@ -42,8 +48,10 @@ def finish_pipeline_run(
                  json.dumps(errors, default=str), identifier),
             )
             connection.commit()
+    notified = notify_pipeline_issue(pipeline, status, errors)
     return {"id": str(identifier) if identifier else None, "status": status,
             "durationMs": duration_ms, "metrics": metrics, "errors": errors,
+            "alertNotified": notified,
             "finishedAt": datetime.now(timezone.utc).isoformat()}
 
 

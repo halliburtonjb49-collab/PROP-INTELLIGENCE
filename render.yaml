@@ -30,6 +30,8 @@ services:
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
+      - key: REVENUECAT_PUBLIC_API_KEY
+        sync: false
       - key: WNBA_LEAGUE_ID
         sync: false
       - key: CORS_ALLOWED_ORIGINS
@@ -47,6 +49,8 @@ services:
       - key: PREFERRED_BOOKMAKERS
         value: prizepicks,underdog,draftkings,sleeper,fanduel,betr
       - key: ADMIN_API_KEY
+        sync: false
+      - key: PIPELINE_ALERT_WEBHOOK_URL
         sync: false
     disk:
       name: prop-intelligence-ticket-data
@@ -70,6 +74,8 @@ services:
         sync: false
       - key: API_SPORTS_KEY
         sync: false
+      - key: PIPELINE_ALERT_WEBHOOK_URL
+        sync: false
 
   - type: cron
     name: prop-intelligence-pregame-sync
@@ -90,6 +96,8 @@ services:
         sync: false
       - key: API_SPORTS_BASEBALL_KEY
         sync: false
+      - key: PIPELINE_ALERT_WEBHOOK_URL
+        sync: false
 
   - type: web
     name: props-intelligence-app
@@ -106,7 +114,7 @@ services:
       - key: AUTH_EMAIL_REDIRECT_URL
         value: https://app.propsintell.com
       - key: ALLOW_PUBLIC_SIGNUP
-        value: false
+        value: true
     routes:
       - type: rewrite
         source: /*

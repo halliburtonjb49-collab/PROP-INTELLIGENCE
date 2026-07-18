@@ -127,6 +127,7 @@ from services.api_auth_service import require_admin, require_user_id
 from routers.intelligence import router as intelligence_router
 from routers.billing import router as billing_router
 from routers.realtime import hub as realtime_hub, router as realtime_router
+from routers.operations import router as operations_router
 
 logging.basicConfig(
 	level=logging.INFO,
@@ -166,6 +167,7 @@ app = FastAPI(
 app.include_router(intelligence_router)
 app.include_router(billing_router)
 app.include_router(realtime_router)
+app.include_router(operations_router)
 
 app.add_middleware(
 	CORSMiddleware,

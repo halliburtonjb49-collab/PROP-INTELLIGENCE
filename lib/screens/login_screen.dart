@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/auth_service.dart';
+import '../services/billing_service.dart';
 import '../services/developer_mode_service.dart';
 import '../theme/prop_intelligence_colors.dart';
 
@@ -19,7 +20,7 @@ const _fieldBackground = Color(0xFF111518);
 const _mutedText = Color(0xFF9A9A9A);
 const _publicSignupEnabled = bool.fromEnvironment(
   'ALLOW_PUBLIC_SIGNUP',
-  defaultValue: false,
+  defaultValue: true,
 );
 
 class CorporateLoginScreen extends StatefulWidget {
@@ -38,6 +39,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
   bool _obscurePassword = true;
   int _resendCooldownSeconds = 0;
   Timer? _resendCooldownTimer;
+  PurchaseTier? _pendingPurchaseTier;
 
   @override
   void dispose() {
@@ -81,16 +83,36 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
     if (!mounted) return;
     setState(() => _isLoading = false);
     _showFeedbackMessage(result.message);
+    if (result.success &&
+        _pendingPurchaseTier != null &&
+        Supabase.instance.client.auth.currentSession != null) {
+      final tier = _pendingPurchaseTier!;
+      _pendingPurchaseTier = null;
+      final billing = RevenueCatBillingService();
+      await billing.initializeBillingEngine();
+      if (mounted) await billing.processSubscriptionPurchase(context, tier);
+    }
   }
 
   void _startRegistration() {
     if (!_publicSignupEnabled) {
       _showFeedbackMessage(
-        'PROP INTELLIGENCE is currently in private beta. New accounts are not open yet.',
+        'New account creation is temporarily unavailable. Please contact support.',
       );
       return;
     }
     setState(() => _isRegistering = true);
+  }
+
+  void _choosePlan(BuildContext dialogContext, PurchaseTier tier) {
+    Navigator.of(dialogContext).pop();
+    setState(() {
+      _pendingPurchaseTier = tier;
+      _isRegistering = true;
+    });
+    _showFeedbackMessage(
+      'Create your account to continue with the ${tier == PurchaseTier.core ? 'Core' : 'Pro / Edge'} plan.',
+    );
   }
 
   Future<void> _handlePasswordReset() async {
@@ -195,8 +217,8 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
         title = 'ABOUT';
         subtitle = 'WHY I BUILT PROP INTELLIGENCE';
         icon = Icons.person_outline_rounded;
-        content = const [
-          Text(
+        content = [
+          const Text(
             'I created PROP INTELLIGENCE after spending money on prop bets and realizing I was not getting as much useful information as I needed before making a pick.',
             style: TextStyle(color: _silver70, fontSize: 14, height: 1.65),
           ),
@@ -250,12 +272,12 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
         title = 'PRICING';
         subtitle = 'CHOOSE THE INTELLIGENCE THAT FITS YOUR PROCESS';
         icon = Icons.workspace_premium_outlined;
-        content = const [
-          Text(
+        content = [
+          const Text(
             'Choose the tools that match how deeply you want to analyze each play. Both subscriptions are month-to-month and can be canceled anytime.',
             style: TextStyle(color: _silver70, fontSize: 14, height: 1.65),
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           _PricingTierCard(
             name: 'CORE',
             price: '\$29.99 / MONTH',
@@ -267,8 +289,10 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               'Market comparisons and line movement tools',
               'Multi-sport research across major leagues',
             ],
+            onPressed: (dialogContext) =>
+                _choosePlan(dialogContext, PurchaseTier.core),
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           _PricingTierCard(
             name: 'PRO / EDGE',
             price: '\$89.99 / MONTH',
@@ -285,9 +309,11 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               'Custom compound alerts and stale-line notifications',
               'Prediction history, grading and model calibration',
             ],
+            onPressed: (dialogContext) =>
+                _choosePlan(dialogContext, PurchaseTier.edge),
           ),
-          SizedBox(height: 16),
-          _AboutNotice(
+          const SizedBox(height: 16),
+          const _AboutNotice(
             title: 'NO GUARANTEED OUTCOMES',
             text:
                 'Plans provide research, modeling and organizational tools. Predictions are informational and do not guarantee winning wagers.',
@@ -295,7 +321,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
         ];
       case 'contact':
         title = 'CONTACT';
-        subtitle = 'QUESTIONS, FEEDBACK OR BETA ACCESS';
+        subtitle = 'QUESTIONS, FEEDBACK OR ACCOUNT SUPPORT';
         icon = Icons.forum_outlined;
         content = const [
           Text(
@@ -306,9 +332,9 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
           _AboutNotice(title: 'EMAIL', text: 'propsintell@gmail.com'),
           SizedBox(height: 10),
           _AboutNotice(
-            title: 'PRIVATE BETA FEEDBACK',
+            title: 'MEMBER FEEDBACK',
             text:
-                'Private beta users can also continue using the channel where they received access.',
+                'Members can also continue using the support channel where they received assistance.',
           ),
         ];
       default:
@@ -444,7 +470,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 _AboutBullet('Research NBA, NFL, MLB, WNBA, NHL and more'),
                 SizedBox(height: 18),
                 _AboutNotice(
-                  title: 'PRIVATE BETA',
+                  title: 'PAID MEMBERSHIP',
                   text:
                       'Access is currently limited while features, data sources and analytics are being tested.',
                 ),
@@ -1084,6 +1110,7 @@ class _PricingTierCard extends StatelessWidget {
   final String description;
   final List<String> features;
   final bool featured;
+  final ValueChanged<BuildContext>? onPressed;
 
   const _PricingTierCard({
     required this.name,
@@ -1091,6 +1118,7 @@ class _PricingTierCard extends StatelessWidget {
     required this.description,
     required this.features,
     this.featured = false,
+    this.onPressed,
   });
 
   @override
@@ -1207,6 +1235,23 @@ class _PricingTierCard extends StatelessWidget {
                 ],
               ),
             ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: featured
+                ? FilledButton(
+                    onPressed: onPressed == null
+                        ? null
+                        : () => onPressed!(context),
+                    child: const Text('CHOOSE PRO / EDGE'),
+                  )
+                : OutlinedButton(
+                    onPressed: onPressed == null
+                        ? null
+                        : () => onPressed!(context),
+                    child: const Text('CHOOSE CORE'),
+                  ),
+          ),
         ],
       ),
     );

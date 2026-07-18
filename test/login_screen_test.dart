@@ -37,9 +37,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('public signup remains locked during private beta', (
-    tester,
-  ) async {
+  testWidgets('public signup opens paid account creation', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -48,8 +46,7 @@ void main() {
     await tester.tap(find.text('SIGN UP').first);
     await tester.pump();
 
-    expect(find.text('CREATE YOUR ACCOUNT'), findsNothing);
-    expect(find.textContaining('currently in private beta'), findsOneWidget);
+    expect(find.text('CREATE YOUR ACCOUNT'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -65,7 +62,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('WHAT YOU CAN DO'), findsOneWidget);
-    expect(find.text('PRIVATE BETA'), findsOneWidget);
+    expect(find.text('PAID MEMBERSHIP'), findsOneWidget);
     expect(find.text('RESPONSIBLE USE'), findsOneWidget);
     expect(find.text('LEARN MORE'), findsOneWidget);
     expect(find.text('BACK TO LOGIN'), findsOneWidget);
@@ -90,6 +87,8 @@ void main() {
     expect(find.text(r'$29.99 / MONTH'), findsOneWidget);
     expect(find.text(r'$89.99 / MONTH'), findsOneWidget);
     expect(find.text('BEST VALUE'), findsOneWidget);
+    expect(find.text('CHOOSE CORE'), findsOneWidget);
+    expect(find.text('CHOOSE PRO / EDGE'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

@@ -37,6 +37,7 @@ import 'widgets/auth_account_panel.dart';
 import 'widgets/current_slip_panel.dart';
 import 'widgets/ev_scanner_card.dart';
 import 'widgets/interactive_prop_builder.dart';
+import 'widgets/onboarding_dialog.dart';
 import 'widgets/scoreboard_view.dart';
 import 'widgets/selected_prop_slip.dart';
 
@@ -528,6 +529,11 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         },
       ),
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && AuthManager.instance.sessionState.value.authenticated) {
+        unawaited(ProductOnboarding.showIfNeeded(context));
+      }
+    });
   }
 
   @override
@@ -537,6 +543,22 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   }
 
   void _switchToPage(AppPage page, {String source = 'ui'}) {
+    final requiredTier = _requiredTier(page);
+    final session = AuthManager.instance.sessionState.value;
+    final allowed =
+        !session.authenticated ||
+        requiredTier == null ||
+        (requiredTier == SubscriptionTier.core && session.hasCoreAccess) ||
+        (requiredTier == SubscriptionTier.edge && session.hasEdgeAccess);
+    if (!allowed) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => const BrandedPaywallModalSheet(),
+      );
+      return;
+    }
     if (_selectedPage == page) {
       return;
     }
@@ -550,6 +572,19 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       );
     });
   }
+
+  SubscriptionTier? _requiredTier(AppPage page) => switch (page) {
+    AppPage.propBuilder ||
+    AppPage.watchlist ||
+    AppPage.analytics ||
+    AppPage.lineMovement ||
+    AppPage.propAlerts => SubscriptionTier.core,
+    AppPage.builderPerformance ||
+    AppPage.goblinsDemons ||
+    AppPage.evScanner ||
+    AppPage.intelligenceLab => SubscriptionTier.edge,
+    _ => null,
+  };
 
   void _selectBoardSport(String sport) {
     setState(() {

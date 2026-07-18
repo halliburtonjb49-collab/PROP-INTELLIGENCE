@@ -32,8 +32,11 @@ def apply_subscription_event(event: dict[str, object]) -> dict[str, object]:
     if not database_is_configured():
         return {"updated": False, "reason": "DATABASE_URL is not configured", "tier": tier}
     with get_database_pool().connection() as connection, connection.cursor() as cursor:
-        cursor.execute("""update user_profiles set subscription_tier=%s,is_premium=%s,updated_at=now()
-            where id=%s returning id""", (tier, tier == "edge", user_id))
+        cursor.execute("""insert into user_profiles(id,subscription_tier,is_premium,updated_at)
+            values(%s,%s,%s,now()) on conflict(id) do update set
+            subscription_tier=excluded.subscription_tier,
+            is_premium=excluded.is_premium,updated_at=now() returning id""",
+            (user_id, tier, tier == "edge"))
         updated = cursor.fetchone() is not None
         connection.commit()
     return {"updated": updated, "tier": tier, "userId": user_id}

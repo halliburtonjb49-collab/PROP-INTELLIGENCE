@@ -1,8 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'auth_manager.dart';
+import 'supabase_service.dart';
 
 enum PurchaseTier {
   core('core', 'core_tier'),
@@ -19,18 +19,19 @@ class RevenueCatBillingService {
           publicApiKey ??
           const String.fromEnvironment('REVENUECAT_PUBLIC_API_KEY');
 
-  final SupabaseClient _supabase = Supabase.instance.client;
   final String _publicApiKey;
+  static bool _configured = false;
 
   Future<void> initializeBillingEngine() async {
     if (_publicApiKey.trim().isEmpty) {
-      debugPrint('RevenueCat init skipped: missing REVENUECAT_PUBLIC_API_KEY.');
-      return;
+      throw StateError('Secure billing is not configured for this build.');
     }
-
-    await Purchases.setLogLevel(LogLevel.debug);
-    await Purchases.configure(PurchasesConfiguration(_publicApiKey));
-    final userId = _supabase.auth.currentUser?.id;
+    if (!_configured) {
+      await Purchases.setLogLevel(kDebugMode ? LogLevel.debug : LogLevel.warn);
+      await Purchases.configure(PurchasesConfiguration(_publicApiKey));
+      _configured = true;
+    }
+    final userId = SupabaseService.client?.auth.currentUser?.id;
     if (userId != null) {
       await Purchases.logIn(userId);
     }
@@ -54,7 +55,15 @@ class RevenueCatBillingService {
               : null);
 
       if (package == null) {
-        debugPrint('No RevenueCat package available for purchase.');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'This plan is temporarily unavailable. Please try again shortly.',
+              ),
+            ),
+          );
+        }
         return;
       }
 
@@ -79,6 +88,42 @@ class RevenueCatBillingService {
       }
     } catch (e) {
       debugPrint('Transaction canceled or failed: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Purchase was not completed. No subscription change was made.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> restorePurchases(BuildContext context) async {
+    try {
+      await initializeBillingEngine();
+      await Purchases.restorePurchases();
+      await AuthManager.instance.refreshSessionState();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Purchases restored. Your access has been refreshed.',
+            ),
+            backgroundColor: Color(0xFF36B9FF),
+          ),
+        );
+      }
+    } catch (error) {
+      debugPrint('Purchase restore failed: $error');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to restore purchases right now.'),
+          ),
+        );
+      }
     }
   }
 }
