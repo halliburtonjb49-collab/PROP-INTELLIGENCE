@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_panel.dart';
+import '../widgets/context_help.dart';
 
 class LineMovementPage extends StatefulWidget {
   const LineMovementPage({super.key, required this.selectedSport});
@@ -489,6 +490,12 @@ class _LineMovementPageState extends State<LineMovementPage> {
             ],
           ),
         ),
+        const ContextHelp(
+          title: 'Line movement',
+          message:
+              'Line movement shows how a sportsbook number changed over time. A move can reflect new information, market demand, or risk management. Compare books and confirm the current line before acting.',
+        ),
+        const SizedBox(width: 6),
         OutlinedButton.icon(
           onPressed: _refresh,
           icon: const Icon(Icons.refresh_rounded, size: 16),

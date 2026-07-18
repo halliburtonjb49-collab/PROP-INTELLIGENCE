@@ -7,6 +7,12 @@ class SavedSlipLeg {
   final String sportsbook;
   final String market;
   final double line;
+  final double entryLine;
+  final double? closingLine;
+  final double? closingOdds;
+  final double? lineClv;
+  final double? lineClvPercent;
+  final bool? beatClosingLine;
   final String side;
   final double? odds;
   final String customLabel;
@@ -25,6 +31,12 @@ class SavedSlipLeg {
     required this.sportsbook,
     required this.market,
     required this.line,
+    required this.entryLine,
+    this.closingLine,
+    this.closingOdds,
+    this.lineClv,
+    this.lineClvPercent,
+    this.beatClosingLine,
     required this.side,
     this.odds,
     this.customLabel = '',
@@ -45,6 +57,15 @@ class SavedSlipLeg {
       sportsbook: json['sportsbook']?.toString() ?? '',
       market: json['market']?.toString() ?? '',
       line: (json['line'] as num?)?.toDouble() ?? 0,
+      entryLine:
+          (json['entry_line'] as num?)?.toDouble() ??
+          (json['line'] as num?)?.toDouble() ??
+          0,
+      closingLine: (json['closing_line'] as num?)?.toDouble(),
+      closingOdds: (json['closing_odds'] as num?)?.toDouble(),
+      lineClv: (json['line_clv'] as num?)?.toDouble(),
+      lineClvPercent: (json['line_clv_percent'] as num?)?.toDouble(),
+      beatClosingLine: json['beat_closing_line'] as bool?,
       side: json['side']?.toString() ?? '',
       odds: (json['odds'] as num?)?.toDouble(),
       customLabel: json['custom_label']?.toString() ?? '',

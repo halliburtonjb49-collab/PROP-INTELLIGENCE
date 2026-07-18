@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../controllers/active_slip_controller.dart';
 import '../models/saved_slip.dart';
 import '../services/api_service.dart';
+import '../services/live_update_service.dart';
+import 'context_help.dart';
 
 class SlipHistoryPanel extends StatefulWidget {
   const SlipHistoryPanel({super.key, required this.activeSlipController});
@@ -17,6 +19,10 @@ class SlipHistoryPanel extends StatefulWidget {
 
 class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   final ApiService _apiService = ApiService();
+  final LiveUpdateService _liveUpdates = LiveUpdateService(
+    channels: const {'tickets'},
+  );
+  StreamSubscription<dynamic>? _liveSubscription;
   String _selectedTab = 'all';
   late Future<List<SavedSlip>> _slipsFuture;
   Timer? _refreshTimer;
@@ -28,6 +34,11 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   void initState() {
     super.initState();
     _slipsFuture = _apiService.fetchSlips();
+    _liveSubscription = _liveUpdates.stream.listen(
+      (_) => _reloadFromTicketEvent(),
+      onError: (_) {},
+    );
+    _liveUpdates.connect();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshGameStatuses();
     });
@@ -40,7 +51,19 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    unawaited(_liveSubscription?.cancel());
+    unawaited(_liveUpdates.dispose());
     super.dispose();
+  }
+
+  void _reloadFromTicketEvent() {
+    if (!mounted) return;
+    setState(() {
+      _lastUpdated = DateTime.now();
+      _slipsFuture = _apiService.fetchSlips(
+        status: _selectedTab == 'all' ? null : _selectedTab,
+      );
+    });
   }
 
   void _selectTab(String tab) {
@@ -274,6 +297,8 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
               return Column(
                 children: [
                   _TotalsBar(totals: totals),
+                  const SizedBox(height: 8),
+                  _ClvSummary(totals: totals),
                   const SizedBox(height: 10),
                   Expanded(
                     child: ListView.separated(
@@ -303,9 +328,17 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     var wonLegs = 0;
     var lostLegs = 0;
     var pendingLegs = 0;
+    var measuredClvLegs = 0;
+    var beatCloseLegs = 0;
+    var clvPercentTotal = 0.0;
 
     for (final slip in slips) {
       for (final leg in slip.legs) {
+        if (leg.lineClvPercent != null && leg.beatClosingLine != null) {
+          measuredClvLegs += 1;
+          clvPercentTotal += leg.lineClvPercent!;
+          if (leg.beatClosingLine!) beatCloseLegs += 1;
+        }
         switch (leg.resultStatus.toLowerCase()) {
           case 'won':
             wonLegs += 1;
@@ -324,6 +357,11 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       wonLegs: wonLegs,
       lostLegs: lostLegs,
       pendingLegs: pendingLegs,
+      measuredClvLegs: measuredClvLegs,
+      beatCloseLegs: beatCloseLegs,
+      averageClvPercent: measuredClvLegs == 0
+          ? 0
+          : clvPercentTotal / measuredClvLegs,
     );
   }
 
@@ -368,12 +406,68 @@ class _SlipTotals {
     required this.wonLegs,
     required this.lostLegs,
     required this.pendingLegs,
+    required this.measuredClvLegs,
+    required this.beatCloseLegs,
+    required this.averageClvPercent,
   });
 
   final int totalSlips;
   final int wonLegs;
   final int lostLegs;
   final int pendingLegs;
+  final int measuredClvLegs;
+  final int beatCloseLegs;
+  final double averageClvPercent;
+}
+
+class _ClvSummary extends StatelessWidget {
+  const _ClvSummary({required this.totals});
+
+  final _SlipTotals totals;
+
+  @override
+  Widget build(BuildContext context) {
+    final rate = totals.measuredClvLegs == 0
+        ? 0.0
+        : totals.beatCloseLegs / totals.measuredClvLegs * 100;
+    final positive = totals.averageClvPercent > 0;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFF101D28),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF344758)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.show_chart_rounded,
+            size: 16,
+            color: positive ? const Color(0xFF25D97D) : const Color(0xFFF2BC35),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              totals.measuredClvLegs == 0
+                  ? 'CLV pending — no closing snapshots yet'
+                  : 'Beat close ${rate.toStringAsFixed(1)}%  •  Avg CLV ${totals.averageClvPercent >= 0 ? '+' : ''}${totals.averageClvPercent.toStringAsFixed(2)}%  •  n=${totals.measuredClvLegs}',
+              style: const TextStyle(
+                color: Color(0xFFDCE8F4),
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const ContextHelp(
+            title: 'Closing Line Value',
+            message:
+                'Beat-close rate is the share of measured ticket legs with a better entry line than the closing market. Average CLV summarizes the size of that advantage. A larger sample is more meaningful than a few individual results.',
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _TotalsBar extends StatelessWidget {
@@ -556,6 +650,30 @@ class _SavedSlipCard extends StatelessWidget {
                                   ),
                                 ),
                               ],
+                              const SizedBox(height: 3),
+                              if (leg.closingLine == null)
+                                const Text(
+                                  'CLV: pending closing line',
+                                  style: TextStyle(
+                                    color: Color(0xFF8B98A8),
+                                    fontSize: 9,
+                                  ),
+                                )
+                              else
+                                Text(
+                                  'Entry ${leg.entryLine.toStringAsFixed(1)} → Close ${leg.closingLine!.toStringAsFixed(1)}  •  ${leg.beatClosingLine == true
+                                      ? 'BEAT CLOSE'
+                                      : leg.lineClv == 0
+                                      ? 'PUSH'
+                                      : 'MISSED CLOSE'}  ${leg.lineClvPercent == null ? '' : '${leg.lineClvPercent! >= 0 ? '+' : ''}${leg.lineClvPercent!.toStringAsFixed(2)}%'}',
+                                  style: TextStyle(
+                                    color: leg.beatClosingLine == true
+                                        ? const Color(0xFF25D97D)
+                                        : const Color(0xFFFFB74D),
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
                             ],
                           ),
                         ),

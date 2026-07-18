@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'player_analytics_chart.dart';
 import 'premium_gate.dart';
+import 'context_help.dart';
 
 class ElitePropCard extends StatefulWidget {
   final String playerName;
@@ -147,7 +148,347 @@ class _ElitePropCardState extends State<ElitePropCard> {
       }
     }
 
-    return const [28.0, 31.0, 19.0, 26.0, 22.0, 35.0, 29.0, 27.0, 15.0, 32.0];
+    return const [];
+  }
+
+  String _dataFreshness() {
+    final raw =
+        widget.propData['last_updated_utc'] ??
+        widget.propData['lastUpdatedUtc'] ??
+        widget.propData['source_updated_utc'];
+    final updated = DateTime.tryParse(raw?.toString() ?? '')?.toLocal();
+    if (updated == null) return 'Freshness unavailable';
+    final age = DateTime.now().difference(updated);
+    if (age.isNegative || age.inMinutes < 2) return 'Updated just now';
+    if (age.inMinutes < 60) return 'Updated ${age.inMinutes}m ago';
+    if (age.inHours < 24) return 'Updated ${age.inHours}h ago';
+    return 'Updated ${age.inDays}d ago';
+  }
+
+  String _sourceLabel() {
+    final source =
+        widget.propData['source_provider'] ??
+        widget.propData['sourceProvider'] ??
+        widget.propData['sportsbook'];
+    final value = source?.toString().trim() ?? '';
+    return value.isEmpty ? 'Source unavailable' : value;
+  }
+
+  String _splitValue(String key) {
+    final raw = widget.propData[key];
+    if (raw == null) return '—';
+    if (raw is num) return '${raw.toStringAsFixed(raw % 1 == 0 ? 0 : 1)}%';
+    final value = raw.toString().trim();
+    return value.isEmpty ? '—' : value;
+  }
+
+  double? _number(Iterable<String> keys) {
+    for (final key in keys) {
+      final raw = widget.propData[key];
+      if (raw is num) return raw.toDouble();
+      final parsed = double.tryParse(raw?.toString() ?? '');
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  String? _text(Iterable<String> keys) {
+    for (final key in keys) {
+      final value = widget.propData[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty && value.toLowerCase() != 'unknown') return value;
+    }
+    return null;
+  }
+
+  List<({String text, bool positive})> _decisionSignals(List<double> history) {
+    final signals = <({String text, bool positive})>[];
+    final direction =
+        (_text(const ['recommended_side', 'recommendedSide', 'pick']) ?? 'over')
+            .toLowerCase();
+    final recommendsUnder =
+        direction.contains('under') || direction.contains('less');
+    final projectionGap =
+        widget.aiProjection.toDouble() - widget.sportsbookLine.toDouble();
+    if (projectionGap.abs() >= .05) {
+      signals.add((
+        text:
+            'Projection is ${projectionGap.abs().toStringAsFixed(1)} ${projectionGap >= 0 ? 'above' : 'below'} the current line.',
+        positive: recommendsUnder ? projectionGap < 0 : projectionGap >= 0,
+      ));
+    }
+    if (widget.edgePercentage.abs() >= .05) {
+      signals.add((
+        text:
+            'Estimated edge is ${widget.edgePercentage >= 0 ? '+' : ''}${widget.edgePercentage.toStringAsFixed(1)}%.',
+        positive: widget.edgePercentage > 0,
+      ));
+    }
+    if (history.isNotEmpty) {
+      final hits = history.where((value) {
+        return recommendsUnder
+            ? value <= widget.sportsbookLine
+            : value >= widget.sportsbookLine;
+      }).length;
+      signals.add((
+        text:
+            'Cleared this line in $hits of ${history.length} verified recent games.',
+        positive: hits / history.length > .5,
+      ));
+    }
+    final movement = _number(const ['line_movement', 'lineMovement']);
+    if (movement != null && movement.abs() >= .01) {
+      signals.add((
+        text:
+            'The market line moved ${movement > 0 ? 'up' : 'down'} ${movement.abs().toStringAsFixed(1)}.',
+        positive: false,
+      ));
+    }
+    final injury = _text(const ['injury_status', 'injuryStatus']);
+    if (injury != null && injury.toLowerCase() != 'healthy') {
+      signals.add((text: 'Injury designation: $injury.', positive: false));
+    }
+    final lineup = _text(const ['lineup_status', 'lineupStatus']);
+    if (lineup != null && !lineup.toLowerCase().contains('confirmed')) {
+      signals.add((text: 'Lineup status: $lineup.', positive: false));
+    }
+    final fatigue = _number(const ['fatigue_index', 'fatigueIndex']);
+    if (fatigue != null) {
+      signals.add((
+        text: 'Fatigue index: ${fatigue.toStringAsFixed(1)}.',
+        positive: fatigue < 50,
+      ));
+    }
+    final matchup = _text(const [
+      'matchup_context',
+      'matchupContext',
+      'matchup_summary',
+    ]);
+    if (matchup != null) {
+      signals.add((text: matchup, positive: true));
+    }
+    return signals.take(6).toList(growable: false);
+  }
+
+  Widget _buildDecisionSummary(List<double> history) {
+    final signals = _decisionSignals(history);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF09131D),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF344758)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.fact_check_outlined,
+                color: Color(0xFFFFD700),
+                size: 18,
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'WHY THIS PICK?',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .5,
+                  ),
+                ),
+              ),
+              ContextHelp(
+                title: 'Decision summary',
+                message:
+                    'This summary lists available model and context signals. Green signals support the displayed direction; amber signals are risks or context to verify. A signal is omitted when its underlying data is unavailable.',
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          if (signals.isEmpty)
+            const Text(
+              'More verified context is needed before a decision summary can be generated.',
+              style: TextStyle(color: Color(0xFF98A6B8), fontSize: 11),
+            )
+          else
+            ...signals.map(
+              (signal) => Padding(
+                padding: const EdgeInsets.only(bottom: 7),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      signal.positive
+                          ? Icons.check_circle_outline
+                          : Icons.warning_amber_rounded,
+                      size: 15,
+                      color: signal.positive
+                          ? const Color(0xFF24C47E)
+                          : const Color(0xFFFFB74D),
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        signal.text,
+                        style: const TextStyle(
+                          color: Color(0xFFDCE8F4),
+                          fontSize: 11,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const Divider(color: Colors.white10, height: 16),
+          const Text(
+            'Verify the live line, injury status, and lineup before placing a wager.',
+            style: TextStyle(
+              color: Color(0xFF98A6B8),
+              fontSize: 10,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<({String book, double? line, int odds})> _bookOffers() {
+    final raw = widget.propData['odds_data'] ?? widget.propData['oddsData'];
+    if (raw is! List) return const [];
+    final direction =
+        (_text(const ['recommended_side', 'recommendedSide', 'pick']) ?? 'over')
+            .toLowerCase();
+    final under = direction.contains('under') || direction.contains('less');
+    final offers = <({String book, double? line, int odds})>[];
+    for (final item in raw.whereType<Map>()) {
+      final book = (item['bookmaker'] ?? item['sportsbook'] ?? item['book'])
+          ?.toString()
+          .trim();
+      final oddsRaw = under
+          ? (item['under_odds'] ?? item['underOdds'])
+          : (item['over_odds'] ?? item['overOdds']);
+      final odds = oddsRaw is num
+          ? oddsRaw.toInt()
+          : int.tryParse(oddsRaw?.toString() ?? '');
+      if (book == null || book.isEmpty || odds == null) continue;
+      final lineRaw = item['line'] ?? item['point'] ?? item['current_line'];
+      final line = lineRaw is num
+          ? lineRaw.toDouble()
+          : double.tryParse(lineRaw?.toString() ?? '');
+      offers.add((book: book, line: line, odds: odds));
+    }
+    offers.sort((a, b) => b.odds.compareTo(a.odds));
+    return offers.take(4).toList(growable: false);
+  }
+
+  String _formatAmerican(int odds) => odds > 0 ? '+$odds' : '$odds';
+
+  Widget _buildLineShop() {
+    final offers = _bookOffers();
+    if (offers.isEmpty) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF09131D),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF344758)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.compare_arrows_rounded,
+                color: Color(0xFFFFD700),
+                size: 18,
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'LINE SHOP',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .5,
+                  ),
+                ),
+              ),
+              ContextHelp(
+                title: 'Line shopping',
+                message:
+                    'Books can offer different prices for the same market. This comparison ranks the available American odds for the recommended side; a larger positive number or a number closer to zero is generally a better payout. Confirm availability in your state and inside the sportsbook.',
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (var index = 0; index < offers.length; index++)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: index == 0
+                        ? const Color(0xFF24C47E).withValues(alpha: .10)
+                        : Colors.white.withValues(alpha: .03),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: index == 0
+                          ? const Color(0xFF24C47E)
+                          : const Color(0xFF273445),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        index == 0
+                            ? 'BEST • ${offers[index].book}'
+                            : offers[index].book,
+                        style: TextStyle(
+                          color: index == 0
+                              ? const Color(0xFF24C47E)
+                              : const Color(0xFF98A6B8),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${offers[index].line?.toStringAsFixed(1) ?? widget.sportsbookLine}  ${_formatAmerican(offers[index].odds)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${offers.length} book${offers.length == 1 ? '' : 's'} compared • verify before placing',
+            style: const TextStyle(color: Color(0xFF98A6B8), fontSize: 10),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildMiniSplitChip(String title, String stat) {
@@ -347,6 +688,44 @@ class _ElitePropCardState extends State<ElitePropCard> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF09131D),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF273445)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.verified_outlined,
+                        size: 15,
+                        color: Color(0xFFFFD700),
+                      ),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          '${_sourceLabel()}  •  ${_dataFreshness()}  •  ${last10GameStats.length} verified recent games',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF98A6B8),
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                      const ContextHelp(
+                        title: 'Data quality',
+                        message:
+                            'This row identifies the source, update recency, and number of real recent-game observations available to the card. Missing history is shown as unavailable and is never replaced with sample results.',
+                      ),
+                    ],
+                  ),
+                ),
                 if ((widget.propData['current_progress_value'] as num?) !=
                         null &&
                     ((widget.propData['current_progress_value'] as num?) ?? 0) >
@@ -402,6 +781,12 @@ class _ElitePropCardState extends State<ElitePropCard> {
                 ],
                 if (_isExpanded) ...[
                   const Divider(color: Colors.white10, height: 24),
+                  if (_bookOffers().isNotEmpty) ...[
+                    _buildLineShop(),
+                    const SizedBox(height: 14),
+                  ],
+                  _buildDecisionSummary(last10GameStats),
+                  const SizedBox(height: 14),
                   PremiumFeatureGateGuard(
                     isUserPremium: widget.isUserPremium,
                     lockedChild: const Padding(
@@ -430,9 +815,13 @@ class _ElitePropCardState extends State<ElitePropCard> {
                               ),
                             ),
                             Text(
-                              '$hitRate% HIT RATE',
-                              style: const TextStyle(
-                                color: Color(0xFF00E676),
+                              last10GameStats.isEmpty
+                                  ? 'DATA PENDING'
+                                  : '$hitRate% HIT RATE',
+                              style: TextStyle(
+                                color: last10GameStats.isEmpty
+                                    ? const Color(0xFF98A6B8)
+                                    : const Color(0xFF00E676),
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -440,18 +829,45 @@ class _ElitePropCardState extends State<ElitePropCard> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        PlayerAnalyticsChart(
-                          targetLine: widget.sportsbookLine.toDouble(),
-                          last10GameStats: last10GameStats,
-                        ),
+                        if (last10GameStats.isEmpty)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: .03),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'Verified recent-game history is not available for this market yet.',
+                              style: TextStyle(
+                                color: Color(0xFF98A6B8),
+                                fontSize: 11,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          )
+                        else
+                          PlayerAnalyticsChart(
+                            targetLine: widget.sportsbookLine.toDouble(),
+                            last10GameStats: last10GameStats,
+                          ),
                         const SizedBox(height: 16),
                         Row(
                           children: [
-                            _buildMiniSplitChip('Home Games', '80% Hit'),
+                            _buildMiniSplitChip(
+                              'Home Games',
+                              _splitValue('home_hit_rate'),
+                            ),
                             const SizedBox(width: 8),
-                            _buildMiniSplitChip('vs Top 10 Def', '60% Hit'),
+                            _buildMiniSplitChip(
+                              'vs Top 10 Def',
+                              _splitValue('top_10_defense_hit_rate'),
+                            ),
                             const SizedBox(width: 8),
-                            _buildMiniSplitChip('0 Days Rest', '40% Hit'),
+                            _buildMiniSplitChip(
+                              '0 Days Rest',
+                              _splitValue('zero_days_rest_hit_rate'),
+                            ),
                           ],
                         ),
                       ],

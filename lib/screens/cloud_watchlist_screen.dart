@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_manager.dart';
 import '../services/api_service.dart';
+import '../services/live_update_service.dart';
 import '../widgets/watchlist_view.dart';
 
 class CloudWatchlistScreen extends StatefulWidget {
@@ -16,6 +17,7 @@ class CloudWatchlistScreen extends StatefulWidget {
 
 class _CloudWatchlistScreenState extends State<CloudWatchlistScreen> {
   final ApiService _apiService = ApiService();
+  final LiveUpdateService _liveUpdates = LiveUpdateService();
   Stream<dynamic>? _channelStream;
   bool _websocketUnavailable = false;
   Timer? _fallbackPollTimer;
@@ -25,7 +27,8 @@ class _CloudWatchlistScreenState extends State<CloudWatchlistScreen> {
   @override
   void initState() {
     super.initState();
-    _websocketUnavailable = true;
+    _channelStream = _liveUpdates.stream;
+    _liveUpdates.connect();
     _startFallbackPolling();
   }
 
@@ -56,6 +59,7 @@ class _CloudWatchlistScreenState extends State<CloudWatchlistScreen> {
   @override
   void dispose() {
     _fallbackPollTimer?.cancel();
+    unawaited(_liveUpdates.dispose());
     super.dispose();
   }
 
@@ -74,14 +78,23 @@ class _CloudWatchlistScreenState extends State<CloudWatchlistScreen> {
                 }
                 setState(() {
                   _websocketUnavailable = true;
+                  _startFallbackPolling();
                 });
               });
             }
 
             if (snapshot.hasData) {
               final decoded = jsonDecode(snapshot.data.toString());
-              if (decoded is List) {
-                _fetchedProps = decoded;
+              final incoming =
+                  decoded is Map<String, dynamic> &&
+                      decoded['type'] == 'props.updated'
+                  ? decoded['data']
+                  : decoded;
+              if (incoming is List) {
+                _fetchedProps = incoming;
+                _websocketUnavailable = false;
+                _fallbackPollTimer?.cancel();
+                _fallbackPollTimer = null;
               }
             }
 

@@ -16,6 +16,7 @@ import '../models/line_movement_alert.dart';
 import '../controllers/active_slip_controller.dart';
 import '../services/api_service.dart';
 import '../services/prop_watchlist_service.dart';
+import '../widgets/context_help.dart';
 import 'prop_watchlist_screen.dart';
 
 enum SlipExportAction { copyText, saveImage, savePdf, printSlip }
@@ -4340,9 +4341,23 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'PROP BUILDER',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+              const Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'PROP BUILDER',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  ContextHelp(
+                    title: 'Prop Builder',
+                    message:
+                        'Choose a preset or configure your filters, then let the builder rank compatible props. Review edge, confidence, correlation, and the latest line before adding picks to your active slip.',
+                  ),
+                ],
               ),
               const SizedBox(height: 6),
               const Text(

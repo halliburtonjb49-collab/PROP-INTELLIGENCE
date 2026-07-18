@@ -5,10 +5,28 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_service.dart';
 
+enum SubscriptionTier {
+  free,
+  core,
+  edge;
+
+  bool get hasCoreAccess => this == core || this == edge;
+  bool get hasEdgeAccess => this == edge;
+
+  static SubscriptionTier fromDatabase(Object? value) {
+    return switch (value?.toString().trim().toLowerCase()) {
+      'core' => core,
+      'edge' || 'pro' || 'elite' => edge,
+      _ => free,
+    };
+  }
+}
+
 class AuthSessionState {
   final bool ready;
   final bool authenticated;
   final bool isPremium;
+  final SubscriptionTier subscriptionTier;
   final String role;
   final String? userId;
   final String? email;
@@ -17,11 +35,16 @@ class AuthSessionState {
   bool get isOwner => role == 'owner';
   bool get isAdmin => role == 'admin';
   bool get isTester => role == 'tester';
+  bool get hasCoreAccess =>
+      subscriptionTier.hasCoreAccess || isOwner || isAdmin || isTester;
+  bool get hasEdgeAccess =>
+      subscriptionTier.hasEdgeAccess || isOwner || isAdmin || isTester;
 
   const AuthSessionState({
     required this.ready,
     required this.authenticated,
     required this.isPremium,
+    required this.subscriptionTier,
     required this.role,
     required this.userId,
     required this.email,
@@ -32,6 +55,7 @@ class AuthSessionState {
     : ready = false,
       authenticated = false,
       isPremium = false,
+      subscriptionTier = SubscriptionTier.free,
       role = 'user',
       userId = null,
       email = null,
@@ -41,6 +65,7 @@ class AuthSessionState {
     : ready = true,
       authenticated = false,
       isPremium = false,
+      subscriptionTier = SubscriptionTier.free,
       role = 'user',
       userId = null,
       email = null,
@@ -50,6 +75,7 @@ class AuthSessionState {
     : ready = true,
       authenticated = false,
       isPremium = false,
+      subscriptionTier = SubscriptionTier.free,
       role = 'user',
       userId = null,
       email = null,
@@ -228,10 +254,13 @@ class AuthManager {
     final hasPrivilegedRole =
         role == 'owner' || role == 'admin' || role == 'tester';
     var isPremium = hasPrivilegedRole;
+    var subscriptionTier = hasPrivilegedRole
+        ? SubscriptionTier.edge
+        : SubscriptionTier.free;
     try {
       final row = await _client
           ?.from('user_profiles')
-          .select('is_premium')
+          .select('is_premium, subscription_tier')
           .eq('id', user.id)
           .maybeSingle();
       if (row is Map<String, dynamic>) {
@@ -239,16 +268,27 @@ class AuthManager {
         if (raw is bool) {
           isPremium = raw || hasPrivilegedRole;
         }
+        subscriptionTier = hasPrivilegedRole
+            ? SubscriptionTier.edge
+            : SubscriptionTier.fromDatabase(row['subscription_tier']);
+        // Preserve full access for legacy premium accounts during migration.
+        if (subscriptionTier == SubscriptionTier.free && raw == true) {
+          subscriptionTier = SubscriptionTier.edge;
+        }
       }
     } catch (_) {
       // Privileged roles retain full access even if profile lookup is unavailable.
       isPremium = hasPrivilegedRole;
+      subscriptionTier = hasPrivilegedRole
+          ? SubscriptionTier.edge
+          : SubscriptionTier.free;
     }
 
     sessionState.value = AuthSessionState(
       ready: true,
       authenticated: true,
       isPremium: isPremium,
+      subscriptionTier: subscriptionTier,
       role: role,
       userId: user.id,
       email: user.email,

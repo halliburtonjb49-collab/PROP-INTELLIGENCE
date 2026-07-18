@@ -8,6 +8,7 @@ import '../models/scoreboard_game.dart';
 import '../services/api_service.dart';
 import '../services/scoreboard_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/context_help.dart';
 
 enum ScoreboardFilter { all, live, upcoming, finalGames }
 
@@ -90,6 +91,11 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                 ),
               ],
             ),
+          ),
+          const ContextHelp(
+            title: 'Live scoreboard',
+            message:
+                'Scores and game status refresh automatically while live updates are connected. Use the date controls to review other slates. Sportsbook grading can differ from unofficial live statistics.',
           ),
           IconButton(
             onPressed: _previousDay,

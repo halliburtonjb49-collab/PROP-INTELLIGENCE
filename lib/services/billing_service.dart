@@ -4,6 +4,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth_manager.dart';
 
+enum PurchaseTier {
+  core('core', 'core_tier'),
+  edge('edge', 'edge_tier');
+
+  const PurchaseTier(this.offeringId, this.entitlementId);
+  final String offeringId;
+  final String entitlementId;
+}
+
 class RevenueCatBillingService {
   RevenueCatBillingService({String? publicApiKey})
     : _publicApiKey =
@@ -21,12 +30,23 @@ class RevenueCatBillingService {
 
     await Purchases.setLogLevel(LogLevel.debug);
     await Purchases.configure(PurchasesConfiguration(_publicApiKey));
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId != null) {
+      await Purchases.logIn(userId);
+    }
   }
 
   Future<void> processPremiumSubscriptionPurchase(BuildContext context) async {
+    return processSubscriptionPurchase(context, PurchaseTier.edge);
+  }
+
+  Future<void> processSubscriptionPurchase(
+    BuildContext context,
+    PurchaseTier tier,
+  ) async {
     try {
       final offerings = await Purchases.getOfferings();
-      final current = offerings.current;
+      final current = offerings.all[tier.offeringId];
       final package =
           current?.monthly ??
           (current != null && current.availablePackages.isNotEmpty
@@ -39,18 +59,19 @@ class RevenueCatBillingService {
       }
 
       final customerInfo = await Purchases.purchasePackage(package);
-      if (customerInfo.entitlements.all['elite_tier']?.isActive == true) {
-        final upgraded = await _executeDatabasePremiumPromotion();
+      if (customerInfo.entitlements.all[tier.entitlementId]?.isActive == true) {
         await AuthManager.instance.refreshSessionState();
 
-        if (upgraded && context.mounted && Navigator.of(context).canPop()) {
+        if (context.mounted && Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
         }
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Subscription active. Premium unlocked.'),
+              content: Text(
+                'Subscription active. Access will unlock after secure verification.',
+              ),
               backgroundColor: Color(0xFF24C47E),
             ),
           );
@@ -58,25 +79,6 @@ class RevenueCatBillingService {
       }
     } catch (e) {
       debugPrint('Transaction canceled or failed: $e');
-    }
-  }
-
-  Future<bool> _executeDatabasePremiumPromotion() async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) {
-      return false;
-    }
-
-    try {
-      await _supabase
-          .from('user_profiles')
-          .update({'is_premium': true})
-          .eq('id', user.id);
-      debugPrint('Cloud verification updated. User promoted to ELITE.');
-      return true;
-    } catch (e) {
-      debugPrint('Critical error patching database authorization records: $e');
-      return false;
     }
   }
 }

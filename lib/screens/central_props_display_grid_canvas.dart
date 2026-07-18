@@ -8,6 +8,8 @@ import '../services/api_service.dart';
 import '../services/auth_manager.dart';
 import '../services/filter_manager.dart';
 import '../services/goblin_manager.dart';
+import '../services/engagement_tracker.dart';
+import '../services/live_update_service.dart';
 import '../services/prop_watchlist_service.dart';
 import '../services/slip_manager.dart';
 import '../widgets/elite_prop_card.dart';
@@ -23,6 +25,7 @@ class CentralPropsDisplayGridCanvas extends StatefulWidget {
 class _CentralPropsDisplayGridCanvasState
     extends State<CentralPropsDisplayGridCanvas> {
   final ApiService _apiService = ApiService();
+  final LiveUpdateService _liveUpdates = LiveUpdateService();
   final PropWatchlistService _watchlistService = PropWatchlistService();
   Stream<dynamic>? _channelStream;
   bool _websocketUnavailable = false;
@@ -74,7 +77,8 @@ class _CentralPropsDisplayGridCanvasState
   void initState() {
     super.initState();
     _primeFavoritePlayerNames();
-    _websocketUnavailable = true;
+    _channelStream = _liveUpdates.stream;
+    _liveUpdates.connect();
     _startFallbackPolling();
   }
 
@@ -214,6 +218,7 @@ class _CentralPropsDisplayGridCanvasState
   @override
   void dispose() {
     _fallbackPollTimer?.cancel();
+    unawaited(_liveUpdates.dispose());
     super.dispose();
   }
 
@@ -238,14 +243,23 @@ class _CentralPropsDisplayGridCanvasState
                     }
                     setState(() {
                       _websocketUnavailable = true;
+                      _startFallbackPolling();
                     });
                   });
                 }
 
                 if (snapshot.hasData) {
                   final decoded = jsonDecode(snapshot.data.toString());
-                  if (decoded is List) {
-                    _fetchedProps = decoded;
+                  final incoming =
+                      decoded is Map<String, dynamic> &&
+                          decoded['type'] == 'props.updated'
+                      ? decoded['data']
+                      : decoded;
+                  if (incoming is List) {
+                    _fetchedProps = incoming;
+                    _websocketUnavailable = false;
+                    _fallbackPollTimer?.cancel();
+                    _fallbackPollTimer = null;
                   }
                 }
 
@@ -397,6 +411,10 @@ class _CentralPropsDisplayGridCanvasState
                                           .toString(),
                                   'odds_data': oddsData,
                                 };
+                                EngagementTracker.instance.record(
+                                  propId,
+                                  'CLICK',
+                                );
                                 SlipManager.togglePropSelection(
                                   selectionPayload,
                                 );
@@ -433,6 +451,13 @@ class _CentralPropsDisplayGridCanvasState
                                       ),
                                     ),
                                 onFavoriteChanged: (isFavorited) {
+                                  if (isFavorited) {
+                                    EngagementTracker.instance.record(
+                                      (prop['id'] ?? prop['prop_id'] ?? '')
+                                          .toString(),
+                                      'WATCHLIST',
+                                    );
+                                  }
                                   final normalizedPlayerName =
                                       _normalizePlayerName(
                                         (prop['player_name'] ?? '').toString(),

@@ -1,31 +1,58 @@
 import json
+import os
 import sqlite3
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+from datetime import datetime, timedelta, timezone
 
 from calculations.slip_grader import (
     grade_leg,
     grade_slip_status,
 )
 from models.slip import (
-    LegResultUpdate,
+    ClosingLineUpdate, LegResultUpdate,
     SlipCreate,
     SlipLeg,
     SlipResponse,
     create_slip_response,
 )
+from models.intelligence import ClosingLineValueRequest
+from services.clv_service import closing_line_value
 from services.market_normalizer import normalize_market
 from services.team_normalizer import normalize_team_name
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATABASE_PATH = BASE_DIR / "prop_intelligence_cache.db"
+DATABASE_PATH = Path(
+    os.getenv("SLIP_DATABASE_PATH", str(BASE_DIR / "prop_intelligence_cache.db"))
+).expanduser().resolve()
 
 
 def _connect() -> sqlite3.Connection:
+    DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DATABASE_PATH)
     connection.row_factory = sqlite3.Row
     return connection
+
+
+def slip_storage_health() -> dict[str, object]:
+    """Validate that ticket storage is writable and report persistence mode."""
+    configured = os.getenv("SLIP_DATABASE_PATH", "").strip()
+    try:
+        initialize_slip_table()
+        with _connect() as connection:
+            connection.execute("SELECT 1").fetchone()
+        return {
+            "status": "ok",
+            "path": str(DATABASE_PATH),
+            "persistentPathConfigured": bool(configured),
+            "mode": "persistent-disk" if configured else "local-development",
+        }
+    except (OSError, sqlite3.Error) as error:
+        return {
+            "status": "error", "path": str(DATABASE_PATH),
+            "persistentPathConfigured": bool(configured), "error": str(error),
+        }
 
 
 def initialize_slip_table() -> None:
@@ -34,6 +61,7 @@ def initialize_slip_table() -> None:
             """
             CREATE TABLE IF NOT EXISTS slips (
                 id TEXT PRIMARY KEY,
+                user_id TEXT,
                 status TEXT NOT NULL,
                 stake REAL NOT NULL,
                 potential_payout REAL NOT NULL,
@@ -42,6 +70,10 @@ def initialize_slip_table() -> None:
             )
             """
         )
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(slips)").fetchall()}
+        if "user_id" not in columns:
+            connection.execute("ALTER TABLE slips ADD COLUMN user_id TEXT")
+        connection.execute("CREATE INDEX IF NOT EXISTS slips_user_status_idx ON slips(user_id, status, created_at DESC)")
 
 
 def _american_decimal_multiplier(odds: float | None) -> float:
@@ -79,7 +111,7 @@ def calculate_payout_preview(
     return _calculate_payout(request)
 
 
-def create_slip(request: SlipCreate) -> SlipResponse:
+def create_slip(request: SlipCreate, user_id: str | None = None) -> SlipResponse:
     initialize_slip_table()
     payout = _calculate_payout(request)
     slip = create_slip_response(request, payout)
@@ -89,16 +121,18 @@ def create_slip(request: SlipCreate) -> SlipResponse:
             """
             INSERT INTO slips (
                 id,
+                user_id,
                 status,
                 stake,
                 potential_payout,
                 created_at,
                 legs_json
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 slip.id,
+                user_id,
                 slip.status,
                 slip.stake,
                 slip.potential_payout,
@@ -112,7 +146,7 @@ def create_slip(request: SlipCreate) -> SlipResponse:
     return slip
 
 
-def get_slips(status: str | None = None) -> list[SlipResponse]:
+def get_slips(status: str | None = None, user_id: str | None = None) -> list[SlipResponse]:
     initialize_slip_table()
     query = """
         SELECT
@@ -126,9 +160,17 @@ def get_slips(status: str | None = None) -> list[SlipResponse]:
     """
     parameters: tuple[object, ...] = ()
 
+    filters = []
+    parameter_list: list[object] = []
+    if user_id is not None:
+        filters.append("user_id = ?")
+        parameter_list.append(user_id)
     if status:
-        query += " WHERE status = ?"
-        parameters = (status,)
+        filters.append("status = ?")
+        parameter_list.append(status)
+    if filters:
+        query += " WHERE " + " AND ".join(filters)
+    parameters = tuple(parameter_list)
 
     query += " ORDER BY created_at DESC"
 
@@ -163,6 +205,7 @@ def get_slips(status: str | None = None) -> list[SlipResponse]:
 def update_slip_status(
     slip_id: str,
     status: str,
+    user_id: str | None = None,
 ) -> bool:
     if status not in {"active", "won", "lost"}:
         raise ValueError("Invalid slip status.")
@@ -173,15 +216,161 @@ def update_slip_status(
             """
             UPDATE slips
             SET status = ?
-            WHERE id = ?
+            WHERE id = ? AND (? IS NULL OR user_id = ?)
             """,
-            (status, slip_id),
+            (status, slip_id, user_id, user_id),
         )
         return cursor.rowcount > 0
 
 
+def update_slip_closing_lines(
+    slip_id: str,
+    updates: list[ClosingLineUpdate],
+    user_id: str,
+) -> dict[str, object] | None:
+    """Attach closing prices and calculated CLV to a user's saved slip."""
+    initialize_slip_table()
+    update_map = {update.prop_id: update for update in updates}
+    with _connect() as connection:
+        row = connection.execute(
+            "SELECT legs_json FROM slips WHERE id = ? AND user_id = ?",
+            (slip_id, user_id),
+        ).fetchone()
+        if row is None:
+            return None
+        legs = json.loads(row["legs_json"])
+        updated = 0
+        for leg in legs:
+            update = update_map.get(str(leg.get("prop_id", "")))
+            if update is None:
+                continue
+            entry_line = float(leg.get("entry_line") or leg.get("line") or 0)
+            if entry_line <= 0:
+                continue
+            entry_odds_raw = leg.get("odds")
+            entry_odds = int(entry_odds_raw) if entry_odds_raw is not None else None
+            clv = closing_line_value(ClosingLineValueRequest(
+                side=str(leg.get("side", "OVER")).upper(),
+                entry_line=entry_line,
+                closing_line=update.closing_line,
+                entry_odds=entry_odds,
+                closing_odds=update.closing_odds,
+            ))
+            leg.update({
+                "entry_line": entry_line,
+                "closing_line": update.closing_line,
+                "closing_odds": update.closing_odds,
+                "line_clv": clv["lineClv"],
+                "line_clv_percent": clv["lineClvPercent"],
+                "beat_closing_line": clv["beatClosingLine"],
+            })
+            updated += 1
+        if updated:
+            connection.execute(
+                "UPDATE slips SET legs_json = ? WHERE id = ? AND user_id = ?",
+                (json.dumps(legs), slip_id, user_id),
+            )
+        measured = [leg for leg in legs if leg.get("beat_closing_line") is not None]
+        positive = sum(1 for leg in measured if leg.get("beat_closing_line") is True)
+        return {
+            "slipId": slip_id,
+            "updatedLegs": updated,
+            "measuredLegs": len(measured),
+            "beatCloseCount": positive,
+            "beatCloseRate": round(positive / len(measured) * 100, 1) if measured else 0,
+        }
+
+
+def _normalized_match_value(value: object) -> str:
+    return "".join(character for character in str(value or "").lower() if character.isalnum())
+
+
+def capture_closing_lines_from_props(
+    props: list[object], *, now: datetime | None = None,
+    minutes_before: int = 15, minutes_after: int = 5,
+) -> dict[str, int]:
+    """Capture exact-match closing prices for active legs near event start."""
+    initialize_slip_table()
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    candidates: dict[tuple[str, str, str, str], object] = {}
+    for prop in props:
+        start_raw = getattr(prop, "startTimeUtc", "") or getattr(prop, "gameStartTime", "")
+        try:
+            starts_at = datetime.fromisoformat(str(start_raw).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if starts_at.tzinfo is None:
+            starts_at = starts_at.replace(tzinfo=timezone.utc)
+        window_start = current - timedelta(minutes=minutes_after)
+        window_end = current + timedelta(minutes=minutes_before)
+        if not window_start <= starts_at <= window_end:
+            continue
+        key = (
+            _normalized_match_value(getattr(prop, "eventId", "")),
+            _normalized_match_value(getattr(prop, "player", "")),
+            _normalized_match_value(getattr(prop, "marketKey", "") or getattr(prop, "market", "")),
+            _normalized_match_value(getattr(prop, "sportsbook", "")),
+        )
+        if all(key):
+            candidates[key] = prop
+
+    scanned = matched = updated_slips = 0
+    with _connect() as connection:
+        rows = connection.execute(
+            "SELECT id, legs_json FROM slips WHERE status = 'active'"
+        ).fetchall()
+        for row in rows:
+            legs = json.loads(row["legs_json"])
+            changed = False
+            for leg in legs:
+                scanned += 1
+                if leg.get("closing_line") is not None:
+                    continue
+                key = (
+                    _normalized_match_value(leg.get("event_id")),
+                    _normalized_match_value(leg.get("player")),
+                    _normalized_match_value(leg.get("market")),
+                    _normalized_match_value(leg.get("sportsbook")),
+                )
+                prop = candidates.get(key)
+                if prop is None:
+                    continue
+                entry_line = float(leg.get("entry_line") or leg.get("line") or 0)
+                close_line = float(getattr(prop, "currentLine", None) or getattr(prop, "line", 0))
+                if entry_line <= 0 or close_line <= 0:
+                    continue
+                side = str(leg.get("side", "OVER")).upper()
+                close_odds_raw = getattr(prop, "underOdds" if side == "UNDER" else "overOdds", None)
+                close_odds = int(close_odds_raw) if close_odds_raw is not None else None
+                entry_odds_raw = leg.get("odds")
+                entry_odds = int(entry_odds_raw) if entry_odds_raw is not None else None
+                clv = closing_line_value(ClosingLineValueRequest(
+                    side=side, entry_line=entry_line, closing_line=close_line,
+                    entry_odds=entry_odds, closing_odds=close_odds,
+                ))
+                leg.update({
+                    "entry_line": entry_line, "closing_line": close_line,
+                    "closing_odds": close_odds, "line_clv": clv["lineClv"],
+                    "line_clv_percent": clv["lineClvPercent"],
+                    "beat_closing_line": clv["beatClosingLine"],
+                    "closing_captured_at": current.isoformat(),
+                })
+                matched += 1
+                changed = True
+            if changed:
+                connection.execute(
+                    "UPDATE slips SET legs_json = ? WHERE id = ?",
+                    (json.dumps(legs), row["id"]),
+                )
+                updated_slips += 1
+    return {"scannedLegs": scanned, "matchedLegs": matched, "updatedSlips": updated_slips}
+
+
 def update_slip_results(
     updates: list[LegResultUpdate],
+    user_id: str | None = None,
 ) -> int:
     initialize_slip_table()
     result_map = {
@@ -197,8 +386,9 @@ def update_slip_results(
                 id,
                 legs_json
             FROM slips
-            WHERE status = 'active'
-            """
+            WHERE status = 'active' AND (? IS NULL OR user_id = ?)
+            """,
+            (user_id, user_id),
         ).fetchall()
 
         for row in rows:

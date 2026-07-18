@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../controllers/active_slip_controller.dart';
 import '../services/api_service.dart';
+import 'context_help.dart';
 
 class PropIntelligenceColors {
   static const Color background = Color(0xFF09141D);
@@ -2676,8 +2677,18 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             Icon(Icons.assignment_turned_in_outlined, size: 44),
             SizedBox(height: 12),
             Text(
-              'No active tickets. Add props to build a slip.',
+              'Your active slip is ready to build',
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 8),
+            Text(
+              '1. Select a prop  •  2. Choose Over or Under  •  3. Review and lock',
+              style: TextStyle(
+                color: PropIntelligenceColors.secondaryText,
+                fontSize: 11,
+                height: 1.4,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -2732,6 +2743,12 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.6,
                   ),
+                ),
+                Spacer(),
+                ContextHelp(
+                  title: 'Active slip',
+                  message:
+                      'Your active slip is a research workspace. Drag legs to reorder them, review edge and model confidence, remove unwanted props, then lock the slip when your selections and live lines are confirmed.',
                 ),
               ],
             ),

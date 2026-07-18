@@ -1,4 +1,6 @@
 from typing import Any
+from datetime import datetime, timezone
+from threading import Lock
 
 import requests
 
@@ -7,8 +9,67 @@ from config import (
     HTTP_TIMEOUT_SECONDS,
     ODDS_API_KEY,
     ODDS_REGIONS,
+    ODDS_API_LOW_QUOTA_THRESHOLD,
+    ODDS_API_QUOTA_RESERVE,
     PREFERRED_BOOKMAKERS_CSV,
 )
+
+_quota_lock = Lock()
+_quota_state: dict[str, object] = {
+    "remaining": None, "used": None, "lastRequestCost": None,
+    "lastResponseAt": None, "lowQuota": False,
+    "lowQuotaThreshold": ODDS_API_LOW_QUOTA_THRESHOLD,
+}
+
+
+def _header_int(headers: object, name: str) -> int | None:
+    try:
+        raw = headers.get(name)  # type: ignore[attr-defined]
+    except AttributeError:
+        return None
+    try:
+        return int(raw) if raw is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def record_quota_headers(headers: object) -> dict[str, object]:
+    remaining = _header_int(headers, "x-requests-remaining")
+    used = _header_int(headers, "x-requests-used")
+    last = _header_int(headers, "x-requests-last")
+    with _quota_lock:
+        _quota_state.update({
+            "remaining": remaining, "used": used, "lastRequestCost": last,
+            "lastResponseAt": datetime.now(timezone.utc).isoformat(),
+            "lowQuota": remaining is not None and remaining <= ODDS_API_LOW_QUOTA_THRESHOLD,
+            "lowQuotaThreshold": ODDS_API_LOW_QUOTA_THRESHOLD,
+        })
+        return dict(_quota_state)
+
+
+def quota_snapshot() -> dict[str, object]:
+    with _quota_lock:
+        return dict(_quota_state)
+
+
+def estimate_event_odds_cost(markets: list[str]) -> int:
+    regions = [region for region in ODDS_REGIONS.split(",") if region.strip()]
+    return len(set(markets)) * max(1, len(regions))
+
+
+def quota_allows(estimated_cost: int) -> dict[str, object]:
+    quota = quota_snapshot()
+    remaining = quota.get("remaining")
+    allowed = not isinstance(remaining, int) or (
+        remaining - max(0, estimated_cost) >= ODDS_API_QUOTA_RESERVE
+    )
+    return {
+        "allowed": allowed,
+        "estimatedCost": max(0, estimated_cost),
+        "remaining": remaining,
+        "reserve": ODDS_API_QUOTA_RESERVE,
+        "reason": None if allowed else "provider quota reserve would be breached",
+    }
 
 
 def fetch_events(sport_key: str) -> list[dict[str, Any]]:
@@ -20,6 +81,7 @@ def fetch_events(sport_key: str) -> list[dict[str, Any]]:
         },
         timeout=HTTP_TIMEOUT_SECONDS,
     )
+    record_quota_headers(response.headers)
     response.raise_for_status()
     payload = response.json()
 
@@ -46,6 +108,7 @@ def fetch_event_odds(
         },
         timeout=HTTP_TIMEOUT_SECONDS,
     )
+    record_quota_headers(response.headers)
     response.raise_for_status()
     payload = response.json()
 

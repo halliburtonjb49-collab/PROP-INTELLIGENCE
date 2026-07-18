@@ -20,10 +20,56 @@ services:
         sync: false
       - key: API_SPORTS_BASEBALL_KEY
         sync: false
+      - key: REVENUECAT_WEBHOOK_SECRET
+        sync: false
+      - key: REVENUECAT_CORE_PRODUCT_IDS
+        sync: false
+      - key: REVENUECAT_EDGE_PRODUCT_IDS
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
       - key: WNBA_LEAGUE_ID
         sync: false
       - key: CORS_ALLOWED_ORIGINS
         value: https://app.propsintell.com,https://www.propsintell.com,https://propsintell.com
+      - key: SLIP_DATABASE_PATH
+        value: /var/data/prop_intelligence_tickets.db
+      - key: LIVE_ODDS_SYNC_MIN_SECONDS
+        value: 300
+      - key: ODDS_API_LOW_QUOTA_THRESHOLD
+        value: 100
+      - key: ODDS_API_QUOTA_RESERVE
+        value: 25
+      - key: ODDS_REGIONS
+        value: us,us2
+      - key: PREFERRED_BOOKMAKERS
+        value: prizepicks,underdog,draftkings,sleeper,fanduel,betr
+      - key: ADMIN_API_KEY
+        sync: false
+    disk:
+      name: prop-intelligence-ticket-data
+      mountPath: /var/data
+      sizeGB: 1
+
+  - type: cron
+    name: prop-intelligence-historical-sync
+    runtime: python
+    schedule: "0 8 * * *"
+    buildCommand: pip install -r requirements.txt -r requirements-historical.txt
+    startCommand: python python_backend/scripts/sync_historical_daily.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSLMODE
+        value: require
+      - key: ODDS_API_KEY
+        sync: false
+      - key: API_SPORTS_KEY
+        sync: false
 
   - type: web
     name: props-intelligence-app

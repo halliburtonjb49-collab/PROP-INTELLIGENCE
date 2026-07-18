@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
 import '../models/scoreboard_game.dart';
 import '../services/scoreboard_service.dart';
+import '../services/live_update_service.dart';
 
 class ScoreboardController extends ChangeNotifier {
   ScoreboardController({required this._service});
@@ -16,6 +18,10 @@ class ScoreboardController extends ChangeNotifier {
   String? _errorMessage;
   DateTime _selectedDate = DateTime.now();
   Timer? _refreshTimer;
+  late final LiveUpdateService _liveUpdates = LiveUpdateService(
+    channels: const {'scoreboard'},
+  );
+  StreamSubscription<dynamic>? _liveSubscription;
 
   List<ScoreboardGame> get games => List.unmodifiable(_games);
   bool get isLoading => _isLoading;
@@ -87,6 +93,11 @@ class ScoreboardController extends ChangeNotifier {
   }
 
   void beginLiveRefresh() {
+    _liveSubscription ??= _liveUpdates.stream.listen(
+      _handleLiveEvent,
+      onError: (_) {},
+    );
+    _liveUpdates.connect();
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       final now = DateTime.now();
@@ -106,9 +117,35 @@ class ScoreboardController extends ChangeNotifier {
     _refreshTimer = null;
   }
 
+  void _handleLiveEvent(dynamic raw) {
+    try {
+      final decoded = jsonDecode(raw.toString());
+      if (decoded is! Map || decoded['type'] != 'scoreboard.updated') return;
+      final data = decoded['data'];
+      if (data is! Map || data['games'] is! List) return;
+      final eventDate = DateTime.tryParse(data['date']?.toString() ?? '');
+      if (eventDate == null ||
+          eventDate.year != _selectedDate.year ||
+          eventDate.month != _selectedDate.month ||
+          eventDate.day != _selectedDate.day) {
+        return;
+      }
+      _games = (data['games'] as List)
+          .whereType<Map>()
+          .map((row) => ScoreboardGame.fromJson(Map<String, dynamic>.from(row)))
+          .toList(growable: false);
+      _errorMessage = null;
+      notifyListeners();
+    } catch (_) {
+      // The regular 30-second refresh remains the authoritative fallback.
+    }
+  }
+
   @override
   void dispose() {
     stopLiveRefresh();
+    unawaited(_liveSubscription?.cancel());
+    unawaited(_liveUpdates.dispose());
     super.dispose();
   }
 }

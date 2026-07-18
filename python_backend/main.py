@@ -1,16 +1,17 @@
 import logging
 import os
+from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, timezone, tzinfo
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from collections import Counter, defaultdict
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import BackgroundTasks, Body, FastAPI, HTTPException, Query
+from fastapi import BackgroundTasks, Body, Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 from threading import Lock
 
-from config import CORS_ALLOWED_ORIGINS, HTTP_TIMEOUT_SECONDS, WNBA_LEAGUE_ID
+from config import CORS_ALLOWED_ORIGINS, HTTP_TIMEOUT_SECONDS, LIVE_ODDS_SYNC_MIN_SECONDS, WNBA_LEAGUE_ID
 from database.postgres import (
 	check_database_connection,
 	close_database_pool,
@@ -40,7 +41,7 @@ from models.prop_builder_preset import (
 from models.prop_builder_strategy import (
 	PropBuilderStrategyResponse,
 )
-from models.slip import LegResultUpdate, SlipCreate, SlipPreview
+from models.slip import LegResultUpdate, SlipClosingLinesUpdate, SlipCreate, SlipPreview
 from providers.api_sports_basketball import (
 	ApiSportsBasketballProvider,
 )
@@ -82,12 +83,15 @@ from services.prop_builder_strategy_service import (
 	get_prop_builder_strategy,
 )
 from services.score_service import fetch_scores
-from services.odds_service import fetch_events
+from services.odds_service import fetch_events, quota_snapshot
 from services.slip_service import (
+	capture_closing_lines_from_props,
+	slip_storage_health,
 	calculate_payout_preview,
 	create_slip,
 	get_slips,
 	update_slip_game_statuses,
+	update_slip_closing_lines,
 	update_slip_results,
 	update_slip_status,
 )
@@ -119,6 +123,10 @@ from services.wnba_grading_service import (
 	grade_active_wnba_slips,
 )
 from services.wnba_mapping_service import map_wnba_event
+from services.api_auth_service import require_admin, require_user_id
+from routers.intelligence import router as intelligence_router
+from routers.billing import router as billing_router
+from routers.realtime import hub as realtime_hub, router as realtime_router
 
 logging.basicConfig(
 	level=logging.INFO,
@@ -128,10 +136,36 @@ logging.basicConfig(
 	),
 )
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+	seed_default_prop_builder_presets()
+	initialize_prop_builder_history()
+	storage = slip_storage_health()
+	if storage["status"] != "ok":
+		raise RuntimeError(
+			"Ticket storage is unavailable: "
+			f"{storage.get('error', 'unknown error')}"
+		)
+	logging.info(
+		"Ticket storage ready mode=%s path=%s",
+		storage["mode"],
+		storage["path"],
+	)
+	try:
+		yield
+	finally:
+		close_database_pool()
+
 app = FastAPI(
 	title="PROP INTELLIGENCE API",
-	version="1.0.0",
+	version="1.2.0",
+	lifespan=lifespan,
 )
+
+app.include_router(intelligence_router)
+app.include_router(billing_router)
+app.include_router(realtime_router)
 
 app.add_middleware(
 	CORSMiddleware,
@@ -149,6 +183,8 @@ _sync_state: dict[str, object] = {
 	"finishedAt": None,
 	"results": [],
 	"error": None,
+	"cooldownSeconds": LIVE_ODDS_SYNC_MIN_SECONDS,
+	"nextAllowedAt": None,
 }
 
 
@@ -157,14 +193,56 @@ def _sync_state_snapshot() -> dict[str, object]:
 		return dict(_sync_state)
 
 
+def _sync_is_fresh(now: datetime | None = None) -> bool:
+	current = now or datetime.now(timezone.utc)
+	with _sync_state_lock:
+		finished_raw = _sync_state.get("finishedAt")
+	if not finished_raw:
+		return False
+	try:
+		finished = datetime.fromisoformat(str(finished_raw).replace("Z", "+00:00"))
+	except ValueError:
+		return False
+	if finished.tzinfo is None:
+		finished = finished.replace(tzinfo=timezone.utc)
+	return (current - finished).total_seconds() < _effective_sync_cooldown_seconds()
+
+
+def _effective_sync_cooldown_seconds() -> int:
+	quota = quota_snapshot()
+	remaining = quota.get("remaining")
+	if isinstance(remaining, int):
+		if remaining <= 10:
+			return max(LIVE_ODDS_SYNC_MIN_SECONDS, 3600)
+		if quota.get("lowQuota") is True:
+			return max(LIVE_ODDS_SYNC_MIN_SECONDS, 1800)
+	return LIVE_ODDS_SYNC_MIN_SECONDS
+
+
+def _mark_sync_running() -> None:
+	with _sync_state_lock:
+		_sync_state.update(
+			status="running", startedAt=datetime.now(timezone.utc).isoformat(),
+			finishedAt=None, results=[], error=None, nextAllowedAt=None,
+		)
+
+
 def _run_sync_background() -> None:
 	try:
 		results = run_global_sync_pipeline()
+		clv_capture = capture_closing_lines_from_props(get_props())
+		quota = quota_snapshot()
 		with _sync_state_lock:
+			finished = datetime.now(timezone.utc)
+			cooldown = _effective_sync_cooldown_seconds()
 			_sync_state.update(
 				status="complete",
-				finishedAt=datetime.now(timezone.utc).isoformat(),
+				finishedAt=finished.isoformat(),
+				cooldownSeconds=cooldown,
+				nextAllowedAt=(finished + timedelta(seconds=cooldown)).isoformat(),
 				results=results,
+				clvCapture=clv_capture,
+				providerQuota=quota,
 				error=None,
 			)
 	except Exception as exc:
@@ -912,8 +990,8 @@ def _grade_active_ticket_leg(
 	return "live"
 
 
-def _active_ticket_payload(*, season: str) -> dict[str, object]:
-	active_slips = get_slips("active")
+def _active_ticket_payload(*, season: str, user_id: str) -> dict[str, object]:
+	active_slips = get_slips("active", user_id=user_id)
 	if not active_slips:
 		return {
 			"slip_title": "Active Slip",
@@ -975,19 +1053,9 @@ def _active_ticket_payload(*, season: str) -> dict[str, object]:
 	}
 
 
-@app.on_event("startup")
-def startup() -> None:
-	seed_default_prop_builder_presets()
-	initialize_prop_builder_history()
-
-
-@app.on_event("shutdown")
-def shutdown() -> None:
-	close_database_pool()
-
-
 @app.get("/health")
 def health() -> dict[str, str]:
+	storage = slip_storage_health()
 	return {
 		"status": "ok",
 		"database": (
@@ -995,6 +1063,27 @@ def health() -> dict[str, str]:
 			if database_is_configured()
 			else "not_configured"
 		),
+		"ticket_storage": str(storage["status"]),
+		"ticket_storage_mode": str(storage.get("mode", "unknown")),
+	}
+
+
+@app.get("/health/storage")
+def storage_health() -> dict[str, object]:
+	storage = slip_storage_health()
+	if storage["status"] != "ok":
+		raise HTTPException(status_code=503, detail=storage)
+	return storage
+
+
+@app.get("/health/providers")
+def provider_health() -> dict[str, object]:
+	quota = quota_snapshot()
+	return {
+		"oddsApi": {
+			"status": "low_quota" if quota["lowQuota"] else "ok",
+			**quota,
+		}
 	}
 
 
@@ -1303,17 +1392,16 @@ def props_test() -> dict[str, object]:
 
 @app.post("/api/sync")
 def sync_props(background_tasks: BackgroundTasks) -> dict[str, object]:
+	if _sync_is_fresh():
+		return {**_sync_state_snapshot(), "reusedFreshData": True,
+			"message": "Current odds are still inside the server freshness window."}
 	if not _sync_run_lock.acquire(blocking=False):
 		return _sync_state_snapshot()
-
-	with _sync_state_lock:
-		_sync_state.update(
-			status="running",
-			startedAt=datetime.now(timezone.utc).isoformat(),
-			finishedAt=None,
-			results=[],
-			error=None,
-		)
+	if _sync_is_fresh():
+		_sync_run_lock.release()
+		return {**_sync_state_snapshot(), "reusedFreshData": True,
+			"message": "Current odds are still inside the server freshness window."}
+	_mark_sync_running()
 
 	background_tasks.add_task(_run_sync_background)
 	return {
@@ -1888,7 +1976,9 @@ def check_builder_lines(
 	refresh: bool = False,
 ) -> PropLineMovementResponse:
 	if refresh:
-		run_global_sync_pipeline()
+		if not _sync_is_fresh() and _sync_run_lock.acquire(blocking=False):
+			_mark_sync_running()
+			_run_sync_background()
 
 	prop_list = get_props()
 	rows: list[dict[str, object]] = []
@@ -2098,8 +2188,13 @@ def preview_slip(
 
 
 @app.post("/api/slips")
-def save_slip(request: SlipCreate) -> dict[str, object]:
-	slip = create_slip(request)
+def save_slip(request: SlipCreate, user_id: str = Depends(require_user_id)) -> dict[str, object]:
+	slip = create_slip(request, user_id=user_id)
+	realtime_hub.broadcast_user_from_thread(
+		{"type": "ticket.updated", "version": 1, "eventId": f"ticket-{slip.id}",
+		 "occurredAt": datetime.now(timezone.utc).isoformat(), "data": slip.model_dump(mode="json")},
+		"tickets", user_id,
+	)
 	return {
 		"status": "saved",
 		"slip": slip.model_dump(),
@@ -2109,8 +2204,9 @@ def save_slip(request: SlipCreate) -> dict[str, object]:
 @app.get("/api/slips")
 def list_slips(
 	status: str | None = Query(default=None),
+	user_id: str = Depends(require_user_id),
 ) -> dict[str, object]:
-	slips = get_slips(status)
+	slips = get_slips(status, user_id=user_id)
 	return {
 		"count": len(slips),
 		"slips": [
@@ -2123,19 +2219,22 @@ def list_slips(
 @app.get("/api/active-ticket")
 def get_active_ticket(
 	season: str = Query(default=str(datetime.now().year)),
+	user_id: str = Depends(require_user_id),
 ) -> dict[str, object]:
-	return _active_ticket_payload(season=season)
+	return _active_ticket_payload(season=season, user_id=user_id)
 
 
 @app.patch("/api/slips/{slip_id}/status")
 def change_slip_status(
 	slip_id: str,
 	status: str,
+	user_id: str = Depends(require_user_id),
 ) -> dict[str, object]:
 	try:
 		updated = update_slip_status(
 			slip_id,
 			status,
+			user_id=user_id,
 		)
 	except ValueError as exc:
 		raise HTTPException(
@@ -2149,6 +2248,12 @@ def change_slip_status(
 			detail="Slip not found.",
 		)
 
+	realtime_hub.broadcast_user_from_thread(
+		{"type": "ticket.updated", "version": 1, "eventId": f"ticket-{slip_id}-{status}",
+		 "occurredAt": datetime.now(timezone.utc).isoformat(),
+		 "data": {"id": slip_id, "status": status}}, "tickets", user_id,
+	)
+
 	return {
 		"status": "updated",
 		"slip_id": slip_id,
@@ -2159,8 +2264,9 @@ def change_slip_status(
 @app.post("/api/slips/results")
 def process_slip_results(
 	updates: list[LegResultUpdate],
+	user_id: str = Depends(require_user_id),
 ) -> dict[str, object]:
-	updated = update_slip_results(updates)
+	updated = update_slip_results(updates, user_id=user_id)
 	return {
 		"status": "complete",
 		"updated_slips": updated,
@@ -2253,6 +2359,14 @@ def scoreboard(
 		)
 	)
 
+	realtime_hub.broadcast_from_thread(
+		{"type": "scoreboard.updated", "version": 1,
+		 "eventId": f"scoreboard-{target_date.isoformat()}-{int(now.timestamp())}",
+		 "occurredAt": now.isoformat(),
+		 "data": {"date": target_date.isoformat(), "games": games}},
+		"scoreboard",
+	)
+
 	return {
 		"date": target_date.isoformat(),
 		"updated_at": now.isoformat(),
@@ -2260,9 +2374,28 @@ def scoreboard(
 	}
 
 
+@app.post("/api/slips/{slip_id}/closing-lines")
+def save_slip_closing_lines(
+	slip_id: str,
+	request: SlipClosingLinesUpdate,
+	user_id: str = Depends(require_user_id),
+) -> dict[str, object]:
+	result = update_slip_closing_lines(slip_id, request.updates, user_id)
+	if result is None:
+		raise HTTPException(status_code=404, detail="Slip not found.")
+	realtime_hub.broadcast_user_from_thread(
+		{"type": "ticket.clv_updated", "version": 1,
+		 "eventId": f"ticket-{slip_id}-clv",
+		 "occurredAt": datetime.now(timezone.utc).isoformat(), "data": result},
+		"tickets", user_id,
+	)
+	return result
+
+
 @app.post("/api/slips/game-status/refresh")
 def refresh_slip_game_statuses(
 	days_from: int = 1,
+	_user_id: str = Depends(require_user_id),
 ) -> dict[str, object]:
 	try:
 		results = refresh_saved_slip_game_statuses(
@@ -2285,6 +2418,7 @@ def refresh_slip_game_statuses(
 @app.post("/api/slips/refresh-games/{sport_key}")
 def refresh_slip_games(
 	sport_key: str,
+	_user_id: str = Depends(require_user_id),
 ) -> dict[str, object]:
 	try:
 		scores = fetch_scores(
@@ -2313,6 +2447,7 @@ def refresh_slip_games(
 def grade_test(
 	sport_key: str,
 	event_id: str,
+	_admin: str = Depends(require_admin),
 ) -> dict[str, object]:
 	provider = MockPlayerStatsProvider()
 	updated = grade_event_slips(
@@ -2405,7 +2540,7 @@ def map_wnba_event_endpoint(
 
 
 @app.post("/api/slips/grade-wnba")
-def grade_wnba_slips() -> dict[str, object]:
+def grade_wnba_slips(_user_id: str = Depends(require_user_id)) -> dict[str, object]:
 	try:
 		result = grade_active_wnba_slips()
 		return {
@@ -2422,6 +2557,7 @@ def grade_wnba_slips() -> dict[str, object]:
 @app.get("/api/slips/diagnose-wnba/{game_id}")
 def diagnose_wnba(
 	game_id: str,
+	_admin: str = Depends(require_admin),
 ) -> dict[str, object]:
 	try:
 		report = diagnose_wnba_game(game_id)

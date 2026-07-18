@@ -7,6 +7,7 @@ import '../models/line_movement_alert.dart';
 import '../services/api_service.dart';
 import '../services/prop_watchlist_service.dart';
 import '../widgets/slip_history_panel.dart';
+import '../widgets/context_help.dart';
 
 class PropWatchlistScreen extends StatefulWidget {
   const PropWatchlistScreen({super.key, required this.activeSlipController});
@@ -888,6 +889,11 @@ class _PropWatchlistScreenState extends State<PropWatchlistScreen> {
       appBar: AppBar(
         title: const Text('Prop Watchlist'),
         actions: [
+          const ContextHelp(
+            title: 'Watchlist',
+            message:
+                'Save props here without adding them to a slip. Check all lines to spot movement, enable alerts for meaningful changes, and move selected props into the active slip when ready.',
+          ),
           IconButton(
             tooltip: 'Refresh watchlist',
             onPressed: _isLoading ? null : _loadWatchlist,

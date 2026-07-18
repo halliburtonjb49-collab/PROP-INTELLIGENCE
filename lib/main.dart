@@ -31,6 +31,7 @@ import 'services/supabase_service.dart';
 import 'theme/app_scroll_behavior.dart';
 import 'theme/app_colors.dart' as app_colors;
 import 'theme/prop_intelligence_colors.dart' as brand;
+import 'pages/intelligence_lab_page.dart';
 import 'widgets/active_slip_panel.dart';
 import 'widgets/auth_account_panel.dart';
 import 'widgets/current_slip_panel.dart';
@@ -188,6 +189,7 @@ enum AppPage {
   analytics,
   lineMovement,
   dataAdmin,
+  intelligenceLab,
 }
 
 const Map<String, List<String>> sportPropCategories = {
@@ -287,6 +289,52 @@ ThemeData buildPropIntelligenceBrandedTheme() {
     textTheme: const TextTheme(
       bodyLarge: TextStyle(color: brand.PropIntelligenceColors.metallicSilver),
       titleLarge: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: const Color(0xFF08131D),
+      labelStyle: const TextStyle(color: app_colors.AppColors.textSecondary),
+      helperStyle: const TextStyle(color: app_colors.AppColors.textMuted),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: app_colors.AppColors.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: app_colors.AppColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(
+          color: app_colors.AppColors.gold,
+          width: 1.4,
+        ),
+      ),
+    ),
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: const Color(0xFF152534),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: app_colors.AppColors.border),
+      ),
+      textStyle: const TextStyle(
+        color: app_colors.AppColors.white,
+        fontSize: 12,
+      ),
+      waitDuration: const Duration(milliseconds: 450),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: app_colors.AppColors.gold,
+        foregroundColor: const Color(0xFF06111B),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        textStyle: const TextStyle(
+          fontWeight: FontWeight.w900,
+          letterSpacing: .3,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
     ),
     scrollbarTheme: ScrollbarThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
@@ -470,6 +518,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       case AppPage.analytics:
       case AppPage.lineMovement:
       case AppPage.dataAdmin:
+      case AppPage.intelligenceLab:
         return 0;
       case AppPage.propBuilder:
         return 1;
@@ -2898,6 +2947,8 @@ class _MainDashboardState extends State<MainDashboard> {
                 ? LineMovementPage(selectedSport: widget.sportFilter)
                 : widget.selectedPage == AppPage.dataAdmin
                 ? const DataAdminPage()
+                : widget.selectedPage == AppPage.intelligenceLab
+                ? IntelligenceLabPage(selections: widget.selections)
                 : Scrollbar(
                     controller: _boardVerticalController,
                     thumbVisibility: true,
@@ -3971,6 +4022,40 @@ class PropIntelligenceBrandBadge extends StatelessWidget {
   }
 }
 
+class _GuideTerm extends StatelessWidget {
+  const _GuideTerm({required this.term, required this.definition});
+
+  final String term;
+  final String definition;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 13),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            term,
+            style: const TextStyle(
+              color: app_colors.AppColors.gold,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            definition,
+            style: const TextStyle(
+              color: app_colors.AppColors.textSecondary,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class TopNavigation extends StatelessWidget {
   final AppPage selectedPage;
   final VoidCallback onOpenPropAlerts;
@@ -3983,6 +4068,96 @@ class TopNavigation extends StatelessWidget {
     required this.onTabSelected,
   });
 
+  void _showGlossary(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: app_colors.AppColors.panel,
+        title: const Row(
+          children: [
+            Icon(Icons.school_outlined, color: app_colors.AppColors.gold),
+            SizedBox(width: 10),
+            Text('Prop Intelligence Guide'),
+          ],
+        ),
+        content: const SizedBox(
+          width: 520,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _GuideTerm(
+                  term: 'Edge',
+                  definition:
+                      'The model’s estimated advantage compared with the offered line or odds.',
+                ),
+                _GuideTerm(
+                  term: 'Confidence',
+                  definition:
+                      'How strongly the available model inputs support a projection. It is not the same as hit probability.',
+                ),
+                _GuideTerm(
+                  term: '+EV',
+                  definition:
+                      'A long-run expected-value advantage based on estimated fair probability and available odds.',
+                ),
+                _GuideTerm(
+                  term: 'Correlation',
+                  definition:
+                      'How two prop outcomes tend to move together. Positive helps parlay alignment; negative can create conflict.',
+                ),
+                _GuideTerm(
+                  term: 'Line movement',
+                  definition:
+                      'A change in the sportsbook’s posted number or price. Confirm the current value before acting.',
+                ),
+                _GuideTerm(
+                  term: 'Goblin / Demon',
+                  definition:
+                      'A visual risk tier. Goblins represent more conservative or favorable profiles; Demons represent more aggressive, volatile profiles.',
+                ),
+                _GuideTerm(
+                  term: 'Game script',
+                  definition:
+                      'A hypothetical game environment—such as a blowout or shootout—used to stress-test projections.',
+                ),
+                SizedBox(height: 6),
+                Text(
+                  'All analytics are decision-support estimates, not guaranteed outcomes.',
+                  style: TextStyle(
+                    color: app_colors.AppColors.textSecondary,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('DONE'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuideButton(BuildContext context) {
+    return Tooltip(
+      message: 'Open the platform guide and betting glossary',
+      child: IconButton(
+        onPressed: () => _showGlossary(context),
+        icon: const Icon(
+          Icons.help_center_outlined,
+          color: app_colors.AppColors.gold,
+          size: 20,
+        ),
+      ),
+    );
+  }
+
   Widget _buildNavItem({
     required String label,
     required AppPage page,
@@ -3991,104 +4166,124 @@ class TopNavigation extends StatelessWidget {
   }) {
     final selected = selectedPage == page;
 
-    return InkWell(
-      onTap: () => onTabSelected(page),
-      borderRadius: BorderRadius.circular(10),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.fromLTRB(14, 15, 14, 13),
-        decoration: BoxDecoration(
-          color: selected
-              ? app_colors.AppColors.gold.withValues(alpha: .07)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected ? app_colors.AppColors.gold : Colors.transparent,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: selected
-                  ? app_colors.AppColors.gold
-                  : app_colors.AppColors.textSecondary,
+    return Tooltip(
+      message: switch (page) {
+        AppPage.board => 'Browse and compare today’s available props',
+        AppPage.scoreboard => 'Follow live, upcoming, and final games',
+        AppPage.analytics => 'Review model edge and market coverage',
+        AppPage.lineMovement => 'Track changes across sportsbook lines',
+        AppPage.intelligenceLab =>
+          'Model correlation, scripts, and historical analogs',
+        _ => label,
+      },
+      child: InkWell(
+        onTap: () => onTabSelected(page),
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.fromLTRB(14, 15, 14, 13),
+          decoration: BoxDecoration(
+            color: selected
+                ? app_colors.AppColors.gold.withValues(alpha: .07)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected ? app_colors.AppColors.gold : Colors.transparent,
             ),
-            const SizedBox(width: 7),
-            Text(
-              label,
-              style: TextStyle(
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 16,
                 color: selected
                     ? app_colors.AppColors.gold
-                    : app_colors.AppColors.white,
-                fontSize: 9,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.5,
+                    : app_colors.AppColors.textSecondary,
               ),
-            ),
-            if (premium) ...[
               const SizedBox(width: 7),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(
-                  color: app_colors.AppColors.gold,
-                  borderRadius: BorderRadius.circular(999),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected
+                      ? app_colors.AppColors.gold
+                      : app_colors.AppColors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
                 ),
-                child: const Text(
-                  'PRO',
-                  style: TextStyle(
-                    color: Color(0xFF06111B),
-                    fontSize: 7,
-                    fontWeight: FontWeight.w900,
+              ),
+              if (premium) ...[
+                const SizedBox(width: 7),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: app_colors.AppColors.gold,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Text(
+                    'PRO',
+                    style: TextStyle(
+                      color: Color(0xFF06111B),
+                      fontSize: 7,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildSearchPlayersButton() {
-    return InkWell(
-      onTap: () => onTabSelected(AppPage.searchPlayers),
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: const Color(0xFF091722),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: app_colors.AppColors.borderGold),
-        ),
-        child: const Icon(
-          Icons.search_rounded,
-          color: app_colors.AppColors.gold,
-          size: 18,
+    return Tooltip(
+      message: 'Search players and open detailed prop research',
+      child: InkWell(
+        onTap: () => onTabSelected(AppPage.searchPlayers),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFF091722),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: app_colors.AppColors.borderGold),
+          ),
+          child: const Icon(
+            Icons.search_rounded,
+            color: app_colors.AppColors.gold,
+            size: 18,
+          ),
         ),
       ),
     );
   }
 
   Widget _buildAlertButton() {
-    return InkWell(
-      onTap: onOpenPropAlerts,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: const Color(0xFF091722),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: app_colors.AppColors.border),
-        ),
-        child: const Icon(
-          Icons.notifications_none_rounded,
-          color: app_colors.AppColors.gold,
-          size: 19,
+    return Tooltip(
+      message: 'View prop alerts and monitored conditions',
+      child: InkWell(
+        onTap: onOpenPropAlerts,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFF091722),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: app_colors.AppColors.border),
+          ),
+          child: const Icon(
+            Icons.notifications_none_rounded,
+            color: app_colors.AppColors.gold,
+            size: 19,
+          ),
         ),
       ),
     );
@@ -4160,12 +4355,21 @@ class TopNavigation extends StatelessWidget {
                       icon: Icons.stacked_line_chart_rounded,
                       premium: true,
                     ),
+                    const SizedBox(width: 6),
+                    _buildNavItem(
+                      label: 'INTELLIGENCE LAB',
+                      page: AppPage.intelligenceLab,
+                      icon: Icons.science_outlined,
+                      premium: true,
+                    ),
                   ],
                 ),
               ),
             ),
           ),
           const SizedBox(width: 12),
+          _buildGuideButton(context),
+          const SizedBox(width: 4),
           _buildRefreshButton(),
           const SizedBox(width: 7),
           _buildAlertButton(),

@@ -45,17 +45,26 @@ if not API_SPORTS_KEY:
     )
 
 BASE_URL = "https://api.the-odds-api.com/v4"
-ODDS_REGIONS = "us,us2,eu,uk,au"
+ODDS_REGIONS = os.getenv("ODDS_REGIONS", "us,us2").strip() or "us,us2"
 PREFERRED_BOOKMAKERS = [
-    "prizepicks",
-    "underdog",
-    "draftkings",
-    "sleeper",
-    "fanduel",
-    "betr",
+    bookmaker.strip().lower()
+    for bookmaker in os.getenv(
+        "PREFERRED_BOOKMAKERS",
+        "prizepicks,underdog,draftkings,sleeper,fanduel,betr",
+    ).split(",")
+    if bookmaker.strip()
 ]
 PREFERRED_BOOKMAKERS_CSV = ",".join(PREFERRED_BOOKMAKERS)
 DEFAULT_LOOKAHEAD_HOURS = 72
 NEXT_AVAILABLE_MAX_DAYS = 7
 HTTP_TIMEOUT_SECONDS = 12
+LIVE_ODDS_SYNC_MIN_SECONDS = max(
+    60, int(os.getenv("LIVE_ODDS_SYNC_MIN_SECONDS", "300"))
+)
+ODDS_API_LOW_QUOTA_THRESHOLD = max(
+    0, int(os.getenv("ODDS_API_LOW_QUOTA_THRESHOLD", "100"))
+)
+ODDS_API_QUOTA_RESERVE = max(
+    0, int(os.getenv("ODDS_API_QUOTA_RESERVE", "25"))
+)
 DB_PATH = BASE_DIR / "prop_intelligence_cache.db"

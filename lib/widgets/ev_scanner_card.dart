@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/prop_intelligence_colors.dart';
 import 'prop_intelligence_branded_logo.dart';
+import 'context_help.dart';
 
 class PositiveEvScannerCard extends StatelessWidget {
   final String player;
@@ -58,23 +59,33 @@ class PositiveEvScannerCard extends StatelessWidget {
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  '+$evPercentage% EV',
-                  style: const TextStyle(
-                    color: Color(0xFF00E676),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 10,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '+$evPercentage% EV',
+                      style: const TextStyle(
+                        color: Color(0xFF00E676),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 10,
+                      ),
+                    ),
                   ),
-                ),
+                  const ContextHelp(
+                    title: 'Expected value (+EV)',
+                    message:
+                        'Positive expected value means the model believes the offered odds are better than the estimated fair odds. EV is a long-run mathematical estimate; an individual wager can still lose.',
+                  ),
+                ],
               ),
             ],
           ),
@@ -106,12 +117,16 @@ class PositiveEvScannerCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Text(
-                    'FAIR PROB',
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 10,
-                      letterSpacing: 1.1,
+                  const Tooltip(
+                    message:
+                        'Model-estimated probability before sportsbook margin',
+                    child: Text(
+                      'FAIR PROB',
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 10,
+                        letterSpacing: 1.1,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 4),

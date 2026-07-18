@@ -4,6 +4,7 @@ import '../models/prop_data.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_panel.dart';
+import '../widgets/context_help.dart';
 
 class AnalyticsPage extends StatefulWidget {
   const AnalyticsPage({super.key, required this.selectedSport});
@@ -225,6 +226,39 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ANALYTICS',
+                          style: TextStyle(
+                            color: AppColors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        SizedBox(height: 3),
+                        Text(
+                          'A focused view of model edge and available market coverage.',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ContextHelp(
+                    title: 'Analytics',
+                    message:
+                        'Edge is the model’s estimated advantage relative to the sportsbook line. Use it with confidence, sample size, matchup context, and current availability—not as a standalone guarantee.',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
               _newsTicker(alerts),
               const SizedBox(height: 14),
               GridView.count(

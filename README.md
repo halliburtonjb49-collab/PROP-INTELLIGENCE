@@ -52,3 +52,45 @@ flutter analyze
 flutter test
 flutter build web --release
 ```
+
+After applying the Supabase migrations and running historical ingestion, audit
+production data coverage before advertising calibrated probabilities:
+
+```powershell
+.\.venv\Scripts\python.exe python_backend\scripts\validate_intelligence_readiness.py
+```
+
+Apply every repository migration in dependency order from a trusted deployment
+terminal. The runner records checksums and will not silently reapply or mutate a
+previously deployed migration:
+
+```powershell
+$env:DATABASE_URL='postgresql://...'
+.\.venv\Scripts\python.exe python_backend\scripts\apply_supabase_migrations.py
+.\.venv\Scripts\python.exe python_backend\scripts\sync_historical_daily.py
+.\.venv\Scripts\python.exe python_backend\scripts\validate_intelligence_readiness.py
+```
+
+Do not place the database URL in source control. Configure it as a secret in
+Render and use the Supabase direct database connection string for migrations.
+
+The command exits successfully only when required tables exist, minimum data
+coverage is present, and at least 100 prediction snapshots have been graded.
+
+Saved tickets and closing-line snapshots use `SLIP_DATABASE_PATH`. The Render
+blueprint mounts `/var/data` as persistent storage so deployments do not erase
+ticket history. In production, verify `/health/storage` reports
+`persistent-disk`. Disk-backed SQLite assumes one API instance; migrate ticket
+storage to PostgreSQL before horizontally scaling the API.
+
+Live odds default to `ODDS_REGIONS=us,us2` because provider quota cost scales
+with both markets and regions. Configure `ODDS_REGIONS` and
+`PREFERRED_BOOKMAKERS` explicitly if the product expands beyond the current
+US/DFS audience. Sync cooldown automatically increases from 5 minutes to 30
+minutes when quota is low and to 60 minutes when 10 or fewer credits remain.
+Before each event-level odds request, the sync pipeline estimates its maximum
+market-by-region cost and preserves `ODDS_API_QUOTA_RESERVE` credits (25 by
+default). Events skipped by this guard are reported in sync status rather than
+failing the entire board refresh.
+Events are processed by nearest start time first, so a quota-limited refresh
+completes the most actionable portion of the current slate before later games.

@@ -6,6 +6,15 @@ import 'package:http/http.dart' as http;
 import '../models/prop_data.dart';
 import '../models/saved_slip.dart';
 import '../models/slip_selection.dart';
+import 'supabase_service.dart';
+
+class _IntelligenceRequestException implements Exception {
+  const _IntelligenceRequestException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
 
 class BackendRefreshStatus {
   final DateTime? lastRefreshAt;
@@ -36,6 +45,115 @@ class ApiService {
 
   static String get baseUrl => _resolvedBaseUrl ?? _configuredBaseUrl;
   int get lastPropsCount => _lastPropsCount;
+
+  Map<String, String> _authenticatedHeaders({bool json = false}) {
+    final token = SupabaseService.client?.auth.currentSession?.accessToken;
+    if (token == null || token.isEmpty) {
+      throw StateError('Sign in before accessing private ticket data.');
+    }
+    return {
+      if (json) 'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+  }
+
+  Future<Map<String, dynamic>> postIntelligence(
+    String path,
+    Object payload,
+  ) async {
+    Object? lastError;
+    for (final candidate in _candidateBaseUrls) {
+      try {
+        final response = await http
+            .post(
+              Uri.parse('$candidate/api/intelligence/$path'),
+              headers: const {'Content-Type': 'application/json'},
+              body: jsonEncode(payload),
+            )
+            .timeout(const Duration(seconds: 12));
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          _resolvedBaseUrl = candidate;
+          return jsonDecode(response.body) as Map<String, dynamic>;
+        }
+        lastError = 'Intelligence API ${response.statusCode}: ${response.body}';
+        if (response.statusCode >= 400 && response.statusCode < 500) {
+          throw _IntelligenceRequestException(lastError.toString());
+        }
+      } catch (error) {
+        if (error is _IntelligenceRequestException) rethrow;
+        lastError = error;
+        if (error is FormatException) rethrow;
+      }
+    }
+    throw Exception(lastError ?? 'Intelligence API unavailable');
+  }
+
+  Future<Map<String, dynamic>> saveCompoundAlert(
+    Map<String, dynamic> rule,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/intelligence/alerts'),
+      headers: _authenticatedHeaders(json: true),
+      body: jsonEncode(rule),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to save alert: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchCompoundAlerts() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/intelligence/alerts'),
+      headers: _authenticatedHeaders(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load alerts: ${response.body}');
+    }
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    return (decoded['alerts'] as List? ?? const [])
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> evaluateSavedAlerts(
+    Map<String, dynamic> snapshot,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/intelligence/alerts/evaluate-snapshot'),
+      headers: _authenticatedHeaders(json: true),
+      body: jsonEncode({'snapshot': snapshot}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to evaluate alerts: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<void> recordEngagement(List<Map<String, String>> events) async {
+    if (events.isEmpty) return;
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/intelligence/engagement'),
+      headers: _authenticatedHeaders(json: true),
+      body: jsonEncode({'events': events}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to record engagement: ${response.statusCode}');
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchPropSentiment(String propId) async {
+    final response = await http.get(
+      Uri.parse(
+        '$baseUrl/api/intelligence/sentiment/${Uri.encodeComponent(propId)}',
+      ),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load sentiment: ${response.statusCode}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
 
   static List<String> get _candidateBaseUrls {
     final configured = _normalizeBaseUrl(_configuredBaseUrl);
@@ -74,6 +192,7 @@ class ApiService {
         'player_id': prop.playerId,
         'custom_label': prop.customLabel,
         'manual_note': prop.manualNote,
+        'game_start_time': prop.gameStartTime,
         'player': prop.player,
         'sport': prop.sport,
         'matchup': prop.matchup,
@@ -434,7 +553,9 @@ class ApiService {
       },
     ).query;
     final uri = Uri.parse('$baseUrl/api/identity/unresolved-grouped?$query');
-    final response = await http.get(uri).timeout(const Duration(seconds: 20));
+    final response = await http
+        .get(uri, headers: _authenticatedHeaders())
+        .timeout(const Duration(seconds: 20));
 
     if (response.statusCode != 200) {
       throw Exception(
@@ -576,7 +697,7 @@ class ApiService {
 
     final response = await http.post(
       uri,
-      headers: {'Content-Type': 'application/json'},
+      headers: _authenticatedHeaders(json: true),
       body: jsonEncode({'legs': legs, 'stake': stake}),
     );
 
@@ -622,7 +743,7 @@ class ApiService {
   Future<List<SavedSlip>> fetchSlips({String? status}) async {
     final query = status == null || status == 'all' ? '' : '?status=$status';
     final uri = Uri.parse('$baseUrl/api/slips$query');
-    final response = await http.get(uri);
+    final response = await http.get(uri, headers: _authenticatedHeaders());
 
     if (response.statusCode != 200) {
       throw Exception('Unable to load slips: ${response.statusCode}');
@@ -664,7 +785,9 @@ class ApiService {
 
   Future<void> refreshSlipGames(String sportKey) async {
     final uri = Uri.parse('$baseUrl/api/slips/refresh-games/$sportKey');
-    final response = await http.post(uri).timeout(const Duration(seconds: 30));
+    final response = await http
+        .post(uri, headers: _authenticatedHeaders())
+        .timeout(const Duration(seconds: 30));
 
     if (response.statusCode != 200) {
       throw Exception('Unable to refresh $sportKey games: ${response.body}');
@@ -690,7 +813,9 @@ class ApiService {
 
   Future<void> gradeWnbaSlips() async {
     final uri = Uri.parse('$baseUrl/api/slips/grade-wnba');
-    final response = await http.post(uri).timeout(const Duration(seconds: 60));
+    final response = await http
+        .post(uri, headers: _authenticatedHeaders())
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode != 200) {
       throw Exception('Unable to grade WNBA slips: ${response.body}');
@@ -1003,7 +1128,7 @@ class ApiService {
     required String status,
   }) async {
     final uri = Uri.parse('$baseUrl/api/slips/$slipId/status?status=$status');
-    final response = await http.patch(uri);
+    final response = await http.patch(uri, headers: _authenticatedHeaders());
 
     if (response.statusCode != 200) {
       throw Exception('Unable to update slip: ${response.body}');

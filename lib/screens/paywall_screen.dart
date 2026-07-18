@@ -32,7 +32,7 @@ class BrandedPaywallModalSheet extends StatelessWidget {
           const Icon(Icons.bolt, color: primaryYellow, size: 54),
           const SizedBox(height: 12),
           const Text(
-            'UPGRADE TO ELITE PREMIUM',
+            'CHOOSE YOUR PROP INTELLIGENCE PLAN',
             style: TextStyle(
               color: Colors.white,
               fontSize: 22,
@@ -42,10 +42,15 @@ class BrandedPaywallModalSheet extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Gain the mathematical edge over the market',
+            'Research tools for every level of play',
             style: TextStyle(color: Colors.grey[400], fontSize: 13),
           ),
           const Divider(color: Colors.white10, height: 40),
+          _buildValueHookRow(
+            Icons.dashboard_outlined,
+            'Core includes the daily essentials',
+            'Prop builder, player analytics, live scoreboard, and standard stat tracking.',
+          ),
           _buildValueHookRow(
             Icons.analytics_outlined,
             'Python AI Projection Edge Metrics',
@@ -65,12 +70,43 @@ class BrandedPaywallModalSheet extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             height: 50,
+            child: OutlinedButton(
+              onPressed: () async {
+                await billingService.initializeBillingEngine();
+                if (context.mounted) {
+                  await billingService.processSubscriptionPurchase(
+                    context,
+                    PurchaseTier.core,
+                  );
+                }
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: primaryYellow),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'CHOOSE CORE - \$29.99 / MONTH',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.1,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
             child: ElevatedButton(
               onPressed: () async {
                 await billingService.initializeBillingEngine();
                 if (context.mounted) {
-                  await billingService.processPremiumSubscriptionPurchase(
+                  await billingService.processSubscriptionPurchase(
                     context,
+                    PurchaseTier.edge,
                   );
                 }
               },
@@ -82,7 +118,7 @@ class BrandedPaywallModalSheet extends StatelessWidget {
                 ),
               ),
               child: const Text(
-                'UNLOCK ACCESS - \$29.99 / MONTH',
+                'CHOOSE PRO / EDGE - \$89.99 / MONTH',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.1,
