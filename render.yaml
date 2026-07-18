@@ -42,6 +42,10 @@ services:
         value: /var/data/prop_intelligence_cache.db
       - key: LIVE_ODDS_SYNC_MIN_SECONDS
         value: 300
+      - key: EMPTY_PROP_SYNC_ATTEMPTS
+        value: 3
+      - key: EMPTY_PROP_SYNC_RETRY_SECONDS
+        value: 300
       - key: ODDS_API_LOW_QUOTA_THRESHOLD
         value: 100
       - key: ODDS_API_QUOTA_RESERVE

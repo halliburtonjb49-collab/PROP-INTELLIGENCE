@@ -1,6 +1,7 @@
+import asyncio
 import logging
 import os
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from collections import Counter, defaultdict
@@ -153,9 +154,13 @@ async def lifespan(_: FastAPI):
 		storage["mode"],
 		storage["path"],
 	)
+	startup_sync_task = asyncio.create_task(_ensure_props_available())
 	try:
 		yield
 	finally:
+		startup_sync_task.cancel()
+		with suppress(asyncio.CancelledError):
+			await startup_sync_task
 		close_database_pool()
 
 app = FastAPI(
@@ -257,6 +262,29 @@ def _run_sync_background() -> None:
 			)
 	finally:
 		_sync_run_lock.release()
+
+
+async def _ensure_props_available() -> None:
+	"""Populate an empty production cache without waiting for the cron schedule."""
+	attempts = max(1, int(os.getenv("EMPTY_PROP_SYNC_ATTEMPTS", "3")))
+	retry_seconds = max(30, int(os.getenv("EMPTY_PROP_SYNC_RETRY_SECONDS", "300")))
+	for attempt in range(1, attempts + 1):
+		if get_props():
+			logging.info("Startup prop check ready attempt=%s", attempt)
+			return
+		if _sync_run_lock.acquire(blocking=False):
+			logging.warning("Prop cache empty; starting recovery sync attempt=%s/%s", attempt, attempts)
+			_mark_sync_running()
+			await asyncio.to_thread(_run_sync_background)
+		else:
+			logging.info("Prop recovery sync already running attempt=%s/%s", attempt, attempts)
+		if get_props():
+			logging.info("Prop recovery sync restored live feed attempt=%s", attempt)
+			return
+		if attempt < attempts:
+			logging.warning("Prop feed still empty; retrying in %s seconds", retry_seconds)
+			await asyncio.sleep(retry_seconds)
+	logging.error("Prop feed remained empty after %s recovery attempts", attempts)
 
 
 SCOREBOARD_SPORT_KEYS: list[tuple[str, str]] = [
