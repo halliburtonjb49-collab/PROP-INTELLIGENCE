@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
@@ -492,7 +493,7 @@ class PropIntelligenceShell extends StatelessWidget {
             return const DesktopDashboard();
           }
 
-          return const MobilePlaceholder();
+          return const MobileDashboardViewport();
         },
       ),
     );
@@ -8371,11 +8372,44 @@ class SlipSelectionCard extends StatelessWidget {
   }
 }
 
-class MobilePlaceholder extends StatelessWidget {
-  const MobilePlaceholder({super.key});
+class MobileDashboardViewport extends StatelessWidget {
+  const MobileDashboardViewport({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: Text('Mobile layout will be added later.'));
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const desktopCanvasWidth = 1024.0;
+        final fittedScale = constraints.maxWidth / desktopCanvasWidth;
+        final desktopCanvasHeight = math.max(
+          720.0,
+          constraints.maxHeight / fittedScale,
+        );
+
+        return ClipRect(
+          child: InteractiveViewer(
+            alignment: Alignment.topLeft,
+            constrained: true,
+            minScale: 1,
+            maxScale: 3.5,
+            panEnabled: true,
+            scaleEnabled: true,
+            child: SizedBox(
+              width: constraints.maxWidth,
+              height: constraints.maxHeight,
+              child: FittedBox(
+                alignment: Alignment.topLeft,
+                fit: BoxFit.fitWidth,
+                child: SizedBox(
+                  width: desktopCanvasWidth,
+                  height: desktopCanvasHeight,
+                  child: const DesktopDashboard(),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
