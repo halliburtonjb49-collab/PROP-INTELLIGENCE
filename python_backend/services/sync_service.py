@@ -137,7 +137,7 @@ def sync_sport(sport_key: str) -> dict[str, object]:
         except Exception as exc:
             return event, None, exc
 
-    configured_workers = max(1, int(os.getenv("PROP_SYNC_EVENT_WORKERS", "18")))
+    configured_workers = max(1, int(os.getenv("PROP_SYNC_EVENT_WORKERS", "6")))
     worker_count = min(configured_workers, max(1, len(eligible_events)))
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
         fetched_payloads = executor.map(fetch_one, eligible_events)
