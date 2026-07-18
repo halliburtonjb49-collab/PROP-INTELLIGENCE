@@ -223,16 +223,23 @@ class ApiService {
 
   static List<String> get _candidateBaseUrls {
     final configured = _normalizeBaseUrl(_configuredBaseUrl);
+    final isLocalBrowser =
+        kIsWeb &&
+        const {'localhost', '127.0.0.1'}.contains(Uri.base.host.toLowerCase());
     final candidates = <String>{
+      if (kIsWeb && !isLocalBrowser) 'https://api.propsintell.com',
       configured,
-      configured.replaceFirst('127.0.0.1', 'localhost'),
-      configured.replaceFirst('localhost', '127.0.0.1'),
-      'http://127.0.0.1:8011',
-      'http://localhost:8011',
-      'http://127.0.0.1:8010',
-      'http://localhost:8010',
-      'http://127.0.0.1:8000',
-      'http://localhost:8000',
+      if (!kIsWeb || isLocalBrowser) 'https://api.propsintell.com',
+      if (!kIsWeb || isLocalBrowser) ...{
+        configured.replaceFirst('127.0.0.1', 'localhost'),
+        configured.replaceFirst('localhost', '127.0.0.1'),
+        'http://127.0.0.1:8011',
+        'http://localhost:8011',
+        'http://127.0.0.1:8010',
+        'http://localhost:8010',
+        'http://127.0.0.1:8000',
+        'http://localhost:8000',
+      },
     };
     return candidates
         .map(_normalizeBaseUrl)
@@ -441,6 +448,7 @@ class ApiService {
   Future<List<PropData>> fetchProps({
     String selectedSide = 'All',
     String selectedTier = 'All',
+    String selectedSportsbook = 'All',
     int minConfidence = 0,
     String sortBy = 'confidence',
   }) async {
@@ -460,6 +468,7 @@ class ApiService {
             queryParameters: {
               'side': selectedSide,
               'tier': selectedTier,
+              'sportsbook': selectedSportsbook,
               'minConfidence': minConfidence.toString(),
               'sortBy': sortBy,
               'limit': pageSize.toString(),
@@ -520,7 +529,7 @@ class ApiService {
       throw lastError;
     }
     throw Exception(
-      'Unable to load props from local backend candidates. Start python_backend/main.py on port 8010 or 8000.',
+      'Unable to reach the live props service. Check your connection and retry.',
     );
   }
 

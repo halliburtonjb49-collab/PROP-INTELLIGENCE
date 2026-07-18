@@ -177,6 +177,7 @@ app.include_router(operations_router)
 app.add_middleware(
 	CORSMiddleware,
 	allow_origins=CORS_ALLOWED_ORIGINS,
+	allow_origin_regex=r"https://([a-z0-9-]+\.)?propsintell\.com",
 	allow_credentials=False,
 	allow_methods=["*"],
 	allow_headers=["*"],
@@ -1249,6 +1250,7 @@ def prop_alerts() -> dict[str, object]:
 def props(
 	side: str = Query(default="All"),
 	tier: str = Query(default="All"),
+	sportsbook: str = Query(default="All"),
 	minConfidence: int = Query(default=0),
 	sortBy: str = Query(default="confidence"),
 	includePastDates: bool = Query(default=False),
@@ -1259,6 +1261,7 @@ def props(
 		prop_list = get_props()
 		side_filter = side.strip().lower()
 		tier_filter = tier.strip().lower()
+		sportsbook_filter = sportsbook.strip().lower().replace(" ", "")
 		min_confidence = max(0, int(minConfidence))
 		sort_by = sortBy.strip().lower()
 		today_local = datetime.now(_scoreboard_timezone()).date()
@@ -1281,10 +1284,13 @@ def props(
 				row.get("tier") or ""
 			).strip().lower()
 			confidence = int(row.get("confidence") or 0)
+			prop_sportsbook = str(row.get("sportsbook") or "").strip().lower().replace(" ", "")
 
 			if side_filter != "all" and recommended_side != side_filter:
 				return False
 			if tier_filter != "all" and recommended_tier != tier_filter:
+				return False
+			if sportsbook_filter != "all" and prop_sportsbook != sportsbook_filter:
 				return False
 			if confidence < min_confidence:
 				return False
@@ -1347,6 +1353,7 @@ def props(
 			"filters": {
 				"side": side,
 				"tier": tier,
+				"sportsbook": sportsbook,
 				"minConfidence": min_confidence,
 				"sortBy": sort_by,
 				"includePastDates": includePastDates,

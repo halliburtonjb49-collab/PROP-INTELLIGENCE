@@ -1808,7 +1808,7 @@ class _MainDashboardState extends State<MainDashboard> {
   final ScrollController _categoryHorizontalController = ScrollController();
   Timer? _searchDebounce;
   final String _searchQuery = '';
-  String _selectedSite = 'ALL';
+  String _selectedSite = 'PRIZEPICKS';
   String _selectedCategory = 'ALL';
   final String _selectedSide = 'All';
   final String _selectedTier = 'All';
@@ -7482,6 +7482,7 @@ class _PropGridState extends State<PropGrid> {
     final liveProps = await _apiService.fetchProps(
       selectedSide: widget.selectedSide,
       selectedTier: widget.selectedTier,
+      selectedSportsbook: widget.selectedSite,
       minConfidence: widget.minConfidence,
       sortBy: widget.sortBy,
     );
