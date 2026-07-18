@@ -18,6 +18,8 @@ from services.sync_service import run_global_sync_pipeline
 
 def run_live_api_sync() -> dict[str, object] | None:
     api_base_url = os.getenv("API_BASE_URL", "").strip().rstrip("/")
+    if not api_base_url and os.getenv("RENDER", "").lower() == "true":
+        api_base_url = "https://api.propsintell.com"
     if not api_base_url:
         return None
     response = requests.post(f"{api_base_url}/api/sync", timeout=30)
