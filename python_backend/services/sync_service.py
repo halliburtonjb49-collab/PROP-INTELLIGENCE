@@ -3,6 +3,8 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+from threading import Lock
+from typing import Callable
 
 from config import DB_PATH
 from database.cache import PropCache
@@ -32,11 +34,46 @@ DEFAULT_SYNC_SPORTS = (
     "soccer_spain_la_liga",
 )
 
+DEFAULT_FAST_SYNC_SPORTS = (
+    "baseball_mlb",
+    "basketball_wnba",
+    "basketball_nba",
+    "americanfootball_nfl",
+)
+_coverage_lock = Lock()
+_last_coverage_sync_monotonic: float | None = None
+
 
 def configured_sync_sports() -> list[str]:
     configured = os.getenv("PROP_SYNC_SPORTS", "").strip()
     candidates = configured.split(",") if configured else DEFAULT_SYNC_SPORTS
     return list(dict.fromkeys(value.strip() for value in candidates if value.strip()))
+
+
+def partition_sync_sports(sports: list[str]) -> tuple[list[str], list[str]]:
+    configured = os.getenv("PROP_FAST_SYNC_SPORTS", "").strip()
+    candidates = configured.split(",") if configured else DEFAULT_FAST_SYNC_SPORTS
+    fast_set = {value.strip() for value in candidates if value.strip()}
+    return (
+        [sport for sport in sports if sport in fast_set],
+        [sport for sport in sports if sport not in fast_set],
+    )
+
+
+def _coverage_sync_due(now: float | None = None) -> bool:
+    current = time.monotonic() if now is None else now
+    interval = max(300, int(os.getenv("PROP_COVERAGE_SYNC_SECONDS", "1800")))
+    with _coverage_lock:
+        return (
+            _last_coverage_sync_monotonic is None
+            or current - _last_coverage_sync_monotonic >= interval
+        )
+
+
+def _mark_coverage_synced(now: float | None = None) -> None:
+    global _last_coverage_sync_monotonic
+    with _coverage_lock:
+        _last_coverage_sync_monotonic = time.monotonic() if now is None else now
 
 
 def _with_retries(operation, *, attempts: int = 3, label: str = "provider call"):
@@ -182,15 +219,39 @@ def sync_sport(sport_key: str) -> dict[str, object]:
     }
 
 
-def run_global_sync_pipeline() -> list[dict[str, object]]:
+def run_global_sync_pipeline(
+    on_fast_lane_complete: Callable[[list[dict[str, object]]], None] | None = None,
+) -> list[dict[str, object]]:
     sports = configured_sync_sports()
-    results = []
-    for sport_key in sports:
+    fast_sports, coverage_sports = partition_sync_sports(sports)
+    results: list[dict[str, object]] = []
+
+    def sync_lane(lane_sports: list[str]) -> None:
+        for sport_key in lane_sports:
+            try:
+                results.append(sync_sport(sport_key))
+            except Exception as exc:
+                logger.exception("sync_sport failed sport=%s", sport_key)
+                results.append({"sport": sport_key, "events": 0, "props": 0, "error": str(exc)})
+
+    sync_lane(fast_sports)
+    if on_fast_lane_complete is not None:
         try:
-            results.append(sync_sport(sport_key))
+            on_fast_lane_complete(list(results))
         except Exception as exc:
-            logger.exception("sync_sport failed sport=%s", sport_key)
-            results.append({"sport": sport_key, "events": 0, "props": 0, "error": str(exc)})
+            logger.warning("fast lane completion callback failed error=%s", exc)
+
+    if _coverage_sync_due():
+        sync_lane(coverage_sports)
+        _mark_coverage_synced()
+    else:
+        results.extend({
+            "sport": sport_key,
+            "events": 0,
+            "props": 0,
+            "lane": "coverage",
+            "skipped": "coverage cooldown",
+        } for sport_key in coverage_sports)
     snapshot = snapshot_live_predictions()
     results.append({"sport": "prediction_snapshots", "events": 0,
                     "props": int(snapshot.get("created", 0))})
@@ -203,5 +264,9 @@ def run_global_sync_pipeline() -> list[dict[str, object]]:
     } for prop in get_props()]
     deliveries = evaluate_all_alerts(alert_snapshots)
     results.append({"sport": "compound_alerts", "events": len(alert_snapshots), "props": len(deliveries)})
-    logger.info("sync_global sports=%s", ",".join(sports))
+    logger.info(
+        "sync_global fast=%s coverage=%s",
+        ",".join(fast_sports),
+        ",".join(coverage_sports),
+    )
     return results

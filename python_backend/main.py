@@ -231,12 +231,20 @@ def _mark_sync_running() -> None:
 		_sync_state.update(
 			status="running", startedAt=datetime.now(timezone.utc).isoformat(),
 			finishedAt=None, results=[], error=None, nextAllowedAt=None,
+			fastLaneCompletedAt=None, fastLaneResults=[],
 		)
 
 
 def _run_sync_background() -> None:
 	try:
-		results = run_global_sync_pipeline()
+		def mark_fast_lane_complete(results: list[dict[str, object]]) -> None:
+			with _sync_state_lock:
+				_sync_state.update(
+					fastLaneCompletedAt=datetime.now(timezone.utc).isoformat(),
+					fastLaneResults=results,
+				)
+
+		results = run_global_sync_pipeline(mark_fast_lane_complete)
 		clv_capture = capture_closing_lines_from_props(get_props())
 		quota = quota_snapshot()
 		with _sync_state_lock:

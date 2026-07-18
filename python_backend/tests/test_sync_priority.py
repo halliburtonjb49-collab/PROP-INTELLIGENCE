@@ -2,7 +2,9 @@ import threading
 import time
 
 from services import sync_service
-from services.sync_service import configured_sync_sports, prioritize_events
+from services.sync_service import (
+    configured_sync_sports, partition_sync_sports, prioritize_events,
+)
 
 
 def test_events_are_prioritized_by_start_time_with_invalid_rows_last() -> None:
@@ -48,6 +50,26 @@ def test_sync_sports_override_is_trimmed_and_deduplicated(monkeypatch) -> None:
         "basketball_nba, baseball_mlb,basketball_nba",
     )
     assert configured_sync_sports() == ["basketball_nba", "baseball_mlb"]
+
+
+def test_productive_sports_are_partitioned_into_fast_lane(monkeypatch) -> None:
+    monkeypatch.delenv("PROP_FAST_SYNC_SPORTS", raising=False)
+    fast, coverage = partition_sync_sports(list(sync_service.DEFAULT_SYNC_SPORTS))
+    assert fast == [
+        "baseball_mlb", "basketball_wnba", "basketball_nba",
+        "americanfootball_nfl",
+    ]
+    assert "icehockey_nhl" in coverage
+    assert "soccer_epl" in coverage
+
+
+def test_coverage_lane_uses_independent_cooldown(monkeypatch) -> None:
+    monkeypatch.setenv("PROP_COVERAGE_SYNC_SECONDS", "1800")
+    monkeypatch.setattr(sync_service, "_last_coverage_sync_monotonic", None)
+    assert sync_service._coverage_sync_due(now=1000) is True
+    sync_service._mark_coverage_synced(now=1000)
+    assert sync_service._coverage_sync_due(now=1200) is False
+    assert sync_service._coverage_sync_due(now=2801) is True
 
 
 def test_event_odds_fetches_overlap_but_cache_processing_is_serial(monkeypatch) -> None:

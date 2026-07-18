@@ -1,8 +1,9 @@
 from typing import Any
 from datetime import datetime, timezone
-from threading import Lock
+from threading import Lock, local
 
 import requests
+from requests.adapters import HTTPAdapter
 
 from config import (
     BASE_URL,
@@ -15,11 +16,24 @@ from config import (
 )
 
 _quota_lock = Lock()
+_http_local = local()
 _quota_state: dict[str, object] = {
     "remaining": None, "used": None, "lastRequestCost": None,
     "lastResponseAt": None, "lowQuota": False,
     "lowQuotaThreshold": ODDS_API_LOW_QUOTA_THRESHOLD,
 }
+
+
+def _http_session() -> requests.Session:
+    """Reuse TLS connections inside each sync worker thread."""
+    session = getattr(_http_local, "session", None)
+    if session is None:
+        session = requests.Session()
+        adapter = HTTPAdapter(pool_connections=8, pool_maxsize=8, max_retries=0)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+        _http_local.session = session
+    return session
 
 
 def _header_int(headers: object, name: str) -> int | None:
@@ -73,7 +87,7 @@ def quota_allows(estimated_cost: int) -> dict[str, object]:
 
 
 def fetch_events(sport_key: str) -> list[dict[str, Any]]:
-    response = requests.get(
+    response = _http_session().get(
         f"{BASE_URL}/sports/{sport_key}/events",
         params={
             "apiKey": ODDS_API_KEY,
@@ -96,7 +110,7 @@ def fetch_event_odds(
     event_id: str,
     markets: list[str],
 ) -> dict[str, Any]:
-    response = requests.get(
+    response = _http_session().get(
         f"{BASE_URL}/sports/{sport_key}/events/{event_id}/odds",
         params={
             "apiKey": ODDS_API_KEY,
