@@ -34,3 +34,23 @@ def test_regular_verified_email_does_not_gain_admin_access(monkeypatch):
         assert getattr(exc, "status_code", None) == 401
     else:
         raise AssertionError("Regular users must not receive administrator access")
+
+
+def test_admin_role_does_not_gain_owner_only_access(monkeypatch):
+    monkeypatch.setattr(
+        api_auth_service,
+        "_supabase_user",
+        lambda _token: {
+            "id": "admin-id",
+            "email": "admin@example.com",
+            "app_metadata": {"role": "admin"},
+            "user_metadata": {},
+        },
+    )
+
+    try:
+        api_auth_service.require_owner(authorization="Bearer valid-token")
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 403
+    else:
+        raise AssertionError("Administrators must not receive owner-only access")

@@ -57,3 +57,18 @@ def require_admin(x_admin_key: str = Header(default=""), authorization: str = He
     if user and (role in {"owner", "admin"} or email in _owner_emails()):
         return str(user.get("id"))
     raise HTTPException(status_code=401, detail="Administrator access required")
+
+
+def require_owner(authorization: str = Header(default="")) -> str:
+    token = authorization.removeprefix("Bearer ").strip()
+    try:
+        user = _supabase_user(token)
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=503, detail="Authentication service unavailable") from exc
+    metadata = (user or {}).get("app_metadata") or {}
+    user_metadata = (user or {}).get("user_metadata") or {}
+    role = str(metadata.get("role") or user_metadata.get("role") or "").lower() if isinstance(metadata, dict) and isinstance(user_metadata, dict) else ""
+    email = str((user or {}).get("email") or "").strip().lower()
+    if user and (role == "owner" or email in _owner_emails()):
+        return str(user.get("id"))
+    raise HTTPException(status_code=403, detail="Owner access required")

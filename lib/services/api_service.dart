@@ -128,6 +128,17 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> fetchProductionAcceptance() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/operations/acceptance'),
+      headers: _authenticatedHeaders(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load production health: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<List<Map<String, dynamic>>> fetchAlertDeliveries() async {
     final response = await http.get(
       Uri.parse('$baseUrl/api/intelligence/alerts/deliveries'),

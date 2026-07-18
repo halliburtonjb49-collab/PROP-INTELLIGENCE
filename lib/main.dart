@@ -3286,6 +3286,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
   String _availabilityPreviewText = 'Availability preview: 0 players';
   Map<String, dynamic>? _lastUnresolvedGrouped;
   Map<String, dynamic>? _operations;
+  Map<String, dynamic>? _acceptance;
   final List<String> _uploadAuditEntries = [];
 
   static const String _auditPrefKey = 'data_admin_upload_audit_v1';
@@ -3305,6 +3306,176 @@ class _DataAdminPageState extends State<DataAdminPage> {
     unawaited(_loadAuditEntries());
     unawaited(_refreshUnresolved());
     unawaited(_refreshOperations());
+    unawaited(_refreshAcceptance());
+  }
+
+  Future<void> _refreshAcceptance() async {
+    try {
+      final result = await _apiService.fetchProductionAcceptance();
+      if (mounted) {
+        setState(() => _acceptance = result);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _statusText = 'Production health failed: $error');
+      }
+    }
+  }
+
+  Widget _buildAcceptancePanel() {
+    final status =
+        _acceptance?['status']?.toString().toUpperCase() ?? 'LOADING';
+    final feed = _acceptance?['propFeed'] as Map? ?? const {};
+    final billing = _acceptance?['billing'] as Map? ?? const {};
+    final quota = _acceptance?['providerQuota'] as Map? ?? const {};
+    final issues = _acceptance?['issues'] as List? ?? const [];
+    final color = status == 'HEALTHY'
+        ? const Color(0xFF8CFFB2)
+        : status == 'WARNING'
+        ? const Color(0xFFFFD166)
+        : const Color(0xFFFF8A80);
+    Widget metric(String label, String value, IconData icon) => Container(
+      width: 180,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF101C28),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: const Color(0xFFFFC400), size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF8296AA),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF07121C),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: .55)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.verified_user_outlined, color: color, size: 20),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'PRODUCTION ACCEPTANCE',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+              Text(
+                status,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              IconButton(
+                onPressed: _refreshAcceptance,
+                tooltip: 'Refresh production health',
+                icon: const Icon(
+                  Icons.refresh,
+                  color: Colors.white70,
+                  size: 18,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              metric(
+                'LIVE PROPS',
+                '${feed['total'] ?? 0}',
+                Icons.analytics_outlined,
+              ),
+              metric(
+                'FEED AGE',
+                feed['ageMinutes'] == null
+                    ? 'Unknown'
+                    : '${feed['ageMinutes']} min',
+                Icons.schedule,
+              ),
+              metric(
+                'ODDS QUOTA',
+                '${quota['remaining'] ?? 'Unknown'} remaining',
+                Icons.speed,
+              ),
+              metric(
+                'BILLING',
+                billing['webhookConfigured'] == true &&
+                        billing['coreProductsConfigured'] == true &&
+                        billing['edgeProductsConfigured'] == true
+                    ? 'Configured'
+                    : 'Needs attention',
+                Icons.payments_outlined,
+              ),
+            ],
+          ),
+          if (issues.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ...issues.whereType<Map>().map(
+              (issue) => Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '• ${issue['message']}',
+                  style: TextStyle(
+                    color: issue['severity'] == 'critical'
+                        ? const Color(0xFFFF8A80)
+                        : const Color(0xFFFFD166),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          const Text(
+            'Webhook delivery is only marked verified after a successful test or purchase event.',
+            style: TextStyle(color: Color(0xFF8296AA), fontSize: 10),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _refreshOperations() async {
@@ -4048,6 +4219,8 @@ class _DataAdminPageState extends State<DataAdminPage> {
           ),
           const SizedBox(height: 8),
           _buildOperationsPanel(),
+          const SizedBox(height: 8),
+          _buildAcceptancePanel(),
           const SizedBox(height: 8),
           Text(
             _unresolvedSummary,
