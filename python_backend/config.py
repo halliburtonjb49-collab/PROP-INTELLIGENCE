@@ -67,4 +67,6 @@ ODDS_API_LOW_QUOTA_THRESHOLD = max(
 ODDS_API_QUOTA_RESERVE = max(
     0, int(os.getenv("ODDS_API_QUOTA_RESERVE", "25"))
 )
-DB_PATH = BASE_DIR / "prop_intelligence_cache.db"
+DB_PATH = Path(
+    os.getenv("PROP_CACHE_DB_PATH", str(BASE_DIR / "prop_intelligence_cache.db"))
+).expanduser()

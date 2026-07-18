@@ -6,6 +6,7 @@ from typing import Any
 class PropCache:
     def __init__(self, database_path: Path) -> None:
         self.database_path = database_path
+        self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.initialize()
         self.ensure_game_columns()
 

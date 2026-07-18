@@ -8,6 +8,26 @@ from database.cache import PropCache
 logger = logging.getLogger(__name__)
 
 
+def count_valid_prop_rows(odds_payload: dict[str, Any]) -> int:
+    """Count usable player/line rows before replacing a healthy event cache."""
+    count = 0
+    for bookmaker in odds_payload.get("bookmakers", []):
+        if not isinstance(bookmaker, dict):
+            continue
+        for market in bookmaker.get("markets", []):
+            if not isinstance(market, dict):
+                continue
+            for outcome in market.get("outcomes", []):
+                if not isinstance(outcome, dict):
+                    continue
+                player = str(
+                    outcome.get("description") or outcome.get("player") or ""
+                ).strip()
+                if player and isinstance(outcome.get("point"), (int, float)):
+                    count += 1
+    return count
+
+
 def _normalize_event_status(event: dict[str, Any]) -> str:
     raw = str(event.get("status") or event.get("state") or "").strip().lower()
     if raw:
@@ -49,6 +69,15 @@ def process_and_cache_props(
 ) -> int:
     event_id = str(event.get("id", ""))
     if not event_id:
+        return 0
+
+    valid_row_count = count_valid_prop_rows(odds_payload)
+    if valid_row_count == 0:
+        logger.warning(
+            "prop_processor preserved cache event_id=%s sport=%s reason=no_valid_rows",
+            event_id,
+            sport_key,
+        )
         return 0
 
     updated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")

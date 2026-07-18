@@ -39,6 +39,7 @@ class ApiService {
     defaultValue: 'http://127.0.0.1:8010',
   );
   static String? _resolvedBaseUrl;
+  static List<PropData> _lastSuccessfulProps = const [];
   static final ValueNotifier<BackendRefreshStatus> refreshStatusNotifier =
       ValueNotifier<BackendRefreshStatus>(const BackendRefreshStatus.empty());
   int _lastPropsCount = 0;
@@ -276,6 +277,26 @@ class ApiService {
     return deduped.values.toList(growable: false);
   }
 
+  Future<http.Response> _getPropsPage(Uri uri) async {
+    Object? lastError;
+    for (var attempt = 1; attempt <= 3; attempt++) {
+      try {
+        final response = await http
+            .get(uri)
+            .timeout(const Duration(seconds: 35));
+        if (response.statusCode == 200) return response;
+        lastError = Exception('Unable to load props: ${response.statusCode}');
+        if (response.statusCode < 500 && response.statusCode != 429) break;
+      } catch (error) {
+        lastError = error;
+      }
+      if (attempt < 3) {
+        await Future<void>.delayed(Duration(milliseconds: 500 * attempt));
+      }
+    }
+    throw Exception(lastError ?? 'Unable to download the props page.');
+  }
+
   Future<bool> wakeBackend() async {
     for (final candidate in _candidateBaseUrls) {
       final uris = <Uri>[
@@ -414,59 +435,74 @@ class ApiService {
   }) async {
     Object? lastError;
 
+    const pageSize = 1500;
+    const maxPages = 20;
+
     for (final candidate in _candidateBaseUrls) {
-      final uri = Uri.parse('$candidate/api/props').replace(
-        queryParameters: {
-          'side': selectedSide,
-          'tier': selectedTier,
-          'minConfidence': minConfidence.toString(),
-          'sortBy': sortBy,
-        },
-      );
       try {
-        final response = await http
-            .get(uri)
-            // The live feed can contain well over 1,000 props. Allow the local
-            // backend enough time to serialize the complete response instead
-            // of incorrectly reporting a healthy service as offline.
-            .timeout(const Duration(seconds: 60));
+        final collected = <PropData>[];
+        var offset = 0;
+        var totalCount = 0;
 
-        if (response.statusCode != 200) {
-          lastError = Exception('Unable to load props: ${response.statusCode}');
-          continue;
-        }
-
-        final decoded = jsonDecode(response.body);
-
-        if (decoded is! Map<String, dynamic>) {
-          lastError = const FormatException(
-            'The backend returned invalid data.',
+        for (var page = 0; page < maxPages; page++) {
+          final uri = Uri.parse('$candidate/api/props').replace(
+            queryParameters: {
+              'side': selectedSide,
+              'tier': selectedTier,
+              'minConfidence': minConfidence.toString(),
+              'sortBy': sortBy,
+              'limit': pageSize.toString(),
+              'offset': offset.toString(),
+            },
           );
-          continue;
-        }
-
-        final rawProps = decoded['props'];
-
-        if (rawProps is! List) {
-          lastError = const FormatException(
-            'The backend did not return a props list.',
+          final response = await _getPropsPage(uri);
+          final decoded = jsonDecode(response.body);
+          if (decoded is! Map<String, dynamic>) {
+            throw const FormatException('The backend returned invalid data.');
+          }
+          final rawProps = decoded['props'];
+          if (rawProps is! List) {
+            throw const FormatException(
+              'The backend did not return a props list.',
+            );
+          }
+          totalCount = decoded['count'] is num
+              ? (decoded['count'] as num).toInt()
+              : totalCount;
+          collected.addAll(
+            rawProps
+                .whereType<Map>()
+                .map((raw) => Map<String, dynamic>.from(raw))
+                .map(PropData.fromJson),
           );
-          continue;
+          offset += rawProps.length;
+          final hasMore = decoded['hasMore'] == true || offset < totalCount;
+          if (rawProps.isEmpty || !hasMore) break;
         }
 
+        final props = _dedupePropsById(collected);
         _resolvedBaseUrl = candidate;
-        final parsedProps = rawProps
-            .whereType<Map>()
-            .map((raw) => Map<String, dynamic>.from(raw))
-            .map(PropData.fromJson)
-            .toList();
-        _lastPropsCount = (decoded['count'] is num)
-            ? (decoded['count'] as num).toInt()
-            : parsedProps.length;
-        return _dedupePropsById(parsedProps);
+        _lastPropsCount = totalCount > 0 ? totalCount : props.length;
+        _lastSuccessfulProps = props;
+        refreshStatusNotifier.value = BackendRefreshStatus(
+          lastRefreshAt: DateTime.now(),
+          sourceUrl: candidate,
+          message: 'Downloaded ${props.length} props reliably',
+        );
+        return props;
       } catch (error) {
         lastError = error;
       }
+    }
+
+    if (_lastSuccessfulProps.isNotEmpty) {
+      refreshStatusNotifier.value = BackendRefreshStatus(
+        lastRefreshAt: refreshStatusNotifier.value.lastRefreshAt,
+        sourceUrl: refreshStatusNotifier.value.sourceUrl,
+        message: 'Showing the last stable prop download while reconnecting',
+      );
+      _lastPropsCount = _lastSuccessfulProps.length;
+      return List<PropData>.unmodifiable(_lastSuccessfulProps);
     }
 
     if (lastError is Exception) {

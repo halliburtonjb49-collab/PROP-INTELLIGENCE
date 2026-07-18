@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from datetime import datetime, timezone
 
@@ -15,6 +16,19 @@ from services.prop_service import get_props
 
 cache = PropCache(DB_PATH)
 logger = logging.getLogger(__name__)
+
+DEFAULT_SYNC_SPORTS = (
+    "baseball_mlb",
+    "basketball_wnba",
+    "basketball_nba",
+    "americanfootball_nfl",
+)
+
+
+def configured_sync_sports() -> list[str]:
+    configured = os.getenv("PROP_SYNC_SPORTS", "").strip()
+    candidates = configured.split(",") if configured else DEFAULT_SYNC_SPORTS
+    return list(dict.fromkeys(value.strip() for value in candidates if value.strip()))
 
 
 def _with_retries(operation, *, attempts: int = 3, label: str = "provider call"):
@@ -67,13 +81,20 @@ def sync_sport(sport_key: str) -> dict[str, object]:
         for event in events
         if str(event.get("id", "")).strip()
     ]
-    cache.prune_sport_to_event_ids(
-        sport=sport_key,
-        active_event_ids=active_event_ids,
-    )
+    if active_event_ids:
+        cache.prune_sport_to_event_ids(
+            sport=sport_key,
+            active_event_ids=active_event_ids,
+        )
+    else:
+        logger.warning(
+            "sync_sport preserved cache sport=%s reason=no_active_events",
+            sport_key,
+        )
     prop_count = 0
     fetched_events = 0
     skipped_for_quota = 0
+    failed_events = 0
     estimated_event_cost = estimate_event_odds_cost(markets)
 
     for event in events:
@@ -91,21 +112,30 @@ def sync_sport(sport_key: str) -> dict[str, object]:
             )
             break
 
-        odds_payload = _with_retries(
-            lambda: fetch_event_odds(
+        try:
+            odds_payload = _with_retries(
+                lambda: fetch_event_odds(
+                    sport_key=sport_key,
+                    event_id=event_id,
+                    markets=markets,
+                ),
+                label=f"odds {sport_key} {event_id}",
+            )
+            fetched_events += 1
+            prop_count += process_and_cache_props(
+                cache=cache,
                 sport_key=sport_key,
-                event_id=event_id,
-                markets=markets,
-            ),
-            label=f"odds {sport_key} {event_id}",
-        )
-        fetched_events += 1
-        prop_count += process_and_cache_props(
-            cache=cache,
-            sport_key=sport_key,
-            event=event,
-            odds_payload=odds_payload,
-        )
+                event=event,
+                odds_payload=odds_payload,
+            )
+        except Exception:
+            failed_events += 1
+            logger.exception(
+                "sync_event failed; preserving cached props sport=%s event=%s",
+                sport_key,
+                event_id,
+            )
+            continue
 
     elapsed_ms = int((time.perf_counter() - started_at) * 1000)
     logger.info(
@@ -121,16 +151,14 @@ def sync_sport(sport_key: str) -> dict[str, object]:
         "events": len(events),
         "fetchedEvents": fetched_events,
         "skippedForQuota": skipped_for_quota,
+        "failedEvents": failed_events,
         "estimatedCostPerEvent": estimated_event_cost,
         "props": prop_count,
     }
 
 
 def run_global_sync_pipeline() -> list[dict[str, object]]:
-    sports = [
-        "baseball_mlb",
-        "basketball_wnba",
-    ]
+    sports = configured_sync_sports()
     results = []
     for sport_key in sports:
         try:

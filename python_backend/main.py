@@ -1216,6 +1216,8 @@ def props(
 	minConfidence: int = Query(default=0),
 	sortBy: str = Query(default="confidence"),
 	includePastDates: bool = Query(default=False),
+	limit: int = Query(default=1500, ge=1, le=5000),
+	offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
 	try:
 		prop_list = get_props()
@@ -1294,11 +1296,17 @@ def props(
 			)
 			sort_by = "confidence"
 
+		total_count = len(filtered_props)
+		page = filtered_props[offset:offset + limit]
 		return {
-			"count": len(filtered_props),
+			"count": total_count,
+			"returned": len(page),
+			"offset": offset,
+			"limit": limit,
+			"hasMore": offset + len(page) < total_count,
 			"props": [
 				prop.model_dump()
-				for prop in filtered_props
+				for prop in page
 			],
 			"filters": {
 				"side": side,

@@ -38,6 +38,8 @@ services:
         value: https://app.propsintell.com,https://www.propsintell.com,https://propsintell.com
       - key: SLIP_DATABASE_PATH
         value: /var/data/prop_intelligence_tickets.db
+      - key: PROP_CACHE_DB_PATH
+        value: /var/data/prop_intelligence_cache.db
       - key: LIVE_ODDS_SYNC_MIN_SECONDS
         value: 300
       - key: ODDS_API_LOW_QUOTA_THRESHOLD
@@ -48,6 +50,8 @@ services:
         value: us,us2
       - key: PREFERRED_BOOKMAKERS
         value: prizepicks,underdog,draftkings,sleeper,fanduel,betr
+      - key: PROP_SYNC_SPORTS
+        value: baseball_mlb,basketball_wnba,basketball_nba,americanfootball_nfl
       - key: ADMIN_API_KEY
         sync: false
       - key: PIPELINE_ALERT_WEBHOOK_URL
@@ -98,6 +102,8 @@ services:
         sync: false
       - key: PIPELINE_ALERT_WEBHOOK_URL
         sync: false
+      - key: API_BASE_URL
+        value: https://api.propsintell.com
 
   - type: web
     name: props-intelligence-app
