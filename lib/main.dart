@@ -1139,50 +1139,11 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   ValueListenableBuilder<AuthSessionState>(
                     valueListenable: AuthManager.instance.sessionState,
                     builder: (context, authState, _) {
-                      if (authState.isPremium) {
-                        return Container(
-                          margin: const EdgeInsets.only(top: 6),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF122030),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF36B9FF)),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(
-                                Icons.verified,
-                                color: Color(0xFF36B9FF),
-                                size: 16,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'ELITE ACTIVE',
-                                style: TextStyle(
-                                  color: Color(0xFF36B9FF),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: SidebarButton(
-                          label: 'UPGRADE',
-                          premium: true,
-                          showGoldBar: true,
-                          leadingIcons: const [Icons.workspace_premium],
-                          leadingIconColors: const [Color(0xFFFFC72C)],
-                          onTap: _openPremiumPaywallSheetMenu,
-                        ),
+                      return _SidebarAccountStatusBadge(
+                        state: authState,
+                        onUpgrade: authState.isOwner || authState.isPremium
+                            ? null
+                            : _openPremiumPaywallSheetMenu,
                       );
                     },
                   ),
@@ -1292,6 +1253,100 @@ class _LeftSidebarState extends State<LeftSidebar> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SidebarAccountStatusBadge extends StatelessWidget {
+  const _SidebarAccountStatusBadge({required this.state, this.onUpgrade});
+
+  final AuthSessionState state;
+  final VoidCallback? onUpgrade;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, icon, color, strongBorder) = state.isOwner
+        ? ('OWNER', Icons.workspace_premium_rounded, AppColors.gold, true)
+        : state.isAdmin
+        ? (
+            'ADMIN',
+            Icons.admin_panel_settings_outlined,
+            const Color(0xFFD7DEE5),
+            false,
+          )
+        : state.isTester
+        ? ('TEST', Icons.science_outlined, const Color(0xFF8B949E), false)
+        : state.subscriptionTier == SubscriptionTier.edge
+        ? (
+            'USER · EDGE',
+            Icons.workspace_premium_rounded,
+            AppColors.gold,
+            false,
+          )
+        : state.subscriptionTier == SubscriptionTier.core
+        ? (
+            'USER · CORE',
+            Icons.verified_user_outlined,
+            const Color(0xFF36B9FF),
+            false,
+          )
+        : (
+            'USER',
+            Icons.person_outline_rounded,
+            const Color(0xFFE8EDF2),
+            false,
+          );
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: InkWell(
+        onTap: onUpgrade,
+        borderRadius: BorderRadius.circular(9),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: strongBorder ? .13 : .08),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: color, width: strongBorder ? 2 : 1.2),
+            boxShadow: strongBorder
+                ? [
+                    BoxShadow(
+                      color: AppColors.gold.withValues(alpha: .16),
+                      blurRadius: 10,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  label,
+                  key: const ValueKey('sidebar-account-status'),
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .65,
+                  ),
+                ),
+              ),
+              if (onUpgrade != null)
+                Text(
+                  'UPGRADE',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 7.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -562,12 +562,6 @@ class _SignedInView extends StatelessWidget {
       'tester' => 'T',
       _ => 'U',
     };
-    final roleLabel = switch (normalizedRole) {
-      'owner' => 'OWNER',
-      'admin' => 'ADMIN',
-      'tester' => 'TESTER',
-      _ => 'USER',
-    };
     final roleColor = switch (normalizedRole) {
       'owner' => const Color(0xFFFFC400),
       'admin' => const Color(0xFF6DB8FF),
@@ -632,25 +626,6 @@ class _SignedInView extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              key: const ValueKey('account-role'),
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-              decoration: BoxDecoration(
-                color: roleColor.withValues(alpha: .12),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: roleColor.withValues(alpha: .8)),
-              ),
-              child: Text(
-                '$roleLetter · $roleLabel',
-                style: TextStyle(
-                  color: roleColor,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: .7,
-                ),
               ),
             ),
           ],
