@@ -574,79 +574,119 @@ class _SignedInView extends StatelessWidget {
       'tester' => const Color(0xFFE0E0E0),
       _ => const Color(0xFF56D38A),
     };
+    final displayName = email.contains('@') ? email.split('@').first : email;
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 26,
-          height: 26,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: roleColor.withValues(alpha: 0.12),
-            border: Border.all(color: roleColor, width: 1.5),
-          ),
-          child: Text(
-            roleLetter,
-            style: TextStyle(
-              color: roleColor,
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
+        Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: roleColor.withValues(alpha: 0.12),
+                border: Border.all(color: roleColor, width: 1.8),
+              ),
+              child: Text(
+                roleLetter,
+                style: TextStyle(
+                  color: roleColor,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
             ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                roleLabel,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    displayName,
+                    key: const ValueKey('account-display-name'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: normalizedRole == 'owner'
+                          ? roleColor
+                          : Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    email,
+                    key: const ValueKey('account-email'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFFB7C2CE),
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              key: const ValueKey('account-role'),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                color: roleColor.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: roleColor.withValues(alpha: .8)),
+              ),
+              child: Text(
+                '$roleLetter · $roleLabel',
                 style: TextStyle(
                   color: roleColor,
                   fontSize: 9,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: 1.1,
+                  letterSpacing: .7,
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                email,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: normalizedRole == 'owner' ? roleColor : Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-        if (onManageRoles != null)
-          TextButton(
-            onPressed: onManageRoles,
-            child: const Text('ROLES', style: TextStyle(fontSize: 10)),
-          ),
-        if (onSubmitChangeRequest != null)
-          TextButton(
-            onPressed: onSubmitChangeRequest,
-            child: const Text('REQUEST', style: TextStyle(fontSize: 9)),
-          ),
-        if (onChangeRequests != null)
-          IconButton(
-            tooltip: normalizedRole == 'owner'
-                ? 'Review admin change requests'
-                : 'View my change requests',
-            onPressed: onChangeRequests,
-            icon: const Icon(Icons.approval_outlined, size: 17),
-            color: roleColor,
-            visualDensity: VisualDensity.compact,
-          ),
-        TextButton(
-          onPressed: onSignOut,
-          child: const Text('SIGN OUT', style: TextStyle(fontSize: 10)),
+        const SizedBox(height: 9),
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 4,
+          runSpacing: 4,
+          children: [
+            if (onManageRoles != null)
+              TextButton.icon(
+                onPressed: onManageRoles,
+                icon: const Icon(Icons.manage_accounts_outlined, size: 15),
+                label: const Text('MANAGE ROLES'),
+              ),
+            if (onSubmitChangeRequest != null)
+              TextButton.icon(
+                onPressed: onSubmitChangeRequest,
+                icon: const Icon(Icons.edit_note_rounded, size: 15),
+                label: const Text('REQUEST CHANGE'),
+              ),
+            if (onChangeRequests != null)
+              TextButton.icon(
+                onPressed: onChangeRequests,
+                icon: Icon(Icons.approval_outlined, size: 15, color: roleColor),
+                label: Text(
+                  normalizedRole == 'owner' ? 'APPROVALS' : 'REQUESTS',
+                ),
+              ),
+            TextButton.icon(
+              onPressed: onSignOut,
+              icon: const Icon(Icons.logout_rounded, size: 15),
+              label: const Text('SIGN OUT'),
+            ),
+          ],
         ),
       ],
     );
