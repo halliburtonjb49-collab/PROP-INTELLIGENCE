@@ -27,6 +27,7 @@ esac
 APP_VERSION="${RENDER_GIT_COMMIT:-${APP_VERSION:-unknown}}"
 
 flutter config --no-analytics
+flutter clean
 flutter pub get
 flutter build web --release \
   --dart-define="API_BASE_URL=${API_BASE_URL}" \
