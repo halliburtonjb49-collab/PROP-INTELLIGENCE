@@ -18,7 +18,7 @@ def request(url: str, *, method: str = "GET", headers: dict[str, str] | None = N
 
 def main() -> int:
     app, html, app_ms = request(APP_URL)
-    if app.status != 200 or b"main.dart.js" not in html:
+    if app.status != 200 or b"flutter_bootstrap.js" not in html:
         raise RuntimeError("Web application shell is unavailable")
 
     cors, _, _ = request(
