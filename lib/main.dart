@@ -625,8 +625,6 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
           child: Column(
             children: [
-              _buildRightPanelLogo(),
-              const SizedBox(height: 8),
               const AuthAccountPanel(),
               const SizedBox(height: 10),
               Expanded(
@@ -696,105 +694,6 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           );
         })
         .toList(growable: false);
-  }
-
-  Widget _buildRightPanelLogo() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF102538), Color(0xFF07131D)],
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: app_colors.AppColors.borderGold),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 58,
-            height: 58,
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: const Color(0xFF040A0F),
-              borderRadius: BorderRadius.circular(13),
-              border: Border.all(
-                color: app_colors.AppColors.gold.withValues(alpha: .5),
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.asset(
-                'assets/branding/prop_intelligence_icon.png',
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.high,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: const Color(0xFF07111B),
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.track_changes_rounded,
-                      color: app_colors.AppColors.gold,
-                      size: 30,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          const SizedBox(width: 11),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'PROP INTELLIGENCE',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: app_colors.AppColors.gold,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                SizedBox(height: 5),
-                Text(
-                  'ACTIVE RESEARCH DESK',
-                  style: TextStyle(
-                    color: app_colors.AppColors.textSecondary,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: .5,
-                  ),
-                ),
-                SizedBox(height: 7),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.circle,
-                      color: app_colors.AppColors.blue,
-                      size: 7,
-                    ),
-                    SizedBox(width: 5),
-                    Text(
-                      'SYSTEM ONLINE',
-                      style: TextStyle(
-                        color: app_colors.AppColors.blue,
-                        fontSize: 7.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   void _toggleSelection(PropData prop, PickSide side) {
@@ -1174,15 +1073,6 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   const _SidebarSectionLabel('WORKSPACE'),
                   const SizedBox(height: 7),
                   SidebarButton(
-                    label: 'BOARD',
-                    leadingIcons: const [Icons.tune_rounded],
-                    selected:
-                        widget.selectedPage == AppPage.board &&
-                        widget.selectedSport == 'ALL',
-                    onTap: () => widget.onSelectSport?.call('ALL'),
-                  ),
-                  const SizedBox(height: 6),
-                  SidebarButton(
                     label: 'PROP BUILDER',
                     leadingIcons: const [Icons.category_outlined],
                     selected: widget.selectedPage == AppPage.propBuilder,
@@ -1192,7 +1082,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   ),
                   const SizedBox(height: 6),
                   SidebarButton(
-                    label: 'ACTIVE WATCHLIST',
+                    label: 'ACTIVE SLIPS',
                     leadingIcons: const [Icons.groups_outlined],
                     selected: widget.selectedPage == AppPage.watchlist,
                     badge: '${widget.activeSlipCount}',
@@ -1412,21 +1302,22 @@ class _SidebarHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'PROP',
+                    'ACTIVE RESEARCH',
                     style: TextStyle(
                       color: AppColors.goldBright,
-                      fontSize: 17,
+                      fontSize: 11,
                       fontWeight: FontWeight.w900,
+                      letterSpacing: .7,
                     ),
                   ),
                   SizedBox(height: 3),
                   Text(
-                    'INTELLIGENCE',
+                    'WORKSPACE',
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: AppColors.goldBright,
+                      color: Colors.white,
                       fontSize: 9,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w900,
                       letterSpacing: 1.2,
                     ),
                   ),
@@ -1435,15 +1326,21 @@ class _SidebarHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        const Text(
-          'RESEARCH WORKSPACE',
-          style: TextStyle(
-            color: AppColors.muted,
-            fontSize: 8,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.35,
-          ),
+        const SizedBox(height: 9),
+        const Row(
+          children: [
+            Icon(Icons.circle, color: app_colors.AppColors.blue, size: 7),
+            SizedBox(width: 6),
+            Text(
+              'SYSTEM ONLINE',
+              style: TextStyle(
+                color: app_colors.AppColors.blue,
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .7,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -1500,7 +1397,7 @@ class SidebarButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isActiveWatchlist = label.toUpperCase() == 'ACTIVE WATCHLIST';
+    final isActiveWatchlist = label.toUpperCase() == 'ACTIVE SLIPS';
     final watchlistHasActiveSlips =
         isActiveWatchlist && (int.tryParse((badge ?? '0').trim()) ?? 0) > 0;
     final textColor = selected || watchlistHasActiveSlips
@@ -4927,7 +4824,7 @@ class TopNavigation extends StatelessWidget {
     AppPage.searchPlayers => 'PLAYER SEARCH',
     AppPage.propAlerts => 'PROP ALERTS',
     AppPage.propBuilder => 'PROP BUILDER',
-    AppPage.watchlist => 'ACTIVE WATCHLIST',
+    AppPage.watchlist => 'ACTIVE SLIPS',
     AppPage.builderPerformance => 'BUILDER PERFORMANCE',
     AppPage.evScanner => 'EV SCANNER',
     AppPage.goblinsDemons => 'GOBLINS / DEMONS',
@@ -4943,7 +4840,7 @@ class TopNavigation extends StatelessWidget {
     AppPage.searchPlayers => 'Open focused player and market research',
     AppPage.propAlerts => 'Review monitored conditions and changes',
     AppPage.propBuilder => 'Build a disciplined, research-backed slip',
-    AppPage.watchlist => 'Return to props you are actively monitoring',
+    AppPage.watchlist => 'Review props and slips you are actively monitoring',
     AppPage.builderPerformance => 'Review outcomes and improve your process',
     AppPage.evScanner => 'Surface estimated positive-value opportunities',
     AppPage.goblinsDemons => 'Compare conservative and aggressive profiles',
