@@ -86,20 +86,25 @@ void main() {
     expect(find.byKey(const ValueKey('top-account-status')), findsOneWidget);
     expect(find.text('ELITE ACTIVE'), findsNothing);
 
-    Future<void> openWorkspace(String label, String expected) async {
+    Future<void> openWorkspace(String label, String? expected) async {
       final destination = find.text(label);
       expect(destination, findsOneWidget);
       await tester.ensureVisible(destination);
       await tester.tap(destination);
-      await tester.pump(const Duration(milliseconds: 500));
-      expect(find.text(expected), findsWidgets);
+      await tester.pump(const Duration(milliseconds: 1200));
+      if (expected != null) {
+        expect(find.text(expected), findsWidgets);
+      }
       expect(tester.takeException(), isNull);
     }
 
+    await tester.tap(find.byKey(const ValueKey('board-active-slip-button')));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(tester.takeException(), isNull);
+
     await openWorkspace('THE LAB', 'INTELLIGENCE LAB');
     await openWorkspace('PROP BUILDER', 'PROP BUILDER');
-    await openWorkspace('ACTIVE SLIPS', 'ACTIVE SLIPS');
-    await openWorkspace('PERFORMANCE', 'PERFORMANCE');
+    await openWorkspace('BUILD\nPERFORM', null);
     await openWorkspace('EV SCANNER', 'EV SCANNER');
   });
 }

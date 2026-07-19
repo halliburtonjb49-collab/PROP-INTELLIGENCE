@@ -18,6 +18,9 @@ class FakeProp:
     tier: str = "Premium"
     confidence: int = 70
     edge: float = 8.0
+    evPercentage: float | None = None
+    fairProbability: float | None = None
+    isPositiveEv: bool = False
     startTimeUtc: str = "2099-07-20T20:00:00Z"
     lastUpdatedUtc: str = "2026-07-18T20:00:00Z"
 
@@ -95,3 +98,21 @@ def test_prop_page_honors_etag(monkeypatch) -> None:
         headers={"If-None-Match": first.headers["etag"]},
     )
     assert second.status_code == 304
+
+
+def test_positive_ev_route_returns_only_calculated_positive_rows(monkeypatch) -> None:
+    positive = FakeProp("positive", "One", "MLB", "FANDUEL", "HITS")
+    positive.evPercentage = 4.25
+    positive.fairProbability = 0.57
+    positive.isPositiveEv = True
+    unavailable = FakeProp("missing", "Two", "MLB", "FANDUEL", "HITS")
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [positive, unavailable])
+
+    response = TestClient(main.app).get(
+        "/api/props/ev",
+        params={"min_ev": 2, "sport": "MLB"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["count"] == 1
+    assert response.json()["props"][0]["id"] == "positive"

@@ -1494,6 +1494,33 @@ def props(
 		) from exc
 
 
+@app.get("/api/props/ev")
+def positive_ev_props(
+	min_ev: float = Query(default=0.0),
+	sport: str = Query(default="All"),
+) -> dict[str, object]:
+	"""Return only props backed by a genuine positive-EV calculation."""
+	sport_filter = sport.strip().lower().replace(" ", "")
+	minimum = float(min_ev)
+	rows: list[dict[str, object]] = []
+	for prop in _cached_prop_catalog():
+		if sport_filter != "all" and prop.sport.strip().lower().replace(" ", "") != sport_filter:
+			continue
+		if prop.evPercentage is None or prop.fairProbability is None:
+			continue
+		if not prop.isPositiveEv or prop.evPercentage < minimum:
+			continue
+		rows.append(prop.model_dump())
+	rows.sort(key=lambda item: float(item.get("evPercentage") or 0), reverse=True)
+	return {
+		"count": len(rows),
+		"props": rows,
+		"minEv": minimum,
+		"sport": sport,
+		"version": APP_VERSION,
+	}
+
+
 @app.get("/api/props-test")
 def props_test() -> dict[str, object]:
 	raw_props = [

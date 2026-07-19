@@ -55,6 +55,9 @@ class PropResponse(BaseModel):
     underImpliedProbability: float | None = None
     noVigOverProbability: float | None = None
     noVigUnderProbability: float | None = None
+    evPercentage: float | None = None
+    fairProbability: float | None = None
+    isPositiveEv: bool = False
     edgeSigned: float = 0.0
     fatigueIndex: float | None = None
     fatigueMultiplier: float | None = None

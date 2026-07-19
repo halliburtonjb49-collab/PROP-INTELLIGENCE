@@ -1101,15 +1101,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   ),
                   const SizedBox(height: 6),
                   SidebarButton(
-                    label: 'ACTIVE SLIPS',
-                    leadingIcons: const [Icons.groups_outlined],
-                    selected: widget.selectedPage == AppPage.watchlist,
-                    badge: '${widget.activeSlipCount}',
-                    onTap: () => widget.onSelectPage?.call(AppPage.watchlist),
-                  ),
-                  const SizedBox(height: 6),
-                  SidebarButton(
-                    label: 'PERFORMANCE',
+                    label: 'BUILD\nPERFORM',
                     leadingIcons: const [Icons.grid_view_rounded],
                     selected: widget.selectedPage == AppPage.builderPerformance,
                     premium: true,
@@ -2602,7 +2594,7 @@ class _MainDashboardState extends State<MainDashboard> {
             height: 42,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: books.length + 1,
+              itemCount: books.length + 2,
               separatorBuilder: (_, _) => const SizedBox(width: 6),
               itemBuilder: (context, index) {
                 if (index == 1) {
@@ -2625,7 +2617,25 @@ class _MainDashboardState extends State<MainDashboard> {
                     ),
                   );
                 }
-                final book = books[index > 1 ? index - 1 : index];
+                if (index == 2) {
+                  return OutlinedButton.icon(
+                    key: const ValueKey('board-active-slip-button'),
+                    onPressed: () =>
+                        widget.onSelectPage?.call(AppPage.watchlist),
+                    icon: const Icon(Icons.receipt_long_outlined, size: 17),
+                    label: Text('ACTIVE SLIP  ${widget.selections.length}'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.gold,
+                      backgroundColor: AppColors.gold.withValues(alpha: .08),
+                      side: const BorderSide(color: AppColors.gold),
+                      padding: const EdgeInsets.symmetric(horizontal: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                    ),
+                  );
+                }
+                final book = books[index > 2 ? index - 2 : index];
                 final selected = _selectedSite == book;
                 return OutlinedButton(
                   onPressed: () => setState(() {
@@ -2691,6 +2701,9 @@ class _MainDashboardState extends State<MainDashboard> {
         ? selectedProps
         : _visibleProps;
     final showingFocusedProp = focusedProp != null;
+    final focusedMetricsAvailable =
+        focusedProp?.projection != null ||
+        (focusedProp?.recommendationEdge ?? 0).abs() > .0001;
     final metricScope = selectedProps.isNotEmpty
         ? 'Across selected props'
         : 'Across visible props';
@@ -2714,13 +2727,19 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
             (
               'EDGE',
-              '${focusedProp.edge >= 0 ? '+' : ''}${focusedProp.edge.toStringAsFixed(2)}%',
-              'Model edge for this prop',
+              focusedMetricsAvailable
+                  ? '${focusedProp.edge >= 0 ? '+' : ''}${focusedProp.edge.toStringAsFixed(2)}%'
+                  : '--',
+              focusedMetricsAvailable
+                  ? 'Model edge for this prop'
+                  : 'Awaiting model projection',
             ),
             (
               'HIT RATE',
-              '${focusedProp.confidence}%',
-              'Current model confidence',
+              focusedMetricsAvailable ? '${focusedProp.confidence}%' : '--',
+              focusedMetricsAvailable
+                  ? 'Current model confidence'
+                  : 'Awaiting model projection',
             ),
             (
               'MARKET',
