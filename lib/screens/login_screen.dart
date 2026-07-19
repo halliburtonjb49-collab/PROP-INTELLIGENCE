@@ -182,7 +182,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             icon: Icons.travel_explore_rounded,
             title: 'DISCOVER & COMPARE',
             items: [
-              'Live player props, game boards and multi-sportsbook lines',
+              'Live player props, moneylines, spreads, totals and multi-sportsbook lines',
               'Player search, market comparison and line-movement tracking',
               'Live, upcoming and final scoreboards across major sports',
             ],

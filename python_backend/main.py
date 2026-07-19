@@ -88,6 +88,7 @@ from services.prop_builder_strategy_service import (
 )
 from services.score_service import fetch_scores
 from services.odds_service import fetch_events, quota_snapshot
+from services.game_market_service import get_game_markets, game_market_health
 from services.slip_service import (
 	capture_closing_lines_from_props,
 	slip_storage_health,
@@ -183,6 +184,9 @@ _prop_metrics: dict[str, object] = {
 	"lastDurationMs": 0,
 	"lastPayloadBytes": 0,
 	"lastServedAt": None,
+	"lastTotalCount": 0,
+	"lastDataUpdatedAt": None,
+	"lastRequestSucceeded": None,
 }
 
 app.include_router(intelligence_router)
@@ -1151,15 +1155,47 @@ def prop_feed_health() -> dict[str, object]:
 	with _prop_metrics_lock:
 		metrics = dict(_prop_metrics)
 	requests_count = max(1, int(metrics["requests"]))
+	last_data_updated = str(metrics.get("lastDataUpdatedAt") or "")
+	stale = _is_stale_timestamp(last_data_updated, datetime.now(timezone.utc), 45)
+	latest_empty = int(metrics.get("lastTotalCount") or 0) == 0
 	return {
-		"status": "ok" if int(metrics["errors"]) == 0 else "degraded",
+		"status": (
+			"degraded"
+			if metrics.get("lastRequestSucceeded") is False or latest_empty or stale
+			else "ok"
+		),
 		"version": APP_VERSION,
+		"latestEmpty": latest_empty,
+		"stale": stale,
+		"staleAfterMinutes": 45,
 		"successRate": round(
 			(requests_count - int(metrics["errors"])) / requests_count,
 			4,
 		),
 		**metrics,
 	}
+
+
+@app.get("/api/game-markets")
+def game_markets(
+	sport: str = Query(default="MLB"),
+	refresh: bool = Query(default=False),
+) -> dict[str, object]:
+	try:
+		return get_game_markets(sport, force=refresh)
+	except ValueError as exc:
+		raise HTTPException(status_code=400, detail=str(exc)) from exc
+	except (requests.RequestException, RuntimeError) as exc:
+		logging.exception("Game markets provider request failed")
+		raise HTTPException(
+			status_code=503,
+			detail="Game markets are temporarily unavailable.",
+		) from exc
+
+
+@app.get("/api/operations/game-market-health")
+def game_market_feed_health() -> dict[str, object]:
+	return {"version": APP_VERSION, **game_market_health()}
 
 
 @app.get("/health/storage")
@@ -1482,12 +1518,19 @@ def props(
 				lastDurationMs=duration_ms,
 				lastPayloadBytes=payload_bytes,
 				lastServedAt=datetime.now(timezone.utc).isoformat(),
+				lastTotalCount=len(prop_list),
+				lastDataUpdatedAt=max(
+					(prop.lastUpdatedUtc for prop in prop_list),
+					default=None,
+				),
+				lastRequestSucceeded=True,
 			)
 		return payload
 	except Exception as exc:
 		with _prop_metrics_lock:
 			_prop_metrics["requests"] = int(_prop_metrics["requests"]) + 1
 			_prop_metrics["errors"] = int(_prop_metrics["errors"]) + 1
+			_prop_metrics["lastRequestSucceeded"] = False
 		raise HTTPException(
 			status_code=500,
 			detail=f"Unable to load props: {exc}",

@@ -26,6 +26,43 @@ void main() {
     expect(state.hasEdgeAccess, isTrue);
   });
 
+  test('owner, admin and tester receive full workspace access', () {
+    for (final role in ['owner', 'admin', 'tester']) {
+      final state = AuthSessionState(
+        ready: true,
+        authenticated: true,
+        isPremium: true,
+        subscriptionTier: SubscriptionTier.free,
+        role: role,
+        userId: '$role-id',
+        email: '$role@example.com',
+        message: 'Ready',
+      );
+      expect(state.hasCoreAccess, true, reason: role);
+      expect(state.hasEdgeAccess, true, reason: role);
+    }
+  });
+
+  test('user access follows Core and Edge subscription tier', () {
+    AuthSessionState user(SubscriptionTier tier) => AuthSessionState(
+      ready: true,
+      authenticated: true,
+      isPremium: tier != SubscriptionTier.free,
+      subscriptionTier: tier,
+      role: 'user',
+      userId: 'user-id',
+      email: 'user@example.com',
+      message: 'Ready',
+    );
+
+    expect(user(SubscriptionTier.free).hasCoreAccess, false);
+    expect(user(SubscriptionTier.free).hasEdgeAccess, false);
+    expect(user(SubscriptionTier.core).hasCoreAccess, true);
+    expect(user(SubscriptionTier.core).hasEdgeAccess, false);
+    expect(user(SubscriptionTier.edge).hasCoreAccess, true);
+    expect(user(SubscriptionTier.edge).hasEdgeAccess, true);
+  });
+
   test('change request preserves approval lifecycle fields', () {
     final request = AppChangeRequest.fromJson({
       'id': 42,

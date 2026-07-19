@@ -27,7 +27,8 @@
     show();
   });
 
-  const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+  const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent) ||
+    (/macintosh/i.test(window.navigator.userAgent) && window.navigator.maxTouchPoints > 1);
   if (isIos) {
     message.textContent = 'Install on iPhone: tap Share, then Add to Home Screen.';
     action.textContent = 'HOW TO';

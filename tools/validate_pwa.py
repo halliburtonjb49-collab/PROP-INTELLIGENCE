@@ -23,6 +23,8 @@ for field in ("name", "short_name", "id", "start_url", "scope", "display"):
 
 if manifest["display"] not in {"standalone", "fullscreen", "minimal-ui"}:
     fail("display mode is not installable")
+if manifest.get("orientation") not in {"any", "natural"}:
+    fail("PWA must support portrait and landscape devices")
 
 sizes = set()
 for icon in manifest.get("icons", []):
@@ -46,5 +48,16 @@ for marker in (
 
 if root.name == "web" and not (root / "flutter_service_worker.js").is_file():
     fail("Flutter service worker is missing from the production build")
+
+install_script = (root / "pwa_install.js").read_text(encoding="utf-8").lower()
+for marker in (
+    "beforeinstallprompt",
+    "appinstalled",
+    "standalone",
+    "ipad",
+    "maxtouchpoints",
+):
+    if marker not in install_script:
+        fail(f"PWA install helper is missing {marker}")
 
 print(f"PWA validation passed for {root}")

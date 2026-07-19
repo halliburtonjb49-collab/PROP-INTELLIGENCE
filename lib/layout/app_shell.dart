@@ -9,12 +9,14 @@ class AppShell extends StatelessWidget {
     required this.topNavigation,
     required this.content,
     required this.rightSidebar,
+    this.activeSlipCount = 0,
   });
 
   final Widget leftSidebar;
   final Widget topNavigation;
   final Widget content;
   final Widget rightSidebar;
+  final int activeSlipCount;
 
   static const double leftWidth = 244;
   static const double rightWidth = 332;
@@ -63,12 +65,13 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 800) {
+        if (constraints.maxWidth < 1000) {
           return _MobileAppShell(
             leftSidebar: leftSidebar,
             topNavigation: topNavigation,
             content: content,
             rightSidebar: rightSidebar,
+            activeSlipCount: activeSlipCount,
           );
         }
         final metrics = _metrics(constraints.maxWidth);
@@ -139,12 +142,14 @@ class _MobileAppShell extends StatefulWidget {
     required this.topNavigation,
     required this.content,
     required this.rightSidebar,
+    required this.activeSlipCount,
   });
 
   final Widget leftSidebar;
   final Widget topNavigation;
   final Widget content;
   final Widget rightSidebar;
+  final int activeSlipCount;
 
   @override
   State<_MobileAppShell> createState() => _MobileAppShellState();
@@ -152,6 +157,19 @@ class _MobileAppShell extends StatefulWidget {
 
 class _MobileAppShellState extends State<_MobileAppShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  void didUpdateWidget(covariant _MobileAppShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.content.key != widget.content.key) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final scaffold = _scaffoldKey.currentState;
+        if (scaffold?.isDrawerOpen ?? false) scaffold?.closeDrawer();
+        if (scaffold?.isEndDrawerOpen ?? false) scaffold?.closeEndDrawer();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -201,14 +219,53 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                           ),
                         ),
                         Expanded(child: widget.topNavigation),
-                        IconButton(
-                          tooltip: 'Open account and active slip',
-                          onPressed: () =>
-                              _scaffoldKey.currentState?.openEndDrawer(),
-                          icon: const Icon(
-                            Icons.receipt_long_rounded,
-                            color: AppColors.gold,
-                          ),
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            IconButton(
+                              key: const ValueKey('mobile-active-slip-button'),
+                              tooltip: 'Open account and active slip',
+                              onPressed: () =>
+                                  _scaffoldKey.currentState?.openEndDrawer(),
+                              icon: const Icon(
+                                Icons.receipt_long_rounded,
+                                color: AppColors.gold,
+                              ),
+                            ),
+                            if (widget.activeSlipCount > 0)
+                              Positioned(
+                                right: 0,
+                                top: 2,
+                                child: Container(
+                                  key: const ValueKey(
+                                    'mobile-active-slip-count',
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 18,
+                                    minHeight: 18,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 2,
+                                  ),
+                                  alignment: Alignment.center,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.gold,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    widget.activeSlipCount > 99
+                                        ? '99+'
+                                        : '${widget.activeSlipCount}',
+                                    style: const TextStyle(
+                                      color: Color(0xFF06111B),
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ],
                     ),

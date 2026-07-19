@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/prop_data.dart';
+import '../models/game_market.dart';
 import '../models/saved_slip.dart';
 import '../models/slip_selection.dart';
 import 'supabase_service.dart';
@@ -125,6 +126,38 @@ class ApiService {
       }
     }
     throw Exception(lastError ?? 'Intelligence API unavailable');
+  }
+
+  Future<GameMarketFeed> fetchGameMarkets({
+    required String sport,
+    bool refresh = false,
+  }) async {
+    Object? lastError;
+    for (final candidate in _candidateBaseUrls) {
+      try {
+        final uri = Uri.parse('$candidate/api/game-markets').replace(
+          queryParameters: {'sport': sport, if (refresh) 'refresh': 'true'},
+        );
+        final response = await http
+            .get(uri)
+            .timeout(const Duration(seconds: 15));
+        if (response.statusCode != 200) {
+          lastError = Exception(
+            'Unable to load game markets: ${response.statusCode}',
+          );
+          continue;
+        }
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map<String, dynamic>) {
+          throw const FormatException('Invalid game-market response.');
+        }
+        _resolvedBaseUrl = candidate;
+        return GameMarketFeed.fromJson(decoded);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw Exception(lastError ?? 'Game markets are temporarily unavailable.');
   }
 
   Future<Map<String, dynamic>> fetchAdminOperations() async {

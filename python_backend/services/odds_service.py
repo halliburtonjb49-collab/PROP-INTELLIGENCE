@@ -129,3 +129,30 @@ def fetch_event_odds(
     if isinstance(payload, dict):
         return payload
     return {"bookmakers": []}
+
+
+def fetch_game_odds(
+    *,
+    sport_key: str,
+    markets: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch event-level moneyline, spread, and total markets in one request."""
+    requested_markets = markets or ["h2h", "spreads", "totals"]
+    response = _http_session().get(
+        f"{BASE_URL}/sports/{sport_key}/odds",
+        params={
+            "apiKey": ODDS_API_KEY,
+            "regions": ODDS_REGIONS,
+            "markets": ",".join(requested_markets),
+            "bookmakers": PREFERRED_BOOKMAKERS_CSV,
+            "oddsFormat": "american",
+            "dateFormat": "iso",
+        },
+        timeout=HTTP_TIMEOUT_SECONDS,
+    )
+    record_quota_headers(response.headers)
+    response.raise_for_status()
+    payload = response.json()
+    if isinstance(payload, list):
+        return [event for event in payload if isinstance(event, dict)]
+    return []

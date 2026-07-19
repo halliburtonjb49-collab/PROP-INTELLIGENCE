@@ -16,6 +16,7 @@ import 'pages/analytics_page.dart';
 import 'pages/line_movement_page.dart';
 import 'screens/prop_builder_performance_screen.dart';
 import 'screens/goblins_demons_screen.dart';
+import 'screens/game_markets_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/paywall_screen.dart';
 import 'screens/password_recovery_screen.dart';
@@ -179,6 +180,7 @@ const double cardGap = 12;
 
 enum AppPage {
   board,
+  gameMarkets,
   propBuilder,
   watchlist,
   builderPerformance,
@@ -520,6 +522,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 
   SubscriptionTier? _requiredTier(AppPage page) => switch (page) {
     AppPage.propBuilder ||
+    AppPage.gameMarkets ||
     AppPage.watchlist ||
     AppPage.analytics ||
     AppPage.lineMovement ||
@@ -541,6 +544,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   int _mainPageIndex() {
     switch (_selectedPage) {
       case AppPage.board:
+      case AppPage.gameMarkets:
       case AppPage.evScanner:
       case AppPage.searchPlayers:
       case AppPage.scoreboard:
@@ -563,6 +567,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 
   Widget _buildMainContent() {
     return Container(
+      key: ValueKey(_selectedPage),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -576,6 +581,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           MainDashboard(
             selections: _slipSelections,
             onSelect: _toggleSelection,
+            onAddGameMarket: _addGameMarketLeg,
             sportFilter: _selectedBoardSport,
             selectedPage: _selectedPage,
             onSelectPage: (page) =>
@@ -746,6 +752,12 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     });
   }
 
+  Future<int> _addGameMarketLeg(Map<String, dynamic> leg) async {
+    final added = await _activeSlipController.addLegs([leg]);
+    if (mounted) setState(() {});
+    return added;
+  }
+
   bool _isMixedSiteAttempt(SlipSelection incoming) {
     if (_activeSlipController.legs.isEmpty) {
       return false;
@@ -912,7 +924,12 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         underOdds: side == PickSide.under ? oddsValue : null,
       );
 
-      return SlipSelection(prop: prop, side: side);
+      return SlipSelection(
+        prop: prop,
+        side: side,
+        customSideLabel: sideText,
+        customOdds: oddsValue,
+      );
     }).toList();
   }
 
@@ -981,11 +998,15 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return AppShell(
-      leftSidebar: _buildLeftSidebar(),
-      topNavigation: _buildTopNavigation(),
-      content: _buildMainContent(),
-      rightSidebar: _buildRightPanel(),
+    return AnimatedBuilder(
+      animation: _activeSlipController,
+      builder: (context, _) => AppShell(
+        leftSidebar: _buildLeftSidebar(),
+        topNavigation: _buildTopNavigation(),
+        content: _buildMainContent(),
+        rightSidebar: _buildRightPanel(),
+        activeSlipCount: _activeSlipController.legCount,
+      ),
     );
   }
 }
@@ -1080,6 +1101,15 @@ class _LeftSidebarState extends State<LeftSidebar> {
                 children: [
                   const _SidebarSectionLabel('WORKSPACE'),
                   const SizedBox(height: 7),
+                  SidebarButton(
+                    label: 'GAME MARKETS',
+                    leadingIcons: const [Icons.sports_rounded],
+                    leadingIconColors: const [AppColors.gold],
+                    selected: widget.selectedPage == AppPage.gameMarkets,
+                    showGoldBar: true,
+                    onTap: () => widget.onSelectPage?.call(AppPage.gameMarkets),
+                  ),
+                  const SizedBox(height: 6),
                   SidebarButton(
                     label: 'THE LAB',
                     leadingIcons: const [Icons.science_outlined],
@@ -1577,6 +1607,7 @@ class SidebarButton extends StatelessWidget {
 class MainDashboard extends StatefulWidget {
   final List<SlipSelection> selections;
   final void Function(PropData prop, PickSide side) onSelect;
+  final Future<int> Function(Map<String, dynamic> leg) onAddGameMarket;
   final String sportFilter;
   final AppPage selectedPage;
   final ValueChanged<AppPage>? onSelectPage;
@@ -1585,6 +1616,7 @@ class MainDashboard extends StatefulWidget {
     super.key,
     required this.selections,
     required this.onSelect,
+    required this.onAddGameMarket,
     required this.sportFilter,
     required this.selectedPage,
     this.onSelectPage,
@@ -3029,6 +3061,8 @@ class _MainDashboardState extends State<MainDashboard> {
           Expanded(
             child: widget.selectedPage == AppPage.searchPlayers
                 ? SearchPlayersPage(props: _latestProps)
+                : widget.selectedPage == AppPage.gameMarkets
+                ? GameMarketsScreen(onAddToSlip: widget.onAddGameMarket)
                 : widget.selectedPage == AppPage.evScanner
                 ? _isEvScannerLoading && _evScannerProps.isEmpty
                       ? const Center(
@@ -4799,6 +4833,11 @@ class TopNavigation extends StatelessWidget {
                   subtitle: 'What each left-side destination does',
                 ),
                 _GuideTerm(
+                  term: 'Game Markets',
+                  definition:
+                      'Compare live moneylines, spreads, and game totals across available sportsbooks. Select one sportsbook outcome to add it to Active Slip.',
+                ),
+                _GuideTerm(
                   term: 'The Lab',
                   definition:
                       'Select two props in your active slip, then compare correlation, game scripts, historical similarity, and alert conditions. Use the help control inside the Lab for its guided workflow.',
@@ -4929,6 +4968,8 @@ class TopNavigation extends StatelessWidget {
     return Tooltip(
       message: switch (page) {
         AppPage.board => 'Browse and compare today’s available props',
+        AppPage.gameMarkets =>
+          'Compare moneylines, spreads, and game totals across sportsbooks',
         AppPage.scoreboard => 'Follow live, upcoming, and final games',
         AppPage.analytics =>
           'Review analytics and, for owners, manage platform data',
@@ -5052,6 +5093,7 @@ class TopNavigation extends StatelessWidget {
 
   String get _pageTitle => switch (selectedPage) {
     AppPage.board => 'MARKET BOARD',
+    AppPage.gameMarkets => 'GAME MARKETS',
     AppPage.scoreboard => 'LIVE SCOREBOARD',
     AppPage.analytics => 'PERFORMANCE ANALYTICS',
     AppPage.lineMovement => 'LINE MOVEMENT',
@@ -5068,6 +5110,8 @@ class TopNavigation extends StatelessWidget {
 
   String get _pageSubtitle => switch (selectedPage) {
     AppPage.board => 'Scan today’s markets and compare available value',
+    AppPage.gameMarkets =>
+      'Compare moneylines, spreads and totals across sportsbooks',
     AppPage.scoreboard => 'Follow live, upcoming and completed games',
     AppPage.analytics => 'Analytics and owner data-management workspace',
     AppPage.lineMovement => 'Monitor number and price changes in real time',
@@ -5189,6 +5233,12 @@ class TopNavigation extends StatelessWidget {
                         label: 'SCOREBOARD',
                         page: AppPage.scoreboard,
                         icon: Icons.sports_score_rounded,
+                      ),
+                      const SizedBox(width: 6),
+                      _buildNavItem(
+                        label: 'GAME MARKETS',
+                        page: AppPage.gameMarkets,
+                        icon: Icons.sports_rounded,
                       ),
                       const SizedBox(width: 6),
                       _buildNavItem(

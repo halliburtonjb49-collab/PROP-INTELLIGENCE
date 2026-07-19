@@ -24,6 +24,10 @@ def main() -> int:
     checks = {
         "apiHealth": fetch(f"{api}/health"),
         "props": fetch(f"{api}/api/props"),
+        "gameMarkets": fetch(f"{api}/api/game-markets?sport=MLB"),
+        "propFeedHealth": fetch(f"{api}/api/operations/prop-feed-health"),
+        "gameMarketHealth": fetch(f"{api}/api/operations/game-market-health"),
+        "accuracyAudit": fetch(f"{api}/api/accuracy/audit"),
         "calibration": fetch(f"{api}/api/intelligence/calibration"),
         "webApp": fetch(app),
     }
@@ -32,6 +36,15 @@ def main() -> int:
         checks["pipelines"] = fetch(f"{api}/api/operations/pipelines", admin_key=admin_key)
     print(json.dumps(checks, indent=2, default=str))
     failed = [name for name, (status, _) in checks.items() if status < 200 or status >= 400]
+    props_payload = checks["props"][1]
+    if not isinstance(props_payload, dict) or int(props_payload.get("count", 0)) <= 0:
+        failed.append("props-empty")
+    prop_health = checks["propFeedHealth"][1]
+    if not isinstance(prop_health, dict) or prop_health.get("status") != "ok":
+        failed.append("prop-feed-unhealthy")
+    game_health = checks["gameMarketHealth"][1]
+    if not isinstance(game_health, dict) or game_health.get("status") not in {"ok", "degraded"}:
+        failed.append("game-market-monitor-unavailable")
     return 1 if failed else 0
 
 

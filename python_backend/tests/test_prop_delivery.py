@@ -116,3 +116,42 @@ def test_positive_ev_route_returns_only_calculated_positive_rows(monkeypatch) ->
     assert response.status_code == 200
     assert response.json()["count"] == 1
     assert response.json()["props"][0]["id"] == "positive"
+
+
+def test_game_market_route_exposes_moneylines_spreads_and_totals(monkeypatch) -> None:
+    monkeypatch.setattr(
+        main,
+        "get_game_markets",
+        lambda sport, force=False: {
+            "sport": sport,
+            "cached": False,
+            "updatedAt": "2026-07-19T20:00:00Z",
+            "events": [{
+                "id": "game-1",
+                "bookmakers": [{
+                    "markets": {"h2h": [], "spreads": [], "totals": []}
+                }],
+            }],
+        },
+    )
+    response = TestClient(main.app).get("/api/game-markets?sport=MLB")
+    assert response.status_code == 200
+    assert response.json()["sport"] == "MLB"
+    markets = response.json()["events"][0]["bookmakers"][0]["markets"]
+    assert set(markets) == {"h2h", "spreads", "totals"}
+
+
+def test_prop_feed_monitor_reports_payload_and_freshness(monkeypatch) -> None:
+    from datetime import datetime, timezone
+
+    prop = FakeProp("fresh", "One", "MLB", "FANDUEL", "HITS")
+    prop.lastUpdatedUtc = datetime.now(timezone.utc).isoformat()
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [prop])
+    client = TestClient(main.app)
+    assert client.get("/api/props").status_code == 200
+    health = client.get("/api/operations/prop-feed-health").json()
+    assert health["status"] == "ok"
+    assert health["latestEmpty"] is False
+    assert health["stale"] is False
+    assert health["lastTotalCount"] == 1
+    assert health["lastPayloadBytes"] > 0

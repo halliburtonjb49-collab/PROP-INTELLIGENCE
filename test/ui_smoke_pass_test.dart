@@ -25,8 +25,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 800));
 
     expect(find.text('SCOREBOARD'), findsWidgets);
+    expect(find.text('GAME MARKETS'), findsWidgets);
     expect(find.text('ANALYTICS'), findsOneWidget);
     expect(find.text('LINE MOVEMENT'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('GAME MARKETS').first);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('MONEYLINE'), findsOneWidget);
+    expect(find.text('SPREADS'), findsOneWidget);
+    expect(find.text('GAME TOTALS'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.text('SCOREBOARD').first);
@@ -38,6 +46,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(tester.takeException(), isNull);
 
+    await tester.ensureVisible(find.text('LINE MOVEMENT'));
     await tester.tap(find.text('LINE MOVEMENT'));
     await tester.pump(const Duration(seconds: 1));
     expect(tester.takeException(), isNull);

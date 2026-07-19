@@ -9,7 +9,7 @@
     "background_color": "#020609",
     "theme_color": "#020609",
     "description": "PROP INTELLIGENCE sports analytics and prop research.",
-    "orientation": "portrait-primary",
+    "orientation": "any",
     "prefer_related_applications": false,
     "categories": ["sports", "productivity", "utilities"],
     "lang": "en-US",
