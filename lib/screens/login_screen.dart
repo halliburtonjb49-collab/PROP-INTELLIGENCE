@@ -671,8 +671,10 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                                   constraints: const BoxConstraints(
                                     maxWidth: 1420,
                                   ),
-                                  child: compact
-                                      ? Column(
+                                  child: Column(
+                                    children: [
+                                      if (compact)
+                                        Column(
                                           children: [
                                             _HeroBrand(
                                               compact: true,
@@ -684,7 +686,8 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                                             _buildLoginCard(dense: false),
                                           ],
                                         )
-                                      : Row(
+                                      else
+                                        Row(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.center,
                                           children: [
@@ -707,6 +710,10 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                                             ),
                                           ],
                                         ),
+                                      SizedBox(height: compact ? 34 : 48),
+                                      _InstallAnywhereSection(compact: compact),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -977,6 +984,174 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
       focusedBorder: OutlineInputBorder(
         borderSide: const BorderSide(color: _gold),
         borderRadius: BorderRadius.circular(6),
+      ),
+    );
+  }
+}
+
+class _InstallAnywhereSection extends StatelessWidget {
+  final bool compact;
+
+  const _InstallAnywhereSection({required this.compact});
+
+  @override
+  Widget build(BuildContext context) {
+    const devices = [
+      (
+        Icons.android_rounded,
+        'ANDROID',
+        'Tap Install when prompted, or choose Install app from your browser menu.',
+      ),
+      (
+        Icons.phone_iphone_rounded,
+        'IPHONE & IPAD',
+        'Open in Safari, tap Share, then choose Add to Home Screen.',
+      ),
+      (
+        Icons.tablet_mac_rounded,
+        'TABLETS',
+        'Use portrait or landscape mode with the same account and full workspace.',
+      ),
+      (
+        Icons.desktop_windows_rounded,
+        'DESKTOP',
+        'Install from Chrome or Edge for fast, app-like access from your desktop.',
+      ),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(compact ? 22 : 30),
+      decoration: BoxDecoration(
+        color: const Color(0xEC071017),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _gold.withValues(alpha: 0.48)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.48),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.install_mobile_rounded, color: _gold, size: 34),
+          const SizedBox(height: 10),
+          Text(
+            'INSTALL ON ANY DEVICE',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: _gold,
+              fontSize: compact ? 20 : 24,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'PROP INTELLIGENCE is a secure Progressive Web App. Install it directly from your browser—no app-store download required.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: _silver70, fontSize: 14, height: 1.5),
+          ),
+          const SizedBox(height: 24),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 1060
+                  ? 4
+                  : constraints.maxWidth >= 560
+                  ? 2
+                  : 1;
+              final spacing = 12.0;
+              final cardWidth =
+                  (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: [
+                  for (final device in devices)
+                    SizedBox(
+                      width: cardWidth,
+                      child: _DeviceInstallCard(
+                        icon: device.$1,
+                        title: device.$2,
+                        instructions: device.$3,
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 18),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.sync_rounded, color: _gold, size: 16),
+              SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  'One account. Automatic updates. Your research stays available across devices.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _silver,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeviceInstallCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String instructions;
+
+  const _DeviceInstallCard({
+    required this.icon,
+    required this.title,
+    required this.instructions,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 138),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xD90B151D),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF263744)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: _gold, size: 23),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: const TextStyle(
+              color: _silver,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            instructions,
+            style: const TextStyle(
+              color: _silver60,
+              fontSize: 12,
+              height: 1.45,
+            ),
+          ),
+        ],
       ),
     );
   }
