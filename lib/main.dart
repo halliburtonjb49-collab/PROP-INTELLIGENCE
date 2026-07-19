@@ -5887,11 +5887,12 @@ class _PreparedProp {
 }
 
 class _PropGridState extends State<PropGrid> {
-  static const int _visiblePropStep = 180;
+  static const int _visiblePropStep = 75;
   final ApiService _apiService = ApiService();
   late Future<List<PropData>> _propsFuture;
   List<_PreparedProp> _preparedProps = const [];
   bool _isRefreshing = false;
+  bool _isLoadingMore = false;
   int _visiblePropLimit = _visiblePropStep;
   final Set<String> _favoritePropIds = <String>{};
 
@@ -7457,6 +7458,7 @@ class _PropGridState extends State<PropGrid> {
         oldWidget.sortBy != widget.sortBy ||
         oldWidget.searchQuery != widget.searchQuery) {
       _visiblePropLimit = _visiblePropStep;
+      _preparedProps = const [];
       _propsFuture = _loadProps();
     }
   }
@@ -7479,13 +7481,23 @@ class _PropGridState extends State<PropGrid> {
   Future<List<PropData>> _loadProps() async {
     final fetchTimer = Stopwatch()..start();
     _startupLog('fetchProps() start');
-    final liveProps = await _apiService.fetchProps(
+    final cached = await _apiService.loadCachedProps(
       selectedSide: widget.selectedSide,
       selectedTier: widget.selectedTier,
       selectedSportsbook: widget.selectedSite,
+      selectedSport: widget.sportFilter,
+      selectedCategory: widget.selectedCategory,
+      search: widget.searchQuery,
       minConfidence: widget.minConfidence,
       sortBy: widget.sortBy,
     );
+    if (cached.isNotEmpty) {
+      _preparedProps = _prepareProps(cached);
+      widget.onPropsLoaded?.call(cached, _apiService.lastPropsCount);
+      unawaited(_refreshFirstPageFromNetwork());
+      return cached;
+    }
+    final liveProps = await _fetchPropsPage();
     final props = liveProps;
     _startupLog(
       'fetchProps() complete in ${fetchTimer.elapsedMilliseconds}ms (${props.length} props)',
@@ -7497,6 +7509,58 @@ class _PropGridState extends State<PropGrid> {
     );
     widget.onPropsLoaded?.call(props, _apiService.lastPropsCount);
     return props;
+  }
+
+  Future<List<PropData>> _fetchPropsPage({int offset = 0}) {
+    return _apiService.fetchProps(
+      selectedSide: widget.selectedSide,
+      selectedTier: widget.selectedTier,
+      selectedSportsbook: widget.selectedSite,
+      selectedSport: widget.sportFilter,
+      selectedCategory: widget.selectedCategory,
+      search: widget.searchQuery,
+      minConfidence: widget.minConfidence,
+      sortBy: widget.sortBy,
+      limit: _visiblePropStep,
+      offset: offset,
+    );
+  }
+
+  Future<void> _refreshFirstPageFromNetwork() async {
+    try {
+      final fresh = await _fetchPropsPage();
+      if (!mounted) return;
+      setState(() {
+        _preparedProps = _prepareProps(fresh);
+        _propsFuture = Future.value(fresh);
+      });
+      widget.onPropsLoaded?.call(fresh, _apiService.lastPropsCount);
+    } catch (_) {
+      // Keep the saved page visible while the connection recovers.
+    }
+  }
+
+  Future<void> _loadMoreProps() async {
+    if (_isLoadingMore || _preparedProps.length >= _apiService.lastPropsCount) {
+      return;
+    }
+    setState(() => _isLoadingMore = true);
+    try {
+      final next = await _fetchPropsPage(offset: _preparedProps.length);
+      if (!mounted) return;
+      final merged = <String, PropData>{
+        for (final prepared in _preparedProps) prepared.prop.id: prepared.prop,
+        for (final prop in next) prop.id: prop,
+      }.values.toList(growable: false);
+      setState(() {
+        _preparedProps = _prepareProps(merged);
+        _visiblePropLimit = _preparedProps.length;
+        _propsFuture = Future.value(merged);
+      });
+      widget.onPropsLoaded?.call(merged, _apiService.lastPropsCount);
+    } finally {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
   }
 
   Future<void> _refreshProps() async {
@@ -7546,12 +7610,7 @@ class _PropGridState extends State<PropGrid> {
           future: _propsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 28),
-                child: Center(
-                  child: CircularProgressIndicator(color: AppColors.goldBright),
-                ),
-              );
+              return const _PropLoadingSkeleton();
             }
 
             if (snapshot.hasError) {
@@ -7654,7 +7713,9 @@ class _PropGridState extends State<PropGrid> {
                   sortedProps.length,
                 );
                 final visibleProps = sortedProps.take(visibleCount).toList();
-                final hasMore = visibleCount < sortedProps.length;
+                final hasMore =
+                    visibleCount < sortedProps.length ||
+                    _preparedProps.length < _apiService.lastPropsCount;
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -7688,14 +7749,30 @@ class _PropGridState extends State<PropGrid> {
                       const SizedBox(height: 14),
                       Center(
                         child: OutlinedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _visiblePropLimit += _visiblePropStep;
-                            });
-                          },
-                          icon: const Icon(Icons.expand_more),
+                          onPressed: _isLoadingMore
+                              ? null
+                              : () {
+                                  if (visibleCount < sortedProps.length) {
+                                    setState(() {
+                                      _visiblePropLimit += _visiblePropStep;
+                                    });
+                                  } else {
+                                    unawaited(_loadMoreProps());
+                                  }
+                                },
+                          icon: _isLoadingMore
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.expand_more),
                           label: Text(
-                            'LOAD MORE (${sortedProps.length - visibleCount} remaining)',
+                            _isLoadingMore
+                                ? 'LOADING MORE'
+                                : 'LOAD MORE (${(_apiService.lastPropsCount - visibleCount).clamp(0, _apiService.lastPropsCount)} remaining)',
                           ),
                         ),
                       ),
@@ -7804,6 +7881,68 @@ class _PropToolbar extends StatelessWidget {
   }
 }
 
+class _PropLoadingSkeleton extends StatelessWidget {
+  const _PropLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 760
+            ? 3
+            : constraints.maxWidth >= 480
+            ? 2
+            : 1;
+        return GridView.builder(
+          shrinkWrap: true,
+          primary: false,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: columns * 2,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            mainAxisExtent: 220,
+          ),
+          itemBuilder: (context, index) => Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: AppColors.panel,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(height: 16, width: 150, color: AppColors.border),
+                const SizedBox(height: 14),
+                Container(height: 10, width: 210, color: AppColors.border),
+                const Spacer(),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(height: 44, color: AppColors.border),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Container(height: 44, color: AppColors.border),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Loading live props…',
+                  style: TextStyle(color: AppColors.muted, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _LoadError extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
@@ -7819,7 +7958,7 @@ class _LoadError extends StatelessWidget {
         lower.contains('connection refused') ||
         lower.contains('socketexception') ||
         lower.contains('failed host lookup')) {
-      return 'The backend at http://127.0.0.1:8010 is offline. Start python_backend/main.py and retry.';
+      return 'The live prop service is temporarily unavailable. Your last saved board remains protected; check your connection and retry.';
     }
     return message;
   }

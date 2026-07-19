@@ -19,7 +19,12 @@ class LiveUpdateService {
 
   void connect() {
     if (_closed || _channel != null) return;
-    final httpBase = Uri.parse(ApiService.baseUrl);
+    final configuredBase = ApiService.baseUrl.trim();
+    if (configuredBase.isEmpty) return;
+    final httpBase = Uri.tryParse(configuredBase);
+    if (httpBase == null || !httpBase.hasScheme || httpBase.host.isEmpty) {
+      return;
+    }
     final uri = httpBase.replace(
       scheme: httpBase.scheme == 'https' ? 'wss' : 'ws',
       path: '/api/realtime/ws',

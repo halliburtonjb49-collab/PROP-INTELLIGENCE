@@ -11,15 +11,7 @@ class ScoreboardService {
 
   List<String> get _candidateBaseUrls {
     final configured = _normalizeBaseUrl(baseUrl);
-    final candidates = <String>{
-      configured,
-      configured.replaceFirst('127.0.0.1', 'localhost'),
-      configured.replaceFirst('localhost', '127.0.0.1'),
-      'http://127.0.0.1:8010',
-      'http://localhost:8010',
-      'http://127.0.0.1:8000',
-      'http://localhost:8000',
-    };
+    final candidates = <String>{configured};
     return candidates
         .map(_normalizeBaseUrl)
         .where((value) => value.isNotEmpty)

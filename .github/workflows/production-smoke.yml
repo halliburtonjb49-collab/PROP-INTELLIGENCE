@@ -1,0 +1,19 @@
+name: Production smoke
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  verify-production:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wait for production deployment
+        if: github.event_name == 'push'
+        run: sleep 150
+      - name: Verify app, CORS, props, payload, and production bundle
+        run: python tools/post_deploy_smoke.py

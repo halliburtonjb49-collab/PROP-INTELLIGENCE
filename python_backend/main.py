@@ -1,14 +1,17 @@
 import asyncio
+import hashlib
 import logging
 import os
+import time
 from contextlib import asynccontextmanager, suppress
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from collections import Counter, defaultdict
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import BackgroundTasks, Body, Depends, FastAPI, HTTPException, Query
+from fastapi import BackgroundTasks, Body, Depends, FastAPI, Header, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 import requests
 from threading import Lock
 
@@ -169,6 +172,19 @@ app = FastAPI(
 	lifespan=lifespan,
 )
 
+APP_VERSION = os.getenv("RENDER_GIT_COMMIT", os.getenv("APP_VERSION", "development"))
+_prop_catalog_lock = Lock()
+_prop_catalog: dict[str, object] = {"loadedAt": 0.0, "props": []}
+_prop_metrics_lock = Lock()
+_prop_metrics: dict[str, object] = {
+	"requests": 0,
+	"errors": 0,
+	"emptyResponses": 0,
+	"lastDurationMs": 0,
+	"lastPayloadBytes": 0,
+	"lastServedAt": None,
+}
+
 app.include_router(intelligence_router)
 app.include_router(billing_router)
 app.include_router(realtime_router)
@@ -182,6 +198,25 @@ app.add_middleware(
 	allow_methods=["*"],
 	allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
+
+
+def _cached_prop_catalog() -> list[PropResponse]:
+	now = time.monotonic()
+	with _prop_catalog_lock:
+		loaded_at = float(_prop_catalog["loadedAt"] or 0.0)
+		cached = _prop_catalog["props"]
+		if isinstance(cached, list) and cached and now - loaded_at < 20:
+			return cached
+	props = get_props()
+	with _prop_catalog_lock:
+		_prop_catalog.update(loadedAt=now, props=props)
+	return props
+
+
+def _invalidate_prop_catalog() -> None:
+	with _prop_catalog_lock:
+		_prop_catalog.update(loadedAt=0.0, props=[])
 
 _sync_run_lock = Lock()
 _sync_state_lock = Lock()
@@ -239,6 +274,7 @@ def _mark_sync_running() -> None:
 def _run_sync_background() -> None:
 	try:
 		def mark_fast_lane_complete(results: list[dict[str, object]]) -> None:
+			_invalidate_prop_catalog()
 			with _sync_state_lock:
 				_sync_state.update(
 					fastLaneCompletedAt=datetime.now(timezone.utc).isoformat(),
@@ -246,6 +282,7 @@ def _run_sync_background() -> None:
 				)
 
 		results = run_global_sync_pipeline(mark_fast_lane_complete)
+		_invalidate_prop_catalog()
 		clv_capture = capture_closing_lines_from_props(get_props())
 		quota = quota_snapshot()
 		with _sync_state_lock:
@@ -1093,7 +1130,7 @@ def _active_ticket_payload(*, season: str, user_id: str) -> dict[str, object]:
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
+def health() -> dict[str, object]:
 	storage = slip_storage_health()
 	return {
 		"status": "ok",
@@ -1104,6 +1141,24 @@ def health() -> dict[str, str]:
 		),
 		"ticket_storage": str(storage["status"]),
 		"ticket_storage_mode": str(storage.get("mode", "unknown")),
+		"version": APP_VERSION,
+		"propFeed": dict(_prop_metrics),
+	}
+
+
+@app.get("/api/operations/prop-feed-health")
+def prop_feed_health() -> dict[str, object]:
+	with _prop_metrics_lock:
+		metrics = dict(_prop_metrics)
+	requests_count = max(1, int(metrics["requests"]))
+	return {
+		"status": "ok" if int(metrics["errors"]) == 0 else "degraded",
+		"version": APP_VERSION,
+		"successRate": round(
+			(requests_count - int(metrics["errors"])) / requests_count,
+			4,
+		),
+		**metrics,
 	}
 
 
@@ -1248,20 +1303,29 @@ def prop_alerts() -> dict[str, object]:
 
 @app.get("/api/props")
 def props(
+	response: Response,
 	side: str = Query(default="All"),
 	tier: str = Query(default="All"),
 	sportsbook: str = Query(default="All"),
+	sport: str = Query(default="All"),
+	category: str = Query(default="All"),
+	search: str = Query(default=""),
 	minConfidence: int = Query(default=0),
 	sortBy: str = Query(default="confidence"),
 	includePastDates: bool = Query(default=False),
 	limit: int = Query(default=1500, ge=1, le=5000),
 	offset: int = Query(default=0, ge=0),
+	if_none_match: str | None = Header(default=None, alias="If-None-Match"),
 ) -> dict[str, object]:
+	started_at = time.perf_counter()
 	try:
-		prop_list = get_props()
+		prop_list = _cached_prop_catalog()
 		side_filter = side.strip().lower()
 		tier_filter = tier.strip().lower()
 		sportsbook_filter = sportsbook.strip().lower().replace(" ", "")
+		sport_filter = sport.strip().lower().replace(" ", "")
+		category_filter = category.strip().lower()
+		search_filter = search.strip().lower()
 		min_confidence = max(0, int(minConfidence))
 		sort_by = sortBy.strip().lower()
 		today_local = datetime.now(_scoreboard_timezone()).date()
@@ -1285,12 +1349,26 @@ def props(
 			).strip().lower()
 			confidence = int(row.get("confidence") or 0)
 			prop_sportsbook = str(row.get("sportsbook") or "").strip().lower().replace(" ", "")
+			prop_sport = str(row.get("sport") or "").strip().lower().replace(" ", "")
+			prop_category = str(row.get("category") or "").strip().lower()
+			searchable = " ".join((
+				str(row.get("player") or ""),
+				str(row.get("matchup") or ""),
+				str(row.get("market") or ""),
+				str(row.get("category") or ""),
+			)).lower()
 
 			if side_filter != "all" and recommended_side != side_filter:
 				return False
 			if tier_filter != "all" and recommended_tier != tier_filter:
 				return False
 			if sportsbook_filter != "all" and prop_sportsbook != sportsbook_filter:
+				return False
+			if sport_filter != "all" and prop_sport != sport_filter:
+				return False
+			if category_filter != "all" and prop_category != category_filter:
+				return False
+			if search_filter and search_filter not in searchable:
 				return False
 			if confidence < min_confidence:
 				return False
@@ -1340,7 +1418,7 @@ def props(
 
 		total_count = len(filtered_props)
 		page = filtered_props[offset:offset + limit]
-		return {
+		payload = {
 			"count": total_count,
 			"returned": len(page),
 			"offset": offset,
@@ -1354,12 +1432,43 @@ def props(
 				"side": side,
 				"tier": tier,
 				"sportsbook": sportsbook,
+				"sport": sport,
+				"category": category,
+				"search": search,
 				"minConfidence": min_confidence,
 				"sortBy": sort_by,
 				"includePastDates": includePastDates,
 			},
+			"version": APP_VERSION,
 		}
+		etag_source = (
+			f"{APP_VERSION}|{side}|{tier}|{sportsbook}|{sport}|{category}|"
+			f"{search}|{min_confidence}|{sort_by}|{includePastDates}|"
+			f"{limit}|{offset}|{total_count}|"
+			f"{max((prop.lastUpdatedUtc for prop in page), default='')}"
+		)
+		etag = f'"{hashlib.sha256(etag_source.encode()).hexdigest()[:24]}"'
+		response.headers["ETag"] = etag
+		response.headers["Cache-Control"] = "public, max-age=15, stale-while-revalidate=120"
+		response.headers["X-App-Version"] = APP_VERSION
+		if if_none_match == etag:
+			response.status_code = 304
+			payload = {}
+		duration_ms = int((time.perf_counter() - started_at) * 1000)
+		payload_bytes = len(str(payload).encode("utf-8"))
+		with _prop_metrics_lock:
+			_prop_metrics.update(
+				requests=int(_prop_metrics["requests"]) + 1,
+				emptyResponses=int(_prop_metrics["emptyResponses"]) + (1 if total_count == 0 else 0),
+				lastDurationMs=duration_ms,
+				lastPayloadBytes=payload_bytes,
+				lastServedAt=datetime.now(timezone.utc).isoformat(),
+			)
+		return payload
 	except Exception as exc:
+		with _prop_metrics_lock:
+			_prop_metrics["requests"] = int(_prop_metrics["requests"]) + 1
+			_prop_metrics["errors"] = int(_prop_metrics["errors"]) + 1
 		raise HTTPException(
 			status_code=500,
 			detail=f"Unable to load props: {exc}",

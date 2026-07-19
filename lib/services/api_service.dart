@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/prop_data.dart';
 import '../models/saved_slip.dart';
@@ -34,9 +35,13 @@ class BackendRefreshStatus {
 }
 
 class ApiService {
+  static const String appVersion = String.fromEnvironment(
+    'APP_VERSION',
+    defaultValue: 'development',
+  );
   static const String _configuredBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://127.0.0.1:8010',
+    defaultValue: '',
   );
   static String? _resolvedBaseUrl;
   static List<PropData> _lastSuccessfulProps = const [];
@@ -223,23 +228,9 @@ class ApiService {
 
   static List<String> get _candidateBaseUrls {
     final configured = _normalizeBaseUrl(_configuredBaseUrl);
-    final isLocalBrowser =
-        kIsWeb &&
-        const {'localhost', '127.0.0.1'}.contains(Uri.base.host.toLowerCase());
     final candidates = <String>{
-      if (kIsWeb && !isLocalBrowser) 'https://api.propsintell.com',
+      if (kIsWeb) 'https://api.propsintell.com',
       configured,
-      if (!kIsWeb || isLocalBrowser) 'https://api.propsintell.com',
-      if (!kIsWeb || isLocalBrowser) ...{
-        configured.replaceFirst('127.0.0.1', 'localhost'),
-        configured.replaceFirst('localhost', '127.0.0.1'),
-        'http://127.0.0.1:8011',
-        'http://localhost:8011',
-        'http://127.0.0.1:8010',
-        'http://localhost:8010',
-        'http://127.0.0.1:8000',
-        'http://localhost:8000',
-      },
     };
     return candidates
         .map(_normalizeBaseUrl)
@@ -309,7 +300,8 @@ class ApiService {
         lastError = error;
       }
       if (attempt < 3) {
-        await Future<void>.delayed(Duration(milliseconds: 500 * attempt));
+        final backoffMs = attempt == 1 ? 400 : 800;
+        await Future<void>.delayed(Duration(milliseconds: backoffMs));
       }
     }
     throw Exception(lastError ?? 'Unable to download the props page.');
@@ -449,65 +441,75 @@ class ApiService {
     String selectedSide = 'All',
     String selectedTier = 'All',
     String selectedSportsbook = 'All',
+    String selectedSport = 'All',
+    String selectedCategory = 'All',
+    String search = '',
     int minConfidence = 0,
     String sortBy = 'confidence',
+    int limit = 75,
+    int offset = 0,
   }) async {
     Object? lastError;
 
-    const pageSize = 1500;
-    const maxPages = 20;
-
     for (final candidate in _candidateBaseUrls) {
       try {
-        final collected = <PropData>[];
-        var offset = 0;
-        var totalCount = 0;
-
-        for (var page = 0; page < maxPages; page++) {
-          final uri = Uri.parse('$candidate/api/props').replace(
-            queryParameters: {
-              'side': selectedSide,
-              'tier': selectedTier,
-              'sportsbook': selectedSportsbook,
-              'minConfidence': minConfidence.toString(),
-              'sortBy': sortBy,
-              'limit': pageSize.toString(),
-              'offset': offset.toString(),
-            },
-          );
-          final response = await _getPropsPage(uri);
-          final decoded = jsonDecode(response.body);
-          if (decoded is! Map<String, dynamic>) {
-            throw const FormatException('The backend returned invalid data.');
-          }
-          final rawProps = decoded['props'];
-          if (rawProps is! List) {
-            throw const FormatException(
-              'The backend did not return a props list.',
-            );
-          }
-          totalCount = decoded['count'] is num
-              ? (decoded['count'] as num).toInt()
-              : totalCount;
-          collected.addAll(
-            rawProps
-                .whereType<Map>()
-                .map((raw) => Map<String, dynamic>.from(raw))
-                .map(PropData.fromJson),
-          );
-          offset += rawProps.length;
-          final hasMore = decoded['hasMore'] == true || offset < totalCount;
-          if (rawProps.isEmpty || !hasMore) break;
+        final uri = Uri.parse('$candidate/api/props').replace(
+          queryParameters: {
+            'side': selectedSide,
+            'tier': selectedTier,
+            'sportsbook': selectedSportsbook,
+            'sport': selectedSport,
+            'category': selectedCategory,
+            'search': search,
+            'minConfidence': minConfidence.toString(),
+            'sortBy': sortBy,
+            'limit': limit.clamp(1, 500).toString(),
+            'offset': offset.toString(),
+          },
+        );
+        final response = await _getPropsPage(uri);
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map<String, dynamic>) {
+          throw const FormatException('The backend returned invalid data.');
         }
-
-        final props = _dedupePropsById(collected);
+        final rawProps = decoded['props'];
+        if (rawProps is! List) {
+          throw const FormatException(
+            'The backend did not return a props list.',
+          );
+        }
+        final totalCount = decoded['count'] is num
+            ? (decoded['count'] as num).toInt()
+            : rawProps.length;
+        final rawMaps = rawProps
+            .whereType<Map>()
+            .map((raw) => Map<String, dynamic>.from(raw))
+            .toList(growable: false);
+        final props = _dedupePropsById(rawMaps.map(PropData.fromJson).toList());
         _resolvedBaseUrl = candidate;
         _lastPropsCount = totalCount > 0 ? totalCount : props.length;
         _lastSuccessfulProps = props;
+        if (offset == 0) {
+          await _savePropsCache(
+            _propsCacheKey(
+              selectedSide,
+              selectedTier,
+              selectedSportsbook,
+              selectedSport,
+              selectedCategory,
+              search,
+              minConfidence,
+              sortBy,
+            ),
+            rawMaps,
+            _lastPropsCount,
+          );
+        }
         refreshStatusNotifier.value = BackendRefreshStatus(
           lastRefreshAt: DateTime.now(),
           sourceUrl: candidate,
-          message: 'Downloaded ${props.length} props reliably',
+          message:
+              'Downloaded ${props.length} props reliably • build $appVersion',
         );
         return props;
       } catch (error) {
@@ -531,6 +533,89 @@ class ApiService {
     throw Exception(
       'Unable to reach the live props service. Check your connection and retry.',
     );
+  }
+
+  String _propsCacheKey(
+    String side,
+    String tier,
+    String sportsbook,
+    String sport,
+    String category,
+    String search,
+    int confidence,
+    String sort,
+  ) {
+    final raw =
+        [side, tier, sportsbook, sport, category, search, '$confidence', sort]
+            .map(
+              (value) => value.trim().toLowerCase().replaceAll(
+                RegExp(r'[^a-z0-9]+'),
+                '-',
+              ),
+            )
+            .join('_');
+    return 'prop-feed-v2-$raw';
+  }
+
+  Future<void> _savePropsCache(
+    String key,
+    List<Map<String, dynamic>> rawProps,
+    int total,
+  ) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      key,
+      jsonEncode({
+        'savedAt': DateTime.now().toUtc().toIso8601String(),
+        'total': total,
+        'props': rawProps,
+      }),
+    );
+  }
+
+  Future<List<PropData>> loadCachedProps({
+    String selectedSide = 'All',
+    String selectedTier = 'All',
+    String selectedSportsbook = 'All',
+    String selectedSport = 'All',
+    String selectedCategory = 'All',
+    String search = '',
+    int minConfidence = 0,
+    String sortBy = 'confidence',
+  }) async {
+    final preferences = await SharedPreferences.getInstance();
+    final key = _propsCacheKey(
+      selectedSide,
+      selectedTier,
+      selectedSportsbook,
+      selectedSport,
+      selectedCategory,
+      search,
+      minConfidence,
+      sortBy,
+    );
+    final encoded = preferences.getString(key);
+    if (encoded == null || encoded.isEmpty) return const [];
+    try {
+      final decoded = jsonDecode(encoded);
+      if (decoded is! Map<String, dynamic> || decoded['props'] is! List) {
+        return const [];
+      }
+      _lastPropsCount = (decoded['total'] as num?)?.toInt() ?? 0;
+      final cached = (decoded['props'] as List)
+          .whereType<Map>()
+          .map((raw) => Map<String, dynamic>.from(raw))
+          .map(PropData.fromJson)
+          .toList(growable: false);
+      refreshStatusNotifier.value = BackendRefreshStatus(
+        lastRefreshAt: DateTime.tryParse(decoded['savedAt']?.toString() ?? ''),
+        sourceUrl: 'device cache',
+        message: 'Showing saved props while refreshing',
+      );
+      return cached;
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<List<PropData>> fetchPositiveEvProps({
