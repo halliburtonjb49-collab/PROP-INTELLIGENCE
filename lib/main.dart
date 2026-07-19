@@ -1150,26 +1150,6 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     onTap: () =>
                         widget.onSelectPage?.call(AppPage.goblinsDemons),
                   ),
-                  ValueListenableBuilder<AuthSessionState>(
-                    valueListenable: AuthManager.instance.sessionState,
-                    builder: (context, authState, _) {
-                      if (!authState.isOwner) return const SizedBox.shrink();
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: SidebarButton(
-                          label: 'DATA ADMIN',
-                          selected: widget.selectedPage == AppPage.dataAdmin,
-                          showGoldBar: true,
-                          leadingIcons: const [
-                            Icons.admin_panel_settings_outlined,
-                          ],
-                          leadingIconColors: const [app_colors.AppColors.gold],
-                          onTap: () =>
-                              widget.onSelectPage?.call(AppPage.dataAdmin),
-                        ),
-                      );
-                    },
-                  ),
                 ],
               ),
             ),
@@ -3120,11 +3100,14 @@ class _MainDashboardState extends State<MainDashboard> {
                 : widget.selectedPage == AppPage.propAlerts
                 ? PropAlertsPage(alerts: alertsForPage)
                 : widget.selectedPage == AppPage.analytics
-                ? AnalyticsPage(selectedSport: widget.sportFilter)
+                ? AnalyticsAdminWorkspace(selectedSport: widget.sportFilter)
                 : widget.selectedPage == AppPage.lineMovement
                 ? LineMovementPage(selectedSport: widget.sportFilter)
                 : widget.selectedPage == AppPage.dataAdmin
-                ? const DataAdminPage()
+                ? AnalyticsAdminWorkspace(
+                    selectedSport: widget.sportFilter,
+                    startInDataAdmin: true,
+                  )
                 : widget.selectedPage == AppPage.intelligenceLab
                 ? IntelligenceLabPage(selections: widget.selections)
                 : Scrollbar(
@@ -3184,6 +3167,111 @@ class _MainDashboardState extends State<MainDashboard> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class AnalyticsAdminWorkspace extends StatefulWidget {
+  const AnalyticsAdminWorkspace({
+    super.key,
+    required this.selectedSport,
+    this.startInDataAdmin = false,
+  });
+
+  final String selectedSport;
+  final bool startInDataAdmin;
+
+  @override
+  State<AnalyticsAdminWorkspace> createState() =>
+      _AnalyticsAdminWorkspaceState();
+}
+
+class _AnalyticsAdminWorkspaceState extends State<AnalyticsAdminWorkspace> {
+  late bool _showDataAdmin = widget.startInDataAdmin;
+
+  Widget _viewButton({
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onPressed,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 17),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: selected ? AppColors.gold : Colors.white,
+        backgroundColor: selected
+            ? AppColors.gold.withValues(alpha: .10)
+            : const Color(0xFF07131D),
+        side: BorderSide(color: selected ? AppColors.gold : AppColors.border),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<AuthSessionState>(
+      valueListenable: AuthManager.instance.sessionState,
+      builder: (context, authState, _) {
+        final canUseDataAdmin = authState.isOwner;
+        final showDataAdmin = canUseDataAdmin && _showDataAdmin;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
+              decoration: const BoxDecoration(
+                color: Color(0xFF07131D),
+                border: Border(bottom: BorderSide(color: AppColors.border)),
+              ),
+              child: Row(
+                children: [
+                  _viewButton(
+                    label: 'ANALYTICS',
+                    icon: Icons.analytics_outlined,
+                    selected: !showDataAdmin,
+                    onPressed: () => setState(() => _showDataAdmin = false),
+                  ),
+                  if (canUseDataAdmin) ...[
+                    const SizedBox(width: 8),
+                    _viewButton(
+                      label: 'DATA ADMIN',
+                      icon: Icons.admin_panel_settings_outlined,
+                      selected: showDataAdmin,
+                      onPressed: () => setState(() => _showDataAdmin = true),
+                    ),
+                  ],
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.gold,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'PRO',
+                      style: TextStyle(
+                        color: Color(0xFF06111B),
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: showDataAdmin
+                  ? const DataAdminPage()
+                  : AnalyticsPage(selectedSport: widget.selectedSport),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -4842,7 +4930,8 @@ class TopNavigation extends StatelessWidget {
       message: switch (page) {
         AppPage.board => 'Browse and compare today’s available props',
         AppPage.scoreboard => 'Follow live, upcoming, and final games',
-        AppPage.analytics => 'Review model edge and market coverage',
+        AppPage.analytics =>
+          'Review analytics and, for owners, manage platform data',
         AppPage.lineMovement => 'Track changes across sportsbook lines',
         AppPage.intelligenceLab =>
           'Model correlation, scripts, and historical analogs',
@@ -4980,7 +5069,7 @@ class TopNavigation extends StatelessWidget {
   String get _pageSubtitle => switch (selectedPage) {
     AppPage.board => 'Scan today’s markets and compare available value',
     AppPage.scoreboard => 'Follow live, upcoming and completed games',
-    AppPage.analytics => 'Measure model signals and market coverage',
+    AppPage.analytics => 'Analytics and owner data-management workspace',
     AppPage.lineMovement => 'Monitor number and price changes in real time',
     AppPage.intelligenceLab => 'Stress-test correlation, context and scenarios',
     AppPage.searchPlayers => 'Open focused player and market research',
