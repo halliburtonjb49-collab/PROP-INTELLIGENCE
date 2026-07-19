@@ -1250,87 +1250,6 @@ class _LeftSidebarState extends State<LeftSidebar> {
   }
 }
 
-class _TopAccountStatusBadge extends StatelessWidget {
-  const _TopAccountStatusBadge({required this.state});
-
-  final AuthSessionState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, icon, color, strongBorder) = state.isOwner
-        ? ('OWNER', Icons.workspace_premium_rounded, AppColors.gold, true)
-        : state.isAdmin
-        ? (
-            'ADMIN',
-            Icons.admin_panel_settings_outlined,
-            const Color(0xFFD7DEE5),
-            false,
-          )
-        : state.isTester
-        ? ('TEST', Icons.science_outlined, const Color(0xFF8B949E), false)
-        : state.subscriptionTier == SubscriptionTier.edge
-        ? (
-            'USER · EDGE',
-            Icons.workspace_premium_rounded,
-            AppColors.gold,
-            false,
-          )
-        : state.subscriptionTier == SubscriptionTier.core
-        ? (
-            'USER · CORE',
-            Icons.verified_user_outlined,
-            const Color(0xFF36B9FF),
-            false,
-          )
-        : (
-            'USER',
-            Icons.person_outline_rounded,
-            const Color(0xFFE8EDF2),
-            false,
-          );
-
-    return Container(
-      height: 38,
-      constraints: const BoxConstraints(minWidth: 88, maxWidth: 132),
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: strongBorder ? .13 : .08),
-        borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: color, width: strongBorder ? 2 : 1.2),
-        boxShadow: strongBorder
-            ? [
-                BoxShadow(
-                  color: AppColors.gold.withValues(alpha: .16),
-                  blurRadius: 10,
-                ),
-              ]
-            : null,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(width: 7),
-          Flexible(
-            child: Text(
-              label,
-              key: const ValueKey('top-account-status'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: color,
-                fontSize: 9,
-                fontWeight: FontWeight.w900,
-                letterSpacing: .55,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SidebarHeader extends StatelessWidget {
   const _SidebarHeader({required this.onRefresh, required this.onOpenAlerts});
 
@@ -5258,12 +5177,6 @@ class TopNavigation extends StatelessWidget {
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(width: 9),
-              ValueListenableBuilder<AuthSessionState>(
-                valueListenable: AuthManager.instance.sessionState,
-                builder: (context, authState, _) =>
-                    _TopAccountStatusBadge(state: authState),
               ),
               const SizedBox(width: 7),
               _buildGuideButton(context),

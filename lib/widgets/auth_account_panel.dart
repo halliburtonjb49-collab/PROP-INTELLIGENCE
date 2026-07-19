@@ -628,6 +628,34 @@ class _SignedInView extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(width: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  normalizedRole == 'owner'
+                      ? Icons.workspace_premium_rounded
+                      : normalizedRole == 'admin'
+                      ? Icons.admin_panel_settings_outlined
+                      : normalizedRole == 'tester'
+                      ? Icons.science_outlined
+                      : Icons.person_outline_rounded,
+                  color: roleColor,
+                  size: 16,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  normalizedRole.toUpperCase(),
+                  key: const ValueKey('account-role-label'),
+                  style: TextStyle(
+                    color: roleColor,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .55,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
         const SizedBox(height: 9),
