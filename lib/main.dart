@@ -5032,7 +5032,7 @@ class TopNavigation extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.fromLTRB(14, 15, 14, 13),
+          padding: const EdgeInsets.fromLTRB(11, 15, 11, 13),
           decoration: BoxDecoration(
             color: selected
                 ? app_colors.AppColors.gold.withValues(alpha: .07)
@@ -5229,26 +5229,26 @@ class TopNavigation extends StatelessWidget {
                         page: AppPage.board,
                         icon: Icons.dashboard_customize_outlined,
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       _buildNavItem(
                         label: 'SCOREBOARD',
                         page: AppPage.scoreboard,
                         icon: Icons.sports_score_rounded,
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       _buildNavItem(
                         label: 'GAME MARKETS',
                         page: AppPage.gameMarkets,
                         icon: Icons.sports_rounded,
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       _buildNavItem(
                         label: 'ANALYTICS',
                         page: AppPage.analytics,
                         icon: Icons.analytics_outlined,
                         premium: true,
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       _buildNavItem(
                         label: 'LINE MOVEMENT',
                         page: AppPage.lineMovement,
