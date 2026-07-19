@@ -1620,6 +1620,7 @@ class _MainDashboardState extends State<MainDashboard> {
   int _facetTotal = 0;
   Map<String, int> _categoryCounts = const {};
   List<PropData> _evScannerProps = const [];
+  PropData? _focusedProp;
   bool _isEvScannerLoading = false;
   String? _evScannerError;
   List<PropAlertData> _propAlerts = const [];
@@ -1657,6 +1658,7 @@ class _MainDashboardState extends State<MainDashboard> {
     if (oldWidget.sportFilter != widget.sportFilter && mounted) {
       setState(() {
         _selectedCategory = 'ALL';
+        _focusedProp = null;
         _latestProps = const [];
         _facetTotal = 0;
         _categoryCounts = const {};
@@ -2607,6 +2609,7 @@ class _MainDashboardState extends State<MainDashboard> {
                   onPressed: () => setState(() {
                     _selectedSite = book;
                     _selectedCategory = 'ALL';
+                    _focusedProp = null;
                     _latestProps = const [];
                     _facetTotal = 0;
                     _categoryCounts = const {};
@@ -2655,11 +2658,17 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Widget _buildBoardIntelligence() {
+    final focusedProp = _focusedProp;
     final selectedProps = <String, PropData>{
       for (final selection in widget.selections)
         selection.prop.id: selection.prop,
     }.values.toList(growable: false);
-    final props = selectedProps.isNotEmpty ? selectedProps : _visibleProps;
+    final props = focusedProp != null
+        ? <PropData>[focusedProp]
+        : selectedProps.isNotEmpty
+        ? selectedProps
+        : _visibleProps;
+    final showingFocusedProp = focusedProp != null;
     final metricScope = selectedProps.isNotEmpty
         ? 'Across selected props'
         : 'Across visible props';
@@ -2674,33 +2683,61 @@ class _MainDashboardState extends State<MainDashboard> {
         : ([
             ...props,
           ]..sort((a, b) => b.confidence.compareTo(a.confidence))).first;
-    final entries = <(String, String, String)>[
-      (
-        'TOP EDGE',
-        top?.player ?? 'Waiting for props',
-        top == null ? '--' : '+${top.edge.toStringAsFixed(2)}%',
-      ),
-      (
-        'AVG EDGE',
-        '${averageEdge >= 0 ? '+' : ''}${averageEdge.toStringAsFixed(2)}%',
-        metricScope,
-      ),
-      (
-        'HIGHEST HIT RATE',
-        hitLeader?.player ?? '--',
-        hitLeader == null ? '--' : '${hitLeader.confidence}%',
-      ),
-      (
-        'PROPS WITH EDGE',
-        '${props.where((p) => p.edge > 0).length}',
-        '${props.length} visible',
-      ),
-      (
-        'LAST UPDATED',
-        _formatLastUpdated(_lastUpdated),
-        _formatLocalDate(_currentTime),
-      ),
-    ];
+    final entries = showingFocusedProp
+        ? <(String, String, String)>[
+            (
+              'PLAYER',
+              focusedProp.player,
+              '${focusedProp.sport} • ${focusedProp.sportsbook}',
+            ),
+            (
+              'EDGE',
+              '${focusedProp.edge >= 0 ? '+' : ''}${focusedProp.edge.toStringAsFixed(2)}%',
+              'Model edge for this prop',
+            ),
+            (
+              'HIT RATE',
+              '${focusedProp.confidence}%',
+              'Current model confidence',
+            ),
+            (
+              'MARKET',
+              _marketCategory(focusedProp),
+              '${focusedProp.line.toStringAsFixed(1)} • ${focusedProp.recommendedSide}',
+            ),
+            (
+              'LAST UPDATED',
+              _formatLastUpdated(_lastUpdated),
+              _formatLocalDate(_currentTime),
+            ),
+          ]
+        : <(String, String, String)>[
+            (
+              'TOP EDGE',
+              top?.player ?? 'Waiting for props',
+              top == null ? '--' : '+${top.edge.toStringAsFixed(2)}%',
+            ),
+            (
+              'AVG EDGE',
+              '${averageEdge >= 0 ? '+' : ''}${averageEdge.toStringAsFixed(2)}%',
+              metricScope,
+            ),
+            (
+              'HIGHEST HIT RATE',
+              hitLeader?.player ?? '--',
+              hitLeader == null ? '--' : '${hitLeader.confidence}%',
+            ),
+            (
+              'PROPS WITH EDGE',
+              '${props.where((p) => p.edge > 0).length}',
+              '${props.length} visible',
+            ),
+            (
+              'LAST UPDATED',
+              _formatLastUpdated(_lastUpdated),
+              _formatLocalDate(_currentTime),
+            ),
+          ];
     return Container(
       height: 68,
       decoration: BoxDecoration(
@@ -2876,6 +2913,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 return OutlinedButton(
                   onPressed: () => setState(() {
                     _selectedCategory = category;
+                    _focusedProp = null;
                     _latestProps = const [];
                     _lastUpdated = null;
                   }),
@@ -3082,7 +3120,12 @@ class _MainDashboardState extends State<MainDashboard> {
                           const SizedBox(height: 10),*/
                           PropGrid(
                             selections: widget.selections,
-                            onSelect: widget.onSelect,
+                            onSelect: (prop, side) {
+                              setState(() => _focusedProp = prop);
+                              widget.onSelect(prop, side);
+                            },
+                            onPropFocused: (prop) =>
+                                setState(() => _focusedProp = prop),
                             sportFilter: widget.sportFilter,
                             searchQuery: _searchQuery,
                             selectedSite: _selectedSite,
@@ -5693,6 +5736,7 @@ class PropGrid extends StatefulWidget {
   final String searchQuery;
   final void Function(List<PropData>, int, int, Map<String, int>)?
   onPropsLoaded;
+  final ValueChanged<PropData>? onPropFocused;
 
   const PropGrid({
     super.key,
@@ -5707,6 +5751,7 @@ class PropGrid extends StatefulWidget {
     required this.sortBy,
     required this.searchQuery,
     this.onPropsLoaded,
+    this.onPropFocused,
   });
 
   @override
@@ -7610,7 +7655,11 @@ class _PropGridState extends State<PropGrid> {
                           }
                         }
                         return RepaintBoundary(
-                          child: _buildPortraitPropCard(prop, selected?.side),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => widget.onPropFocused?.call(prop),
+                            child: _buildPortraitPropCard(prop, selected?.side),
+                          ),
                         );
                       },
                     ),
