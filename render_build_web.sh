@@ -43,3 +43,5 @@ if grep -Eqi 'localhost|127\.0\.0\.1' build/web/main.dart.js; then
   echo "Production bundle contains a local backend address." >&2
   exit 1
 fi
+
+python3 tools/validate_pwa.py build/web

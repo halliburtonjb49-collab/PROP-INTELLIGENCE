@@ -1,13 +1,19 @@
 {
     "name": "PROP INTELLIGENCE",
-    "short_name": "PROP INTELLIGENCE",
-    "start_url": ".",
+    "short_name": "PROP INTEL",
+    "id": "/",
+    "start_url": "/?source=pwa",
+    "scope": "/",
     "display": "standalone",
+    "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
     "background_color": "#020609",
     "theme_color": "#020609",
     "description": "PROP INTELLIGENCE sports analytics and prop research.",
-    "orientation": "any",
+    "orientation": "portrait-primary",
     "prefer_related_applications": false,
+    "categories": ["sports", "productivity", "utilities"],
+    "lang": "en-US",
+    "dir": "ltr",
     "icons": [
         {
             "src": "icons/Icon-192.png",
@@ -23,13 +29,21 @@
             "src": "icons/Icon-maskable-192.png",
             "sizes": "192x192",
             "type": "image/png",
-            "purpose": "maskable"
+            "purpose": "maskable any"
         },
         {
             "src": "icons/Icon-maskable-512.png",
             "sizes": "512x512",
             "type": "image/png",
-            "purpose": "maskable"
+            "purpose": "maskable any"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Open Prop Board",
+            "short_name": "Prop Board",
+            "url": "/?source=pwa&view=board",
+            "icons": [{"src": "icons/Icon-192.png", "sizes": "192x192", "type": "image/png"}]
         }
     ]
 }
