@@ -1545,7 +1545,11 @@ class _SidebarHeader extends StatelessWidget {
                 children: [
                   Text(
                     'PROP',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                    style: TextStyle(
+                      color: AppColors.goldBright,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                   SizedBox(height: 3),
                   Text(
@@ -1856,6 +1860,8 @@ class _MainDashboardState extends State<MainDashboard> {
     if (oldWidget.sportFilter != widget.sportFilter && mounted) {
       setState(() {
         _selectedCategory = 'ALL';
+        _latestProps = const [];
+        _lastUpdated = null;
       });
       if (widget.selectedPage == AppPage.evScanner) {
         unawaited(_loadEvScannerProps());
@@ -2780,6 +2786,8 @@ class _MainDashboardState extends State<MainDashboard> {
                   onPressed: () => setState(() {
                     _selectedSite = book;
                     _selectedCategory = 'ALL';
+                    _latestProps = const [];
+                    _lastUpdated = null;
                   }),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: selected ? AppColors.gold : Colors.white,
@@ -2824,7 +2832,14 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Widget _buildBoardIntelligence() {
-    final props = _visibleProps;
+    final selectedProps = <String, PropData>{
+      for (final selection in widget.selections)
+        selection.prop.id: selection.prop,
+    }.values.toList(growable: false);
+    final props = selectedProps.isNotEmpty ? selectedProps : _visibleProps;
+    final metricScope = selectedProps.isNotEmpty
+        ? 'Across selected props'
+        : 'Across visible props';
     final top = props.isEmpty
         ? null
         : ([...props]..sort((a, b) => b.edge.compareTo(a.edge))).first;
@@ -2845,7 +2860,7 @@ class _MainDashboardState extends State<MainDashboard> {
       (
         'AVG EDGE',
         '${averageEdge >= 0 ? '+' : ''}${averageEdge.toStringAsFixed(2)}%',
-        'Across visible props',
+        metricScope,
       ),
       (
         'HIGHEST HIT RATE',
@@ -3039,7 +3054,11 @@ class _MainDashboardState extends State<MainDashboard> {
                 final category = categories[index];
                 final selected = _effectiveSelectedCategory == category;
                 return OutlinedButton(
-                  onPressed: () => setState(() => _selectedCategory = category),
+                  onPressed: () => setState(() {
+                    _selectedCategory = category;
+                    _latestProps = const [];
+                    _lastUpdated = null;
+                  }),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: selected ? AppColors.gold : Colors.white,
                     backgroundColor: const Color(0xFF07131D),
@@ -5896,6 +5915,17 @@ class _PropGridState extends State<PropGrid> {
   int _visiblePropLimit = _visiblePropStep;
   final Set<String> _favoritePropIds = <String>{};
 
+  String get _queryKey => [
+    widget.sportFilter,
+    widget.selectedSite,
+    widget.selectedCategory,
+    widget.selectedSide,
+    widget.selectedTier,
+    widget.minConfidence.toString(),
+    widget.sortBy,
+    widget.searchQuery,
+  ].join('|');
+
   Future<void> _showMetricMeaningOverlay({
     required String title,
     required String description,
@@ -7479,6 +7509,7 @@ class _PropGridState extends State<PropGrid> {
   }
 
   Future<List<PropData>> _loadProps() async {
+    final requestKey = _queryKey;
     final fetchTimer = Stopwatch()..start();
     _startupLog('fetchProps() start');
     final cached = await _apiService.loadCachedProps(
@@ -7491,13 +7522,15 @@ class _PropGridState extends State<PropGrid> {
       minConfidence: widget.minConfidence,
       sortBy: widget.sortBy,
     );
+    if (!mounted || requestKey != _queryKey) return const [];
     if (cached.isNotEmpty) {
       _preparedProps = _prepareProps(cached);
       widget.onPropsLoaded?.call(cached, _apiService.lastPropsCount);
-      unawaited(_refreshFirstPageFromNetwork());
+      unawaited(_refreshFirstPageFromNetwork(requestKey));
       return cached;
     }
     final liveProps = await _fetchPropsPage();
+    if (!mounted || requestKey != _queryKey) return const [];
     final props = liveProps;
     _startupLog(
       'fetchProps() complete in ${fetchTimer.elapsedMilliseconds}ms (${props.length} props)',
@@ -7526,10 +7559,10 @@ class _PropGridState extends State<PropGrid> {
     );
   }
 
-  Future<void> _refreshFirstPageFromNetwork() async {
+  Future<void> _refreshFirstPageFromNetwork(String requestKey) async {
     try {
       final fresh = await _fetchPropsPage();
-      if (!mounted) return;
+      if (!mounted || requestKey != _queryKey) return;
       setState(() {
         _preparedProps = _prepareProps(fresh);
         _propsFuture = Future.value(fresh);
@@ -7544,10 +7577,11 @@ class _PropGridState extends State<PropGrid> {
     if (_isLoadingMore || _preparedProps.length >= _apiService.lastPropsCount) {
       return;
     }
+    final requestKey = _queryKey;
     setState(() => _isLoadingMore = true);
     try {
       final next = await _fetchPropsPage(offset: _preparedProps.length);
-      if (!mounted) return;
+      if (!mounted || requestKey != _queryKey) return;
       final merged = <String, PropData>{
         for (final prepared in _preparedProps) prepared.prop.id: prepared.prop,
         for (final prop in next) prop.id: prop,
