@@ -563,6 +563,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             onSelect: _toggleSelection,
             sportFilter: _selectedBoardSport,
             selectedPage: _selectedPage,
+            onSelectPage: (page) =>
+                _switchToPage(page, source: 'board-toolbar'),
           ),
           const InteractiveConstructorEngineWidget(),
           const CloudWatchlistScreen(),
@@ -1073,6 +1075,17 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   const _SidebarSectionLabel('WORKSPACE'),
                   const SizedBox(height: 7),
                   SidebarButton(
+                    label: 'THE LAB',
+                    leadingIcons: const [Icons.science_outlined],
+                    leadingIconColors: const [AppColors.gold],
+                    selected: widget.selectedPage == AppPage.intelligenceLab,
+                    premium: true,
+                    showGoldBar: true,
+                    onTap: () =>
+                        widget.onSelectPage?.call(AppPage.intelligenceLab),
+                  ),
+                  const SizedBox(height: 6),
+                  SidebarButton(
                     label: 'PROP BUILDER',
                     leadingIcons: const [Icons.category_outlined],
                     selected: widget.selectedPage == AppPage.propBuilder,
@@ -1557,6 +1570,7 @@ class MainDashboard extends StatefulWidget {
   final void Function(PropData prop, PickSide side) onSelect;
   final String sportFilter;
   final AppPage selectedPage;
+  final ValueChanged<AppPage>? onSelectPage;
 
   const MainDashboard({
     super.key,
@@ -1564,6 +1578,7 @@ class MainDashboard extends StatefulWidget {
     required this.onSelect,
     required this.sportFilter,
     required this.selectedPage,
+    this.onSelectPage,
   });
 
   @override
@@ -2548,10 +2563,30 @@ class _MainDashboardState extends State<MainDashboard> {
             height: 42,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: books.length,
+              itemCount: books.length + 1,
               separatorBuilder: (_, _) => const SizedBox(width: 6),
               itemBuilder: (context, index) {
-                final book = books[index];
+                if (index == 1) {
+                  return Tooltip(
+                    message: 'Search players and open detailed prop research',
+                    child: OutlinedButton(
+                      onPressed: () =>
+                          widget.onSelectPage?.call(AppPage.searchPlayers),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.gold,
+                        backgroundColor: const Color(0xFF07131D),
+                        side: const BorderSide(color: AppColors.gold),
+                        minimumSize: const Size(42, 42),
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                      ),
+                      child: const Icon(Icons.search_rounded, size: 18),
+                    ),
+                  );
+                }
+                final book = books[index > 1 ? index - 1 : index];
                 final selected = _selectedSite == book;
                 return OutlinedButton(
                   onPressed: () => setState(() {
@@ -4743,30 +4778,6 @@ class TopNavigation extends StatelessWidget {
     );
   }
 
-  Widget _buildSearchPlayersButton() {
-    return Tooltip(
-      message: 'Search players and open detailed prop research',
-      child: InkWell(
-        onTap: () => onTabSelected(AppPage.searchPlayers),
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: const Color(0xFF091722),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: app_colors.AppColors.borderGold),
-          ),
-          child: const Icon(
-            Icons.search_rounded,
-            color: app_colors.AppColors.gold,
-            size: 18,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildAlertButton() {
     return Tooltip(
       message: 'View prop alerts and monitored conditions',
@@ -4939,8 +4950,6 @@ class TopNavigation extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
               ],
-              _buildSearchPlayersButton(),
-              const SizedBox(width: 9),
               Expanded(
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -4969,13 +4978,6 @@ class TopNavigation extends StatelessWidget {
                         label: 'LINE MOVEMENT',
                         page: AppPage.lineMovement,
                         icon: Icons.stacked_line_chart_rounded,
-                        premium: true,
-                      ),
-                      const SizedBox(width: 6),
-                      _buildNavItem(
-                        label: 'LAB',
-                        page: AppPage.intelligenceLab,
-                        icon: Icons.science_outlined,
                         premium: true,
                       ),
                     ],
