@@ -66,7 +66,17 @@ void main() {
       find.byKey(const ValueKey('mobile-active-slip-count')),
       findsOneWidget,
     );
-    expect(find.text('3'), findsOneWidget);
+    expect(find.text('3'), findsWidgets);
+    expect(find.byKey(const ValueKey('mobile-nav-board')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('mobile-nav-game-markets')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('mobile-nav-active-slip')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('mobile-nav-menu')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -83,7 +93,7 @@ void main() {
       find.byKey(const ValueKey('mobile-active-slip-count')),
       findsOneWidget,
     );
-    expect(find.text('2'), findsOneWidget);
+    expect(find.text('2'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 }

@@ -1006,6 +1006,16 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         content: _buildMainContent(),
         rightSidebar: _buildRightPanel(),
         activeSlipCount: _activeSlipController.legCount,
+        mobileSelectedIndex: switch (_selectedPage) {
+          AppPage.board => 0,
+          AppPage.gameMarkets => 1,
+          AppPage.watchlist => 2,
+          _ => 3,
+        },
+        onMobileBoard: () =>
+            _switchToPage(AppPage.board, source: 'mobile-bottom-nav'),
+        onMobileGameMarkets: () =>
+            _switchToPage(AppPage.gameMarkets, source: 'mobile-bottom-nav'),
       ),
     );
   }

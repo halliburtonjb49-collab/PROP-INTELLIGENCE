@@ -10,6 +10,9 @@ class AppShell extends StatelessWidget {
     required this.content,
     required this.rightSidebar,
     this.activeSlipCount = 0,
+    this.mobileSelectedIndex = 0,
+    this.onMobileBoard,
+    this.onMobileGameMarkets,
   });
 
   final Widget leftSidebar;
@@ -17,6 +20,9 @@ class AppShell extends StatelessWidget {
   final Widget content;
   final Widget rightSidebar;
   final int activeSlipCount;
+  final int mobileSelectedIndex;
+  final VoidCallback? onMobileBoard;
+  final VoidCallback? onMobileGameMarkets;
 
   static const double leftWidth = 244;
   static const double rightWidth = 332;
@@ -72,6 +78,9 @@ class AppShell extends StatelessWidget {
             content: content,
             rightSidebar: rightSidebar,
             activeSlipCount: activeSlipCount,
+            selectedIndex: mobileSelectedIndex,
+            onBoard: onMobileBoard,
+            onGameMarkets: onMobileGameMarkets,
           );
         }
         final metrics = _metrics(constraints.maxWidth);
@@ -143,6 +152,9 @@ class _MobileAppShell extends StatefulWidget {
     required this.content,
     required this.rightSidebar,
     required this.activeSlipCount,
+    required this.selectedIndex,
+    required this.onBoard,
+    required this.onGameMarkets,
   });
 
   final Widget leftSidebar;
@@ -150,6 +162,9 @@ class _MobileAppShell extends StatefulWidget {
   final Widget content;
   final Widget rightSidebar;
   final int activeSlipCount;
+  final int selectedIndex;
+  final VoidCallback? onBoard;
+  final VoidCallback? onGameMarkets;
 
   @override
   State<_MobileAppShell> createState() => _MobileAppShellState();
@@ -284,11 +299,182 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 7),
+                  _MobileBottomNavigation(
+                    selectedIndex: widget.selectedIndex,
+                    activeSlipCount: widget.activeSlipCount,
+                    onBoard: widget.onBoard,
+                    onGameMarkets: widget.onGameMarkets,
+                    onSlip: () => _scaffoldKey.currentState?.openEndDrawer(),
+                    onMenu: () => _scaffoldKey.currentState?.openDrawer(),
+                  ),
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MobileBottomNavigation extends StatelessWidget {
+  const _MobileBottomNavigation({
+    required this.selectedIndex,
+    required this.activeSlipCount,
+    required this.onBoard,
+    required this.onGameMarkets,
+    required this.onSlip,
+    required this.onMenu,
+  });
+
+  final int selectedIndex;
+  final int activeSlipCount;
+  final VoidCallback? onBoard;
+  final VoidCallback? onGameMarkets;
+  final VoidCallback onSlip;
+  final VoidCallback onMenu;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 68,
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xF207111B),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: AppColors.borderGold),
+        boxShadow: const [BoxShadow(color: Color(0x88000000), blurRadius: 18)],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _MobileNavItem(
+              key: const ValueKey('mobile-nav-board'),
+              icon: Icons.dashboard_customize_outlined,
+              label: 'BOARD',
+              selected: selectedIndex == 0,
+              onTap: onBoard,
+            ),
+          ),
+          Expanded(
+            child: _MobileNavItem(
+              key: const ValueKey('mobile-nav-game-markets'),
+              icon: Icons.sports_rounded,
+              label: 'GAMES',
+              selected: selectedIndex == 1,
+              onTap: onGameMarkets,
+            ),
+          ),
+          Expanded(
+            child: _MobileNavItem(
+              key: const ValueKey('mobile-nav-active-slip'),
+              icon: Icons.receipt_long_rounded,
+              label: 'SLIP',
+              selected: selectedIndex == 2,
+              badge: activeSlipCount,
+              onTap: onSlip,
+            ),
+          ),
+          Expanded(
+            child: _MobileNavItem(
+              key: const ValueKey('mobile-nav-menu'),
+              icon: Icons.grid_view_rounded,
+              label: 'MENU',
+              selected: selectedIndex == 3,
+              onTap: onMenu,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileNavItem extends StatelessWidget {
+  const _MobileNavItem({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.badge = 0,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+  final int badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppColors.gold : AppColors.textSecondary;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(11),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 54),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.gold.withValues(alpha: .11)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(
+              color: selected ? AppColors.gold : Colors.transparent,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(icon, color: color, size: 21),
+                  if (badge > 0)
+                    Positioned(
+                      right: -12,
+                      top: -8,
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          minWidth: 17,
+                          minHeight: 17,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: AppColors.gold,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          badge > 99 ? '99+' : '$badge',
+                          style: const TextStyle(
+                            color: Color(0xFF06111B),
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .45,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -37,17 +37,30 @@ class _GameMarketsScreenState extends State<GameMarketsScreen> {
   }
 
   Future<void> _load({bool refresh = false}) async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (!refresh && _feed == null) {
+      final cached = await _api.loadCachedGameMarkets(_sport);
+      if (!mounted) return;
+      if (cached != null && cached.events.isNotEmpty) {
+        setState(() {
+          _feed = cached;
+          _loading = false;
+          _error = null;
+        });
+      }
+    }
+    if (_feed == null || refresh) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final feed = await _api.fetchGameMarkets(sport: _sport, refresh: refresh);
       if (!mounted) return;
       setState(() => _feed = feed);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString());
+      if (_feed == null) setState(() => _error = error.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }

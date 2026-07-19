@@ -152,12 +152,32 @@ class ApiService {
           throw const FormatException('Invalid game-market response.');
         }
         _resolvedBaseUrl = candidate;
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setString(
+          'game-market-feed-v1-${sport.trim().toUpperCase()}',
+          jsonEncode(decoded),
+        );
         return GameMarketFeed.fromJson(decoded);
       } catch (error) {
         lastError = error;
       }
     }
     throw Exception(lastError ?? 'Game markets are temporarily unavailable.');
+  }
+
+  Future<GameMarketFeed?> loadCachedGameMarkets(String sport) async {
+    final preferences = await SharedPreferences.getInstance();
+    final encoded = preferences.getString(
+      'game-market-feed-v1-${sport.trim().toUpperCase()}',
+    );
+    if (encoded == null || encoded.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(encoded);
+      if (decoded is! Map<String, dynamic>) return null;
+      return GameMarketFeed.fromJson({...decoded, 'cached': true});
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<Map<String, dynamic>> fetchAdminOperations() async {
