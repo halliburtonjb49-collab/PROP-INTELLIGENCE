@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
+import '../theme/app_colors.dart';
+import '../widgets/context_help.dart';
 
 class PropBuilderPerformanceScreen extends StatefulWidget {
   const PropBuilderPerformanceScreen({super.key});
@@ -149,20 +151,25 @@ class _PropBuilderPerformanceScreenState
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
+        color: AppColors.panel,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon),
+          Icon(icon, color: AppColors.gold),
           const SizedBox(height: 12),
           Text(
             value,
-            style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800),
+            style: const TextStyle(
+              color: AppColors.white,
+              fontSize: 25,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 4),
-          Text(label),
+          Text(label, style: const TextStyle(color: AppColors.textSecondary)),
         ],
       ),
     );
@@ -320,6 +327,12 @@ class _PropBuilderPerformanceScreenState
       width: 220,
       child: DropdownButtonFormField<String>(
         initialValue: value,
+        dropdownColor: const Color(0xFF10151C),
+        style: const TextStyle(
+          color: AppColors.white,
+          fontWeight: FontWeight.w700,
+        ),
+        iconEnabledColor: AppColors.gold,
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
@@ -327,7 +340,10 @@ class _PropBuilderPerformanceScreenState
         items: items.map((item) {
           return DropdownMenuItem<String>(
             value: item,
-            child: Text(itemLabel?.call(item) ?? item),
+            child: Text(
+              itemLabel?.call(item) ?? item,
+              style: const TextStyle(color: AppColors.white),
+            ),
           );
         }).toList(),
         onChanged: (newValue) {
@@ -373,246 +389,263 @@ class _PropBuilderPerformanceScreenState
         performance['leg_performance_by_market'] as List<dynamic>? ?? [];
     final recentItems = performance['recent_builds'] as List<dynamic>? ?? [];
 
-    return RefreshIndicator(
-      onRefresh: _loadPerformance,
-      child: ListView(
-        padding: const EdgeInsets.all(14),
-        children: [
-          Row(
-            children: [
-              const Expanded(
+    return ColoredBox(
+      color: AppColors.background,
+      child: RefreshIndicator(
+        onRefresh: _loadPerformance,
+        child: ListView(
+          padding: const EdgeInsets.all(14),
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'PERFORMANCE',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      SizedBox(height: 5),
+                      Text(
+                        'Review graded builds and identify which sports, sites, and markets perform best.',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                const ContextHelp(
+                  title: 'How to use Performance',
+                  message:
+                      'Start with the 30-day view, then use Sport, Prop Site, and Market filters to isolate a strategy. Build Win Rate grades complete slips; Leg Hit Rate grades individual selections. Pending results are excluded until graded. Use small samples cautiously and pull down or press Refresh after results settle.',
+                ),
+                IconButton(
+                  tooltip: 'Refresh',
+                  onPressed: _loadPerformance,
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Chip(label: Text('Range: $_selectedRange')),
+                Chip(label: Text('Sport: $_selectedSport')),
+                Chip(label: Text('Site: $_selectedPropSite')),
+                Chip(label: Text('Market: ${_marketLabel(_selectedMarket)}')),
+              ],
+            ),
+            const SizedBox(height: 18),
+            if (_intValue('total_builds') == 0) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'BUILDER PERFORMANCE',
+                    const Icon(Icons.filter_alt_off, size: 38),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'No matching performance data',
                       style: TextStyle(
+                        fontWeight: FontWeight.w700,
                         fontSize: 16,
-                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                    SizedBox(height: 5),
-                    Text('Track how generated props perform over time.'),
+                    const SizedBox(height: 6),
+                    Text(
+                      'No builds matched $_selectedSport, $_selectedPropSite, $_selectedMarket, and $_selectedRange.',
+                      textAlign: TextAlign.center,
+                    ),
                   ],
                 ),
               ),
-              IconButton(
-                tooltip: 'Refresh',
-                onPressed: _loadPerformance,
-                icon: const Icon(Icons.refresh),
-              ),
+              const SizedBox(height: 24),
             ],
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              Chip(label: Text('Range: $_selectedRange')),
-              Chip(label: Text('Sport: $_selectedSport')),
-              Chip(label: Text('Site: $_selectedPropSite')),
-              Chip(label: Text('Market: ${_marketLabel(_selectedMarket)}')),
-            ],
-          ),
-          const SizedBox(height: 18),
-          if (_intValue('total_builds') == 0) ...[
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outlineVariant,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = constraints.maxWidth >= 1000
+                    ? 4
+                    : constraints.maxWidth >= 650
+                    ? 2
+                    : 1;
+                return GridView.count(
+                  crossAxisCount: columns,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  childAspectRatio: columns == 1 ? 3.2 : 1.5,
+                  children: [
+                    _metricCard(
+                      label: 'Total Builds',
+                      value: '${_intValue('total_builds')}',
+                      icon: Icons.construction,
+                    ),
+                    _metricCard(
+                      label: 'Build Win Rate',
+                      value:
+                          '${_doubleValue('build_win_rate').toStringAsFixed(1)}%',
+                      icon: Icons.emoji_events,
+                    ),
+                    _metricCard(
+                      label: 'Leg Hit Rate',
+                      value:
+                          '${_doubleValue('leg_hit_rate').toStringAsFixed(1)}%',
+                      icon: Icons.track_changes,
+                    ),
+                    _metricCard(
+                      label: 'Pending Builds',
+                      value: '${_intValue('pending_builds')}',
+                      icon: Icons.schedule,
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _filterDropdown(
+                  label: 'Sport',
+                  value: _selectedSport,
+                  items: _sports,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedSport = value;
+                    });
+                    _loadPerformance();
+                  },
                 ),
-              ),
-              child: Column(
-                children: [
-                  const Icon(Icons.filter_alt_off, size: 38),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'No matching performance data',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'No builds matched $_selectedSport, $_selectedPropSite, $_selectedMarket, and $_selectedRange.',
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
+                _filterDropdown(
+                  label: 'Prop Site',
+                  value: _selectedPropSite,
+                  items: _propSites,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedPropSite = value;
+                    });
+                    _loadPerformance();
+                  },
+                ),
+                _filterDropdown(
+                  label: 'Market',
+                  value: _selectedMarket,
+                  items: _markets,
+                  itemLabel: _marketLabel,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedMarket = value;
+                    });
+                    _loadPerformance();
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _selectedRange = '30D';
+                  _selectedSport = 'ALL';
+                  _selectedPropSite = 'ALL';
+                  _selectedMarket = 'ALL';
+                });
+                _loadPerformance();
+              },
+              icon: const Icon(Icons.filter_alt_off),
+              label: const Text('RESET FILTERS'),
             ),
             const SizedBox(height: 24),
-          ],
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 1000
-                  ? 4
-                  : constraints.maxWidth >= 650
-                  ? 2
-                  : 1;
-              return GridView.count(
-                crossAxisCount: columns,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: columns == 1 ? 3.2 : 1.5,
-                children: [
-                  _metricCard(
-                    label: 'Total Builds',
-                    value: '${_intValue('total_builds')}',
-                    icon: Icons.construction,
-                  ),
-                  _metricCard(
-                    label: 'Build Win Rate',
-                    value:
-                        '${_doubleValue('build_win_rate').toStringAsFixed(1)}%',
-                    icon: Icons.emoji_events,
-                  ),
-                  _metricCard(
-                    label: 'Leg Hit Rate',
-                    value:
-                        '${_doubleValue('leg_hit_rate').toStringAsFixed(1)}%',
-                    icon: Icons.track_changes,
-                  ),
-                  _metricCard(
-                    label: 'Pending Builds',
-                    value: '${_intValue('pending_builds')}',
-                    icon: Icons.schedule,
-                  ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _filterDropdown(
-                label: 'Sport',
-                value: _selectedSport,
-                items: _sports,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedSport = value;
-                  });
-                  _loadPerformance();
-                },
-              ),
-              _filterDropdown(
-                label: 'Prop Site',
-                value: _selectedPropSite,
-                items: _propSites,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedPropSite = value;
-                  });
-                  _loadPerformance();
-                },
-              ),
-              _filterDropdown(
-                label: 'Market',
-                value: _selectedMarket,
-                items: _markets,
-                itemLabel: _marketLabel,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedMarket = value;
-                  });
-                  _loadPerformance();
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: () {
-              setState(() {
-                _selectedRange = '30D';
-                _selectedSport = 'ALL';
-                _selectedPropSite = 'ALL';
-                _selectedMarket = 'ALL';
-              });
-              _loadPerformance();
-            },
-            icon: const Icon(Icons.filter_alt_off),
-            label: const Text('RESET FILTERS'),
-          ),
-          const SizedBox(height: 24),
-          const SizedBox(height: 26),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              Chip(label: Text('Won: ${_intValue('won_builds')}')),
-              Chip(label: Text('Lost: ${_intValue('lost_builds')}')),
-              Chip(label: Text('Push: ${_intValue('pushed_builds')}')),
-              Chip(label: Text('Legs Won: ${_intValue('legs_won')}')),
-              Chip(label: Text('Legs Lost: ${_intValue('legs_lost')}')),
-            ],
-          ),
-          const SizedBox(height: 30),
-          _legPerformanceSection(
-            title: 'INDIVIDUAL LEG PERFORMANCE BY SPORT',
-            items: legSportItems,
-          ),
-          const SizedBox(height: 30),
-          _legPerformanceSection(
-            title: 'INDIVIDUAL LEG PERFORMANCE BY PROP SITE',
-            items: legSiteItems,
-          ),
-          const SizedBox(height: 30),
-          _legPerformanceSection(
-            title: 'INDIVIDUAL LEG PERFORMANCE BY MARKET',
-            items: legMarketItems,
-          ),
-          const SizedBox(height: 30),
-          _breakdownSection(title: 'BUILD RESULTS BY SPORT', items: sportItems),
-          const SizedBox(height: 30),
-          _breakdownSection(
-            title: 'BUILD RESULTS BY PROP SITE',
-            items: siteItems,
-          ),
-          const SizedBox(height: 30),
-          const Text(
-            'RECENT BUILDS',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 12),
-          if (recentItems.isEmpty)
-            const Text('No recent builds available.')
-          else
-            ...recentItems.whereType<Map<String, dynamic>>().map((build) {
-              final status = build['status']?.toString() ?? 'pending';
-              final sports = build['sports'] as List<dynamic>? ?? [];
-              final hitRate = (build['hit_rate'] as num?)?.toDouble() ?? 0;
-              return Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    child: Icon(
-                      status == 'won'
-                          ? Icons.check
-                          : status == 'lost'
-                          ? Icons.close
-                          : status == 'push'
-                          ? Icons.horizontal_rule
-                          : Icons.schedule,
+            const SizedBox(height: 26),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                Chip(label: Text('Won: ${_intValue('won_builds')}')),
+                Chip(label: Text('Lost: ${_intValue('lost_builds')}')),
+                Chip(label: Text('Push: ${_intValue('pushed_builds')}')),
+                Chip(label: Text('Legs Won: ${_intValue('legs_won')}')),
+                Chip(label: Text('Legs Lost: ${_intValue('legs_lost')}')),
+              ],
+            ),
+            const SizedBox(height: 30),
+            _legPerformanceSection(
+              title: 'INDIVIDUAL LEG PERFORMANCE BY SPORT',
+              items: legSportItems,
+            ),
+            const SizedBox(height: 30),
+            _legPerformanceSection(
+              title: 'INDIVIDUAL LEG PERFORMANCE BY PROP SITE',
+              items: legSiteItems,
+            ),
+            const SizedBox(height: 30),
+            _legPerformanceSection(
+              title: 'INDIVIDUAL LEG PERFORMANCE BY MARKET',
+              items: legMarketItems,
+            ),
+            const SizedBox(height: 30),
+            _breakdownSection(
+              title: 'BUILD RESULTS BY SPORT',
+              items: sportItems,
+            ),
+            const SizedBox(height: 30),
+            _breakdownSection(
+              title: 'BUILD RESULTS BY PROP SITE',
+              items: siteItems,
+            ),
+            const SizedBox(height: 30),
+            const Text(
+              'RECENT BUILDS',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 12),
+            if (recentItems.isEmpty)
+              const Text('No recent builds available.')
+            else
+              ...recentItems.whereType<Map<String, dynamic>>().map((build) {
+                final status = build['status']?.toString() ?? 'pending';
+                final sports = build['sports'] as List<dynamic>? ?? [];
+                final hitRate = (build['hit_rate'] as num?)?.toDouble() ?? 0;
+                return Card(
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      child: Icon(
+                        status == 'won'
+                            ? Icons.check
+                            : status == 'lost'
+                            ? Icons.close
+                            : status == 'push'
+                            ? Icons.horizontal_rule
+                            : Icons.schedule,
+                      ),
                     ),
+                    title: Text(
+                      '${build['generated_legs']}-Leg ${status.toUpperCase()}',
+                    ),
+                    subtitle: Text(
+                      '${sports.join(', ')}\n'
+                      'Hit rate ${hitRate.toStringAsFixed(1)}% • '
+                      'Edge ${(build['average_edge'] as num? ?? 0).toStringAsFixed(1)}%',
+                    ),
+                    isThreeLine: true,
                   ),
-                  title: Text(
-                    '${build['generated_legs']}-Leg ${status.toUpperCase()}',
-                  ),
-                  subtitle: Text(
-                    '${sports.join(', ')}\n'
-                    'Hit rate ${hitRate.toStringAsFixed(1)}% • '
-                    'Edge ${(build['average_edge'] as num? ?? 0).toStringAsFixed(1)}%',
-                  ),
-                  isThreeLine: true,
-                ),
-              );
-            }),
-        ],
+                );
+              }),
+          ],
+        ),
       ),
     );
   }

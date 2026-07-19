@@ -206,13 +206,28 @@ class AppColors {
 }
 
 ThemeData buildPropIntelligenceBrandedTheme() {
-  return ThemeData.dark().copyWith(
+  final baseTheme = ThemeData.dark();
+  return baseTheme.copyWith(
     scaffoldBackgroundColor: brand.PropIntelligenceColors.darkCanvasBg,
     cardColor: brand.PropIntelligenceColors.darkCardBg,
     dividerColor: Colors.white10,
-    textTheme: const TextTheme(
-      bodyLarge: TextStyle(color: brand.PropIntelligenceColors.metallicSilver),
-      titleLarge: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+    textTheme: baseTheme.textTheme
+        .apply(
+          bodyColor: brand.PropIntelligenceColors.metallicSilver,
+          displayColor: Colors.white,
+        )
+        .copyWith(
+          titleLarge: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+    dropdownMenuTheme: const DropdownMenuThemeData(
+      textStyle: TextStyle(color: app_colors.AppColors.white),
+      menuStyle: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(Color(0xFF10151C)),
+        surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
+      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -1103,7 +1118,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   ),
                   const SizedBox(height: 6),
                   SidebarButton(
-                    label: 'BUILDER PERFORMANCE',
+                    label: 'PERFORMANCE',
                     leadingIcons: const [Icons.grid_view_rounded],
                     selected: widget.selectedPage == AppPage.builderPerformance,
                     premium: true,
@@ -4607,6 +4622,42 @@ class TopNavigation extends StatelessWidget {
                 ),
                 SizedBox(height: 18),
                 _GuideSectionHeader(
+                  icon: Icons.workspaces_outline,
+                  title: 'WORKSPACE TOOLS',
+                  subtitle: 'What each left-side destination does',
+                ),
+                _GuideTerm(
+                  term: 'The Lab',
+                  definition:
+                      'Select two props in your active slip, then compare correlation, game scripts, historical similarity, and alert conditions. Use the help control inside the Lab for its guided workflow.',
+                ),
+                _GuideTerm(
+                  term: 'Prop Builder',
+                  definition:
+                      'Choose a market, set a line, and add the custom leg to Active Slips. The numbered sections take you through the process in order.',
+                ),
+                _GuideTerm(
+                  term: 'Active Slips',
+                  definition:
+                      'Review saved and live selections, monitor updates, remove unwanted legs, and open a slip to continue research.',
+                ),
+                _GuideTerm(
+                  term: 'Performance',
+                  definition:
+                      'Filter graded results by date, sport, prop site, and market. Compare complete-build win rate with individual-leg hit rate before drawing conclusions.',
+                ),
+                _GuideTerm(
+                  term: 'EV Scanner',
+                  definition:
+                      'Review props where the model estimate differs favorably from the available market. Verify the live line and use the card help icons before selecting a side.',
+                ),
+                _GuideTerm(
+                  term: 'Elite Active',
+                  definition:
+                      'Focus the board on the strongest currently available research profiles. Recheck freshness, injuries, and the offered line before saving a selection.',
+                ),
+                SizedBox(height: 18),
+                _GuideSectionHeader(
                   icon: Icons.menu_book_rounded,
                   title: 'KEY TERMS',
                   subtitle: 'Plain-language definitions used across the app',
@@ -4836,7 +4887,7 @@ class TopNavigation extends StatelessWidget {
     AppPage.propAlerts => 'PROP ALERTS',
     AppPage.propBuilder => 'PROP BUILDER',
     AppPage.watchlist => 'ACTIVE SLIPS',
-    AppPage.builderPerformance => 'BUILDER PERFORMANCE',
+    AppPage.builderPerformance => 'PERFORMANCE',
     AppPage.evScanner => 'EV SCANNER',
     AppPage.goblinsDemons => 'GOBLINS / DEMONS',
     AppPage.dataAdmin => 'DATA ADMIN',

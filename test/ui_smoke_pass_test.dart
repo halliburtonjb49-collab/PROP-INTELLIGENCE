@@ -69,4 +69,34 @@ void main() {
     expect(controller.legCount, 0);
     expect(controller.isEmpty, true);
   });
+
+  testWidgets('smoke: every primary workspace destination opens', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1600, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(const PropIntelligenceApp());
+    await tester.pump(const Duration(milliseconds: 800));
+
+    Future<void> openWorkspace(String label, String expected) async {
+      final destination = find.text(label);
+      expect(destination, findsOneWidget);
+      await tester.ensureVisible(destination);
+      await tester.tap(destination);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text(expected), findsWidgets);
+      expect(tester.takeException(), isNull);
+    }
+
+    await openWorkspace('THE LAB', 'INTELLIGENCE LAB');
+    await openWorkspace('PROP BUILDER', 'PROP BUILDER');
+    await openWorkspace('ACTIVE SLIPS', 'ACTIVE SLIPS');
+    await openWorkspace('PERFORMANCE', 'PERFORMANCE');
+    await openWorkspace('EV SCANNER', 'EV SCANNER');
+  });
 }
