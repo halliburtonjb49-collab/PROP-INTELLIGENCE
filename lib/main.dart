@@ -1013,15 +1013,6 @@ class LeftSidebar extends StatefulWidget {
 class _LeftSidebarState extends State<LeftSidebar> {
   final ScrollController _sidebarScrollController = ScrollController();
 
-  void _openPremiumPaywallSheetMenu() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const BrandedPaywallModalSheet(),
-    );
-  }
-
   String _sportEmoji(String sport) {
     switch (sport) {
       case 'MLB':
@@ -1136,17 +1127,6 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     leadingIconColors: const [Color(0xFF36B9FF)],
                     onTap: () => widget.onSelectPage?.call(AppPage.evScanner),
                   ),
-                  ValueListenableBuilder<AuthSessionState>(
-                    valueListenable: AuthManager.instance.sessionState,
-                    builder: (context, authState, _) {
-                      return _SidebarAccountStatusBadge(
-                        state: authState,
-                        onUpgrade: authState.isOwner || authState.isPremium
-                            ? null
-                            : _openPremiumPaywallSheetMenu,
-                      );
-                    },
-                  ),
                   const SizedBox(height: 18),
                   const _SidebarSectionLabel('SPORTS'),
                   const SizedBox(height: 7),
@@ -1258,11 +1238,10 @@ class _LeftSidebarState extends State<LeftSidebar> {
   }
 }
 
-class _SidebarAccountStatusBadge extends StatelessWidget {
-  const _SidebarAccountStatusBadge({required this.state, this.onUpgrade});
+class _TopAccountStatusBadge extends StatelessWidget {
+  const _TopAccountStatusBadge({required this.state});
 
   final AuthSessionState state;
-  final VoidCallback? onUpgrade;
 
   @override
   Widget build(BuildContext context) {
@@ -1298,55 +1277,43 @@ class _SidebarAccountStatusBadge extends StatelessWidget {
             false,
           );
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: InkWell(
-        onTap: onUpgrade,
+    return Container(
+      height: 38,
+      constraints: const BoxConstraints(minWidth: 88, maxWidth: 132),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: strongBorder ? .13 : .08),
         borderRadius: BorderRadius.circular(9),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: strongBorder ? .13 : .08),
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(color: color, width: strongBorder ? 2 : 1.2),
-            boxShadow: strongBorder
-                ? [
-                    BoxShadow(
-                      color: AppColors.gold.withValues(alpha: .16),
-                      blurRadius: 10,
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: color, size: 18),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Text(
-                  label,
-                  key: const ValueKey('sidebar-account-status'),
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .65,
-                  ),
+        border: Border.all(color: color, width: strongBorder ? 2 : 1.2),
+        boxShadow: strongBorder
+            ? [
+                BoxShadow(
+                  color: AppColors.gold.withValues(alpha: .16),
+                  blurRadius: 10,
                 ),
+              ]
+            : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 7),
+          Flexible(
+            child: Text(
+              label,
+              key: const ValueKey('top-account-status'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .55,
               ),
-              if (onUpgrade != null)
-                Text(
-                  'UPGRADE',
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 7.5,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -5134,6 +5101,12 @@ class TopNavigation extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 9),
+              ValueListenableBuilder<AuthSessionState>(
+                valueListenable: AuthManager.instance.sessionState,
+                builder: (context, authState, _) =>
+                    _TopAccountStatusBadge(state: authState),
+              ),
+              const SizedBox(width: 7),
               _buildGuideButton(context),
               _buildRefreshButton(),
               const SizedBox(width: 6),

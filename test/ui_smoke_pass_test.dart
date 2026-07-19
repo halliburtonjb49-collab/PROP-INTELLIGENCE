@@ -83,10 +83,7 @@ void main() {
     await tester.pumpWidget(const PropIntelligenceApp());
     await tester.pump(const Duration(milliseconds: 800));
 
-    expect(
-      find.byKey(const ValueKey('sidebar-account-status')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('top-account-status')), findsOneWidget);
     expect(find.text('ELITE ACTIVE'), findsNothing);
 
     Future<void> openWorkspace(String label, String expected) async {
