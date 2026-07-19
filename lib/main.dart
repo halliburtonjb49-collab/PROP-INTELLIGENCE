@@ -25,7 +25,6 @@ import 'models/slip_selection.dart';
 import 'services/api_service.dart';
 import 'services/auth_manager.dart';
 import 'services/developer_mode_service.dart';
-import 'services/goblin_manager.dart';
 import 'services/prop_watchlist_service.dart';
 import 'services/slip_manager.dart';
 import 'services/supabase_service.dart';
@@ -193,83 +192,6 @@ enum AppPage {
   dataAdmin,
   intelligenceLab,
 }
-
-const Map<String, List<String>> sportPropCategories = {
-  'NBA': [
-    'ALL',
-    'POINTS',
-    'REBOUNDS',
-    'ASSISTS',
-    'PRA',
-    'BLOCKS',
-    'STEALS',
-    '3-POINTERS MADE',
-  ],
-  'WNBA': [
-    'ALL',
-    'POINTS',
-    'REBOUNDS',
-    'ASSISTS',
-    'PRA',
-    'BLOCKS',
-    'STEALS',
-    '3-POINTERS MADE',
-  ],
-  'NFL': [
-    'ALL',
-    'PASSING YARDS',
-    'RUSHING YARDS',
-    'RECEIVING YARDS',
-    'TOTAL TOUCHDOWNS',
-    'RECEPTIONS',
-    'PASS ATTEMPTS',
-    'COMPLETIONS',
-  ],
-  'SOCCER': [
-    'ALL',
-    'SHOTS',
-    'SHOTS ON TARGET',
-    'GOALS',
-    'ASSISTS',
-    'PASSES ATTEMPTED',
-    'SAVES',
-    'TACKLES',
-  ],
-  'MLB': [
-    'ALL',
-    'PITCHER STRIKEOUTS',
-    'PITCHER OUTS',
-    'HITS',
-    'HITS ALLOWED',
-    'HOME RUNS',
-    'RBIS',
-    'TOTAL BASES',
-  ],
-  'TENNIS': ['ALL', 'ACES', 'TOTAL GAMES WON', 'MATCH WINNER'],
-  'PGA': [
-    'ALL',
-    'BIRDIES OR BETTER',
-    'ROUND SCORE',
-    'FAIRWAYS HIT',
-    'GREENS IN REGULATION',
-    'HOLES PLAYED',
-    'MAKE CUT',
-  ],
-  'UFC': [
-    'ALL',
-    'SIGNIFICANT STRIKES',
-    'TOTAL STRIKES',
-    'TAKEDOWNS',
-    'TAKEDOWN ATTEMPTS',
-    'CONTROL TIME',
-    'KNOCKDOWNS',
-    'SUBMISSION ATTEMPTS',
-    'FIGHT TIME',
-    'ROUNDS',
-    'FIGHT WINNER',
-    'METHOD OF VICTORY',
-  ],
-};
 
 class AppColors {
   static const background = Color(0xFF050A0F);
@@ -1184,59 +1106,6 @@ class _LeftSidebarState extends State<LeftSidebar> {
     );
   }
 
-  Widget buildGoblinSidebarToggle() {
-    const primaryYellow = Color(0xFFFFD700);
-
-    return ValueListenableBuilder<bool>(
-      valueListenable: GoblinManager.showGoblinsOnly,
-      builder: (context, goblinsActive, child) {
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
-          child: InkWell(
-            onTap: GoblinManager.toggleGoblinFilter,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              decoration: BoxDecoration(
-                color: goblinsActive
-                    ? primaryYellow.withValues(alpha: 0.15)
-                    : const Color(0xFF1E222A),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: goblinsActive ? primaryYellow : Colors.white10,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.local_fire_department,
-                    color: goblinsActive ? primaryYellow : Colors.grey,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'GOBLINS TIER',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: goblinsActive ? primaryYellow : Colors.white70,
-                        fontWeight: goblinsActive
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   String _sportEmoji(String sport) {
     switch (sport) {
       case 'MLB':
@@ -1415,7 +1284,6 @@ class _LeftSidebarState extends State<LeftSidebar> {
                       ),
                     ),
                   ),
-                  buildGoblinSidebarToggle(),
                   const SizedBox(height: 12),
                   const _SidebarSectionLabel('SPECIALTY'),
                   const SizedBox(height: 7),
@@ -1822,6 +1690,8 @@ class _MainDashboardState extends State<MainDashboard> {
   Timer? _clockTimer;
   DateTime? _lastUpdated;
   List<PropData> _latestProps = const [];
+  int _facetTotal = 0;
+  Map<String, int> _categoryCounts = const {};
   List<PropData> _evScannerProps = const [];
   bool _isEvScannerLoading = false;
   String? _evScannerError;
@@ -1861,6 +1731,8 @@ class _MainDashboardState extends State<MainDashboard> {
       setState(() {
         _selectedCategory = 'ALL';
         _latestProps = const [];
+        _facetTotal = 0;
+        _categoryCounts = const {};
         _lastUpdated = null;
       });
       if (widget.selectedPage == AppPage.evScanner) {
@@ -1910,7 +1782,12 @@ class _MainDashboardState extends State<MainDashboard> {
     }
   }
 
-  void _handlePropsLoaded(List<PropData> props, int propCount) {
+  void _handlePropsLoaded(
+    List<PropData> props,
+    int propCount,
+    int facetTotal,
+    Map<String, int> categoryCounts,
+  ) {
     if (!mounted) {
       return;
     }
@@ -1922,6 +1799,8 @@ class _MainDashboardState extends State<MainDashboard> {
     }
     setState(() {
       _latestProps = props;
+      _facetTotal = facetTotal;
+      _categoryCounts = categoryCounts;
       _lastUpdated = DateTime.now();
     });
     boardPropCountNotifier.value = propCount;
@@ -2226,20 +2105,15 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   List<String> get _currentCategories {
-    final sport = _normalizeSport(widget.sportFilter);
-    if (sport == 'ALL') {
-      return const [
-        'ALL',
-        'POINTS',
-        'REBOUNDS',
-        'ASSISTS',
-        'PRA',
-        'PTS+REBS+ASTS',
-        'BLOCKS+STEALS',
-        '3PT MADE',
-      ];
-    }
-    return sportPropCategories[sport] ?? const ['ALL'];
+    final available = _categoryCounts.entries.toList()
+      ..sort((left, right) {
+        final countOrder = right.value.compareTo(left.value);
+        return countOrder != 0 ? countOrder : left.key.compareTo(right.key);
+      });
+    return [
+      'ALL',
+      ...available.where((entry) => entry.value > 0).map((entry) => entry.key),
+    ];
   }
 
   String get _effectiveSelectedCategory {
@@ -2787,6 +2661,8 @@ class _MainDashboardState extends State<MainDashboard> {
                     _selectedSite = book;
                     _selectedCategory = 'ALL';
                     _latestProps = const [];
+                    _facetTotal = 0;
+                    _categoryCounts = const {};
                     _lastUpdated = null;
                   }),
                   style: OutlinedButton.styleFrom(
@@ -3035,11 +2911,8 @@ class _MainDashboardState extends State<MainDashboard> {
       '3PT MADE' => Icons.adjust_rounded,
       _ => Icons.apps,
     };
-    int categoryCount(String category) => category == 'ALL'
-        ? _latestProps.length
-        : _latestProps
-              .where((prop) => _marketCategory(prop) == category)
-              .length;
+    int categoryCount(String category) =>
+        category == 'ALL' ? _facetTotal : _categoryCounts[category] ?? 0;
     return SizedBox(
       height: 49,
       child: Row(
@@ -5868,7 +5741,8 @@ class PropGrid extends StatefulWidget {
   final int minConfidence;
   final String sortBy;
   final String searchQuery;
-  final void Function(List<PropData>, int)? onPropsLoaded;
+  final void Function(List<PropData>, int, int, Map<String, int>)?
+  onPropsLoaded;
 
   const PropGrid({
     super.key,
@@ -5893,14 +5767,12 @@ class _PreparedProp {
   final PropData prop;
   final String normalizedSport;
   final String normalizedSite;
-  final String category;
   final String searchText;
 
   const _PreparedProp({
     required this.prop,
     required this.normalizedSport,
     required this.normalizedSite,
-    required this.category,
     required this.searchText,
   });
 }
@@ -7502,7 +7374,6 @@ class _PropGridState extends State<PropGrid> {
         prop: prop,
         normalizedSport: _normalizeSport(prop.sport),
         normalizedSite: _normalizeSite(prop.sportsbook),
-        category: _marketCategory(prop),
         searchText: searchText,
       );
     }).toList();
@@ -7525,7 +7396,12 @@ class _PropGridState extends State<PropGrid> {
     if (!mounted || requestKey != _queryKey) return const [];
     if (cached.isNotEmpty) {
       _preparedProps = _prepareProps(cached);
-      widget.onPropsLoaded?.call(cached, _apiService.lastPropsCount);
+      widget.onPropsLoaded?.call(
+        cached,
+        _apiService.lastPropsCount,
+        _apiService.lastFacetCount,
+        _apiService.lastCategoryCounts,
+      );
       unawaited(_refreshFirstPageFromNetwork(requestKey));
       return cached;
     }
@@ -7540,7 +7416,12 @@ class _PropGridState extends State<PropGrid> {
     _startupLog(
       'prepareProps() complete in ${prepareTimer.elapsedMilliseconds}ms',
     );
-    widget.onPropsLoaded?.call(props, _apiService.lastPropsCount);
+    widget.onPropsLoaded?.call(
+      props,
+      _apiService.lastPropsCount,
+      _apiService.lastFacetCount,
+      _apiService.lastCategoryCounts,
+    );
     return props;
   }
 
@@ -7567,7 +7448,12 @@ class _PropGridState extends State<PropGrid> {
         _preparedProps = _prepareProps(fresh);
         _propsFuture = Future.value(fresh);
       });
-      widget.onPropsLoaded?.call(fresh, _apiService.lastPropsCount);
+      widget.onPropsLoaded?.call(
+        fresh,
+        _apiService.lastPropsCount,
+        _apiService.lastFacetCount,
+        _apiService.lastCategoryCounts,
+      );
     } catch (_) {
       // Keep the saved page visible while the connection recovers.
     }
@@ -7591,7 +7477,12 @@ class _PropGridState extends State<PropGrid> {
         _visiblePropLimit = _preparedProps.length;
         _propsFuture = Future.value(merged);
       });
-      widget.onPropsLoaded?.call(merged, _apiService.lastPropsCount);
+      widget.onPropsLoaded?.call(
+        merged,
+        _apiService.lastPropsCount,
+        _apiService.lastFacetCount,
+        _apiService.lastCategoryCounts,
+      );
     } finally {
       if (mounted) setState(() => _isLoadingMore = false);
     }
@@ -7671,15 +7562,9 @@ class _PropGridState extends State<PropGrid> {
               final siteMatches =
                   widget.selectedSite == 'ALL' ||
                   prepared.normalizedSite == normalizedSite;
-              final categoryMatches =
-                  widget.selectedCategory == 'ALL' ||
-                  prepared.category == widget.selectedCategory;
               final searchMatches =
                   search.isEmpty || prepared.searchText.contains(search);
-              return sportMatches &&
-                  siteMatches &&
-                  categoryMatches &&
-                  searchMatches;
+              return sportMatches && siteMatches && searchMatches;
             }).toList();
 
             final props = filtered.map((prepared) => prepared.prop).toList();

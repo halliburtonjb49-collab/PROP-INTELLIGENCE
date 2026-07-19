@@ -57,10 +57,28 @@ def test_prop_page_filters_server_side_and_exposes_version(monkeypatch) -> None:
     payload = response.json()
     assert response.status_code == 200
     assert payload["count"] == 1
+    assert payload["facetCount"] == 1
+    assert payload["categoryCounts"] == {"HITS": 1}
     assert [row["id"] for row in payload["props"]] == ["pp-mlb"]
     assert payload["version"] == main.APP_VERSION
     assert response.headers["etag"]
     assert "stale-while-revalidate" in response.headers["cache-control"]
+
+
+def test_category_facets_are_not_reduced_by_selected_category(monkeypatch) -> None:
+    rows = [
+        FakeProp("hits", "One", "MLB", "FANDUEL", "HITS"),
+        FakeProp("ks", "Two", "MLB", "FANDUEL", "STRIKEOUTS"),
+    ]
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: rows)
+    response = TestClient(main.app).get(
+        "/api/props",
+        params={"sportsbook": "FANDUEL", "category": "HITS", "limit": 75},
+    )
+    payload = response.json()
+    assert payload["count"] == 1
+    assert payload["facetCount"] == 2
+    assert payload["categoryCounts"] == {"HITS": 1, "STRIKEOUTS": 1}
 
 
 def test_prop_page_honors_etag(monkeypatch) -> None:

@@ -1330,7 +1330,11 @@ def props(
 		sort_by = sortBy.strip().lower()
 		today_local = datetime.now(_scoreboard_timezone()).date()
 
-		def _matches_filters(prop: PropResponse) -> bool:
+		def _matches_filters(
+			prop: PropResponse,
+			*,
+			apply_category: bool,
+		) -> bool:
 			row = prop.model_dump()
 			start_time = _parse_start_time(row.get("startTimeUtc"))
 			if not includePastDates:
@@ -1366,7 +1370,11 @@ def props(
 				return False
 			if sport_filter != "all" and prop_sport != sport_filter:
 				return False
-			if category_filter != "all" and prop_category != category_filter:
+			if (
+				apply_category
+				and category_filter != "all"
+				and prop_category != category_filter
+			):
 				return False
 			if search_filter and search_filter not in searchable:
 				return False
@@ -1374,8 +1382,17 @@ def props(
 				return False
 			return True
 
+		facet_props = [
+			prop for prop in prop_list
+			if _matches_filters(prop, apply_category=False)
+		]
+		category_counts = Counter(
+			str(prop.category or "other").strip().upper()
+			for prop in facet_props
+		)
 		filtered_props = [
-			prop for prop in prop_list if _matches_filters(prop)
+			prop for prop in facet_props
+			if _matches_filters(prop, apply_category=True)
 		]
 
 		tier_rank = {
@@ -1420,6 +1437,8 @@ def props(
 		page = filtered_props[offset:offset + limit]
 		payload = {
 			"count": total_count,
+			"facetCount": len(facet_props),
+			"categoryCounts": dict(sorted(category_counts.items())),
 			"returned": len(page),
 			"offset": offset,
 			"limit": limit,

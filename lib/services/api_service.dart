@@ -45,12 +45,17 @@ class ApiService {
   );
   static String? _resolvedBaseUrl;
   static List<PropData> _lastSuccessfulProps = const [];
+  static int _lastFacetCount = 0;
+  static Map<String, int> _lastCategoryCounts = const {};
   static final ValueNotifier<BackendRefreshStatus> refreshStatusNotifier =
       ValueNotifier<BackendRefreshStatus>(const BackendRefreshStatus.empty());
   int _lastPropsCount = 0;
 
   static String get baseUrl => _resolvedBaseUrl ?? _configuredBaseUrl;
   int get lastPropsCount => _lastPropsCount;
+  int get lastFacetCount => _lastFacetCount;
+  Map<String, int> get lastCategoryCounts =>
+      Map.unmodifiable(_lastCategoryCounts);
 
   Map<String, String> _authenticatedHeaders({bool json = false}) {
     final token = SupabaseService.client?.auth.currentSession?.accessToken;
@@ -481,6 +486,16 @@ class ApiService {
         final totalCount = decoded['count'] is num
             ? (decoded['count'] as num).toInt()
             : rawProps.length;
+        _lastFacetCount =
+            (decoded['facetCount'] as num?)?.toInt() ?? totalCount;
+        final rawCategoryCounts = decoded['categoryCounts'];
+        _lastCategoryCounts = rawCategoryCounts is Map
+            ? {
+                for (final entry in rawCategoryCounts.entries)
+                  entry.key.toString().trim().toUpperCase():
+                      (entry.value as num?)?.toInt() ?? 0,
+              }
+            : const {};
         final rawMaps = rawProps
             .whereType<Map>()
             .map((raw) => Map<String, dynamic>.from(raw))
@@ -503,6 +518,8 @@ class ApiService {
             ),
             rawMaps,
             _lastPropsCount,
+            _lastFacetCount,
+            _lastCategoryCounts,
           );
         }
         refreshStatusNotifier.value = BackendRefreshStatus(
@@ -561,6 +578,8 @@ class ApiService {
     String key,
     List<Map<String, dynamic>> rawProps,
     int total,
+    int facetTotal,
+    Map<String, int> categoryCounts,
   ) async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(
@@ -568,6 +587,8 @@ class ApiService {
       jsonEncode({
         'savedAt': DateTime.now().toUtc().toIso8601String(),
         'total': total,
+        'facetTotal': facetTotal,
+        'categoryCounts': categoryCounts,
         'props': rawProps,
       }),
     );
@@ -602,6 +623,16 @@ class ApiService {
         return const [];
       }
       _lastPropsCount = (decoded['total'] as num?)?.toInt() ?? 0;
+      _lastFacetCount =
+          (decoded['facetTotal'] as num?)?.toInt() ?? _lastPropsCount;
+      final rawCategoryCounts = decoded['categoryCounts'];
+      _lastCategoryCounts = rawCategoryCounts is Map
+          ? {
+              for (final entry in rawCategoryCounts.entries)
+                entry.key.toString().trim().toUpperCase():
+                    (entry.value as num?)?.toInt() ?? 0,
+            }
+          : const {};
       final cached = (decoded['props'] as List)
           .whereType<Map>()
           .map((raw) => Map<String, dynamic>.from(raw))
