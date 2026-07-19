@@ -630,9 +630,6 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   Widget _buildTopNavigation() {
     return TopNavigation(
       selectedPage: _selectedPage,
-      onOpenPropAlerts: () {
-        _switchToPage(AppPage.propAlerts, source: 'top-nav-alerts');
-      },
       onTabSelected: (page) {
         _switchToPage(page, source: 'top-nav');
       },
@@ -1092,9 +1089,12 @@ class _LeftSidebarState extends State<LeftSidebar> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 14),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: _SidebarHeader(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: _SidebarHeader(
+              onRefresh: () => boardRefreshRequestNotifier.value++,
+              onOpenAlerts: () => widget.onSelectPage?.call(AppPage.propAlerts),
+            ),
           ),
           const SizedBox(height: 8),
           Expanded(
@@ -1332,7 +1332,35 @@ class _TopAccountStatusBadge extends StatelessWidget {
 }
 
 class _SidebarHeader extends StatelessWidget {
-  const _SidebarHeader();
+  const _SidebarHeader({required this.onRefresh, required this.onOpenAlerts});
+
+  final VoidCallback onRefresh;
+  final VoidCallback onOpenAlerts;
+
+  Widget _action({
+    required String tooltip,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(9),
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: const Color(0xFF091722),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: app_colors.AppColors.border),
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, color: app_colors.AppColors.gold, size: 18),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1389,18 +1417,31 @@ class _SidebarHeader extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 9),
-        const Row(
+        Row(
           children: [
-            Icon(Icons.circle, color: app_colors.AppColors.blue, size: 7),
-            SizedBox(width: 6),
-            Text(
-              'SYSTEM ONLINE',
-              style: TextStyle(
-                color: app_colors.AppColors.blue,
-                fontSize: 8,
-                fontWeight: FontWeight.w900,
-                letterSpacing: .7,
+            const Icon(Icons.circle, color: app_colors.AppColors.blue, size: 7),
+            const SizedBox(width: 6),
+            const Expanded(
+              child: Text(
+                'SYSTEM ONLINE',
+                style: TextStyle(
+                  color: app_colors.AppColors.blue,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .7,
+                ),
               ),
+            ),
+            _action(
+              tooltip: 'Refresh props',
+              icon: Icons.refresh_rounded,
+              onTap: onRefresh,
+            ),
+            const SizedBox(width: 6),
+            _action(
+              tooltip: 'View prop alerts',
+              icon: Icons.notifications_none_rounded,
+              onTap: onOpenAlerts,
             ),
           ],
         ),
@@ -4779,13 +4820,11 @@ class _GuideTerm extends StatelessWidget {
 
 class TopNavigation extends StatelessWidget {
   final AppPage selectedPage;
-  final VoidCallback onOpenPropAlerts;
   final ValueChanged<AppPage> onTabSelected;
 
   const TopNavigation({
     super.key,
     required this.selectedPage,
-    required this.onOpenPropAlerts,
     required this.onTabSelected,
   });
 
@@ -5053,54 +5092,6 @@ class TopNavigation extends StatelessWidget {
     );
   }
 
-  Widget _buildAlertButton() {
-    return Tooltip(
-      message: 'View prop alerts and monitored conditions',
-      child: InkWell(
-        onTap: onOpenPropAlerts,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: const Color(0xFF091722),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: app_colors.AppColors.border),
-          ),
-          child: const Icon(
-            Icons.notifications_none_rounded,
-            color: app_colors.AppColors.gold,
-            size: 19,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRefreshButton() {
-    return Tooltip(
-      message: 'Refresh props',
-      child: InkWell(
-        onTap: () => boardRefreshRequestNotifier.value++,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: const Color(0xFF091722),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: app_colors.AppColors.border),
-          ),
-          child: const Icon(
-            Icons.refresh_rounded,
-            color: app_colors.AppColors.gold,
-            size: 19,
-          ),
-        ),
-      ),
-    );
-  }
-
   String get _pageTitle => switch (selectedPage) {
     AppPage.board => 'MARKET BOARD',
     AppPage.gameMarkets => 'GAME MARKETS',
@@ -5276,9 +5267,6 @@ class TopNavigation extends StatelessWidget {
               ),
               const SizedBox(width: 7),
               _buildGuideButton(context),
-              _buildRefreshButton(),
-              const SizedBox(width: 6),
-              _buildAlertButton(),
             ],
           ),
         );
