@@ -115,5 +115,11 @@ void main() {
     await openWorkspace('BUILD\nPERFORM', null);
     await openWorkspace('EV SCANNER', 'EV SCANNER');
     await openWorkspace('STRIKEOUT\nPRO GOLD', 'STRIKEOUT PRO GOLD');
+    await tester.tap(find.byKey(const ValueKey('strikeout-model-methodology')));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('XGBOOST + LIGHTGBM'), findsOneWidget);
+    expect(find.text('POISSON / COUNT MODEL'), findsOneWidget);
+    expect(find.text('RANDOM FOREST'), findsOneWidget);
+    expect(find.text('LSTM SEQUENCE MODEL'), findsOneWidget);
   });
 }

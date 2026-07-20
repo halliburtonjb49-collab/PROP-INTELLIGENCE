@@ -130,6 +130,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
         slivers: [
           SliverToBoxAdapter(child: _header()),
           SliverToBoxAdapter(child: _controls()),
+          SliverToBoxAdapter(child: _methodology()),
           if (_loading)
             const SliverFillRemaining(
               child: Center(
@@ -292,6 +293,134 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
           label: const Text('REFRESH'),
         ),
       ],
+    ),
+  );
+
+  Widget _methodology() => Padding(
+    padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+    child: Material(
+      color: const Color(0xFF07131D),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(13),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      child: ExpansionTile(
+        key: const ValueKey('strikeout-model-methodology'),
+        iconColor: AppColors.gold,
+        collapsedIconColor: AppColors.gold,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
+        leading: const Icon(
+          Icons.model_training_rounded,
+          color: AppColors.gold,
+        ),
+        title: const Text(
+          'MODEL METHODOLOGY & READINESS',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            fontSize: 12,
+            letterSpacing: .5,
+          ),
+        ),
+        subtitle: const Text(
+          'How the research engine is being built, tested, and promoted to production',
+          style: TextStyle(color: AppColors.textMuted, fontSize: 9),
+        ),
+        children: [
+          const _MethodologyNotice(),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final cardWidth = width >= 1000
+                  ? (width - 36) / 4
+                  : width >= 620
+                  ? (width - 12) / 2
+                  : width;
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  _ModelCard(
+                    width: cardWidth,
+                    name: 'XGBOOST + LIGHTGBM',
+                    status: 'CANDIDATE ENSEMBLE',
+                    icon: Icons.account_tree_outlined,
+                    description:
+                        'Primary candidates for non-linear tabular relationships, missing-value tolerance, and auditable feature importance.',
+                  ),
+                  _ModelCard(
+                    width: cardWidth,
+                    name: 'POISSON / COUNT MODEL',
+                    status: 'CANDIDATE DISTRIBUTION',
+                    icon: Icons.functions_rounded,
+                    description:
+                        'Produces an exact strikeout-count distribution so each posted line can be evaluated as an Over or Under probability.',
+                  ),
+                  _ModelCard(
+                    width: cardWidth,
+                    name: 'RANDOM FOREST',
+                    status: 'BASELINE CHALLENGER',
+                    icon: Icons.park_outlined,
+                    description:
+                        'A durable baseline used to challenge boosted-tree results and expose overfitting before deployment.',
+                  ),
+                  _ModelCard(
+                    width: cardWidth,
+                    name: 'LSTM SEQUENCE MODEL',
+                    status: 'RESEARCH ONLY',
+                    icon: Icons.timeline_rounded,
+                    description:
+                        'A future sequential model for form, workload, and fatigue. It requires substantially more history and validation.',
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stacked = constraints.maxWidth < 720;
+              final features = _MethodologyPanel(
+                icon: Icons.tune_rounded,
+                title: 'FEATURE ENGINEERING — THE 80%',
+                items: const [
+                  'Rolling pitcher form: 3-game and 5-game K%, whiff rate, pitch count, and velocity movement',
+                  'Opponent lineup strikeout rate versus pitcher handedness and projected plate appearances',
+                  'Rest, travel, workload, park, weather, and confirmed lineup context',
+                  'Home-plate umpire tendency and sportsbook line/price movement',
+                ],
+              );
+              final stack = _MethodologyPanel(
+                icon: Icons.code_rounded,
+                title: 'PYTHON MODEL STACK',
+                items: const [
+                  'pandas for validated feature tables and reproducible transformations',
+                  'scikit-learn for time-aware splits, baselines, calibration, and evaluation',
+                  'xgboost / lightgbm for boosted-tree candidate models',
+                  'statsmodels or PyMC for count distributions and uncertainty',
+                  'TensorFlow or PyTorch only if an LSTM beats simpler models out of sample',
+                ],
+              );
+              if (stacked) {
+                return Column(
+                  children: [features, const SizedBox(height: 12), stack],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: features),
+                  const SizedBox(width: 12),
+                  Expanded(child: stack),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
     ),
   );
 
@@ -481,6 +610,158 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
           OutlinedButton(onPressed: _load, child: const Text('RETRY')),
         ],
       ),
+    ),
+  );
+}
+
+class _MethodologyNotice extends StatelessWidget {
+  const _MethodologyNotice();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: AppColors.gold.withValues(alpha: .07),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: AppColors.gold.withValues(alpha: .45)),
+    ),
+    child: const Text(
+      'REALITY CHECK  •  No model guarantees results. At standard -110 pricing, the mathematical break-even win rate is approximately 52.4% before other costs. Sustained performance above that threshold must be demonstrated with time-ordered, out-of-sample testing—not a small winning streak. Candidate models remain inactive until they beat the baseline, calibrate reliably, and survive leakage checks.',
+      style: TextStyle(
+        color: AppColors.textSecondary,
+        fontSize: 9.5,
+        height: 1.45,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+}
+
+class _ModelCard extends StatelessWidget {
+  const _ModelCard({
+    required this.width,
+    required this.name,
+    required this.status,
+    required this.icon,
+    required this.description,
+  });
+
+  final double width;
+  final String name;
+  final String status;
+  final IconData icon;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: width,
+    child: Container(
+      constraints: const BoxConstraints(minHeight: 150),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A1924),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppColors.gold, size: 20),
+          const SizedBox(height: 9),
+          Text(
+            name,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            status,
+            style: const TextStyle(
+              color: AppColors.gold,
+              fontSize: 7,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 8.5,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _MethodologyPanel extends StatelessWidget {
+  const _MethodologyPanel({
+    required this.icon,
+    required this.title,
+    required this.items,
+  });
+
+  final IconData icon;
+  final String title;
+  final List<String> items;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFF0A1924),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: AppColors.border),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: AppColors.gold, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 9),
+        for (final item in items)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('• ', style: TextStyle(color: AppColors.gold)),
+                Expanded(
+                  child: Text(
+                    item,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 8.5,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     ),
   );
 }
