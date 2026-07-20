@@ -15,7 +15,7 @@ import 'models/prop_data.dart';
 import 'pages/analytics_page.dart';
 import 'pages/line_movement_page.dart';
 import 'screens/prop_builder_performance_screen.dart';
-import 'screens/goblins_demons_screen.dart';
+import 'screens/strikeout_pro_gold_screen.dart';
 import 'screens/game_markets_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/paywall_screen.dart';
@@ -184,7 +184,7 @@ enum AppPage {
   propBuilder,
   watchlist,
   builderPerformance,
-  goblinsDemons,
+  strikeoutProGold,
   evScanner,
   searchPlayers,
   scoreboard,
@@ -528,7 +528,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     AppPage.lineMovement ||
     AppPage.propAlerts => SubscriptionTier.core,
     AppPage.builderPerformance ||
-    AppPage.goblinsDemons ||
+    AppPage.strikeoutProGold ||
     AppPage.evScanner ||
     AppPage.intelligenceLab => SubscriptionTier.edge,
     _ => null,
@@ -560,7 +560,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         return 2;
       case AppPage.builderPerformance:
         return 3;
-      case AppPage.goblinsDemons:
+      case AppPage.strikeoutProGold:
         return 4;
     }
   }
@@ -590,7 +590,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           const InteractiveConstructorEngineWidget(),
           const CloudWatchlistScreen(),
           const PropBuilderPerformanceScreen(),
-          GoblinsDemonsScreen(onSelect: _toggleSelection),
+          StrikeoutProGoldScreen(onSelect: _toggleSelection),
         ],
       ),
     );
@@ -1179,16 +1179,13 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   const _SidebarSectionLabel('SPECIALTY'),
                   const SizedBox(height: 7),
                   SidebarButton(
-                    label: 'GOBLINS / DEMONS',
-                    selected: widget.selectedPage == AppPage.goblinsDemons,
+                    label: 'STRIKEOUT\nPRO GOLD',
+                    selected: widget.selectedPage == AppPage.strikeoutProGold,
                     premium: true,
-                    leadingIcons: const [Icons.masks_outlined, Icons.whatshot],
-                    leadingIconColors: const [
-                      Color(0xFF36B9FF),
-                      Color(0xFFFF5656),
-                    ],
+                    leadingIcons: const [Icons.sports_baseball_rounded],
+                    leadingIconColors: const [AppColors.gold],
                     onTap: () =>
-                        widget.onSelectPage?.call(AppPage.goblinsDemons),
+                        widget.onSelectPage?.call(AppPage.strikeoutProGold),
                   ),
                 ],
               ),
@@ -5024,7 +5021,7 @@ class TopNavigation extends StatelessWidget {
     AppPage.watchlist => 'ACTIVE SLIPS',
     AppPage.builderPerformance => 'PERFORMANCE',
     AppPage.evScanner => 'EV SCANNER',
-    AppPage.goblinsDemons => 'GOBLINS / DEMONS',
+    AppPage.strikeoutProGold => 'STRIKEOUT PRO GOLD',
     AppPage.dataAdmin => 'DATA ADMIN',
   };
 
@@ -5042,7 +5039,8 @@ class TopNavigation extends StatelessWidget {
     AppPage.watchlist => 'Review props and slips you are actively monitoring',
     AppPage.builderPerformance => 'Review outcomes and improve your process',
     AppPage.evScanner => 'Surface estimated positive-value opportunities',
-    AppPage.goblinsDemons => 'Compare conservative and aggressive profiles',
+    AppPage.strikeoutProGold =>
+      'Rank MLB strikeout over/under opportunities with model transparency',
     AppPage.dataAdmin => 'Manage platform data sources',
   };
 

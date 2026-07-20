@@ -114,5 +114,6 @@ void main() {
     await openWorkspace('PROP BUILDER', 'PROP BUILDER');
     await openWorkspace('BUILD\nPERFORM', null);
     await openWorkspace('EV SCANNER', 'EV SCANNER');
+    await openWorkspace('STRIKEOUT\nPRO GOLD', 'STRIKEOUT PRO GOLD');
   });
 }
