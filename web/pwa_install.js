@@ -11,9 +11,7 @@
 
   const dismissedKey = 'prop-intelligence-pwa-install-dismissed';
   const wasDismissed = window.localStorage.getItem(dismissedKey) === 'true';
-  const isMobile = window.matchMedia('(max-width: 900px)').matches ||
-    window.matchMedia('(pointer: coarse)').matches;
-  if (wasDismissed || !isMobile) return;
+  if (wasDismissed) return;
 
   let installPrompt = null;
   const show = () => { card.style.display = 'flex'; };
@@ -43,7 +41,7 @@
       hide();
       return;
     }
-    window.alert('In Safari, tap the Share button, then choose “Add to Home Screen.”');
+    window.alert('In Safari, tap the Share button, then choose "Add to Home Screen."');
   });
 
   dismiss.addEventListener('click', () => {

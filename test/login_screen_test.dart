@@ -12,6 +12,7 @@ void main() {
 
     expect(find.text('WELCOME BACK'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Continue with Apple'), findsNothing);
     expect(find.text('REAL-TIME DATA'), findsOneWidget);
     expect(
       find.textContaining('Advanced analytics. Real-time data'),

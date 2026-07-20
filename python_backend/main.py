@@ -3,6 +3,7 @@ import hashlib
 import logging
 import os
 import time
+from pathlib import Path
 from contextlib import asynccontextmanager, suppress
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone, tzinfo
@@ -12,6 +13,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import BackgroundTasks, Body, Depends, FastAPI, Header, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import FileResponse
 import requests
 from threading import Lock
 
@@ -203,6 +205,19 @@ app.add_middleware(
 	allow_headers=["*"],
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
+
+_PLAYER_IMAGE_DIRECTORY = Path(__file__).resolve().parent.parent / "assets" / "players"
+
+
+@app.get("/player-images/{filename}", include_in_schema=False)
+def player_image(filename: str) -> FileResponse:
+	path = _PLAYER_IMAGE_DIRECTORY / filename
+	if path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"} or not path.is_file():
+		raise HTTPException(status_code=404, detail="Player image not found")
+	return FileResponse(
+		path,
+		headers={"Cache-Control": "public, max-age=604800, stale-while-revalidate=86400"},
+	)
 
 
 def _cached_prop_catalog() -> list[PropResponse]:

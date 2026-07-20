@@ -47,6 +47,7 @@ dependencies:
   cached_network_image: ^3.4.1
   supabase_flutter: ^2.9.1
   purchases_flutter: ^7.0.0
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:
@@ -70,8 +71,10 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
-    - assets/branding/
-    - assets/players/
+    - assets/branding/google_g_logo.png
+    - assets/branding/prop_intelligence_icon.png
+    - assets/branding/prop_intelligence_logo.png
+    - assets/branding/prop_intelligence_logo_transparent.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
