@@ -40,6 +40,18 @@ def test_production_cors_preflight_is_allowed() -> None:
     assert response.headers["access-control-allow-origin"] == "https://app.propsintell.com"
 
 
+def test_player_images_are_served_with_browser_cache_headers() -> None:
+    response = TestClient(main.app).get("/player-images/aaron_judge.png")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert "max-age=604800" in response.headers["cache-control"]
+
+
+def test_missing_player_image_returns_not_found() -> None:
+    response = TestClient(main.app).get("/player-images/does_not_exist.png")
+    assert response.status_code == 404
+
+
 def test_prop_page_filters_server_side_and_exposes_version(monkeypatch) -> None:
     rows = [
         FakeProp("pp-mlb", "One", "MLB", "PRIZEPICKS", "HITS"),

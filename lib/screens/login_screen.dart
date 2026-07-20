@@ -676,14 +676,14 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                                       if (compact)
                                         Column(
                                           children: [
+                                            _buildLoginCard(dense: true),
+                                            const SizedBox(height: 24),
                                             _HeroBrand(
                                               compact: true,
-                                              dense: false,
+                                              dense: true,
                                               onLongPress:
                                                   _openDeveloperBypassPrompt,
                                             ),
-                                            const SizedBox(height: 28),
-                                            _buildLoginCard(dense: false),
                                           ],
                                         )
                                       else
@@ -902,14 +902,6 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               onPressed: _isLoading
                   ? null
                   : () => _handleSocialSignIn(OAuthProvider.google),
-            ),
-            const SizedBox(height: 8),
-            _SocialButton(
-              label: 'Continue with Apple',
-              leading: const Icon(Icons.apple, color: _silver, size: 23),
-              onPressed: _isLoading
-                  ? null
-                  : () => _handleSocialSignIn(OAuthProvider.apple),
             ),
             const SizedBox(height: 13),
             Wrap(
@@ -1287,8 +1279,8 @@ class _HeroBrand extends StatelessWidget {
           onLongPress: onLongPress,
           child: Image.asset(
             'assets/branding/prop_intelligence_logo_transparent.png',
-            width: compact ? 290 : (dense ? 355 : 450),
-            height: compact ? 290 : (dense ? 355 : 450),
+            width: compact ? (dense ? 180 : 290) : (dense ? 355 : 450),
+            height: compact ? (dense ? 180 : 290) : (dense ? 355 : 450),
             fit: BoxFit.contain,
           ),
         ),

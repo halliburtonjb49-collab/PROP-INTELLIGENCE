@@ -24,9 +24,11 @@ import 'screens/cloud_watchlist_screen.dart';
 import 'screens/central_props_display_grid_canvas.dart';
 import 'models/slip_selection.dart';
 import 'services/api_service.dart';
+import 'services/app_sound_service.dart';
 import 'services/auth_manager.dart';
 import 'services/developer_mode_service.dart';
 import 'services/prop_watchlist_service.dart';
+import 'services/player_image_resolver.dart';
 import 'services/slip_manager.dart';
 import 'services/supabase_service.dart';
 import 'theme/app_scroll_behavior.dart';
@@ -153,6 +155,7 @@ Future<void> main() async {
     anonKey: kSupabaseAnonPublicApiKey,
   );
 
+  unawaited(AppSoundService.instance.load());
   runApp(const PropIntelligenceApp());
   _startupLog('runApp() called');
 
@@ -348,25 +351,6 @@ ThemeData buildPropIntelligenceBrandedTheme() {
   );
 }
 
-String _resolvePlayerImagePath(String rawPath) {
-  final trimmed = rawPath.trim();
-  if (trimmed.isEmpty) {
-    return '';
-  }
-  if (trimmed.startsWith('assets/')) {
-    return trimmed;
-  }
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
-  }
-  final base = ApiService.baseUrl.trim();
-  final normalizedBase = base.endsWith('/')
-      ? base.substring(0, base.length - 1)
-      : base;
-  final normalizedPath = trimmed.startsWith('/') ? trimmed : '/$trimmed';
-  return '$normalizedBase$normalizedPath';
-}
-
 class PropIntelligenceApp extends StatelessWidget {
   const PropIntelligenceApp({super.key});
 
@@ -509,6 +493,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     if (_selectedPage == page) {
       return;
     }
+    unawaited(AppSoundService.instance.play(AppSoundEvent.navigation));
     final timer = Stopwatch()..start();
     setState(() {
       _selectedPage = page;
@@ -630,6 +615,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   Widget _buildTopNavigation() {
     return TopNavigation(
       selectedPage: _selectedPage,
+      soundService: AppSoundService.instance,
       onTabSelected: (page) {
         _switchToPage(page, source: 'top-nav');
       },
@@ -717,6 +703,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   }
 
   void _toggleSelection(PropData prop, PickSide side) {
+    unawaited(AppSoundService.instance.play(AppSoundEvent.selection));
     final selection = SlipSelection(prop: prop, side: side);
 
     setState(() {
@@ -1606,8 +1593,6 @@ class _MainDashboardState extends State<MainDashboard> {
   final String _selectedTier = 'All';
   int _minConfidence = 0;
   String _sortBy = 'source';
-  DateTime _currentTime = DateTime.now();
-  Timer? _clockTimer;
   DateTime? _lastUpdated;
   List<PropData> _latestProps = const [];
   int _facetTotal = 0;
@@ -1625,20 +1610,11 @@ class _MainDashboardState extends State<MainDashboard> {
     if (widget.selectedPage == AppPage.evScanner) {
       unawaited(_loadEvScannerProps());
     }
-    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _currentTime = DateTime.now();
-      });
-    });
   }
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
-    _clockTimer?.cancel();
     _boardVerticalController.dispose();
     _categoryHorizontalController.dispose();
     _searchController.dispose();
@@ -2728,7 +2704,7 @@ class _MainDashboardState extends State<MainDashboard> {
             (
               'LAST UPDATED',
               _formatLastUpdated(_lastUpdated),
-              _formatLocalDate(_currentTime),
+              _formatLocalDate(DateTime.now()),
             ),
           ]
         : <(String, String, String)>[
@@ -2755,7 +2731,7 @@ class _MainDashboardState extends State<MainDashboard> {
             (
               'LAST UPDATED',
               _formatLastUpdated(_lastUpdated),
-              _formatLocalDate(_currentTime),
+              _formatLocalDate(DateTime.now()),
             ),
           ];
     return Container(
@@ -4737,12 +4713,197 @@ class _GuideTerm extends StatelessWidget {
 class TopNavigation extends StatelessWidget {
   final AppPage selectedPage;
   final ValueChanged<AppPage> onTabSelected;
+  final AppSoundService soundService;
 
   const TopNavigation({
     super.key,
     required this.selectedPage,
     required this.onTabSelected,
+    required this.soundService,
   });
+
+  void _showSoundSettings(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AnimatedBuilder(
+        animation: soundService,
+        builder: (context, _) => AlertDialog(
+          backgroundColor: app_colors.AppColors.panel,
+          title: const Row(
+            children: [
+              Icon(Icons.graphic_eq_rounded, color: app_colors.AppColors.gold),
+              SizedBox(width: 10),
+              Text('Sound customization'),
+            ],
+          ),
+          content: SizedBox(
+            width: 430,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SwitchListTile(
+                    key: const ValueKey('master-sound-switch'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Application sounds'),
+                    subtitle: Text(
+                      soundService.enabled
+                          ? 'Sounds are on'
+                          : 'All sounds are muted',
+                    ),
+                    value: soundService.enabled,
+                    onChanged: soundService.setEnabled,
+                    activeThumbColor: app_colors.AppColors.gold,
+                  ),
+                  const Divider(),
+                  DropdownButtonFormField<AppSoundProfile>(
+                    key: const ValueKey('sound-profile-dropdown'),
+                    initialValue: soundService.profile,
+                    decoration: const InputDecoration(
+                      labelText: 'Sound style',
+                      prefixIcon: Icon(Icons.tune_rounded),
+                    ),
+                    items: AppSoundProfile.values
+                        .map(
+                          (profile) => DropdownMenuItem(
+                            value: profile,
+                            child: Text(profile.label),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: soundService.enabled
+                        ? (profile) {
+                            if (profile != null) {
+                              soundService.setProfile(profile);
+                            }
+                          }
+                        : null,
+                  ),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      soundService.profile.description,
+                      style: const TextStyle(
+                        color: app_colors.AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(Icons.volume_down_rounded),
+                      Expanded(
+                        child: Slider(
+                          key: const ValueKey('sound-volume-slider'),
+                          value: soundService.volume,
+                          onChanged: soundService.enabled
+                              ? soundService.setVolume
+                              : null,
+                          onChangeEnd: soundService.enabled
+                              ? (_) => soundService.play(AppSoundEvent.success)
+                              : null,
+                          activeColor: app_colors.AppColors.gold,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 42,
+                        child: Text(
+                          '${(soundService.volume * 100).round()}%',
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          key: const ValueKey('silent-sound-button'),
+                          onPressed: soundService.enabled
+                              ? () => soundService.setEnabled(false)
+                              : null,
+                          icon: const Icon(Icons.volume_off_rounded),
+                          label: const Text('SILENT'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: soundService.enabled
+                              ? () => soundService.play(AppSoundEvent.success)
+                              : null,
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: const Text('TEST SOUND'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Navigation'),
+                    subtitle: const Text('Changing pages and sections'),
+                    value: soundService.navigationEnabled,
+                    onChanged: soundService.enabled
+                        ? soundService.setNavigationEnabled
+                        : null,
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Selections'),
+                    subtitle: const Text('Adding or changing picks'),
+                    value: soundService.selectionEnabled,
+                    onChanged: soundService.enabled
+                        ? soundService.setSelectionEnabled
+                        : null,
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Alerts and confirmations'),
+                    subtitle: const Text('Warnings and completed actions'),
+                    value: soundService.alertsEnabled,
+                    onChanged: soundService.enabled
+                        ? soundService.setAlertsEnabled
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('DONE'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSoundButton(BuildContext context) {
+    return AnimatedBuilder(
+      animation: soundService,
+      builder: (context, _) => IconButton(
+        key: const ValueKey('sound-settings-button'),
+        tooltip: soundService.enabled
+            ? 'Sound settings (sounds on)'
+            : 'Sound settings (muted)',
+        onPressed: () => _showSoundSettings(context),
+        icon: Icon(
+          soundService.enabled
+              ? Icons.volume_up_outlined
+              : Icons.volume_off_outlined,
+          color: soundService.enabled
+              ? app_colors.AppColors.gold
+              : app_colors.AppColors.textMuted,
+          size: 20,
+        ),
+      ),
+    );
+  }
 
   void _showGlossary(BuildContext context) {
     showDialog<void>(
@@ -5177,6 +5338,7 @@ class TopNavigation extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 7),
+              _buildSoundButton(context),
               _buildGuideButton(context),
             ],
           ),
@@ -6363,7 +6525,7 @@ class _PropGridState extends State<PropGrid> {
   }
 
   Widget _fastPlayerPhoto(PropData prop, {double size = 44}) {
-    final imagePath = _resolvePlayerImagePath(prop.imagePath);
+    final imagePath = resolvePlayerImagePath(prop.imagePath);
     final isNetwork =
         imagePath.startsWith('http://') || imagePath.startsWith('https://');
     if (!isNetwork) {
@@ -8317,7 +8479,7 @@ class PropCard extends StatelessWidget {
   }
 
   Widget _buildPropCardImage(PropData prop) {
-    final imagePath = _resolvePlayerImagePath(prop.imagePath);
+    final imagePath = resolvePlayerImagePath(prop.imagePath);
     final isNetwork =
         imagePath.startsWith('http://') || imagePath.startsWith('https://');
     if (!isNetwork) {

@@ -210,4 +210,4 @@ def player_image_path(player_name: str) -> str:
         "_",
         player_name.lower(),
     ).strip("_")
-    return f"assets/players/{filename}.png"
+    return f"/player-images/{filename}.png"
