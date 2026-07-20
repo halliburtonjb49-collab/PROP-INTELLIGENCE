@@ -52,15 +52,15 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
             value.trim() == 'ks');
   }
 
-  PickSide _recommendedSide(PropData prop) {
+  PickSide? _recommendedSide(PropData prop) {
     if (prop.projection != null && prop.line > 0) {
       return prop.projection! >= prop.line ? PickSide.over : PickSide.under;
     }
     final text = '${prop.recommendedSide} ${prop.pick} ${prop.pickText}'
         .toLowerCase();
-    return text.contains('under') || text.contains('less')
-        ? PickSide.under
-        : PickSide.over;
+    if (text.contains('under') || text.contains('less')) return PickSide.under;
+    if (text.contains('over') || text.contains('more')) return PickSide.over;
+    return null;
   }
 
   double _edge(PropData prop) => prop.projection == null
@@ -164,7 +164,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                       crossAxisCount: columns,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
-                      mainAxisExtent: 294,
+                      mainAxisExtent: 320,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) => _card(_visible[index]),
@@ -428,8 +428,14 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
     final side = _recommendedSide(prop);
     final projection = prop.projection;
     final delta = projection == null ? null : projection - prop.line;
-    final sideText = side == PickSide.over ? 'OVER' : 'UNDER';
-    final signalColor = side == PickSide.over
+    final sideText = side == null
+        ? 'NO PICK'
+        : side == PickSide.over
+        ? 'OVER'
+        : 'UNDER';
+    final signalColor = side == null
+        ? AppColors.textMuted
+        : side == PickSide.over
         ? const Color(0xFF56D38A)
         : const Color(0xFF6DB8FF);
     return Container(
@@ -475,12 +481,47 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   ],
                 ),
               ),
-              Text(
-                '$sideText ${prop.line.toStringAsFixed(1)}',
-                style: TextStyle(
-                  color: signalColor,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
+              Container(
+                key: const ValueKey('strikeout-pro-pick'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: signalColor.withValues(alpha: .10),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: signalColor),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      side == null ? 'SIGNAL' : 'PRO PICK',
+                      style: TextStyle(
+                        color: signalColor,
+                        fontSize: 7,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .6,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$sideText ${prop.line.toStringAsFixed(1)}',
+                      style: TextStyle(
+                        color: signalColor,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Text(
+                      projection == null ? 'LIVE FEED' : 'MODEL PROJECTION',
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 6.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -521,7 +562,9 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
           ),
           const Spacer(),
           Text(
-            projection == null
+            side == null
+                ? 'No valid Over or Under signal is available for this line. The app will not manufacture a pick.'
+                : projection == null
                 ? 'The feed has not supplied a numeric projection. The displayed side comes from the live recommendation and should be independently verified.'
                 : 'Projection is ${delta!.abs().toStringAsFixed(2)} strikeouts ${delta >= 0 ? 'above' : 'below'} the posted line. Verify lineup and price before selecting.',
             maxLines: 3,
@@ -536,7 +579,9 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: () => widget.onSelect(prop, side),
+              onPressed: side == null
+                  ? null
+                  : () => widget.onSelect(prop, side),
               icon: const Icon(Icons.add_rounded, size: 17),
               label: Text('ADD $sideText TO ACTIVE SLIP'),
             ),
