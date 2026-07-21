@@ -1,4 +1,6 @@
 """Validate Supabase access tokens for private API resources."""
+import base64
+import json
 import os
 import requests
 from fastapi import Header, HTTPException
@@ -15,6 +17,18 @@ def _owner_emails() -> set[str]:
     }
     return _DEFAULT_OWNER_EMAILS | configured
 
+
+def _token_claims(token: str) -> dict[str, object]:
+    """Read identity claims only after Supabase has validated the token."""
+    try:
+        encoded_payload = token.split(".")[1]
+        padding = "=" * (-len(encoded_payload) % 4)
+        payload = base64.urlsafe_b64decode(encoded_payload + padding)
+        decoded = json.loads(payload)
+    except (IndexError, ValueError, TypeError, json.JSONDecodeError):
+        return {}
+    return decoded if isinstance(decoded, dict) else {}
+
 def _supabase_user(token: str) -> dict[str, object] | None:
     url = os.getenv("SUPABASE_URL", "").rstrip("/")
     anon_key = os.getenv("SUPABASE_ANON_KEY", "").strip()
@@ -24,7 +38,17 @@ def _supabase_user(token: str) -> dict[str, object] | None:
     if response.status_code != 200:
         return None
     payload = response.json()
-    return payload if isinstance(payload, dict) else None
+    if not isinstance(payload, dict):
+        return None
+
+    # Supabase has already authenticated the bearer token above. Some hosted
+    # responses omit identity metadata, so fill only missing fields from that
+    # same validated token instead of incorrectly downgrading an owner.
+    claims = _token_claims(token)
+    for key in ("email", "app_metadata", "user_metadata"):
+        if payload.get(key) in (None, "", {}):
+            payload[key] = claims.get(key)
+    return payload
 
 def verify_supabase_token(token: str) -> str | None:
     user = _supabase_user(token)

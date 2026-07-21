@@ -45,6 +45,7 @@ class ApiService {
     defaultValue: '',
   );
   static String? _resolvedBaseUrl;
+  static Future<String?>? _sessionRefresh;
   static List<PropData> _lastSuccessfulProps = const [];
   static int _lastFacetCount = 0;
   static Map<String, int> _lastCategoryCounts = const {};
@@ -58,8 +59,27 @@ class ApiService {
   Map<String, int> get lastCategoryCounts =>
       Map.unmodifiable(_lastCategoryCounts);
 
-  Map<String, String> _authenticatedHeaders({bool json = false}) {
-    final token = SupabaseService.client?.auth.currentSession?.accessToken;
+  Future<Map<String, String>> _authenticatedHeaders({
+    bool json = false,
+    bool forceRefresh = false,
+  }) async {
+    final client = SupabaseService.client;
+    final session = client?.auth.currentSession;
+    var token = session?.accessToken;
+    if (client != null &&
+        session != null &&
+        (forceRefresh || session.isExpired)) {
+      final refresh = _sessionRefresh ??= client.auth.refreshSession().then(
+        (response) => response.session?.accessToken,
+      );
+      try {
+        token = await refresh;
+      } finally {
+        if (identical(_sessionRefresh, refresh)) {
+          _sessionRefresh = null;
+        }
+      }
+    }
     if (token == null || token.isEmpty) {
       throw StateError('Sign in before accessing private ticket data.');
     }
@@ -183,7 +203,7 @@ class ApiService {
   Future<Map<String, dynamic>> fetchAdminOperations() async {
     final response = await http.get(
       Uri.parse('$baseUrl/api/intelligence/operations'),
-      headers: _authenticatedHeaders(),
+      headers: await _authenticatedHeaders(),
     );
     if (response.statusCode != 200) {
       throw Exception('Unable to load pipeline operations: ${response.body}');
@@ -194,7 +214,7 @@ class ApiService {
   Future<Map<String, dynamic>> fetchProductionAcceptance() async {
     final response = await http.get(
       Uri.parse('$baseUrl/api/operations/acceptance'),
-      headers: _authenticatedHeaders(),
+      headers: await _authenticatedHeaders(),
     );
     if (response.statusCode != 200) {
       throw Exception('Unable to load production health: ${response.body}');
@@ -205,7 +225,7 @@ class ApiService {
   Future<List<Map<String, dynamic>>> fetchAlertDeliveries() async {
     final response = await http.get(
       Uri.parse('$baseUrl/api/intelligence/alerts/deliveries'),
-      headers: _authenticatedHeaders(),
+      headers: await _authenticatedHeaders(),
     );
     if (response.statusCode != 200) {
       throw Exception('Unable to load alert deliveries: ${response.body}');
@@ -222,7 +242,7 @@ class ApiService {
   ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/api/intelligence/alerts'),
-      headers: _authenticatedHeaders(json: true),
+      headers: await _authenticatedHeaders(json: true),
       body: jsonEncode(rule),
     );
     if (response.statusCode != 200) {
@@ -234,7 +254,7 @@ class ApiService {
   Future<List<Map<String, dynamic>>> fetchCompoundAlerts() async {
     final response = await http.get(
       Uri.parse('$baseUrl/api/intelligence/alerts'),
-      headers: _authenticatedHeaders(),
+      headers: await _authenticatedHeaders(),
     );
     if (response.statusCode != 200) {
       throw Exception('Unable to load alerts: ${response.body}');
@@ -251,7 +271,7 @@ class ApiService {
   ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/api/intelligence/alerts/evaluate-snapshot'),
-      headers: _authenticatedHeaders(json: true),
+      headers: await _authenticatedHeaders(json: true),
       body: jsonEncode({'snapshot': snapshot}),
     );
     if (response.statusCode != 200) {
@@ -264,7 +284,7 @@ class ApiService {
     if (events.isEmpty) return;
     final response = await http.post(
       Uri.parse('$baseUrl/api/intelligence/engagement'),
-      headers: _authenticatedHeaders(json: true),
+      headers: await _authenticatedHeaders(json: true),
       body: jsonEncode({'events': events}),
     );
     if (response.statusCode != 200) {
@@ -833,7 +853,7 @@ class ApiService {
     ).query;
     final uri = Uri.parse('$baseUrl/api/identity/unresolved-grouped?$query');
     final response = await http
-        .get(uri, headers: _authenticatedHeaders())
+        .get(uri, headers: await _authenticatedHeaders())
         .timeout(const Duration(seconds: 20));
 
     if (response.statusCode != 200) {
@@ -976,7 +996,7 @@ class ApiService {
 
     final response = await http.post(
       uri,
-      headers: _authenticatedHeaders(json: true),
+      headers: await _authenticatedHeaders(json: true),
       body: jsonEncode({'legs': legs, 'stake': stake}),
     );
 
@@ -1022,7 +1042,13 @@ class ApiService {
   Future<List<SavedSlip>> fetchSlips({String? status}) async {
     final query = status == null || status == 'all' ? '' : '?status=$status';
     final uri = Uri.parse('$baseUrl/api/slips$query');
-    final response = await http.get(uri, headers: _authenticatedHeaders());
+    var response = await http.get(uri, headers: await _authenticatedHeaders());
+    if (response.statusCode == 401) {
+      response = await http.get(
+        uri,
+        headers: await _authenticatedHeaders(forceRefresh: true),
+      );
+    }
 
     if (response.statusCode != 200) {
       throw Exception('Unable to load slips: ${response.statusCode}');
@@ -1065,7 +1091,7 @@ class ApiService {
   Future<void> refreshSlipGames(String sportKey) async {
     final uri = Uri.parse('$baseUrl/api/slips/refresh-games/$sportKey');
     final response = await http
-        .post(uri, headers: _authenticatedHeaders())
+        .post(uri, headers: await _authenticatedHeaders())
         .timeout(const Duration(seconds: 30));
 
     if (response.statusCode != 200) {
@@ -1099,9 +1125,15 @@ class ApiService {
 
   Future<void> gradeWnbaSlips() async {
     final uri = Uri.parse('$baseUrl/api/slips/grade-wnba');
-    final response = await http
-        .post(uri, headers: _authenticatedHeaders())
+    var response = await http
+        .post(uri, headers: await _authenticatedHeaders())
         .timeout(const Duration(seconds: 60));
+
+    if (response.statusCode == 401) {
+      response = await http
+          .post(uri, headers: await _authenticatedHeaders(forceRefresh: true))
+          .timeout(const Duration(seconds: 60));
+    }
 
     if (response.statusCode != 200) {
       throw Exception('Unable to grade WNBA slips: ${response.body}');
@@ -1418,7 +1450,10 @@ class ApiService {
     required String status,
   }) async {
     final uri = Uri.parse('$baseUrl/api/slips/$slipId/status?status=$status');
-    final response = await http.patch(uri, headers: _authenticatedHeaders());
+    final response = await http.patch(
+      uri,
+      headers: await _authenticatedHeaders(),
+    );
 
     if (response.statusCode != 200) {
       throw Exception('Unable to update slip: ${response.body}');
