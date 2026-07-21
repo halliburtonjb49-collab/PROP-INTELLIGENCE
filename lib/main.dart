@@ -21,7 +21,6 @@ import 'screens/game_markets_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/paywall_screen.dart';
 import 'screens/password_recovery_screen.dart';
-import 'screens/central_props_display_grid_canvas.dart';
 import 'models/slip_selection.dart';
 import 'services/api_service.dart';
 import 'services/app_sound_service.dart';
@@ -6843,18 +6842,24 @@ class _PropGridState extends State<PropGrid> {
 
   Widget _fastPlayerPhoto(PropData prop, {double size = 44}) {
     final imagePath = resolvePlayerImagePath(prop.imagePath);
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context).clamp(1.0, 3.0);
+    final cacheSize = (size * pixelRatio * 1.35).round().clamp(96, 384);
     final isNetwork =
         imagePath.startsWith('http://') || imagePath.startsWith('https://');
     if (!isNetwork) {
       return Image.asset(
         imagePath,
         fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
         errorBuilder: (_, _, _) {
           final officialUrl = _officialMlbHeadshot(prop.player);
           if (officialUrl != null) {
             return CachedNetworkImage(
               imageUrl: officialUrl,
               fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              memCacheWidth: cacheSize,
+              memCacheHeight: cacheSize,
               fadeInDuration: Duration.zero,
               placeholder: (_, _) =>
                   _playerPlaceholder(prop.player, size: size),
@@ -6870,10 +6875,11 @@ class _PropGridState extends State<PropGrid> {
     return CachedNetworkImage(
       imageUrl: imagePath,
       fit: BoxFit.contain,
+      filterQuality: FilterQuality.high,
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,
-      memCacheWidth: (size * 2).round(),
-      memCacheHeight: (size * 2).round(),
+      memCacheWidth: cacheSize,
+      memCacheHeight: cacheSize,
       placeholder: (context, url) {
         return _playerPlaceholder(prop.player, size: size);
       },
@@ -8180,7 +8186,65 @@ class _PropGridState extends State<PropGrid> {
                 }
               });
             if (props.isEmpty) {
-              return const CentralPropsDisplayGridCanvas();
+              final hasFilters =
+                  widget.sportFilter.toUpperCase() != 'ALL' ||
+                  widget.selectedSite.toUpperCase() != 'ALL' ||
+                  widget.selectedCategory.toUpperCase() != 'ALL' ||
+                  widget.selectedSide.toUpperCase() != 'ALL' ||
+                  widget.selectedTier.toUpperCase() != 'ALL' ||
+                  widget.minConfidence > 0 ||
+                  widget.searchQuery.isNotEmpty;
+              return Container(
+                margin: const EdgeInsets.only(top: 18),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 34,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF09141E),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.search_off_rounded,
+                      color: AppColors.gold,
+                      size: 34,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      hasFilters
+                          ? 'NO LIVE PROPS MATCH THESE FILTERS'
+                          : 'NO LIVE PROPS AVAILABLE',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      hasFilters
+                          ? 'Try ALL sports, ALL sites and ALL categories. A sport may also be between games or out of season.'
+                          : 'The live provider has no current or upcoming props. Refresh again when new games are posted.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 12,
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    OutlinedButton.icon(
+                      onPressed: _retryLoad,
+                      icon: const Icon(Icons.refresh_rounded, size: 17),
+                      label: const Text('CHECK AGAIN'),
+                    ),
+                  ],
+                ),
+              );
             }
 
             return LayoutBuilder(
@@ -8660,7 +8724,7 @@ class PropCard extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(color: const Color(0xFFFFC400), width: 1),
                 ),
-                child: ClipOval(child: _buildPropCardImage(prop)),
+                child: ClipOval(child: _buildPropCardImage(context, prop)),
               ),
               const SizedBox(width: 9),
               Expanded(
@@ -8795,14 +8859,17 @@ class PropCard extends StatelessWidget {
     );
   }
 
-  Widget _buildPropCardImage(PropData prop) {
+  Widget _buildPropCardImage(BuildContext context, PropData prop) {
     final imagePath = resolvePlayerImagePath(prop.imagePath);
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context).clamp(1.0, 3.0);
+    final cacheSize = (96 * pixelRatio).round().clamp(144, 384);
     final isNetwork =
         imagePath.startsWith('http://') || imagePath.startsWith('https://');
     if (!isNetwork) {
       return Image.asset(
         imagePath,
         fit: BoxFit.cover,
+        filterQuality: FilterQuality.high,
         alignment: Alignment.topCenter,
         errorBuilder: (_, _, _) {
           return Container(
@@ -8820,11 +8887,12 @@ class PropCard extends StatelessWidget {
     return CachedNetworkImage(
       imageUrl: imagePath,
       fit: BoxFit.cover,
+      filterQuality: FilterQuality.high,
       alignment: Alignment.topCenter,
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,
-      memCacheWidth: 72,
-      memCacheHeight: 72,
+      memCacheWidth: cacheSize,
+      memCacheHeight: cacheSize,
       placeholder: (context, url) {
         return Container(
           color: AppColors.panel,
