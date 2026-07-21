@@ -510,6 +510,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
         width: 22,
         height: 22,
         fit: BoxFit.cover,
+        filterQuality: FilterQuality.high,
         fadeInDuration: Duration.zero,
         memCacheWidth: 44,
         memCacheHeight: 44,

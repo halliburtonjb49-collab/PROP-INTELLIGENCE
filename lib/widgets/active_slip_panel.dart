@@ -434,7 +434,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                         imageUrl,
                         fit: BoxFit.cover,
                         gaplessPlayback: true,
-                        filterQuality: FilterQuality.low,
+                        filterQuality: FilterQuality.high,
                         errorBuilder: (context, error, stackTrace) {
                           return _playerInitials(playerName);
                         },

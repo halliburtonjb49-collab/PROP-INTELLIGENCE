@@ -684,6 +684,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                 : CachedNetworkImage(
                     imageUrl: imageUrl,
                     fit: BoxFit.cover,
+                    filterQuality: FilterQuality.high,
                     fadeInDuration: Duration.zero,
                     fadeOutDuration: Duration.zero,
                     memCacheWidth: 104,
@@ -742,6 +743,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         width: 28,
         height: 28,
         fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
         fadeInDuration: Duration.zero,
         fadeOutDuration: Duration.zero,
         memCacheWidth: 56,

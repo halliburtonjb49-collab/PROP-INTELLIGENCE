@@ -333,6 +333,7 @@ class _SelectedPropCard extends StatelessWidget {
       return Image.asset(
         prop.imageUrl,
         fit: BoxFit.cover,
+        filterQuality: FilterQuality.high,
         errorBuilder: (_, _, _) =>
             const Icon(Icons.person, color: Colors.white54),
       );
@@ -341,6 +342,7 @@ class _SelectedPropCard extends StatelessWidget {
       return CachedNetworkImage(
         imageUrl: prop.imageUrl,
         fit: BoxFit.cover,
+        filterQuality: FilterQuality.high,
         errorWidget: (_, _, _) =>
             const Icon(Icons.person, color: Colors.white54),
       );
