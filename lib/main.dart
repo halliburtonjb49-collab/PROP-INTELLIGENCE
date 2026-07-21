@@ -15,12 +15,12 @@ import 'models/prop_data.dart';
 import 'pages/analytics_page.dart';
 import 'pages/line_movement_page.dart';
 import 'screens/prop_builder_performance_screen.dart';
+import 'screens/prop_builder_screen.dart';
 import 'screens/strikeout_pro_gold_screen.dart';
 import 'screens/game_markets_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/paywall_screen.dart';
 import 'screens/password_recovery_screen.dart';
-import 'screens/cloud_watchlist_screen.dart';
 import 'screens/central_props_display_grid_canvas.dart';
 import 'models/slip_selection.dart';
 import 'services/api_service.dart';
@@ -39,10 +39,10 @@ import 'widgets/active_slip_panel.dart';
 import 'widgets/auth_account_panel.dart';
 import 'widgets/current_slip_panel.dart';
 import 'widgets/ev_scanner_card.dart';
-import 'widgets/interactive_prop_builder.dart';
 import 'widgets/onboarding_dialog.dart';
 import 'widgets/scoreboard_view.dart';
 import 'widgets/selected_prop_slip.dart';
+import 'widgets/slip_history_panel.dart';
 
 final Stopwatch _startupStopwatch = Stopwatch()..start();
 final ValueNotifier<int> boardPropCountNotifier = ValueNotifier<int>(0);
@@ -567,13 +567,21 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             selections: _slipSelections,
             onSelect: _toggleSelection,
             onAddGameMarket: _addGameMarketLeg,
+            onRemoveLabSelection: _removeLabSelection,
+            onClearLabSelections: _clearCurrentSlip,
             sportFilter: _selectedBoardSport,
             selectedPage: _selectedPage,
             onSelectPage: (page) =>
                 _switchToPage(page, source: 'board-toolbar'),
           ),
-          const InteractiveConstructorEngineWidget(),
-          const CloudWatchlistScreen(),
+          PropBuilderScreen(
+            activeSlipController: _activeSlipController,
+            isManualSportsMode: true,
+            initialSelectedSports: [
+              _selectedBoardSport == 'ALL' ? 'WNBA' : _selectedBoardSport,
+            ],
+          ),
+          SlipHistoryPanel(activeSlipController: _activeSlipController),
           const PropBuilderPerformanceScreen(),
           StrikeoutProGoldScreen(onSelect: _toggleSelection),
         ],
@@ -740,6 +748,15 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     final added = await _activeSlipController.addLegs([leg]);
     if (mounted) setState(() {});
     return added;
+  }
+
+  Future<void> _removeLabSelection(String propId) async {
+    await _activeSlipController.removeLeg(propId);
+    SlipManager.removePropById(propId);
+    if (!mounted) return;
+    setState(() {
+      _slipSelections.removeWhere((selection) => selection.prop.id == propId);
+    });
   }
 
   bool _isMixedSiteAttempt(SlipSelection incoming) {
@@ -1138,6 +1155,17 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   ),
                   const SizedBox(height: 6),
                   SidebarButton(
+                    label: 'SLIP WATCHER',
+                    badge: '${widget.activeSlipCount}',
+                    leadingIcons: const [Icons.receipt_long_rounded],
+                    leadingIconColors: const [AppColors.gold],
+                    selected: widget.selectedPage == AppPage.watchlist,
+                    premium: true,
+                    showGoldBar: true,
+                    onTap: () => widget.onSelectPage?.call(AppPage.watchlist),
+                  ),
+                  const SizedBox(height: 6),
+                  SidebarButton(
                     label: 'EV SCANNER',
                     selected: widget.selectedPage == AppPage.evScanner,
                     premium: true,
@@ -1403,7 +1431,7 @@ class SidebarButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isActiveWatchlist = label.toUpperCase() == 'ACTIVE SLIPS';
+    final isActiveWatchlist = label.toUpperCase() == 'SLIP WATCHER';
     final watchlistHasActiveSlips =
         isActiveWatchlist && (int.tryParse((badge ?? '0').trim()) ?? 0) > 0;
     final textColor = selected || watchlistHasActiveSlips
@@ -1413,7 +1441,12 @@ class SidebarButton extends StatelessWidget {
         ? FontWeight.w900
         : FontWeight.w700;
     return InkWell(
-      onTap: onTap,
+      onTap: onTap == null
+          ? null
+          : () {
+              unawaited(AppSoundService.instance.play(AppSoundEvent.button));
+              onTap!();
+            },
       borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
@@ -1562,6 +1595,8 @@ class MainDashboard extends StatefulWidget {
   final List<SlipSelection> selections;
   final void Function(PropData prop, PickSide side) onSelect;
   final Future<int> Function(Map<String, dynamic> leg) onAddGameMarket;
+  final Future<void> Function(String propId) onRemoveLabSelection;
+  final Future<void> Function() onClearLabSelections;
   final String sportFilter;
   final AppPage selectedPage;
   final ValueChanged<AppPage>? onSelectPage;
@@ -1571,6 +1606,8 @@ class MainDashboard extends StatefulWidget {
     required this.selections,
     required this.onSelect,
     required this.onAddGameMarket,
+    required this.onRemoveLabSelection,
+    required this.onClearLabSelections,
     required this.sportFilter,
     required this.selectedPage,
     this.onSelectPage,
@@ -1598,6 +1635,10 @@ class _MainDashboardState extends State<MainDashboard> {
   int _facetTotal = 0;
   Map<String, int> _categoryCounts = const {};
   List<PropData> _evScannerProps = const [];
+  final TextEditingController _evSearchController = TextEditingController();
+  String _evBook = 'ALL';
+  String _evSort = 'EV';
+  double _evMinimum = 0;
   PropData? _focusedProp;
   bool _isEvScannerLoading = false;
   String? _evScannerError;
@@ -1618,6 +1659,7 @@ class _MainDashboardState extends State<MainDashboard> {
     _boardVerticalController.dispose();
     _categoryHorizontalController.dispose();
     _searchController.dispose();
+    _evSearchController.dispose();
     super.dispose();
   }
 
@@ -1678,6 +1720,231 @@ class _MainDashboardState extends State<MainDashboard> {
         });
       }
     }
+  }
+
+  PickSide _evSide(PropData prop) {
+    final signal = '${prop.recommendedSide} ${prop.pick} ${prop.pickText}'
+        .toLowerCase();
+    if (signal.contains('under') || signal.contains('less')) {
+      return PickSide.under;
+    }
+    if (prop.projection != null && prop.projection! < prop.line) {
+      return PickSide.under;
+    }
+    return PickSide.over;
+  }
+
+  List<String> get _evBooks {
+    final books =
+        _evScannerProps
+            .map((prop) => prop.sportsbook.trim().toUpperCase())
+            .where((book) => book.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+    return ['ALL', ...books];
+  }
+
+  List<PropData> get _visibleEvProps {
+    final query = _evSearchController.text.trim().toLowerCase();
+    final props = _evScannerProps.where((prop) {
+      final ev = prop.evPercentage ?? 0;
+      final matchesBook =
+          _evBook == 'ALL' || prop.sportsbook.trim().toUpperCase() == _evBook;
+      final matchesQuery =
+          query.isEmpty ||
+          '${prop.player} ${prop.market} ${prop.sport} ${prop.sportsbook}'
+              .toLowerCase()
+              .contains(query);
+      return ev >= _evMinimum && matchesBook && matchesQuery;
+    }).toList();
+    props.sort(
+      (a, b) => switch (_evSort) {
+        'PROBABILITY' => (b.fairProbability ?? 0).compareTo(
+          a.fairProbability ?? 0,
+        ),
+        'ODDS' => (b.overOdds ?? -10000).compareTo(a.overOdds ?? -10000),
+        _ => (b.evPercentage ?? 0).compareTo(a.evPercentage ?? 0),
+      },
+    );
+    return props;
+  }
+
+  void _showEvDetails(PropData prop) {
+    final probability = prop.fairProbability ?? 0;
+    final fairDecimal = probability > 0 ? 100 / probability : 0;
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: app_colors.AppColors.panel,
+        title: Text('${prop.player} • ${_propMarket(prop)}'),
+        content: SizedBox(
+          width: 430,
+          child: Text(
+            'Sportsbook: ${prop.sportsbook}\n'
+            'Recommended side: ${_evSide(prop).name.toUpperCase()} ${prop.line.toStringAsFixed(1)}\n'
+            'Available odds: ${(prop.overOdds ?? -110).round()}\n'
+            'Estimated fair probability: ${probability.toStringAsFixed(1)}%\n'
+            'Estimated fair decimal price: ${fairDecimal == 0 ? '--' : fairDecimal.toStringAsFixed(2)}\n'
+            'Expected value: +${(prop.evPercentage ?? 0).toStringAsFixed(1)}%\n\n'
+            'Positive EV is a long-run estimate, not a guarantee. Confirm the current line and price before adding the prop.',
+            style: const TextStyle(height: 1.5),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CLOSE'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              widget.onSelect(prop, _evSide(prop));
+            },
+            child: const Text('ADD TO SLIP'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEvScanner() {
+    if (_isEvScannerLoading && _evScannerProps.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.gold),
+      );
+    }
+    if (_evScannerError != null && _evScannerProps.isEmpty) {
+      return Center(
+        child: OutlinedButton.icon(
+          onPressed: _loadEvScannerProps,
+          icon: const Icon(Icons.refresh),
+          label: const Text('RETRY EV FEED'),
+        ),
+      );
+    }
+    final visible = _visibleEvProps;
+    return RefreshIndicator(
+      color: AppColors.gold,
+      onRefresh: _loadEvScannerProps,
+      child: ListView(
+        padding: const EdgeInsets.all(14),
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'EV SCANNER',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Find mispriced props, compare fair probability, and move qualified value into Active Slip.',
+                      style: TextStyle(color: AppColors.muted),
+                    ),
+                  ],
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: _isEvScannerLoading ? null : _loadEvScannerProps,
+                icon: const Icon(Icons.refresh),
+                label: const Text('REFRESH ODDS'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              SizedBox(
+                width: 280,
+                child: TextField(
+                  controller: _evSearchController,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    labelText: 'Player, market, sport, or site',
+                  ),
+                ),
+              ),
+              DropdownButton<String>(
+                value: _evBooks.contains(_evBook) ? _evBook : 'ALL',
+                items: _evBooks
+                    .map(
+                      (book) =>
+                          DropdownMenuItem(value: book, child: Text(book)),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => _evBook = value ?? 'ALL'),
+              ),
+              DropdownButton<String>(
+                value: _evSort,
+                items: const [
+                  DropdownMenuItem(value: 'EV', child: Text('Highest EV')),
+                  DropdownMenuItem(
+                    value: 'PROBABILITY',
+                    child: Text('Highest Fair Probability'),
+                  ),
+                  DropdownMenuItem(value: 'ODDS', child: Text('Best Odds')),
+                ],
+                onChanged: (value) => setState(() => _evSort = value ?? 'EV'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => setState(() {
+                  _evMinimum = 0;
+                  _evBook = 'ALL';
+                  _evSort = 'EV';
+                  _evSearchController.clear();
+                }),
+                icon: const Icon(Icons.filter_alt_off),
+                label: const Text('RESET'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'MINIMUM EV: +${_evMinimum.toStringAsFixed(1)}%  •  ${visible.length} MATCHES',
+          ),
+          Slider(
+            value: _evMinimum,
+            min: 0,
+            max: 20,
+            divisions: 40,
+            label: '+${_evMinimum.toStringAsFixed(1)}%',
+            onChanged: (value) => setState(() => _evMinimum = value),
+          ),
+          if (visible.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(36),
+              child: Center(
+                child: Text('No props match the current EV filters.'),
+              ),
+            )
+          else
+            ...visible.map((prop) {
+              final market = _propMarket(prop);
+              return PositiveEvScannerCard(
+                player: prop.player,
+                propType: market.isEmpty ? prop.market : market,
+                lineValue: prop.line,
+                slowBookmaker: prop.sportsbook,
+                slowBookOdds: (prop.overOdds ?? -110).round(),
+                evPercentage: prop.evPercentage ?? 0,
+                fairProbability: prop.fairProbability ?? 0,
+                onInspect: () => _showEvDetails(prop),
+                onAdd: () => widget.onSelect(prop, _evSide(prop)),
+              );
+            }),
+        ],
+      ),
+    );
   }
 
   void _handlePropsLoaded(
@@ -3007,71 +3274,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 : widget.selectedPage == AppPage.gameMarkets
                 ? GameMarketsScreen(onAddToSlip: widget.onAddGameMarket)
                 : widget.selectedPage == AppPage.evScanner
-                ? _isEvScannerLoading && _evScannerProps.isEmpty
-                      ? const Center(
-                          child: CircularProgressIndicator(
-                            color: AppColors.gold,
-                          ),
-                        )
-                      : _evScannerError != null && _evScannerProps.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  'Unable to load +EV feed.',
-                                  style: TextStyle(color: Colors.grey),
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  _evScannerError!,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Color(0xFF9AA7B6),
-                                    fontSize: 11,
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-                                OutlinedButton(
-                                  onPressed: () {
-                                    unawaited(_loadEvScannerProps());
-                                  },
-                                  child: const Text('Retry'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      : _evScannerProps.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No positive EV props available yet.',
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        )
-                      : RefreshIndicator(
-                          color: AppColors.gold,
-                          onRefresh: _loadEvScannerProps,
-                          child: ListView.builder(
-                            padding: const EdgeInsets.only(top: 8, bottom: 16),
-                            itemCount: _evScannerProps.length,
-                            itemBuilder: (context, index) {
-                              final prop = _evScannerProps[index];
-                              final market = _propMarket(prop);
-                              return PositiveEvScannerCard(
-                                player: prop.player,
-                                propType: market.isEmpty ? prop.market : market,
-                                lineValue: prop.line,
-                                slowBookmaker: prop.sportsbook,
-                                slowBookOdds: (prop.overOdds ?? -110).round(),
-                                evPercentage: prop.evPercentage ?? 0,
-                                fairProbability: prop.fairProbability ?? 0,
-                              );
-                            },
-                          ),
-                        )
+                ? _buildEvScanner()
                 : widget.selectedPage == AppPage.scoreboard
                 ? const LiveScoreboardTickerGridWidget()
                 : widget.selectedPage == AppPage.propAlerts
@@ -3086,7 +3289,11 @@ class _MainDashboardState extends State<MainDashboard> {
                     startInDataAdmin: true,
                   )
                 : widget.selectedPage == AppPage.intelligenceLab
-                ? IntelligenceLabPage(selections: widget.selections)
+                ? IntelligenceLabPage(
+                    selections: widget.selections,
+                    onRemove: widget.onRemoveLabSelection,
+                    onClear: widget.onClearLabSelections,
+                  )
                 : Scrollbar(
                     controller: _boardVerticalController,
                     thumbVisibility: true,
@@ -4966,32 +5173,32 @@ class TopNavigation extends StatelessWidget {
                 _GuideTerm(
                   term: 'The Lab',
                   definition:
-                      'Select two props in your active slip, then compare correlation, game scripts, historical similarity, and alert conditions. Use the help control inside the Lab for its guided workflow.',
+                      'Use NFL, NBA, WNBA, MLB, and NHL tabs to compare two named props, edit their sides, test correlation and game scripts, and review historical similarity.',
                 ),
                 _GuideTerm(
                   term: 'Prop Builder',
                   definition:
-                      'Choose a market, set a line, and add the custom leg to Active Slips. The numbered sections take you through the process in order.',
+                      'Filter real players by sport, category, site, edge, and confidence. Build ranked slips, review the recommended 3–6 leg size, and add or remove picks.',
                 ),
                 _GuideTerm(
-                  term: 'Active Slips',
+                  term: 'Slip Watcher',
                   definition:
-                      'Review saved and live selections, monitor updates, remove unwanted legs, and open a slip to continue research.',
+                      'Monitor saved tickets and live prop progress, then review slip wins, losses, sportsbook profit, and settled outcomes.',
                 ),
                 _GuideTerm(
                   term: 'Performance',
                   definition:
-                      'Filter graded results by date, sport, prop site, and market. Compare complete-build win rate with individual-leg hit rate before drawing conclusions.',
+                      'Filter graded results by date, sport, player, prop site, and category. Compare complete-build win rate, leg hit rate, average edge, and confidence.',
                 ),
                 _GuideTerm(
                   term: 'EV Scanner',
                   definition:
-                      'Review props where the model estimate differs favorably from the available market. Verify the live line and use the card help icons before selecting a side.',
+                      'Search, filter, and rank positive-EV props by sport and sportsbook. Compare fair probability, available price, EV, and add qualified picks to Active Slip.',
                 ),
                 _GuideTerm(
-                  term: 'Elite Active',
+                  term: 'Strikeout Pro Gold',
                   definition:
-                      'Focus the board on the strongest currently available research profiles. Recheck freshness, injuries, and the offered line before saving a selection.',
+                      'Review MLB pitcher strikeout props across all available prop sites or filter to one site, with visible source, line, projection, confidence, and edge.',
                 ),
                 SizedBox(height: 18),
                 _GuideSectionHeader(
@@ -5023,11 +5230,6 @@ class TopNavigation extends StatelessWidget {
                   term: 'Line movement',
                   definition:
                       'A change in the sportsbook’s posted number or price. Confirm the current value before acting.',
-                ),
-                _GuideTerm(
-                  term: 'Goblin / Demon',
-                  definition:
-                      'A visual risk tier. Goblins represent more conservative or favorable profiles; Demons represent more aggressive, volatile profiles.',
                 ),
                 _GuideTerm(
                   term: 'Game script',
@@ -5071,13 +5273,18 @@ class TopNavigation extends StatelessWidget {
 
   Widget _buildGuideButton(BuildContext context) {
     return Tooltip(
-      message: 'Open the platform guide and betting glossary',
-      child: IconButton(
-        onPressed: () => _showGlossary(context),
-        icon: const Icon(
-          Icons.help_center_outlined,
-          color: app_colors.AppColors.gold,
-          size: 20,
+      message: 'Open PI Guide and metric glossary',
+      child: OutlinedButton.icon(
+        onPressed: () {
+          unawaited(AppSoundService.instance.play(AppSoundEvent.selection));
+          _showGlossary(context);
+        },
+        icon: const Icon(Icons.school_outlined, size: 18),
+        label: const Text('PI GUIDE'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: app_colors.AppColors.gold,
+          side: const BorderSide(color: app_colors.AppColors.borderGold),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
         ),
       ),
     );
@@ -5179,7 +5386,7 @@ class TopNavigation extends StatelessWidget {
     AppPage.searchPlayers => 'PLAYER SEARCH',
     AppPage.propAlerts => 'PROP ALERTS',
     AppPage.propBuilder => 'PROP BUILDER',
-    AppPage.watchlist => 'ACTIVE SLIPS',
+    AppPage.watchlist => 'SLIP WATCHER',
     AppPage.builderPerformance => 'PERFORMANCE',
     AppPage.evScanner => 'EV SCANNER',
     AppPage.strikeoutProGold => 'STRIKEOUT PRO GOLD',
@@ -5197,7 +5404,8 @@ class TopNavigation extends StatelessWidget {
     AppPage.searchPlayers => 'Open focused player and market research',
     AppPage.propAlerts => 'Review monitored conditions and changes',
     AppPage.propBuilder => 'Build a disciplined, research-backed slip',
-    AppPage.watchlist => 'Review props and slips you are actively monitoring',
+    AppPage.watchlist =>
+      'Track live props, ticket results and sportsbook profit',
     AppPage.builderPerformance => 'Review outcomes and improve your process',
     AppPage.evScanner => 'Surface estimated positive-value opportunities',
     AppPage.strikeoutProGold =>
@@ -5324,6 +5532,13 @@ class TopNavigation extends StatelessWidget {
                         label: 'ANALYTICS',
                         page: AppPage.analytics,
                         icon: Icons.analytics_outlined,
+                        premium: true,
+                      ),
+                      const SizedBox(width: 4),
+                      _buildNavItem(
+                        label: 'SLIP WATCHER',
+                        page: AppPage.watchlist,
+                        icon: Icons.receipt_long_rounded,
                         premium: true,
                       ),
                       const SizedBox(width: 4),

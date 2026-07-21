@@ -7,7 +7,6 @@ import '../services/affiliate_router.dart';
 import '../services/api_service.dart';
 import '../services/auth_manager.dart';
 import '../services/filter_manager.dart';
-import '../services/goblin_manager.dart';
 import '../services/engagement_tracker.dart';
 import '../services/live_update_service.dart';
 import '../services/prop_watchlist_service.dart';
@@ -243,305 +242,270 @@ class _CentralPropsDisplayGridCanvasState
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: GoblinManager.showGoblinsOnly,
-      builder: (context, goblinsOnly, child) {
-        return ValueListenableBuilder<Set<String>>(
-          valueListenable: FilterManager.activeBookFilter,
-          builder: (context, activeFilters, child) {
-            return StreamBuilder(
-              stream: _channelStream,
-              builder: (context, snapshot) {
-                final isUserPremium =
-                    AuthManager.instance.sessionState.value.isPremium;
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: FilterManager.activeBookFilter,
+      builder: (context, activeFilters, child) {
+        return StreamBuilder(
+          stream: _channelStream,
+          builder: (context, snapshot) {
+            final isUserPremium =
+                AuthManager.instance.sessionState.value.isPremium;
 
-                if (snapshot.hasError && !_websocketUnavailable) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted) {
-                      return;
-                    }
-                    setState(() {
-                      _websocketUnavailable = true;
-                      _startFallbackPolling();
-                    });
-                  });
+            if (snapshot.hasError && !_websocketUnavailable) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) {
+                  return;
                 }
+                setState(() {
+                  _websocketUnavailable = true;
+                  _startFallbackPolling();
+                });
+              });
+            }
 
-                if (snapshot.hasData) {
-                  final decoded = jsonDecode(snapshot.data.toString());
-                  final incoming =
-                      decoded is Map<String, dynamic> &&
-                          decoded['type'] == 'props.updated'
-                      ? decoded['data']
-                      : decoded;
-                  if (incoming is List) {
-                    _fetchedProps = incoming;
-                    _websocketUnavailable = false;
-                    _fallbackPollTimer?.cancel();
-                    _fallbackPollTimer = null;
+            if (snapshot.hasData) {
+              final decoded = jsonDecode(snapshot.data.toString());
+              final incoming =
+                  decoded is Map<String, dynamic> &&
+                      decoded['type'] == 'props.updated'
+                  ? decoded['data']
+                  : decoded;
+              if (incoming is List) {
+                _fetchedProps = incoming;
+                _websocketUnavailable = false;
+                _fallbackPollTimer?.cancel();
+                _fallbackPollTimer = null;
+              }
+            }
+
+            if (_fetchedProps.isEmpty) {
+              return Center(
+                child: Text(
+                  _websocketUnavailable
+                      ? 'Live websocket unavailable. Polling API every 10s.'
+                      : 'Connecting to Python Server Engine...',
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              );
+            }
+
+            final displayedProps = _fetchedProps
+                .where((entry) {
+                  if (entry is! Map<String, dynamic>) {
+                    return false;
                   }
-                }
+                  if (activeFilters.contains('ALL')) {
+                    return true;
+                  }
+                  final oddsData =
+                      (entry['odds_data'] as List<dynamic>? ?? const []);
+                  final firstOdds = oddsData.isNotEmpty
+                      ? oddsData.first as Map<String, dynamic>
+                      : const <String, dynamic>{};
+                  final currentPropBook = (firstOdds['bookmaker'] ?? '')
+                      .toString()
+                      .toUpperCase();
+                  return activeFilters.contains(currentPropBook);
+                })
+                .toList(growable: false);
 
-                if (_fetchedProps.isEmpty) {
-                  return Center(
-                    child: Text(
-                      _websocketUnavailable
-                          ? 'Live websocket unavailable. Polling API every 10s.'
-                          : 'Connecting to Python Server Engine...',
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                  );
-                }
-
-                final displayedProps = _fetchedProps
-                    .where((entry) {
-                      if (entry is! Map<String, dynamic>) {
-                        return false;
-                      }
-                      final isGoblin = entry['is_goblin_line'] == true;
-                      final matchesGoblinState = isGoblin == goblinsOnly;
-                      if (!matchesGoblinState) {
-                        return false;
-                      }
-
-                      if (activeFilters.contains('ALL')) {
-                        return true;
-                      }
-                      final oddsData =
-                          (entry['odds_data'] as List<dynamic>? ?? const []);
-                      final firstOdds = oddsData.isNotEmpty
-                          ? oddsData.first as Map<String, dynamic>
-                          : const <String, dynamic>{};
-                      final currentPropBook = (firstOdds['bookmaker'] ?? '')
-                          .toString()
-                          .toUpperCase();
-                      return activeFilters.contains(currentPropBook);
-                    })
-                    .toList(growable: false);
-
-                final activeFilterLabel = activeFilters.contains('ALL')
-                    ? 'ALL'
-                    : activeFilters.join(', ');
-                final modeLabel = goblinsOnly ? 'GOBLINS' : 'STANDARD';
-
-                return Column(
-                  children: [
-                    Container(
-                      margin: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0C1824),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF263746)),
-                      ),
-                      child: Column(
+            final activeFilterLabel = activeFilters.contains('ALL')
+                ? 'ALL'
+                : activeFilters.join(', ');
+            return Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0C1824),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF263746)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
                         children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.radar_rounded,
+                          const Icon(
+                            Icons.radar_rounded,
+                            color: Color(0xFF36B9FF),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'LIVE PROP BOARD',
+                            style: TextStyle(
+                              color: Color(0xFFD7DEE5),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: .65,
+                            ),
+                          ),
+                          const SizedBox(width: 9),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                0xFF36B9FF,
+                              ).withValues(alpha: .12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '${displayedProps.length} RESULTS',
+                              style: const TextStyle(
                                 color: Color(0xFF36B9FF),
-                                size: 18,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w900,
                               ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'LIVE PROP BOARD',
-                                style: TextStyle(
-                                  color: Color(0xFFD7DEE5),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: .65,
-                                ),
-                              ),
-                              const SizedBox(width: 9),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFF36B9FF,
-                                  ).withValues(alpha: .12),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '${displayedProps.length} RESULTS',
-                                  style: const TextStyle(
-                                    color: Color(0xFF36B9FF),
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ),
-                              const Spacer(),
-                              IconButton(
-                                onPressed: triggerManualBackendRefresh,
-                                tooltip: 'Refresh live props',
-                                icon: const Icon(Icons.refresh_rounded),
-                              ),
-                            ],
+                            ),
                           ),
-                          const SizedBox(height: 5),
-                          Row(
-                            children: [
-                              Expanded(
-                                child:
-                                    ValueListenableBuilder<
-                                      BackendRefreshStatus
-                                    >(
-                                      valueListenable:
-                                          ApiService.refreshStatusNotifier,
-                                      builder: (context, status, _) {
-                                        return Text(
-                                          _formatStatus(status),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: _statusColor(status),
-                                            fontSize: 10,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                              ),
-                            ],
+                          const Spacer(),
+                          IconButton(
+                            onPressed: triggerManualBackendRefresh,
+                            tooltip: 'Refresh live props',
+                            icon: const Icon(Icons.refresh_rounded),
                           ),
-                          const SizedBox(height: 12),
-                          buildSportsbookFilterBar(),
                         ],
                       ),
-                    ),
-                    if (displayedProps.isEmpty)
-                      Expanded(
-                        child: Center(
-                          child: Text(
-                            'No live $modeLabel / $activeFilterLabel props matching confidence thresholds right now.',
-                            style: const TextStyle(color: Colors.grey),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ValueListenableBuilder<BackendRefreshStatus>(
+                              valueListenable: ApiService.refreshStatusNotifier,
+                              builder: (context, status, _) {
+                                return Text(
+                                  _formatStatus(status),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: _statusColor(status),
+                                    fontSize: 10,
+                                  ),
+                                );
+                              },
+                            ),
                           ),
-                        ),
-                      )
-                    else
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: displayedProps.length,
-                          itemBuilder: (context, index) {
-                            final prop =
-                                displayedProps[index] as Map<String, dynamic>;
-                            final oddsData =
-                                (prop['odds_data'] as List<dynamic>? ??
-                                const []);
-                            final firstOdds = oddsData.isNotEmpty
-                                ? oddsData.first as Map<String, dynamic>
-                                : const <String, dynamic>{};
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      buildSportsbookFilterBar(),
+                    ],
+                  ),
+                ),
+                if (displayedProps.isEmpty)
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'No live $activeFilterLabel props matching confidence thresholds right now.',
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: displayedProps.length,
+                      itemBuilder: (context, index) {
+                        final prop =
+                            displayedProps[index] as Map<String, dynamic>;
+                        final oddsData =
+                            (prop['odds_data'] as List<dynamic>? ?? const []);
+                        final firstOdds = oddsData.isNotEmpty
+                            ? oddsData.first as Map<String, dynamic>
+                            : const <String, dynamic>{};
 
-                            return GestureDetector(
-                              onTap: () {
-                                final propId =
-                                    (prop['id'] ?? prop['prop_id'] ?? '')
-                                        .toString();
-                                final selectionPayload = {
-                                  'id': propId,
-                                  'prop_id': propId,
-                                  'player_name': (prop['player_name'] ?? '')
+                        return GestureDetector(
+                          onTap: () {
+                            final propId = (prop['id'] ?? prop['prop_id'] ?? '')
+                                .toString();
+                            final selectionPayload = {
+                              'id': propId,
+                              'prop_id': propId,
+                              'player_name': (prop['player_name'] ?? '')
+                                  .toString(),
+                              'market_type': (prop['market_type'] ?? '')
+                                  .toString(),
+                              'line': (prop['line'] as num?) ?? 0,
+                              'sport': (prop['sport'] ?? '').toString(),
+                              'edge_percentage':
+                                  (prop['edge_percentage'] as num?) ?? 0,
+                              'ai_projection': (prop['ai_projection'] as num?),
+                              'sportsbook':
+                                  (firstOdds['bookmaker'] ?? 'sportsbook')
                                       .toString(),
-                                  'market_type': (prop['market_type'] ?? '')
+                              'odds_data': oddsData,
+                            };
+                            EngagementTracker.instance.record(propId, 'CLICK');
+                            SlipManager.togglePropSelection(selectionPayload);
+                          },
+                          onLongPress: () {
+                            SportsbookAffiliateRouter.routeUserToWagerSlip(
+                              sportsbook:
+                                  (firstOdds['bookmaker'] ?? 'sportsbook')
                                       .toString(),
-                                  'line': (prop['line'] as num?) ?? 0,
-                                  'sport': (prop['sport'] ?? '').toString(),
-                                  'edge_percentage':
-                                      (prop['edge_percentage'] as num?) ?? 0,
-                                  'ai_projection':
-                                      (prop['ai_projection'] as num?),
-                                  'is_goblin_line':
-                                      prop['is_goblin_line'] == true,
-                                  'sportsbook':
-                                      (firstOdds['bookmaker'] ?? 'sportsbook')
-                                          .toString(),
-                                  'odds_data': oddsData,
-                                };
-                                EngagementTracker.instance.record(
-                                  propId,
-                                  'CLICK',
-                                );
-                                SlipManager.togglePropSelection(
-                                  selectionPayload,
-                                );
-                              },
-                              onLongPress: () {
-                                SportsbookAffiliateRouter.routeUserToWagerSlip(
-                                  sportsbook:
-                                      (firstOdds['bookmaker'] ?? 'sportsbook')
-                                          .toString(),
-                                  playerName: (prop['player_name'] ?? '')
-                                      .toString(),
-                                  marketType: (prop['market_type'] ?? '')
-                                      .toString(),
-                                );
-                              },
-                              child: ElitePropCard(
-                                playerName: (prop['player_name'] ?? '')
-                                    .toString(),
-                                propType: (prop['market_type'] ?? '')
-                                    .toString(),
-                                sportsbookLine: (prop['line'] as num?) ?? 0,
-                                americanOdds:
-                                    ((firstOdds['over_odds'] as num?) ?? -110)
-                                        .toInt(),
-                                aiProjection:
-                                    (prop['ai_projection'] as num?) ?? 0,
-                                edgePercentage:
-                                    (prop['edge_percentage'] as num?) ?? 0,
-                                isUserPremium: isUserPremium,
-                                initialIsFavorited: _favoritedPlayerNames
-                                    .contains(
-                                      _normalizePlayerName(
-                                        (prop['player_name'] ?? '').toString(),
-                                      ),
-                                    ),
-                                onFavoriteChanged: (isFavorited) {
-                                  if (isFavorited) {
-                                    EngagementTracker.instance.record(
-                                      (prop['id'] ?? prop['prop_id'] ?? '')
-                                          .toString(),
-                                      'WATCHLIST',
-                                    );
-                                  }
-                                  final normalizedPlayerName =
-                                      _normalizePlayerName(
-                                        (prop['player_name'] ?? '').toString(),
-                                      );
-                                  if (normalizedPlayerName.isEmpty) {
-                                    return;
-                                  }
-
-                                  setState(() {
-                                    if (isFavorited) {
-                                      _favoritedPlayerNames = {
-                                        ..._favoritedPlayerNames,
-                                        normalizedPlayerName,
-                                      };
-                                    } else {
-                                      _favoritedPlayerNames =
-                                          _favoritedPlayerNames
-                                              .where(
-                                                (name) =>
-                                                    name !=
-                                                    normalizedPlayerName,
-                                              )
-                                              .toSet();
-                                    }
-                                  });
-                                },
-                                propData: prop,
-                              ),
+                              playerName: (prop['player_name'] ?? '')
+                                  .toString(),
+                              marketType: (prop['market_type'] ?? '')
+                                  .toString(),
                             );
                           },
-                        ),
-                      ),
-                  ],
-                );
-              },
+                          child: ElitePropCard(
+                            playerName: (prop['player_name'] ?? '').toString(),
+                            propType: (prop['market_type'] ?? '').toString(),
+                            sportsbookLine: (prop['line'] as num?) ?? 0,
+                            americanOdds:
+                                ((firstOdds['over_odds'] as num?) ?? -110)
+                                    .toInt(),
+                            aiProjection: (prop['ai_projection'] as num?) ?? 0,
+                            edgePercentage:
+                                (prop['edge_percentage'] as num?) ?? 0,
+                            isUserPremium: isUserPremium,
+                            initialIsFavorited: _favoritedPlayerNames.contains(
+                              _normalizePlayerName(
+                                (prop['player_name'] ?? '').toString(),
+                              ),
+                            ),
+                            onFavoriteChanged: (isFavorited) {
+                              if (isFavorited) {
+                                EngagementTracker.instance.record(
+                                  (prop['id'] ?? prop['prop_id'] ?? '')
+                                      .toString(),
+                                  'WATCHLIST',
+                                );
+                              }
+                              final normalizedPlayerName = _normalizePlayerName(
+                                (prop['player_name'] ?? '').toString(),
+                              );
+                              if (normalizedPlayerName.isEmpty) {
+                                return;
+                              }
+
+                              setState(() {
+                                if (isFavorited) {
+                                  _favoritedPlayerNames = {
+                                    ..._favoritedPlayerNames,
+                                    normalizedPlayerName,
+                                  };
+                                } else {
+                                  _favoritedPlayerNames = _favoritedPlayerNames
+                                      .where(
+                                        (name) => name != normalizedPlayerName,
+                                      )
+                                      .toSet();
+                                }
+                              });
+                            },
+                            propData: prop,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
             );
           },
         );

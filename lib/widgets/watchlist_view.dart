@@ -149,7 +149,6 @@ class _CloudWatchlistDashboardCanvasState
               'sport': (prop['sport'] ?? '').toString(),
               'edge_percentage': (prop['edge_percentage'] as num?) ?? 0,
               'ai_projection': (prop['ai_projection'] as num?),
-              'is_goblin_line': prop['is_goblin_line'] == true,
               'sportsbook': (firstOdds['bookmaker'] ?? 'sportsbook').toString(),
               'odds_data': oddsData,
             };

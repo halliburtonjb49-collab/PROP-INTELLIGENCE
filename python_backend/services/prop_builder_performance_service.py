@@ -177,10 +177,13 @@ def _leg_prop_site(leg: dict[str, object]) -> str:
 def _leg_status(leg: dict[str, object]) -> str:
     raw_status = str(
         leg.get(
-            "result",
+            "result_status",
             leg.get(
-                "status",
-                "pending",
+                "result",
+                leg.get(
+                    "status",
+                    "pending",
+                ),
             ),
         )
     ).strip().lower()
@@ -257,6 +260,7 @@ def get_prop_builder_performance(
     sport: str | None = None,
     prop_site: str | None = None,
     market: str | None = None,
+    player: str | None = None,
 ) -> PropBuilderPerformanceResponse:
     initialize_prop_builder_history()
 
@@ -288,12 +292,15 @@ def get_prop_builder_performance(
         if market
         else None
     )
+    normalized_player = _normalize_text(player) if player else None
     if normalized_sport in {"", "all"}:
         normalized_sport = None
     if normalized_site in {"", "all"}:
         normalized_site = None
     if normalized_market in {"", "all"}:
         normalized_market = None
+    if normalized_player in {"", "all"}:
+        normalized_player = None
     for row in rows:
         legs = json.loads(row["legs_json"])
         matching_legs: list[dict[str, object]] = []
@@ -323,6 +330,9 @@ def get_prop_builder_performance(
                 and leg_market != normalized_market
             ):
                 continue
+            leg_player = _normalize_text(leg.get("player", "Unknown"))
+            if normalized_player and leg_player != normalized_player:
+                continue
             matching_legs.append(leg)
 
         if not matching_legs:
@@ -351,6 +361,7 @@ def get_prop_builder_performance(
     leg_sport_data: dict[str, dict[str, float]] = defaultdict(_empty_leg_breakdown)
     leg_site_data: dict[str, dict[str, float]] = defaultdict(_empty_leg_breakdown)
     leg_market_data: dict[str, dict[str, float]] = defaultdict(_empty_leg_breakdown)
+    leg_player_data: dict[str, dict[str, float]] = defaultdict(_empty_leg_breakdown)
     trend_data: dict[str, dict[str, int]] = defaultdict(
         lambda: {
             "total_builds": 0,
@@ -411,10 +422,18 @@ def get_prop_builder_performance(
         legs_pushed += matching_legs_pushed
         legs_pending += matching_legs_pending
 
-        average_edge = float(row["average_edge"] or 0)
-        average_confidence = float(row["average_confidence"] or 0)
-        edge_total += average_edge
-        confidence_total += average_confidence
+        average_edge = (
+            sum(float(leg.get("edge", 0) or 0) for leg in matching_legs)
+            / len(matching_legs)
+        )
+        average_confidence = (
+            sum(float(leg.get("confidence", 0) or 0) for leg in matching_legs)
+            / len(matching_legs)
+        )
+        edge_total += sum(float(leg.get("edge", 0) or 0) for leg in matching_legs)
+        confidence_total += sum(
+            float(leg.get("confidence", 0) or 0) for leg in matching_legs
+        )
 
         sports = sorted(
             {
@@ -455,6 +474,12 @@ def get_prop_builder_performance(
             )
             _add_leg_to_breakdown(
                 target=leg_market_data[market_name],
+                status=leg_status,
+                edge=leg_edge,
+                confidence=leg_confidence,
+            )
+            _add_leg_to_breakdown(
+                target=leg_player_data[str(leg.get("player", "Unknown"))],
                 status=leg_status,
                 edge=leg_edge,
                 confidence=leg_confidence,
@@ -577,6 +602,14 @@ def get_prop_builder_performance(
         ),
         reverse=True,
     )
+    leg_performance_by_player = [
+        _to_leg_breakdown(name=name, values=values)
+        for name, values in leg_player_data.items()
+    ]
+    leg_performance_by_player.sort(
+        key=lambda item: (item.leg_hit_rate, item.resolved_legs, item.total_legs),
+        reverse=True,
+    )
 
     trend: list[PerformanceTrendPoint] = []
     for date, values in sorted(trend_data.items()):
@@ -622,13 +655,13 @@ def get_prop_builder_performance(
             resolved_legs,
         ),
         average_edge=(
-            round(edge_total / total_builds, 1)
-            if total_builds
+            round(edge_total / (legs_won + legs_lost + legs_pushed + legs_pending), 1)
+            if (legs_won + legs_lost + legs_pushed + legs_pending)
             else 0
         ),
         average_confidence=(
-            round(confidence_total / total_builds, 1)
-            if total_builds
+            round(confidence_total / (legs_won + legs_lost + legs_pushed + legs_pending), 1)
+            if (legs_won + legs_lost + legs_pushed + legs_pending)
             else 0
         ),
         by_sport=by_sport,
@@ -636,6 +669,7 @@ def get_prop_builder_performance(
         leg_performance_by_sport=leg_performance_by_sport,
         leg_performance_by_prop_site=leg_performance_by_prop_site,
         leg_performance_by_market=leg_performance_by_market,
+        leg_performance_by_player=leg_performance_by_player,
         recent_builds=recent_builds,
         trend=trend,
     )

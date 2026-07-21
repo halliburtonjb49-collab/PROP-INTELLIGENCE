@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../services/api_service.dart';
 import '../services/live_update_service.dart';
@@ -10,15 +11,23 @@ import '../theme/app_colors.dart';
 import '../widgets/context_help.dart';
 
 class IntelligenceLabPage extends StatefulWidget {
-  const IntelligenceLabPage({super.key, this.selections = const []});
+  const IntelligenceLabPage({
+    super.key,
+    this.selections = const [],
+    this.onRemove,
+    this.onClear,
+  });
 
   final List<SlipSelection> selections;
+  final Future<void> Function(String propId)? onRemove;
+  final Future<void> Function()? onClear;
 
   @override
   State<IntelligenceLabPage> createState() => _IntelligenceLabPageState();
 }
 
 class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
+  static const _sports = ['NFL', 'NBA', 'WNBA', 'MLB', 'NHL'];
   static String _scriptLabel(String value) => switch (value) {
     'HOME_BLOWOUT' => 'Home team blowout',
     'AWAY_BLOWOUT' => 'Away team blowout',
@@ -55,10 +64,16 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
   SlipSelection? _selectionB;
   String? _savedAlertMessage;
   String? _alertDeliveryMessage;
+  String _selectedSport = 'NFL';
 
   @override
   void initState() {
     super.initState();
+    final initialSport = widget.selections.firstOrNull?.prop.sport
+        .toUpperCase();
+    if (initialSport != null && _sports.contains(initialSport)) {
+      _selectedSport = initialSport;
+    }
     _loadActiveSlip(widget.selections);
     unawaited(_loadCalibration());
     unawaited(_loadAlertDeliveries());
@@ -197,15 +212,22 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
   @override
   void didUpdateWidget(covariant IntelligenceLabPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.selections != widget.selections) {
-      _loadActiveSlip(widget.selections);
-    }
+    _loadActiveSlip(widget.selections);
   }
 
   void _loadActiveSlip(List<SlipSelection> selections) {
-    _selectionA = selections.firstOrNull;
-    _selectionB = selections.length > 1 ? selections[1] : null;
-    if (selections.isEmpty) return;
+    final sportMatches = selections
+        .where(
+          (selection) => selection.prop.sport.toUpperCase() == _selectedSport,
+        )
+        .toList();
+    final candidates = sportMatches.isNotEmpty ? sportMatches : selections;
+    _selectionA = candidates.firstOrNull;
+    _selectionB = candidates.length > 1 ? candidates[1] : null;
+    if (candidates.isEmpty) {
+      _loadSportDemo(_selectedSport);
+      return;
+    }
     void load(
       SlipSelection selection,
       TextEditingController player,
@@ -223,16 +245,16 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
     }
 
     load(
-      selections.first,
+      candidates.first,
       _playerA,
       _marketA,
       _projectionA,
       _lineA,
       (side) => _sideA = side,
     );
-    if (selections.length > 1) {
+    if (candidates.length > 1) {
       load(
-        selections[1],
+        candidates[1],
         _playerB,
         _marketB,
         _projectionB,
@@ -240,6 +262,58 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
         (side) => _sideB = side,
       );
     }
+  }
+
+  void _loadSportDemo(String sport) {
+    final preset = switch (sport) {
+      'NBA' ||
+      'WNBA' => ('Guard', 'Points', 'Center', 'Rebounds', '24.5', '10.5'),
+      'MLB' => (
+        'Starting Pitcher',
+        'Strikeouts',
+        'Hitter',
+        'Total Bases',
+        '6.5',
+        '1.5',
+      ),
+      'NHL' => ('Center', 'Shots on Goal', 'Goalie', 'Saves', '3.5', '27.5'),
+      _ => (
+        'Quarterback',
+        'Passing Yards',
+        'Receiver',
+        'Receiving Yards',
+        '265.5',
+        '74.5',
+      ),
+    };
+    _playerA.text = preset.$1;
+    _marketA.text = preset.$2;
+    _playerB.text = preset.$3;
+    _marketB.text = preset.$4;
+    _lineA.text = preset.$5;
+    _projectionA.text = preset.$5;
+    _lineB.text = preset.$6;
+    _projectionB.text = preset.$6;
+  }
+
+  void _selectSport(String sport) {
+    setState(() {
+      _selectedSport = sport;
+      _correlation = null;
+      _simulation = null;
+      _similarity = null;
+      _loadActiveSlip(widget.selections);
+    });
+  }
+
+  Future<void> _removeSelection(SlipSelection? selection) async {
+    if (selection == null || widget.onRemove == null) return;
+    await widget.onRemove!(selection.prop.id);
+  }
+
+  Future<void> _clearSelections() async {
+    if (widget.onClear == null) return;
+    await widget.onClear!();
   }
 
   Map<String, dynamic> get _compoundRule => {
@@ -294,15 +368,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
   };
 
   String get _analysisSport {
-    final selectedSport = _selectionA?.prop.sport.trim();
-    if (selectedSport != null && selectedSport.isNotEmpty) {
-      return selectedSport.toUpperCase();
-    }
-    final markets = '${_marketA.text} ${_marketB.text}'.toLowerCase();
-    if (markets.contains('passing') || markets.contains('receiving')) {
-      return 'NFL';
-    }
-    return 'NBA';
+    return _selectedSport;
   }
 
   String get _similarityMarket {
@@ -456,12 +522,113 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
     );
   }
 
+  Widget _sportTabs() => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+      children: _sports.map((sport) {
+        final count = widget.selections
+            .where((selection) => selection.prop.sport.toUpperCase() == sport)
+            .length;
+        return Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: ChoiceChip(
+            key: ValueKey('lab-sport-$sport'),
+            selected: _selectedSport == sport,
+            onSelected: (_) => _selectSport(sport),
+            avatar: Icon(
+              sport == 'MLB'
+                  ? Icons.sports_baseball
+                  : sport == 'NFL'
+                  ? Icons.sports_football
+                  : sport == 'NHL'
+                  ? Icons.sports_hockey
+                  : Icons.sports_basketball,
+              size: 16,
+            ),
+            label: Text('$sport${count > 0 ? '  $count' : ''}'),
+          ),
+        );
+      }).toList(),
+    ),
+  );
+
+  Widget _activeLabPicks() {
+    final picks = [
+      _selectionA,
+      _selectionB,
+    ].whereType<SlipSelection>().toList();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0C1824),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'ACTIVE LAB PICKS',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: widget.selections.isEmpty || widget.onClear == null
+                    ? null
+                    : () => unawaited(_clearSelections()),
+                icon: const Icon(Icons.delete_sweep_outlined, size: 17),
+                label: const Text('CLEAR ALL'),
+              ),
+            ],
+          ),
+          if (picks.isEmpty)
+            Text(
+              'No $_selectedSport picks are in the active slip. Demo names and markets are loaded below so you can still explore the Lab.',
+              style: const TextStyle(color: AppColors.textSecondary),
+            )
+          else
+            ...picks.map(
+              (selection) => Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFF2B2100),
+                    child: Icon(Icons.person_outline, color: AppColors.gold),
+                  ),
+                  title: Text(
+                    selection.prop.player,
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  subtitle: Text(
+                    '${selection.sideLabel} ${selection.prop.line.toStringAsFixed(1)} ${selection.prop.market} • ${selection.prop.sportsbook}',
+                  ),
+                  trailing: IconButton(
+                    tooltip: 'Remove ${selection.prop.player} from active slip',
+                    onPressed: widget.onRemove == null
+                        ? null
+                        : () => unawaited(_removeSelection(selection)),
+                    icon: const Icon(Icons.remove_circle_outline),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pair =
         (_correlation?['pairs'] as List?)?.firstOrNull as Map<String, dynamic>?;
     final impacts = (_simulation?['impacts'] as List?) ?? const [];
     return ListView(
+      scrollCacheExtent: const ScrollCacheExtent.pixels(2200),
       padding: const EdgeInsets.all(22),
       children: [
         Row(
@@ -491,6 +658,20 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
         const SizedBox(height: 16),
         _calibrationPanel(),
         const SizedBox(height: 16),
+        const Text(
+          'CHOOSE SPORT',
+          style: TextStyle(
+            color: AppColors.gold,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .8,
+          ),
+        ),
+        const SizedBox(height: 8),
+        _sportTabs(),
+        const SizedBox(height: 12),
+        _activeLabPicks(),
+        const SizedBox(height: 12),
         Align(
           alignment: Alignment.centerLeft,
           child: Chip(
@@ -582,6 +763,36 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
                   ),
                 ],
               ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'OVER', label: Text('P1 OVER')),
+                        ButtonSegment(value: 'UNDER', label: Text('P1 UNDER')),
+                      ],
+                      selected: {_sideA},
+                      onSelectionChanged: (value) {
+                        setState(() => _sideA = value.first);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'OVER', label: Text('P2 OVER')),
+                        ButtonSegment(value: 'UNDER', label: Text('P2 UNDER')),
+                      ],
+                      selected: {_sideB},
+                      onSelectionChanged: (value) {
+                        setState(() => _sideB = value.first);
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
           step: 1,
@@ -589,6 +800,12 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
           help:
               'Correlation estimates how two outcomes tend to move together. Positive correlation means they are more likely to hit together; negative correlation means one may work against the other.',
         ),
+        ElevatedButton.icon(
+          onPressed: _busy ? null : () => unawaited(_run()),
+          icon: const Icon(Icons.science_outlined),
+          label: Text(_busy ? 'RUNNING…' : 'RUN INTELLIGENCE'),
+        ),
+        const SizedBox(height: 14),
         _card(
           'GAME-SCRIPT SIMULATOR',
           DropdownButton<String>(
@@ -634,7 +851,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
         ),
         ElevatedButton(
           onPressed: _busy ? null : () => unawaited(_run()),
-          child: Text(_busy ? 'RUNNING…' : 'RUN INTELLIGENCE'),
+          child: Text(_busy ? 'RUNNING…' : 'RUN FULL ANALYSIS'),
         ),
         if (_error != null)
           Padding(

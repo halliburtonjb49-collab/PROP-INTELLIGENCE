@@ -20,6 +20,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
   final ApiService _api = ApiService();
   final TextEditingController _search = TextEditingController();
   var _view = _StrikeoutView.all;
+  String? _selectedSite;
   var _loading = true;
   String? _error;
   List<PropData> _props = const [];
@@ -93,7 +94,14 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
         final confidence = b.confidence.compareTo(a.confidence);
         return confidence != 0 ? confidence : _edge(b).compareTo(_edge(a));
       });
-      if (mounted) setState(() => _props = strikeouts);
+      if (mounted) {
+        setState(() {
+          _props = strikeouts;
+          if (_selectedSite != null && !_sites.contains(_selectedSite)) {
+            _selectedSite = null;
+          }
+        });
+      }
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
@@ -110,15 +118,32 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
               _view == _StrikeoutView.all ||
               (_view == _StrikeoutView.over && side == PickSide.over) ||
               (_view == _StrikeoutView.under && side == PickSide.under);
+          final siteMatches =
+              _selectedSite == null ||
+              prop.sportsbook.trim().toUpperCase() == _selectedSite;
           final queryMatches =
               query.isEmpty ||
               '${prop.player} ${prop.matchup} ${prop.sportsbook}'
                   .toLowerCase()
                   .contains(query);
-          return sideMatches && queryMatches;
+          return sideMatches && siteMatches && queryMatches;
         })
         .toList(growable: false);
   }
+
+  List<String> get _sites {
+    final sites = _props
+        .map((prop) => prop.sportsbook.trim().toUpperCase())
+        .where((site) => site.isNotEmpty)
+        .toSet()
+        .toList();
+    sites.sort();
+    return sites;
+  }
+
+  int _siteCount(String site) => _props
+      .where((prop) => prop.sportsbook.trim().toUpperCase() == site)
+      .length;
 
   @override
   Widget build(BuildContext context) {
@@ -129,6 +154,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
         key: const ValueKey('strikeout-pro-gold'),
         slivers: [
           SliverToBoxAdapter(child: _header()),
+          SliverToBoxAdapter(child: _siteTabs()),
           SliverToBoxAdapter(child: _controls()),
           SliverToBoxAdapter(child: _methodology()),
           if (_loading)
@@ -293,6 +319,70 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
           label: const Text('REFRESH'),
         ),
       ],
+    ),
+  );
+
+  Widget _siteTabs() => Padding(
+    padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'PROP SITES',
+          style: TextStyle(
+            color: AppColors.gold,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .8,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _siteTab(
+                label: 'ALL STRIKEOUT PROPS',
+                count: _props.length,
+                selected: _selectedSite == null,
+                onTap: () => setState(() => _selectedSite = null),
+              ),
+              for (final site in _sites) ...[
+                const SizedBox(width: 8),
+                _siteTab(
+                  label: site,
+                  count: _siteCount(site),
+                  selected: _selectedSite == site,
+                  onTap: () => setState(() => _selectedSite = site),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _siteTab({
+    required String label,
+    required int count,
+    required bool selected,
+    required VoidCallback onTap,
+  }) => OutlinedButton(
+    key: ValueKey('strikeout-site-$label'),
+    onPressed: onTap,
+    style: OutlinedButton.styleFrom(
+      foregroundColor: selected ? const Color(0xFF07131D) : AppColors.gold,
+      backgroundColor: selected ? AppColors.gold : const Color(0xFF07131D),
+      side: BorderSide(
+        color: selected ? AppColors.gold : AppColors.borderGold,
+        width: selected ? 1.5 : 1,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    ),
+    child: Text(
+      '$label  $count',
+      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
     ),
   );
 
@@ -525,6 +615,48 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.gold.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.gold),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.storefront_rounded,
+                  color: AppColors.gold,
+                  size: 17,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'PROP SITE: ${prop.sportsbook.trim().isEmpty ? 'UNKNOWN' : prop.sportsbook.toUpperCase()}',
+                  style: const TextStyle(
+                    color: AppColors.gold,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .5,
+                  ),
+                ),
+                if (prop.sourceProvider.trim().isNotEmpty &&
+                    prop.sourceProvider.trim().toUpperCase() !=
+                        prop.sportsbook.trim().toUpperCase()) ...[
+                  const Spacer(),
+                  Text(
+                    'SOURCE: ${prop.sourceProvider.toUpperCase()}',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
           const SizedBox(height: 14),
           Row(

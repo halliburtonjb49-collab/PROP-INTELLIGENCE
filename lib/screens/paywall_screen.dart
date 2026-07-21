@@ -63,7 +63,7 @@ class BrandedPaywallModalSheet extends StatelessWidget {
           ),
           _buildValueHookRow(
             Icons.local_fire_department_outlined,
-            'High-Multiplier Goblins Tier Alternative Lines',
+            'Strikeout Pro Gold Multi-Site Research',
             'Filter volatile alt-prop options automatically.',
           ),
           const SizedBox(height: 32),

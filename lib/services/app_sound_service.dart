@@ -5,7 +5,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum AppSoundEvent { navigation, selection, success, warning }
+enum AppSoundEvent { button, navigation, selection, success, warning }
 
 enum AppSoundProfile {
   subtle('Subtle', 'Quiet feedback for essential actions only'),
@@ -129,6 +129,7 @@ class AppSoundService extends ChangeNotifier {
 
   Uint8List _toneFor(AppSoundEvent event) {
     final (frequency, duration) = switch (event) {
+      AppSoundEvent.button => (610.0, .045),
       AppSoundEvent.navigation => (520.0, .055),
       AppSoundEvent.selection => (690.0, .075),
       AppSoundEvent.success => (
@@ -188,6 +189,7 @@ class AppSoundService extends ChangeNotifier {
   }
 
   bool _eventEnabled(AppSoundEvent event) => switch (event) {
+    AppSoundEvent.button => _selectionEnabled,
     AppSoundEvent.navigation => _navigationEnabled,
     AppSoundEvent.selection => _selectionEnabled,
     AppSoundEvent.success || AppSoundEvent.warning => _alertsEnabled,

@@ -201,17 +201,17 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             title: 'BUILD & TRACK',
             items: [
               'Guided prop builder with same-sportsbook slip protection',
-              'Saved watchlists, active slips and performance history',
-              'Alerts for monitored conditions and stale-line changes',
+              'Slip Watcher with live scoring, ticket results and profit by site',
+              'Build Performance by sport, player, site and category',
             ],
           ),
           _FeatureGroup(
             icon: Icons.auto_awesome_rounded,
             title: 'ADVANCED EDGE TOOLS',
             items: [
-              'EV Scanner and Goblins / Demons risk-tier views',
-              'Prediction grading, calibration and model performance review',
-              'Contextual tips and plain-language guidance throughout the app',
+              'Actionable EV Scanner with fair-price and sportsbook comparison',
+              'Strikeout Pro Gold with all-site and individual-site views',
+              'Multi-sport Intelligence Lab and the updated PI Guide',
             ],
           ),
           _AboutNotice(
@@ -247,6 +247,34 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             title: 'TRACK AND LEARN',
             text:
                 'Follow results over time and use performance history to improve your process.',
+          ),
+        ];
+      case 'install':
+        title = 'INSTALL APP';
+        subtitle = 'FAST, FULL-SCREEN ACCESS ON EVERY DEVICE';
+        icon = Icons.install_mobile_rounded;
+        content = const [
+          _AboutNotice(
+            title: 'IPHONE & IPAD',
+            text:
+                'Open app.propsintell.com in Safari, tap Share, then choose Add to Home Screen.',
+          ),
+          SizedBox(height: 10),
+          _AboutNotice(
+            title: 'ANDROID',
+            text:
+                'Open the site in Chrome and tap Install when prompted, or choose Install app from the browser menu.',
+          ),
+          SizedBox(height: 10),
+          _AboutNotice(
+            title: 'DESKTOP',
+            text:
+                'Open the site in Chrome or Edge and choose Install when prompted or from the address-bar install icon.',
+          ),
+          SizedBox(height: 14),
+          Text(
+            'Installation gives you a dedicated app window, faster access and automatic updates without visiting an app store.',
+            style: TextStyle(color: _silver70, fontSize: 14, height: 1.55),
           ),
         ];
       case 'about':
@@ -1164,6 +1192,63 @@ class _TopNavigation extends StatelessWidget {
     required this.onSignUp,
   });
 
+  Future<void> _showMobileMenu(BuildContext context) async {
+    const items = <(String, String, IconData)>[
+      ('FEATURES', 'features', Icons.query_stats_rounded),
+      ('HOW IT WORKS', 'how-it-works', Icons.route_rounded),
+      ('PRICING', 'pricing', Icons.workspace_premium_outlined),
+      ('ABOUT', 'about', Icons.info_outline_rounded),
+      ('INSTALL APP', 'install', Icons.install_mobile_rounded),
+      ('TERMS', 'terms', Icons.gavel_rounded),
+      ('CONTACT', 'contact', Icons.forum_outlined),
+    ];
+    final section = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: _panelBackground,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(12, 4, 12, 10),
+              child: Text(
+                'EXPLORE PROP INTELLIGENCE',
+                style: TextStyle(
+                  color: _gold,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            for (final item in items)
+              ListTile(
+                leading: Icon(item.$3, color: _gold, size: 21),
+                title: Text(
+                  item.$1,
+                  style: const TextStyle(
+                    color: _silver,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: _silver60,
+                ),
+                onTap: () => Navigator.of(sheetContext).pop(item.$2),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (section != null && context.mounted) {
+      await onNavigate(section);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1190,7 +1275,7 @@ class _TopNavigation extends StatelessWidget {
                 'PROP INTELLIGENCE',
                 style: TextStyle(
                   color: _gold,
-                  fontSize: compact ? 10 : 11,
+                  fontSize: compact ? 8 : 11,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1,
                 ),
@@ -1230,6 +1315,14 @@ class _TopNavigation extends StatelessWidget {
                 ),
               ),
             SizedBox(width: tight ? 6 : 14),
+          ] else ...[
+            IconButton(
+              key: const ValueKey('mobile-info-menu'),
+              tooltip: 'Explore information and installation',
+              onPressed: () => _showMobileMenu(context),
+              icon: const Icon(Icons.menu_rounded, color: _gold),
+            ),
+            const SizedBox(width: 4),
           ],
           OutlinedButton(
             onPressed: onSignUp,

@@ -162,7 +162,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
         Row(
           children: [
             const Text(
-              'SAVED SLIPS',
+              'SLIP WATCHER',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
             ),
             const Spacer(),
@@ -298,6 +298,8 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                 children: [
                   _TotalsBar(totals: totals),
                   const SizedBox(height: 8),
+                  _ProfitKeeper(totals: totals),
+                  const SizedBox(height: 8),
                   _ClvSummary(totals: totals),
                   const SizedBox(height: 10),
                   Expanded(
@@ -331,8 +333,28 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     var measuredClvLegs = 0;
     var beatCloseLegs = 0;
     var clvPercentTotal = 0.0;
+    var wonSlips = 0;
+    var lostSlips = 0;
+    final profitByBook = <String, double>{};
 
     for (final slip in slips) {
+      final slipStatus = slip.status.toLowerCase();
+      if (slipStatus == 'won') wonSlips += 1;
+      if (slipStatus == 'lost') lostSlips += 1;
+      final book =
+          slip.legs.isEmpty || slip.legs.first.sportsbook.trim().isEmpty
+          ? 'Unknown site'
+          : slip.legs.first.sportsbook.trim();
+      final settledProfit = slipStatus == 'won'
+          ? slip.potentialPayout - slip.stake
+          : slipStatus == 'lost'
+          ? -slip.stake
+          : 0.0;
+      profitByBook.update(
+        book,
+        (value) => value + settledProfit,
+        ifAbsent: () => settledProfit,
+      );
       for (final leg in slip.legs) {
         if (leg.lineClvPercent != null && leg.beatClosingLine != null) {
           measuredClvLegs += 1;
@@ -354,6 +376,9 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
 
     return _SlipTotals(
       totalSlips: slips.length,
+      wonSlips: wonSlips,
+      lostSlips: lostSlips,
+      profitByBook: profitByBook,
       wonLegs: wonLegs,
       lostLegs: lostLegs,
       pendingLegs: pendingLegs,
@@ -403,6 +428,9 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
 class _SlipTotals {
   const _SlipTotals({
     required this.totalSlips,
+    required this.wonSlips,
+    required this.lostSlips,
+    required this.profitByBook,
     required this.wonLegs,
     required this.lostLegs,
     required this.pendingLegs,
@@ -412,6 +440,9 @@ class _SlipTotals {
   });
 
   final int totalSlips;
+  final int wonSlips;
+  final int lostSlips;
+  final Map<String, double> profitByBook;
   final int wonLegs;
   final int lostLegs;
   final int pendingLegs;
@@ -516,12 +547,98 @@ class _TotalsBar extends StatelessWidget {
       children: [
         pill('SLIPS', '${totals.totalSlips}', const Color(0xFFF2BC35)),
         const SizedBox(width: 8),
-        pill('WON LEGS', '${totals.wonLegs}', const Color(0xFFF2BC35)),
+        pill('SLIP WINS', '${totals.wonSlips}', const Color(0xFFF2BC35)),
         const SizedBox(width: 8),
-        pill('LOST LEGS', '${totals.lostLegs}', const Color(0xFF63A8FF)),
+        pill('SLIP LOSSES', '${totals.lostSlips}', const Color(0xFFFF5D68)),
         const SizedBox(width: 8),
         pill('PENDING', '${totals.pendingLegs}', const Color(0xFFF2BC35)),
       ],
+    );
+  }
+}
+
+class _ProfitKeeper extends StatelessWidget {
+  const _ProfitKeeper({required this.totals});
+
+  final _SlipTotals totals;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = totals.profitByBook.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final net = entries.fold<double>(0, (sum, entry) => sum + entry.value);
+    String money(double value) =>
+        '${value >= 0 ? '+' : '-'}\$${value.abs().toStringAsFixed(2)}';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: const Color(0xFF101D28),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF344758)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.account_balance_wallet_outlined,
+                size: 16,
+                color: Color(0xFFF2BC35),
+              ),
+              const SizedBox(width: 7),
+              const Text(
+                'PROFIT KEEPER',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+              ),
+              const Spacer(),
+              Text(
+                money(net),
+                style: TextStyle(
+                  color: net >= 0
+                      ? const Color(0xFFF2BC35)
+                      : const Color(0xFFFF5D68),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          if (entries.isNotEmpty) ...[
+            const SizedBox(height: 9),
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: entries
+                  .map(
+                    (entry) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF07131D),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${entry.key}: ${money(entry.value)}',
+                        style: TextStyle(
+                          color: entry.value >= 0
+                              ? const Color(0xFFF2BC35)
+                              : const Color(0xFFFF5D68),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -545,12 +662,12 @@ class _SavedSlipCard extends StatelessWidget {
     final borderColor = isWon
         ? const Color(0xFFF2BC35)
         : isLost
-        ? const Color(0xFF63A8FF)
+        ? const Color(0xFFFF5D68)
         : const Color(0xFF73500B);
     final statusColor = isWon
         ? const Color(0xFFF2BC35)
         : isLost
-        ? const Color(0xFF63A8FF)
+        ? const Color(0xFFFF5D68)
         : const Color(0xFFF2BC35);
 
     return Container(
@@ -643,10 +760,32 @@ class _SavedSlipCard extends StatelessWidget {
                               if (leg.resultValue != null) ...[
                                 const SizedBox(height: 3),
                                 Text(
-                                  'Final result: ${leg.resultValue}',
-                                  style: const TextStyle(
-                                    color: Color(0xFF8B98A8),
+                                  '${leg.gameCompleted ? 'FINAL' : 'LIVE'}: ${leg.resultValue!.toStringAsFixed(1)} / ${leg.line.toStringAsFixed(1)}',
+                                  style: TextStyle(
+                                    color: leg.gameCompleted
+                                        ? const Color(0xFF8B98A8)
+                                        : const Color(0xFF36B9FF),
                                     fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    minHeight: 4,
+                                    value: leg.line <= 0
+                                        ? 0
+                                        : (leg.resultValue! / leg.line).clamp(
+                                            0.0,
+                                            1.0,
+                                          ),
+                                    backgroundColor: const Color(0xFF263746),
+                                    valueColor: AlwaysStoppedAnimation(
+                                      leg.resultStatus.toLowerCase() == 'lost'
+                                          ? const Color(0xFFFF5D68)
+                                          : const Color(0xFFF2BC35),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -702,8 +841,8 @@ class _SavedSlipCard extends StatelessWidget {
                         child: OutlinedButton(
                           onPressed: onLost,
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF63A8FF),
-                            side: const BorderSide(color: Color(0xFF63A8FF)),
+                            foregroundColor: const Color(0xFFFF5D68),
+                            side: const BorderSide(color: Color(0xFFFF5D68)),
                           ),
                           child: const Text('MARK LOST'),
                         ),

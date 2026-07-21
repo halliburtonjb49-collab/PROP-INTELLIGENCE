@@ -33,7 +33,6 @@ class _InteractiveConstructorEngineWidgetState
           'last_update': 'Manual',
         },
       ],
-      'is_goblin_line': false,
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

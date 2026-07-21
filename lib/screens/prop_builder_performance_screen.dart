@@ -28,6 +28,10 @@ class _PropBuilderPerformanceScreenState
     'MLB',
     'NFL',
     'NHL',
+    'PGA',
+    'TENNIS',
+    'SOCCER',
+    'UFC',
   ];
   static const List<String> _propSites = [
     'ALL',
@@ -58,6 +62,24 @@ class _PropBuilderPerformanceScreenState
     'receptions',
     'shots_on_goal',
     'saves',
+    'goals',
+    'fantasy_score',
+    'points_rebounds',
+    'points_assists',
+    'rebounds_assists',
+    'passing_touchdowns',
+    'interceptions',
+    'rushing_attempts',
+    'touchdowns',
+    'runs',
+    'walks',
+    'aces',
+    'double_faults',
+    'games_won',
+    'birdies',
+    'round_score',
+    'takedowns',
+    'significant_strikes',
   ];
 
   bool _isLoading = true;
@@ -67,11 +89,56 @@ class _PropBuilderPerformanceScreenState
   String _selectedSport = 'ALL';
   String _selectedPropSite = 'ALL';
   String _selectedMarket = 'ALL';
+  String _selectedPlayer = 'ALL';
+  final Set<String> _discoveredSports = {..._sports};
+  final Set<String> _discoveredSites = {..._propSites};
+  final Set<String> _discoveredMarkets = {..._markets};
+  final Set<String> _discoveredPlayers = {'ALL'};
+
+  List<String> _sortedOptions(Set<String> values) {
+    final result = values.where((value) => value.trim().isNotEmpty).toList();
+    result.sort((a, b) {
+      if (a == 'ALL') return -1;
+      if (b == 'ALL') return 1;
+      return a.toLowerCase().compareTo(b.toLowerCase());
+    });
+    return result;
+  }
+
+  void _captureOptions(Map<String, dynamic> result) {
+    void capture(String key, Set<String> target) {
+      final items = result[key] as List<dynamic>? ?? const [];
+      for (final item in items.whereType<Map<String, dynamic>>()) {
+        final name = item['name']?.toString().trim() ?? '';
+        if (name.isNotEmpty && name.toLowerCase() != 'unknown') {
+          target.add(name);
+        }
+      }
+    }
+
+    capture('leg_performance_by_sport', _discoveredSports);
+    capture('leg_performance_by_prop_site', _discoveredSites);
+    capture('leg_performance_by_market', _discoveredMarkets);
+    capture('leg_performance_by_player', _discoveredPlayers);
+  }
 
   @override
   void initState() {
     super.initState();
     _loadPerformance();
+    _loadFilterCatalog();
+  }
+
+  Future<void> _loadFilterCatalog() async {
+    try {
+      final result = await _apiService.fetchPropBuilderPerformance(
+        recentLimit: 1,
+      );
+      if (!mounted) return;
+      setState(() => _captureOptions(result));
+    } catch (_) {
+      // The primary performance request still provides usable filter options.
+    }
   }
 
   Future<void> _loadPerformance() async {
@@ -86,12 +153,14 @@ class _PropBuilderPerformanceScreenState
         sport: _selectedSport,
         propSite: _selectedPropSite,
         market: _selectedMarket,
+        player: _selectedPlayer,
       );
       if (!mounted) {
         return;
       }
       setState(() {
         _performance = result;
+        _captureOptions(result);
       });
     } catch (error) {
       if (!mounted) {
@@ -356,6 +425,54 @@ class _PropBuilderPerformanceScreenState
     );
   }
 
+  Widget _howToUsePanel() => Card(
+    color: const Color(0xFF101D28),
+    child: ExpansionTile(
+      initiallyExpanded: true,
+      leading: const Icon(Icons.menu_book_outlined, color: AppColors.gold),
+      title: const Text(
+        'HOW TO USE BUILD PERFORMANCE',
+        style: TextStyle(fontWeight: FontWeight.w900),
+      ),
+      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      children: const [
+        Text(
+          '1. Start with 30D and All filters to establish a useful sample.\n'
+          '2. Narrow by sport, player, prop site, or category to find what performs best.\n'
+          '3. Compare Build Win Rate with Leg Hit Rate—one grades the whole ticket and the other grades every pick.\n'
+          '4. Check average edge and confidence against actual hit rate. A strong model should remain consistent as the sample grows.\n'
+          '5. Treat results marked with an asterisk as a small sample. Pending picks do not count as wins or losses.\n'
+          '6. Refresh after games finish so newly graded results are included.',
+          style: TextStyle(color: AppColors.textSecondary, height: 1.55),
+        ),
+      ],
+    ),
+  );
+
+  Widget _metricKeyPanel() => Card(
+    color: const Color(0xFF0C1824),
+    child: ExpansionTile(
+      leading: const Icon(Icons.key_rounded, color: AppColors.gold),
+      title: const Text(
+        'METRIC KEY & CALCULATIONS',
+        style: TextStyle(fontWeight: FontWeight.w900),
+      ),
+      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      children: const [
+        Text(
+          'Build Win Rate = winning completed builds ÷ winning and losing builds.\n'
+          'Leg Hit Rate = won legs ÷ won, lost, and pushed legs.\n'
+          'Average Edge = average model edge recorded when each build was created.\n'
+          'Average Confidence = average model confidence recorded at selection time.\n'
+          'Push = a result exactly on the posted line; it remains resolved but is not a win.\n'
+          'Pending = awaiting a final result and excluded from win-rate denominators.\n'
+          '* Small Sample = fewer than five resolved legs; use cautiously.',
+          style: TextStyle(color: AppColors.textSecondary, height: 1.55),
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -387,6 +504,8 @@ class _PropBuilderPerformanceScreenState
         performance['leg_performance_by_prop_site'] as List<dynamic>? ?? [];
     final legMarketItems =
         performance['leg_performance_by_market'] as List<dynamic>? ?? [];
+    final legPlayerItems =
+        performance['leg_performance_by_player'] as List<dynamic>? ?? [];
     final recentItems = performance['recent_builds'] as List<dynamic>? ?? [];
 
     return ColoredBox(
@@ -430,6 +549,32 @@ class _PropBuilderPerformanceScreenState
               ],
             ),
             const SizedBox(height: 14),
+            _howToUsePanel(),
+            const SizedBox(height: 10),
+            _metricKeyPanel(),
+            const SizedBox(height: 14),
+            const Text(
+              'DATE RANGE',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _dateRanges.keys
+                  .map(
+                    (range) => ChoiceChip(
+                      label: Text(range),
+                      selected: _selectedRange == range,
+                      onSelected: (_) {
+                        setState(() => _selectedRange = range);
+                        _loadPerformance();
+                      },
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 14),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -438,6 +583,7 @@ class _PropBuilderPerformanceScreenState
                 Chip(label: Text('Sport: $_selectedSport')),
                 Chip(label: Text('Site: $_selectedPropSite')),
                 Chip(label: Text('Market: ${_marketLabel(_selectedMarket)}')),
+                Chip(label: Text('Player: $_selectedPlayer')),
               ],
             ),
             const SizedBox(height: 18),
@@ -464,7 +610,7 @@ class _PropBuilderPerformanceScreenState
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'No builds matched $_selectedSport, $_selectedPropSite, $_selectedMarket, and $_selectedRange.',
+                      'No builds matched $_selectedSport, $_selectedPropSite, $_selectedMarket, $_selectedPlayer, and $_selectedRange.',
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -475,7 +621,7 @@ class _PropBuilderPerformanceScreenState
             LayoutBuilder(
               builder: (context, constraints) {
                 final columns = constraints.maxWidth >= 1000
-                    ? 4
+                    ? 3
                     : constraints.maxWidth >= 650
                     ? 2
                     : 1;
@@ -509,6 +655,18 @@ class _PropBuilderPerformanceScreenState
                       value: '${_intValue('pending_builds')}',
                       icon: Icons.schedule,
                     ),
+                    _metricCard(
+                      label: 'Average Edge',
+                      value:
+                          '${_doubleValue('average_edge').toStringAsFixed(1)}%',
+                      icon: Icons.trending_up_rounded,
+                    ),
+                    _metricCard(
+                      label: 'Average Confidence',
+                      value:
+                          '${_doubleValue('average_confidence').toStringAsFixed(1)}%',
+                      icon: Icons.verified_outlined,
+                    ),
                   ],
                 );
               },
@@ -521,7 +679,7 @@ class _PropBuilderPerformanceScreenState
                 _filterDropdown(
                   label: 'Sport',
                   value: _selectedSport,
-                  items: _sports,
+                  items: _sortedOptions(_discoveredSports),
                   onChanged: (value) {
                     setState(() {
                       _selectedSport = value;
@@ -532,7 +690,7 @@ class _PropBuilderPerformanceScreenState
                 _filterDropdown(
                   label: 'Prop Site',
                   value: _selectedPropSite,
-                  items: _propSites,
+                  items: _sortedOptions(_discoveredSites),
                   onChanged: (value) {
                     setState(() {
                       _selectedPropSite = value;
@@ -543,12 +701,21 @@ class _PropBuilderPerformanceScreenState
                 _filterDropdown(
                   label: 'Market',
                   value: _selectedMarket,
-                  items: _markets,
+                  items: _sortedOptions(_discoveredMarkets),
                   itemLabel: _marketLabel,
                   onChanged: (value) {
                     setState(() {
                       _selectedMarket = value;
                     });
+                    _loadPerformance();
+                  },
+                ),
+                _filterDropdown(
+                  label: 'Player',
+                  value: _selectedPlayer,
+                  items: _sortedOptions(_discoveredPlayers),
+                  onChanged: (value) {
+                    setState(() => _selectedPlayer = value);
                     _loadPerformance();
                   },
                 ),
@@ -562,6 +729,7 @@ class _PropBuilderPerformanceScreenState
                   _selectedSport = 'ALL';
                   _selectedPropSite = 'ALL';
                   _selectedMarket = 'ALL';
+                  _selectedPlayer = 'ALL';
                 });
                 _loadPerformance();
               },
@@ -595,6 +763,11 @@ class _PropBuilderPerformanceScreenState
             _legPerformanceSection(
               title: 'INDIVIDUAL LEG PERFORMANCE BY MARKET',
               items: legMarketItems,
+            ),
+            const SizedBox(height: 30),
+            _legPerformanceSection(
+              title: 'INDIVIDUAL LEG PERFORMANCE BY PLAYER',
+              items: legPlayerItems,
             ),
             const SizedBox(height: 30),
             _breakdownSection(

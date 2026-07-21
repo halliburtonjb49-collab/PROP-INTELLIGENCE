@@ -78,21 +78,39 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
     'rebounds',
     'assists',
     'pra',
+    'points_rebounds',
+    'points_assists',
+    'rebounds_assists',
     'three_pointers_made',
     'steals',
     'blocks',
     'turnovers',
+    'fantasy_score',
     'strikeouts',
     'hits',
     'home_runs',
     'total_bases',
     'rbi',
+    'runs',
+    'walks',
     'passing_yards',
+    'passing_touchdowns',
+    'interceptions',
     'rushing_yards',
+    'rushing_attempts',
     'receiving_yards',
     'receptions',
+    'touchdowns',
     'shots_on_goal',
     'saves',
+    'goals',
+    'aces',
+    'double_faults',
+    'games_won',
+    'birdies',
+    'round_score',
+    'takedowns',
+    'significant_strikes',
   ];
 
   static const List<String> _quickLabels = [
@@ -1176,15 +1194,24 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
                   Column(
                     children: [
                       OutlinedButton.icon(
-                        onPressed: () {
-                          _toggleGeneratedLeg(leg);
-                        },
+                        onPressed: isInActiveSlip
+                            ? () =>
+                                  widget.activeSlipController.removeLeg(propId)
+                            : () {
+                                _toggleGeneratedLeg(leg);
+                              },
                         icon: Icon(
-                          isSelected
+                          isInActiveSlip || isSelected
                               ? Icons.remove_circle_outline
                               : Icons.add_circle_outline,
                         ),
-                        label: Text(isSelected ? 'REMOVE' : 'ADD'),
+                        label: Text(
+                          isInActiveSlip
+                              ? 'REMOVE FROM SLIP'
+                              : isSelected
+                              ? 'REMOVE'
+                              : 'ADD',
+                        ),
                       ),
                       const SizedBox(height: 8),
                       TextButton.icon(
@@ -1596,6 +1623,111 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
     return _generatedLegs.where((leg) {
       return _isGeneratedLegSelected(leg);
     }).toList();
+  }
+
+  double _legMetric(Map<String, dynamic> leg, List<String> keys) {
+    for (final key in keys) {
+      final value = leg[key];
+      if (value is num) return value.toDouble();
+      final parsed = double.tryParse(value?.toString() ?? '');
+      if (parsed != null) return parsed;
+    }
+    return 0;
+  }
+
+  int get _recommendedPlaySize {
+    final picks = _selectedGeneratedLegs().isEmpty
+        ? _generatedLegs
+        : _selectedGeneratedLegs();
+    if (picks.isEmpty) return 3;
+    final edge =
+        picks.fold<double>(
+          0,
+          (sum, leg) =>
+              sum + _legMetric(leg, const ['edge', 'edge_percentage']),
+        ) /
+        picks.length;
+    final confidence =
+        picks.fold<double>(
+          0,
+          (sum, leg) =>
+              sum + _legMetric(leg, const ['confidence', 'win_probability']),
+        ) /
+        picks.length;
+    final ev =
+        picks.fold<double>(
+          0,
+          (sum, leg) =>
+              sum +
+              _legMetric(leg, const ['ev', 'ev_percentage', 'expected_value']),
+        ) /
+        picks.length;
+    final quality = edge * .48 + confidence * .42 + ev.clamp(0, 25) * .4;
+    if (quality >= 76 && picks.length >= 6) return 6;
+    if (quality >= 70 && picks.length >= 5) return 5;
+    if (quality >= 64 && picks.length >= 4) return 4;
+    return 3;
+  }
+
+  Widget _buildPlayRecommendation() {
+    final picks = _selectedGeneratedLegs().isEmpty
+        ? _generatedLegs
+        : _selectedGeneratedLegs();
+    if (picks.isEmpty) return const SizedBox.shrink();
+    double average(List<String> keys) =>
+        picks.fold<double>(0, (sum, leg) => sum + _legMetric(leg, keys)) /
+        picks.length;
+    final edge = average(const ['edge', 'edge_percentage']);
+    final confidence = average(const ['confidence', 'win_probability']);
+    final ev = average(const ['ev', 'ev_percentage', 'expected_value']);
+    final legs = _recommendedPlaySize;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF201A06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF2BC35)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.auto_graph_rounded, color: Color(0xFFF2BC35)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'RECOMMENDED PLAY: $legs-LEG',
+                  style: const TextStyle(
+                    color: Color(0xFFF2BC35),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Based on ${picks.length} picks • Avg edge ${edge.toStringAsFixed(1)}% • Confidence ${confidence.toStringAsFixed(1)}% • EV ${ev >= 0 ? '+' : ''}${ev.toStringAsFixed(1)}%',
+                  style: const TextStyle(fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => setState(() => _legCount = legs),
+            child: const Text('USE THIS SIZE'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _clearActiveSlip() async {
+    await widget.activeSlipController.clear();
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Active slip cleared.')));
   }
 
   List<Map<String, dynamic>> _legsForExport() {
@@ -4908,6 +5040,10 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
               ],
               if (_generatedLegs.isNotEmpty) ...[
                 const SizedBox(height: 10),
+                _buildPlayRecommendation(),
+              ],
+              if (_generatedLegs.isNotEmpty) ...[
+                const SizedBox(height: 10),
                 _buildPartialBuildWarning(),
               ],
               if (!_isLoading &&
@@ -5000,14 +5136,29 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: _selectedGeneratedPropIds.isEmpty
-                        ? null
-                        : _addSelectedToActiveSlip,
-                    icon: const Icon(Icons.add_circle_outline),
-                    label: Text(
-                      'ADD SELECTED (${_selectedGeneratedPropIds.length})',
-                    ),
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: _selectedGeneratedPropIds.isEmpty
+                            ? null
+                            : _addSelectedToActiveSlip,
+                        icon: const Icon(Icons.add_circle_outline),
+                        label: Text(
+                          'ADD SELECTED (${_selectedGeneratedPropIds.length})',
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: widget.activeSlipController.legCount == 0
+                            ? null
+                            : _clearActiveSlip,
+                        icon: const Icon(Icons.delete_sweep_outlined),
+                        label: Text(
+                          'CLEAR ACTIVE SLIP (${widget.activeSlipController.legCount})',
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

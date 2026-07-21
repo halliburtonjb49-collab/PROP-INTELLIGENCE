@@ -45,25 +45,18 @@ class AppShell extends StatelessWidget {
     required BorderRadius borderRadius,
     bool highlighted = false,
   }) {
-    return ClipRRect(
-      borderRadius: borderRadius,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: const Color(0xE607111B),
-          borderRadius: borderRadius,
-          border: Border.all(
-            color: highlighted ? AppColors.borderGold : AppColors.border,
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x99000000),
-              blurRadius: 28,
-              offset: Offset(0, 14),
-            ),
-          ],
+    return Material(
+      color: const Color(0xE607111B),
+      elevation: 12,
+      shadowColor: const Color(0x99000000),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: borderRadius,
+        side: BorderSide(
+          color: highlighted ? AppColors.borderGold : AppColors.border,
         ),
-        child: child,
       ),
+      child: child,
     );
   }
 

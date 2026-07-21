@@ -139,4 +139,34 @@ void main() {
     expect(find.text('PROP INTELLIGENCE'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('mobile menu exposes public information and install guidance', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(const MaterialApp(home: CorporateLoginScreen()));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('mobile-info-menu')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('FEATURES'), findsOneWidget);
+    expect(find.text('PRICING'), findsOneWidget);
+    expect(find.text('ABOUT'), findsOneWidget);
+    expect(find.text('TERMS'), findsOneWidget);
+    expect(find.text('CONTACT'), findsOneWidget);
+    expect(find.text('INSTALL APP'), findsOneWidget);
+
+    await tester.tap(find.text('INSTALL APP'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('FAST, FULL-SCREEN ACCESS ON EVERY DEVICE'),
+      findsOneWidget,
+    );
+    expect(find.text('IPHONE & IPAD'), findsWidgets);
+    expect(find.text('ANDROID'), findsWidgets);
+    expect(find.text('DESKTOP'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
 }

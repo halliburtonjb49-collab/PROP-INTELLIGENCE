@@ -408,22 +408,6 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     final imageUrl = _playerImageUrl(prop);
     final playerName = (prop['player'] ?? prop['player_name'] ?? '?')
         .toString();
-    final specialType = _specialTypeForLeg(prop);
-    final borderColor = specialType == 'demon'
-        ? const Color(0xFFFF5656)
-        : specialType == 'goblin'
-        ? const Color(0xFF36B9FF)
-        : PropIntelligenceColors.gold;
-    final markerIcon = specialType == 'demon'
-        ? Icons.whatshot
-        : specialType == 'goblin'
-        ? Icons.masks_outlined
-        : null;
-    final markerColor = specialType == 'demon'
-        ? const Color(0xFFFF5656)
-        : specialType == 'goblin'
-        ? const Color(0xFF36B9FF)
-        : PropIntelligenceColors.gold;
 
     return RepaintBoundary(
       child: SizedBox(
@@ -437,7 +421,10 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               height: size,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: borderColor, width: 1.3),
+                border: Border.all(
+                  color: PropIntelligenceColors.gold,
+                  width: 1.3,
+                ),
               ),
               child: ClipOval(
                 child: imageUrl.isEmpty
@@ -469,38 +456,10 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                       ),
               ),
             ),
-            if (markerIcon != null)
-              Positioned(
-                right: -2,
-                bottom: -2,
-                child: Container(
-                  width: 16,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0B151E),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: markerColor, width: 1),
-                  ),
-                  child: Icon(markerIcon, size: 10, color: markerColor),
-                ),
-              ),
           ],
         ),
       ),
     );
-  }
-
-  String _specialTypeForLeg(Map<String, dynamic> leg) {
-    final corpus =
-        '${leg['custom_label'] ?? ''} ${leg['manual_note'] ?? ''} ${leg['tier'] ?? ''} ${leg['pick_text'] ?? ''}'
-            .toLowerCase();
-    if (corpus.contains('demon') || corpus.contains('red_demon')) {
-      return 'demon';
-    }
-    if (corpus.contains('goblin') || corpus.contains('green_goblin')) {
-      return 'goblin';
-    }
-    return '';
   }
 
   Widget _sportIcon(String rawSport, {double size = 17}) {

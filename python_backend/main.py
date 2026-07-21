@@ -2335,6 +2335,7 @@ def prop_builder_performance(
 	sport: str | None = None,
 	prop_site: str | None = None,
 	market: str | None = None,
+	player: str | None = None,
 ) -> PropBuilderPerformanceResponse:
 	safe_days = None
 	if days is not None:
@@ -2352,6 +2353,7 @@ def prop_builder_performance(
 		sport=sport,
 		prop_site=prop_site,
 		market=market,
+		player=player,
 	)
 
 

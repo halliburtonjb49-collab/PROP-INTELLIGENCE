@@ -12,6 +12,8 @@ class PositiveEvScannerCard extends StatelessWidget {
   final int slowBookOdds;
   final double evPercentage;
   final double fairProbability;
+  final VoidCallback? onAdd;
+  final VoidCallback? onInspect;
 
   const PositiveEvScannerCard({
     super.key,
@@ -22,6 +24,8 @@ class PositiveEvScannerCard extends StatelessWidget {
     required this.slowBookOdds,
     required this.evPercentage,
     required this.fairProbability,
+    this.onAdd,
+    this.onInspect,
   });
 
   @override
@@ -159,6 +163,26 @@ class PositiveEvScannerCard extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onInspect,
+                  icon: const Icon(Icons.analytics_outlined, size: 17),
+                  label: const Text('EV DETAILS'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: onAdd,
+                  icon: const Icon(Icons.add_circle_outline, size: 17),
+                  label: const Text('ADD TO SLIP'),
+                ),
               ),
             ],
           ),

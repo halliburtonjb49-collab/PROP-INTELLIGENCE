@@ -1368,6 +1368,7 @@ class ApiService {
     String? sport,
     String? propSite,
     String? market,
+    String? player,
   }) async {
     final query = <String, String>{'recent_limit': '$recentLimit'};
     if (days != null) {
@@ -1381,6 +1382,9 @@ class ApiService {
     }
     if (market != null && market.isNotEmpty && market != 'ALL') {
       query['market'] = market;
+    }
+    if (player != null && player.isNotEmpty && player != 'ALL') {
+      query['player'] = player;
     }
     final uri = Uri.parse(
       '$baseUrl/api/prop-builder/performance',
