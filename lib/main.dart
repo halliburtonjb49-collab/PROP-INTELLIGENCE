@@ -6849,14 +6849,16 @@ class _PropGridState extends State<PropGrid> {
     if (!isNetwork) {
       return Image.asset(
         imagePath,
-        fit: BoxFit.contain,
+        fit: BoxFit.cover,
+        alignment: Alignment.topCenter,
         filterQuality: FilterQuality.high,
         errorBuilder: (_, _, _) {
           final officialUrl = _officialMlbHeadshot(prop.player);
           if (officialUrl != null) {
             return CachedNetworkImage(
               imageUrl: officialUrl,
-              fit: BoxFit.contain,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
               filterQuality: FilterQuality.high,
               memCacheWidth: cacheSize,
               memCacheHeight: cacheSize,
@@ -6874,7 +6876,8 @@ class _PropGridState extends State<PropGrid> {
 
     return CachedNetworkImage(
       imageUrl: imagePath,
-      fit: BoxFit.contain,
+      fit: BoxFit.cover,
+      alignment: Alignment.topCenter,
       filterQuality: FilterQuality.high,
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,
