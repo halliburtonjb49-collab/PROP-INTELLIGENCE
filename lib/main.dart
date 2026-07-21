@@ -1530,13 +1530,18 @@ class SidebarButton extends StatelessWidget {
               const SizedBox(width: 8),
             ],
             Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 10.5,
-                  fontWeight: textWeight,
-                  letterSpacing: 0.2,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  label,
+                  maxLines: label.contains('\n') ? 2 : 1,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 10.5,
+                    fontWeight: textWeight,
+                    letterSpacing: 0.2,
+                  ),
                 ),
               ),
             ),
@@ -5290,6 +5295,74 @@ class TopNavigation extends StatelessWidget {
     );
   }
 
+  String get _pageHowTo => switch (selectedPage) {
+    AppPage.board =>
+      'Use the sport, category and prop-site filters to narrow today\'s board. Compare the posted line with the projection, edge and confidence, then choose Over or Under to add a prop to the active slip.',
+    AppPage.gameMarkets =>
+      'Choose a sport and game, then compare moneyline, spread and total prices across sites. Use the best available number and confirm it again at the sportsbook before playing.',
+    AppPage.propBuilder =>
+      'Select sports, prop sites and categories, set your minimum edge and confidence, then build. Review the recommended 3-6 leg size and remove or replace any leg before saving the slip.',
+    AppPage.watchlist =>
+      'Saved slips appear here automatically. Use Active, Won and Lost to filter tickets, Refresh to update live scoring, and the totals to track wins, losses and sportsbook profit.',
+    AppPage.builderPerformance =>
+      'Start with 30 days, then filter by sport, site, market or player. Compare slip win rate with individual-leg hit rate and use only meaningful sample sizes when changing your strategy.',
+    AppPage.strikeoutProGold =>
+      'Use All Props first, then filter by prop site, Over or Under. Compare the pitcher line, projection, edge and confidence; select the recommended side only after confirming the source site and current line.',
+    AppPage.evScanner =>
+      'Filter the available props, then rank by expected value, fair probability or edge. Open a prop for the calculation details and compare the model\'s fair price with the site\'s offered price before adding it.',
+    AppPage.analytics =>
+      'Choose a date range and filters to review results. Look for repeatable performance across enough settled picks instead of reacting to a short winning or losing streak.',
+    AppPage.lineMovement =>
+      'Select a sport or tracked prop and compare its opening, current and closing values. Favor current numbers that still preserve the projected edge and avoid chasing a line after the value disappears.',
+    AppPage.intelligenceLab =>
+      'Choose a sport, add players or props, then run correlation and scenario tools. Remove individual selections or clear the lab before starting a different game or strategy.',
+    AppPage.scoreboard =>
+      'Choose a date or sport to follow upcoming, live and completed games. Use scores and game status to confirm context before evaluating or grading a prop.',
+    AppPage.searchPlayers =>
+      'Search a player, open the active research view and compare every available market and site before choosing a prop.',
+    AppPage.propAlerts =>
+      'Review triggered market conditions, open the affected prop and confirm the latest line before taking action.',
+    AppPage.dataAdmin =>
+      'Refresh unresolved identities, validate payloads before upload and use Production Acceptance to confirm feeds, quotas and billing are healthy.',
+  };
+
+  void _showPageHelp(BuildContext context) {
+    unawaited(AppSoundService.instance.play(AppSoundEvent.selection));
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: app_colors.AppColors.panel,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: app_colors.AppColors.borderGold),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.school_outlined, color: app_colors.AppColors.gold),
+            const SizedBox(width: 10),
+            Expanded(child: Text('HOW TO USE $_pageTitle')),
+          ],
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: Text(
+            _pageHowTo,
+            style: const TextStyle(
+              color: app_colors.AppColors.textSecondary,
+              height: 1.55,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('GOT IT'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildNavItem({
     required String label,
     required AppPage page,
@@ -5297,6 +5370,7 @@ class TopNavigation extends StatelessWidget {
     bool premium = false,
   }) {
     final selected = selectedPage == page;
+    final isSlipWatcher = page == AppPage.watchlist;
 
     return Tooltip(
       message: switch (page) {
@@ -5337,15 +5411,23 @@ class TopNavigation extends StatelessWidget {
                     : app_colors.AppColors.textSecondary,
               ),
               const SizedBox(width: 7),
-              Text(
-                label,
-                style: TextStyle(
-                  color: selected
-                      ? app_colors.AppColors.gold
-                      : app_colors.AppColors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.5,
+              ConstrainedBox(
+                constraints: BoxConstraints(minWidth: isSlipWatcher ? 82 : 0),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: selected
+                          ? app_colors.AppColors.gold
+                          : app_colors.AppColors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
                 ),
               ),
               if (premium) ...[
@@ -5435,66 +5517,79 @@ class TopNavigation extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                SizedBox(
-                  width: 210,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                Tooltip(
+                  message: 'Open instructions for $_pageTitle',
+                  child: InkWell(
+                    onTap: () => _showPageHelp(context),
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(
+                      width: 230,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Flexible(
-                            child: Text(
-                              _pageTitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: app_colors.AppColors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: .6,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 7),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: app_colors.AppColors.blue.withValues(
-                                alpha: .12,
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: app_colors.AppColors.blue.withValues(
-                                  alpha: .55,
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  _pageTitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: app_colors.AppColors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: .6,
+                                  ),
                                 ),
                               ),
-                            ),
-                            child: const Text(
-                              'LIVE',
-                              style: TextStyle(
-                                color: app_colors.AppColors.blue,
-                                fontSize: 7,
-                                fontWeight: FontWeight.w900,
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: app_colors.AppColors.blue.withValues(
+                                    alpha: .12,
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: app_colors.AppColors.blue.withValues(
+                                      alpha: .55,
+                                    ),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'LIVE',
+                                  style: TextStyle(
+                                    color: app_colors.AppColors.blue,
+                                    fontSize: 7,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
                               ),
+                              const SizedBox(width: 5),
+                              const Icon(
+                                Icons.help_outline_rounded,
+                                size: 14,
+                                color: app_colors.AppColors.gold,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _pageSubtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: app_colors.AppColors.textMuted,
+                              fontSize: 9.5,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _pageSubtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: app_colors.AppColors.textMuted,
-                          fontSize: 9.5,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -5553,6 +5648,13 @@ class TopNavigation extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 7),
+              Tooltip(
+                message: 'How to use $_pageTitle',
+                child: IconButton(
+                  onPressed: () => _showPageHelp(context),
+                  icon: const Icon(Icons.help_outline_rounded),
+                ),
+              ),
               _buildSoundButton(context),
               _buildGuideButton(context),
             ],
