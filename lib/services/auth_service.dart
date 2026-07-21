@@ -65,8 +65,8 @@ class SportsAppAuthService {
         return 'Email not confirmed yet. Check your inbox, confirm your account, then sign in.';
       }
       if (code == 'invalid_credentials') {
-        return 'Sign-in failed. If you registered with Google, continue with '
-            'Google or use Forgot Password to create a password.';
+        return 'Invalid email or password. If you created your account with Google, '
+            'please use "Continue with Google" instead.';
       }
       if (code == 'user_already_exists') {
         return 'An account already exists for this email. Try signing in instead.';

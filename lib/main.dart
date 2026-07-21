@@ -1,4 +1,4 @@
-import 'dart:async';
+Okamport 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -3028,6 +3028,8 @@ class _MainDashboardState extends State<MainDashboard> {
                   children: [
                     Text(
                       entries[i].$1,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppColors.muted,
                         fontSize: 7,
@@ -5411,21 +5413,18 @@ class TopNavigation extends StatelessWidget {
               ),
               const SizedBox(width: 7),
               ConstrainedBox(
-                constraints: BoxConstraints(minWidth: isSlipWatcher ? 82 : 0),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    style: TextStyle(
-                      color: selected
-                          ? app_colors.AppColors.gold
-                          : app_colors.AppColors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.5,
-                    ),
+                constraints: const BoxConstraints(minWidth: 30),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: TextStyle(
+                    color: selected
+                        ? app_colors.AppColors.gold
+                        : app_colors.AppColors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
                   ),
                 ),
               ),
@@ -5603,6 +5602,7 @@ class TopNavigation extends StatelessWidget {
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       _buildNavItem(
                         label: 'BOARD',
@@ -5646,16 +5646,6 @@ class TopNavigation extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 7),
-              Tooltip(
-                message: 'How to use $_pageTitle',
-                child: IconButton(
-                  onPressed: () => _showPageHelp(context),
-                  icon: const Icon(Icons.help_outline_rounded),
-                ),
-              ),
-              _buildSoundButton(context),
-              _buildGuideButton(context),
             ],
           ),
         );
