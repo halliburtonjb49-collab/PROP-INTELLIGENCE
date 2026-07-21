@@ -1,4 +1,4 @@
-Okamport 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6833,7 +6833,7 @@ class _PropGridState extends State<PropGrid> {
   Widget _fastPlayerPhoto(PropData prop, {double size = 44}) {
     final imagePath = resolvePlayerImagePath(prop.imagePath);
     final pixelRatio = MediaQuery.devicePixelRatioOf(context).clamp(1.0, 3.0);
-    final cacheSize = (size * pixelRatio * 1.35).round().clamp(96, 384);
+    final cacheSize = (size * pixelRatio * 2.0).round().clamp(128, 512);
     final isNetwork =
         imagePath.startsWith('http://') || imagePath.startsWith('https://');
     if (!isNetwork) {

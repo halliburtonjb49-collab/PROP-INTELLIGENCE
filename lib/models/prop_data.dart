@@ -321,4 +321,39 @@ class PropData {
     final period = local.hour >= 12 ? 'PM' : 'AM';
     return '$hour:$minute $period';
   }
+
+  /// Returns true if the game has already started
+  bool get gameHasStarted {
+    // Check gameStatus first
+    final status = gameStatus.toLowerCase();
+    if (status == 'live' ||
+        status == 'in progress' ||
+        status == 'final' ||
+        status == 'finished' ||
+        status == 'completed') {
+      return true;
+    }
+
+    // Parse game start time
+    DateTime? gameStart;
+
+    if (startTimeUtc.isNotEmpty) {
+      gameStart = DateTime.tryParse(startTimeUtc);
+    }
+
+    if (gameStart == null && gameStartTime.isNotEmpty) {
+      gameStart = DateTime.tryParse(gameStartTime);
+    }
+
+    // If we have a game start time, check if it's in the past
+    if (gameStart != null) {
+      return DateTime.now().toUtc().isAfter(gameStart);
+    }
+
+    // If no time info available, assume it's safe to play
+    return false;
+  }
+
+  /// Returns true if the prop is selectable (game hasn't started)
+  bool get isSelectable => !gameHasStarted;
 }

@@ -181,7 +181,12 @@ class _MobileAppShellState extends State<_MobileAppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final drawerWidth = MediaQuery.sizeOf(context).width.clamp(260.0, 340.0);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    // For flip/fold phones (280-320px), use 85% of screen width
+    // For regular phones, use 260-340px range
+    final drawerWidth = screenWidth < 360
+        ? (screenWidth * 0.85).clamp(240.0, 300.0)
+        : screenWidth.clamp(260.0, 340.0);
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.background,
@@ -208,8 +213,10 @@ class _MobileAppShellState extends State<_MobileAppShell> {
               child: Column(
                 children: [
                   Container(
-                    height: 62,
-                    padding: const EdgeInsets.symmetric(horizontal: 7),
+                    height: screenWidth < 360 ? 56 : 62,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenWidth < 360 ? 4 : 7,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xE607111B),
                       borderRadius: BorderRadius.circular(15),
@@ -221,9 +228,15 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                           tooltip: 'Open workspace navigation',
                           onPressed: () =>
                               _scaffoldKey.currentState?.openDrawer(),
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.menu_rounded,
                             color: AppColors.gold,
+                            size: screenWidth < 360 ? 20 : 24,
+                          ),
+                          padding: EdgeInsets.all(screenWidth < 360 ? 8 : 12),
+                          constraints: BoxConstraints(
+                            minWidth: screenWidth < 360 ? 36 : 48,
+                            minHeight: screenWidth < 360 ? 36 : 48,
                           ),
                         ),
                         Expanded(child: widget.topNavigation),
@@ -330,9 +343,14 @@ class _MobileBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isNarrow = screenWidth < 360;
     return Container(
-      height: 68,
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+      height: isNarrow ? 60 : 68,
+      padding: EdgeInsets.symmetric(
+        horizontal: isNarrow ? 3 : 5,
+        vertical: isNarrow ? 3 : 5,
+      ),
       decoration: BoxDecoration(
         color: const Color(0xF207111B),
         borderRadius: BorderRadius.circular(15),

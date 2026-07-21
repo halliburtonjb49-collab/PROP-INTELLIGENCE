@@ -1,7 +1,125 @@
 {
+  // Python configuration
   "python.analysis.extraPaths": [
     "python_backend"
   ],
-    "dart.flutterSdkPath": "C:\\Users\\theda\\.puro\\envs\\stable\\flutter",
-    "dart.sdkPath": "C:\\Users\\theda\\.puro\\envs\\stable\\flutter\\bin\\cache\\dart-sdk"
+  "python.defaultInterpreterPath": "${workspaceFolder}/python_backend/.venv/Scripts/python.exe",
+  "python.terminal.activateEnvironment": true,
+  "python.analysis.typeCheckingMode": "basic",
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": false,
+  "python.linting.flake8Enabled": true,
+  "python.formatting.provider": "black",
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": [
+    "python_backend/tests"
+  ],
+
+  // Flutter/Dart configuration
+  "dart.flutterSdkPath": "C:\\Users\\theda\\.puro\\envs\\stable\\flutter",
+  "dart.sdkPath": "C:\\Users\\theda\\.puro\\envs\\stable\\flutter\\bin\\cache\\dart-sdk",
+  "dart.lineLength": 80,
+  "dart.previewFlutterUiGuides": true,
+  "dart.debugExternalPackageLibraries": false,
+  "dart.debugSdkLibraries": false,
+  "[dart]": {
+    "editor.formatOnSave": true,
+    "editor.formatOnType": true,
+    "editor.rulers": [80],
+    "editor.selectionHighlight": false,
+    "editor.suggestSelection": "first",
+    "editor.tabCompletion": "onlySnippets",
+    "editor.wordBasedSuggestions": "off"
+  },
+
+  // Python file settings
+  "[python]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    },
+    "editor.rulers": [88, 120]
+  },
+
+  // JSON/YAML settings
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[yaml]": {
+    "editor.insertSpaces": true,
+    "editor.tabSize": 2,
+    "editor.autoIndent": "advanced"
+  },
+
+  // Markdown settings
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "editor.quickSuggestions": {
+      "comments": "off",
+      "strings": "off",
+      "other": "off"
+    }
+  },
+
+  // General editor settings
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit"
+  },
+  "editor.minimap.enabled": true,
+  "editor.inlineSuggest.enabled": true,
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": "active",
+  "editor.stickyScroll.enabled": true,
+
+  // File associations
+  "files.associations": {
+    "*.sql": "sql",
+    "*.ps1": "powershell",
+    "*.bat": "bat",
+    ".env.example": "dotenv",
+    "*.iss": "innosetup"
+  },
+
+  // Files to exclude from explorer
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.dart_tool": true,
+    "**/node_modules": true,
+    "**/.venv": false,
+    "**/build": false
+  },
+
+  // Search exclusions
+  "search.exclude": {
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.dart_tool": true,
+    "**/node_modules": true,
+    "**/.venv": true,
+    "**/build": true,
+    "**/dist": true,
+    "**/*.pyc": true
+  },
+
+  // Terminal settings
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.cwd": "${workspaceFolder}",
+
+  // Git settings
+  "git.autofetch": true,
+  "git.confirmSync": false,
+  "git.enableSmartCommit": true,
+
+  // Workbench settings
+  "workbench.colorTheme": "Dark+",
+  "workbench.iconTheme": "vs-minimal",
+  "workbench.editor.enablePreview": false,
+
+  // Security
+  "security.workspace.trust.untrustedFiles": "open"
 }

@@ -1,0 +1,55 @@
+{
+  "recommendations": [
+    // Flutter/Dart development
+    "dart-code.dart-code",
+    "dart-code.flutter",
+    
+    // Python development
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-python.debugpy",
+    
+    // PowerShell scripting
+    "ms-vscode.powershell",
+    
+    // Git & Version Control
+    "eamodio.gitlens",
+    "mhutchie.git-graph",
+    
+    // Code Quality & Formatting
+    "editorconfig.editorconfig",
+    "esbenp.prettier-vscode",
+    
+    // REST API Testing
+    "humao.rest-client",
+    "rangav.vscode-thunder-client",
+    
+    // Database Tools
+    "mtxr.sqltools",
+    "mtxr.sqltools-driver-pg",
+    
+    // YAML & JSON
+    "redhat.vscode-yaml",
+    
+    // Markdown
+    "yzhang.markdown-all-in-one",
+    
+    // Docker (if needed for deployment)
+    "ms-azuretools.vscode-docker",
+    
+    // Path Intellisense
+    "christian-kohler.path-intellisense",
+    
+    // Bracket colorization
+    "coenraads.bracket-pair-colorizer-2",
+    
+    // Todo highlights
+    "wayou.vscode-todo-highlight",
+    
+    // Better Comments
+    "aaron-bond.better-comments",
+    
+    // Error Lens (inline error display)
+    "usernamehw.errorlens"
+  ]
+}

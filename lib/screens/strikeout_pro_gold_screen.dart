@@ -518,6 +518,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
     final side = _recommendedSide(prop);
     final projection = prop.projection;
     final delta = projection == null ? null : projection - prop.line;
+    final isExpired = prop.gameHasStarted;
     final sideText = side == null
         ? 'NO PICK'
         : side == PickSide.over
@@ -693,29 +694,60 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
             ],
           ),
           const Spacer(),
-          Text(
-            side == null
-                ? 'No valid Over or Under signal is available for this line. The app will not manufacture a pick.'
-                : projection == null
-                ? 'The feed has not supplied a numeric projection. The displayed side comes from the live recommendation and should be independently verified.'
-                : 'Projection is ${delta!.abs().toStringAsFixed(2)} strikeouts ${delta >= 0 ? 'above' : 'below'} the posted line. Verify lineup and price before selecting.',
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 9.5,
-              height: 1.3,
+          if (isExpired)
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: .15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withValues(alpha: .5)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.lock_clock, color: Colors.red, size: 14),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      prop.gameStatus.toLowerCase() == 'live' ||
+                              prop.gameStatus.toLowerCase() == 'in progress'
+                          ? 'GAME IS LIVE — No new selections allowed'
+                          : 'GAME HAS STARTED — No new selections allowed',
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Text(
+              side == null
+                  ? 'No valid Over or Under signal is available for this line. The app will not manufacture a pick.'
+                  : projection == null
+                  ? 'The feed has not supplied a numeric projection. The displayed side comes from the live recommendation and should be independently verified.'
+                  : 'Projection is ${delta!.abs().toStringAsFixed(2)} strikeouts ${delta >= 0 ? 'above' : 'below'} the posted line. Verify lineup and price before selecting.',
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 9.5,
+                height: 1.3,
+              ),
             ),
-          ),
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: side == null
+              onPressed: side == null || isExpired
                   ? null
                   : () => widget.onSelect(prop, side),
               icon: const Icon(Icons.add_rounded, size: 17),
-              label: Text('ADD $sideText TO ACTIVE SLIP'),
+              label: Text(
+                isExpired ? 'GAME STARTED' : 'ADD $sideText TO ACTIVE SLIP',
+              ),
             ),
           ),
         ],
