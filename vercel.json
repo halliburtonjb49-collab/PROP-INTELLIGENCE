@@ -1,0 +1,17 @@
+{
+  "buildCommand": "bash vercel_build.sh",
+  "outputDirectory": "build/web",
+  "framework": null,
+  "routes": [
+    {
+      "src": "/.*",
+      "dest": "/index.html"
+    }
+  ],
+  "env": {
+    "API_BASE_URL": "https://api.propsintell.com",
+    "SUPABASE_URL": "https://doncoxjilytojmnpukxi.supabase.co",
+    "AUTH_EMAIL_REDIRECT_URL": "https://app.propsintell.com",
+    "ALLOW_PUBLIC_SIGNUP": "true"
+  }
+}
