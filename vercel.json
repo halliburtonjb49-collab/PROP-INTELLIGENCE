@@ -1,6 +1,7 @@
 {
   "buildCommand": "bash vercel_build.sh",
   "outputDirectory": "build/web",
+  "installCommand": "echo 'Skip install - Flutter handles dependencies'",
   "framework": null,
   "routes": [
     {
