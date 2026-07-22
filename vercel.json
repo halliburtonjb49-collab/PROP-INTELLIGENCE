@@ -3,10 +3,10 @@
   "outputDirectory": "build/web",
   "installCommand": "echo 'Skip install - Flutter handles dependencies'",
   "framework": null,
-  "routes": [
+  "rewrites": [
     {
-      "src": "/.*",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
   "env": {
