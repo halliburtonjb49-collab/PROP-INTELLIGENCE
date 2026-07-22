@@ -21,10 +21,14 @@ export PATH="${FLUTTER_HOME}/bin:${PATH}"
 echo "Flutter version:"
 flutter --version
 
-: "${API_BASE_URL:?API_BASE_URL is required}"
-: "${SUPABASE_URL:?SUPABASE_URL is required}"
+# Set defaults from vercel.json if not provided
+: "${API_BASE_URL:=https://api.propsintell.com}"
+: "${SUPABASE_URL:=https://doncoxjilytojmnpukxi.supabase.co}"
+: "${AUTH_EMAIL_REDIRECT_URL:=https://app.propsintell.com}"
+: "${ALLOW_PUBLIC_SIGNUP:=true}"
+
+# Only SUPABASE_ANON_KEY is required from environment
 : "${SUPABASE_ANON_KEY:?SUPABASE_ANON_KEY is required}"
-: "${AUTH_EMAIL_REDIRECT_URL:?AUTH_EMAIL_REDIRECT_URL is required}"
 
 APP_VERSION="${VERCEL_GIT_COMMIT_SHA:-${APP_VERSION:-unknown}}"
 
