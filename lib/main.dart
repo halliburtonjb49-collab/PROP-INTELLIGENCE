@@ -38,7 +38,6 @@ import 'widgets/active_slip_panel.dart';
 import 'widgets/auth_account_panel.dart';
 import 'widgets/current_slip_panel.dart';
 import 'widgets/ev_scanner_card.dart';
-import 'widgets/launch_notification_icon.dart';
 import 'widgets/onboarding_dialog.dart';
 import 'widgets/scoreboard_view.dart';
 import 'widgets/selected_prop_slip.dart';
@@ -5129,8 +5128,6 @@ class TopNavigation extends StatelessWidget {
                         icon: Icons.stacked_line_chart_rounded,
                         premium: true,
                       ),
-                      const SizedBox(width: 12),
-                      const LaunchNotificationIcon(),
                     ],
                   ),
                 ),
