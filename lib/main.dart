@@ -38,6 +38,7 @@ import 'widgets/active_slip_panel.dart';
 import 'widgets/auth_account_panel.dart';
 import 'widgets/current_slip_panel.dart';
 import 'widgets/ev_scanner_card.dart';
+import 'widgets/launch_notification_icon.dart';
 import 'widgets/onboarding_dialog.dart';
 import 'widgets/scoreboard_view.dart';
 import 'widgets/selected_prop_slip.dart';
@@ -972,10 +973,47 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       setState(() {
         _slipSelections.clear();
       });
-    } catch (_) {
+      
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Color(0xFF8CFFB2),
+            content: Text(
+              'Slip locked and moved to Slip Watcher!',
+              style: TextStyle(
+                color: Color(0xFF050A0F),
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        
+        // Switch to watchlist view
+        _switchToPage(AppPage.watchlist, source: 'slip-locked');
+      }
+    } catch (error) {
       if (!mounted) {
         return;
       }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFFFF8A80),
+          content: Text(
+            'Failed to lock slip: $error',
+            style: const TextStyle(
+              color: Color(0xFF050A0F),
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -5091,6 +5129,8 @@ class TopNavigation extends StatelessWidget {
                         icon: Icons.stacked_line_chart_rounded,
                         premium: true,
                       ),
+                      const SizedBox(width: 12),
+                      const LaunchNotificationIcon(),
                     ],
                   ),
                 ),
@@ -6376,19 +6416,30 @@ class _PropGridState extends State<PropGrid> {
       final selected = side == selectedSide;
       final advised = side == advisedSide;
       final label = side == PickSide.over ? 'OVER' : 'UNDER';
+      
+      // Green for OVER, Red for UNDER when selected
+      final selectedColor = side == PickSide.over
+          ? const Color(0xFF4CAF50)  // Green
+          : const Color(0xFFEF5350);  // Red
+      
       return Expanded(
         child: OutlinedButton(
           onPressed: () => widget.onSelect(prop, side),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(0, 36),
-            foregroundColor: selected || advised
-                ? AppColors.gold
-                : Colors.white,
+            foregroundColor: selected
+                ? Colors.white
+                : (advised ? AppColors.gold : Colors.white),
             backgroundColor: selected
-                ? AppColors.gold.withValues(alpha: .16)
-                : const Color(0xFF091620),
+                ? selectedColor.withValues(alpha: .85)
+                : (advised 
+                    ? AppColors.gold.withValues(alpha: .16)
+                    : const Color(0xFF091620)),
             side: BorderSide(
-              color: selected || advised ? AppColors.gold : AppColors.border,
+              color: selected
+                  ? selectedColor
+                  : (advised ? AppColors.gold : AppColors.border),
+              width: selected ? 2 : 1,
             ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
