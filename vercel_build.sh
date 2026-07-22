@@ -1,3 +1,4 @@
+cren
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -38,6 +39,7 @@ flutter pub get
 
 echo "Building Flutter web..."
 flutter build web --release \
+  --base-href="/" \
   --dart-define="API_BASE_URL=${API_BASE_URL}" \
   --dart-define="APP_VERSION=${APP_VERSION}" \
   --dart-define="SUPABASE_URL=${SUPABASE_URL}" \
