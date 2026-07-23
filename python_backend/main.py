@@ -17,7 +17,13 @@ from fastapi.responses import FileResponse
 import requests
 from threading import Lock
 
-from config import CORS_ALLOWED_ORIGINS, HTTP_TIMEOUT_SECONDS, LIVE_ODDS_SYNC_MIN_SECONDS, WNBA_LEAGUE_ID
+from config import (
+	CORS_ALLOWED_ORIGINS,
+	HTTP_TIMEOUT_SECONDS,
+	LIVE_ODDS_SYNC_MIN_SECONDS,
+	PLAYER_IMAGE_DIR,
+	WNBA_LEAGUE_ID,
+)
 from database.postgres import (
 	check_database_connection,
 	close_database_pool,
@@ -58,6 +64,7 @@ from services.game_status_service import (
 	refresh_saved_slip_game_statuses,
 )
 from services.prop_service import get_props
+from services.mlb_headshot_service import refresh_mlb_headshot_map
 from services.prop_builder_service import (
 	build_prop_slip,
 	replace_prop_leg,
@@ -206,12 +213,9 @@ app.add_middleware(
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
 
-_PLAYER_IMAGE_DIRECTORY = Path(__file__).resolve().parent.parent / "assets" / "players"
-
-
 @app.get("/player-images/{filename}", include_in_schema=False)
 def player_image(filename: str) -> FileResponse:
-	path = _PLAYER_IMAGE_DIRECTORY / filename
+	path = PLAYER_IMAGE_DIR / filename
 	if path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"} or not path.is_file():
 		raise HTTPException(status_code=404, detail="Player image not found")
 	return FileResponse(
@@ -2727,6 +2731,18 @@ def grade_test(
 		"status": "complete",
 		"updated_slips": updated,
 	}
+
+
+@app.post("/api/admin/refresh-mlb-headshots")
+def refresh_mlb_headshots(_admin: str = Depends(require_admin)) -> dict[str, object]:
+	try:
+		count = refresh_mlb_headshot_map()
+	except Exception as exc:
+		raise HTTPException(
+			status_code=502,
+			detail=f"MLB headshot roster refresh failed: {exc}",
+		) from exc
+	return {"status": "complete", "playerCount": count}
 
 
 @app.get("/api/providers/api-sports/status")

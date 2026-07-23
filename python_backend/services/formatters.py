@@ -1,6 +1,9 @@
 from pathlib import Path
 import re
 
+from config import PLAYER_IMAGE_DIR
+from services.mlb_headshot_service import mlb_headshot_url
+
 MARKET_LABELS = {
     "POINTS": "Points",
     "REBOUNDS": "Rebounds",
@@ -204,10 +207,60 @@ def format_sport_label(sport_key: str) -> str:
     return sport_key.upper()
 
 
+# Preference order when multiple resolutions exist for the same player.
+# "_sr" (standard-res) and "_sr@2x" (retina) variants are the current
+# high-quality asset naming; ".png"/".jpg"/".webp" are the legacy bulk-imported
+# fallbacks that may be all that's available for a given player.
+_IMAGE_VARIANT_SUFFIXES = (
+    "_sr@2x.webp",
+    "_sr@2x.jpg",
+    "_sr.webp",
+    "_sr.jpg",
+    ".png",
+    ".jpg",
+    ".webp",
+)
+
+_player_image_files: set[str] | None = None
+
+
+def _available_player_image_files() -> set[str]:
+    global _player_image_files
+    if _player_image_files is None:
+        try:
+            _player_image_files = {
+                entry.name for entry in PLAYER_IMAGE_DIR.iterdir() if entry.is_file()
+            }
+        except OSError:
+            _player_image_files = set()
+    return _player_image_files
+
+
 def player_image_path(player_name: str) -> str:
-    filename = re.sub(
+    slug = re.sub(
         r"[^a-z0-9]+",
         "_",
         player_name.lower(),
     ).strip("_")
-    return f"/player-images/{filename}.png"
+    if not slug:
+        return ""
+
+    available = _available_player_image_files()
+    for suffix in _IMAGE_VARIANT_SUFFIXES:
+        filename = f"{slug}{suffix}"
+        if filename in available:
+            return f"/player-images/{filename}"
+    return ""
+
+
+def resolve_player_image(player_name: str, sport: str) -> str:
+    """Picks the best available photo for a prop: an official league
+    headshot when we have one (currently MLB only), otherwise whatever
+    locally bundled asset exists. Returns "" when neither is available so
+    the frontend falls back to its initials placeholder.
+    """
+    if sport == "MLB":
+        headshot = mlb_headshot_url(player_name)
+        if headshot:
+            return headshot
+    return player_image_path(player_name)

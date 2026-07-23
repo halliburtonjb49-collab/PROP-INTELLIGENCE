@@ -9,7 +9,7 @@ from services.formatters import (
 	format_market_label,
 	market_to_category,
 	format_sport_label,
-	player_image_path,
+	resolve_player_image,
 )
 from services.time_utils import (
 	format_display_time,
@@ -254,6 +254,7 @@ def get_props() -> list[PropResponse]:
 			is_doubleheader = True
 
 		updated_at = str(row["updated_at"] or "")
+		sport_label = format_sport_label(str(row["sport"]))
 
 		results.append(
 			PropResponse(
@@ -276,9 +277,7 @@ def get_props() -> list[PropResponse]:
 					identity.get("confidence") or 0.0
 				),
 				player=player,
-				sport=format_sport_label(
-					str(row["sport"])
-				),
+				sport=sport_label,
 				matchup=matchup,
 				sportsbook=sportsbook.upper(),
 				category=market_to_category(raw_market),
@@ -320,7 +319,7 @@ def get_props() -> list[PropResponse]:
 				sourceProvider="odds-api",
 				injuryStatus=injury_status,
 				lineupStatus=lineup_status,
-				imagePath=player_image_path(player),
+				imagePath=resolve_player_image(player, sport_label),
 				overOdds=over_odds,
 				underOdds=under_odds,
 				overDecimalOdds=_american_to_decimal(over_odds),

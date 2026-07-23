@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent
 CONFIG_PACKAGE_DIR = BASE_DIR / "config"
+PLAYER_IMAGE_DIR = BASE_DIR.parent / "assets" / "players"
 
 # Keep backward compatibility with `from config import ...` while enabling
 # `from config.<module> import ...` for files under python_backend/config/.
