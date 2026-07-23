@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/auth_service.dart';
 import '../services/billing_service.dart';
 import '../services/developer_mode_service.dart';
+import '../services/pwa_install_bridge.dart';
 import '../theme/prop_intelligence_colors.dart';
 import '../widgets/launch_notification_icon.dart';
 
@@ -23,6 +25,91 @@ const _publicSignupEnabled = bool.fromEnvironment(
   'ALLOW_PUBLIC_SIGNUP',
   defaultValue: true,
 );
+
+/// Tries the browser's native install prompt first (Chrome/Edge/Android);
+/// falls back to a device-specific instructions dialog where the platform
+/// doesn't support programmatic installs (iOS Safari, unsupported browsers).
+Future<void> _handleDeviceInstallTap(
+  BuildContext context, {
+  required String title,
+  required String instructions,
+  required IconData icon,
+}) async {
+  if (kIsWeb && isPwaInstallAvailable()) {
+    final outcome = await triggerPwaInstall();
+    if (outcome == 'accepted' || outcome == 'dismissed') return;
+  }
+  if (!context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: _panelBackground,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: _gold.withValues(alpha: 0.72)),
+      ),
+      titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+      title: Row(
+        children: [
+          Icon(icon, color: _gold, size: 24),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: _gold,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.6,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: Text(
+        instructions,
+        style: const TextStyle(color: _silver70, fontSize: 14, height: 1.55),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('GOT IT'),
+        ),
+      ],
+    ),
+  );
+}
+
+class _PwaInstallNavButton extends StatelessWidget {
+  final Future<void> Function(String section) onFallback;
+
+  const _PwaInstallNavButton({required this.onFallback});
+
+  Future<void> _handleTap(BuildContext context) async {
+    if (kIsWeb && isPwaInstallAvailable()) {
+      final outcome = await triggerPwaInstall();
+      if (outcome == 'accepted' || outcome == 'dismissed') return;
+    }
+    await onFallback('install');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Install PROP INTELLIGENCE',
+      child: IconButton(
+        onPressed: () => _handleTap(context),
+        icon: const Icon(
+          Icons.install_mobile_rounded,
+          size: 20,
+          color: _silver70,
+        ),
+        style: IconButton.styleFrom(padding: const EdgeInsets.all(8)),
+      ),
+    );
+  }
+}
 
 class CorporateLoginScreen extends StatefulWidget {
   const CorporateLoginScreen({super.key});
@@ -1141,38 +1228,60 @@ class _DeviceInstallCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 138),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xD90B151D),
+    return Material(
+      color: const Color(0xD90B151D),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF263744)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: _gold, size: 23),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: const TextStyle(
-              color: _silver,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.8,
-            ),
+        onTap: () => _handleDeviceInstallTap(
+          context,
+          title: title,
+          instructions: instructions,
+          icon: icon,
+        ),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 138),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFF263744)),
           ),
-          const SizedBox(height: 7),
-          Text(
-            instructions,
-            style: const TextStyle(
-              color: _silver60,
-              fontSize: 12,
-              height: 1.45,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: _gold, size: 23),
+              const SizedBox(height: 10),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: _silver,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 7),
+              Text(
+                instructions,
+                style: const TextStyle(
+                  color: _silver60,
+                  fontSize: 12,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'TAP TO INSTALL',
+                style: TextStyle(
+                  color: _gold,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1325,6 +1434,8 @@ class _TopNavigation extends StatelessWidget {
             ),
             const SizedBox(width: 4),
           ],
+          _PwaInstallNavButton(onFallback: onNavigate),
+          const SizedBox(width: 4),
           const LaunchNotificationIcon(),
           SizedBox(width: compact ? 4 : 10),
           OutlinedButton(
