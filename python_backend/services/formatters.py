@@ -4,6 +4,7 @@ import re
 from config import PLAYER_IMAGE_DIR
 from services.mlb_headshot_service import mlb_headshot_url
 from services.espn_headshot_service import espn_headshot_url
+from services.sportmonks_headshot_service import sportmonks_headshot_url
 
 _ESPN_COVERED_SPORTS = {"NBA", "WNBA", "NHL"}
 
@@ -268,6 +269,10 @@ def resolve_player_image(player_name: str, sport: str) -> str:
             return headshot
     elif sport in _ESPN_COVERED_SPORTS:
         headshot = espn_headshot_url(player_name, sport)
+        if headshot:
+            return headshot
+    elif sport == "SOCCER":
+        headshot = sportmonks_headshot_url(player_name)
         if headshot:
             return headshot
     return player_image_path(player_name)

@@ -66,6 +66,8 @@ from services.game_status_service import (
 from services.prop_service import get_props
 from services.mlb_headshot_service import refresh_mlb_headshot_map
 from services.espn_headshot_service import refresh_espn_headshot_map
+from services.sportmonks_headshot_service import refresh_sportmonks_headshot_map
+from services.sportsdataio_golf_service import refresh_golf_roster_map
 from services.prop_builder_service import (
 	build_prop_slip,
 	replace_prop_leg,
@@ -2756,6 +2758,30 @@ def refresh_espn_headshots(_admin: str = Depends(require_admin)) -> dict[str, ob
 			detail=f"ESPN headshot roster refresh failed: {exc}",
 		) from exc
 	return {"status": "complete", "playerCounts": counts}
+
+
+@app.post("/api/admin/refresh-sportmonks-headshots")
+def refresh_sportmonks_headshots(_admin: str = Depends(require_admin)) -> dict[str, object]:
+	try:
+		counts = refresh_sportmonks_headshot_map()
+	except Exception as exc:
+		raise HTTPException(
+			status_code=502,
+			detail=f"Sportmonks headshot roster refresh failed: {exc}",
+		) from exc
+	return {"status": "complete", "leagueCounts": counts}
+
+
+@app.post("/api/admin/refresh-golf-roster")
+def refresh_golf_roster(_admin: str = Depends(require_admin)) -> dict[str, object]:
+	try:
+		count = refresh_golf_roster_map()
+	except Exception as exc:
+		raise HTTPException(
+			status_code=502,
+			detail=f"PGA roster refresh failed: {exc}",
+		) from exc
+	return {"status": "complete", "playerCount": count}
 
 
 @app.get("/api/providers/api-sports/status")
