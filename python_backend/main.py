@@ -5,6 +5,7 @@ import os
 import time
 from pathlib import Path
 from contextlib import asynccontextmanager, suppress
+from typing import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from collections import Counter, defaultdict
@@ -2736,52 +2737,130 @@ def grade_test(
 	}
 
 
+class _BackgroundJob:
+	"""Runs a slow admin refresh outside the request/response cycle.
+
+	Roster syncs that fetch dozens of team rosters sequentially (Sportmonks:
+	6 leagues x ~20 teams each) can comfortably exceed Render's proxy
+	timeout if run inline, which surfaces as a 502 even though the work
+	would have finished fine given more time. Mirrors the existing
+	/api/sync + /api/sync/status pattern: start the work via
+	BackgroundTasks and return immediately, caller polls status.
+	"""
+
+	def __init__(self) -> None:
+		self._run_lock = Lock()
+		self._state_lock = Lock()
+		self._state: dict[str, object] = {
+			"status": "idle",
+			"startedAt": None,
+			"finishedAt": None,
+			"result": None,
+			"error": None,
+		}
+
+	def snapshot(self) -> dict[str, object]:
+		with self._state_lock:
+			return dict(self._state)
+
+	def start(
+		self,
+		background_tasks: BackgroundTasks,
+		work: Callable[[], object],
+	) -> dict[str, object]:
+		if not self._run_lock.acquire(blocking=False):
+			return {**self.snapshot(), "alreadyRunning": True}
+
+		with self._state_lock:
+			self._state.update(
+				status="running",
+				startedAt=datetime.now(timezone.utc).isoformat(),
+				finishedAt=None,
+				result=None,
+				error=None,
+			)
+
+		def _run() -> None:
+			try:
+				result = work()
+				with self._state_lock:
+					self._state.update(
+						status="complete",
+						finishedAt=datetime.now(timezone.utc).isoformat(),
+						result=result,
+						error=None,
+					)
+			except Exception as exc:
+				logging.exception("Background admin refresh job failed")
+				with self._state_lock:
+					self._state.update(
+						status="failed",
+						finishedAt=datetime.now(timezone.utc).isoformat(),
+						error=str(exc),
+					)
+			finally:
+				self._run_lock.release()
+
+		background_tasks.add_task(_run)
+		return {**self.snapshot(), "message": "Refresh started in the background."}
+
+
+_mlb_headshot_job = _BackgroundJob()
+_espn_headshot_job = _BackgroundJob()
+_sportmonks_headshot_job = _BackgroundJob()
+_golf_roster_job = _BackgroundJob()
+
+
 @app.post("/api/admin/refresh-mlb-headshots")
-def refresh_mlb_headshots(_admin: str = Depends(require_admin)) -> dict[str, object]:
-	try:
-		count = refresh_mlb_headshot_map()
-	except Exception as exc:
-		raise HTTPException(
-			status_code=502,
-			detail=f"MLB headshot roster refresh failed: {exc}",
-		) from exc
-	return {"status": "complete", "playerCount": count}
+def refresh_mlb_headshots(
+	background_tasks: BackgroundTasks,
+	_admin: str = Depends(require_admin),
+) -> dict[str, object]:
+	return _mlb_headshot_job.start(background_tasks, refresh_mlb_headshot_map)
+
+
+@app.get("/api/admin/refresh-mlb-headshots/status")
+def refresh_mlb_headshots_status(_admin: str = Depends(require_admin)) -> dict[str, object]:
+	return _mlb_headshot_job.snapshot()
 
 
 @app.post("/api/admin/refresh-espn-headshots")
-def refresh_espn_headshots(_admin: str = Depends(require_admin)) -> dict[str, object]:
-	try:
-		counts = refresh_espn_headshot_map()
-	except Exception as exc:
-		raise HTTPException(
-			status_code=502,
-			detail=f"ESPN headshot roster refresh failed: {exc}",
-		) from exc
-	return {"status": "complete", "playerCounts": counts}
+def refresh_espn_headshots(
+	background_tasks: BackgroundTasks,
+	_admin: str = Depends(require_admin),
+) -> dict[str, object]:
+	return _espn_headshot_job.start(background_tasks, refresh_espn_headshot_map)
+
+
+@app.get("/api/admin/refresh-espn-headshots/status")
+def refresh_espn_headshots_status(_admin: str = Depends(require_admin)) -> dict[str, object]:
+	return _espn_headshot_job.snapshot()
 
 
 @app.post("/api/admin/refresh-sportmonks-headshots")
-def refresh_sportmonks_headshots(_admin: str = Depends(require_admin)) -> dict[str, object]:
-	try:
-		counts = refresh_sportmonks_headshot_map()
-	except Exception as exc:
-		raise HTTPException(
-			status_code=502,
-			detail=f"Sportmonks headshot roster refresh failed: {exc}",
-		) from exc
-	return {"status": "complete", "leagueCounts": counts}
+def refresh_sportmonks_headshots(
+	background_tasks: BackgroundTasks,
+	_admin: str = Depends(require_admin),
+) -> dict[str, object]:
+	return _sportmonks_headshot_job.start(background_tasks, refresh_sportmonks_headshot_map)
+
+
+@app.get("/api/admin/refresh-sportmonks-headshots/status")
+def refresh_sportmonks_headshots_status(_admin: str = Depends(require_admin)) -> dict[str, object]:
+	return _sportmonks_headshot_job.snapshot()
 
 
 @app.post("/api/admin/refresh-golf-roster")
-def refresh_golf_roster(_admin: str = Depends(require_admin)) -> dict[str, object]:
-	try:
-		count = refresh_golf_roster_map()
-	except Exception as exc:
-		raise HTTPException(
-			status_code=502,
-			detail=f"PGA roster refresh failed: {exc}",
-		) from exc
-	return {"status": "complete", "playerCount": count}
+def refresh_golf_roster(
+	background_tasks: BackgroundTasks,
+	_admin: str = Depends(require_admin),
+) -> dict[str, object]:
+	return _golf_roster_job.start(background_tasks, refresh_golf_roster_map)
+
+
+@app.get("/api/admin/refresh-golf-roster/status")
+def refresh_golf_roster_status(_admin: str = Depends(require_admin)) -> dict[str, object]:
+	return _golf_roster_job.snapshot()
 
 
 @app.get("/api/providers/api-sports/status")
