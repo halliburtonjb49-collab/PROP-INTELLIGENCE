@@ -128,3 +128,17 @@ services:
         sync: false
       - key: API_BASE_URL
         value: https://api.propsintell.com
+
+  - type: cron
+    name: prop-intelligence-espn-headshot-sync
+    runtime: python
+    schedule: "15 9 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python python_backend/scripts/sync_espn_headshots.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: ADMIN_API_KEY
+        sync: false
+      - key: API_BASE_URL
+        value: https://api.propsintell.com
