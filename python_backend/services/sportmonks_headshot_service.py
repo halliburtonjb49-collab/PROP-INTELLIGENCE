@@ -77,7 +77,19 @@ def _get(path: str, **params: object) -> dict:
         headers={"Authorization": f"Bearer {SPORTMONKS_API_KEY}"},
         timeout=HTTP_TIMEOUT_SECONDS,
     )
-    response.raise_for_status()
+    if not response.ok:
+        # Sportmonks returns a JSON body explaining *why* (e.g. "plan does
+        # not include this endpoint" vs "invalid token") - surface that
+        # instead of just the generic HTTP status line, since that's the
+        # only thing that'll actually tell us what's wrong. The token
+        # itself never appears in the URL or body, so this is safe to log.
+        try:
+            detail = response.json().get("message")
+        except ValueError:
+            detail = response.text[:300]
+        raise RuntimeError(
+            f"Sportmonks API error {response.status_code} on {path}: {detail}"
+        )
     return response.json()
 
 
