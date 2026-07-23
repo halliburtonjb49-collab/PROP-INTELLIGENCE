@@ -68,10 +68,13 @@ def sportmonks_headshot_url(player_name: str) -> str | None:
 
 
 def _get(path: str, **params: object) -> dict:
-    query = {"api_token": SPORTMONKS_API_KEY, **params}
+    # Bearer header (Sportmonks' documented preferred method) rather than
+    # ?api_token=... - keeps the token out of the request URL entirely, so
+    # it can't end up in an HTTPError message or request log line.
     response = requests.get(
         f"{_BASE_URL}{path}",
-        params=query,
+        params=params,
+        headers={"Authorization": f"Bearer {SPORTMONKS_API_KEY}"},
         timeout=HTTP_TIMEOUT_SECONDS,
     )
     response.raise_for_status()
