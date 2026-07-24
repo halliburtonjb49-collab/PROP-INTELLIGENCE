@@ -110,8 +110,19 @@ def estimate_event_odds_cost(markets: list[str]) -> int:
 def quota_allows(estimated_cost: int) -> dict[str, object]:
     quota = quota_snapshot()
     remaining = quota.get("remaining")
-    allowed = not isinstance(remaining, int) or (
-        remaining - max(0, estimated_cost) >= ODDS_API_QUOTA_RESERVE
+
+    # The reserve guard exists to avoid fully draining the *only* key we
+    # have. If there's an untried backup key still queued up, that risk
+    # doesn't apply - a rejected request on the current key just triggers
+    # _request_with_failover() to move on to it, at no extra cost (the
+    # provider doesn't charge for a rejected over-quota call).
+    keys = active_key_snapshot()
+    has_backup_key = keys["activeKeyIndex"] + 1 < keys["configuredKeyCount"]
+
+    allowed = (
+        has_backup_key
+        or not isinstance(remaining, int)
+        or (remaining - max(0, estimated_cost) >= ODDS_API_QUOTA_RESERVE)
     )
     return {
         "allowed": allowed,
