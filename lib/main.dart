@@ -437,11 +437,17 @@ class PropIntelligenceShell extends StatelessWidget {
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
+                final accessKey =
+                    authState?.effectiveSubscriptionTier.name ?? 'public';
                 if (constraints.maxWidth >= 700) {
-                  return const DesktopDashboard();
+                  return DesktopDashboard(
+                    key: ValueKey('desktop-access-$accessKey'),
+                  );
                 }
 
-                return const MobileDashboardViewport();
+                return MobileDashboardViewport(
+                  key: ValueKey('mobile-access-$accessKey'),
+                );
               },
             ),
           ),
