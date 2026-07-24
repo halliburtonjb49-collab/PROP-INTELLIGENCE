@@ -2,8 +2,42 @@ import 'package:flutter/material.dart';
 
 import '../services/billing_service.dart';
 
+class SubscriptionRequiredScreen extends StatelessWidget {
+  const SubscriptionRequiredScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF050C13),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 680),
+              child: const BrandedPaywallModalSheet(
+                heading: 'CHOOSE A PLAN TO CONTINUE',
+                supportingText:
+                    'PROP INTELLIGENCE requires an active Core or Pro plan. '
+                    'Any promotional trial provides temporary Core access.',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class BrandedPaywallModalSheet extends StatelessWidget {
-  const BrandedPaywallModalSheet({super.key});
+  const BrandedPaywallModalSheet({
+    super.key,
+    this.heading = 'CHOOSE YOUR PROP INTELLIGENCE PLAN',
+    this.supportingText = 'Research tools for every level of play',
+  });
+
+  final String heading;
+  final String supportingText;
 
   @override
   Widget build(BuildContext context) {
@@ -31,8 +65,8 @@ class BrandedPaywallModalSheet extends StatelessWidget {
           const SizedBox(height: 24),
           const Icon(Icons.bolt, color: primaryYellow, size: 54),
           const SizedBox(height: 12),
-          const Text(
-            'CHOOSE YOUR PROP INTELLIGENCE PLAN',
+          Text(
+            heading,
             style: TextStyle(
               color: Colors.white,
               fontSize: 22,
@@ -42,7 +76,7 @@ class BrandedPaywallModalSheet extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Research tools for every level of play',
+            supportingText,
             style: TextStyle(color: Colors.grey[400], fontSize: 13),
           ),
           const Divider(color: Colors.white10, height: 40),

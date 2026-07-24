@@ -87,6 +87,12 @@ class AuthSessionState {
   bool get isOwner => role == 'owner';
   bool get isAdmin => role == 'admin';
   bool get isTester => role == 'tester';
+  bool get requiresPaidPlan =>
+      authenticated &&
+      !isOwner &&
+      !isAdmin &&
+      !isTester &&
+      subscriptionTier == SubscriptionTier.free;
   bool get isAccessPreviewActive => isOwner && accessPreviewTier != null;
   SubscriptionTier get effectiveSubscriptionTier =>
       isAccessPreviewActive ? accessPreviewTier! : subscriptionTier;
@@ -420,10 +426,25 @@ class AuthManager {
     );
     final hasPrivilegedRole =
         role == 'owner' || role == 'admin' || role == 'tester';
-    var isPremium = hasPrivilegedRole;
-    var subscriptionTier = hasPrivilegedRole
-        ? SubscriptionTier.edge
-        : SubscriptionTier.free;
+    if (hasPrivilegedRole) {
+      // Privileged access is resolved from the verified owner email or signed
+      // auth metadata, so do not block login on a second profile-table request.
+      sessionState.value = AuthSessionState(
+        ready: true,
+        authenticated: true,
+        isPremium: true,
+        subscriptionTier: SubscriptionTier.edge,
+        accessPreviewTier: null,
+        role: role,
+        userId: user.id,
+        email: user.email,
+        message: 'Authenticated',
+      );
+      return;
+    }
+
+    var isPremium = false;
+    var subscriptionTier = SubscriptionTier.free;
     try {
       final row = await _client
           ?.from('user_profiles')
@@ -433,22 +454,19 @@ class AuthManager {
       if (row is Map<String, dynamic>) {
         final raw = row['is_premium'];
         if (raw is bool) {
-          isPremium = raw || hasPrivilegedRole;
+          isPremium = raw;
         }
-        subscriptionTier = hasPrivilegedRole
-            ? SubscriptionTier.edge
-            : SubscriptionTier.fromDatabase(row['subscription_tier']);
+        subscriptionTier = SubscriptionTier.fromDatabase(
+          row['subscription_tier'],
+        );
         // Preserve full access for legacy premium accounts during migration.
         if (subscriptionTier == SubscriptionTier.free && raw == true) {
           subscriptionTier = SubscriptionTier.edge;
         }
       }
     } catch (_) {
-      // Privileged roles retain full access even if profile lookup is unavailable.
-      isPremium = hasPrivilegedRole;
-      subscriptionTier = hasPrivilegedRole
-          ? SubscriptionTier.edge
-          : SubscriptionTier.free;
+      isPremium = false;
+      subscriptionTier = SubscriptionTier.free;
     }
 
     sessionState.value = AuthSessionState(

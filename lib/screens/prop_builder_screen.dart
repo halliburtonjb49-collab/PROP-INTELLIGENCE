@@ -26,6 +26,7 @@ class PropBuilderScreen extends StatefulWidget {
     super.key,
     required this.activeSlipController,
     required this.isManualSportsMode,
+    this.hasProAccess = true,
     this.initialSelectedSports,
     this.onSelectedSportsChanged,
     this.onResetSportsAutoSync,
@@ -33,6 +34,7 @@ class PropBuilderScreen extends StatefulWidget {
 
   final ActiveSlipController activeSlipController;
   final bool isManualSportsMode;
+  final bool hasProAccess;
   final List<String>? initialSelectedSports;
   final ValueChanged<List<String>>? onSelectedSportsChanged;
   final VoidCallback? onResetSportsAutoSync;
@@ -4466,6 +4468,9 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.hasProAccess) {
+      return _buildCoreBuilder();
+    }
     return Stack(
       children: [
         SingleChildScrollView(
@@ -5177,6 +5182,93 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCoreBuilder() {
+    return AnimatedBuilder(
+      animation: widget.activeSlipController,
+      builder: (context, _) {
+        final legs = widget.activeSlipController.legs;
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'CORE PROP BUILDER',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Add props from the market board, then organize and review the posted lines here.',
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC8CED6).withValues(alpha: .08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFC8CED6)),
+                ),
+                child: const Text(
+                  'PRO adds automated ranking, projections, confidence, edge filters, correlation analysis and build simulations.',
+                  style: TextStyle(
+                    color: Color(0xFFC8CED6),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              if (legs.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 48),
+                  child: Center(
+                    child: Text(
+                      'No props selected yet. Open the Board and choose Over or Under.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                )
+              else
+                ...legs.map((leg) {
+                  final propId =
+                      leg['prop_id']?.toString() ?? leg['id']?.toString() ?? '';
+                  final player = leg['player']?.toString() ?? 'Unknown player';
+                  final market =
+                      leg['market']?.toString() ??
+                      leg['prop_type']?.toString() ??
+                      'Player prop';
+                  final line =
+                      leg['current_line']?.toString() ??
+                      leg['line']?.toString() ??
+                      '--';
+                  final side =
+                      leg['side']?.toString() ?? leg['pick']?.toString() ?? '';
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: ListTile(
+                      title: Text(
+                        player,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      subtitle: Text('$market • $side $line'),
+                      trailing: IconButton(
+                        tooltip: 'Remove prop',
+                        onPressed: propId.isEmpty
+                            ? null
+                            : () =>
+                                  widget.activeSlipController.removeLeg(propId),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ),
+                  );
+                }),
+            ],
+          ),
+        );
+      },
     );
   }
 }

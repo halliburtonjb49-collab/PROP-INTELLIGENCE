@@ -93,12 +93,30 @@ void main() {
       message: 'Ready',
     );
 
+    expect(user(SubscriptionTier.free).requiresPaidPlan, true);
     expect(user(SubscriptionTier.free).hasCoreAccess, false);
     expect(user(SubscriptionTier.free).hasEdgeAccess, false);
+    expect(user(SubscriptionTier.core).requiresPaidPlan, false);
     expect(user(SubscriptionTier.core).hasCoreAccess, true);
     expect(user(SubscriptionTier.core).hasEdgeAccess, false);
     expect(user(SubscriptionTier.edge).hasCoreAccess, true);
     expect(user(SubscriptionTier.edge).hasEdgeAccess, true);
+  });
+
+  test('privileged accounts never require a paid-plan interstitial', () {
+    for (final role in ['owner', 'admin', 'tester']) {
+      final state = AuthSessionState(
+        ready: true,
+        authenticated: true,
+        isPremium: true,
+        subscriptionTier: SubscriptionTier.free,
+        role: role,
+        userId: role,
+        email: '$role@example.com',
+        message: 'Ready',
+      );
+      expect(state.requiresPaidPlan, isFalse, reason: role);
+    }
   });
 
   test('change request preserves approval lifecycle fields', () {

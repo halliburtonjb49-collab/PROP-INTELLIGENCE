@@ -7,9 +7,14 @@ import '../widgets/dashboard_panel.dart';
 import '../widgets/context_help.dart';
 
 class AnalyticsPage extends StatefulWidget {
-  const AnalyticsPage({super.key, required this.selectedSport});
+  const AnalyticsPage({
+    super.key,
+    required this.selectedSport,
+    required this.hasProAccess,
+  });
 
   final String selectedSport;
+  final bool hasProAccess;
 
   @override
   State<AnalyticsPage> createState() => _AnalyticsPageState();
@@ -213,10 +218,15 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               : (byBook.entries.toList()..sort((a, b) => b.value - a.value))
                     .first;
 
-          final topEdges = [...props]..sort((a, b) => b.edge.compareTo(a.edge));
+          final rankedProps = [...props]
+            ..sort(
+              widget.hasProAccess
+                  ? (a, b) => b.edge.compareTo(a.edge)
+                  : (a, b) => a.player.compareTo(b.player),
+            );
           final alerts = <String>[
-            if (topEdges.isNotEmpty)
-              'Top edge: ${topEdges.first.player} (${topEdges.first.edge}%)',
+            if (rankedProps.isNotEmpty)
+              'Top edge: ${rankedProps.first.player} (${rankedProps.first.edge}%)',
             if (topSport != null)
               'Most active sport: ${topSport.key} (${topSport.value})',
             if (topBook != null)
@@ -242,7 +252,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                         ),
                         SizedBox(height: 3),
                         Text(
-                          'A focused view of model edge and available market coverage.',
+                          'Player and market coverage, with advanced model intelligence for Pro.',
                           style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 11,
@@ -254,13 +264,15 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                   ContextHelp(
                     title: 'Analytics',
                     message:
-                        'Edge is the model’s estimated advantage relative to the sportsbook line. Use it with confidence, sample size, matchup context, and current availability—not as a standalone guarantee.',
+                        'Core shows player, sport, market, and sportsbook coverage. Pro adds projections, confidence, and edge metrics.',
                   ),
                 ],
               ),
               const SizedBox(height: 14),
-              _newsTicker(alerts),
-              const SizedBox(height: 14),
+              if (widget.hasProAccess) ...[
+                _newsTicker(alerts),
+                const SizedBox(height: 14),
+              ],
               LayoutBuilder(
                 builder: (context, constraints) => GridView.count(
                   crossAxisCount: constraints.maxWidth < 620 ? 2 : 4,
@@ -271,7 +283,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                   childAspectRatio: constraints.maxWidth < 620 ? 2.4 : 2.8,
                   children: [
                     _statCard('TOTAL PROPS', '$total'),
-                    _statCard('AVG EDGE', '${avgEdge.toStringAsFixed(1)}%'),
+                    if (widget.hasProAccess)
+                      _statCard('AVG EDGE', '${avgEdge.toStringAsFixed(1)}%'),
                     _statCard(
                       'TOP SPORT',
                       topSport == null
@@ -289,9 +302,13 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               ),
               const SizedBox(height: 14),
               Text(
-                selectedSport == 'ALL'
-                    ? 'All sports prop performance and edge'
-                    : '$selectedSport prop performance and edge',
+                widget.hasProAccess
+                    ? selectedSport == 'ALL'
+                          ? 'All sports prop performance and edge'
+                          : '$selectedSport prop performance and edge'
+                    : selectedSport == 'ALL'
+                    ? 'Basic player and market coverage'
+                    : '$selectedSport player and market coverage',
                 style: const TextStyle(
                   color: Color(0xFF96A4B2),
                   fontSize: 10,
@@ -299,9 +316,11 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                 ),
               ),
               const SizedBox(height: 10),
-              const Text(
-                'TOP EDGE OPPORTUNITIES',
-                style: TextStyle(
+              Text(
+                widget.hasProAccess
+                    ? 'TOP EDGE OPPORTUNITIES'
+                    : 'AVAILABLE PLAYER MARKETS',
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,
                   fontWeight: FontWeight.w900,
@@ -309,7 +328,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               ),
               const SizedBox(height: 8),
               Expanded(
-                child: topEdges.isEmpty
+                child: rankedProps.isEmpty
                     ? const Center(
                         child: Text(
                           'No analytics are available for this sport yet.',
@@ -317,10 +336,10 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                         ),
                       )
                     : ListView.separated(
-                        itemCount: topEdges.take(12).length,
+                        itemCount: rankedProps.take(12).length,
                         separatorBuilder: (_, _) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
-                          final p = topEdges[index];
+                          final p = rankedProps[index];
                           return Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
@@ -342,9 +361,13 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                                   ),
                                 ),
                                 Text(
-                                  '${p.edge}%',
-                                  style: const TextStyle(
-                                    color: Color(0xFFFFC400),
+                                  widget.hasProAccess
+                                      ? '${p.edge}%'
+                                      : p.sportsbook.toUpperCase(),
+                                  style: TextStyle(
+                                    color: widget.hasProAccess
+                                        ? const Color(0xFFFFC400)
+                                        : const Color(0xFFC8CED6),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w900,
                                   ),

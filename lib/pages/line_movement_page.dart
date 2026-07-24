@@ -9,9 +9,14 @@ import '../widgets/dashboard_panel.dart';
 import '../widgets/context_help.dart';
 
 class LineMovementPage extends StatefulWidget {
-  const LineMovementPage({super.key, required this.selectedSport});
+  const LineMovementPage({
+    super.key,
+    required this.selectedSport,
+    required this.hasProAccess,
+  });
 
   final String selectedSport;
+  final bool hasProAccess;
 
   @override
   State<LineMovementPage> createState() => _LineMovementPageState();
@@ -263,9 +268,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
       _summaryCard(
         icon: Icons.trending_up_rounded,
         iconColor: AppColors.blue,
-        value: marketConfidence == null
-            ? '--'
-            : '${marketConfidence.round()}%',
+        value: marketConfidence == null ? '--' : '${marketConfidence.round()}%',
         label: 'FAVORABLE MOVEMENT',
         detail: marketConfidence == null
             ? 'No moved lines yet'
@@ -368,6 +371,41 @@ class _LineMovementPageState extends State<LineMovementPage> {
     );
   }
 
+  Widget _buildCoreMovementSummary({
+    required int changedCount,
+    required int totalTracked,
+    required DateTime? lastUpdate,
+  }) {
+    final local = lastUpdate?.toLocal();
+    final lastUpdateText = local == null
+        ? '--'
+        : '${local.hour.toString().padLeft(2, '0')}:'
+              '${local.minute.toString().padLeft(2, '0')}';
+    return Row(
+      children: [
+        Expanded(
+          child: _summaryCard(
+            icon: Icons.compare_arrows_rounded,
+            iconColor: AppColors.blue,
+            value: '$changedCount',
+            label: 'RECENT CHANGES',
+            detail: '$totalTracked tracked lines',
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _summaryCard(
+            icon: Icons.schedule_rounded,
+            iconColor: const Color(0xFFC8CED6),
+            value: lastUpdateText,
+            label: 'LAST CHANGE',
+            detail: 'Opening vs. current',
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPageHeader() {
     final sportLabel = widget.selectedSport.trim().isEmpty
         ? 'ALL SPORTS'
@@ -405,7 +443,9 @@ class _LineMovementPageState extends State<LineMovementPage> {
               ),
               const SizedBox(height: 3),
               Text(
-                'Live market movement and prop-line intelligence • $sportLabel',
+                widget.hasProAccess
+                    ? 'Live market movement and prop-line intelligence • $sportLabel'
+                    : 'Current lines and recent changes • $sportLabel',
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 11,
@@ -773,11 +813,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
           (item) =>
               item.percentChange >= 10 &&
               item.movedAt != null &&
-              DateTime.now()
-                      .toUtc()
-                      .difference(item.movedAt!)
-                      .inMinutes <=
-                  15,
+              DateTime.now().toUtc().difference(item.movedAt!).inMinutes <= 15,
         )
         .length;
     final otherMoves = movedItems.length - sharpMoves;
@@ -968,8 +1004,10 @@ class _LineMovementPageState extends State<LineMovementPage> {
               children: [
                 _buildPageHeader(),
                 const SizedBox(height: 14),
-                _alertsTicker(defaultAlerts),
-                const SizedBox(height: 14),
+                if (widget.hasProAccess) ...[
+                  _alertsTicker(defaultAlerts),
+                  const SizedBox(height: 14),
+                ],
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -1058,47 +1096,57 @@ class _LineMovementPageState extends State<LineMovementPage> {
               children: [
                 _buildPageHeader(),
                 const SizedBox(height: 10),
-                _alertsTicker(movementAlerts),
-                const SizedBox(height: 9),
-                _buildMovementSummaryCards(
-                  changedCount: changed,
-                  totalTracked: top.length,
-                  significantMoves: significantMoves,
-                  sharpMoves: sharpMoves,
-                  marketConfidence: marketConfidence,
-                  lastUpdate: lastUpdate,
-                ),
+                if (widget.hasProAccess) ...[
+                  _alertsTicker(movementAlerts),
+                  const SizedBox(height: 9),
+                  _buildMovementSummaryCards(
+                    changedCount: changed,
+                    totalTracked: top.length,
+                    significantMoves: significantMoves,
+                    sharpMoves: sharpMoves,
+                    marketConfidence: marketConfidence,
+                    lastUpdate: lastUpdate,
+                  ),
+                ] else
+                  _buildCoreMovementSummary(
+                    changedCount: changed,
+                    totalTracked: top.length,
+                    lastUpdate: lastUpdate,
+                  ),
                 const SizedBox(height: 12),
                 _movementTable(top),
-                Align(
-                  child: SizedBox(
-                    width: 230,
-                    height: 28,
-                    child: OutlinedButton(
-                      onPressed: () => setState(
-                        () => _showAllMovements = !_showAllMovements,
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.gold,
-                        side: const BorderSide(color: AppColors.borderGold),
-                      ),
-                      child: Text(
-                        _showAllMovements
-                            ? 'Show Top 5'
-                            : 'View All Line Movement',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
+                if (widget.hasProAccess)
+                  Align(
+                    child: SizedBox(
+                      width: 230,
+                      height: 28,
+                      child: OutlinedButton(
+                        onPressed: () => setState(
+                          () => _showAllMovements = !_showAllMovements,
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.gold,
+                          side: const BorderSide(color: AppColors.borderGold),
+                        ),
+                        child: Text(
+                          _showAllMovements
+                              ? 'Show Top 5'
+                              : 'View All Line Movement',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(height: 130, child: _insights(top)),
+                if (widget.hasProAccess) ...[
+                  const SizedBox(height: 10),
+                  SizedBox(height: 130, child: _insights(top)),
+                ],
                 const SizedBox(height: 6),
                 _MovementStatusFooter(
-                  alertsEnabled: _alertsEnabled,
+                  alertsEnabled: widget.hasProAccess && _alertsEnabled,
                   lastUpdated: _relativeTime(_lastLoadedAt),
                 ),
               ],

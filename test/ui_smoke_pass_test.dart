@@ -28,6 +28,8 @@ void main() {
     expect(find.text('GAME MARKETS'), findsWidgets);
     expect(find.text('ANALYTICS'), findsOneWidget);
     expect(find.text('LINE MOVEMENT'), findsOneWidget);
+    expect(find.byKey(const ValueKey('tier-badge-core')), findsWidgets);
+    expect(find.byKey(const ValueKey('tier-badge-edge')), findsWidgets);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.text('GAME MARKETS').first);

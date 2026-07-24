@@ -198,6 +198,22 @@ enum AppPage {
   intelligenceLab,
 }
 
+@visibleForTesting
+SubscriptionTier? requiredTierForPage(AppPage page) => switch (page) {
+  AppPage.propBuilder ||
+  AppPage.gameMarkets ||
+  AppPage.watchlist ||
+  AppPage.analytics ||
+  AppPage.lineMovement ||
+  AppPage.pastSlipHistory => SubscriptionTier.core,
+  AppPage.builderPerformance ||
+  AppPage.strikeoutProGold ||
+  AppPage.evScanner ||
+  AppPage.propAlerts ||
+  AppPage.intelligenceLab => SubscriptionTier.edge,
+  _ => null,
+};
+
 class AppColors {
   static const background = Color(0xFF050A0F);
   static const leftSidebar = Color(0xFF09131D);
@@ -397,6 +413,9 @@ class PropIntelligenceShell extends StatelessWidget {
                 if (!state.authenticated && !devUnlocked) {
                   return const CorporateLoginScreen();
                 }
+                if (state.requiresPaidPlan && !devUnlocked) {
+                  return const SubscriptionRequiredScreen();
+                }
                 return _buildDashboardShell(authState: state);
               },
             );
@@ -454,7 +473,8 @@ class _OwnerAccessPreviewBanner extends StatelessWidget {
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
-                    'OWNER ACCESS PREVIEW: ${tier.name.toUpperCase()} — '
+                    'OWNER ACCESS PREVIEW: '
+                    '${tier == SubscriptionTier.free ? 'NO PLAN' : tier.name.toUpperCase()} — '
                     'UI ACCESS ONLY, BILLING UNCHANGED',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
@@ -581,20 +601,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     });
   }
 
-  SubscriptionTier? _requiredTier(AppPage page) => switch (page) {
-    AppPage.propBuilder ||
-    AppPage.gameMarkets ||
-    AppPage.watchlist ||
-    AppPage.analytics ||
-    AppPage.lineMovement ||
-    AppPage.propAlerts => SubscriptionTier.core,
-    AppPage.builderPerformance ||
-    AppPage.strikeoutProGold ||
-    AppPage.evScanner ||
-    AppPage.pastSlipHistory ||
-    AppPage.intelligenceLab => SubscriptionTier.edge,
-    _ => null,
-  };
+  SubscriptionTier? _requiredTier(AppPage page) => requiredTierForPage(page);
 
   void _selectBoardSport(String sport) {
     setState(() {
@@ -630,6 +637,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   }
 
   Widget _buildMainContent() {
+    final hasProAccess = AuthManager.instance.sessionState.value.hasEdgeAccess;
     return Container(
       key: ValueKey(_selectedPage),
       decoration: const BoxDecoration(
@@ -656,16 +664,21 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           PropBuilderScreen(
             activeSlipController: _activeSlipController,
             isManualSportsMode: true,
+            hasProAccess: hasProAccess,
             initialSelectedSports: [
               _selectedBoardSport == 'ALL' ? 'WNBA' : _selectedBoardSport,
             ],
           ),
-          SlipHistoryPanel(activeSlipController: _activeSlipController),
+          SlipHistoryPanel(
+            activeSlipController: _activeSlipController,
+            hasProAccess: hasProAccess,
+          ),
           const PropBuilderPerformanceScreen(),
           StrikeoutProGoldScreen(onSelect: _toggleSelection),
           SlipHistoryPanel(
             activeSlipController: _activeSlipController,
             mode: SlipHistoryMode.history,
+            hasProAccess: hasProAccess,
           ),
         ],
       ),
@@ -1242,6 +1255,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     leadingIcons: const [Icons.sports_rounded],
                     leadingIconColors: const [AppColors.gold],
                     selected: widget.selectedPage == AppPage.gameMarkets,
+                    requiredTier: SubscriptionTier.core,
                     showGoldBar: true,
                     onTap: () => widget.onSelectPage?.call(AppPage.gameMarkets),
                   ),
@@ -1251,7 +1265,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     leadingIcons: const [Icons.science_outlined],
                     leadingIconColors: const [AppColors.gold],
                     selected: widget.selectedPage == AppPage.intelligenceLab,
-                    premium: true,
+                    requiredTier: SubscriptionTier.edge,
                     showGoldBar: true,
                     onTap: () =>
                         widget.onSelectPage?.call(AppPage.intelligenceLab),
@@ -1261,7 +1275,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     label: 'PROP BUILDER',
                     leadingIcons: const [Icons.category_outlined],
                     selected: widget.selectedPage == AppPage.propBuilder,
-                    premium: true,
+                    requiredTier: SubscriptionTier.core,
                     showGoldBar: true,
                     onTap: () => widget.onSelectPage?.call(AppPage.propBuilder),
                   ),
@@ -1270,7 +1284,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     label: 'BUILD\nPERFORM',
                     leadingIcons: const [Icons.grid_view_rounded],
                     selected: widget.selectedPage == AppPage.builderPerformance,
-                    premium: true,
+                    requiredTier: SubscriptionTier.edge,
                     showGoldBar: true,
                     onTap: () =>
                         widget.onSelectPage?.call(AppPage.builderPerformance),
@@ -1282,7 +1296,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     leadingIcons: const [Icons.receipt_long_rounded],
                     leadingIconColors: const [AppColors.gold],
                     selected: widget.selectedPage == AppPage.watchlist,
-                    premium: true,
+                    requiredTier: SubscriptionTier.core,
                     showGoldBar: true,
                     onTap: () => widget.onSelectPage?.call(AppPage.watchlist),
                   ),
@@ -1292,7 +1306,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     leadingIcons: const [Icons.history_rounded],
                     leadingIconColors: const [AppColors.gold],
                     selected: widget.selectedPage == AppPage.pastSlipHistory,
-                    premium: true,
+                    requiredTier: SubscriptionTier.core,
                     showGoldBar: true,
                     onTap: () =>
                         widget.onSelectPage?.call(AppPage.pastSlipHistory),
@@ -1301,7 +1315,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   SidebarButton(
                     label: 'EV SCANNER',
                     selected: widget.selectedPage == AppPage.evScanner,
-                    premium: true,
+                    requiredTier: SubscriptionTier.edge,
                     showGoldBar: true,
                     leadingIcons: const [Icons.auto_graph],
                     leadingIconColors: const [Color(0xFF36B9FF)],
@@ -1329,7 +1343,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   SidebarButton(
                     label: 'STRIKEOUT\nPRO GOLD',
                     selected: widget.selectedPage == AppPage.strikeoutProGold,
-                    premium: true,
+                    requiredTier: SubscriptionTier.edge,
                     leadingIcons: const [Icons.sports_baseball_rounded],
                     leadingIconColors: const [AppColors.gold],
                     onTap: () =>
@@ -1536,10 +1550,56 @@ class _SidebarSectionLabel extends StatelessWidget {
   }
 }
 
+class _TierBadge extends StatelessWidget {
+  const _TierBadge({required this.tier, this.compact = false});
+
+  final SubscriptionTier tier;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCore = tier == SubscriptionTier.core;
+    final background = isCore
+        ? const Color(0xFFC8CED6)
+        : app_colors.AppColors.gold;
+    const foreground = Color(0xFF06111B);
+
+    return Container(
+      key: ValueKey('tier-badge-${tier.name}'),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+        border: isCore
+            ? Border.all(color: const Color(0xFFF1F4F7), width: .7)
+            : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!compact) ...[
+            Icon(Icons.workspace_premium, size: 12, color: foreground),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            isCore ? 'CORE' : 'PRO',
+            style: TextStyle(
+              color: foreground,
+              fontSize: compact ? 7 : 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class SidebarButton extends StatelessWidget {
   final String label;
   final bool selected;
-  final bool premium;
+  final SubscriptionTier? requiredTier;
   final bool showGoldBar;
   final String? badge;
   final List<IconData>? leadingIcons;
@@ -1552,7 +1612,7 @@ class SidebarButton extends StatelessWidget {
     super.key,
     required this.label,
     this.selected = false,
-    this.premium = false,
+    this.requiredTier,
     this.showGoldBar = false,
     this.badge,
     this.leadingIcons,
@@ -1694,34 +1754,8 @@ class SidebarButton extends StatelessWidget {
                   ),
                 ),
               ),
-            if (badge == null && premium)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFC400),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.workspace_premium,
-                      size: 12,
-                      color: Color(0xFF07131F),
-                    ),
-                    SizedBox(width: 5),
-                    Text(
-                      'PRO',
-                      style: TextStyle(
-                        color: Color(0xFF07131F),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            if (badge == null && requiredTier != null)
+              _TierBadge(tier: requiredTier!),
           ],
         ),
       ),
@@ -3050,6 +3084,42 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Widget _buildBoardIntelligence() {
+    if (!AuthManager.instance.sessionState.value.hasEdgeAccess) {
+      return Container(
+        height: 58,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF07131D),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: const Color(0xFFC8CED6)),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.view_list_outlined,
+              color: Color(0xFFC8CED6),
+              size: 18,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'CORE MARKET BOARD • ${_visibleProps.length} AVAILABLE PROPS',
+                style: const TextStyle(
+                  color: Color(0xFFC8CED6),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .4,
+                ),
+              ),
+            ),
+            const Text(
+              'PRO unlocks projections, confidence and edge ranking',
+              style: TextStyle(color: AppColors.muted, fontSize: 8),
+            ),
+          ],
+        ),
+      );
+    }
     final focusedProp = _focusedProp;
     final selectedProps = <String, PropData>{
       for (final selection in widget.selections)
@@ -3430,7 +3500,11 @@ class _MainDashboardState extends State<MainDashboard> {
                 : widget.selectedPage == AppPage.analytics
                 ? AnalyticsAdminWorkspace(selectedSport: widget.sportFilter)
                 : widget.selectedPage == AppPage.lineMovement
-                ? LineMovementPage(selectedSport: widget.sportFilter)
+                ? LineMovementPage(
+                    selectedSport: widget.sportFilter,
+                    hasProAccess:
+                        AuthManager.instance.sessionState.value.hasEdgeAccess,
+                  )
                 : widget.selectedPage == AppPage.dataAdmin
                 ? AnalyticsAdminWorkspace(
                     selectedSport: widget.sportFilter,
@@ -3581,12 +3655,14 @@ class _AnalyticsAdminWorkspaceState extends State<AnalyticsAdminWorkspace> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.gold,
+                      color: authState.hasEdgeAccess
+                          ? AppColors.gold
+                          : const Color(0xFFC8CED6),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
-                      'PRO',
-                      style: TextStyle(
+                    child: Text(
+                      authState.hasEdgeAccess ? 'PRO' : 'CORE',
+                      style: const TextStyle(
                         color: Color(0xFF06111B),
                         fontSize: 8,
                         fontWeight: FontWeight.w900,
@@ -3599,7 +3675,10 @@ class _AnalyticsAdminWorkspaceState extends State<AnalyticsAdminWorkspace> {
             Expanded(
               child: showDataAdmin
                   ? const DataAdminPage()
-                  : AnalyticsPage(selectedSport: widget.selectedSport),
+                  : AnalyticsPage(
+                      selectedSport: widget.selectedSport,
+                      hasProAccess: authState.hasEdgeAccess,
+                    ),
             ),
           ],
         );
@@ -4962,7 +5041,7 @@ class TopNavigation extends StatelessWidget {
     required String label,
     required AppPage page,
     required IconData icon,
-    bool premium = false,
+    SubscriptionTier? requiredTier,
   }) {
     final selected = selectedPage == page;
 
@@ -5021,26 +5100,9 @@ class TopNavigation extends StatelessWidget {
                   ),
                 ),
               ),
-              if (premium) ...[
+              if (requiredTier != null) ...[
                 const SizedBox(width: 7),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: app_colors.AppColors.gold,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Text(
-                    'PRO',
-                    style: TextStyle(
-                      color: Color(0xFF06111B),
-                      fontSize: 7,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
+                _TierBadge(tier: requiredTier, compact: true),
               ],
             ],
           ),
@@ -5216,34 +5278,35 @@ class TopNavigation extends StatelessWidget {
                         label: 'GAME MARKETS',
                         page: AppPage.gameMarkets,
                         icon: Icons.sports_rounded,
+                        requiredTier: SubscriptionTier.core,
                       ),
                       const SizedBox(width: 4),
                       _buildNavItem(
                         label: 'ANALYTICS',
                         page: AppPage.analytics,
                         icon: Icons.analytics_outlined,
-                        premium: true,
+                        requiredTier: SubscriptionTier.core,
                       ),
                       const SizedBox(width: 4),
                       _buildNavItem(
                         label: 'SLIP WATCHER',
                         page: AppPage.watchlist,
                         icon: Icons.receipt_long_rounded,
-                        premium: true,
+                        requiredTier: SubscriptionTier.core,
                       ),
                       const SizedBox(width: 4),
                       _buildNavItem(
                         label: 'PAST SLIP HISTORY',
                         page: AppPage.pastSlipHistory,
                         icon: Icons.history_rounded,
-                        premium: true,
+                        requiredTier: SubscriptionTier.core,
                       ),
                       const SizedBox(width: 4),
                       _buildNavItem(
                         label: 'LINE MOVEMENT',
                         page: AppPage.lineMovement,
                         icon: Icons.stacked_line_chart_rounded,
-                        premium: true,
+                        requiredTier: SubscriptionTier.core,
                       ),
                     ],
                   ),
@@ -6518,7 +6581,8 @@ class _PropGridState extends State<PropGrid> {
   }
 
   Widget _buildPortraitPropCard(PropData prop, PickSide? selectedSide) {
-    final hasRecommendation = prop.recommendationAvailable;
+    final hasProAccess = AuthManager.instance.sessionState.value.hasEdgeAccess;
+    final hasRecommendation = hasProAccess && prop.recommendationAvailable;
     final PickSide? advisedSide = !hasRecommendation
         ? null
         : prop.recommendedSide.toUpperCase().contains('UNDER') ||
@@ -6624,7 +6688,9 @@ class _PropGridState extends State<PropGrid> {
             child: Text(
               hasRecommendation
                   ? '★ BEST PICK: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
-                  : 'MODEL SIGNAL UNAVAILABLE',
+                  : hasProAccess
+                  ? 'MODEL SIGNAL UNAVAILABLE'
+                  : 'PRO MODEL SIGNAL',
               style: const TextStyle(
                 color: AppColors.gold,
                 fontSize: 8,
@@ -6636,6 +6702,8 @@ class _PropGridState extends State<PropGrid> {
           Text(
             hasRecommendation
                 ? 'EDGE • Model leans $confidence%'
+                : !hasProAccess
+                ? 'Upgrade to Pro for projections and edge metrics'
                 : prop.recommendationUnavailableReason ==
                       'player_identity_unresolved'
                 ? 'Player identity verification pending'

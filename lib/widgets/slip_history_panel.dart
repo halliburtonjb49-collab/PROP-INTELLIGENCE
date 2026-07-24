@@ -68,15 +68,32 @@ class _LegPhoto extends StatelessWidget {
 /// resolved (won/lost) slips only, read-only.
 enum SlipHistoryMode { active, history }
 
+@visibleForTesting
+List<SavedSlip> limitHistoryForCore(
+  Iterable<SavedSlip> slips, {
+  required bool hasProAccess,
+  DateTime? now,
+}) {
+  if (hasProAccess) return slips.toList();
+  final cutoff = (now ?? DateTime.now()).subtract(const Duration(days: 14));
+  return slips
+      .where(
+        (slip) => slip.createdAt != null && !slip.createdAt!.isBefore(cutoff),
+      )
+      .toList();
+}
+
 class SlipHistoryPanel extends StatefulWidget {
   const SlipHistoryPanel({
     super.key,
     required this.activeSlipController,
     this.mode = SlipHistoryMode.active,
+    this.hasProAccess = true,
   });
 
   final ActiveSlipController activeSlipController;
   final SlipHistoryMode mode;
+  final bool hasProAccess;
 
   @override
   State<SlipHistoryPanel> createState() => _SlipHistoryPanelState();
@@ -109,11 +126,13 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     }
     if (tab == 'all') {
       final all = await _apiService.fetchSlips();
-      return all
+      final resolved = all
           .where((slip) => slip.status.toLowerCase() != 'active')
           .toList();
+      return limitHistoryForCore(resolved, hasProAccess: widget.hasProAccess);
     }
-    return _apiService.fetchSlips(status: tab);
+    final slips = await _apiService.fetchSlips(status: tab);
+    return limitHistoryForCore(slips, hasProAccess: widget.hasProAccess);
   }
 
   @override
@@ -400,6 +419,27 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
               _tab('LOST', 'lost'),
             ],
           ),
+          if (!widget.hasProAccess) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: const Color(0xFFC8CED6).withValues(alpha: .10),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFC8CED6)),
+              ),
+              child: const Text(
+                'CORE HISTORY • LAST 14 DAYS • STANDARD WIN/LOSS GRADING',
+                style: TextStyle(
+                  color: Color(0xFFC8CED6),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .4,
+                ),
+              ),
+            ),
+          ],
         ],
         const SizedBox(height: 12),
         Container(
@@ -484,10 +524,12 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
               return Column(
                 children: [
                   _TotalsBar(totals: totals),
-                  const SizedBox(height: 8),
-                  _ProfitKeeper(totals: totals),
-                  const SizedBox(height: 8),
-                  _ClvSummary(totals: totals),
+                  if (widget.hasProAccess) ...[
+                    const SizedBox(height: 8),
+                    _ProfitKeeper(totals: totals),
+                    const SizedBox(height: 8),
+                    _ClvSummary(totals: totals),
+                  ],
                   const SizedBox(height: 10),
                   Expanded(
                     child: ListView.separated(

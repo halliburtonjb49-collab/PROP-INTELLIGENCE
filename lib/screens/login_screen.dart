@@ -430,20 +430,28 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
         icon = Icons.workspace_premium_outlined;
         content = [
           const Text(
-            'Choose the tools that match how deeply you want to analyze each play. Both subscriptions are month-to-month and can be canceled anytime.',
+            'Choose Core for everyday research and organization, or Pro for model-driven intelligence. An active subscription is required; there is no permanent free tier.',
             style: TextStyle(color: _silver70, fontSize: 14, height: 1.65),
           ),
           const SizedBox(height: 20),
           _PricingTierCard(
             name: 'CORE',
             price: '\$29.99 / MONTH',
-            description: 'The daily essentials for organized prop research.',
+            description:
+                'Silver access for everyday research, manual building and standard tracking.',
             features: [
-              'Full prop builder and player analytics',
+              'Manual prop builder and standard player research',
               'Live scoreboard and standard stat tracking',
               'Save, organize and track prop slips',
-              'Market comparisons and line movement tools',
+              'Game-market and sportsbook comparisons',
+              'Basic analytics and recent line changes',
+              '14-day slip history with standard grading',
               'Multi-sport research across major leagues',
+            ],
+            notIncluded: [
+              'No AI projections, confidence scores or edge percentages',
+              'No alerts, simulations, EV Scanner or Intelligence Lab',
+              'No Strikeout Pro Gold or advanced performance reports',
             ],
             onPressed: (dialogContext) =>
                 _choosePlan(dialogContext, PurchaseTier.core),
@@ -453,17 +461,19 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             name: 'PRO / EDGE',
             price: '\$89.99 / MONTH',
             description:
-                'The complete intelligence suite for advanced decision support.',
+                'Gold access to the complete model and automation suite.',
             featured: true,
             features: [
               'Everything in Core',
-              'AI projections, confidence scores and edge metrics',
+              'Advanced analytics, projections and edge metrics',
+              'Advanced line intelligence and stale-line alerts',
+              'Full history, profit tracking and model calibration',
               'Fatigue, travel, officiating and matchup context',
               'Correlation engine and parlay compatibility flags',
               'Game-script and Monte Carlo simulations',
               'Historical similarity matching and sentiment signals',
-              'Custom compound alerts and stale-line notifications',
-              'Prediction history, grading and model calibration',
+              'EV Scanner, Intelligence Lab and Strikeout Pro Gold',
+              'Advanced performance reports and prediction history',
             ],
             onPressed: (dialogContext) =>
                 _choosePlan(dialogContext, PurchaseTier.edge),
@@ -1662,6 +1672,7 @@ class _PricingTierCard extends StatelessWidget {
   final String price;
   final String description;
   final List<String> features;
+  final List<String> notIncluded;
   final bool featured;
   final ValueChanged<BuildContext>? onPressed;
 
@@ -1670,6 +1681,7 @@ class _PricingTierCard extends StatelessWidget {
     required this.price,
     required this.description,
     required this.features,
+    this.notIncluded = const [],
     this.featured = false,
     this.onPressed,
   });
@@ -1682,12 +1694,12 @@ class _PricingTierCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: featured
             ? _gold.withValues(alpha: 0.08)
-            : Colors.white.withValues(alpha: 0.025),
+            : _silver.withValues(alpha: 0.045),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: featured
               ? _gold.withValues(alpha: 0.82)
-              : _silver.withValues(alpha: 0.16),
+              : _silver.withValues(alpha: 0.58),
           width: featured ? 1.4 : 1,
         ),
       ),
@@ -1711,6 +1723,26 @@ class _PricingTierCard extends StatelessWidget {
                               fontSize: 15,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 1.2,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: featured ? _gold : _silver,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            featured ? 'GOLD ACCESS' : 'SILVER ACCESS',
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.7,
                             ),
                           ),
                         ),
@@ -1771,7 +1803,7 @@ class _PricingTierCard extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.check_circle_rounded,
-                    color: featured ? _gold : const Color(0xFF36B9FF),
+                    color: featured ? _gold : _silver,
                     size: 16,
                   ),
                   const SizedBox(width: 9),
@@ -1788,6 +1820,44 @@ class _PricingTierCard extends StatelessWidget {
                 ],
               ),
             ),
+          if (notIncluded.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'PRO-ONLY FEATURES',
+              style: TextStyle(
+                color: _silver,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .8,
+              ),
+            ),
+            const SizedBox(height: 7),
+            for (final feature in notIncluded)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.lock_outline_rounded,
+                      color: _gold,
+                      size: 15,
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        feature,
+                        style: const TextStyle(
+                          color: _silver70,
+                          fontSize: 11,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,

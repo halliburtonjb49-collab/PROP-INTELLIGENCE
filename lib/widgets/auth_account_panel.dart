@@ -112,7 +112,7 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
 
   void _setOwnerPreview(String selection) {
     final tier = switch (selection) {
-      'free' => SubscriptionTier.free,
+      'no_plan' => SubscriptionTier.free,
       'core' => SubscriptionTier.core,
       'edge' => SubscriptionTier.edge,
       _ => null,
@@ -121,6 +121,8 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
     _showMessage(
       tier == null
           ? 'Owner access preview disabled.'
+          : tier == SubscriptionTier.free
+          ? 'Previewing the signed-in experience with no active plan.'
           : 'Previewing the app as a ${tier.name.toUpperCase()} subscriber.',
     );
   }
@@ -739,7 +741,10 @@ class _SignedInView extends StatelessWidget {
                 tooltip: 'Preview subscription access',
                 onSelected: onOwnerPreviewChanged,
                 itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'free', child: Text('PREVIEW AS FREE')),
+                  PopupMenuItem(
+                    value: 'no_plan',
+                    child: Text('PREVIEW WITH NO PLAN'),
+                  ),
                   PopupMenuItem(value: 'core', child: Text('PREVIEW AS CORE')),
                   PopupMenuItem(value: 'edge', child: Text('PREVIEW AS EDGE')),
                   PopupMenuDivider(),
@@ -769,6 +774,8 @@ class _SignedInView extends StatelessWidget {
                       Text(
                         accessPreviewTier == null
                             ? 'ACCESS PREVIEW'
+                            : accessPreviewTier == SubscriptionTier.free
+                            ? 'PREVIEW: NO PLAN'
                             : 'PREVIEW: ${accessPreviewTier!.name.toUpperCase()}',
                         style: const TextStyle(
                           fontSize: 11,
@@ -789,7 +796,7 @@ class _SignedInView extends StatelessWidget {
                 icon: const Icon(Icons.workspace_premium_outlined, size: 15),
                 label: Text(
                   subscriptionTier == SubscriptionTier.free
-                      ? 'UPGRADE'
+                      ? 'CHOOSE PLAN'
                       : 'VIEW PLANS',
                 ),
               ),
