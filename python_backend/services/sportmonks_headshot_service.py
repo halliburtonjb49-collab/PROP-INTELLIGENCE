@@ -34,16 +34,16 @@ from config import (
 HEADSHOT_MAP_PATH = SPORTMONKS_HEADSHOT_MAP_PATH
 _BASE_URL = "https://api.sportmonks.com/v3/football"
 
-# (league name substring, country name) matched case-insensitively against
-# Sportmonks' /leagues response. Keyed to the app's own PROP_SYNC_SPORTS
-# soccer coverage.
-_TARGET_LEAGUES: dict[str, tuple[str, str]] = {
-    "soccer_epl": ("premier league", "england"),
-    "soccer_usa_mls": ("major league soccer", "united states"),
-    "soccer_france_ligue_one": ("ligue 1", "france"),
-    "soccer_germany_bundesliga": ("bundesliga", "germany"),
-    "soccer_italy_serie_a": ("serie a", "italy"),
-    "soccer_spain_la_liga": ("la liga", "spain"),
+# Stable Sportmonks league ids keyed to the app's own PROP_SYNC_SPORTS
+# coverage. IDs avoid country-label variations ("USA" vs "United States")
+# and ambiguous league names such as the Italian and Brazilian Serie A.
+_TARGET_LEAGUES: dict[str, int] = {
+    "soccer_epl": 8,
+    "soccer_usa_mls": 779,
+    "soccer_france_ligue_one": 301,
+    "soccer_germany_bundesliga": 82,
+    "soccer_italy_serie_a": 384,
+    "soccer_spain_la_liga": 564,
 }
 
 
@@ -145,8 +145,7 @@ def _get_all(path: str, **params: object) -> list[dict]:
 def _find_target_season_ids() -> dict[str, int]:
     season_ids: dict[str, int] = {}
     for league in _get_all("/leagues", include="currentSeason;country"):
-        name = str(league.get("name") or "").lower()
-        country = str((league.get("country") or {}).get("name") or "").lower()
+        league_id = league.get("id")
         # Sportmonks names the include `currentSeason` in request parameters
         # but serializes the relation as lowercase `currentseason`.
         season = (
@@ -157,8 +156,8 @@ def _find_target_season_ids() -> dict[str, int]:
         season_id = season.get("id")
         if not isinstance(season_id, int):
             continue
-        for league_key, (name_substr, country_name) in _TARGET_LEAGUES.items():
-            if name_substr in name and country_name in country:
+        for league_key, target_league_id in _TARGET_LEAGUES.items():
+            if league_id == target_league_id:
                 season_ids[league_key] = season_id
     return season_ids
 

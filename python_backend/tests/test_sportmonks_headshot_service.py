@@ -132,7 +132,7 @@ def test_sportmonks_reads_lowercase_currentseason_relation(monkeypatch):
             {
                 "id": 8,
                 "name": "Premier League",
-                "country": {"name": "England"},
+                "country": {"name": "United Kingdom"},
                 "currentseason": {"id": 25583},
             }
         ],
