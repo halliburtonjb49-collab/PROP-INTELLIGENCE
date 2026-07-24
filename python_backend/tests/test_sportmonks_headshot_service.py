@@ -122,3 +122,22 @@ def test_sportmonks_refresh_rejects_missing_subscription_leagues(monkeypatch):
 
     with pytest.raises(RuntimeError, match="subscription includes"):
         sportmonks_headshot_service.refresh_sportmonks_headshot_map()
+
+
+def test_sportmonks_reads_lowercase_currentseason_relation(monkeypatch):
+    monkeypatch.setattr(
+        sportmonks_headshot_service,
+        "_get_all",
+        lambda _path, **_params: [
+            {
+                "id": 8,
+                "name": "Premier League",
+                "country": {"name": "England"},
+                "currentseason": {"id": 25583},
+            }
+        ],
+    )
+
+    assert sportmonks_headshot_service._find_target_season_ids() == {
+        "soccer_epl": 25583
+    }

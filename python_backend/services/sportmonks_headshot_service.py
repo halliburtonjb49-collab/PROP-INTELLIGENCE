@@ -147,7 +147,13 @@ def _find_target_season_ids() -> dict[str, int]:
     for league in _get_all("/leagues", include="currentSeason;country"):
         name = str(league.get("name") or "").lower()
         country = str((league.get("country") or {}).get("name") or "").lower()
-        season = league.get("currentSeason") or {}
+        # Sportmonks names the include `currentSeason` in request parameters
+        # but serializes the relation as lowercase `currentseason`.
+        season = (
+            league.get("currentseason")
+            or league.get("currentSeason")
+            or {}
+        )
         season_id = season.get("id")
         if not isinstance(season_id, int):
             continue
