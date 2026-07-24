@@ -17,6 +17,20 @@ class ActiveSlipController extends ChangeNotifier {
   bool get isEmpty => _legs.isEmpty;
   int get legCount => _legs.length;
 
+  int _lockedSlipCount = 0;
+
+  /// Count of the user's currently-active (locked, unresolved) saved slips,
+  /// kept in sync by SlipHistoryPanel whenever it fetches from the server.
+  /// Lives here (rather than a new singleton) since this controller is
+  /// already shared between the sidebar and the slip watcher panel.
+  int get lockedSlipCount => _lockedSlipCount;
+
+  void setLockedSlipCount(int count) {
+    if (_lockedSlipCount == count) return;
+    _lockedSlipCount = count;
+    notifyListeners();
+  }
+
   String _propId(Map<String, dynamic> leg) {
     return leg['prop_id']?.toString() ?? leg['id']?.toString() ?? '';
   }

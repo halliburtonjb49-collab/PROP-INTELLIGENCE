@@ -19,6 +19,15 @@ def test_saved_slips_are_isolated_by_user(tmp_path, monkeypatch) -> None:
     assert slip_service.update_slip_status(first.id, "won", user_id="user-1") is True
 
 
+def test_delete_slip_is_scoped_to_owner(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(slip_service, "DATABASE_PATH", tmp_path / "slips.db")
+    slip = slip_service.create_slip(_request("Unlock Me"), user_id="user-1")
+    assert slip_service.delete_slip(slip.id, user_id="user-2") is False
+    assert [s.id for s in slip_service.get_slips(user_id="user-1")] == [slip.id]
+    assert slip_service.delete_slip(slip.id, user_id="user-1") is True
+    assert slip_service.get_slips(user_id="user-1") == []
+
+
 def test_entry_line_is_snapshotted_and_clv_is_user_isolated(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(slip_service, "DATABASE_PATH", tmp_path / "slips.db")
     slip = slip_service.create_slip(_request("clv-prop"), user_id="user-1")

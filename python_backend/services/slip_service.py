@@ -223,6 +223,17 @@ def update_slip_status(
         return cursor.rowcount > 0
 
 
+def delete_slip(slip_id: str, user_id: str) -> bool:
+    """Unlocks (removes) a saved slip, scoped to its owner."""
+    initialize_slip_table()
+    with _connect() as connection:
+        cursor = connection.execute(
+            "DELETE FROM slips WHERE id = ? AND user_id = ?",
+            (slip_id, user_id),
+        )
+        return cursor.rowcount > 0
+
+
 def update_slip_closing_lines(
     slip_id: str,
     updates: list[ClosingLineUpdate],

@@ -462,8 +462,22 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && AuthManager.instance.sessionState.value.authenticated) {
         unawaited(ProductOnboarding.showIfNeeded(context));
+        unawaited(_loadLockedSlipCount());
       }
     });
+  }
+
+  /// So the SLIP WATCHER sidebar badge is correct immediately on load,
+  /// not just after the user visits that page (which is what actually
+  /// keeps it updated afterward, via SlipHistoryPanel).
+  Future<void> _loadLockedSlipCount() async {
+    try {
+      final activeSlips = await _apiService.fetchSlips(status: 'active');
+      if (!mounted) return;
+      _activeSlipController.setLockedSlipCount(activeSlips.length);
+    } catch (_) {
+      // Non-critical - SlipHistoryPanel will populate it once visited.
+    }
   }
 
   @override
@@ -603,7 +617,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           child: LeftSidebar(
             selectedPage: _selectedPage,
             selectedSport: _selectedBoardSport,
-            activeSlipCount: _activeSlipController.legCount,
+            lockedSlipCount: _activeSlipController.lockedSlipCount,
             onSelectPage: (page) {
               setState(() {
                 if (page != AppPage.board) {
@@ -1061,7 +1075,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 class LeftSidebar extends StatefulWidget {
   final AppPage selectedPage;
   final String selectedSport;
-  final int activeSlipCount;
+  final int lockedSlipCount;
   final ValueChanged<AppPage>? onSelectPage;
   final ValueChanged<String>? onSelectSport;
 
@@ -1069,7 +1083,7 @@ class LeftSidebar extends StatefulWidget {
     super.key,
     required this.selectedPage,
     required this.selectedSport,
-    required this.activeSlipCount,
+    required this.lockedSlipCount,
     this.onSelectPage,
     this.onSelectSport,
   });
@@ -1192,7 +1206,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   const SizedBox(height: 6),
                   SidebarButton(
                     label: 'SLIP WATCHER',
-                    badge: '${widget.activeSlipCount}',
+                    badge: '${widget.lockedSlipCount}',
                     leadingIcons: const [Icons.receipt_long_rounded],
                     leadingIconColors: const [AppColors.gold],
                     selected: widget.selectedPage == AppPage.watchlist,

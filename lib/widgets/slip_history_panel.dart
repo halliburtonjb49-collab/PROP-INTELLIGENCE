@@ -34,6 +34,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   void initState() {
     super.initState();
     _slipsFuture = _apiService.fetchSlips();
+    unawaited(_refreshLockedSlipCount());
     _liveSubscription = _liveUpdates.stream.listen(
       (_) => _reloadFromTicketEvent(),
       onError: (_) {},
@@ -46,6 +47,19 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       const Duration(minutes: 2),
       (_) => _refreshGameStatuses(),
     );
+  }
+
+  /// The sidebar's SLIP WATCHER badge always reflects the active/unresolved
+  /// count regardless of which tab is selected here, so it needs its own
+  /// fetch independent of the (possibly won/lost-filtered) _slipsFuture.
+  Future<void> _refreshLockedSlipCount() async {
+    try {
+      final activeSlips = await _apiService.fetchSlips(status: 'active');
+      if (!mounted) return;
+      widget.activeSlipController.setLockedSlipCount(activeSlips.length);
+    } catch (_) {
+      // Leave the last known count in place on a transient failure.
+    }
   }
 
   @override
@@ -64,6 +78,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
         status: _selectedTab == 'all' ? null : _selectedTab,
       );
     });
+    unawaited(_refreshLockedSlipCount());
   }
 
   void _selectTab(String tab) {
@@ -83,6 +98,58 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
         status: _selectedTab == 'all' ? null : _selectedTab,
       );
     });
+    unawaited(_refreshLockedSlipCount());
+  }
+
+  Future<void> _unlockSlip(SavedSlip slip) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF0C1824),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: Color(0xFF73500B)),
+        ),
+        title: const Text('Unlock this slip?'),
+        content: Text(
+          'This removes the ${slip.legs.length}-leg slip from Slip Watcher. '
+          'This can\'t be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF5D68)),
+            child: const Text('UNLOCK'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+
+    try {
+      await _apiService.deleteSlip(slip.id);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to unlock slip: $error')),
+      );
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _slipsFuture = _apiService.fetchSlips(
+        status: _selectedTab == 'all' ? null : _selectedTab,
+      );
+    });
+    unawaited(_refreshLockedSlipCount());
   }
 
   Future<void> _refreshGameStatuses() async {
@@ -108,6 +175,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
         _lastUpdated = DateTime.now();
         _slipsFuture = Future.value(refreshedSlips);
       });
+      unawaited(_refreshLockedSlipCount());
     } catch (error) {
       if (!mounted) {
         return;
@@ -313,6 +381,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                           slip: slip,
                           onWon: () => _changeStatus(slip, 'won'),
                           onLost: () => _changeStatus(slip, 'lost'),
+                          onUnlock: () => _unlockSlip(slip),
                         );
                       },
                     ),
@@ -647,11 +716,13 @@ class _SavedSlipCard extends StatelessWidget {
   final SavedSlip slip;
   final VoidCallback onWon;
   final VoidCallback onLost;
+  final VoidCallback onUnlock;
 
   const _SavedSlipCard({
     required this.slip,
     required this.onWon,
     required this.onLost,
+    required this.onUnlock,
   });
 
   @override
@@ -718,6 +789,25 @@ class _SavedSlipCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (normalizedStatus == 'active') ...[
+                      const SizedBox(width: 6),
+                      Tooltip(
+                        message: 'Unlock (remove) this slip',
+                        child: IconButton(
+                          onPressed: onUnlock,
+                          icon: const Icon(
+                            Icons.lock_open_rounded,
+                            size: 16,
+                            color: Color(0xFF8B98A8),
+                          ),
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(),
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(28, 28),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 10),

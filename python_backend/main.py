@@ -107,6 +107,7 @@ from services.slip_service import (
 	slip_storage_health,
 	calculate_payout_preview,
 	create_slip,
+	delete_slip,
 	get_slips,
 	update_slip_game_statuses,
 	update_slip_closing_lines,
@@ -2535,6 +2536,27 @@ def change_slip_status(
 		"slip_id": slip_id,
 		"new_status": status,
 	}
+
+
+@app.delete("/api/slips/{slip_id}")
+def unlock_slip(
+	slip_id: str,
+	user_id: str = Depends(require_user_id),
+) -> dict[str, object]:
+	deleted = delete_slip(slip_id, user_id=user_id)
+	if not deleted:
+		raise HTTPException(
+			status_code=404,
+			detail="Slip not found.",
+		)
+
+	realtime_hub.broadcast_user_from_thread(
+		{"type": "ticket.deleted", "version": 1, "eventId": f"ticket-{slip_id}-deleted",
+		 "occurredAt": datetime.now(timezone.utc).isoformat(),
+		 "data": {"id": slip_id}}, "tickets", user_id,
+	)
+
+	return {"status": "deleted", "slip_id": slip_id}
 
 
 @app.post("/api/slips/results")
