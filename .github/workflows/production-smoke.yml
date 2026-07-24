@@ -11,7 +11,7 @@ jobs:
   verify-production:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Wait for production deployment
         if: github.event_name == 'push'
         run: sleep 150
