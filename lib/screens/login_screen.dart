@@ -102,10 +102,14 @@ class _PwaInstallNavButton extends StatelessWidget {
         onPressed: () => _handleTap(context),
         icon: const Icon(
           Icons.install_mobile_rounded,
-          size: 20,
+          size: 18,
           color: _silver70,
         ),
-        style: IconButton.styleFrom(padding: const EdgeInsets.all(8)),
+        style: IconButton.styleFrom(
+          padding: const EdgeInsets.all(6),
+          minimumSize: const Size(34, 34),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
       ),
     );
   }
@@ -1379,7 +1383,7 @@ class _TopNavigation extends StatelessWidget {
               icon: Icon(
                 Icons.query_stats_rounded,
                 color: _gold,
-                size: compact ? 16 : 18,
+                size: compact ? 14 : 18,
               ),
               label: Text(
                 'PROP INTELLIGENCE',
@@ -1387,14 +1391,14 @@ class _TopNavigation extends StatelessWidget {
                   color: _gold,
                   fontSize: compact ? 8 : 11,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: 1,
+                  letterSpacing: compact ? 0.3 : 1,
                 ),
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: _gold,
                 side: BorderSide(color: _gold.withValues(alpha: 0.65)),
                 padding: EdgeInsets.symmetric(
-                  horizontal: compact ? 8 : (tight ? 10 : 16),
+                  horizontal: compact ? 5 : (tight ? 10 : 16),
                   vertical: compact ? 9 : (tight ? 10 : 12),
                 ),
                 shape: RoundedRectangleBorder(
@@ -1425,17 +1429,24 @@ class _TopNavigation extends StatelessWidget {
                 ),
               ),
             SizedBox(width: tight ? 6 : 14),
+            _PwaInstallNavButton(onFallback: onNavigate),
+            const SizedBox(width: 4),
           ] else ...[
+            // Install guidance already lives in the mobile menu below -
+            // no room for a separate icon on a phone-width top bar.
             IconButton(
               key: const ValueKey('mobile-info-menu'),
               tooltip: 'Explore information and installation',
               onPressed: () => _showMobileMenu(context),
               icon: const Icon(Icons.menu_rounded, color: _gold),
+              style: IconButton.styleFrom(
+                padding: const EdgeInsets.all(8),
+                minimumSize: const Size(36, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
             ),
             const SizedBox(width: 4),
           ],
-          _PwaInstallNavButton(onFallback: onNavigate),
-          const SizedBox(width: 4),
           const LaunchNotificationIcon(),
           SizedBox(width: compact ? 4 : 10),
           OutlinedButton(

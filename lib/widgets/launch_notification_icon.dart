@@ -90,6 +90,7 @@ class _LaunchNotificationIconState extends State<LaunchNotificationIcon> {
               ? app_colors.AppColors.gold.withValues(alpha: 0.1)
               : Colors.transparent,
           padding: const EdgeInsets.all(8),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
       ),
     );
