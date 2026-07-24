@@ -55,6 +55,8 @@ def test_sportmonks_cache_resolves_normalized_name_and_reports_count(
     assert sportmonks_headshot_service.sportmonks_headshot_cache_health() == {
         "status": "ok",
         "mode": "local-development",
+        "leagueCounts": {},
+        "leagueTeamCounts": {},
         "playerCount": 1,
         "updatedAtUtc": "2026-07-24T12:00:00+00:00",
     }
@@ -140,4 +142,23 @@ def test_sportmonks_reads_lowercase_currentseason_relation(monkeypatch):
 
     assert sportmonks_headshot_service._find_target_season_ids() == {
         "soccer_epl": 25583
+    }
+
+
+def test_sportmonks_extended_squad_reads_direct_player_shape(monkeypatch):
+    monkeypatch.setattr(
+        sportmonks_headshot_service,
+        "_get",
+        lambda _path, **_params: {
+            "data": [
+                {
+                    "name": "Lionel Messi",
+                    "image_path": "https://cdn.example/messi.png",
+                }
+            ]
+        },
+    )
+
+    assert sportmonks_headshot_service._fetch_extended_team_photos(239235) == {
+        "lionel messi": "https://cdn.example/messi.png"
     }

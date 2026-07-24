@@ -78,6 +78,8 @@ def sportmonks_headshot_cache_health() -> dict[str, object]:
     result: dict[str, object] = {
         "status": "missing",
         "mode": "persistent-disk" if persistent else "local-development",
+        "leagueCounts": {},
+        "leagueTeamCounts": {},
         "playerCount": 0,
         "updatedAtUtc": None,
     }
@@ -92,6 +94,8 @@ def sportmonks_headshot_cache_health() -> dict[str, object]:
         result.update(
             {
                 "status": "ok" if players else "empty",
+                "leagueCounts": payload.get("leagueCounts") or {},
+                "leagueTeamCounts": payload.get("leagueTeamCounts") or {},
                 "playerCount": len(players),
                 "updatedAtUtc": payload.get("updatedAtUtc"),
             }
@@ -182,7 +186,22 @@ def _fetch_team_squad_photos(team_id: int) -> dict[str, str]:
     return players
 
 
-def refresh_sportmonks_headshot_map() -> dict[str, int]:
+def _fetch_extended_team_photos(team_id: int) -> dict[str, str]:
+    """Fallback for leagues whose domestic-squad relation is empty."""
+    players: dict[str, str] = {}
+    payload = _get(f"/squads/teams/{team_id}/extended")
+    for player in payload.get("data", []):
+        if not isinstance(player, dict):
+            continue
+        full_name = player.get("name") or player.get("display_name")
+        image_path = player.get("image_path")
+        if not full_name or not image_path:
+            continue
+        players[_normalize_name(str(full_name))] = str(image_path)
+    return players
+
+
+def refresh_sportmonks_headshot_map() -> dict[str, object]:
     """Fetches rosters for every configured soccer league and rewrites the
     local cache. Intended to run from a scheduled sync script only - this
     makes many real network calls and should never execute on the request
@@ -199,11 +218,17 @@ def refresh_sportmonks_headshot_map() -> dict[str, int]:
         )
     all_players: dict[str, str] = {}
     counts: dict[str, int] = {}
+    team_counts: dict[str, int] = {}
     for league_key, season_id in season_ids.items():
         league_players: dict[str, str] = {}
-        for team_id in _fetch_team_ids(season_id):
+        team_ids = _fetch_team_ids(season_id)
+        team_counts[league_key] = len(team_ids)
+        for team_id in team_ids:
             try:
-                league_players.update(_fetch_team_squad_photos(team_id))
+                team_players = _fetch_team_squad_photos(team_id)
+                if not team_players:
+                    team_players = _fetch_extended_team_photos(team_id)
+                league_players.update(team_players)
             except requests.RequestException:
                 continue
         all_players.update(league_players)
@@ -211,6 +236,7 @@ def refresh_sportmonks_headshot_map() -> dict[str, int]:
 
     for league_key in _TARGET_LEAGUES:
         counts.setdefault(league_key, 0)
+        team_counts.setdefault(league_key, 0)
 
     if not all_players:
         raise RuntimeError(
@@ -224,6 +250,7 @@ def refresh_sportmonks_headshot_map() -> dict[str, int]:
             {
                 "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
                 "leagueCounts": counts,
+                "leagueTeamCounts": team_counts,
                 "players": all_players,
             },
             indent=2,
@@ -232,4 +259,4 @@ def refresh_sportmonks_headshot_map() -> dict[str, int]:
         encoding="utf-8",
     )
     _load_map.cache_clear()
-    return counts
+    return {"players": counts, "teams": team_counts}
