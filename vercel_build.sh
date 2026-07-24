@@ -27,8 +27,18 @@ flutter --version
 : "${AUTH_EMAIL_REDIRECT_URL:=https://app.propsintell.com}"
 : "${ALLOW_PUBLIC_SIGNUP:=true}"
 
-# Only SUPABASE_ANON_KEY is required from environment
-: "${SUPABASE_ANON_KEY:?SUPABASE_ANON_KEY is required}"
+# Preview deployments validate the production bundle but do not authenticate
+# real users. Keep the production key mandatory while allowing PR previews to
+# compile with an intentionally unusable public placeholder.
+if [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+  if [ "${VERCEL_ENV:-}" = "preview" ]; then
+    SUPABASE_ANON_KEY="preview-placeholder"
+    ALLOW_PUBLIC_SIGNUP="false"
+  else
+    echo "SUPABASE_ANON_KEY is required for production builds." >&2
+    exit 1
+  fi
+fi
 
 APP_VERSION="${VERCEL_GIT_COMMIT_SHA:-${APP_VERSION:-unknown}}"
 

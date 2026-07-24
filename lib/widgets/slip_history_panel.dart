@@ -231,7 +231,9 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF5D68)),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFFF5D68),
+            ),
             child: const Text('UNLOCK'),
           ),
         ],
@@ -245,9 +247,9 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       await _apiService.deleteSlip(slip.id);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to unlock slip: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to unlock slip: $error')));
       return;
     }
     if (!mounted) {
@@ -281,8 +283,8 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
         return;
       }
       await _apiService.refreshAllSlipGames();
-      // Automatically grade completed WNBA props.
-      await _apiService.gradeWnbaSlips();
+      // Grade every completed leg covered by an authoritative stat provider.
+      await _apiService.gradePendingSlips();
       final refreshedSlips = await _fetchForTab(_selectedTab);
       await _syncActiveSlipFromSavedSlips(refreshedSlips);
       if (!mounted) {
@@ -1178,9 +1180,7 @@ class _SavedSlipCard extends StatelessWidget {
                               ),
                               const SizedBox(height: 5),
                               Text(
-                                live.current == null
-                                    ? 'PENDING'
-                                    : statusLabel,
+                                live.current == null ? 'PENDING' : statusLabel,
                                 style: TextStyle(
                                   color: live.current == null
                                       ? const Color(0xFF8B98A8)

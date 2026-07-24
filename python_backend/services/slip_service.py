@@ -412,6 +412,8 @@ def update_slip_results(
                 if prop_id in result_map:
                     result_value = result_map[prop_id]
                     leg["result_value"] = result_value
+                    leg["game_completed"] = True
+                    leg["game_status"] = "completed"
                     leg["result_status"] = grade_leg(
                         side=str(leg.get("side", "")),
                         line=float(leg.get("line", 0)),

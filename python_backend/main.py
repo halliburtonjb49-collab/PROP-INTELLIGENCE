@@ -121,6 +121,7 @@ from services.slip_service import (
 	update_slip_status,
 )
 from services.live_stats_service import get_live_player_stat
+from services.multi_sport_grading_service import grade_active_slips
 from services.sync_service import run_global_sync_pipeline
 from services.prop_recommendation_service import (
 	build_prop_recommendation,
@@ -1114,6 +1115,9 @@ def _graded_slip_legs(slip: SlipResponse, *, season: str) -> list[dict[str, obje
 			prop_type=leg.market,
 			sport=leg.sport,
 			season=season,
+			event_id=leg.event_id,
+			matchup=leg.matchup,
+			game_start_time=leg.game_start_time,
 		)
 		result = _grade_active_ticket_leg(
 			side=leg.side,
@@ -2605,6 +2609,18 @@ def process_slip_results(
 		"status": "complete",
 		"updated_slips": updated,
 	}
+
+
+@app.post("/api/slips/grade")
+def grade_slips(user_id: str = Depends(require_user_id)) -> dict[str, object]:
+	try:
+		return grade_active_slips(user_id=user_id)
+	except Exception as exc:
+		logging.exception("Multi-sport slip grading failed")
+		raise HTTPException(
+			status_code=502,
+			detail=f"Slip grading failed: {exc}",
+		) from exc
 
 
 @app.get("/api/scores/{sport_key}")

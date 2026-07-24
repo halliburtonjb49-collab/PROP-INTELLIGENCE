@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python tests
+    runs-on: ubuntu-latest
+    env:
+      # Import-time configuration requires provider keys. Tests mock all
+      # outbound provider calls, so CI uses explicit non-secret placeholders.
+      ODDS_API_KEY: ci-placeholder
+      API_SPORTS_KEY: ci-placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Run backend tests
+        run: python -m pytest python_backend/tests -q
+
+  flutter:
+    name: Flutter analysis, tests, and web build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze
+      - name: Test
+        run: flutter test
+      - name: Build production web bundle
+        run: >
+          flutter build web --release
+          --dart-define=API_BASE_URL=https://api.propsintell.com
+          --dart-define=SUPABASE_URL=https://ci-placeholder.supabase.co
+          --dart-define=SUPABASE_ANON_KEY=ci-placeholder
+          --dart-define=AUTH_EMAIL_REDIRECT_URL=https://app.propsintell.com
+          --dart-define=ALLOW_PUBLIC_SIGNUP=false
+      - name: Reject development addresses in release bundle
+        run: |
+          if grep -Eqi 'localhost|127\.0\.0\.1' build/web/main.dart.js; then
+            echo "Release bundle contains a development address."
+            exit 1
+          fi
