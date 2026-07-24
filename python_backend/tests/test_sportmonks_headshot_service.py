@@ -185,3 +185,43 @@ def test_sportmonks_team_ids_fall_back_to_season_teams(monkeypatch):
         239235,
         413,
     ]
+
+
+def test_sportmonks_team_ids_fall_back_to_fixture_participants(monkeypatch):
+    calls = []
+
+    def fake_get_all(path, **params):
+        calls.append((path, params))
+        if path.startswith("/fixtures/"):
+            return [
+                {
+                    "participants": [
+                        {"id": 239235, "name": "Inter Miami"},
+                        {"id": 413, "name": "LA Galaxy"},
+                    ]
+                },
+                {
+                    "participants": [
+                        {"id": 413, "name": "LA Galaxy"},
+                        {"id": 111, "name": "Austin FC"},
+                    ]
+                },
+            ]
+        return []
+
+    monkeypatch.setattr(sportmonks_headshot_service, "_get_all", fake_get_all)
+    monkeypatch.setattr(
+        sportmonks_headshot_service,
+        "_get",
+        lambda _path, **_params: {"data": {"teams": []}},
+    )
+
+    assert sportmonks_headshot_service._fetch_team_ids(25593) == [
+        111,
+        413,
+        239235,
+    ]
+    assert calls[-1] == (
+        "/fixtures/seasons/25593",
+        {"include": "participants"},
+    )

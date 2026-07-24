@@ -181,11 +181,30 @@ def _fetch_team_ids(season_id: int) -> list[int]:
     payload = _get(f"/seasons/{season_id}", include="teams")
     season = payload.get("data") or {}
     teams = season.get("teams") if isinstance(season, dict) else []
-    return [
+    team_ids = [
         team["id"]
         for team in (teams or [])
         if isinstance(team, dict) and isinstance(team.get("id"), int)
     ]
+    if team_ids:
+        return team_ids
+
+    # MLS currently returns empty team collections for its active season on
+    # some subscriptions, while season fixtures still expose both clubs via
+    # the standard participants relation.
+    fixtures = _get_all(
+        f"/fixtures/seasons/{season_id}",
+        include="participants",
+    )
+    return sorted(
+        {
+            participant["id"]
+            for fixture in fixtures
+            for participant in (fixture.get("participants") or [])
+            if isinstance(participant, dict)
+            and isinstance(participant.get("id"), int)
+        }
+    )
 
 
 def _fetch_team_squad_photos(team_id: int) -> dict[str, str]:
