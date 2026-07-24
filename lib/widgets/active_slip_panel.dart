@@ -756,6 +756,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
         leg['prop_site']?.toString() ?? leg['sportsbook']?.toString() ?? '';
     final edge = (leg['edge'] as num?)?.toDouble() ?? 0;
     final confidence = (leg['confidence'] as num?)?.toDouble() ?? 0;
+    final recommendationAvailable =
+        leg['recommendation_available'] == true ||
+        leg['recommendationAvailable'] == true;
     final odds = leg['current_odds'] ?? leg['odds'];
 
     return Container(
@@ -822,7 +825,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                       ),
                     ),
                     Text(
-                      'Edge ${edge.toStringAsFixed(1)}%',
+                      recommendationAvailable
+                          ? 'Edge ${edge.toStringAsFixed(1)}%'
+                          : 'Edge unavailable',
                       style: const TextStyle(
                         color: Color(0xFF62D47A),
                         fontSize: 9,
@@ -831,7 +836,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Model ${confidence.toStringAsFixed(0)}%',
+                      recommendationAvailable
+                          ? 'Model ${confidence.toStringAsFixed(0)}%'
+                          : 'Model unavailable',
                       style: const TextStyle(
                         color: Color(0xFFB8C1CC),
                         fontSize: 9,

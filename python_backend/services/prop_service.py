@@ -18,7 +18,7 @@ from services.time_utils import (
 	app_timezone,
 )
 from services.prop_recommendation_service import (
-	build_prop_recommendation_with_fallback,
+	build_verified_prop_recommendation,
 )
 from services.player_identity_service import resolve_player_identity
 from services.player_availability_service import (
@@ -148,7 +148,6 @@ def get_props() -> list[PropResponse]:
 		raw_market = str(row["prop_type"])
 		sportsbook = str(row["bookmaker"] or "")
 		line = float(row["line"])
-		confidence = int(round(float(row["confidence"] or 0)))
 		home_team = str(row["home_team"] or "")
 		away_team = str(row["away_team"] or "")
 		matchup = f"{away_team} @ {home_team}".strip()
@@ -182,20 +181,6 @@ def get_props() -> list[PropResponse]:
 				row,
 				"model_projection",
 			)
-		recommendation = build_prop_recommendation_with_fallback(
-			projection=projection,
-			line=line,
-			odds_pick=str(row["prediction"] or "UNDER"),
-			odds_confidence=confidence,
-		)
-		recommended_side = str(
-			recommendation["recommendedSide"]
-		)
-		recommended_pick = (
-			recommended_side.upper()
-			if recommended_side.upper() in {"OVER", "UNDER"}
-			else str(row["prediction"] or "UNDER").upper()
-		)
 		source_player_id = str(row["source_player_id"] or "")
 		identity = resolve_player_identity(
 			source_provider="odds-api",
@@ -205,6 +190,23 @@ def get_props() -> list[PropResponse]:
 		canonical_player_id = str(identity.get("canonical_player_id") or "")
 		if not canonical_player_id:
 			canonical_player_id = _make_player_id(player)
+		identity_confidence = float(
+			identity.get("confidence") or 0.0
+		)
+		recommendation = build_verified_prop_recommendation(
+			projection=projection,
+			line=line,
+			canonical_player_id=canonical_player_id,
+			identity_confidence=identity_confidence,
+		)
+		recommended_side = str(
+			recommendation["recommendedSide"]
+		)
+		recommended_pick = (
+			recommended_side.upper()
+			if recommended_side.upper() in {"OVER", "UNDER"}
+			else "N/A"
+		)
 		injury_status, lineup_status = get_player_availability(
 			canonical_player_id=canonical_player_id,
 		)
@@ -274,7 +276,7 @@ def get_props() -> list[PropResponse]:
 				sourcePlayerId=source_player_id,
 				canonicalPlayerId=canonical_player_id,
 				playerIdentityConfidence=float(
-					identity.get("confidence") or 0.0
+					identity_confidence
 				),
 				player=player,
 				sport=sport_label,
@@ -302,6 +304,12 @@ def get_props() -> list[PropResponse]:
 				],
 				tier=adjusted_tier,
 				pickText=recommendation["pickText"],
+				recommendationAvailable=bool(
+					recommendation["recommendationAvailable"]
+				),
+				recommendationUnavailableReason=str(
+					recommendation["recommendationUnavailableReason"]
+				),
 				startTimeUtc=start_time_utc,
 				displayTime=display_time,
 				gameStatus=source_game_status,

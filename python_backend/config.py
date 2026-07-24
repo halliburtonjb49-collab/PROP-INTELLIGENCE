@@ -78,3 +78,19 @@ _default_cache_path = (
     else BASE_DIR / "prop_intelligence_cache.db"
 )
 DB_PATH = Path(os.getenv("PROP_CACHE_DB_PATH", str(_default_cache_path))).expanduser()
+
+_render_sportmonks_headshot_path = Path(
+    "/var/data/sportmonks_headshot_map.json"
+)
+_default_sportmonks_headshot_path = (
+    _render_sportmonks_headshot_path
+    if os.getenv("RENDER", "").lower() == "true"
+    and _render_sportmonks_headshot_path.parent.is_dir()
+    else BASE_DIR / "data" / "sportmonks_headshot_map.json"
+)
+SPORTMONKS_HEADSHOT_MAP_PATH = Path(
+    os.getenv(
+        "SPORTMONKS_HEADSHOT_MAP_PATH",
+        str(_default_sportmonks_headshot_path),
+    )
+).expanduser()

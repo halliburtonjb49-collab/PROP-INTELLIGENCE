@@ -21,12 +21,17 @@ import re
 import unicodedata
 from datetime import datetime, timezone
 from functools import lru_cache
+from pathlib import Path
 
 import requests
 
-from config import BASE_DIR, HTTP_TIMEOUT_SECONDS, SPORTMONKS_API_KEY
+from config import (
+    HTTP_TIMEOUT_SECONDS,
+    SPORTMONKS_API_KEY,
+    SPORTMONKS_HEADSHOT_MAP_PATH,
+)
 
-HEADSHOT_MAP_PATH = BASE_DIR / "data" / "sportmonks_headshot_map.json"
+HEADSHOT_MAP_PATH = SPORTMONKS_HEADSHOT_MAP_PATH
 _BASE_URL = "https://api.sportmonks.com/v3/football"
 
 # (league name substring, country name) matched case-insensitively against
@@ -65,6 +70,35 @@ def _load_map() -> dict[str, str]:
 
 def sportmonks_headshot_url(player_name: str) -> str | None:
     return _load_map().get(_normalize_name(player_name))
+
+
+def sportmonks_headshot_cache_health() -> dict[str, object]:
+    """Reports whether the request-time soccer headshot cache is usable."""
+    persistent = HEADSHOT_MAP_PATH.parent == Path("/var/data")
+    result: dict[str, object] = {
+        "status": "missing",
+        "mode": "persistent-disk" if persistent else "local-development",
+        "playerCount": 0,
+        "updatedAtUtc": None,
+    }
+    if not HEADSHOT_MAP_PATH.exists():
+        return result
+    try:
+        payload = json.loads(HEADSHOT_MAP_PATH.read_text(encoding="utf-8"))
+        players = payload.get("players") if isinstance(payload, dict) else None
+        if not isinstance(players, dict):
+            result["status"] = "invalid"
+            return result
+        result.update(
+            {
+                "status": "ok" if players else "empty",
+                "playerCount": len(players),
+                "updatedAtUtc": payload.get("updatedAtUtc"),
+            }
+        )
+    except (OSError, ValueError):
+        result["status"] = "invalid"
+    return result
 
 
 def _get(path: str, **params: object) -> dict:

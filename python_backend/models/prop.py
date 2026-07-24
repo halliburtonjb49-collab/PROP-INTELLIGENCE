@@ -29,6 +29,8 @@ class PropResponse(BaseModel):
     recommendationEdge: float = 0.0
     tier: str = "No Pick"
     pickText: str = "No Pick"
+    recommendationAvailable: bool = False
+    recommendationUnavailableReason: str = ""
     startTimeUtc: str = ""
     displayTime: str = ""
     gameStatus: str = ""

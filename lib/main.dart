@@ -880,6 +880,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       'recommendedSide': prop.recommendedSide,
       'pick_text': prop.pickText,
       'pickText': prop.pickText,
+      'recommendation_available': prop.recommendationAvailable,
+      'recommendation_unavailable_reason': prop.recommendationUnavailableReason,
       'odds': selectedOdds,
       'current_odds': selectedOdds,
       'over_odds': prop.overOdds,
@@ -994,7 +996,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       setState(() {
         _slipSelections.clear();
       });
-      
+
       // Show success message
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1012,7 +1014,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             duration: Duration(seconds: 3),
           ),
         );
-        
+
         // Switch to watchlist view
         _switchToPage(AppPage.watchlist, source: 'slip-locked');
       }
@@ -6454,9 +6456,11 @@ class _PropGridState extends State<PropGrid> {
   }
 
   Widget _buildPortraitPropCard(PropData prop, PickSide? selectedSide) {
-    final advisedSide =
-        prop.recommendedSide.toUpperCase().contains('UNDER') ||
-            prop.pick.toUpperCase() == 'UNDER'
+    final hasRecommendation = prop.recommendationAvailable;
+    final PickSide? advisedSide = !hasRecommendation
+        ? null
+        : prop.recommendedSide.toUpperCase().contains('UNDER') ||
+              prop.pick.toUpperCase() == 'UNDER'
         ? PickSide.under
         : PickSide.over;
     final market = _marketCategory(prop);
@@ -6464,14 +6468,14 @@ class _PropGridState extends State<PropGrid> {
 
     Widget sideButton(PickSide side) {
       final selected = side == selectedSide;
-      final advised = side == advisedSide;
+      final advised = hasRecommendation && side == advisedSide;
       final label = side == PickSide.over ? 'OVER' : 'UNDER';
-      
+
       // Green for OVER, Red for UNDER when selected
       final selectedColor = side == PickSide.over
-          ? const Color(0xFF4CAF50)  // Green
-          : const Color(0xFFEF5350);  // Red
-      
+          ? const Color(0xFF4CAF50) // Green
+          : const Color(0xFFEF5350); // Red
+
       return Expanded(
         child: OutlinedButton(
           onPressed: () => widget.onSelect(prop, side),
@@ -6482,9 +6486,9 @@ class _PropGridState extends State<PropGrid> {
                 : (advised ? AppColors.gold : Colors.white),
             backgroundColor: selected
                 ? selectedColor.withValues(alpha: .85)
-                : (advised 
-                    ? AppColors.gold.withValues(alpha: .16)
-                    : const Color(0xFF091620)),
+                : (advised
+                      ? AppColors.gold.withValues(alpha: .16)
+                      : const Color(0xFF091620)),
             side: BorderSide(
               color: selected
                   ? selectedColor
@@ -6556,7 +6560,9 @@ class _PropGridState extends State<PropGrid> {
               border: Border.all(color: AppColors.gold),
             ),
             child: Text(
-              '★ BEST PICK: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}',
+              hasRecommendation
+                  ? '★ BEST PICK: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
+                  : 'MODEL SIGNAL UNAVAILABLE',
               style: const TextStyle(
                 color: AppColors.gold,
                 fontSize: 8,
@@ -6566,7 +6572,12 @@ class _PropGridState extends State<PropGrid> {
           ),
           const SizedBox(height: 8),
           Text(
-            'EDGE • Model leans $confidence%',
+            hasRecommendation
+                ? 'EDGE • Model leans $confidence%'
+                : prop.recommendationUnavailableReason ==
+                      'player_identity_unresolved'
+                ? 'Player identity verification pending'
+                : 'Projection data pending',
             style: const TextStyle(color: AppColors.muted, fontSize: 7.5),
           ),
           const SizedBox(height: 3),
@@ -6646,7 +6657,7 @@ class _PropGridState extends State<PropGrid> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '$confidence%',
+                    hasRecommendation ? '$confidence%' : '--',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 15,
@@ -6665,7 +6676,7 @@ class _PropGridState extends State<PropGrid> {
           ClipRRect(
             borderRadius: BorderRadius.circular(99),
             child: LinearProgressIndicator(
-              value: confidence / 100,
+              value: hasRecommendation ? confidence / 100 : 0,
               minHeight: 7,
               color: AppColors.gold,
               backgroundColor: AppColors.border,

@@ -73,7 +73,10 @@ from services.game_status_service import (
 from services.prop_service import get_props
 from services.mlb_headshot_service import refresh_mlb_headshot_map
 from services.espn_headshot_service import refresh_espn_headshot_map
-from services.sportmonks_headshot_service import refresh_sportmonks_headshot_map
+from services.sportmonks_headshot_service import (
+	refresh_sportmonks_headshot_map,
+	sportmonks_headshot_cache_health,
+)
 from services.sportsdataio_golf_service import refresh_golf_roster_map
 from services.prop_builder_service import (
 	build_prop_slip,
@@ -1269,7 +1272,8 @@ def provider_health() -> dict[str, object]:
 		"oddsApi": {
 			"status": "low_quota" if quota["lowQuota"] else "ok",
 			**quota,
-		}
+		},
+		"sportmonksHeadshots": sportmonks_headshot_cache_health(),
 	}
 
 

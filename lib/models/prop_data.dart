@@ -30,6 +30,8 @@ class PropData {
   final double recommendationEdge;
   final String tier;
   final String pickText;
+  final bool recommendationAvailable;
+  final String recommendationUnavailableReason;
   final String gameTime;
   final String gameStartTime;
   final double line;
@@ -81,6 +83,8 @@ class PropData {
     this.recommendationEdge = 0,
     this.tier = 'No Pick',
     this.pickText = 'No Pick',
+    this.recommendationAvailable = false,
+    this.recommendationUnavailableReason = '',
     this.gameTime = '',
     this.gameStartTime = '',
     required this.line,
@@ -196,6 +200,13 @@ class PropData {
           json['pickText']?.toString() ??
           json['pick_text']?.toString() ??
           'No Pick',
+      recommendationAvailable:
+          json['recommendationAvailable'] == true ||
+          json['recommendation_available'] == true,
+      recommendationUnavailableReason:
+          json['recommendationUnavailableReason']?.toString() ??
+          json['recommendation_unavailable_reason']?.toString() ??
+          '',
       gameTime:
           json['game_time']?.toString() ?? json['gameTime']?.toString() ?? '',
       gameStartTime:

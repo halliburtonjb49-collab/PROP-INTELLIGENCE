@@ -75,6 +75,41 @@ def build_prop_recommendation(
     }
 
 
+def build_verified_prop_recommendation(
+    *,
+    projection: object,
+    line: object,
+    canonical_player_id: str,
+    identity_confidence: float,
+) -> dict[str, Any]:
+    """Return a model recommendation only when its required inputs are real."""
+    projection_value = safe_float(projection)
+    if projection_value is None:
+        return {
+            **build_prop_recommendation(None, line),
+            "recommendationAvailable": False,
+            "recommendationUnavailableReason": "projection_unavailable",
+        }
+
+    canonical = canonical_player_id.strip().lower()
+    if (
+        not canonical
+        or canonical.startswith("unresolved:")
+        or identity_confidence < 0.8
+    ):
+        return {
+            **build_prop_recommendation(None, line),
+            "recommendationAvailable": False,
+            "recommendationUnavailableReason": "player_identity_unresolved",
+        }
+
+    return {
+        **build_prop_recommendation(projection_value, line),
+        "recommendationAvailable": True,
+        "recommendationUnavailableReason": "",
+    }
+
+
 def get_over_under_pick(
     projection: object,
     line: object,
@@ -99,20 +134,10 @@ def build_prop_recommendation_with_fallback(
     odds_pick: str,
     odds_confidence: int,
 ) -> dict[str, Any]:
+    """Deprecated compatibility wrapper.
+
+    Odds-derived direction and confidence are market signals, not model
+    projections, so they must never be promoted into a model recommendation.
+    """
     recommendation = build_prop_recommendation(projection, line)
-    if recommendation["recommendedSide"] != "N/A":
-        return recommendation
-
-    side = "Over" if odds_pick.strip().upper() == "OVER" else "Under"
-    confidence = max(0, min(int(odds_confidence), 99))
-    tier = _tier_from_confidence(confidence, side)
-    line_value = safe_float(line)
-
-    return {
-        "recommendedSide": side,
-        "confidence": confidence,
-        "edge": 0.0,
-        "recommendationEdge": 0.0,
-        "tier": tier,
-        "pickText": _pick_text(side, line_value, tier),
-    }
+    return recommendation
