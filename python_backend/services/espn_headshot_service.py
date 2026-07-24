@@ -1,8 +1,8 @@
 """Resolves athlete headshot URLs via ESPN's public site APIs.
 
-Covers roster-based NBA, WNBA, and NHL plus event-based PGA and UFC.
-Soccer returns no headshot data through these endpoints and is deliberately
-handled by the Sportmonks integration instead.
+Covers roster-based NBA, WNBA, and NHL, event-based PGA and UFC, and an
+athlete-detail fallback for MLS. Soccer roster responses omit embedded
+headshots, so MLS athlete ids are hydrated through ESPN's core API.
 
 ESPN's own stats sites for some leagues block traffic from cloud/datacenter
 IPs (e.g. stats.nba.com resets connections outright), which is why this
@@ -40,6 +40,12 @@ LEAGUES: dict[str, tuple[str, str]] = {
 EVENT_LEAGUES: dict[str, tuple[str, str]] = {
     "PGA": ("golf", "pga"),
     "UFC": ("mma", "ufc"),
+}
+
+# Team rosters expose athlete ids but require one core-athlete request to
+# retrieve each available headshot.
+DETAIL_ROSTER_LEAGUES: dict[str, tuple[str, str]] = {
+    "SOCCER": ("soccer", "usa.1"),
 }
 
 
@@ -155,6 +161,28 @@ def _fetch_team_roster(espn_sport: str, espn_league: str, team_id: str) -> dict[
     return players
 
 
+def _fetch_roster_athlete_ids(
+    espn_sport: str,
+    espn_league: str,
+    team_id: str,
+) -> set[str]:
+    response = requests.get(
+        f"https://site.api.espn.com/apis/site/v2/sports/{espn_sport}/{espn_league}"
+        f"/teams/{team_id}/roster",
+        timeout=HTTP_TIMEOUT_SECONDS,
+    )
+    response.raise_for_status()
+    athlete_ids: set[str] = set()
+    for item in response.json().get("athletes", []):
+        if not isinstance(item, dict):
+            continue
+        entries = item.get("items", []) if "items" in item else [item]
+        for athlete in entries:
+            if isinstance(athlete, dict) and athlete.get("id"):
+                athlete_ids.add(str(athlete["id"]))
+    return athlete_ids
+
+
 def _fetch_athlete_headshot(
     espn_sport: str,
     espn_league: str,
@@ -175,24 +203,13 @@ def _fetch_athlete_headshot(
     return _normalize_name(str(full_name)), str(href)
 
 
-def _fetch_event_athletes(espn_sport: str, espn_league: str) -> dict[str, str]:
-    response = requests.get(
-        f"https://site.api.espn.com/apis/site/v2/sports/"
-        f"{espn_sport}/{espn_league}/scoreboard",
-        params={"limit": 100},
-        timeout=HTTP_TIMEOUT_SECONDS,
-    )
-    response.raise_for_status()
-    athlete_ids = {
-        str(competitor["id"])
-        for event in response.json().get("events", [])
-        for competition in event.get("competitions", [])
-        for competitor in competition.get("competitors", [])
-        if competitor.get("id")
-    }
-
+def _hydrate_athlete_headshots(
+    espn_sport: str,
+    espn_league: str,
+    athlete_ids: set[str],
+) -> dict[str, str]:
     players: dict[str, str] = {}
-    with ThreadPoolExecutor(max_workers=8) as executor:
+    with ThreadPoolExecutor(max_workers=10) as executor:
         futures = {
             executor.submit(
                 _fetch_athlete_headshot,
@@ -210,6 +227,40 @@ def _fetch_event_athletes(espn_sport: str, espn_league: str) -> dict[str, str]:
             if player:
                 players[player[0]] = player[1]
     return players
+
+
+def _fetch_detail_roster_athletes(
+    espn_sport: str,
+    espn_league: str,
+) -> dict[str, str]:
+    athlete_ids: set[str] = set()
+    for team_id in _fetch_team_ids(espn_sport, espn_league):
+        try:
+            athlete_ids.update(
+                _fetch_roster_athlete_ids(espn_sport, espn_league, team_id)
+            )
+        except requests.RequestException:
+            continue
+    return _hydrate_athlete_headshots(espn_sport, espn_league, athlete_ids)
+
+
+def _fetch_event_athletes(espn_sport: str, espn_league: str) -> dict[str, str]:
+    response = requests.get(
+        f"https://site.api.espn.com/apis/site/v2/sports/"
+        f"{espn_sport}/{espn_league}/scoreboard",
+        params={"limit": 100},
+        timeout=HTTP_TIMEOUT_SECONDS,
+    )
+    response.raise_for_status()
+    athlete_ids = {
+        str(competitor["id"])
+        for event in response.json().get("events", [])
+        for competition in event.get("competitions", [])
+        for competitor in competition.get("competitors", [])
+        if competitor.get("id")
+    }
+
+    return _hydrate_athlete_headshots(espn_sport, espn_league, athlete_ids)
 
 
 def refresh_espn_headshot_map() -> dict[str, int]:
@@ -233,6 +284,14 @@ def refresh_espn_headshot_map() -> dict[str, int]:
     for sport_label, (espn_sport, espn_league) in EVENT_LEAGUES.items():
         try:
             players = _fetch_event_athletes(espn_sport, espn_league)
+        except requests.RequestException:
+            players = {}
+        leagues[sport_label] = players
+        counts[sport_label] = len(players)
+
+    for sport_label, (espn_sport, espn_league) in DETAIL_ROSTER_LEAGUES.items():
+        try:
+            players = _fetch_detail_roster_athletes(espn_sport, espn_league)
         except requests.RequestException:
             players = {}
         leagues[sport_label] = players

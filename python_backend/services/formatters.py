@@ -276,4 +276,7 @@ def resolve_player_image(player_name: str, sport: str) -> str:
         headshot = sportmonks_headshot_url(player_name)
         if headshot:
             return headshot
+        headshot = espn_headshot_url(player_name, sport)
+        if headshot:
+            return headshot
     return player_image_path(player_name)

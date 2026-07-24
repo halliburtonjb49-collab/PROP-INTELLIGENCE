@@ -1,4 +1,4 @@
-"""Refresh the ESPN headshot cache (NBA/WNBA/NHL/PGA/UFC).
+"""Refresh the ESPN headshot cache (NBA/WNBA/NHL/PGA/UFC/MLS fallback).
 
 This cron job and the API service are separate Render deployments with no
 shared filesystem, so the refresh has to happen inside the API process via

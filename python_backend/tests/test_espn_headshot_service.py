@@ -54,6 +54,11 @@ def test_espn_refresh_includes_team_and_event_leagues(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         espn_headshot_service,
+        "DETAIL_ROSTER_LEAGUES",
+        {"SOCCER": ("soccer", "usa.1")},
+    )
+    monkeypatch.setattr(
+        espn_headshot_service,
         "_fetch_team_ids",
         lambda _sport, _league: ["1"],
     )
@@ -72,12 +77,19 @@ def test_espn_refresh_includes_team_and_event_leagues(monkeypatch, tmp_path):
             f"https://cdn.example/{sport}.png"
         },
     )
+    monkeypatch.setattr(
+        espn_headshot_service,
+        "_fetch_detail_roster_athletes",
+        lambda _sport, _league: {
+            "miguel almiron": "https://cdn.example/almiron.png"
+        },
+    )
 
     counts = espn_headshot_service.refresh_espn_headshot_map()
 
-    assert counts == {"NBA": 1, "PGA": 1, "UFC": 1}
+    assert counts == {"NBA": 1, "PGA": 1, "UFC": 1, "SOCCER": 1}
     payload = json.loads(path.read_text(encoding="utf-8"))
-    assert set(payload["leagues"]) == {"NBA", "PGA", "UFC"}
+    assert set(payload["leagues"]) == {"NBA", "PGA", "UFC", "SOCCER"}
 
 
 def test_var_data_espn_cache_reports_persistent_mode(monkeypatch):
@@ -86,3 +98,43 @@ def test_var_data_espn_cache_reports_persistent_mode(monkeypatch):
     health = espn_headshot_service.espn_headshot_cache_health()
 
     assert health["mode"] == "persistent-disk"
+
+
+def test_espn_detail_roster_hydrates_unique_athletes(monkeypatch):
+    monkeypatch.setattr(
+        espn_headshot_service,
+        "_fetch_team_ids",
+        lambda _sport, _league: ["1", "2"],
+    )
+    monkeypatch.setattr(
+        espn_headshot_service,
+        "_fetch_roster_athlete_ids",
+        lambda _sport, _league, team: (
+            {"10", "20"} if team == "1" else {"20", "30"}
+        ),
+    )
+    captured = {}
+
+    def fake_hydrate(sport, league, athlete_ids):
+        captured.update(sport=sport, league=league, athlete_ids=athlete_ids)
+        return {"miguel almiron": "https://cdn.example/almiron.png"}
+
+    monkeypatch.setattr(
+        espn_headshot_service,
+        "_hydrate_athlete_headshots",
+        fake_hydrate,
+    )
+
+    players = espn_headshot_service._fetch_detail_roster_athletes(
+        "soccer",
+        "usa.1",
+    )
+
+    assert players == {
+        "miguel almiron": "https://cdn.example/almiron.png"
+    }
+    assert captured == {
+        "sport": "soccer",
+        "league": "usa.1",
+        "athlete_ids": {"10", "20", "30"},
+    }
