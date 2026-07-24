@@ -185,6 +185,7 @@ enum AppPage {
   gameMarkets,
   propBuilder,
   watchlist,
+  pastSlipHistory,
   builderPerformance,
   strikeoutProGold,
   evScanner,
@@ -560,6 +561,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         return 3;
       case AppPage.strikeoutProGold:
         return 4;
+      case AppPage.pastSlipHistory:
+        return 5;
     }
   }
 
@@ -597,6 +600,10 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           SlipHistoryPanel(activeSlipController: _activeSlipController),
           const PropBuilderPerformanceScreen(),
           StrikeoutProGoldScreen(onSelect: _toggleSelection),
+          SlipHistoryPanel(
+            activeSlipController: _activeSlipController,
+            mode: SlipHistoryMode.history,
+          ),
         ],
       ),
     );
@@ -1213,6 +1220,17 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     premium: true,
                     showGoldBar: true,
                     onTap: () => widget.onSelectPage?.call(AppPage.watchlist),
+                  ),
+                  const SizedBox(height: 6),
+                  SidebarButton(
+                    label: 'PAST SLIP\nHISTORY',
+                    leadingIcons: const [Icons.history_rounded],
+                    leadingIconColors: const [AppColors.gold],
+                    selected: widget.selectedPage == AppPage.pastSlipHistory,
+                    premium: true,
+                    showGoldBar: true,
+                    onTap: () =>
+                        widget.onSelectPage?.call(AppPage.pastSlipHistory),
                   ),
                   const SizedBox(height: 6),
                   SidebarButton(
@@ -4805,7 +4823,9 @@ class TopNavigation extends StatelessWidget {
     AppPage.propBuilder =>
       'Select sports, prop sites and categories, set your minimum edge and confidence, then build. Review the recommended 3-6 leg size and remove or replace any leg before saving the slip.',
     AppPage.watchlist =>
-      'Saved slips appear here automatically. Use Active, Won and Lost to filter tickets, Refresh to update live scoring, and the totals to track wins, losses and sportsbook profit.',
+      'Saved slips appear here automatically while they\'re still unresolved. Refresh to update live scoring, and once a slip is marked Won or Lost it moves to Past Slip History.',
+    AppPage.pastSlipHistory =>
+      'Resolved slips live here. Use All, Won and Lost to filter, and track totals and sportsbook profit across your settled tickets.',
     AppPage.builderPerformance =>
       'Start with 30 days, then filter by sport, site, market or player. Compare slip win rate with individual-leg hit rate and use only meaningful sample sizes when changing your strategy.',
     AppPage.strikeoutProGold =>
@@ -4967,6 +4987,7 @@ class TopNavigation extends StatelessWidget {
     AppPage.propAlerts => 'PROP ALERTS',
     AppPage.propBuilder => 'PROP BUILDER',
     AppPage.watchlist => 'SLIP WATCHER',
+    AppPage.pastSlipHistory => 'PAST SLIP HISTORY',
     AppPage.builderPerformance => 'PERFORMANCE',
     AppPage.evScanner => 'EV SCANNER',
     AppPage.strikeoutProGold => 'STRIKEOUT PRO GOLD',
@@ -4986,6 +5007,8 @@ class TopNavigation extends StatelessWidget {
     AppPage.propBuilder => 'Build a disciplined, research-backed slip',
     AppPage.watchlist =>
       'Track live props, ticket results and sportsbook profit',
+    AppPage.pastSlipHistory =>
+      'Review resolved slips, win/loss totals and sportsbook profit',
     AppPage.builderPerformance => 'Review outcomes and improve your process',
     AppPage.evScanner => 'Surface estimated positive-value opportunities',
     AppPage.strikeoutProGold =>
@@ -5133,6 +5156,13 @@ class TopNavigation extends StatelessWidget {
                         label: 'SLIP WATCHER',
                         page: AppPage.watchlist,
                         icon: Icons.receipt_long_rounded,
+                        premium: true,
+                      ),
+                      const SizedBox(width: 4),
+                      _buildNavItem(
+                        label: 'PAST SLIP HISTORY',
+                        page: AppPage.pastSlipHistory,
+                        icon: Icons.history_rounded,
                         premium: true,
                       ),
                       const SizedBox(width: 4),

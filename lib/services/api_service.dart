@@ -336,6 +336,7 @@ class ApiService {
         'manual_note': prop.manualNote,
         'game_start_time': prop.gameStartTime,
         'player': prop.player,
+        'image_path': prop.imagePath,
         'sport': prop.sport,
         'matchup': prop.matchup,
         'sportsbook': prop.sportsbook,

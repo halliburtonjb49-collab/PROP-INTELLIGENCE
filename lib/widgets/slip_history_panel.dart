@@ -1,17 +1,82 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/active_slip_controller.dart';
 import '../models/saved_slip.dart';
 import '../services/api_service.dart';
 import '../services/live_update_service.dart';
+import '../services/player_image_resolver.dart';
 import 'context_help.dart';
 
+class _LegPhoto extends StatelessWidget {
+  final SavedSlipLeg leg;
+  final double size;
+
+  const _LegPhoto({required this.leg, this.size = 40});
+
+  Widget _placeholder() {
+    final initial = leg.player.trim().isEmpty
+        ? '?'
+        : leg.player.trim().substring(0, 1).toUpperCase();
+    return Container(
+      color: const Color(0xFF0C1824),
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: TextStyle(
+          color: const Color(0xFFF2BC35),
+          fontSize: size * 0.36,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imagePath = resolvePlayerImagePath(leg.imagePath);
+    if (imagePath.isEmpty) {
+      return _placeholder();
+    }
+    final isNetwork =
+        imagePath.startsWith('http://') || imagePath.startsWith('https://');
+    if (!isNetwork) {
+      return Image.asset(
+        imagePath,
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, _, _) => _placeholder(),
+      );
+    }
+    return CachedNetworkImage(
+      imageUrl: imagePath,
+      fit: BoxFit.cover,
+      alignment: Alignment.center,
+      filterQuality: FilterQuality.high,
+      fadeInDuration: Duration.zero,
+      placeholder: (_, _) => _placeholder(),
+      errorWidget: (_, _, _) => _placeholder(),
+    );
+  }
+}
+
+/// [active] is the Slip Watcher page - unresolved slips only, with
+/// MARK WON/LOST/unlock actions. [history] is the Past Slip History page -
+/// resolved (won/lost) slips only, read-only.
+enum SlipHistoryMode { active, history }
+
 class SlipHistoryPanel extends StatefulWidget {
-  const SlipHistoryPanel({super.key, required this.activeSlipController});
+  const SlipHistoryPanel({
+    super.key,
+    required this.activeSlipController,
+    this.mode = SlipHistoryMode.active,
+  });
 
   final ActiveSlipController activeSlipController;
+  final SlipHistoryMode mode;
 
   @override
   State<SlipHistoryPanel> createState() => _SlipHistoryPanelState();
@@ -23,17 +88,37 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     channels: const {'tickets'},
   );
   StreamSubscription<dynamic>? _liveSubscription;
-  String _selectedTab = 'all';
+  late String _selectedTab;
   late Future<List<SavedSlip>> _slipsFuture;
   Timer? _refreshTimer;
   bool _isRefreshingGames = false;
   String? _refreshError;
   DateTime? _lastUpdated;
 
+  bool get _isHistory => widget.mode == SlipHistoryMode.history;
+
+  /// Fetches slips for a given tab, respecting the panel's mode. The
+  /// backend only supports filtering by one status at a time, so history
+  /// mode's "ALL" tab (all resolved slips) is built by fetching everything
+  /// and dropping active ones client-side.
+  Future<List<SavedSlip>> _fetchForTab(String tab) async {
+    if (!_isHistory) {
+      return _apiService.fetchSlips(status: 'active');
+    }
+    if (tab == 'all') {
+      final all = await _apiService.fetchSlips();
+      return all
+          .where((slip) => slip.status.toLowerCase() != 'active')
+          .toList();
+    }
+    return _apiService.fetchSlips(status: tab);
+  }
+
   @override
   void initState() {
     super.initState();
-    _slipsFuture = _apiService.fetchSlips();
+    _selectedTab = _isHistory ? 'all' : 'active';
+    _slipsFuture = _fetchForTab(_selectedTab);
     unawaited(_refreshLockedSlipCount());
     _liveSubscription = _liveUpdates.stream.listen(
       (_) => _reloadFromTicketEvent(),
@@ -74,9 +159,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     if (!mounted) return;
     setState(() {
       _lastUpdated = DateTime.now();
-      _slipsFuture = _apiService.fetchSlips(
-        status: _selectedTab == 'all' ? null : _selectedTab,
-      );
+      _slipsFuture = _fetchForTab(_selectedTab);
     });
     unawaited(_refreshLockedSlipCount());
   }
@@ -84,7 +167,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   void _selectTab(String tab) {
     setState(() {
       _selectedTab = tab;
-      _slipsFuture = _apiService.fetchSlips(status: tab == 'all' ? null : tab);
+      _slipsFuture = _fetchForTab(tab);
     });
   }
 
@@ -94,9 +177,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       return;
     }
     setState(() {
-      _slipsFuture = _apiService.fetchSlips(
-        status: _selectedTab == 'all' ? null : _selectedTab,
-      );
+      _slipsFuture = _fetchForTab(_selectedTab);
     });
     unawaited(_refreshLockedSlipCount());
   }
@@ -145,9 +226,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       return;
     }
     setState(() {
-      _slipsFuture = _apiService.fetchSlips(
-        status: _selectedTab == 'all' ? null : _selectedTab,
-      );
+      _slipsFuture = _fetchForTab(_selectedTab);
     });
     unawaited(_refreshLockedSlipCount());
   }
@@ -161,12 +240,22 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       _refreshError = null;
     });
     try {
+      if (_isHistory) {
+        // Resolved slips don't need game-status refreshing or re-grading -
+        // just pull the latest list (e.g. a slip resolved elsewhere since
+        // this page loaded).
+        final refreshedSlips = await _fetchForTab(_selectedTab);
+        if (!mounted) return;
+        setState(() {
+          _lastUpdated = DateTime.now();
+          _slipsFuture = Future.value(refreshedSlips);
+        });
+        return;
+      }
       await _apiService.refreshAllSlipGames();
       // Automatically grade completed WNBA props.
       await _apiService.gradeWnbaSlips();
-      final refreshedSlips = await _apiService.fetchSlips(
-        status: _selectedTab == 'all' ? null : _selectedTab,
-      );
+      final refreshedSlips = await _fetchForTab(_selectedTab);
       await _syncActiveSlipFromSavedSlips(refreshedSlips);
       if (!mounted) {
         return;
@@ -229,9 +318,9 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       children: [
         Row(
           children: [
-            const Text(
-              'SLIP WATCHER',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+            Text(
+              _isHistory ? 'PAST SLIP HISTORY' : 'SLIP WATCHER',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
             ),
             const Spacer(),
             Column(
@@ -270,18 +359,18 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            _tab('ALL', 'all'),
-            const SizedBox(width: 6),
-            _tab('ACTIVE', 'active'),
-            const SizedBox(width: 6),
-            _tab('WON', 'won'),
-            const SizedBox(width: 6),
-            _tab('LOST', 'lost'),
-          ],
-        ),
+        if (_isHistory) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _tab('ALL', 'all'),
+              const SizedBox(width: 6),
+              _tab('WON', 'won'),
+              const SizedBox(width: 6),
+              _tab('LOST', 'lost'),
+            ],
+          ),
+        ],
         const SizedBox(height: 12),
         Container(
           width: double.infinity,
@@ -811,12 +900,32 @@ class _SavedSlipCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                ...slip.legs.map(
-                  (leg) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                ...slip.legs.map((leg) {
+                  final pickColor = leg.side.toUpperCase() == 'OVER'
+                      ? const Color(0xFF4CAF50)
+                      : const Color(0xFFEF5350);
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF091620),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFF263B4B)),
+                    ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFFF2BC35)),
+                          ),
+                          child: ClipOval(child: _LegPhoto(leg: leg, size: 40)),
+                        ),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -829,15 +938,41 @@ class _SavedSlipCard extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 3),
-                              Text(
-                                '${leg.side} ${leg.line} ${leg.market}',
-                                style: TextStyle(
-                                  color: isLost
-                                      ? const Color(0xFF8EC1FF)
-                                      : const Color(0xFFF2BC35),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: pickColor.withValues(alpha: 0.16),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: pickColor),
+                                    ),
+                                    child: Text(
+                                      '${leg.side} ${leg.line}',
+                                      style: TextStyle(
+                                        color: pickColor,
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      leg.market,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Color(0xFFF2BC35),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 3),
                               Text(
@@ -910,8 +1045,8 @@ class _SavedSlipCard extends StatelessWidget {
                         GameStatusBadge(status: leg.gameStatus),
                       ],
                     ),
-                  ),
-                ),
+                  );
+                }),
                 if (slip.status == 'active') ...[
                   const SizedBox(height: 6),
                   Row(

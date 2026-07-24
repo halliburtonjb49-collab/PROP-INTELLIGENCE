@@ -2,6 +2,7 @@ class SavedSlipLeg {
   final String propId;
   final String eventId;
   final String player;
+  final String imagePath;
   final String sport;
   final String matchup;
   final String sportsbook;
@@ -26,6 +27,7 @@ class SavedSlipLeg {
     required this.propId,
     required this.eventId,
     required this.player,
+    this.imagePath = '',
     required this.sport,
     required this.matchup,
     required this.sportsbook,
@@ -52,6 +54,7 @@ class SavedSlipLeg {
       propId: json['prop_id']?.toString() ?? '',
       eventId: json['event_id']?.toString() ?? '',
       player: json['player']?.toString() ?? '',
+      imagePath: json['image_path']?.toString() ?? '',
       sport: json['sport']?.toString() ?? '',
       matchup: json['matchup']?.toString() ?? '',
       sportsbook: json['sportsbook']?.toString() ?? '',

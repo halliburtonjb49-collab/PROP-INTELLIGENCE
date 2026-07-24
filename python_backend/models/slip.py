@@ -19,6 +19,7 @@ class SlipLeg(BaseModel):
     game_completed: bool = False
     game_start_time: str = ""
     player: str
+    image_path: str = ""
     sport: str
     matchup: str
     sportsbook: str
