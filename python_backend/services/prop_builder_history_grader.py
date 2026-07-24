@@ -16,6 +16,8 @@ from services.prop_builder_history_service import (
 from services.team_normalizer import (
     normalize_team_name,
 )
+from services.live_stats_service import get_live_player_stat_snapshot
+from services.multi_sport_grading_service import SUPPORTED_SPORTS
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +121,8 @@ def grade_prop_builder_history() -> dict[str, int]:
             )
             if current_status != "pending":
                 continue
-            if str(leg.get("sport", "")).upper() != "WNBA":
+            sport = str(leg.get("sport", "")).upper()
+            if sport not in SUPPORTED_SPORTS:
                 continue
 
             market = normalize_market(
@@ -133,6 +136,29 @@ def grade_prop_builder_history() -> dict[str, int]:
             )
 
             result = None
+            if sport != "WNBA":
+                snapshot = get_live_player_stat_snapshot(
+                    player_name=player_name,
+                    team=str(leg.get("team", "")),
+                    prop_type=market,
+                    sport=sport,
+                    event_id=str(leg.get("event_id", "")),
+                    matchup=str(leg.get("matchup", "")),
+                    game_start_time=str(leg.get("game_start_time", "")),
+                )
+                if snapshot.value is None or not snapshot.completed:
+                    continue
+                status = grade_leg(
+                    side=str(leg.get("side", "")),
+                    line=float(leg.get("line", 0)),
+                    result_value=snapshot.value,
+                )
+                leg["result_value"] = snapshot.value
+                leg["result_status"] = status
+                leg["game_completed"] = True
+                build_changed = True
+                legs_updated += 1
+                continue
             if player_id:
                 result = stats_by_id.get((
                     player_id,

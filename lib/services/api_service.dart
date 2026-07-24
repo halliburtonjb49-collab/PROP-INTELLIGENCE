@@ -1180,7 +1180,11 @@ class ApiService {
   }
 
   Future<void> gradeWnbaSlips() async {
-    final uri = Uri.parse('$baseUrl/api/slips/grade-wnba');
+    await gradePendingSlips();
+  }
+
+  Future<Map<String, dynamic>> gradePendingSlips() async {
+    final uri = Uri.parse('$baseUrl/api/slips/grade');
     var response = await http
         .post(uri, headers: await _authenticatedHeaders())
         .timeout(const Duration(seconds: 60));
@@ -1192,8 +1196,13 @@ class ApiService {
     }
 
     if (response.statusCode != 200) {
-      throw Exception('Unable to grade WNBA slips: ${response.body}');
+      throw Exception('Unable to grade pending slips: ${response.body}');
     }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Invalid slip grading response.');
+    }
+    return decoded;
   }
 
   Future<Map<String, dynamic>> buildPropSlip({

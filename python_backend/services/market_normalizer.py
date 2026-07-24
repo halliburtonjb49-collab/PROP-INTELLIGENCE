@@ -29,6 +29,22 @@ MARKET_ALIASES = {
     "total bases": "total_bases",
     "pitcher_strikeouts": "pitcher_strikeouts",
     "pitcher strikeouts": "pitcher_strikeouts",
+    "player_birdies": "birdies",
+    "birdies": "birdies",
+    "birdies or better": "birdies",
+    "player_bogeys": "bogeys",
+    "bogeys": "bogeys",
+    "player_pars": "pars",
+    "pars": "pars",
+    "player_fairways_hit": "fairways",
+    "fairways hit": "fairways",
+    "fairways": "fairways",
+    "player_greens_in_regulation": "greens",
+    "greens in regulation": "greens",
+    "greens": "greens",
+    "round score": "strokes",
+    "round strokes": "strokes",
+    "strokes": "strokes",
 }
 
 
