@@ -4,6 +4,14 @@ from pathlib import Path
 from services import sportmonks_headshot_service
 
 
+class _Response:
+    ok = True
+
+    @staticmethod
+    def json():
+        return {"data": []}
+
+
 def _use_map(monkeypatch, path):
     monkeypatch.setattr(sportmonks_headshot_service, "HEADSHOT_MAP_PATH", path)
     sportmonks_headshot_service._load_map.cache_clear()
@@ -59,3 +67,22 @@ def test_var_data_sportmonks_cache_reports_persistent_mode(monkeypatch):
     result = sportmonks_headshot_service.sportmonks_headshot_cache_health()
 
     assert result["mode"] == "persistent-disk"
+
+
+def test_sportmonks_uses_raw_token_in_authorization_header(monkeypatch):
+    request = {}
+
+    def fake_get(url, **kwargs):
+        request.update(url=url, **kwargs)
+        return _Response()
+
+    monkeypatch.setattr(
+        sportmonks_headshot_service,
+        "SPORTMONKS_API_KEY",
+        "token-value",
+    )
+    monkeypatch.setattr(sportmonks_headshot_service.requests, "get", fake_get)
+
+    assert sportmonks_headshot_service._get("/leagues") == {"data": []}
+    assert request["headers"] == {"Authorization": "token-value"}
+    assert "api_token" not in request["params"]

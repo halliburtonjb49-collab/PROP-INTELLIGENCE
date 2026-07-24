@@ -102,13 +102,13 @@ def sportmonks_headshot_cache_health() -> dict[str, object]:
 
 
 def _get(path: str, **params: object) -> dict:
-    # Bearer header (Sportmonks' documented preferred method) rather than
-    # ?api_token=... - keeps the token out of the request URL entirely, so
-    # it can't end up in an HTTPError message or request log line.
+    # Sportmonks expects the raw API token as the Authorization header value
+    # (not the OAuth-style "Bearer <token>" form). Keep it out of the query
+    # string so it cannot end up in request URLs or access logs.
     response = requests.get(
         f"{_BASE_URL}{path}",
         params=params,
-        headers={"Authorization": f"Bearer {SPORTMONKS_API_KEY}"},
+        headers={"Authorization": SPORTMONKS_API_KEY},
         timeout=HTTP_TIMEOUT_SECONDS,
     )
     if not response.ok:
