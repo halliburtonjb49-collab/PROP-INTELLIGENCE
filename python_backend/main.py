@@ -72,7 +72,10 @@ from services.game_status_service import (
 )
 from services.prop_service import get_props
 from services.mlb_headshot_service import refresh_mlb_headshot_map
-from services.espn_headshot_service import refresh_espn_headshot_map
+from services.espn_headshot_service import (
+	refresh_espn_headshot_map,
+	espn_headshot_cache_health,
+)
 from services.sportmonks_headshot_service import (
 	refresh_sportmonks_headshot_map,
 	sportmonks_headshot_cache_health,
@@ -1274,6 +1277,7 @@ def provider_health() -> dict[str, object]:
 			**quota,
 		},
 		"sportmonksHeadshots": sportmonks_headshot_cache_health(),
+		"espnHeadshots": espn_headshot_cache_health(),
 	}
 
 

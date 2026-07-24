@@ -1,4 +1,4 @@
-"""Trigger the web service to refresh its ESPN headshot cache (NBA/WNBA/NHL).
+"""Refresh the ESPN headshot cache (NBA/WNBA/NHL/PGA/UFC).
 
 This cron job and the API service are separate Render deployments with no
 shared filesystem, so the refresh has to happen inside the API process via

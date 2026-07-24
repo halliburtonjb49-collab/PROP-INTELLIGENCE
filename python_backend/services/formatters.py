@@ -6,7 +6,7 @@ from services.mlb_headshot_service import mlb_headshot_url
 from services.espn_headshot_service import espn_headshot_url
 from services.sportmonks_headshot_service import sportmonks_headshot_url
 
-_ESPN_COVERED_SPORTS = {"NBA", "WNBA", "NHL"}
+_ESPN_COVERED_SPORTS = {"NBA", "WNBA", "NHL", "PGA", "UFC"}
 
 MARKET_LABELS = {
     "POINTS": "Points",
@@ -198,6 +198,7 @@ def format_sport_label(sport_key: str) -> str:
         "americanfootball_nfl": "NFL",
         "baseball_mlb": "MLB",
         "icehockey_nhl": "NHL",
+        "mma_mixed_martial_arts": "UFC",
     }
 
     if sport_key in mappings:

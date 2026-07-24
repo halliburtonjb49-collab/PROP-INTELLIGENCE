@@ -94,3 +94,17 @@ SPORTMONKS_HEADSHOT_MAP_PATH = Path(
         str(_default_sportmonks_headshot_path),
     )
 ).expanduser()
+
+_render_espn_headshot_path = Path("/var/data/espn_headshot_map.json")
+_default_espn_headshot_path = (
+    _render_espn_headshot_path
+    if os.getenv("RENDER", "").lower() == "true"
+    and _render_espn_headshot_path.parent.is_dir()
+    else BASE_DIR / "data" / "espn_headshot_map.json"
+)
+ESPN_HEADSHOT_MAP_PATH = Path(
+    os.getenv(
+        "ESPN_HEADSHOT_MAP_PATH",
+        str(_default_espn_headshot_path),
+    )
+).expanduser()
