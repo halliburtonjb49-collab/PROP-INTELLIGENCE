@@ -1,8 +1,26 @@
 import 'package:flutter/material.dart';
 
+import '../screens/paywall_screen.dart';
 import '../services/auth_manager.dart';
 import '../services/auth_service.dart';
+import '../services/billing_service.dart';
 import '../services/prop_watchlist_service.dart';
+
+@visibleForTesting
+bool shouldShowPlanSelector({
+  required SubscriptionTier tier,
+  required String role,
+}) =>
+    tier != SubscriptionTier.edge ||
+    const {'owner', 'admin', 'tester'}.contains(role.trim().toLowerCase());
+
+@visibleForTesting
+bool shouldShowSubscriptionManagement({
+  required SubscriptionTier tier,
+  required String role,
+}) =>
+    tier != SubscriptionTier.free &&
+    !const {'owner', 'admin', 'tester'}.contains(role.trim().toLowerCase());
 
 class AuthAccountPanel extends StatefulWidget {
   const AuthAccountPanel({super.key});
@@ -77,6 +95,19 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
     );
+  }
+
+  void _showPlans() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const BrandedPaywallModalSheet(),
+    );
+  }
+
+  Future<void> _manageSubscription() async {
+    await RevenueCatBillingService().openSubscriptionManagement(context);
   }
 
   Future<void> _showRoleManager() async {
@@ -411,6 +442,15 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
               ? _SignedInView(
                   email: state.email ?? 'Unknown',
                   role: state.role,
+                  subscriptionTier: state.subscriptionTier,
+                  onViewPlans: _showPlans,
+                  onManageSubscription:
+                      shouldShowSubscriptionManagement(
+                        tier: state.subscriptionTier,
+                        role: state.role,
+                      )
+                      ? _manageSubscription
+                      : null,
                   onManageRoles: state.isOwner ? _showRoleManager : null,
                   onChangeRequests: state.isOwner || state.isAdmin
                       ? _showChangeRequests
@@ -539,6 +579,9 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
 class _SignedInView extends StatelessWidget {
   final String email;
   final String role;
+  final SubscriptionTier subscriptionTier;
+  final VoidCallback onViewPlans;
+  final Future<void> Function()? onManageSubscription;
   final VoidCallback? onManageRoles;
   final VoidCallback? onChangeRequests;
   final VoidCallback? onSubmitChangeRequest;
@@ -547,6 +590,9 @@ class _SignedInView extends StatelessWidget {
   const _SignedInView({
     required this.email,
     required this.role,
+    required this.subscriptionTier,
+    required this.onViewPlans,
+    required this.onManageSubscription,
     required this.onManageRoles,
     required this.onChangeRequests,
     required this.onSubmitChangeRequest,
@@ -664,6 +710,27 @@ class _SignedInView extends StatelessWidget {
           spacing: 4,
           runSpacing: 4,
           children: [
+            if (shouldShowPlanSelector(
+              tier: subscriptionTier,
+              role: normalizedRole,
+            ))
+              TextButton.icon(
+                key: const ValueKey('view-plans-button'),
+                onPressed: onViewPlans,
+                icon: const Icon(Icons.workspace_premium_outlined, size: 15),
+                label: Text(
+                  subscriptionTier == SubscriptionTier.free
+                      ? 'UPGRADE'
+                      : 'VIEW PLANS',
+                ),
+              ),
+            if (onManageSubscription != null)
+              TextButton.icon(
+                key: const ValueKey('manage-subscription-button'),
+                onPressed: onManageSubscription,
+                icon: const Icon(Icons.credit_card_outlined, size: 15),
+                label: const Text('MANAGE SUBSCRIPTION'),
+              ),
             if (onManageRoles != null)
               TextButton.icon(
                 onPressed: onManageRoles,

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'auth_manager.dart';
 import 'supabase_service.dart';
 
@@ -150,6 +151,43 @@ class RevenueCatBillingService {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Unable to restore purchases right now.'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> openSubscriptionManagement(BuildContext context) async {
+    try {
+      await initializeBillingEngine();
+      final customerInfo = await Purchases.getCustomerInfo();
+      final managementUrl = customerInfo.managementURL?.trim();
+      if (managementUrl == null || managementUrl.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'No active paid subscription was found for this account.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      final launched = await launchUrl(
+        Uri.parse(managementUrl),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        throw StateError('Subscription portal could not be opened.');
+      }
+    } catch (error) {
+      debugPrint('Subscription management failed: $error');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to open subscription management right now.'),
           ),
         );
       }
