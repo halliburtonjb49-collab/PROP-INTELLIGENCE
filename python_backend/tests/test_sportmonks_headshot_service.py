@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from services import sportmonks_headshot_service
 
 
@@ -86,3 +88,37 @@ def test_sportmonks_uses_raw_token_in_authorization_header(monkeypatch):
     assert sportmonks_headshot_service._get("/leagues") == {"data": []}
     assert request["headers"] == {"Authorization": "token-value"}
     assert "api_token" not in request["params"]
+
+
+def test_sportmonks_collection_fetches_every_page(monkeypatch):
+    pages = []
+
+    def fake_get(_path, **params):
+        pages.append(params)
+        return {
+            "data": [{"id": params["page"]}],
+            "pagination": {"has_more": params["page"] == 1},
+        }
+
+    monkeypatch.setattr(sportmonks_headshot_service, "_get", fake_get)
+
+    assert sportmonks_headshot_service._get_all("/leagues") == [
+        {"id": 1},
+        {"id": 2},
+    ]
+    assert pages == [
+        {"page": 1, "per_page": 50},
+        {"page": 2, "per_page": 50},
+    ]
+
+
+def test_sportmonks_refresh_rejects_missing_subscription_leagues(monkeypatch):
+    monkeypatch.setattr(sportmonks_headshot_service, "SPORTMONKS_API_KEY", "token")
+    monkeypatch.setattr(
+        sportmonks_headshot_service,
+        "_find_target_season_ids",
+        lambda: {},
+    )
+
+    with pytest.raises(RuntimeError, match="subscription includes"):
+        sportmonks_headshot_service.refresh_sportmonks_headshot_map()

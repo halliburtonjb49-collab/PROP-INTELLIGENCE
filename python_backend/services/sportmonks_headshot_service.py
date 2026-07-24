@@ -127,10 +127,24 @@ def _get(path: str, **params: object) -> dict:
     return response.json()
 
 
+def _get_all(path: str, **params: object) -> list[dict]:
+    """Collect every page from a Sportmonks collection endpoint."""
+    page = 1
+    rows: list[dict] = []
+    while True:
+        payload = _get(path, **params, page=page, per_page=50)
+        rows.extend(
+            entry for entry in payload.get("data", []) if isinstance(entry, dict)
+        )
+        pagination = payload.get("pagination") or {}
+        if not pagination.get("has_more"):
+            return rows
+        page += 1
+
+
 def _find_target_season_ids() -> dict[str, int]:
-    payload = _get("/leagues", include="currentSeason;country")
     season_ids: dict[str, int] = {}
-    for league in payload.get("data", []):
+    for league in _get_all("/leagues", include="currentSeason;country"):
         name = str(league.get("name") or "").lower()
         country = str((league.get("country") or {}).get("name") or "").lower()
         season = league.get("currentSeason") or {}
@@ -144,16 +158,16 @@ def _find_target_season_ids() -> dict[str, int]:
 
 
 def _fetch_team_ids(season_id: int) -> list[int]:
-    payload = _get(f"/teams/seasons/{season_id}")
     return [
-        team["id"] for team in payload.get("data", []) if isinstance(team.get("id"), int)
+        team["id"]
+        for team in _get_all(f"/teams/seasons/{season_id}")
+        if isinstance(team.get("id"), int)
     ]
 
 
 def _fetch_team_squad_photos(team_id: int) -> dict[str, str]:
-    payload = _get(f"/squads/teams/{team_id}", include="player")
     players: dict[str, str] = {}
-    for entry in payload.get("data", []):
+    for entry in _get_all(f"/squads/teams/{team_id}", include="player"):
         player = entry.get("player") or {}
         full_name = player.get("name") or player.get("display_name")
         image_path = player.get("image_path")
@@ -173,6 +187,11 @@ def refresh_sportmonks_headshot_map() -> dict[str, int]:
         raise RuntimeError("SPORTMONKS_API_KEY is not configured")
 
     season_ids = _find_target_season_ids()
+    if not season_ids:
+        raise RuntimeError(
+            "Sportmonks returned no configured leagues. Confirm the token's "
+            "subscription includes at least one supported league."
+        )
     all_players: dict[str, str] = {}
     counts: dict[str, int] = {}
     for league_key, season_id in season_ids.items():
@@ -187,6 +206,12 @@ def refresh_sportmonks_headshot_map() -> dict[str, int]:
 
     for league_key in _TARGET_LEAGUES:
         counts.setdefault(league_key, 0)
+
+    if not all_players:
+        raise RuntimeError(
+            "Sportmonks found configured leagues but returned no player "
+            "headshots; the existing cache was not overwritten."
+        )
 
     HEADSHOT_MAP_PATH.parent.mkdir(parents=True, exist_ok=True)
     HEADSHOT_MAP_PATH.write_text(
