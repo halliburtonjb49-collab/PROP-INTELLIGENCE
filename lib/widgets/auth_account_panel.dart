@@ -110,6 +110,21 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
     await RevenueCatBillingService().openSubscriptionManagement(context);
   }
 
+  void _setOwnerPreview(String selection) {
+    final tier = switch (selection) {
+      'free' => SubscriptionTier.free,
+      'core' => SubscriptionTier.core,
+      'edge' => SubscriptionTier.edge,
+      _ => null,
+    };
+    AuthManager.instance.setOwnerAccessPreview(tier);
+    _showMessage(
+      tier == null
+          ? 'Owner access preview disabled.'
+          : 'Previewing the app as a ${tier.name.toUpperCase()} subscriber.',
+    );
+  }
+
   Future<void> _showRoleManager() async {
     final emailController = TextEditingController();
     var selectedRole = 'admin';
@@ -443,6 +458,10 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
                   email: state.email ?? 'Unknown',
                   role: state.role,
                   subscriptionTier: state.subscriptionTier,
+                  accessPreviewTier: state.accessPreviewTier,
+                  onOwnerPreviewChanged: state.isOwner
+                      ? _setOwnerPreview
+                      : null,
                   onViewPlans: _showPlans,
                   onManageSubscription:
                       shouldShowSubscriptionManagement(
@@ -580,6 +599,8 @@ class _SignedInView extends StatelessWidget {
   final String email;
   final String role;
   final SubscriptionTier subscriptionTier;
+  final SubscriptionTier? accessPreviewTier;
+  final ValueChanged<String>? onOwnerPreviewChanged;
   final VoidCallback onViewPlans;
   final Future<void> Function()? onManageSubscription;
   final VoidCallback? onManageRoles;
@@ -591,6 +612,8 @@ class _SignedInView extends StatelessWidget {
     required this.email,
     required this.role,
     required this.subscriptionTier,
+    required this.accessPreviewTier,
+    required this.onOwnerPreviewChanged,
     required this.onViewPlans,
     required this.onManageSubscription,
     required this.onManageRoles,
@@ -710,6 +733,52 @@ class _SignedInView extends StatelessWidget {
           spacing: 4,
           runSpacing: 4,
           children: [
+            if (onOwnerPreviewChanged != null)
+              PopupMenuButton<String>(
+                key: const ValueKey('owner-access-preview-menu'),
+                tooltip: 'Preview subscription access',
+                onSelected: onOwnerPreviewChanged,
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'free', child: Text('PREVIEW AS FREE')),
+                  PopupMenuItem(value: 'core', child: Text('PREVIEW AS CORE')),
+                  PopupMenuItem(value: 'edge', child: Text('PREVIEW AS EDGE')),
+                  PopupMenuDivider(),
+                  PopupMenuItem(value: 'off', child: Text('EXIT PREVIEW')),
+                ],
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: accessPreviewTier == null
+                        ? Colors.transparent
+                        : const Color(0xFFFFC400).withValues(alpha: .14),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: accessPreviewTier == null
+                          ? const Color(0xFF273445)
+                          : const Color(0xFFFFC400),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.science_outlined, size: 15),
+                      const SizedBox(width: 6),
+                      Text(
+                        accessPreviewTier == null
+                            ? 'ACCESS PREVIEW'
+                            : 'PREVIEW: ${accessPreviewTier!.name.toUpperCase()}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             if (shouldShowPlanSelector(
               tier: subscriptionTier,
               role: normalizedRole,

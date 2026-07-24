@@ -397,7 +397,7 @@ class PropIntelligenceShell extends StatelessWidget {
                 if (!state.authenticated && !devUnlocked) {
                   return const CorporateLoginScreen();
                 }
-                return _buildDashboardShell();
+                return _buildDashboardShell(authState: state);
               },
             );
           },
@@ -406,17 +406,79 @@ class PropIntelligenceShell extends StatelessWidget {
     );
   }
 
-  Widget _buildDashboardShell() {
+  Widget _buildDashboardShell({AuthSessionState? authState}) {
     return Scaffold(
       backgroundColor: const Color(0xFF050C13),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth >= 700) {
-            return const DesktopDashboard();
-          }
+      body: Column(
+        children: [
+          if (authState?.isAccessPreviewActive == true)
+            _OwnerAccessPreviewBanner(
+              tier: authState!.effectiveSubscriptionTier,
+            ),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth >= 700) {
+                  return const DesktopDashboard();
+                }
 
-          return const MobileDashboardViewport();
-        },
+                return const MobileDashboardViewport();
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OwnerAccessPreviewBanner extends StatelessWidget {
+  const _OwnerAccessPreviewBanner({required this.tier});
+
+  final SubscriptionTier tier;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFFFC400),
+      child: SafeArea(
+        bottom: false,
+        child: InkWell(
+          onTap: () => AuthManager.instance.setOwnerAccessPreview(null),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.science_outlined, size: 17),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'OWNER ACCESS PREVIEW: ${tier.name.toUpperCase()} — '
+                    'UI ACCESS ONLY, BILLING UNCHANGED',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFF050A0F),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .4,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'EXIT',
+                  style: TextStyle(
+                    color: Color(0xFF050A0F),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

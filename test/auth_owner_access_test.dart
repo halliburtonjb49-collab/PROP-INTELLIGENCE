@@ -26,6 +26,44 @@ void main() {
     expect(state.hasEdgeAccess, isTrue);
   });
 
+  test('owner access preview enforces the selected tier', () {
+    AuthSessionState ownerPreview(SubscriptionTier tier) => AuthSessionState(
+      ready: true,
+      authenticated: true,
+      isPremium: true,
+      subscriptionTier: SubscriptionTier.edge,
+      accessPreviewTier: tier,
+      role: 'owner',
+      userId: 'owner-id',
+      email: 'halliburtonjb49@gmail.com',
+      message: 'Authenticated',
+    );
+
+    expect(ownerPreview(SubscriptionTier.free).hasCoreAccess, isFalse);
+    expect(ownerPreview(SubscriptionTier.free).hasEdgeAccess, isFalse);
+    expect(ownerPreview(SubscriptionTier.core).hasCoreAccess, isTrue);
+    expect(ownerPreview(SubscriptionTier.core).hasEdgeAccess, isFalse);
+    expect(ownerPreview(SubscriptionTier.edge).hasEdgeAccess, isTrue);
+  });
+
+  test('non-owner roles cannot activate an owner access preview', () {
+    const state = AuthSessionState(
+      ready: true,
+      authenticated: true,
+      isPremium: false,
+      subscriptionTier: SubscriptionTier.free,
+      accessPreviewTier: SubscriptionTier.edge,
+      role: 'user',
+      userId: 'user-id',
+      email: 'user@example.com',
+      message: 'Authenticated',
+    );
+
+    expect(state.isAccessPreviewActive, isFalse);
+    expect(state.hasCoreAccess, isFalse);
+    expect(state.hasEdgeAccess, isFalse);
+  });
+
   test('owner, admin and tester receive full workspace access', () {
     for (final role in ['owner', 'admin', 'tester']) {
       final state = AuthSessionState(

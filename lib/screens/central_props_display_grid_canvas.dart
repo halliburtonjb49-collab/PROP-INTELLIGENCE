@@ -249,7 +249,7 @@ class _CentralPropsDisplayGridCanvasState
           stream: _channelStream,
           builder: (context, snapshot) {
             final isUserPremium =
-                AuthManager.instance.sessionState.value.isPremium;
+                AuthManager.instance.sessionState.value.hasEdgeAccess;
 
             if (snapshot.hasError && !_websocketUnavailable) {
               WidgetsBinding.instance.addPostFrameCallback((_) {

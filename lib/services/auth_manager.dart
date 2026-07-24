@@ -78,6 +78,7 @@ class AuthSessionState {
   final bool authenticated;
   final bool isPremium;
   final SubscriptionTier subscriptionTier;
+  final SubscriptionTier? accessPreviewTier;
   final String role;
   final String? userId;
   final String? email;
@@ -86,16 +87,22 @@ class AuthSessionState {
   bool get isOwner => role == 'owner';
   bool get isAdmin => role == 'admin';
   bool get isTester => role == 'tester';
-  bool get hasCoreAccess =>
-      subscriptionTier.hasCoreAccess || isOwner || isAdmin || isTester;
-  bool get hasEdgeAccess =>
-      subscriptionTier.hasEdgeAccess || isOwner || isAdmin || isTester;
+  bool get isAccessPreviewActive => isOwner && accessPreviewTier != null;
+  SubscriptionTier get effectiveSubscriptionTier =>
+      isAccessPreviewActive ? accessPreviewTier! : subscriptionTier;
+  bool get hasCoreAccess => isAccessPreviewActive
+      ? effectiveSubscriptionTier.hasCoreAccess
+      : subscriptionTier.hasCoreAccess || isOwner || isAdmin || isTester;
+  bool get hasEdgeAccess => isAccessPreviewActive
+      ? effectiveSubscriptionTier.hasEdgeAccess
+      : subscriptionTier.hasEdgeAccess || isOwner || isAdmin || isTester;
 
   const AuthSessionState({
     required this.ready,
     required this.authenticated,
     required this.isPremium,
     required this.subscriptionTier,
+    this.accessPreviewTier,
     required this.role,
     required this.userId,
     required this.email,
@@ -107,6 +114,7 @@ class AuthSessionState {
       authenticated = false,
       isPremium = false,
       subscriptionTier = SubscriptionTier.free,
+      accessPreviewTier = null,
       role = 'user',
       userId = null,
       email = null,
@@ -117,6 +125,7 @@ class AuthSessionState {
       authenticated = false,
       isPremium = false,
       subscriptionTier = SubscriptionTier.free,
+      accessPreviewTier = null,
       role = 'user',
       userId = null,
       email = null,
@@ -127,6 +136,7 @@ class AuthSessionState {
       authenticated = false,
       isPremium = false,
       subscriptionTier = SubscriptionTier.free,
+      accessPreviewTier = null,
       role = 'user',
       userId = null,
       email = null,
@@ -230,6 +240,29 @@ class AuthManager {
     await client.auth.signOut();
     passwordRecoveryRequested.value = false;
     sessionState.value = const AuthSessionState.signedOut();
+  }
+
+  void setOwnerAccessPreview(SubscriptionTier? tier) {
+    final current = sessionState.value;
+    if (!current.isOwner) {
+      throw StateError('Only an owner can preview subscription access.');
+    }
+    sessionState.value = AuthSessionState(
+      ready: current.ready,
+      authenticated: current.authenticated,
+      isPremium: current.isPremium,
+      subscriptionTier: current.subscriptionTier,
+      accessPreviewTier: tier,
+      role: current.role,
+      userId: current.userId,
+      email: current.email,
+      message: current.message,
+    );
+    debugPrint(
+      tier == null
+          ? 'Owner access preview disabled.'
+          : 'Owner access preview set to ${tier.name}.',
+    );
   }
 
   Future<Map<String, dynamic>> assignUserRole({
@@ -423,6 +456,7 @@ class AuthManager {
       authenticated: true,
       isPremium: isPremium,
       subscriptionTier: subscriptionTier,
+      accessPreviewTier: null,
       role: role,
       userId: user.id,
       email: user.email,
