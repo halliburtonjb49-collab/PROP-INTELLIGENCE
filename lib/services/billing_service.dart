@@ -15,6 +15,13 @@ enum PurchaseTier {
 }
 
 @visibleForTesting
+String subscriptionManagementUnavailableMessage({
+  required bool hasActivePurchase,
+}) => hasActivePurchase
+    ? 'Subscription management is temporarily unavailable. Contact propsintell@gmail.com for cancellation or billing help.'
+    : 'No active paid subscription was found for this account.';
+
+@visibleForTesting
 String selectRevenueCatPublicApiKey({
   required bool isWeb,
   required TargetPlatform platform,
@@ -173,11 +180,16 @@ class RevenueCatBillingService {
       final customerInfo = await Purchases.getCustomerInfo();
       final managementUrl = customerInfo.managementURL?.trim();
       if (managementUrl == null || managementUrl.isEmpty) {
+        final hasActivePurchase =
+            customerInfo.activeSubscriptions.isNotEmpty ||
+            customerInfo.entitlements.active.isNotEmpty;
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
-                'No active paid subscription was found for this account.',
+                subscriptionManagementUnavailableMessage(
+                  hasActivePurchase: hasActivePurchase,
+                ),
               ),
             ),
           );

@@ -30,6 +30,7 @@ import 'services/prop_watchlist_service.dart';
 import 'services/player_image_resolver.dart';
 import 'services/slip_manager.dart';
 import 'services/supabase_service.dart';
+import 'services/user_facing_error.dart';
 import 'theme/app_scroll_behavior.dart';
 import 'theme/app_colors.dart' as app_colors;
 import 'theme/prop_intelligence_colors.dart' as brand;
@@ -8217,17 +8218,7 @@ class _LoadError extends StatelessWidget {
   const _LoadError({required this.message, required this.onRetry});
 
   String _friendlyMessage() {
-    final lower = message.toLowerCase();
-    if (lower.contains('timeoutexception') || lower.contains('timed out')) {
-      return 'The live prop feed is taking longer than expected. The backend is online; retry while it finishes loading the full dataset.';
-    }
-    if (lower.contains('unable to connect') ||
-        lower.contains('connection refused') ||
-        lower.contains('socketexception') ||
-        lower.contains('failed host lookup')) {
-      return 'The live prop service is temporarily unavailable. Your last saved board remains protected; check your connection and retry.';
-    }
-    return message;
+    return userFacingLoadError(message, noun: 'live prop feed');
   }
 
   @override
