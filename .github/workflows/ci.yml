@@ -13,6 +13,11 @@ jobs:
   python:
     name: Python tests
     runs-on: ubuntu-latest
+    env:
+      # Import-time configuration requires provider keys. Tests mock all
+      # outbound provider calls, so CI uses explicit non-secret placeholders.
+      ODDS_API_KEY: ci-placeholder
+      API_SPORTS_KEY: ci-placeholder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
