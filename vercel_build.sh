@@ -40,6 +40,15 @@ if [ -z "${SUPABASE_ANON_KEY:-}" ]; then
   fi
 fi
 
+if [ -z "${REVENUECAT_PUBLIC_API_KEY:-}" ]; then
+  if [ "${VERCEL_ENV:-}" = "preview" ]; then
+    REVENUECAT_PUBLIC_API_KEY="preview-placeholder"
+  else
+    echo "REVENUECAT_PUBLIC_API_KEY is required for production builds." >&2
+    exit 1
+  fi
+fi
+
 APP_VERSION="${VERCEL_GIT_COMMIT_SHA:-${APP_VERSION:-unknown}}"
 
 flutter config --no-analytics
@@ -56,6 +65,6 @@ flutter build web --release \
   --dart-define="AUTH_EMAIL_REDIRECT_URL=${AUTH_EMAIL_REDIRECT_URL}" \
   --dart-define="MOBILE_AUTH_REDIRECT_URL=com.propintelligence.app://login-callback/" \
   --dart-define="ALLOW_PUBLIC_SIGNUP=${ALLOW_PUBLIC_SIGNUP:-true}" \
-  --dart-define="REVENUECAT_PUBLIC_API_KEY=${REVENUECAT_PUBLIC_API_KEY:-}"
+  --dart-define="REVENUECAT_PUBLIC_API_KEY=${REVENUECAT_PUBLIC_API_KEY}"
 
 echo "Build complete! Output in build/web"
