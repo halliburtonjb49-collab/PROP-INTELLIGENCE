@@ -16,6 +16,8 @@ services:
         value: 5
       - key: ODDS_API_KEY
         sync: false
+      - key: ODDS_API_KEY_SECONDARY
+        sync: false
       - key: API_SPORTS_KEY
         sync: false
       - key: API_SPORTS_BASEBALL_KEY

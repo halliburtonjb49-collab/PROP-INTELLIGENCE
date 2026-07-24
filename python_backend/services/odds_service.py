@@ -9,6 +9,7 @@ from config import (
     BASE_URL,
     HTTP_TIMEOUT_SECONDS,
     ODDS_API_KEY,
+    ODDS_API_KEY_SECONDARY,
     ODDS_REGIONS,
     ODDS_API_LOW_QUOTA_THRESHOLD,
     ODDS_API_QUOTA_RESERVE,
@@ -22,6 +23,41 @@ _quota_state: dict[str, object] = {
     "lastResponseAt": None, "lowQuota": False,
     "lowQuotaThreshold": ODDS_API_LOW_QUOTA_THRESHOLD,
 }
+
+# Once a key comes back 401/429 (out of usage credits, or otherwise
+# rejected), permanently move on to the next configured key for the rest
+# of this process's lifetime rather than retrying the dead one on every
+# call. Resets to the primary key on the next deploy/restart.
+_ODDS_API_KEYS = [key for key in (ODDS_API_KEY, ODDS_API_KEY_SECONDARY) if key]
+_QUOTA_EXHAUSTED_STATUS_CODES = {401, 429}
+_key_state_lock = Lock()
+_active_key_index = 0
+
+
+def _current_api_key() -> str:
+    with _key_state_lock:
+        if not _ODDS_API_KEYS:
+            return ""
+        return _ODDS_API_KEYS[_active_key_index]
+
+
+def _advance_to_next_key() -> bool:
+    """Switches to the next configured key. Returns False if there isn't
+    another one to fall back to."""
+    global _active_key_index
+    with _key_state_lock:
+        if _active_key_index + 1 >= len(_ODDS_API_KEYS):
+            return False
+        _active_key_index += 1
+        return True
+
+
+def active_key_snapshot() -> dict[str, object]:
+    with _key_state_lock:
+        return {
+            "activeKeyIndex": _active_key_index,
+            "configuredKeyCount": len(_ODDS_API_KEYS),
+        }
 
 
 def _http_session() -> requests.Session:
@@ -86,16 +122,27 @@ def quota_allows(estimated_cost: int) -> dict[str, object]:
     }
 
 
+def _request_with_failover(url: str, params: dict[str, object]) -> requests.Response:
+    """GETs url, automatically moving on to the next configured Odds API
+    key (and retrying once) if the active one comes back exhausted/rejected.
+    """
+    while True:
+        response = _http_session().get(
+            url,
+            params={**params, "apiKey": _current_api_key()},
+            timeout=HTTP_TIMEOUT_SECONDS,
+        )
+        record_quota_headers(response.headers)
+        if response.status_code in _QUOTA_EXHAUSTED_STATUS_CODES and _advance_to_next_key():
+            continue
+        return response
+
+
 def fetch_events(sport_key: str) -> list[dict[str, Any]]:
-    response = _http_session().get(
+    response = _request_with_failover(
         f"{BASE_URL}/sports/{sport_key}/events",
-        params={
-            "apiKey": ODDS_API_KEY,
-            "dateFormat": "iso",
-        },
-        timeout=HTTP_TIMEOUT_SECONDS,
+        {"dateFormat": "iso"},
     )
-    record_quota_headers(response.headers)
     response.raise_for_status()
     payload = response.json()
 
@@ -110,19 +157,16 @@ def fetch_event_odds(
     event_id: str,
     markets: list[str],
 ) -> dict[str, Any]:
-    response = _http_session().get(
+    response = _request_with_failover(
         f"{BASE_URL}/sports/{sport_key}/events/{event_id}/odds",
-        params={
-            "apiKey": ODDS_API_KEY,
+        {
             "regions": ODDS_REGIONS,
             "markets": ",".join(markets),
             "bookmakers": PREFERRED_BOOKMAKERS_CSV,
             "oddsFormat": "american",
             "dateFormat": "iso",
         },
-        timeout=HTTP_TIMEOUT_SECONDS,
     )
-    record_quota_headers(response.headers)
     response.raise_for_status()
     payload = response.json()
 
@@ -138,19 +182,16 @@ def fetch_game_odds(
 ) -> list[dict[str, Any]]:
     """Fetch event-level moneyline, spread, and total markets in one request."""
     requested_markets = markets or ["h2h", "spreads", "totals"]
-    response = _http_session().get(
+    response = _request_with_failover(
         f"{BASE_URL}/sports/{sport_key}/odds",
-        params={
-            "apiKey": ODDS_API_KEY,
+        {
             "regions": ODDS_REGIONS,
             "markets": ",".join(requested_markets),
             "bookmakers": PREFERRED_BOOKMAKERS_CSV,
             "oddsFormat": "american",
             "dateFormat": "iso",
         },
-        timeout=HTTP_TIMEOUT_SECONDS,
     )
-    record_quota_headers(response.headers)
     response.raise_for_status()
     payload = response.json()
     if isinstance(payload, list):

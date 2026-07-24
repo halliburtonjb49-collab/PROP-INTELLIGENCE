@@ -15,6 +15,7 @@ if CONFIG_PACKAGE_DIR.is_dir():
 load_dotenv(BASE_DIR / ".env")
 
 ODDS_API_KEY = os.getenv("ODDS_API_KEY", "").strip()
+ODDS_API_KEY_SECONDARY = os.getenv("ODDS_API_KEY_SECONDARY", "").strip()
 API_SPORTS_KEY = os.getenv("API_SPORTS_KEY", "").strip()
 API_SPORTS_BASEBALL_KEY = os.getenv(
     "API_SPORTS_BASEBALL_KEY",

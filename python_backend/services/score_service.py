@@ -1,12 +1,7 @@
 from typing import Any
 
-import requests
-
-from config import (
-    BASE_URL,
-    HTTP_TIMEOUT_SECONDS,
-    ODDS_API_KEY,
-)
+from config import BASE_URL
+from services.odds_service import _request_with_failover
 
 
 def fetch_scores(
@@ -14,13 +9,9 @@ def fetch_scores(
     *,
     days_from: int = 1,
 ) -> list[dict[str, Any]]:
-    response = requests.get(
+    response = _request_with_failover(
         f"{BASE_URL}/sports/{sport_key}/scores",
-        params={
-            "apiKey": ODDS_API_KEY,
-            "daysFrom": days_from,
-        },
-        timeout=HTTP_TIMEOUT_SECONDS,
+        {"daysFrom": days_from},
     )
     response.raise_for_status()
     payload = response.json()
