@@ -36,6 +36,12 @@ def main() -> int:
         checks["pipelines"] = fetch(f"{api}/api/operations/pipelines", admin_key=admin_key)
     print(json.dumps(checks, indent=2, default=str))
     failed = [name for name, (status, _) in checks.items() if status < 200 or status >= 400]
+    health_payload = checks["apiHealth"][1]
+    if (
+        not isinstance(health_payload, dict)
+        or health_payload.get("ticket_storage_mode") != "persistent-disk"
+    ):
+        failed.append("ticket-storage-not-persistent")
     props_payload = checks["props"][1]
     if not isinstance(props_payload, dict) or int(props_payload.get("count", 0)) <= 0:
         failed.append("props-empty")

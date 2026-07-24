@@ -6,31 +6,15 @@ on:
   workflow_dispatch:
 
 jobs:
-  trigger-render-deploy:
+  verify-production-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Render deployment
-        run: |
-          echo "✅ Code pushed to main branch"
-          echo "🚀 Render will auto-deploy the Flutter web app"
-          echo "📦 Service: props-intelligence-app"
-          echo "🔗 Dashboard: https://dashboard.render.com"
-          
-      - name: Wait for Render build
-        run: |
-          echo "⏳ Waiting for Render to detect and build changes..."
-          sleep 180
-          
       - uses: actions/checkout@v4
-      
-      - name: Run production smoke tests
-        run: |
-          echo "🧪 Running post-deployment verification..."
-          python tools/post_deploy_smoke.py
-        continue-on-error: true
-        
+      - name: Confirm automatic deployment
+        run: echo "Main was updated; waiting for the production services to deploy."
+      - name: Wait for Render build
+        run: sleep 180
+      - name: Run blocking production smoke tests
+        run: python tools/post_deploy_smoke.py
       - name: Deployment summary
-        run: |
-          echo "✨ Deployment completed!"
-          echo "🌐 Live at: https://app.propsintell.com"
-          echo "📊 Check Render dashboard for deployment details"
+        run: echo "Production deployment passed all smoke checks."

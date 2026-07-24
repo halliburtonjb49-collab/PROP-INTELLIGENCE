@@ -17,6 +17,15 @@ def request(url: str, *, method: str = "GET", headers: dict[str, str] | None = N
 
 
 def main() -> int:
+    health, health_body, health_ms = request(f"{API_URL}/health")
+    health_payload = json.loads(health_body)
+    if health.status != 200 or health_payload.get("status") != "ok":
+        raise RuntimeError("API health check is unavailable")
+    if health_payload.get("ticket_storage_mode") != "persistent-disk":
+        raise RuntimeError(
+            "Production ticket storage is not using the persistent disk"
+        )
+
     app, html, app_ms = request(APP_URL)
     if app.status != 200 or b"flutter_bootstrap.js" not in html:
         raise RuntimeError("Web application shell is unavailable")
@@ -54,6 +63,7 @@ def main() -> int:
         json.dumps(
             {
                 "status": "ok",
+                "healthMs": round(health_ms),
                 "appMs": round(app_ms),
                 "propsMs": round(props_ms),
                 "payloadBytes": len(body),
