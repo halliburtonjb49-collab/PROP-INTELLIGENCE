@@ -54,7 +54,13 @@ from models.prop_builder_preset import (
 from models.prop_builder_strategy import (
 	PropBuilderStrategyResponse,
 )
-from models.slip import LegResultUpdate, SlipClosingLinesUpdate, SlipCreate, SlipPreview
+from models.slip import (
+	LegResultUpdate,
+	SlipClosingLinesUpdate,
+	SlipCreate,
+	SlipPreview,
+	SlipResponse,
+)
 from providers.api_sports_basketball import (
 	ApiSportsBasketballProvider,
 )
@@ -1078,10 +1084,12 @@ def _active_ticket_team(leg: object) -> str:
 def _grade_active_ticket_leg(
 	*,
 	side: str,
-	current: float,
+	current: float | None,
 	line: float,
 	game_status: str,
 ) -> str:
+	if current is None:
+		return "live"
 	if str(game_status).strip().lower() != "final":
 		return "live"
 	if current == line:
@@ -1094,16 +1102,7 @@ def _grade_active_ticket_leg(
 	return "live"
 
 
-def _active_ticket_payload(*, season: str, user_id: str) -> dict[str, object]:
-	active_slips = get_slips("active", user_id=user_id)
-	if not active_slips:
-		return {
-			"slip_title": "Active Slip",
-			"payout": "$0.00",
-			"legs": [],
-		}
-
-	slip = active_slips[0]
+def _graded_slip_legs(slip: SlipResponse, *, season: str) -> list[dict[str, object]]:
 	legs: list[dict[str, object]] = []
 	for leg in slip.legs:
 		game_status = "Final" if leg.game_completed else (
@@ -1146,6 +1145,20 @@ def _active_ticket_payload(*, season: str, user_id: str) -> dict[str, object]:
 				"odds": leg.odds,
 			}
 		)
+	return legs
+
+
+def _active_ticket_payload(*, season: str, user_id: str) -> dict[str, object]:
+	active_slips = get_slips("active", user_id=user_id)
+	if not active_slips:
+		return {
+			"slip_title": "Active Slip",
+			"payout": "$0.00",
+			"legs": [],
+		}
+
+	slip = active_slips[0]
+	legs = _graded_slip_legs(slip, season=season)
 
 	return {
 		"slip_id": slip.id,
@@ -1155,6 +1168,21 @@ def _active_ticket_payload(*, season: str, user_id: str) -> dict[str, object]:
 		"created_at": slip.created_at,
 		"legs": legs,
 	}
+
+
+def _live_slip_stats_payload(*, season: str, user_id: str) -> dict[str, object]:
+	"""Live current-stat values for every active slip's legs, keyed by
+	slip id. Powers Slip Watcher's PrizePicks-style progress bars for all
+	locked slips, not just the first one."""
+	active_slips = get_slips("active", user_id=user_id)
+	slips: dict[str, object] = {}
+	for slip in active_slips:
+		slips[slip.id] = {
+			"slip_title": f"{len(slip.legs)}-Pick Ticket",
+			"status": slip.status,
+			"legs": _graded_slip_legs(slip, season=season),
+		}
+	return {"slips": slips}
 
 
 @app.get("/health")
@@ -2499,6 +2527,14 @@ def get_active_ticket(
 	user_id: str = Depends(require_user_id),
 ) -> dict[str, object]:
 	return _active_ticket_payload(season=season, user_id=user_id)
+
+
+@app.get("/api/slips/live-stats")
+def get_live_slip_stats(
+	season: str = Query(default=str(datetime.now().year)),
+	user_id: str = Depends(require_user_id),
+) -> dict[str, object]:
+	return _live_slip_stats_payload(season=season, user_id=user_id)
 
 
 @app.patch("/api/slips/{slip_id}/status")

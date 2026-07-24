@@ -76,19 +76,23 @@ def get_live_player_stat(
     prop_type: str,
     sport: str,
     season: str | None = None,
-) -> float:
+) -> float | None:
+    """Returns the player's current live value for prop_type, or None if
+    it can't be determined (missing key, unsupported sport, no boxscore
+    data yet, player not found). None is distinct from a real 0 value
+    (e.g. a batter with 0 hits so far in a live game)."""
     sport_key = str(sport or "").strip().upper()
     target_season = season or str(datetime.now().year)
 
     if not SPORTSDATAIO_KEY:
-        return 0.0
+        return None
 
     if sport_key not in SPORT_CONFIG:
-        return 0.0
+        return None
 
     live_boxscores = get_live_boxscores(sport=sport_key, season=target_season)
     if not live_boxscores:
-        return 0.0
+        return None
 
     player_row = find_player_in_boxscores(
         boxscores=live_boxscores,
@@ -96,7 +100,7 @@ def get_live_player_stat(
         team=team,
     )
     if not player_row:
-        return 0.0
+        return None
 
     return extract_prop_value(player_row, prop_type)
 
@@ -180,10 +184,10 @@ def find_player_in_boxscores(
     return None
 
 
-def extract_prop_value(player_row: dict[str, Any], prop_type: str) -> float:
+def extract_prop_value(player_row: dict[str, Any], prop_type: str) -> float | None:
     stat_keys = STAT_MAP.get(normalize_prop_type(prop_type))
     if not stat_keys:
-        return 0.0
+        return None
 
     total = 0.0
     for key in stat_keys:

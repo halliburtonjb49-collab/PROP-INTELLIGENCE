@@ -91,9 +91,11 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   late String _selectedTab;
   late Future<List<SavedSlip>> _slipsFuture;
   Timer? _refreshTimer;
+  Timer? _liveStatsTimer;
   bool _isRefreshingGames = false;
   String? _refreshError;
   DateTime? _lastUpdated;
+  Map<String, Map<String, dynamic>> _liveStats = const {};
 
   bool get _isHistory => widget.mode == SlipHistoryMode.history;
 
@@ -132,6 +134,28 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       const Duration(minutes: 2),
       (_) => _refreshGameStatuses(),
     );
+    if (!_isHistory) {
+      unawaited(_refreshLiveStats());
+      _liveStatsTimer = Timer.periodic(
+        const Duration(seconds: 20),
+        (_) => _refreshLiveStats(),
+      );
+    }
+  }
+
+  /// Live progress-bar values for active slips only - Past Slip History
+  /// shows already-resolved legs with permanent result values, so it has
+  /// no need to poll this.
+  Future<void> _refreshLiveStats() async {
+    try {
+      final stats = await _apiService.fetchLiveSlipStats();
+      if (!mounted) return;
+      setState(() {
+        _liveStats = stats;
+      });
+    } catch (_) {
+      // Keep the last known live stats on a transient failure.
+    }
   }
 
   /// The sidebar's SLIP WATCHER badge always reflects the active/unresolved
@@ -150,6 +174,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _liveStatsTimer?.cancel();
     unawaited(_liveSubscription?.cancel());
     unawaited(_liveUpdates.dispose());
     super.dispose();
@@ -162,6 +187,9 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       _slipsFuture = _fetchForTab(_selectedTab);
     });
     unawaited(_refreshLockedSlipCount());
+    if (!_isHistory) {
+      unawaited(_refreshLiveStats());
+    }
   }
 
   void _selectTab(String tab) {
@@ -468,6 +496,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                         final slip = slips[index];
                         return _SavedSlipCard(
                           slip: slip,
+                          liveStats: _liveStats[slip.id] ?? const {},
                           onWon: () => _changeStatus(slip, 'won'),
                           onLost: () => _changeStatus(slip, 'lost'),
                           onUnlock: () => _unlockSlip(slip),
@@ -801,18 +830,47 @@ class _ProfitKeeper extends StatelessWidget {
   }
 }
 
+typedef _LiveLegState = ({
+  double? current,
+  String resultStatus,
+  String gameStatus,
+  bool gameCompleted,
+});
+
 class _SavedSlipCard extends StatelessWidget {
   final SavedSlip slip;
+  final Map<String, dynamic> liveStats;
   final VoidCallback onWon;
   final VoidCallback onLost;
   final VoidCallback onUnlock;
 
   const _SavedSlipCard({
     required this.slip,
+    this.liveStats = const {},
     required this.onWon,
     required this.onLost,
     required this.onUnlock,
   });
+
+  _LiveLegState _liveState(SavedSlipLeg leg) {
+    final live = liveStats[leg.propId];
+    if (live is! Map) {
+      return (
+        current: leg.resultValue,
+        resultStatus: leg.resultStatus,
+        gameStatus: leg.gameStatus,
+        gameCompleted: leg.gameCompleted,
+      );
+    }
+    final rawGameStatus = live['game_status']?.toString() ?? leg.gameStatus;
+    return (
+      current: (live['result_value'] as num?)?.toDouble() ?? leg.resultValue,
+      resultStatus:
+          live['result_status']?.toString() ?? leg.resultStatus,
+      gameStatus: rawGameStatus,
+      gameCompleted: rawGameStatus.toLowerCase() == 'final',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -886,13 +944,14 @@ class _SavedSlipCard extends StatelessWidget {
                           onPressed: onUnlock,
                           icon: const Icon(
                             Icons.lock_open_rounded,
-                            size: 16,
+                            size: 13,
                             color: Color(0xFF8B98A8),
                           ),
-                          padding: const EdgeInsets.all(6),
+                          padding: const EdgeInsets.all(4),
                           constraints: const BoxConstraints(),
                           style: IconButton.styleFrom(
-                            minimumSize: const Size(28, 28),
+                            minimumSize: const Size(22, 22),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                         ),
                       ),
@@ -904,6 +963,33 @@ class _SavedSlipCard extends StatelessWidget {
                   final pickColor = leg.side.toUpperCase() == 'OVER'
                       ? const Color(0xFF4CAF50)
                       : const Color(0xFFEF5350);
+                  final live = _liveState(leg);
+                  final normalizedResult = live.resultStatus.toLowerCase();
+                  Color statusColor;
+                  String statusLabel;
+                  switch (normalizedResult) {
+                    case 'won':
+                    case 'win':
+                      statusColor = const Color(0xFF4CAF50);
+                      statusLabel = 'WON';
+                      break;
+                    case 'lost':
+                    case 'loss':
+                      statusColor = const Color(0xFFFF5D68);
+                      statusLabel = 'LOST';
+                      break;
+                    case 'push':
+                      statusColor = const Color(0xFF8B98A8);
+                      statusLabel = 'PUSH';
+                      break;
+                    default:
+                      statusColor = const Color(0xFFF2BC35);
+                      statusLabel = live.gameCompleted ? 'FINAL' : 'LIVE';
+                  }
+                  final progress = leg.line <= 0 || live.current == null
+                      ? 0.0
+                      : (live.current! / leg.line).clamp(0.0, 1.0);
+
                   return Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.all(8),
@@ -912,164 +998,196 @@ class _SavedSlipCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: const Color(0xFF263B4B)),
                     ),
-                    child: Row(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFFF2BC35)),
-                          ),
-                          child: ClipOval(child: _LegPhoto(leg: leg, size: 40)),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                leg.player,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(0xFFF2BC35),
                                 ),
                               ),
-                              const SizedBox(height: 3),
-                              Row(
+                              child: ClipOval(
+                                child: _LegPhoto(leg: leg, size: 36),
+                              ),
+                            ),
+                            const SizedBox(width: 9),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: pickColor.withValues(alpha: 0.16),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: pickColor),
-                                    ),
-                                    child: Text(
-                                      '${leg.side} ${leg.line}',
-                                      style: TextStyle(
-                                        color: pickColor,
-                                        fontSize: 9.5,
-                                        fontWeight: FontWeight.w900,
-                                      ),
+                                  Text(
+                                    leg.player,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      leg.market,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Color(0xFFF2BC35),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    leg.matchup,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFF8996A6),
+                                      fontSize: 9,
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 3),
-                              Text(
-                                leg.matchup,
-                                style: const TextStyle(
-                                  color: Color(0xFF8996A6),
-                                  fontSize: 9,
-                                ),
-                              ),
-                              if (leg.resultValue != null) ...[
-                                const SizedBox(height: 3),
-                                Text(
-                                  '${leg.gameCompleted ? 'FINAL' : 'LIVE'}: ${leg.resultValue!.toStringAsFixed(1)} / ${leg.line.toStringAsFixed(1)}',
-                                  style: TextStyle(
-                                    color: leg.gameCompleted
-                                        ? const Color(0xFF8B98A8)
-                                        : const Color(0xFF36B9FF),
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: LinearProgressIndicator(
-                                    minHeight: 4,
-                                    value: leg.line <= 0
-                                        ? 0
-                                        : (leg.resultValue! / leg.line).clamp(
-                                            0.0,
-                                            1.0,
-                                          ),
-                                    backgroundColor: const Color(0xFF263746),
-                                    valueColor: AlwaysStoppedAnimation(
-                                      leg.resultStatus.toLowerCase() == 'lost'
-                                          ? const Color(0xFFFF5D68)
-                                          : const Color(0xFFF2BC35),
+                            ),
+                            const SizedBox(width: 6),
+                            GameStatusBadge(status: live.gameStatus),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0C1824),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: pickColor.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '${leg.side.toUpperCase() == 'OVER' ? 'MORE' : 'LESS'} ${leg.line.toStringAsFixed(1)} ${leg.market.toUpperCase()}',
+                                      style: TextStyle(
+                                        color: pickColor,
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w900,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
-                              const SizedBox(height: 3),
-                              if (leg.closingLine == null)
-                                const Text(
-                                  'CLV: pending closing line',
-                                  style: TextStyle(
-                                    color: Color(0xFF8B98A8),
-                                    fontSize: 9,
+                                  Text(
+                                    live.current == null
+                                        ? '--'
+                                        : '${live.current!.toStringAsFixed(1)} / ${leg.line.toStringAsFixed(1)}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w900,
+                                    ),
                                   ),
-                                )
-                              else
-                                Text(
-                                  'Entry ${leg.entryLine.toStringAsFixed(1)} → Close ${leg.closingLine!.toStringAsFixed(1)}  •  ${leg.beatClosingLine == true
-                                      ? 'BEAT CLOSE'
-                                      : leg.lineClv == 0
-                                      ? 'PUSH'
-                                      : 'MISSED CLOSE'}  ${leg.lineClvPercent == null ? '' : '${leg.lineClvPercent! >= 0 ? '+' : ''}${leg.lineClvPercent!.toStringAsFixed(2)}%'}',
-                                  style: TextStyle(
-                                    color: leg.beatClosingLine == true
-                                        ? const Color(0xFF36B9FF)
-                                        : const Color(0xFFFFB74D),
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800,
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: LinearProgressIndicator(
+                                  minHeight: 6,
+                                  value: progress,
+                                  backgroundColor: const Color(0xFF263746),
+                                  valueColor: AlwaysStoppedAnimation(
+                                    statusColor,
                                   ),
                                 ),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                live.current == null
+                                    ? 'PENDING'
+                                    : statusLabel,
+                                style: TextStyle(
+                                  color: live.current == null
+                                      ? const Color(0xFF8B98A8)
+                                      : statusColor,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        GameStatusBadge(status: leg.gameStatus),
+                        const SizedBox(height: 6),
+                        if (leg.closingLine == null)
+                          const Text(
+                            'CLV: pending closing line',
+                            style: TextStyle(
+                              color: Color(0xFF8B98A8),
+                              fontSize: 9,
+                            ),
+                          )
+                        else
+                          Text(
+                            'Entry ${leg.entryLine.toStringAsFixed(1)} → Close ${leg.closingLine!.toStringAsFixed(1)}  •  ${leg.beatClosingLine == true
+                                ? 'BEAT CLOSE'
+                                : leg.lineClv == 0
+                                ? 'PUSH'
+                                : 'MISSED CLOSE'}  ${leg.lineClvPercent == null ? '' : '${leg.lineClvPercent! >= 0 ? '+' : ''}${leg.lineClvPercent!.toStringAsFixed(2)}%'}',
+                            style: TextStyle(
+                              color: leg.beatClosingLine == true
+                                  ? const Color(0xFF36B9FF)
+                                  : const Color(0xFFFFB74D),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                       ],
                     ),
                   );
                 }),
                 if (slip.status == 'active') ...[
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
-                          onPressed: onWon,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFF2BC35),
-                            side: const BorderSide(color: Color(0xFFF2BC35)),
+                        child: SizedBox(
+                          height: 30,
+                          child: OutlinedButton(
+                            onPressed: onWon,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFFF2BC35),
+                              side: const BorderSide(color: Color(0xFFF2BC35)),
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              textStyle: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            child: const Text('MARK WON'),
                           ),
-                          child: const Text('MARK WON'),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Expanded(
-                        child: OutlinedButton(
-                          onPressed: onLost,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFFF5D68),
-                            side: const BorderSide(color: Color(0xFFFF5D68)),
+                        child: SizedBox(
+                          height: 30,
+                          child: OutlinedButton(
+                            onPressed: onLost,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFFFF5D68),
+                              side: const BorderSide(color: Color(0xFFFF5D68)),
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              textStyle: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            child: const Text('MARK LOST'),
                           ),
-                          child: const Text('MARK LOST'),
                         ),
                       ),
                     ],

@@ -1089,6 +1089,61 @@ class ApiService {
     return decoded;
   }
 
+  /// Live current-stat values for every active slip's legs, keyed by slip
+  /// id then leg prop id. Powers Slip Watcher's live progress bars across
+  /// all locked slips (unlike [fetchActiveTicket], which only covers the
+  /// first one).
+  Future<Map<String, Map<String, dynamic>>> fetchLiveSlipStats({
+    String? season,
+  }) async {
+    final query = season == null || season.trim().isEmpty
+        ? ''
+        : '?season=${season.trim()}';
+    final uri = Uri.parse('$baseUrl/api/slips/live-stats$query');
+    final response = await http
+        .get(uri, headers: await _authenticatedHeaders())
+        .timeout(const Duration(seconds: 20));
+
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load live slip stats: ${response.body}');
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Invalid live slip stats response.');
+    }
+    final rawSlips = decoded['slips'];
+    if (rawSlips is! Map) {
+      return const {};
+    }
+
+    final result = <String, Map<String, dynamic>>{};
+    for (final entry in rawSlips.entries) {
+      final slipId = entry.key.toString();
+      final slipData = entry.value;
+      if (slipData is! Map) {
+        continue;
+      }
+      final rawLegs = slipData['legs'];
+      if (rawLegs is! List) {
+        continue;
+      }
+      final legsById = <String, dynamic>{};
+      for (final leg in rawLegs) {
+        if (leg is! Map) {
+          continue;
+        }
+        final propId = leg['prop_id']?.toString() ?? leg['id']?.toString();
+        if (propId == null || propId.isEmpty) {
+          continue;
+        }
+        legsById[propId] = Map<String, dynamic>.from(leg);
+      }
+      result[slipId] = legsById;
+    }
+    return result;
+  }
+
   Future<void> refreshSlipGames(String sportKey) async {
     final uri = Uri.parse('$baseUrl/api/slips/refresh-games/$sportKey');
     final response = await http

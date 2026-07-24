@@ -529,6 +529,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     AppPage.builderPerformance ||
     AppPage.strikeoutProGold ||
     AppPage.evScanner ||
+    AppPage.pastSlipHistory ||
     AppPage.intelligenceLab => SubscriptionTier.edge,
     _ => null,
   };
