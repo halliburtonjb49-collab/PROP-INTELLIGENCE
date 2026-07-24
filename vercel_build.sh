@@ -27,6 +27,12 @@ flutter --version
 : "${AUTH_EMAIL_REDIRECT_URL:=https://app.propsintell.com}"
 : "${ALLOW_PUBLIC_SIGNUP:=true}"
 
+# Accept the legacy lowercase Preview variable while keeping the canonical
+# uppercase name used by production and the Flutter build.
+if [ -z "${SUPABASE_ANON_KEY:-}" ] && [ -n "${supabase_anon_key:-}" ]; then
+  SUPABASE_ANON_KEY="${supabase_anon_key}"
+fi
+
 # Preview deployments validate the production bundle but do not authenticate
 # real users. Keep the production key mandatory while allowing PR previews to
 # compile with an intentionally unusable public placeholder.

@@ -3,6 +3,23 @@ import 'package:prop_intelligence/main.dart';
 import 'package:prop_intelligence/services/auth_manager.dart';
 
 void main() {
+  test('feature badges reflect an upgraded Pro membership', () {
+    expect(
+      displayedTierForBadge(
+        requiredTier: SubscriptionTier.core,
+        hasEdgeAccess: true,
+      ),
+      SubscriptionTier.edge,
+    );
+    expect(
+      displayedTierForBadge(
+        requiredTier: SubscriptionTier.core,
+        hasEdgeAccess: false,
+      ),
+      SubscriptionTier.core,
+    );
+  });
+
   test('Core contains only standard research and organization tools', () {
     expect(requiredTierForPage(AppPage.gameMarkets), SubscriptionTier.core);
     expect(requiredTierForPage(AppPage.propBuilder), SubscriptionTier.core);
