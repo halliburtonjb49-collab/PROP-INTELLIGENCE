@@ -6326,7 +6326,7 @@ class _PropGridState extends State<PropGrid> {
       return Image.asset(
         imagePath,
         fit: BoxFit.cover,
-        alignment: Alignment.topCenter,
+        alignment: Alignment.center,
         filterQuality: FilterQuality.high,
         errorBuilder: (_, _, _) {
           final officialUrl = _officialMlbHeadshot(prop.player);
@@ -6334,7 +6334,7 @@ class _PropGridState extends State<PropGrid> {
             return CachedNetworkImage(
               imageUrl: officialUrl,
               fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
+              alignment: Alignment.center,
               filterQuality: FilterQuality.high,
               memCacheWidth: cacheSize,
               memCacheHeight: cacheSize,
@@ -6353,7 +6353,7 @@ class _PropGridState extends State<PropGrid> {
     return CachedNetworkImage(
       imageUrl: imagePath,
       fit: BoxFit.cover,
-      alignment: Alignment.topCenter,
+      alignment: Alignment.center,
       filterQuality: FilterQuality.high,
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,
@@ -8360,7 +8360,7 @@ class PropCard extends StatelessWidget {
         imagePath,
         fit: BoxFit.cover,
         filterQuality: FilterQuality.high,
-        alignment: Alignment.topCenter,
+        alignment: Alignment.center,
         errorBuilder: (_, _, _) {
           return Container(
             color: AppColors.panel,
@@ -8378,7 +8378,7 @@ class PropCard extends StatelessWidget {
       imageUrl: imagePath,
       fit: BoxFit.cover,
       filterQuality: FilterQuality.high,
-      alignment: Alignment.topCenter,
+      alignment: Alignment.center,
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,
       memCacheWidth: cacheSize,
