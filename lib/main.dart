@@ -723,9 +723,13 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   }
 
   Widget _buildTopNavigation() {
+    final hasProAccess = AuthManager.instance.sessionState.value.hasEdgeAccess;
     return TopNavigation(
       selectedPage: _selectedPage,
       soundService: AppSoundService.instance,
+      accentColor: hasProAccess
+          ? app_colors.AppColors.gold
+          : const Color(0xFFC8CED6),
       onTabSelected: (page) {
         _switchToPage(page, source: 'top-nav');
       },
@@ -1140,6 +1144,10 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final hasProAccess = AuthManager.instance.sessionState.value.hasEdgeAccess;
+    final membershipAccent = hasProAccess
+        ? app_colors.AppColors.gold
+        : const Color(0xFFC8CED6);
     return AnimatedBuilder(
       animation: _activeSlipController,
       builder: (context, _) => AppShell(
@@ -1158,6 +1166,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             _switchToPage(AppPage.board, source: 'mobile-bottom-nav'),
         onMobileGameMarkets: () =>
             _switchToPage(AppPage.gameMarkets, source: 'mobile-bottom-nav'),
+        accentColor: membershipAccent,
       ),
     );
   }
@@ -4965,12 +4974,14 @@ class TopNavigation extends StatelessWidget {
   final AppPage selectedPage;
   final ValueChanged<AppPage> onTabSelected;
   final AppSoundService soundService;
+  final Color accentColor;
 
   const TopNavigation({
     super.key,
     required this.selectedPage,
     required this.onTabSelected,
     required this.soundService,
+    required this.accentColor,
   });
 
   String get _pageHowTo => switch (selectedPage) {
@@ -5072,11 +5083,11 @@ class TopNavigation extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(11, 15, 11, 13),
           decoration: BoxDecoration(
             color: selected
-                ? app_colors.AppColors.gold.withValues(alpha: .07)
+                ? accentColor.withValues(alpha: .07)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: selected ? app_colors.AppColors.gold : Colors.transparent,
+              color: selected ? accentColor : Colors.transparent,
             ),
           ),
           child: Row(
@@ -5086,7 +5097,7 @@ class TopNavigation extends StatelessWidget {
                 icon,
                 size: 16,
                 color: selected
-                    ? app_colors.AppColors.gold
+                    ? accentColor
                     : app_colors.AppColors.textSecondary,
               ),
               const SizedBox(width: 7),
@@ -5097,9 +5108,7 @@ class TopNavigation extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.clip,
                   style: TextStyle(
-                    color: selected
-                        ? app_colors.AppColors.gold
-                        : app_colors.AppColors.white,
+                    color: selected ? accentColor : app_colors.AppColors.white,
                     fontSize: 9,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.5,

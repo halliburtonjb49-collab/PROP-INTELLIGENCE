@@ -13,6 +13,7 @@ class AppShell extends StatelessWidget {
     this.mobileSelectedIndex = 0,
     this.onMobileBoard,
     this.onMobileGameMarkets,
+    this.accentColor = AppColors.gold,
   });
 
   final Widget leftSidebar;
@@ -23,6 +24,7 @@ class AppShell extends StatelessWidget {
   final int mobileSelectedIndex;
   final VoidCallback? onMobileBoard;
   final VoidCallback? onMobileGameMarkets;
+  final Color accentColor;
 
   static const double leftWidth = 244;
   static const double rightWidth = 332;
@@ -52,9 +54,7 @@ class AppShell extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: borderRadius,
-        side: BorderSide(
-          color: highlighted ? AppColors.borderGold : AppColors.border,
-        ),
+        side: BorderSide(color: highlighted ? accentColor : AppColors.border),
       ),
       child: child,
     );
@@ -74,6 +74,7 @@ class AppShell extends StatelessWidget {
             selectedIndex: mobileSelectedIndex,
             onBoard: onMobileBoard,
             onGameMarkets: onMobileGameMarkets,
+            accentColor: accentColor,
           );
         }
         final metrics = _metrics(constraints.maxWidth);
@@ -148,6 +149,7 @@ class _MobileAppShell extends StatefulWidget {
     required this.selectedIndex,
     required this.onBoard,
     required this.onGameMarkets,
+    required this.accentColor,
   });
 
   final Widget leftSidebar;
@@ -158,6 +160,7 @@ class _MobileAppShell extends StatefulWidget {
   final int selectedIndex;
   final VoidCallback? onBoard;
   final VoidCallback? onGameMarkets;
+  final Color accentColor;
 
   @override
   State<_MobileAppShell> createState() => _MobileAppShellState();
@@ -220,7 +223,7 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                     decoration: BoxDecoration(
                       color: const Color(0xE607111B),
                       borderRadius: BorderRadius.circular(15),
-                      border: Border.all(color: AppColors.borderGold),
+                      border: Border.all(color: widget.accentColor),
                     ),
                     child: Row(
                       children: [
@@ -230,7 +233,7 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                               _scaffoldKey.currentState?.openDrawer(),
                           icon: Icon(
                             Icons.menu_rounded,
-                            color: AppColors.gold,
+                            color: widget.accentColor,
                             size: screenWidth < 360 ? 20 : 24,
                           ),
                           padding: EdgeInsets.all(screenWidth < 360 ? 8 : 12),
@@ -248,9 +251,9 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                               tooltip: 'Open account and active slip',
                               onPressed: () =>
                                   _scaffoldKey.currentState?.openEndDrawer(),
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.receipt_long_rounded,
-                                color: AppColors.gold,
+                                color: widget.accentColor,
                               ),
                             ),
                             if (widget.activeSlipCount > 0)
@@ -313,6 +316,7 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                     onGameMarkets: widget.onGameMarkets,
                     onSlip: () => _scaffoldKey.currentState?.openEndDrawer(),
                     onMenu: () => _scaffoldKey.currentState?.openDrawer(),
+                    accentColor: widget.accentColor,
                   ),
                 ],
               ),
@@ -332,6 +336,7 @@ class _MobileBottomNavigation extends StatelessWidget {
     required this.onGameMarkets,
     required this.onSlip,
     required this.onMenu,
+    required this.accentColor,
   });
 
   final int selectedIndex;
@@ -340,6 +345,7 @@ class _MobileBottomNavigation extends StatelessWidget {
   final VoidCallback? onGameMarkets;
   final VoidCallback onSlip;
   final VoidCallback onMenu;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -354,7 +360,7 @@ class _MobileBottomNavigation extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xF207111B),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: AppColors.borderGold),
+        border: Border.all(color: accentColor),
         boxShadow: const [BoxShadow(color: Color(0x88000000), blurRadius: 18)],
       ),
       child: Row(
@@ -366,6 +372,7 @@ class _MobileBottomNavigation extends StatelessWidget {
               label: 'BOARD',
               selected: selectedIndex == 0,
               onTap: onBoard,
+              accentColor: accentColor,
             ),
           ),
           Expanded(
@@ -375,6 +382,7 @@ class _MobileBottomNavigation extends StatelessWidget {
               label: 'GAMES',
               selected: selectedIndex == 1,
               onTap: onGameMarkets,
+              accentColor: accentColor,
             ),
           ),
           Expanded(
@@ -385,6 +393,7 @@ class _MobileBottomNavigation extends StatelessWidget {
               selected: selectedIndex == 2,
               badge: activeSlipCount,
               onTap: onSlip,
+              accentColor: accentColor,
             ),
           ),
           Expanded(
@@ -394,6 +403,7 @@ class _MobileBottomNavigation extends StatelessWidget {
               label: 'MENU',
               selected: selectedIndex == 3,
               onTap: onMenu,
+              accentColor: accentColor,
             ),
           ),
         ],
@@ -410,6 +420,7 @@ class _MobileNavItem extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.badge = 0,
+    required this.accentColor,
   });
 
   final IconData icon;
@@ -417,10 +428,11 @@ class _MobileNavItem extends StatelessWidget {
   final bool selected;
   final VoidCallback? onTap;
   final int badge;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.gold : AppColors.textSecondary;
+    final color = selected ? accentColor : AppColors.textSecondary;
     return Semantics(
       button: true,
       selected: selected,
@@ -432,11 +444,11 @@ class _MobileNavItem extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 54),
           decoration: BoxDecoration(
             color: selected
-                ? AppColors.gold.withValues(alpha: .11)
+                ? accentColor.withValues(alpha: .11)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(11),
             border: Border.all(
-              color: selected ? AppColors.gold : Colors.transparent,
+              color: selected ? accentColor : Colors.transparent,
             ),
           ),
           child: Column(
