@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/game_market.dart';
 import '../services/api_service.dart';
+import '../services/user_facing_error.dart';
 import '../theme/app_colors.dart';
 
 class GameMarketsScreen extends StatefulWidget {
@@ -281,7 +282,7 @@ class _GameMarketsScreenState extends State<GameMarketsScreen> {
   Widget _errorState() => _CenteredState(
     icon: Icons.cloud_off_rounded,
     title: 'Unable to load game markets',
-    message: _error ?? 'Please try again.',
+    message: userFacingLoadError(_error, noun: 'game markets'),
     action: () => _load(refresh: true),
   );
 
