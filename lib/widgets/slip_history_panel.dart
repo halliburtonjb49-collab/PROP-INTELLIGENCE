@@ -542,17 +542,27 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
         (value) => value + settledProfit,
         ifAbsent: () => settledProfit,
       );
+      final legLiveStats = _liveStats[slip.id] ?? const {};
       for (final leg in slip.legs) {
         if (leg.lineClvPercent != null && leg.beatClosingLine != null) {
           measuredClvLegs += 1;
           clvPercentTotal += leg.lineClvPercent!;
           if (leg.beatClosingLine!) beatCloseLegs += 1;
         }
-        switch (leg.resultStatus.toLowerCase()) {
+        // Uses the live-projected result (when available) so the totals
+        // bar reacts as each leg's status bar flips, not just once a leg
+        // is officially graded.
+        final effectiveStatus = _effectiveLegState(
+          leg,
+          legLiveStats,
+        ).resultStatus.toLowerCase();
+        switch (effectiveStatus) {
           case 'won':
+          case 'win':
             wonLegs += 1;
             break;
           case 'lost':
+          case 'loss':
             lostLegs += 1;
             break;
           default:
@@ -837,6 +847,66 @@ typedef _LiveLegState = ({
   bool gameCompleted,
 });
 
+/// Merges a leg's persisted (graded) result with its live in-progress
+/// value, when available. [legLiveStats] is keyed by propId, e.g. the
+/// per-slip map from `/api/slips/live-stats`.
+_LiveLegState _effectiveLegState(
+  SavedSlipLeg leg,
+  Map<String, dynamic> legLiveStats,
+) {
+  final live = legLiveStats[leg.propId];
+  if (live is! Map) {
+    return (
+      current: leg.resultValue,
+      resultStatus: leg.resultStatus,
+      gameStatus: leg.gameStatus,
+      gameCompleted: leg.gameCompleted,
+    );
+  }
+  final rawGameStatus = live['game_status']?.toString() ?? leg.gameStatus;
+  return (
+    current: (live['result_value'] as num?)?.toDouble() ?? leg.resultValue,
+    resultStatus: live['result_status']?.toString() ?? leg.resultStatus,
+    gameStatus: rawGameStatus,
+    gameCompleted: rawGameStatus.toLowerCase() == 'final',
+  );
+}
+
+/// Live projection for an active slip as a whole, from its legs' live
+/// state - not the official graded result. Null means no live data has
+/// loaded for this slip yet, so callers should fall back to "ACTIVE".
+enum _SlipLiveProjection { winning, losing, live }
+
+_SlipLiveProjection? _slipLiveProjection(
+  SavedSlip slip,
+  Map<String, dynamic> legLiveStats,
+) {
+  if (legLiveStats.isEmpty) {
+    return null;
+  }
+  var hasLosingLeg = false;
+  var allLegsDecided = true;
+  for (final leg in slip.legs) {
+    final status = _effectiveLegState(
+      leg,
+      legLiveStats,
+    ).resultStatus.toLowerCase();
+    if (status == 'lost' || status == 'loss') {
+      hasLosingLeg = true;
+    } else if (status == 'won' || status == 'win' || status == 'push') {
+      // Currently favorable - keep checking the rest of the legs.
+    } else {
+      allLegsDecided = false;
+    }
+  }
+  if (hasLosingLeg) {
+    return _SlipLiveProjection.losing;
+  }
+  return allLegsDecided
+      ? _SlipLiveProjection.winning
+      : _SlipLiveProjection.live;
+}
+
 class _SavedSlipCard extends StatelessWidget {
   final SavedSlip slip;
   final Map<String, dynamic> liveStats;
@@ -852,41 +922,44 @@ class _SavedSlipCard extends StatelessWidget {
     required this.onUnlock,
   });
 
-  _LiveLegState _liveState(SavedSlipLeg leg) {
-    final live = liveStats[leg.propId];
-    if (live is! Map) {
-      return (
-        current: leg.resultValue,
-        resultStatus: leg.resultStatus,
-        gameStatus: leg.gameStatus,
-        gameCompleted: leg.gameCompleted,
-      );
-    }
-    final rawGameStatus = live['game_status']?.toString() ?? leg.gameStatus;
-    return (
-      current: (live['result_value'] as num?)?.toDouble() ?? leg.resultValue,
-      resultStatus:
-          live['result_status']?.toString() ?? leg.resultStatus,
-      gameStatus: rawGameStatus,
-      gameCompleted: rawGameStatus.toLowerCase() == 'final',
-    );
-  }
+  _LiveLegState _liveState(SavedSlipLeg leg) =>
+      _effectiveLegState(leg, liveStats);
 
   @override
   Widget build(BuildContext context) {
     final normalizedStatus = slip.status.toLowerCase();
     final isWon = normalizedStatus == 'won';
     final isLost = normalizedStatus == 'lost';
+    final liveProjection = normalizedStatus == 'active'
+        ? _slipLiveProjection(slip, liveStats)
+        : null;
+    final isLiveWinning = liveProjection == _SlipLiveProjection.winning;
+    final isLiveLosing = liveProjection == _SlipLiveProjection.losing;
     final borderColor = isWon
         ? const Color(0xFFF2BC35)
-        : isLost
+        : isLiveWinning
+        ? const Color(0xFF4CAF50)
+        : isLost || isLiveLosing
         ? const Color(0xFFFF5D68)
         : const Color(0xFF73500B);
     final statusColor = isWon
         ? const Color(0xFFF2BC35)
-        : isLost
+        : isLiveWinning
+        ? const Color(0xFF4CAF50)
+        : isLost || isLiveLosing
         ? const Color(0xFFFF5D68)
         : const Color(0xFFF2BC35);
+    final statusLabel = isWon
+        ? 'WON'
+        : isLost
+        ? 'LOST'
+        : isLiveLosing
+        ? 'LIVE • LOSING'
+        : isLiveWinning
+        ? 'LIVE • WINNING'
+        : liveProjection == _SlipLiveProjection.live
+        ? 'LIVE'
+        : slip.status.toUpperCase();
 
     return Container(
       decoration: BoxDecoration(
@@ -928,7 +1001,7 @@ class _SavedSlipCard extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        slip.status.toUpperCase(),
+                        statusLabel,
                         style: TextStyle(
                           color: statusColor,
                           fontSize: 10,
