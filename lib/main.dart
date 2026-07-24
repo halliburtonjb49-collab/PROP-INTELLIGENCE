@@ -214,6 +214,12 @@ SubscriptionTier? requiredTierForPage(AppPage page) => switch (page) {
   _ => null,
 };
 
+@visibleForTesting
+SubscriptionTier displayedTierForBadge({
+  required SubscriptionTier requiredTier,
+  required bool hasEdgeAccess,
+}) => hasEdgeAccess ? SubscriptionTier.edge : requiredTier;
+
 class AppColors {
   static const background = Color(0xFF050A0F);
   static const leftSidebar = Color(0xFF09131D);
@@ -1573,14 +1579,20 @@ class _TierBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isCore = tier == SubscriptionTier.core;
+    final accountHasProAccess =
+        AuthManager.instance.sessionState.value.hasEdgeAccess;
+    final displayedTier = displayedTierForBadge(
+      requiredTier: tier,
+      hasEdgeAccess: accountHasProAccess,
+    );
+    final isCore = displayedTier == SubscriptionTier.core;
     final background = isCore
         ? const Color(0xFFC8CED6)
         : app_colors.AppColors.gold;
     const foreground = Color(0xFF06111B);
 
     return Container(
-      key: ValueKey('tier-badge-${tier.name}'),
+      key: ValueKey('tier-badge-${displayedTier.name}'),
       padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 7, vertical: 3),
       decoration: BoxDecoration(
         color: background,
