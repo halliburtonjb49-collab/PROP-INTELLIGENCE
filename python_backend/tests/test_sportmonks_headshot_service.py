@@ -162,3 +162,26 @@ def test_sportmonks_extended_squad_reads_direct_player_shape(monkeypatch):
     assert sportmonks_headshot_service._fetch_extended_team_photos(239235) == {
         "lionel messi": "https://cdn.example/messi.png"
     }
+
+
+def test_sportmonks_team_ids_fall_back_to_season_teams(monkeypatch):
+    monkeypatch.setattr(
+        sportmonks_headshot_service,
+        "_get_all",
+        lambda _path, **_params: [],
+    )
+    monkeypatch.setattr(
+        sportmonks_headshot_service,
+        "_get",
+        lambda path, **params: {
+            "data": {
+                "id": 25593,
+                "teams": [{"id": 239235}, {"id": 413}],
+            }
+        },
+    )
+
+    assert sportmonks_headshot_service._fetch_team_ids(25593) == [
+        239235,
+        413,
+    ]

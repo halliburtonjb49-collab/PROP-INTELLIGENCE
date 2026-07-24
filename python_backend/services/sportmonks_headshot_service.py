@@ -167,10 +167,24 @@ def _find_target_season_ids() -> dict[str, int]:
 
 
 def _fetch_team_ids(season_id: int) -> list[int]:
-    return [
+    team_ids = [
         team["id"]
         for team in _get_all(f"/teams/seasons/{season_id}")
         if isinstance(team.get("id"), int)
+    ]
+    if team_ids:
+        return team_ids
+
+    # Some competitions (notably MLS) can be present in a subscription while
+    # the teams-by-season collection is empty. The season entity exposes the
+    # same participants through its `teams` include.
+    payload = _get(f"/seasons/{season_id}", include="teams")
+    season = payload.get("data") or {}
+    teams = season.get("teams") if isinstance(season, dict) else []
+    return [
+        team["id"]
+        for team in (teams or [])
+        if isinstance(team, dict) and isinstance(team.get("id"), int)
     ]
 
 
