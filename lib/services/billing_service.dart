@@ -97,8 +97,18 @@ class RevenueCatBillingService {
         return;
       }
 
-      final customerInfo = await Purchases.purchasePackage(package);
-      if (customerInfo.entitlements.all[tier.entitlementId]?.isActive == true) {
+      final purchaseResult = await Purchases.purchase(
+        PurchaseParams.package(
+          package,
+          customerEmail: SupabaseService.client?.auth.currentUser?.email,
+        ),
+      );
+      if (purchaseResult
+              .customerInfo
+              .entitlements
+              .all[tier.entitlementId]
+              ?.isActive ==
+          true) {
         await AuthManager.instance.refreshSessionState();
 
         if (context.mounted && Navigator.of(context).canPop()) {

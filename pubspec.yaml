@@ -46,7 +46,7 @@ dependencies:
   window_manager: ^0.5.2
   cached_network_image: ^3.4.1
   supabase_flutter: ^2.9.1
-  purchases_flutter: ^7.0.0
+  purchases_flutter: ^10.4.3
   audioplayers: ^6.8.1
 
 dev_dependencies:
