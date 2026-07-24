@@ -2996,9 +2996,17 @@ class _MainDashboardState extends State<MainDashboard> {
         ? selectedProps
         : _visibleProps;
     final showingFocusedProp = focusedProp != null;
-    final focusedMetricsAvailable =
+    // Edge requires a real model projection - recommendationEdge/edge default
+    // to exactly 0.0 (not "unknown") when no projection was supplied, so a
+    // near-zero value here genuinely means "no edge data," not "zero edge."
+    final focusedEdgeAvailable =
         focusedProp?.projection != null ||
         (focusedProp?.recommendationEdge ?? 0).abs() > .0001;
+    // Confidence/hit rate is computed independently of edge and is populated
+    // for virtually every prop, so it shouldn't be hidden just because edge
+    // happens to be unavailable - matches the unfocused "HIGHEST HIT RATE"
+    // tile below, which already shows confidence unconditionally.
+    final focusedConfidenceAvailable = (focusedProp?.confidence ?? 0) > 0;
     final metricScope = selectedProps.isNotEmpty
         ? 'Across selected props'
         : 'Across visible props';
@@ -3022,17 +3030,17 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
             (
               'EDGE',
-              focusedMetricsAvailable
+              focusedEdgeAvailable
                   ? '${focusedProp.edge >= 0 ? '+' : ''}${focusedProp.edge.toStringAsFixed(2)}%'
                   : '--',
-              focusedMetricsAvailable
+              focusedEdgeAvailable
                   ? 'Model edge for this prop'
                   : 'Awaiting model projection',
             ),
             (
               'HIT RATE',
-              focusedMetricsAvailable ? '${focusedProp.confidence}%' : '--',
-              focusedMetricsAvailable
+              focusedConfidenceAvailable ? '${focusedProp.confidence}%' : '--',
+              focusedConfidenceAvailable
                   ? 'Current model confidence'
                   : 'Awaiting model projection',
             ),
