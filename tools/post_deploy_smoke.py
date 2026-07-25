@@ -27,26 +27,6 @@ def main() -> int:
         raise RuntimeError(
             "Production ticket storage is not using the persistent disk"
         )
-    prop_feed = health_payload.get("propFeed") or {}
-    if prop_feed.get("lastRequestSucceeded") is not True:
-        raise RuntimeError("The most recent production prop-feed request failed")
-    last_data_updated = prop_feed.get("lastDataUpdatedAt")
-    if not last_data_updated:
-        raise RuntimeError("Production prop-feed freshness is unavailable")
-    last_data_at = datetime.fromisoformat(
-        str(last_data_updated).replace("Z", "+00:00")
-    )
-    if last_data_at.tzinfo is None:
-        last_data_at = last_data_at.replace(tzinfo=timezone.utc)
-    feed_age_minutes = (
-        datetime.now(timezone.utc) - last_data_at
-    ).total_seconds() / 60
-    if feed_age_minutes > MAX_PROP_FEED_AGE_MINUTES:
-        raise RuntimeError(
-            "Production prop feed is stale: "
-            f"{feed_age_minutes:.0f} minutes old"
-        )
-
     app, html, app_ms = request(APP_URL)
     if app.status != 200 or b"flutter_bootstrap.js" not in html:
         raise RuntimeError("Web application shell is unavailable")
@@ -72,6 +52,33 @@ def main() -> int:
         raise RuntimeError(f"Initial prop payload exceeds 300 KB: {len(body)} bytes")
     if props_ms > 5_000:
         raise RuntimeError(f"Initial prop request exceeds 5 seconds: {props_ms:.0f} ms")
+
+    # A freshly deployed API instance starts with empty in-memory feed metrics.
+    # Read health again after the real prop request so the freshness assertion
+    # measures the live request instead of treating a cold start as a failure.
+    feed_health, feed_health_body, _ = request(f"{API_URL}/health")
+    feed_health_payload = json.loads(feed_health_body)
+    if feed_health.status != 200:
+        raise RuntimeError("API health check failed after loading props")
+    prop_feed = feed_health_payload.get("propFeed") or {}
+    if prop_feed.get("lastRequestSucceeded") is not True:
+        raise RuntimeError("The most recent production prop-feed request failed")
+    last_data_updated = prop_feed.get("lastDataUpdatedAt")
+    if not last_data_updated:
+        raise RuntimeError("Production prop-feed freshness is unavailable")
+    last_data_at = datetime.fromisoformat(
+        str(last_data_updated).replace("Z", "+00:00")
+    )
+    if last_data_at.tzinfo is None:
+        last_data_at = last_data_at.replace(tzinfo=timezone.utc)
+    feed_age_minutes = (
+        datetime.now(timezone.utc) - last_data_at
+    ).total_seconds() / 60
+    if feed_age_minutes > MAX_PROP_FEED_AGE_MINUTES:
+        raise RuntimeError(
+            "Production prop feed is stale: "
+            f"{feed_age_minutes:.0f} minutes old"
+        )
 
     bundle, javascript, _ = request(f"{APP_URL}/main.dart.js")
     lowered = javascript.lower()
