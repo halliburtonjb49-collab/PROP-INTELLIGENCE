@@ -13,13 +13,18 @@ class _FakeChatService extends PropChatService {
   String? get currentUserId => 'current-user';
 
   @override
-  Stream<List<PropChatMessage>> watchMessages() => Stream.value(messages);
+  Stream<List<PropChatMessage>> watchMessages({String roomId = 'general'}) =>
+      Stream.value(messages);
 
   @override
   Future<Set<String>> loadBlockedUserIds() async => const {};
 
   @override
-  Future<void> sendMessage(String body) async {
+  Future<void> sendMessage(
+    String body, {
+    String roomId = 'general',
+    int? replyToId,
+  }) async {
     sentBody = body;
   }
 }
@@ -31,12 +36,16 @@ void main() {
       'user_id': 'user-1',
       'username': 'prop_captain',
       'body': 'Good line movement.',
+      'room_id': 'wnba',
+      'author_role': 'admin',
       'created_at': '2026-07-25T12:00:00Z',
       'email': 'private@example.com',
     });
 
     expect(message.username, 'prop_captain');
     expect(message.body, 'Good line movement.');
+    expect(message.roomId, 'wnba');
+    expect(message.isVerified, isTrue);
   });
 
   testWidgets('PROP CHAT renders usernames and sends text', (tester) async {
@@ -59,6 +68,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('PROP CHAT'), findsOneWidget);
+    expect(find.text('GENERAL'), findsOneWidget);
     expect(find.text('@line_watcher'), findsOneWidget);
     expect(find.text('WNBA total just moved.'), findsOneWidget);
 

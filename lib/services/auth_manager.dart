@@ -321,6 +321,23 @@ class AuthManager {
     );
   }
 
+  void setPublicUsername(String username) {
+    final current = sessionState.value;
+    if (!current.authenticated) return;
+    sessionState.value = AuthSessionState(
+      ready: current.ready,
+      authenticated: current.authenticated,
+      isPremium: current.isPremium,
+      subscriptionTier: current.subscriptionTier,
+      accessPreviewTier: current.accessPreviewTier,
+      role: current.role,
+      userId: current.userId,
+      email: current.email,
+      username: username,
+      message: current.message,
+    );
+  }
+
   Future<Map<String, dynamic>> assignUserRole({
     required String email,
     required String role,
