@@ -2,10 +2,12 @@ import json
 import sys
 import time
 import urllib.request
+from datetime import datetime, timezone
 
 
 APP_URL = "https://app.propsintell.com"
 API_URL = "https://api.propsintell.com"
+MAX_PROP_FEED_AGE_MINUTES = 45
 
 
 def request(url: str, *, method: str = "GET", headers: dict[str, str] | None = None):
@@ -24,6 +26,25 @@ def main() -> int:
     if health_payload.get("ticket_storage_mode") != "persistent-disk":
         raise RuntimeError(
             "Production ticket storage is not using the persistent disk"
+        )
+    prop_feed = health_payload.get("propFeed") or {}
+    if prop_feed.get("lastRequestSucceeded") is not True:
+        raise RuntimeError("The most recent production prop-feed request failed")
+    last_data_updated = prop_feed.get("lastDataUpdatedAt")
+    if not last_data_updated:
+        raise RuntimeError("Production prop-feed freshness is unavailable")
+    last_data_at = datetime.fromisoformat(
+        str(last_data_updated).replace("Z", "+00:00")
+    )
+    if last_data_at.tzinfo is None:
+        last_data_at = last_data_at.replace(tzinfo=timezone.utc)
+    feed_age_minutes = (
+        datetime.now(timezone.utc) - last_data_at
+    ).total_seconds() / 60
+    if feed_age_minutes > MAX_PROP_FEED_AGE_MINUTES:
+        raise RuntimeError(
+            "Production prop feed is stale: "
+            f"{feed_age_minutes:.0f} minutes old"
         )
 
     app, html, app_ms = request(APP_URL)
@@ -68,6 +89,7 @@ def main() -> int:
                 "propsMs": round(props_ms),
                 "payloadBytes": len(body),
                 "props": len(payload["props"]),
+                "feedAgeMinutes": round(feed_age_minutes),
                 "version": props.headers.get("X-App-Version", "unknown"),
             }
         )

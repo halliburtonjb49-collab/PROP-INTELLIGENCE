@@ -8,6 +8,11 @@ import 'supabase_service.dart';
 const Set<String> _ownerEmails = {'halliburtonjb49@gmail.com'};
 
 @visibleForTesting
+bool isPasswordRecoveryUri(Uri uri) =>
+    uri.queryParameters['auth_action'] == 'recovery' ||
+    uri.fragment.split('&').contains('type=recovery');
+
+@visibleForTesting
 String resolveAccountRole({required String? email, required Object? role}) {
   final normalizedEmail = email?.trim().toLowerCase() ?? '';
   if (_ownerEmails.contains(normalizedEmail)) {
@@ -171,6 +176,11 @@ class AuthManager {
       return;
     }
 
+    if (kIsWeb &&
+        client.auth.currentSession != null &&
+        isPasswordRecoveryUri(Uri.base)) {
+      passwordRecoveryRequested.value = true;
+    }
     unawaited(_setSession(client.auth.currentSession));
 
     _authSubscription ??= client.auth.onAuthStateChange.listen((event) {

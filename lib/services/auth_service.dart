@@ -110,6 +110,16 @@ class SportsAppAuthService {
     return value.isEmpty ? null : value;
   }
 
+  String? get _passwordResetRedirectUrl {
+    final redirect = _redirectUrlOrNull;
+    if (!kIsWeb || redirect == null) {
+      return redirect;
+    }
+    return Uri.parse(
+      redirect,
+    ).replace(queryParameters: const {'auth_action': 'recovery'}).toString();
+  }
+
   /// Registers a brand new user record and returns a structured result.
   Future<AuthActionResult> createNewUserAccount(
     String email,
@@ -210,7 +220,7 @@ class SportsAppAuthService {
     try {
       await client.auth.resetPasswordForEmail(
         trimmedEmail,
-        redirectTo: _redirectUrlOrNull,
+        redirectTo: _passwordResetRedirectUrl,
       );
       return const AuthActionResult(
         success: true,
