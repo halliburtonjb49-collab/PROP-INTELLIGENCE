@@ -125,6 +125,7 @@ class CorporateLoginScreen extends StatefulWidget {
 class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _authService = SportsAppAuthService();
   bool _isLoading = false;
   bool _isRegistering = false;
@@ -138,6 +139,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
     _resendCooldownTimer?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -165,6 +167,16 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
     final password = _passwordController.text;
     if (email.isEmpty || password.isEmpty) {
       _showFeedbackMessage('Enter your email address and password.');
+      return;
+    }
+    if (_isRegistering && password.length < 8) {
+      _showFeedbackMessage(
+        'Create an app password with at least 8 characters.',
+      );
+      return;
+    }
+    if (_isRegistering && password != _confirmPasswordController.text) {
+      _showFeedbackMessage('The app passwords do not match.');
       return;
     }
 
@@ -890,7 +902,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              _isRegistering ? 'CREATE YOUR ACCOUNT' : 'WELCOME BACK',
+              _isRegistering ? 'CREATE YOUR LOGIN' : 'WELCOME BACK',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: _gold,
@@ -902,8 +914,9 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             const SizedBox(height: 6),
             Text(
               _isRegistering
-                  ? 'Join PROP INTELLIGENCE and find your edge'
-                  : 'Log in to access your dashboard',
+                  ? 'Step 1 of 3 · Create your PROP INTELLIGENCE login'
+                  : 'Returning member? Log in to access your dashboard',
+              textAlign: TextAlign.center,
               style: TextStyle(color: _mutedText, fontSize: dense ? 15 : 16),
             ),
             const SizedBox(height: 12),
@@ -936,7 +949,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             ),
             const SizedBox(height: 14),
             _FieldLabel(
-              label: 'Password',
+              label: _isRegistering ? 'Create App Password' : 'Password',
               child: TextField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
@@ -948,7 +961,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 style: TextStyle(color: _silver, fontSize: dense ? 14 : 16),
                 decoration: _fieldDecoration(
                   hint: _isRegistering
-                      ? 'Create a secure password'
+                      ? 'Use at least 8 characters'
                       : 'Enter your password',
                   prefixIcon: Icons.lock_outline_rounded,
                   suffixIcon: IconButton(
@@ -968,6 +981,32 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 ),
               ),
             ),
+            if (_isRegistering) ...[
+              const SizedBox(height: 8),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'This is your PROP INTELLIGENCE password—not your Gmail password.',
+                  style: TextStyle(color: _silver54, fontSize: 11),
+                ),
+              ),
+              const SizedBox(height: 14),
+              _FieldLabel(
+                label: 'Confirm App Password',
+                child: TextField(
+                  controller: _confirmPasswordController,
+                  obscureText: _obscurePassword,
+                  onSubmitted: (_) => _handleAuthentication(),
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const [AutofillHints.newPassword],
+                  style: TextStyle(color: _silver, fontSize: dense ? 14 : 16),
+                  decoration: _fieldDecoration(
+                    hint: 'Enter the same app password again',
+                    prefixIcon: Icons.lock_reset_rounded,
+                  ),
+                ),
+              ),
+            ],
             if (!_isRegistering)
               Align(
                 alignment: Alignment.centerRight,
@@ -1010,7 +1049,9 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                         ),
                       )
                     : Text(
-                        _isRegistering ? 'CREATE ACCOUNT' : 'LOGIN',
+                        _isRegistering
+                            ? 'CONTINUE TO EMAIL VERIFICATION'
+                            : 'LOGIN',
                         style: const TextStyle(
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.7,
@@ -1018,6 +1059,14 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                       ),
               ),
             ),
+            if (_isRegistering) ...[
+              const SizedBox(height: 10),
+              const Text(
+                'Next: verify your email, then choose Core or Pro. You will not be charged on this screen.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: _silver54, fontSize: 11, height: 1.35),
+              ),
+            ],
             const SizedBox(height: 14),
             const _OrDivider(),
             const SizedBox(height: 13),
@@ -1076,7 +1125,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 child: Text(
                   _resendCooldownSeconds > 0
                       ? 'Resend verification in $_resendCooldownSeconds s'
-                      : 'Resend verification email',
+                      : 'Already created your login? Resend verification email',
                   style: const TextStyle(color: _silver54, fontSize: 11),
                 ),
               ),
