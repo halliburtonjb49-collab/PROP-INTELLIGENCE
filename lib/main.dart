@@ -6871,22 +6871,15 @@ class _PropGridState extends State<PropGrid> {
 
   Widget _buildPortraitPropCard(PropData prop, PickSide? selectedSide) {
     final hasProAccess = AuthManager.instance.sessionState.value.hasEdgeAccess;
-    final normalizedModelSide = prop.recommendedSide.trim().toUpperCase();
+    final suggestedSide = prop.proSuggestedSide;
     final hasModelRecommendation =
-        hasProAccess &&
-        prop.recommendationAvailable &&
-        (normalizedModelSide == 'OVER' || normalizedModelSide == 'UNDER');
-    final marketLean = prop.marketLeanSide;
+        hasProAccess && prop.proSuggestionUsesModel && suggestedSide != null;
     final hasMarketLean =
-        hasProAccess &&
-        !hasModelRecommendation &&
-        (marketLean == 'OVER' || marketLean == 'UNDER');
+        hasProAccess && !hasModelRecommendation && suggestedSide != null;
     final hasSuggestion = hasModelRecommendation || hasMarketLean;
     final PickSide? advisedSide = !hasSuggestion
         ? null
-        : (hasModelRecommendation
-              ? normalizedModelSide == 'UNDER'
-              : marketLean == 'UNDER')
+        : suggestedSide == 'UNDER'
         ? PickSide.under
         : PickSide.over;
     final market = _marketCategory(prop);
@@ -6925,9 +6918,12 @@ class _PropGridState extends State<PropGrid> {
               borderRadius: BorderRadius.circular(18),
             ),
           ),
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              advised ? '$label  •  SYSTEM PICK' : label,
+              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
+            ),
           ),
         ),
       );
@@ -6987,11 +6983,11 @@ class _PropGridState extends State<PropGrid> {
             ),
             child: Text(
               hasModelRecommendation
-                  ? '★ BEST PICK: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
+                  ? '★ SYSTEM PICK: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
                   : hasMarketLean
-                  ? 'MARKET LEAN: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
+                  ? 'SYSTEM PICK: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
                   : hasProAccess
-                  ? 'MODEL SIGNAL UNAVAILABLE'
+                  ? 'SYSTEM PICK PENDING'
                   : 'PRO MODEL SIGNAL',
               style: const TextStyle(
                 color: AppColors.gold,
@@ -7003,9 +6999,9 @@ class _PropGridState extends State<PropGrid> {
           const SizedBox(height: 8),
           Text(
             hasModelRecommendation
-                ? 'EDGE • Model leans $confidence%'
+                ? 'Verified model projection • $confidence% confidence'
                 : hasMarketLean
-                ? 'Current pricing leans ${prop.marketLeanPercentage ?? 50}% • not an AI projection'
+                ? 'Based on current market pricing (${prop.marketLeanPercentage ?? 50}%) • not an AI projection'
                 : !hasProAccess
                 ? 'Upgrade to Pro for projections and edge metrics'
                 : prop.recommendationUnavailableReason ==

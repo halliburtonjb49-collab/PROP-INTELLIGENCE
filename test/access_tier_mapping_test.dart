@@ -92,6 +92,36 @@ void main() {
     expect(overLean.marketLeanSide, 'OVER');
     expect(overLean.marketLeanPercentage, greaterThan(50));
     expect(overLean.recommendationAvailable, isFalse);
+    expect(overLean.proSuggestedSide, 'OVER');
+    expect(overLean.proSuggestionUsesModel, isFalse);
     expect(even.marketLeanSide, 'EVEN');
+    expect(even.proSuggestedSide, isNull);
+  });
+
+  test('Pro suggestion prioritizes a verified model direction', () {
+    const prop = PropData(
+      id: 'model',
+      eventId: '',
+      apiSportsGameId: '',
+      playerId: 'player',
+      player: 'Player',
+      sport: 'NBA',
+      matchup: '',
+      sportsbook: 'Book',
+      market: 'Points',
+      line: 20.5,
+      pick: 'UNDER',
+      edge: 2.5,
+      imagePath: '',
+      projection: 18,
+      recommendedSide: 'UNDER',
+      recommendationAvailable: true,
+      overOdds: -130,
+      underOdds: 110,
+    );
+
+    expect(prop.marketLeanSide, 'OVER');
+    expect(prop.proSuggestedSide, 'UNDER');
+    expect(prop.proSuggestionUsesModel, isTrue);
   });
 }
