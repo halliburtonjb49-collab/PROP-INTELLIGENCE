@@ -215,8 +215,7 @@ SubscriptionTier? requiredTierForPage(AppPage page) => switch (page) {
   AppPage.strikeoutProGold ||
   AppPage.evScanner ||
   AppPage.propAlerts ||
-  AppPage.intelligenceLab ||
-  AppPage.propChat => SubscriptionTier.edge,
+  AppPage.intelligenceLab => SubscriptionTier.edge,
   _ => null,
 };
 
@@ -1377,20 +1376,6 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     leadingIcons: const [Icons.auto_graph],
                     leadingIconColors: const [Color(0xFF36B9FF)],
                     onTap: () => widget.onSelectPage?.call(AppPage.evScanner),
-                  ),
-                  const SizedBox(height: 6),
-                  ValueListenableBuilder<int>(
-                    valueListenable: PropChatService.unreadCount,
-                    builder: (context, unread, _) => SidebarButton(
-                      label: 'PROP CHAT',
-                      badge: unread > 0 ? '$unread' : null,
-                      selected: widget.selectedPage == AppPage.propChat,
-                      requiredTier: SubscriptionTier.edge,
-                      showGoldBar: true,
-                      leadingIcons: const [Icons.forum_rounded],
-                      leadingIconColors: const [AppColors.gold],
-                      onTap: () => widget.onSelectPage?.call(AppPage.propChat),
-                    ),
                   ),
                   const SizedBox(height: 18),
                   const _SidebarSectionLabel('SPORTS'),
@@ -3088,25 +3073,13 @@ class _MainDashboardState extends State<MainDashboard> {
                 }
                 if (index == 2) {
                   return Tooltip(
-                    message:
-                        'Active Slip is your draft on the right. Build the ticket to move it into Slip Watcher.',
+                    message: 'Open PROP CHAT and join the community.',
                     child: OutlinedButton.icon(
-                      key: const ValueKey('board-active-slip-button'),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            behavior: SnackBarBehavior.floating,
-                            duration: Duration(seconds: 3),
-                            content: Text(
-                              'ACTIVE SLIP is your draft on the right. Build the ticket to move it into SLIP WATCHER for live tracking.',
-                            ),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.edit_note_rounded, size: 17),
-                      label: Text(
-                        'ACTIVE SLIP DRAFT  ${widget.selections.length}',
-                      ),
+                      key: const ValueKey('board-prop-chat-button'),
+                      onPressed: () =>
+                          widget.onSelectPage?.call(AppPage.propChat),
+                      icon: const Icon(Icons.forum_rounded, size: 17),
+                      label: const Text('PROP CHAT'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.gold,
                         backgroundColor: AppColors.gold.withValues(alpha: .08),
@@ -5367,6 +5340,15 @@ class TopNavigation extends StatelessWidget {
                       label: 'SCOREBOARD',
                       page: AppPage.scoreboard,
                       icon: Icons.sports_score_rounded,
+                    ),
+                    const SizedBox(width: 4),
+                    ValueListenableBuilder<int>(
+                      valueListenable: PropChatService.unreadCount,
+                      builder: (context, unread, _) => _buildNavItem(
+                        label: unread > 0 ? 'PROP CHAT ($unread)' : 'PROP CHAT',
+                        page: AppPage.propChat,
+                        icon: Icons.forum_rounded,
+                      ),
                     ),
                     const SizedBox(width: 4),
                     _buildNavItem(

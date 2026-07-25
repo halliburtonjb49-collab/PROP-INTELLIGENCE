@@ -46,6 +46,7 @@ class ApiService {
   );
   static String? _resolvedBaseUrl;
   static Future<String?>? _sessionRefresh;
+  static final Map<String, Future<http.Response>> _inFlightPropsPages = {};
   static List<PropData> _lastSuccessfulProps = const [];
   static int _lastFacetCount = 0;
   static Map<String, int> _lastCategoryCounts = const {};
@@ -366,6 +367,18 @@ class ApiService {
   }
 
   Future<http.Response> _getPropsPage(Uri uri) async {
+    final requestKey = uri.toString();
+    final request = _inFlightPropsPages[requestKey] ??= _downloadPropsPage(uri);
+    try {
+      return await request;
+    } finally {
+      if (identical(_inFlightPropsPages[requestKey], request)) {
+        _inFlightPropsPages.remove(requestKey);
+      }
+    }
+  }
+
+  Future<http.Response> _downloadPropsPage(Uri uri) async {
     Object? lastError;
     for (var attempt = 1; attempt <= 3; attempt++) {
       try {

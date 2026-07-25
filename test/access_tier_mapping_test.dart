@@ -36,7 +36,6 @@ void main() {
       AppPage.evScanner,
       AppPage.strikeoutProGold,
       AppPage.intelligenceLab,
-      AppPage.propChat,
     ]) {
       expect(
         requiredTierForPage(page),
@@ -50,5 +49,6 @@ void main() {
     expect(requiredTierForPage(AppPage.board), isNull);
     expect(requiredTierForPage(AppPage.scoreboard), isNull);
     expect(requiredTierForPage(AppPage.searchPlayers), isNull);
+    expect(requiredTierForPage(AppPage.propChat), isNull);
   });
 }
