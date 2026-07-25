@@ -1493,6 +1493,7 @@ def props(
 	minConfidence: int = Query(default=0),
 	sortBy: str = Query(default="confidence"),
 	includePastDates: bool = Query(default=False),
+	includeStarted: bool = Query(default=False),
 	limit: int = Query(default=1500, ge=1, le=5000),
 	offset: int = Query(default=0, ge=0),
 	if_none_match: str | None = Header(default=None, alias="If-None-Match"),
@@ -1509,6 +1510,7 @@ def props(
 		min_confidence = max(0, int(minConfidence))
 		sort_by = sortBy.strip().lower()
 		today_local = datetime.now(_scoreboard_timezone()).date()
+		now_utc = datetime.now(timezone.utc)
 
 		def _matches_filters(
 			prop: PropResponse,
@@ -1525,6 +1527,8 @@ def props(
 				).date()
 				if event_date < today_local:
 					return False
+			if not includeStarted and start_time is not None and start_time <= now_utc:
+				return False
 			recommended_side = str(
 				row.get("recommendedSide") or ""
 			).strip().lower()
@@ -1615,6 +1619,30 @@ def props(
 
 		total_count = len(filtered_props)
 		page = filtered_props[offset:offset + limit]
+		model_pick_count = sum(
+			1
+			for prop in filtered_props
+			if bool(getattr(prop, "recommendationAvailable", False))
+			and str(getattr(prop, "recommendedSide", "") or "").strip().upper()
+			in {"OVER", "UNDER"}
+		)
+
+		def _has_market_direction(prop: PropResponse) -> bool:
+			over = getattr(prop, "noVigOverProbability", None)
+			under = getattr(prop, "noVigUnderProbability", None)
+			return (
+				over is not None
+				and under is not None
+				and abs(float(over) - float(under)) >= 0.005
+			)
+
+		market_pick_count = sum(
+			1
+			for prop in filtered_props
+			if not bool(getattr(prop, "recommendationAvailable", False))
+			and _has_market_direction(prop)
+		)
+		system_pick_count = model_pick_count + market_pick_count
 		payload = {
 			"count": total_count,
 			"facetCount": len(facet_props),
@@ -1623,6 +1651,13 @@ def props(
 			"offset": offset,
 			"limit": limit,
 			"hasMore": offset + len(page) < total_count,
+			"recommendationCoverage": {
+				"modelPicks": model_pick_count,
+				"marketPicks": market_pick_count,
+				"systemPicks": system_pick_count,
+				"pending": max(0, total_count - system_pick_count),
+				"total": total_count,
+			},
 			"props": [
 				prop.model_dump()
 				for prop in page
@@ -1637,12 +1672,14 @@ def props(
 				"minConfidence": min_confidence,
 				"sortBy": sort_by,
 				"includePastDates": includePastDates,
+				"includeStarted": includeStarted,
 			},
 			"version": APP_VERSION,
 		}
 		etag_source = (
 			f"{APP_VERSION}|{side}|{tier}|{sportsbook}|{sport}|{category}|"
 			f"{search}|{min_confidence}|{sort_by}|{includePastDates}|"
+			f"{includeStarted}|"
 			f"{limit}|{offset}|{total_count}|"
 			f"{max((prop.lastUpdatedUtc for prop in page), default='')}"
 		)

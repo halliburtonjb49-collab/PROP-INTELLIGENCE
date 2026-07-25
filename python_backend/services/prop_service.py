@@ -26,6 +26,8 @@ from services.player_availability_service import (
 	adjust_confidence_for_availability,
 )
 from services.prop_context_service import enrich_props
+from services.mlb_headshot_service import mlb_player_id
+from services.espn_headshot_service import espn_player_id
 
 cache = PropCache(DB_PATH)
 
@@ -182,10 +184,25 @@ def get_props() -> list[PropResponse]:
 				"model_projection",
 			)
 		source_player_id = str(row["source_player_id"] or "")
+		identity_provider = "odds-api"
+		if not source_player_id and str(row["sport"]).lower() == "baseball_mlb":
+			official_mlb_id = mlb_player_id(player)
+			if official_mlb_id is not None:
+				source_player_id = str(official_mlb_id)
+				identity_provider = "mlb"
+		if not source_player_id:
+			official_espn_id = espn_player_id(
+				player,
+				format_sport_label(str(row["sport"])),
+			)
+			if official_espn_id:
+				source_player_id = official_espn_id
+				identity_provider = "espn"
 		identity = resolve_player_identity(
-			source_provider="odds-api",
+			source_provider=identity_provider,
 			source_player_id=source_player_id,
 			player_name=player,
+			identity_scope=str(row["sport"] or ""),
 		)
 		canonical_player_id = str(identity.get("canonical_player_id") or "")
 		if not canonical_player_id:

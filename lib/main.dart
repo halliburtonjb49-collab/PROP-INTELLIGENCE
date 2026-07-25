@@ -3322,39 +3322,54 @@ class _MainDashboardState extends State<MainDashboard> {
 
   Widget _buildBoardIntelligence() {
     if (!AuthManager.instance.sessionState.value.hasEdgeAccess) {
-      return Container(
-        height: 58,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: const Color(0xFF07131D),
-          borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: const Color(0xFFC8CED6)),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.view_list_outlined,
-              color: Color(0xFFC8CED6),
-              size: 18,
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 600;
+          return Container(
+            height: 58,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF07131D),
+              borderRadius: BorderRadius.circular(9),
+              border: Border.all(color: const Color(0xFFC8CED6)),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'CORE MARKET BOARD • ${_visibleProps.length} AVAILABLE PROPS',
-                style: const TextStyle(
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.view_list_outlined,
                   color: Color(0xFFC8CED6),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: .4,
+                  size: 18,
                 ),
-              ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'CORE MARKET BOARD • ${_visibleProps.length} AVAILABLE PROPS',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFFC8CED6),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .4,
+                    ),
+                  ),
+                ),
+                if (!compact) ...[
+                  const SizedBox(width: 12),
+                  const Flexible(
+                    child: Text(
+                      'PRO unlocks projections, confidence and edge ranking',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: TextStyle(color: AppColors.muted, fontSize: 8),
+                    ),
+                  ),
+                ],
+              ],
             ),
-            const Text(
-              'PRO unlocks projections, confidence and edge ranking',
-              style: TextStyle(color: AppColors.muted, fontSize: 8),
-            ),
-          ],
-        ),
+          );
+        },
       );
     }
     final focusedProp = _focusedProp;

@@ -96,6 +96,54 @@ def test_category_facets_are_not_reduced_by_selected_category(monkeypatch) -> No
     assert payload["categoryCounts"] == {"HITS": 1, "STRIKEOUTS": 1}
 
 
+def test_started_props_are_hidden_from_the_actionable_feed(monkeypatch) -> None:
+    started = FakeProp("started", "One", "MLB", "FANDUEL", "HITS")
+    started.startTimeUtc = "2020-07-20T20:00:00Z"
+    upcoming = FakeProp("upcoming", "Two", "MLB", "FANDUEL", "HITS")
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [started, upcoming])
+    client = TestClient(main.app)
+
+    payload = client.get("/api/props").json()
+    assert [row["id"] for row in payload["props"]] == ["upcoming"]
+
+    historical = client.get(
+        "/api/props",
+        params={"includePastDates": True, "includeStarted": True},
+    ).json()
+    assert {row["id"] for row in historical["props"]} == {"started", "upcoming"}
+
+
+def test_prop_feed_reports_recommendation_coverage(monkeypatch) -> None:
+    model = FakeProp("model", "One", "MLB", "FANDUEL", "HITS")
+    model.recommendationAvailable = True
+    model.noVigOverProbability = 0.55
+    model.noVigUnderProbability = 0.45
+    market = FakeProp("market", "Two", "MLB", "FANDUEL", "HITS")
+    market.recommendationAvailable = False
+    market.noVigOverProbability = 0.54
+    market.noVigUnderProbability = 0.46
+    pending = FakeProp("pending", "Three", "MLB", "FANDUEL", "HITS")
+    pending.recommendationAvailable = False
+    pending.noVigOverProbability = 0.5
+    pending.noVigUnderProbability = 0.5
+    monkeypatch.setattr(
+        main,
+        "_cached_prop_catalog",
+        lambda: [model, market, pending],
+    )
+
+    coverage = TestClient(main.app).get("/api/props").json()[
+        "recommendationCoverage"
+    ]
+    assert coverage == {
+        "modelPicks": 1,
+        "marketPicks": 1,
+        "systemPicks": 2,
+        "pending": 1,
+        "total": 3,
+    }
+
+
 def test_prop_page_honors_etag(monkeypatch) -> None:
     monkeypatch.setattr(
         main,
