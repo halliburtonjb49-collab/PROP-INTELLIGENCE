@@ -179,6 +179,31 @@ class HistoricalRepository:
         return len(rows)
 
 
+def run_mlb_historical_backfill(
+    *,
+    end_date: date | None = None,
+    days: int = 21,
+) -> dict[str, object]:
+    """Backfill a rolling MLB window so missed cron days heal automatically."""
+    end = end_date or (datetime.now(timezone.utc).date() - timedelta(days=1))
+    start = end - timedelta(days=max(1, days) - 1)
+    repository = HistoricalRepository()
+    provider = MlbHistoricalProvider()
+    pitches = normalize_statcast(provider.statcast(start=start, end=end))
+    upserted = repository.upsert_mlb_pitches(pitches)
+    assignments = provider.umpire_assignments(start=start, end=end)
+    assignments_upserted = repository.upsert_mlb_umpire_assignments(assignments)
+    profiles = calculate_mlb_umpire_profiles(repository.load_mlb_umpire_pitches())
+    return {
+        "startDate": start.isoformat(),
+        "endDate": end.isoformat(),
+        "fetched": len(pitches),
+        "upserted": upserted,
+        "umpireAssignmentsUpserted": assignments_upserted,
+        "officiatingProfilesUpserted": persist_officiating_profiles(profiles),
+    }
+
+
 def run_daily_historical_sync(target_date: date | None = None, season: str | None = None) -> dict[str, object]:
     target = target_date or (datetime.now(timezone.utc).date() - timedelta(days=1))
     nba_start_year = target.year if target.month >= 7 else target.year - 1

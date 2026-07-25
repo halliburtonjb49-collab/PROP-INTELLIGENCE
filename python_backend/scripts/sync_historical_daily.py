@@ -7,7 +7,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from services.historical_ingestion_service import backfill_basketball_officiating, run_daily_historical_sync
+from services.historical_ingestion_service import (
+    backfill_basketball_officiating,
+    run_daily_historical_sync,
+    run_mlb_historical_backfill,
+)
 from services.prediction_automation_service import grade_completed_predictions
 from services.schedule_fatigue_service import sync_schedule_and_fatigue
 
@@ -25,6 +29,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Sync free NBA/WNBA/MLB historical data.")
     parser.add_argument("--date", type=date.fromisoformat, help="UTC date in YYYY-MM-DD format")
     parser.add_argument("--season", help="NBA season such as 2025-26")
+    parser.add_argument(
+        "--mlb-backfill-days",
+        type=int,
+        default=max(1, int(os.getenv("HISTORICAL_MLB_LOOKBACK_DAYS", "21"))),
+        help="Rolling MLB Statcast window used to heal missed daily runs.",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
     result = _run_stage(
@@ -34,6 +44,13 @@ def main() -> int:
     if not isinstance(result, dict):
         result = {"historicalSync": {"error": "Historical sync returned an invalid result"}}
     target = args.date or date.today()
+    result["mlbBackfill"] = _run_stage(
+        "mlbBackfill",
+        lambda: run_mlb_historical_backfill(
+            end_date=args.date,
+            days=args.mlb_backfill_days,
+        ),
+    )
     nba_start = target.year if target.month >= 7 else target.year - 1
     result["scheduleFatigue"] = _run_stage(
         "scheduleFatigue",

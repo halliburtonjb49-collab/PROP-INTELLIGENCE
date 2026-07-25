@@ -1,4 +1,9 @@
-from services.historical_ingestion_service import build_official_assignments, normalize_basketball_logs, normalize_statcast
+from services.historical_ingestion_service import (
+    build_official_assignments,
+    normalize_basketball_logs,
+    normalize_statcast,
+    run_mlb_historical_backfill,
+)
 from providers.historical_data import MlbHistoricalProvider
 
 
@@ -53,3 +58,49 @@ def test_mlb_provider_extracts_home_plate_assignment(monkeypatch) -> None:
     assert rows == [{"game_pk": "1", "game_date": "2026-07-17", "official_id": "9",
                      "official_name": "Pat Ump", "source": "MLB Stats API",
                      "raw": {"officialType": "Home Plate", "official": {"id": 9, "fullName": "Pat Ump"}}}]
+
+
+def test_mlb_backfill_uses_a_rolling_window(monkeypatch) -> None:
+    calls = {}
+
+    class Provider:
+        def statcast(self, *, start, end):
+            calls["range"] = (start, end)
+            return []
+
+        def umpire_assignments(self, *, start, end):
+            return []
+
+    class Repository:
+        def upsert_mlb_pitches(self, rows):
+            return len(rows)
+
+        def upsert_mlb_umpire_assignments(self, rows):
+            return len(rows)
+
+        def load_mlb_umpire_pitches(self):
+            return []
+
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.MlbHistoricalProvider",
+        Provider,
+    )
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.HistoricalRepository",
+        Repository,
+    )
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.persist_officiating_profiles",
+        lambda rows: len(rows),
+    )
+    result = run_mlb_historical_backfill(
+        end_date=__import__("datetime").date(2026, 7, 24),
+        days=21,
+    )
+
+    assert calls["range"] == (
+        __import__("datetime").date(2026, 7, 4),
+        __import__("datetime").date(2026, 7, 24),
+    )
+    assert result["startDate"] == "2026-07-04"
+    assert result["endDate"] == "2026-07-24"

@@ -85,6 +85,8 @@ services:
         value: 84a76503-f704-46b6-be87-760ea8c9f2f5
       - key: PIPELINE_ALERT_WEBHOOK_URL
         sync: false
+      - key: HISTORICAL_MLB_LOOKBACK_DAYS
+        value: 21
     disk:
       name: prop-intelligence-ticket-data
       mountPath: /var/data
