@@ -25,6 +25,13 @@ class PropData {
   final String injuryStatus;
   final String lineupStatus;
   final double? projection;
+  final String projectionSource;
+  final String projectionModelVersion;
+  final int projectionSampleSize;
+  final double? projectionVolatility;
+  final bool projectionCalibrated;
+  final String projectionLabel;
+  final int? historicalHitRate;
   final String recommendedSide;
   final int confidence;
   final double recommendationEdge;
@@ -78,6 +85,13 @@ class PropData {
     this.injuryStatus = 'unknown',
     this.lineupStatus = 'unknown',
     this.projection,
+    this.projectionSource = '',
+    this.projectionModelVersion = '',
+    this.projectionSampleSize = 0,
+    this.projectionVolatility,
+    this.projectionCalibrated = false,
+    this.projectionLabel = '',
+    this.historicalHitRate,
     this.recommendedSide = 'N/A',
     this.confidence = 0,
     this.recommendationEdge = 0,
@@ -232,6 +246,31 @@ class PropData {
           json['lineup_status']?.toString() ??
           'unknown',
       projection: _safeDoubleOrNull(json['projection']),
+      projectionSource:
+          json['projectionSource']?.toString() ??
+          json['projection_source']?.toString() ??
+          '',
+      projectionModelVersion:
+          json['projectionModelVersion']?.toString() ??
+          json['projection_model_version']?.toString() ??
+          '',
+      projectionSampleSize:
+          (json['projectionSampleSize'] as num?)?.toInt() ??
+          int.tryParse('${json['projection_sample_size']}') ??
+          0,
+      projectionVolatility: _safeDoubleOrNull(
+        json['projectionVolatility'] ?? json['projection_volatility'],
+      ),
+      projectionCalibrated:
+          json['projectionCalibrated'] == true ||
+          json['projection_calibrated'] == true,
+      projectionLabel:
+          json['projectionLabel']?.toString() ??
+          json['projection_label']?.toString() ??
+          '',
+      historicalHitRate:
+          (json['historicalHitRate'] as num?)?.toInt() ??
+          int.tryParse('${json['historical_hit_rate']}'),
       recommendedSide:
           json['recommendedSide']?.toString() ??
           json['recommended_side']?.toString() ??

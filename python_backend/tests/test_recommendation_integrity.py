@@ -46,6 +46,19 @@ def test_verified_projection_and_identity_produce_recommendation() -> None:
     assert result["edge"] == 2.7
 
 
+def test_baseline_strength_override_is_not_invented_from_raw_stat_edge() -> None:
+    result = build_verified_prop_recommendation(
+        projection=27.2,
+        line=24.5,
+        canonical_player_id="odds-api:123",
+        identity_confidence=0.82,
+        confidence_override=61,
+    )
+    assert result["recommendationAvailable"] is True
+    assert result["confidence"] == 61
+    assert result["tier"] == "Strong"
+
+
 def test_odds_fallback_is_not_exposed_as_model_confidence() -> None:
     result = build_prop_recommendation_with_fallback(
         projection=None,

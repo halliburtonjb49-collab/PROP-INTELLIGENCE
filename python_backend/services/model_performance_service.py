@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from database.postgres import database_is_configured, get_database_pool
 from services.pipeline_run_service import recent_pipeline_runs
+from services.baseline_projection_service import MODEL_VERSION
 
 
 def _segment(row: tuple[object, ...]) -> dict[str, object]:
@@ -14,7 +15,7 @@ def _segment(row: tuple[object, ...]) -> dict[str, object]:
             "sport": sport, "market": market, "confidenceTier": confidence}
 
 
-def model_performance(model_version: str = "intelligence-v1") -> dict[str, object]:
+def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
     if not database_is_configured():
         return {"modelVersion": model_version, "sampleSize": 0, "segments": []}
     base = """from prediction_snapshots where model_version=%s and hit is not null

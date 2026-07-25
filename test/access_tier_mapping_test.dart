@@ -145,6 +145,38 @@ void main() {
     expect(prop.proSuggestionUsesModel, isTrue);
   });
 
+  test('baseline projection metadata remains visible to the client', () {
+    final prop = PropData.fromJson({
+      'id': 'baseline',
+      'eventId': 'event',
+      'apiSportsGameId': '',
+      'playerId': 'player',
+      'player': 'Player',
+      'sport': 'NBA',
+      'matchup': 'A @ B',
+      'sportsbook': 'Book',
+      'market': 'Points',
+      'line': 20.5,
+      'pick': 'OVER',
+      'edge': 1.4,
+      'imagePath': '',
+      'projection': 21.9,
+      'projectionSource': 'historical-game-logs',
+      'projectionModelVersion': 'baseline-v1',
+      'projectionSampleSize': 15,
+      'projectionVolatility': 4.2,
+      'projectionCalibrated': false,
+      'projectionLabel': 'Baseline historical model',
+      'historicalHitRate': 67,
+    });
+
+    expect(prop.projectionModelVersion, 'baseline-v1');
+    expect(prop.projectionSampleSize, 15);
+    expect(prop.projectionVolatility, 4.2);
+    expect(prop.projectionCalibrated, isFalse);
+    expect(prop.historicalHitRate, 67);
+  });
+
   test('board intelligence follows active selections before card focus', () {
     const focused = PropData(
       id: 'focused',

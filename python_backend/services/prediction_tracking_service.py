@@ -6,6 +6,7 @@ from uuid import UUID
 
 from database.postgres import database_is_configured, get_database_pool
 from models.intelligence import HistoricalFeatureRequest, PredictionSnapshotRequest
+from services.baseline_projection_service import MODEL_VERSION
 
 
 def historical_features(request: HistoricalFeatureRequest) -> dict[str, object]:
@@ -58,7 +59,7 @@ def grade_prediction(identifier: UUID, actual_value: float) -> dict[str, object]
             "brierScore": round((float(probability) - int(hit)) ** 2, 6)}
 
 
-def calibration_summary(model_version: str = "intelligence-v1") -> dict[str, object]:
+def calibration_summary(model_version: str = MODEL_VERSION) -> dict[str, object]:
     if not database_is_configured():
         return {"sampleSize": 0, "brierScore": None, "buckets": [],
                 "reason": "DATABASE_URL is not configured"}

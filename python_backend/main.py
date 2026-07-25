@@ -1626,6 +1626,20 @@ def props(
 			and str(getattr(prop, "recommendedSide", "") or "").strip().upper()
 			in {"OVER", "UNDER"}
 		)
+		baseline_pick_count = sum(
+			1
+			for prop in filtered_props
+			if bool(getattr(prop, "recommendationAvailable", False))
+			and str(getattr(prop, "projectionModelVersion", "") or "")
+			== "baseline-v1"
+		)
+		baseline_projection_count = sum(
+			1
+			for prop in filtered_props
+			if str(getattr(prop, "projectionModelVersion", "") or "")
+			== "baseline-v1"
+		)
+		provider_pick_count = max(0, model_pick_count - baseline_pick_count)
 
 		def _has_market_direction(prop: PropResponse) -> bool:
 			over = getattr(prop, "noVigOverProbability", None)
@@ -1653,6 +1667,13 @@ def props(
 			"hasMore": offset + len(page) < total_count,
 			"recommendationCoverage": {
 				"modelPicks": model_pick_count,
+				"baselinePicks": baseline_pick_count,
+				"baselineProjections": baseline_projection_count,
+				"suppressedWeakBaselineSignals": max(
+					0,
+					baseline_projection_count - baseline_pick_count,
+				),
+				"providerPicks": provider_pick_count,
 				"marketPicks": market_pick_count,
 				"systemPicks": system_pick_count,
 				"pending": max(0, total_count - system_pick_count),

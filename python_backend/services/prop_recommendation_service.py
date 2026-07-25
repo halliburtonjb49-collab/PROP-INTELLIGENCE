@@ -81,6 +81,7 @@ def build_verified_prop_recommendation(
     line: object,
     canonical_player_id: str,
     identity_confidence: float,
+    confidence_override: int | None = None,
 ) -> dict[str, Any]:
     """Return a model recommendation only when its required inputs are real."""
     projection_value = safe_float(projection)
@@ -103,8 +104,21 @@ def build_verified_prop_recommendation(
             "recommendationUnavailableReason": "player_identity_unresolved",
         }
 
+    recommendation = build_prop_recommendation(projection_value, line)
+    if confidence_override is not None:
+        confidence = max(50, min(99, int(confidence_override)))
+        recommendation["confidence"] = confidence
+        recommendation["tier"] = _tier_from_confidence(
+            confidence,
+            str(recommendation["recommendedSide"]),
+        )
+        recommendation["pickText"] = _pick_text(
+            str(recommendation["recommendedSide"]),
+            safe_float(line),
+            str(recommendation["tier"]),
+        )
     return {
-        **build_prop_recommendation(projection_value, line),
+        **recommendation,
         "recommendationAvailable": True,
         "recommendationUnavailableReason": "",
     }

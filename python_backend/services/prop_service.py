@@ -28,6 +28,10 @@ from services.player_availability_service import (
 from services.prop_context_service import enrich_props
 from services.mlb_headshot_service import mlb_player_id
 from services.espn_headshot_service import espn_player_id
+from services.baseline_projection_service import (
+	baseline_is_actionable,
+	baseline_projection_for_prop,
+)
 
 cache = PropCache(DB_PATH)
 
@@ -173,6 +177,13 @@ def get_props() -> list[PropResponse]:
 		)
 		display_time = format_display_time(start_time_utc)
 		projection = _row_optional_value(row, "projection")
+		projection_source = ""
+		projection_model_version = ""
+		projection_sample_size = 0
+		projection_volatility = None
+		projection_calibrated = False
+		projection_label = ""
+		historical_hit_rate = None
 		if projection is None:
 			projection = _row_optional_value(
 				row,
@@ -183,6 +194,9 @@ def get_props() -> list[PropResponse]:
 				row,
 				"model_projection",
 			)
+		if projection is not None:
+			projection_source = "provider"
+			projection_label = "Provider projection"
 		source_player_id = str(row["source_player_id"] or "")
 		identity_provider = "odds-api"
 		if not source_player_id and str(row["sport"]).lower() == "baseball_mlb":
@@ -210,12 +224,46 @@ def get_props() -> list[PropResponse]:
 		identity_confidence = float(
 			identity.get("confidence") or 0.0
 		)
+		sport_label = format_sport_label(str(row["sport"]))
+		baseline = None
+		if projection is None and identity_confidence >= 0.8:
+			baseline = baseline_projection_for_prop(
+				sport=sport_label,
+				player=player,
+				player_id=source_player_id or canonical_player_id,
+				market=raw_market,
+				line=line,
+			)
+			if baseline is not None:
+				projection = baseline.projection
+				projection_source = baseline.source
+				projection_model_version = baseline.model_version
+				projection_sample_size = baseline.sample_size
+				projection_volatility = baseline.volatility
+				projection_calibrated = baseline.calibrated
+				projection_label = "Baseline historical model"
+				historical_hit_rate = baseline.historical_hit_rate
 		recommendation = build_verified_prop_recommendation(
 			projection=projection,
 			line=line,
 			canonical_player_id=canonical_player_id,
 			identity_confidence=identity_confidence,
+			confidence_override=(
+				baseline.confidence if baseline is not None else None
+			),
 		)
+		if baseline is not None and not baseline_is_actionable(
+			baseline,
+			recommendation_tier=str(recommendation["tier"]),
+		):
+			recommendation.update(
+				{
+					"recommendedSide": "N/A",
+					"pickText": "No Pick",
+					"recommendationAvailable": False,
+					"recommendationUnavailableReason": "model_signal_below_threshold",
+				}
+			)
 		recommended_side = str(
 			recommendation["recommendedSide"]
 		)
@@ -273,8 +321,6 @@ def get_props() -> list[PropResponse]:
 			is_doubleheader = True
 
 		updated_at = str(row["updated_at"] or "")
-		sport_label = format_sport_label(str(row["sport"]))
-
 		results.append(
 			PropResponse(
 				id=_make_prop_id(
@@ -307,6 +353,13 @@ def get_props() -> list[PropResponse]:
 				currentLine=float(current_line) if isinstance(current_line, (int, float)) else line,
 				lineMovedAtUtc=line_moved_at,
 				projection=projection,
+				projectionSource=projection_source,
+				projectionModelVersion=projection_model_version,
+				projectionSampleSize=projection_sample_size,
+				projectionVolatility=projection_volatility,
+				projectionCalibrated=projection_calibrated,
+				projectionLabel=projection_label,
+				historicalHitRate=historical_hit_rate,
 				pick=recommended_pick,
 				edge=float(
 					recommendation["edge"]

@@ -22,6 +22,13 @@ class PropResponse(BaseModel):
     currentLine: float | None = None
     lineMovedAtUtc: str = ""
     projection: float | None = None
+    projectionSource: str = ""
+    projectionModelVersion: str = ""
+    projectionSampleSize: int = 0
+    projectionVolatility: float | None = None
+    projectionCalibrated: bool = False
+    projectionLabel: str = ""
+    historicalHitRate: int | None = None
     pick: str
     edge: float = Field(ge=0)
     recommendedSide: str = "N/A"

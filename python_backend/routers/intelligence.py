@@ -13,6 +13,7 @@ from services.intelligence_service import (
 from services.prediction_tracking_service import (
     calibration_summary, grade_prediction, historical_features, save_prediction,
 )
+from services.baseline_projection_service import MODEL_VERSION
 from services.api_auth_service import require_user_id
 from services.compound_alert_service import create_alert, delete_alert, evaluate_user_alerts, list_alerts, list_deliveries
 from routers.realtime import hub as realtime_hub
@@ -179,12 +180,12 @@ def grade_prediction_snapshot(prediction_id: UUID, request: PredictionGradeReque
 
 
 @router.get("/calibration")
-def get_calibration(model_version: str = "intelligence-v1") -> dict[str, object]:
+def get_calibration(model_version: str = MODEL_VERSION) -> dict[str, object]:
     return calibration_summary(model_version)
 
 
 @router.get("/performance")
-def get_model_performance(model_version: str = "intelligence-v1") -> dict[str, object]:
+def get_model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
     return model_performance(model_version)
 
 

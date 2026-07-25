@@ -3445,13 +3445,20 @@ class _MainDashboardState extends State<MainDashboard> {
         : modeledProps.fold<double>(0, (sum, prop) => sum + prop.edge) /
               modeledProps.length;
     final confidenceProps = modeledProps
-        .where((prop) => prop.confidence > 0)
+        .where(
+          (prop) =>
+              (prop.historicalHitRate ?? 0) > 0 ||
+              (prop.projectionCalibrated && prop.confidence > 0),
+        )
         .toList(growable: false);
     final hitLeader = confidenceProps.isEmpty
         ? null
-        : ([
-            ...confidenceProps,
-          ]..sort((a, b) => b.confidence.compareTo(a.confidence))).first;
+        : ([...confidenceProps]..sort(
+                (a, b) => (b.historicalHitRate ?? b.confidence).compareTo(
+                  a.historicalHitRate ?? a.confidence,
+                ),
+              ))
+              .first;
     final entries = showingFocusedProp
         ? <(String, String, String)>[
             (
@@ -3504,7 +3511,9 @@ class _MainDashboardState extends State<MainDashboard> {
             (
               'HIGHEST HIT RATE',
               hitLeader?.player ?? '--',
-              hitLeader == null ? '--' : '${hitLeader.confidence}%',
+              hitLeader == null
+                  ? '--'
+                  : '${hitLeader.historicalHitRate ?? hitLeader.confidence}%',
             ),
             (
               'PROPS WITH EDGE',
@@ -7073,7 +7082,9 @@ class _PropGridState extends State<PropGrid> {
           const SizedBox(height: 8),
           Text(
             hasModelRecommendation
-                ? 'Verified model projection • $confidence% confidence'
+                ? prop.projectionModelVersion == 'baseline-v1'
+                      ? 'Baseline historical model • ${prop.projectionSampleSize} games • ${prop.historicalHitRate ?? '--'}% historical hit rate'
+                      : 'Verified provider projection • $confidence% confidence'
                 : hasMarketLean
                 ? 'Based on current market pricing (${prop.marketLeanPercentage ?? 50}%) • not an AI projection'
                 : !hasProAccess
@@ -7081,13 +7092,18 @@ class _PropGridState extends State<PropGrid> {
                 : prop.recommendationUnavailableReason ==
                       'player_identity_unresolved'
                 ? 'Player identity verification pending'
+                : prop.recommendationUnavailableReason ==
+                      'model_signal_below_threshold'
+                ? 'Baseline projection available • no qualified edge'
                 : 'Projection data pending',
             style: const TextStyle(color: AppColors.muted, fontSize: 7.5),
           ),
           const SizedBox(height: 3),
-          const Text(
-            'Live market model',
-            style: TextStyle(color: AppColors.muted, fontSize: 7),
+          Text(
+            prop.projectionModelVersion == 'baseline-v1'
+                ? 'Experimental until 100 pregame predictions are graded'
+                : 'Live market model',
+            style: const TextStyle(color: AppColors.muted, fontSize: 7),
           ),
           const SizedBox(height: 8),
           Center(

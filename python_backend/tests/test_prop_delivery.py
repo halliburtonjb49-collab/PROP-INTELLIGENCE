@@ -137,6 +137,10 @@ def test_prop_feed_reports_recommendation_coverage(monkeypatch) -> None:
     ]
     assert coverage == {
         "modelPicks": 1,
+        "baselinePicks": 0,
+        "baselineProjections": 0,
+        "suppressedWeakBaselineSignals": 0,
+        "providerPicks": 1,
         "marketPicks": 1,
         "systemPicks": 2,
         "pending": 1,

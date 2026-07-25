@@ -7,14 +7,16 @@ from datetime import datetime, timezone
 
 from database.postgres import database_is_configured, get_database_pool
 from services.prop_service import get_props
+from services.baseline_projection_service import MODEL_VERSION
 
 
-def snapshot_live_predictions(model_version: str = "intelligence-v1") -> dict[str, object]:
+def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, object]:
     if not database_is_configured():
         return {"created": 0, "reason": "DATABASE_URL is not configured"}
     created = 0
     with get_database_pool().connection() as connection, connection.cursor() as cursor:
         for prop in get_props():
+            snapshot_model_version = prop.projectionModelVersion or model_version
             side = prop.recommendedSide.upper()
             if prop.sport.upper() not in {"NBA", "WNBA", "MLB"}:
                 continue
@@ -32,16 +34,28 @@ def snapshot_live_predictions(model_version: str = "intelligence-v1") -> dict[st
             if projection is None:
                 signed = prop.edgeSigned or (prop.recommendationEdge if side == "OVER" else -prop.recommendationEdge)
                 projection = prop.line + signed
-            probability = max(.5, min(.95, prop.confidence / 100))
+            if (
+                prop.projectionModelVersion == MODEL_VERSION
+                and prop.historicalHitRate is not None
+            ):
+                sample = max(0, int(prop.projectionSampleSize))
+                observed = max(0.0, min(1.0, prop.historicalHitRate / 100))
+                # Shrink a small historical sample toward 50% before it enters
+                # calibration. The stored value is a probability estimate;
+                # the UI confidence field remains a relative strength score.
+                probability = 0.5 + (observed - 0.5) * (sample / (sample + 20))
+                probability = max(.5, min(.80, probability))
+            else:
+                probability = max(.5, min(.95, prop.confidence / 100))
             cursor.execute("""select 1 from prediction_snapshots where prop_id=%s and model_version=%s
-                and snapshot_date=(now() at time zone 'UTC')::date limit 1""", (prop.id, model_version))
+                and snapshot_date=(now() at time zone 'UTC')::date limit 1""", (prop.id, snapshot_model_version))
             if cursor.fetchone():
                 continue
             cursor.execute("""insert into prediction_snapshots
                 (prop_id,player_id,sport,market,side,line,projection,hit_probability,
                  model_version,inputs,event_time) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s)""",
                 (prop.id, prop.canonicalPlayerId or prop.playerId, prop.sport.upper(), prop.market,
-                 side, prop.line, projection, probability, model_version,
+                 side, prop.line, projection, probability, snapshot_model_version,
                  json.dumps({"playerName": prop.player, "sportsbook": prop.sportsbook,
                              "matchup": prop.matchup, "confidence": prop.confidence,
                              "edge": prop.recommendationEdge,
