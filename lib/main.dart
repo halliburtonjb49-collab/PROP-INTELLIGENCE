@@ -6854,11 +6854,22 @@ class _PropGridState extends State<PropGrid> {
 
   Widget _buildPortraitPropCard(PropData prop, PickSide? selectedSide) {
     final hasProAccess = AuthManager.instance.sessionState.value.hasEdgeAccess;
-    final hasRecommendation = hasProAccess && prop.recommendationAvailable;
-    final PickSide? advisedSide = !hasRecommendation
+    final normalizedModelSide = prop.recommendedSide.trim().toUpperCase();
+    final hasModelRecommendation =
+        hasProAccess &&
+        prop.recommendationAvailable &&
+        (normalizedModelSide == 'OVER' || normalizedModelSide == 'UNDER');
+    final marketLean = prop.marketLeanSide;
+    final hasMarketLean =
+        hasProAccess &&
+        !hasModelRecommendation &&
+        (marketLean == 'OVER' || marketLean == 'UNDER');
+    final hasSuggestion = hasModelRecommendation || hasMarketLean;
+    final PickSide? advisedSide = !hasSuggestion
         ? null
-        : prop.recommendedSide.toUpperCase().contains('UNDER') ||
-              prop.pick.toUpperCase() == 'UNDER'
+        : (hasModelRecommendation
+              ? normalizedModelSide == 'UNDER'
+              : marketLean == 'UNDER')
         ? PickSide.under
         : PickSide.over;
     final market = _marketCategory(prop);
@@ -6866,7 +6877,7 @@ class _PropGridState extends State<PropGrid> {
 
     Widget sideButton(PickSide side) {
       final selected = side == selectedSide;
-      final advised = hasRecommendation && side == advisedSide;
+      final advised = hasSuggestion && side == advisedSide;
       final label = side == PickSide.over ? 'OVER' : 'UNDER';
 
       // Green for OVER, Red for UNDER when selected
@@ -6958,8 +6969,10 @@ class _PropGridState extends State<PropGrid> {
               border: Border.all(color: AppColors.gold),
             ),
             child: Text(
-              hasRecommendation
+              hasModelRecommendation
                   ? '★ BEST PICK: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
+                  : hasMarketLean
+                  ? 'MARKET LEAN: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
                   : hasProAccess
                   ? 'MODEL SIGNAL UNAVAILABLE'
                   : 'PRO MODEL SIGNAL',
@@ -6972,8 +6985,10 @@ class _PropGridState extends State<PropGrid> {
           ),
           const SizedBox(height: 8),
           Text(
-            hasRecommendation
+            hasModelRecommendation
                 ? 'EDGE • Model leans $confidence%'
+                : hasMarketLean
+                ? 'Current pricing leans ${prop.marketLeanPercentage ?? 50}% • not an AI projection'
                 : !hasProAccess
                 ? 'Upgrade to Pro for projections and edge metrics'
                 : prop.recommendationUnavailableReason ==
@@ -7059,7 +7074,7 @@ class _PropGridState extends State<PropGrid> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    hasRecommendation ? '$confidence%' : '--',
+                    hasModelRecommendation ? '$confidence%' : '--',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 15,
@@ -7078,7 +7093,7 @@ class _PropGridState extends State<PropGrid> {
           ClipRRect(
             borderRadius: BorderRadius.circular(99),
             child: LinearProgressIndicator(
-              value: hasRecommendation ? confidence / 100 : 0,
+              value: hasModelRecommendation ? confidence / 100 : 0,
               minHeight: 7,
               color: AppColors.gold,
               backgroundColor: AppColors.border,

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/main.dart';
 import 'package:prop_intelligence/services/auth_manager.dart';
+import 'package:prop_intelligence/models/prop_data.dart';
 
 void main() {
   test('feature badges reflect the minimum tier required by the feature', () {
@@ -50,5 +51,47 @@ void main() {
     expect(requiredTierForPage(AppPage.scoreboard), isNull);
     expect(requiredTierForPage(AppPage.searchPlayers), isNull);
     expect(requiredTierForPage(AppPage.propChat), isNull);
+  });
+
+  test('market lean derives direction without inventing a model pick', () {
+    const overLean = PropData(
+      id: 'over',
+      eventId: '',
+      apiSportsGameId: '',
+      playerId: '',
+      player: 'Player',
+      sport: 'NBA',
+      matchup: '',
+      sportsbook: 'Book',
+      market: 'Points',
+      line: 20.5,
+      pick: 'N/A',
+      edge: 0,
+      imagePath: '',
+      overOdds: -125,
+      underOdds: 105,
+    );
+    const even = PropData(
+      id: 'even',
+      eventId: '',
+      apiSportsGameId: '',
+      playerId: '',
+      player: 'Player',
+      sport: 'NBA',
+      matchup: '',
+      sportsbook: 'Book',
+      market: 'Points',
+      line: 20.5,
+      pick: 'N/A',
+      edge: 0,
+      imagePath: '',
+      overOdds: -110,
+      underOdds: -110,
+    );
+
+    expect(overLean.marketLeanSide, 'OVER');
+    expect(overLean.marketLeanPercentage, greaterThan(50));
+    expect(overLean.recommendationAvailable, isFalse);
+    expect(even.marketLeanSide, 'EVEN');
   });
 }
