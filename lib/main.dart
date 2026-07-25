@@ -223,11 +223,29 @@ SubscriptionTier? requiredTierForPage(AppPage page) => switch (page) {
 SubscriptionTier displayedTierForBadge({
   required SubscriptionTier requiredTier,
   required bool hasEdgeAccess,
+  bool hasProUpgrade = false,
 }) {
-  // Badges describe the minimum tier required by the feature, not the tier
-  // currently held by the signed-in member. Otherwise every Core feature is
-  // mislabeled "PRO" for Pro members and owners.
+  // Most badges describe the minimum tier required by the feature. A small
+  // group of pages has both a Core experience and a materially enhanced Pro
+  // experience, so Pro members should see which version they are using.
+  if (hasProUpgrade && hasEdgeAccess) {
+    return SubscriptionTier.edge;
+  }
   return requiredTier;
+}
+
+@visibleForTesting
+List<PropData> boardIntelligenceScope({
+  required List<SlipSelection> selections,
+  required List<PropData> visibleProps,
+  PropData? focusedProp,
+}) {
+  final selectedProps = <String, PropData>{
+    for (final selection in selections) selection.prop.id: selection.prop,
+  }.values.toList(growable: false);
+  if (selectedProps.isNotEmpty) return selectedProps;
+  if (focusedProp != null) return <PropData>[focusedProp];
+  return visibleProps;
 }
 
 class AppColors {
@@ -1508,6 +1526,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     leadingIconColors: const [AppColors.gold],
                     selected: widget.selectedPage == AppPage.watchlist,
                     requiredTier: SubscriptionTier.core,
+                    hasProUpgrade: true,
                     showGoldBar: true,
                     onTap: () => widget.onSelectPage?.call(AppPage.watchlist),
                   ),
@@ -1518,6 +1537,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     leadingIconColors: const [AppColors.gold],
                     selected: widget.selectedPage == AppPage.pastSlipHistory,
                     requiredTier: SubscriptionTier.core,
+                    hasProUpgrade: true,
                     showGoldBar: true,
                     onTap: () =>
                         widget.onSelectPage?.call(AppPage.pastSlipHistory),
@@ -1779,10 +1799,15 @@ class _SidebarSectionLabel extends StatelessWidget {
 }
 
 class _TierBadge extends StatelessWidget {
-  const _TierBadge({required this.tier, this.compact = false});
+  const _TierBadge({
+    required this.tier,
+    this.compact = false,
+    this.hasProUpgrade = false,
+  });
 
   final SubscriptionTier tier;
   final bool compact;
+  final bool hasProUpgrade;
 
   @override
   Widget build(BuildContext context) {
@@ -1791,6 +1816,7 @@ class _TierBadge extends StatelessWidget {
     final displayedTier = displayedTierForBadge(
       requiredTier: tier,
       hasEdgeAccess: accountHasProAccess,
+      hasProUpgrade: hasProUpgrade,
     );
     final isCore = displayedTier == SubscriptionTier.core;
     final background = isCore
@@ -1834,6 +1860,7 @@ class SidebarButton extends StatelessWidget {
   final String label;
   final bool selected;
   final SubscriptionTier? requiredTier;
+  final bool hasProUpgrade;
   final bool showGoldBar;
   final String? badge;
   final List<IconData>? leadingIcons;
@@ -1847,6 +1874,7 @@ class SidebarButton extends StatelessWidget {
     required this.label,
     this.selected = false,
     this.requiredTier,
+    this.hasProUpgrade = false,
     this.showGoldBar = false,
     this.badge,
     this.leadingIcons,
@@ -1987,7 +2015,7 @@ class SidebarButton extends StatelessWidget {
                 ),
               ),
             if (badge == null && requiredTier != null)
-              _TierBadge(tier: requiredTier!),
+              _TierBadge(tier: requiredTier!, hasProUpgrade: hasProUpgrade),
           ],
         ),
       ),
@@ -3377,12 +3405,16 @@ class _MainDashboardState extends State<MainDashboard> {
       for (final selection in widget.selections)
         selection.prop.id: selection.prop,
     }.values.toList(growable: false);
-    final props = focusedProp != null
-        ? <PropData>[focusedProp]
-        : selectedProps.isNotEmpty
-        ? selectedProps
-        : _visibleProps;
-    final showingFocusedProp = focusedProp != null;
+    // Once a user adds props, the intelligence row summarizes the active
+    // selection instead of remaining pinned to whichever card was last
+    // focused. With no active selection, a card tap still opens the focused
+    // single-prop view.
+    final props = boardIntelligenceScope(
+      selections: widget.selections,
+      visibleProps: _visibleProps,
+      focusedProp: focusedProp,
+    );
+    final showingFocusedProp = focusedProp != null && selectedProps.isEmpty;
     // Edge requires a real model projection - recommendationEdge/edge default
     // to exactly 0.0 (not "unknown") when no projection was supplied, so a
     // near-zero value here genuinely means "no edge data," not "zero edge."
@@ -3395,18 +3427,30 @@ class _MainDashboardState extends State<MainDashboard> {
     // tile below, which already shows confidence unconditionally.
     final focusedConfidenceAvailable = (focusedProp?.confidence ?? 0) > 0;
     final metricScope = selectedProps.isNotEmpty
-        ? 'Across selected props'
+        ? 'Across ${selectedProps.length} selected'
         : 'Across visible props';
-    final top = props.isEmpty
+    final modeledProps = props
+        .where(
+          (prop) =>
+              prop.proSuggestionUsesModel ||
+              prop.projection != null ||
+              prop.recommendationEdge.abs() > .0001,
+        )
+        .toList(growable: false);
+    final top = modeledProps.isEmpty
         ? null
-        : ([...props]..sort((a, b) => b.edge.compareTo(a.edge))).first;
-    final averageEdge = props.isEmpty
-        ? 0.0
-        : props.fold<double>(0, (sum, prop) => sum + prop.edge) / props.length;
-    final hitLeader = props.isEmpty
+        : ([...modeledProps]..sort((a, b) => b.edge.compareTo(a.edge))).first;
+    final averageEdge = modeledProps.isEmpty
+        ? null
+        : modeledProps.fold<double>(0, (sum, prop) => sum + prop.edge) /
+              modeledProps.length;
+    final confidenceProps = modeledProps
+        .where((prop) => prop.confidence > 0)
+        .toList(growable: false);
+    final hitLeader = confidenceProps.isEmpty
         ? null
         : ([
-            ...props,
+            ...confidenceProps,
           ]..sort((a, b) => b.confidence.compareTo(a.confidence))).first;
     final entries = showingFocusedProp
         ? <(String, String, String)>[
@@ -3445,12 +3489,16 @@ class _MainDashboardState extends State<MainDashboard> {
         : <(String, String, String)>[
             (
               'TOP EDGE',
-              top?.player ?? 'Waiting for props',
-              top == null ? '--' : '+${top.edge.toStringAsFixed(2)}%',
+              top?.player ?? 'Awaiting projection',
+              top == null
+                  ? '--'
+                  : '${top.edge >= 0 ? '+' : ''}${top.edge.toStringAsFixed(2)}%',
             ),
             (
               'AVG EDGE',
-              '${averageEdge >= 0 ? '+' : ''}${averageEdge.toStringAsFixed(2)}%',
+              averageEdge == null
+                  ? '--'
+                  : '${averageEdge >= 0 ? '+' : ''}${averageEdge.toStringAsFixed(2)}%',
               metricScope,
             ),
             (
@@ -3460,8 +3508,10 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
             (
               'PROPS WITH EDGE',
-              '${props.where((p) => p.edge > 0).length}',
-              '${props.length} visible',
+              '${modeledProps.where((p) => p.edge > 0).length}',
+              selectedProps.isNotEmpty
+                  ? '${selectedProps.length} selected'
+                  : '${modeledProps.length} modeled',
             ),
             (
               'LAST UPDATED',
@@ -5300,6 +5350,7 @@ class TopNavigation extends StatelessWidget {
     required AppPage page,
     required IconData icon,
     SubscriptionTier? requiredTier,
+    bool hasProUpgrade = false,
   }) {
     final selected = selectedPage == page;
 
@@ -5359,7 +5410,11 @@ class TopNavigation extends StatelessWidget {
               ),
               if (requiredTier != null) ...[
                 const SizedBox(width: 7),
-                _TierBadge(tier: requiredTier, compact: true),
+                _TierBadge(
+                  tier: requiredTier,
+                  compact: true,
+                  hasProUpgrade: hasProUpgrade,
+                ),
               ],
             ],
           ),
@@ -5552,6 +5607,7 @@ class TopNavigation extends StatelessWidget {
                       page: AppPage.analytics,
                       icon: Icons.analytics_outlined,
                       requiredTier: SubscriptionTier.core,
+                      hasProUpgrade: true,
                     ),
                     const SizedBox(width: 4),
                     _buildNavItem(
@@ -5559,6 +5615,7 @@ class TopNavigation extends StatelessWidget {
                       page: AppPage.watchlist,
                       icon: Icons.receipt_long_rounded,
                       requiredTier: SubscriptionTier.core,
+                      hasProUpgrade: true,
                     ),
                     const SizedBox(width: 4),
                     _buildNavItem(
@@ -5566,6 +5623,7 @@ class TopNavigation extends StatelessWidget {
                       page: AppPage.pastSlipHistory,
                       icon: Icons.history_rounded,
                       requiredTier: SubscriptionTier.core,
+                      hasProUpgrade: true,
                     ),
                     const SizedBox(width: 4),
                     _buildNavItem(
@@ -5573,6 +5631,7 @@ class TopNavigation extends StatelessWidget {
                       page: AppPage.lineMovement,
                       icon: Icons.stacked_line_chart_rounded,
                       requiredTier: SubscriptionTier.core,
+                      hasProUpgrade: true,
                     ),
                   ],
                 ),

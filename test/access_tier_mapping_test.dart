@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/main.dart';
 import 'package:prop_intelligence/services/auth_manager.dart';
 import 'package:prop_intelligence/models/prop_data.dart';
+import 'package:prop_intelligence/models/slip_selection.dart';
 
 void main() {
   test('feature badges reflect the minimum tier required by the feature', () {
@@ -16,6 +17,25 @@ void main() {
       displayedTierForBadge(
         requiredTier: SubscriptionTier.core,
         hasEdgeAccess: false,
+      ),
+      SubscriptionTier.core,
+    );
+  });
+
+  test('upgradeable Core pages identify their Pro experience', () {
+    expect(
+      displayedTierForBadge(
+        requiredTier: SubscriptionTier.core,
+        hasEdgeAccess: true,
+        hasProUpgrade: true,
+      ),
+      SubscriptionTier.edge,
+    );
+    expect(
+      displayedTierForBadge(
+        requiredTier: SubscriptionTier.core,
+        hasEdgeAccess: false,
+        hasProUpgrade: true,
       ),
       SubscriptionTier.core,
     );
@@ -123,5 +143,47 @@ void main() {
     expect(prop.marketLeanSide, 'OVER');
     expect(prop.proSuggestedSide, 'UNDER');
     expect(prop.proSuggestionUsesModel, isTrue);
+  });
+
+  test('board intelligence follows active selections before card focus', () {
+    const focused = PropData(
+      id: 'focused',
+      eventId: '',
+      apiSportsGameId: '',
+      playerId: '',
+      player: 'Focused Player',
+      sport: 'NBA',
+      matchup: '',
+      sportsbook: 'Book',
+      market: 'Points',
+      line: 20.5,
+      pick: 'N/A',
+      edge: 0,
+      imagePath: '',
+    );
+    const selected = PropData(
+      id: 'selected',
+      eventId: '',
+      apiSportsGameId: '',
+      playerId: '',
+      player: 'Selected Player',
+      sport: 'NBA',
+      matchup: '',
+      sportsbook: 'Book',
+      market: 'Assists',
+      line: 5.5,
+      pick: 'OVER',
+      edge: 2,
+      imagePath: '',
+    );
+
+    final scope = boardIntelligenceScope(
+      selections: const [SlipSelection(prop: selected, side: PickSide.over)],
+      visibleProps: const [focused, selected],
+      focusedProp: focused,
+    );
+
+    expect(scope, hasLength(1));
+    expect(scope.single.id, 'selected');
   });
 }
