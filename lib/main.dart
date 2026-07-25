@@ -1532,6 +1532,23 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     leadingIconColors: const [Color(0xFF36B9FF)],
                     onTap: () => widget.onSelectPage?.call(AppPage.evScanner),
                   ),
+                  if (MediaQuery.sizeOf(context).width < 700) ...[
+                    const SizedBox(height: 6),
+                    ValueListenableBuilder<int>(
+                      valueListenable: PropChatService.unreadCount,
+                      builder: (context, unread, _) => SidebarButton(
+                        key: const ValueKey('mobile-sidebar-prop-chat'),
+                        label: 'PROP CHAT',
+                        badge: unread > 0 ? '$unread' : null,
+                        selected: widget.selectedPage == AppPage.propChat,
+                        showGoldBar: true,
+                        leadingIcons: const [Icons.forum_rounded],
+                        leadingIconColors: const [AppColors.gold],
+                        onTap: () =>
+                            widget.onSelectPage?.call(AppPage.propChat),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 18),
                   const _SidebarSectionLabel('SPORTS'),
                   const SizedBox(height: 7),

@@ -137,4 +137,38 @@ void main() {
     expect(find.text('RANDOM FOREST'), findsOneWidget);
     expect(find.text('LSTM SEQUENCE MODEL'), findsOneWidget);
   });
+
+  testWidgets('mobile menu opens PROP CHAT without desktop pop-out controls', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(const PropIntelligenceApp());
+    await tester.pump(const Duration(milliseconds: 800));
+    // The dashboard currently has a separately tracked initial-layout overflow.
+    // Clear it so this regression test only attributes new failures to chat.
+    tester.takeException();
+    await tester.tap(find.byKey(const ValueKey('mobile-nav-menu')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: 'mobile drawer must fit');
+    expect(
+      find.byKey(const ValueKey('mobile-sidebar-prop-chat')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('mobile-sidebar-prop-chat')));
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(find.text('PROP CHAT'), findsWidgets);
+    expect(find.byKey(const ValueKey('pop-out-prop-chat')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('prop-chat-message-field')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
