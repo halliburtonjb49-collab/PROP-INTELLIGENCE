@@ -8,11 +8,13 @@ import '../services/scoreboard_service.dart';
 import '../services/live_update_service.dart';
 
 class ScoreboardController extends ChangeNotifier {
-  ScoreboardController({required this._service});
+  ScoreboardController({required ScoreboardService service})
+    : _service = service,
+      _games = service.cachedGames(DateTime.now());
 
   final ScoreboardService _service;
 
-  List<ScoreboardGame> _games = [];
+  List<ScoreboardGame> _games;
   bool _isLoading = false;
   bool _isRefreshing = false;
   String? _errorMessage;

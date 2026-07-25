@@ -8,6 +8,15 @@ class ScoreboardService {
   ScoreboardService({required this.baseUrl});
 
   final String baseUrl;
+  static final Map<String, List<ScoreboardGame>> _memoryCache = {};
+
+  String _dateKey(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
+
+  List<ScoreboardGame> cachedGames(DateTime date) =>
+      List.unmodifiable(_memoryCache[_dateKey(date)] ?? const []);
 
   List<String> get _candidateBaseUrls {
     final configured = _normalizeBaseUrl(baseUrl);
@@ -55,8 +64,7 @@ class ScoreboardService {
   }
 
   Future<List<ScoreboardGame>> fetchGames({required DateTime date}) async {
-    final formattedDate =
-        '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final formattedDate = _dateKey(date);
 
     final response = await _getWithFallback(
       '/api/scoreboard',
@@ -101,12 +109,19 @@ class ScoreboardService {
         .toList();
 
     if (parsedGames.isNotEmpty) {
+      _memoryCache[formattedDate] = List.unmodifiable(parsedGames);
       return parsedGames;
     }
 
     // Some providers return 200 with an empty list for future slates.
     // In that case, populate upcoming cards from the props feed.
-    return isToday ? _fetchFallbackGamesFromProps() : const [];
+    final fallback = isToday
+        ? await _fetchFallbackGamesFromProps()
+        : const <ScoreboardGame>[];
+    if (fallback.isNotEmpty) {
+      _memoryCache[formattedDate] = List.unmodifiable(fallback);
+    }
+    return fallback;
   }
 
   Future<List<ScoreboardGame>> _fetchFallbackGamesFromProps() async {

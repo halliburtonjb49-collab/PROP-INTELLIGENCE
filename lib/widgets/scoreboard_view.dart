@@ -42,7 +42,7 @@ class _LiveScoreboardTickerGridWidgetState
       service: ScoreboardService(baseUrl: ApiService.baseUrl),
     );
     _controller.addListener(_handleControllerUpdate);
-    unawaited(_controller.load());
+    unawaited(_controller.load(silent: _controller.games.isNotEmpty));
     _controller.beginLiveRefresh();
   }
 

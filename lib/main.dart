@@ -560,8 +560,10 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   String _selectedBoardSport = 'ALL';
   bool _chatFloating = false;
   bool _chatMinimized = false;
-  Offset _chatOffset = const Offset(360, 110);
-  Size _chatSize = const Size(520, 620);
+  final ValueNotifier<Offset> _chatOffset = ValueNotifier(
+    const Offset(360, 110),
+  );
+  final ValueNotifier<Size> _chatSize = ValueNotifier(const Size(520, 620));
 
   @override
   void initState() {
@@ -634,6 +636,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   void dispose() {
     PropChatService.latestNotification.removeListener(_showChatNotification);
     _activeSlipController.dispose();
+    _chatOffset.dispose();
+    _chatSize.dispose();
     super.dispose();
   }
 
@@ -708,7 +712,6 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   Widget _buildMainContent() {
     final hasProAccess = AuthManager.instance.sessionState.value.hasEdgeAccess;
     return Container(
-      key: ValueKey(_selectedPage),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -781,117 +784,131 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       minimumHeight,
       820.0,
     );
-    final width = _chatSize.width.clamp(minimumWidth, maximumWidth);
-    final height = _chatMinimized
-        ? 54.0
-        : _chatSize.height.clamp(minimumHeight, maximumHeight);
-    final left = _chatOffset.dx.clamp(12.0, constraints.maxWidth - width - 12);
-    final top = _chatOffset.dy.clamp(12.0, constraints.maxHeight - height - 12);
-
-    return Positioned(
-      left: left,
-      top: top,
-      width: width,
-      height: height,
-      child: Material(
-        key: const ValueKey('floating-prop-chat'),
-        elevation: 22,
-        color: app_colors.AppColors.background,
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: app_colors.AppColors.gold, width: 1.5),
-        ),
-        child: Column(
-          children: [
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onPanUpdate: (details) {
-                setState(() => _chatOffset += details.delta);
-              },
-              child: Container(
-                height: 52,
-                padding: const EdgeInsets.only(left: 14, right: 4),
-                color: app_colors.AppColors.sidebar,
-                child: Row(
+    return ValueListenableBuilder<Offset>(
+      valueListenable: _chatOffset,
+      builder: (context, offset, _) => ValueListenableBuilder<Size>(
+        valueListenable: _chatSize,
+        builder: (context, panelSize, _) {
+          final width = panelSize.width.clamp(minimumWidth, maximumWidth);
+          final height = _chatMinimized
+              ? 54.0
+              : panelSize.height.clamp(minimumHeight, maximumHeight);
+          final left = offset.dx.clamp(12.0, constraints.maxWidth - width - 12);
+          final top = offset.dy.clamp(
+            12.0,
+            constraints.maxHeight - height - 12,
+          );
+          return Positioned(
+            left: left,
+            top: top,
+            width: width,
+            height: height,
+            child: RepaintBoundary(
+              child: Material(
+                key: const ValueKey('floating-prop-chat'),
+                elevation: 22,
+                color: app_colors.AppColors.background,
+                clipBehavior: Clip.antiAlias,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(
+                    color: app_colors.AppColors.gold,
+                    width: 1.5,
+                  ),
+                ),
+                child: Column(
                   children: [
-                    const Icon(
-                      Icons.drag_indicator_rounded,
-                      color: app_colors.AppColors.gold,
-                    ),
-                    const SizedBox(width: 7),
-                    const Expanded(
-                      child: Text(
-                        'PROP CHAT · FLOATING',
-                        style: TextStyle(
-                          color: app_colors.AppColors.white,
-                          fontWeight: FontWeight.w900,
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onPanUpdate: (details) {
+                        _chatOffset.value += details.delta;
+                      },
+                      child: Container(
+                        height: 52,
+                        padding: const EdgeInsets.only(left: 14, right: 4),
+                        color: app_colors.AppColors.sidebar,
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.drag_indicator_rounded,
+                              color: app_colors.AppColors.gold,
+                            ),
+                            const SizedBox(width: 7),
+                            const Expanded(
+                              child: Text(
+                                'PROP CHAT · FLOATING',
+                                style: TextStyle(
+                                  color: app_colors.AppColors.white,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: _chatMinimized
+                                  ? 'Restore chat'
+                                  : 'Minimize chat',
+                              onPressed: () => setState(
+                                () => _chatMinimized = !_chatMinimized,
+                              ),
+                              icon: Icon(
+                                _chatMinimized
+                                    ? Icons.open_in_full_rounded
+                                    : Icons.minimize_rounded,
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Dock PROP CHAT',
+                              onPressed: _dockChat,
+                              icon: const Icon(Icons.call_to_action_outlined),
+                            ),
+                            IconButton(
+                              key: const ValueKey('close-floating-prop-chat'),
+                              tooltip: 'Close floating chat',
+                              onPressed: () => setState(() {
+                                _chatFloating = false;
+                                _chatMinimized = false;
+                              }),
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    IconButton(
-                      tooltip: _chatMinimized
-                          ? 'Restore chat'
-                          : 'Minimize chat',
-                      onPressed: () =>
-                          setState(() => _chatMinimized = !_chatMinimized),
-                      icon: Icon(
-                        _chatMinimized
-                            ? Icons.open_in_full_rounded
-                            : Icons.minimize_rounded,
+                    if (!_chatMinimized)
+                      const Expanded(child: PropChatPage(isFloating: true)),
+                    if (!_chatMinimized)
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onPanUpdate: (details) {
+                            _chatSize.value = Size(
+                              (_chatSize.value.width + details.delta.dx).clamp(
+                                minimumWidth,
+                                maximumWidth,
+                              ),
+                              (_chatSize.value.height + details.delta.dy).clamp(
+                                minimumHeight,
+                                maximumHeight,
+                              ),
+                            );
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.all(7),
+                            child: Icon(
+                              Icons.drag_handle_rounded,
+                              size: 20,
+                              color: app_colors.AppColors.gold,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      tooltip: 'Dock PROP CHAT',
-                      onPressed: _dockChat,
-                      icon: const Icon(Icons.call_to_action_outlined),
-                    ),
-                    IconButton(
-                      key: const ValueKey('close-floating-prop-chat'),
-                      tooltip: 'Close floating chat',
-                      onPressed: () => setState(() {
-                        _chatFloating = false;
-                        _chatMinimized = false;
-                      }),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
                   ],
                 ),
               ),
             ),
-            if (!_chatMinimized)
-              const Expanded(child: PropChatPage(isFloating: true)),
-            if (!_chatMinimized)
-              Align(
-                alignment: Alignment.bottomRight,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onPanUpdate: (details) {
-                    setState(() {
-                      _chatSize = Size(
-                        (_chatSize.width + details.delta.dx).clamp(
-                          minimumWidth,
-                          maximumWidth,
-                        ),
-                        (_chatSize.height + details.delta.dy).clamp(
-                          minimumHeight,
-                          maximumHeight,
-                        ),
-                      );
-                    });
-                  },
-                  child: const Padding(
-                    padding: EdgeInsets.all(7),
-                    child: Icon(
-                      Icons.drag_handle_rounded,
-                      size: 20,
-                      color: app_colors.AppColors.gold,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -5643,6 +5660,38 @@ class TopNavigation extends StatelessWidget {
                       hasProUpgrade: true,
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              AnimatedBuilder(
+                animation: soundService,
+                builder: (context, _) => IconButton(
+                  key: const ValueKey('global-sound-toggle'),
+                  tooltip: soundService.enabled
+                      ? 'Mute app sounds'
+                      : 'Turn on app sounds',
+                  onPressed: () {
+                    unawaited(soundService.setEnabled(!soundService.enabled));
+                  },
+                  style: IconButton.styleFrom(
+                    foregroundColor: soundService.enabled
+                        ? accentColor
+                        : app_colors.AppColors.textMuted,
+                    side: BorderSide(
+                      color: soundService.enabled
+                          ? accentColor.withValues(alpha: .7)
+                          : app_colors.AppColors.border,
+                    ),
+                    backgroundColor: soundService.enabled
+                        ? accentColor.withValues(alpha: .08)
+                        : Colors.transparent,
+                  ),
+                  icon: Icon(
+                    soundService.enabled
+                        ? Icons.volume_up_rounded
+                        : Icons.volume_off_rounded,
+                    size: 19,
+                  ),
                 ),
               ),
             ],
