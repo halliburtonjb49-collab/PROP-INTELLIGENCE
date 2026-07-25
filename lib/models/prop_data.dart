@@ -157,14 +157,17 @@ class PropData {
   /// The strongest honest directional suggestion available to Pro members.
   ///
   /// Verified model output takes precedence. When a verified projection is not
-  /// available, sportsbook pricing may still provide a market-based direction,
-  /// but the UI must identify that source instead of presenting it as an AI
-  /// projection.
+  /// available, an unqualified historical projection may be shown as an
+  /// informational lean. Sportsbook pricing is the final fallback. Neither
+  /// fallback is a validated model pick.
   String? get proSuggestedSide {
     final modelSide = recommendedSide.trim().toUpperCase();
     if (recommendationAvailable &&
         (modelSide == 'OVER' || modelSide == 'UNDER')) {
       return modelSide;
+    }
+    if (projection != null && projection != line) {
+      return projection! > line ? 'OVER' : 'UNDER';
     }
     final marketSide = marketLeanSide;
     return marketSide == 'OVER' || marketSide == 'UNDER' ? marketSide : null;
@@ -174,6 +177,14 @@ class PropData {
       recommendationAvailable &&
       (recommendedSide.trim().toUpperCase() == 'OVER' ||
           recommendedSide.trim().toUpperCase() == 'UNDER');
+
+  bool get proSuggestionUsesHistoricalStats =>
+      !proSuggestionUsesModel && projection != null && projection != line;
+
+  bool get proSuggestionUsesMarket =>
+      !proSuggestionUsesModel &&
+      !proSuggestionUsesHistoricalStats &&
+      (marketLeanSide == 'OVER' || marketLeanSide == 'UNDER');
 
   factory PropData.fromJson(Map<String, dynamic> json) {
     return PropData(

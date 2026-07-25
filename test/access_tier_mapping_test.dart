@@ -145,6 +145,37 @@ void main() {
     expect(prop.proSuggestionUsesModel, isTrue);
   });
 
+  test('unqualified historical projection is an informational stats lean', () {
+    const prop = PropData(
+      id: 'historical-lean',
+      eventId: '',
+      apiSportsGameId: '',
+      playerId: 'player',
+      player: 'Player',
+      sport: 'SOCCER',
+      matchup: '',
+      sportsbook: 'Book',
+      market: 'Shots',
+      line: 2.5,
+      pick: 'N/A',
+      edge: 0,
+      imagePath: '',
+      projection: 3.1,
+      projectionSource: 'historical-game-logs',
+      projectionSampleSize: 10,
+      recommendationAvailable: false,
+      recommendationUnavailableReason: 'model_signal_below_threshold',
+      overOdds: 120,
+      underOdds: -140,
+    );
+
+    expect(prop.marketLeanSide, 'UNDER');
+    expect(prop.proSuggestedSide, 'OVER');
+    expect(prop.proSuggestionUsesModel, isFalse);
+    expect(prop.proSuggestionUsesHistoricalStats, isTrue);
+    expect(prop.proSuggestionUsesMarket, isFalse);
+  });
+
   test('baseline projection metadata remains visible to the client', () {
     final prop = PropData.fromJson({
       'id': 'baseline',

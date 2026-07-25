@@ -6957,9 +6957,14 @@ class _PropGridState extends State<PropGrid> {
     final suggestedSide = prop.proSuggestedSide;
     final hasModelRecommendation =
         hasProAccess && prop.proSuggestionUsesModel && suggestedSide != null;
+    final hasHistoricalLean =
+        hasProAccess &&
+        prop.proSuggestionUsesHistoricalStats &&
+        suggestedSide != null;
     final hasMarketLean =
-        hasProAccess && !hasModelRecommendation && suggestedSide != null;
-    final hasSuggestion = hasModelRecommendation || hasMarketLean;
+        hasProAccess && prop.proSuggestionUsesMarket && suggestedSide != null;
+    final hasSuggestion =
+        hasModelRecommendation || hasHistoricalLean || hasMarketLean;
     final PickSide? advisedSide = !hasSuggestion
         ? null
         : suggestedSide == 'UNDER'
@@ -7004,7 +7009,11 @@ class _PropGridState extends State<PropGrid> {
           child: FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              advised ? '$label  •  SYSTEM PICK' : label,
+              advised
+                  ? hasModelRecommendation
+                        ? '$label  •  SYSTEM PICK'
+                        : '$label  •  INFO LEAN'
+                  : label,
               style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
             ),
           ),
@@ -7067,10 +7076,12 @@ class _PropGridState extends State<PropGrid> {
             child: Text(
               hasModelRecommendation
                   ? '★ SYSTEM PICK: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
+                  : hasHistoricalLean
+                  ? 'STATS LEAN: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
                   : hasMarketLean
-                  ? 'SYSTEM PICK: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
+                  ? 'MARKET LEAN: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
                   : hasProAccess
-                  ? 'SYSTEM PICK PENDING'
+                  ? 'NO QUALIFIED LEAN'
                   : 'PRO MODEL SIGNAL',
               style: const TextStyle(
                 color: AppColors.gold,
@@ -7085,6 +7096,8 @@ class _PropGridState extends State<PropGrid> {
                 ? prop.projectionModelVersion == 'baseline-v1'
                       ? 'Baseline historical model • ${prop.projectionSampleSize} games • ${prop.historicalHitRate ?? '--'}% historical hit rate'
                       : 'Verified provider projection • $confidence% confidence'
+                : hasHistoricalLean
+                ? '${prop.projectionLabel.isEmpty ? 'Historical stats' : prop.projectionLabel} • ${prop.projectionSampleSize} games • informational only'
                 : hasMarketLean
                 ? 'Based on current market pricing (${prop.marketLeanPercentage ?? 50}%) • not an AI projection'
                 : !hasProAccess
