@@ -14,6 +14,7 @@ import 'controllers/active_slip_controller.dart';
 import 'models/prop_data.dart';
 import 'pages/analytics_page.dart';
 import 'pages/line_movement_page.dart';
+import 'pages/prop_chat_page.dart';
 import 'screens/prop_builder_performance_screen.dart';
 import 'screens/prop_builder_screen.dart';
 import 'screens/strikeout_pro_gold_screen.dart';
@@ -197,6 +198,7 @@ enum AppPage {
   lineMovement,
   dataAdmin,
   intelligenceLab,
+  propChat,
 }
 
 @visibleForTesting
@@ -211,7 +213,8 @@ SubscriptionTier? requiredTierForPage(AppPage page) => switch (page) {
   AppPage.strikeoutProGold ||
   AppPage.evScanner ||
   AppPage.propAlerts ||
-  AppPage.intelligenceLab => SubscriptionTier.edge,
+  AppPage.intelligenceLab ||
+  AppPage.propChat => SubscriptionTier.edge,
   _ => null,
 };
 
@@ -640,6 +643,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       case AppPage.lineMovement:
       case AppPage.dataAdmin:
       case AppPage.intelligenceLab:
+      case AppPage.propChat:
         return 0;
       case AppPage.propBuilder:
         return 1;
@@ -1347,6 +1351,16 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     leadingIcons: const [Icons.auto_graph],
                     leadingIconColors: const [Color(0xFF36B9FF)],
                     onTap: () => widget.onSelectPage?.call(AppPage.evScanner),
+                  ),
+                  const SizedBox(height: 6),
+                  SidebarButton(
+                    label: 'PROP CHAT',
+                    selected: widget.selectedPage == AppPage.propChat,
+                    requiredTier: SubscriptionTier.edge,
+                    showGoldBar: true,
+                    leadingIcons: const [Icons.forum_rounded],
+                    leadingIconColors: const [AppColors.gold],
+                    onTap: () => widget.onSelectPage?.call(AppPage.propChat),
                   ),
                   const SizedBox(height: 18),
                   const _SidebarSectionLabel('SPORTS'),
@@ -3562,6 +3576,8 @@ class _MainDashboardState extends State<MainDashboard> {
                     onRemove: widget.onRemoveLabSelection,
                     onClear: widget.onClearLabSelections,
                   )
+                : widget.selectedPage == AppPage.propChat
+                ? const PropChatPage()
                 : Scrollbar(
                     controller: _boardVerticalController,
                     thumbVisibility: true,
@@ -5046,6 +5062,8 @@ class TopNavigation extends StatelessWidget {
       'Review triggered market conditions, open the affected prop and confirm the latest line before taking action.',
     AppPage.dataAdmin =>
       'Refresh unresolved identities, validate payloads before upload and use Production Acceptance to confirm feeds, quotas and billing are healthy.',
+    AppPage.propChat =>
+      'Join the shared community room using your public username. Keep messages respectful, never post personal information, and use the message menu to report or block abusive content.',
   };
 
   void _showPageHelp(BuildContext context) {
@@ -5104,6 +5122,7 @@ class TopNavigation extends StatelessWidget {
         AppPage.lineMovement => 'Track changes across sportsbook lines',
         AppPage.intelligenceLab =>
           'Model correlation, scripts, and historical analogs',
+        AppPage.propChat => 'Chat with the PROP INTELLIGENCE community',
         _ => label,
       },
       child: InkWell(
@@ -5173,6 +5192,7 @@ class TopNavigation extends StatelessWidget {
     AppPage.evScanner => 'EV SCANNER',
     AppPage.strikeoutProGold => 'STRIKEOUT PRO GOLD',
     AppPage.dataAdmin => 'DATA ADMIN',
+    AppPage.propChat => 'PROP CHAT',
   };
 
   String get _pageSubtitle => switch (selectedPage) {
@@ -5195,6 +5215,8 @@ class TopNavigation extends StatelessWidget {
     AppPage.strikeoutProGold =>
       'Rank MLB strikeout over/under opportunities with model transparency',
     AppPage.dataAdmin => 'Manage platform data sources',
+    AppPage.propChat =>
+      'Talk props with the community using your public username',
   };
 
   @override
