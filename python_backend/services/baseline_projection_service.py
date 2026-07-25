@@ -126,6 +126,7 @@ class _HistoricalProjectionIndex:
         self.loaded_at: datetime | None = None
         self.basketball: dict[tuple[str, str], list[tuple[object, ...]]] = {}
         self.mlb: dict[tuple[str, str], list[float]] = {}
+        self.multi_sport: dict[tuple[str, str, str], list[float]] = {}
         self._lock = Lock()
 
     def _fresh(self) -> bool:
@@ -142,6 +143,7 @@ class _HistoricalProjectionIndex:
                 return
             basketball: dict[tuple[str, str], list[tuple[object, ...]]] = {}
             mlb: dict[tuple[str, str], list[float]] = {}
+            multi_sport: dict[tuple[str, str, str], list[float]] = {}
             with get_database_pool().connection() as connection:
                 with connection.cursor() as cursor:
                     cursor.execute(
@@ -201,9 +203,37 @@ class _HistoricalProjectionIndex:
                         mlb.setdefault((prefix, "home_runs"), []).append(float(homers or 0))
                         mlb.setdefault((prefix, "strikeouts"), []).append(float(strikeouts or 0))
 
+                    cursor.execute(
+                        """select sport,player_name,stats from (
+                            select sport,player_name,stats,
+                            row_number() over(
+                              partition by sport,lower(player_name)
+                              order by game_date desc,updated_at desc
+                            ) recent_rank
+                            from historical_player_game_logs
+                            where game_date < current_date
+                        ) logs where recent_rank <= %s
+                        order by sport,lower(player_name),recent_rank desc""",
+                        (MAXIMUM_SAMPLE_SIZE,),
+                    )
+                    for sport, player_name, stats in cursor.fetchall():
+                        if not isinstance(stats, dict):
+                            continue
+                        for stat, value in stats.items():
+                            try:
+                                number = float(value)
+                            except (TypeError, ValueError):
+                                continue
+                            key = (str(sport).upper(), _normalized(player_name), str(stat))
+                            multi_sport.setdefault(key, []).append(number)
+
             self.basketball = basketball
             self.mlb = {
                 key: values[-MAXIMUM_SAMPLE_SIZE:] for key, values in mlb.items()
+            }
+            self.multi_sport = {
+                key: values[-MAXIMUM_SAMPLE_SIZE:]
+                for key, values in multi_sport.items()
             }
             self.loaded_at = datetime.now(timezone.utc)
 
@@ -225,6 +255,31 @@ class _HistoricalProjectionIndex:
                 for row in rows
                 if (value := basketball_market_value(market, row)) is not None
             ]
+            return compute_baseline_projection(values, line=line)
+
+        if normalized_sport == "SOCCER":
+            text = _market_text(market)
+            exact_markets = {
+                "player shots": "shots",
+                "shots": "shots",
+                "player shots on target": "shots_on_target",
+                "shots on target": "shots_on_target",
+                "player assists": "assists",
+                "assists": "assists",
+                "player goal scorer anytime": "goals",
+                "anytime goalscorer": "goals",
+                "player to receive card": "received_card",
+                "player card": "received_card",
+                "player to receive red card": "received_red_card",
+                "player red card": "received_red_card",
+            }
+            stat = exact_markets.get(text)
+            if stat is None:
+                return None
+            values = self.multi_sport.get(
+                ("SOCCER", _normalized(player), stat),
+                [],
+            )
             return compute_baseline_projection(values, line=line)
 
         if normalized_sport != "MLB" or not player_id:

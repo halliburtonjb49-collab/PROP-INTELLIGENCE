@@ -1,6 +1,7 @@
 from services.historical_ingestion_service import (
     build_official_assignments,
     normalize_basketball_logs,
+    normalize_sportmonks_fixtures,
     normalize_statcast,
     run_mlb_historical_backfill,
 )
@@ -28,6 +29,32 @@ def test_normalizes_statcast_pitch() -> None:
     assert len(rows) == 1
     assert rows[0]["pitcher_id"] == "9"
     assert rows[0]["plate_x"] == .2
+
+
+def test_normalizes_sportmonks_player_fixture_stats() -> None:
+    rows = normalize_sportmonks_fixtures([{
+        "id": 55,
+        "league_id": 8,
+        "starting_at": "2026-07-24 19:00:00",
+        "lineups": [{
+            "player_id": 7,
+            "player_name": "Test Striker",
+            "team_id": 9,
+            "details": [
+                {"type_id": 42, "data": {"value": 4}},
+                {"type_id": 86, "data": {"value": 2}},
+                {"type_id": 52, "data": {"value": 1}},
+            ],
+        }],
+    }])
+
+    assert len(rows) == 1
+    assert rows[0]["sport"] == "SOCCER"
+    assert rows[0]["league"] == "8"
+    assert rows[0]["stats"]["shots"] == 4
+    assert rows[0]["stats"]["shots_on_target"] == 2
+    assert rows[0]["stats"]["assists"] == 0
+    assert rows[0]["stats"]["received_card"] == 0
 
 
 def test_builds_basketball_official_assignment_context() -> None:

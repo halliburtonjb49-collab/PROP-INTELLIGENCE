@@ -59,6 +59,33 @@ def test_mlb_combination_market_is_not_treated_as_hits(monkeypatch) -> None:
     ) is not None
 
 
+def test_soccer_uses_only_exact_supported_markets() -> None:
+    from services.baseline_projection_service import _HistoricalProjectionIndex
+
+    index = _HistoricalProjectionIndex()
+    index.loaded_at = __import__("datetime").datetime.now(
+        __import__("datetime").timezone.utc,
+    )
+    index.multi_sport[("SOCCER", "teststriker", "shots_on_target")] = [2] * 10
+
+    supported = index.project(
+        sport="SOCCER",
+        player="Test Striker",
+        player_id="7",
+        market="player_shots_on_target",
+        line=1.5,
+    )
+    assert supported is not None
+    assert supported.projection == 2
+    assert index.project(
+        sport="SOCCER",
+        player="Test Striker",
+        player_id="7",
+        market="player_first_goal_scorer",
+        line=0.5,
+    ) is None
+
+
 def test_baseline_requires_both_model_strength_and_historical_support() -> None:
     result = compute_baseline_projection(
         [23, 21, 24, 22, 25, 23, 24, 22, 25, 24],

@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import os
 import sys
 from datetime import date
 from pathlib import Path
@@ -26,7 +27,9 @@ def _run_stage(name: str, operation):
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sync free NBA/WNBA/MLB historical data.")
+    parser = argparse.ArgumentParser(
+        description="Sync NBA/WNBA/MLB and licensed Sportmonks soccer history."
+    )
     parser.add_argument("--date", type=date.fromisoformat, help="UTC date in YYYY-MM-DD format")
     parser.add_argument("--season", help="NBA season such as 2025-26")
     parser.add_argument(

@@ -80,6 +80,7 @@ from services.sportmonks_headshot_service import (
 	refresh_sportmonks_headshot_map,
 	sportmonks_headshot_cache_health,
 )
+from services.historical_ingestion_service import run_soccer_historical_backfill
 from services.sportsdataio_golf_service import refresh_golf_roster_map
 from services.prop_builder_service import (
 	build_prop_slip,
@@ -3028,6 +3029,7 @@ class _BackgroundJob:
 _mlb_headshot_job = _BackgroundJob()
 _espn_headshot_job = _BackgroundJob()
 _sportmonks_headshot_job = _BackgroundJob()
+_sportmonks_history_job = _BackgroundJob()
 _golf_roster_job = _BackgroundJob()
 
 
@@ -3068,6 +3070,24 @@ def refresh_sportmonks_headshots(
 @app.get("/api/admin/refresh-sportmonks-headshots/status")
 def refresh_sportmonks_headshots_status(_admin: str = Depends(require_admin)) -> dict[str, object]:
 	return _sportmonks_headshot_job.snapshot()
+
+
+@app.post("/api/admin/refresh-sportmonks-history")
+def refresh_sportmonks_history(
+	background_tasks: BackgroundTasks,
+	_admin: str = Depends(require_admin),
+) -> dict[str, object]:
+	return _sportmonks_history_job.start(
+		background_tasks,
+		lambda: run_soccer_historical_backfill(days=60),
+	)
+
+
+@app.get("/api/admin/refresh-sportmonks-history/status")
+def refresh_sportmonks_history_status(
+	_admin: str = Depends(require_admin),
+) -> dict[str, object]:
+	return _sportmonks_history_job.snapshot()
 
 
 @app.post("/api/admin/refresh-golf-roster")
