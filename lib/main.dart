@@ -540,6 +540,10 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   bool _isSavingSlip = false;
   AppPage _selectedPage = AppPage.board;
   String _selectedBoardSport = 'ALL';
+  bool _chatFloating = false;
+  bool _chatMinimized = false;
+  Offset _chatOffset = const Offset(360, 110);
+  Size _chatSize = const Size(520, 620);
 
   @override
   void initState() {
@@ -707,6 +711,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             selectedPage: _selectedPage,
             onSelectPage: (page) =>
                 _switchToPage(page, source: 'board-toolbar'),
+            onFloatChat: _floatChat,
           ),
           PropBuilderScreen(
             activeSlipController: _activeSlipController,
@@ -728,6 +733,147 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             hasProAccess: hasProAccess,
           ),
         ],
+      ),
+    );
+  }
+
+  void _floatChat() {
+    setState(() {
+      _chatFloating = true;
+      _chatMinimized = false;
+      if (_selectedPage == AppPage.propChat) {
+        _selectedPage = AppPage.board;
+      }
+    });
+  }
+
+  void _dockChat() {
+    setState(() {
+      _chatFloating = false;
+      _chatMinimized = false;
+      _selectedPage = AppPage.propChat;
+    });
+  }
+
+  Widget _buildFloatingChat(BoxConstraints constraints) {
+    const minimumWidth = 360.0;
+    const minimumHeight = 320.0;
+    final maximumWidth = (constraints.maxWidth - 24).clamp(minimumWidth, 760.0);
+    final maximumHeight = (constraints.maxHeight - 24).clamp(
+      minimumHeight,
+      820.0,
+    );
+    final width = _chatSize.width.clamp(minimumWidth, maximumWidth);
+    final height = _chatMinimized
+        ? 54.0
+        : _chatSize.height.clamp(minimumHeight, maximumHeight);
+    final left = _chatOffset.dx.clamp(12.0, constraints.maxWidth - width - 12);
+    final top = _chatOffset.dy.clamp(12.0, constraints.maxHeight - height - 12);
+
+    return Positioned(
+      left: left,
+      top: top,
+      width: width,
+      height: height,
+      child: Material(
+        key: const ValueKey('floating-prop-chat'),
+        elevation: 22,
+        color: app_colors.AppColors.background,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: app_colors.AppColors.gold, width: 1.5),
+        ),
+        child: Column(
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanUpdate: (details) {
+                setState(() => _chatOffset += details.delta);
+              },
+              child: Container(
+                height: 52,
+                padding: const EdgeInsets.only(left: 14, right: 4),
+                color: app_colors.AppColors.sidebar,
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.drag_indicator_rounded,
+                      color: app_colors.AppColors.gold,
+                    ),
+                    const SizedBox(width: 7),
+                    const Expanded(
+                      child: Text(
+                        'PROP CHAT · FLOATING',
+                        style: TextStyle(
+                          color: app_colors.AppColors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: _chatMinimized
+                          ? 'Restore chat'
+                          : 'Minimize chat',
+                      onPressed: () =>
+                          setState(() => _chatMinimized = !_chatMinimized),
+                      icon: Icon(
+                        _chatMinimized
+                            ? Icons.open_in_full_rounded
+                            : Icons.minimize_rounded,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Dock PROP CHAT',
+                      onPressed: _dockChat,
+                      icon: const Icon(Icons.call_to_action_outlined),
+                    ),
+                    IconButton(
+                      key: const ValueKey('close-floating-prop-chat'),
+                      tooltip: 'Close floating chat',
+                      onPressed: () => setState(() {
+                        _chatFloating = false;
+                        _chatMinimized = false;
+                      }),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (!_chatMinimized)
+              const Expanded(child: PropChatPage(isFloating: true)),
+            if (!_chatMinimized)
+              Align(
+                alignment: Alignment.bottomRight,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanUpdate: (details) {
+                    setState(() {
+                      _chatSize = Size(
+                        (_chatSize.width + details.delta.dx).clamp(
+                          minimumWidth,
+                          maximumWidth,
+                        ),
+                        (_chatSize.height + details.delta.dy).clamp(
+                          minimumHeight,
+                          maximumHeight,
+                        ),
+                      );
+                    });
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.all(7),
+                    child: Icon(
+                      Icons.drag_handle_rounded,
+                      size: 20,
+                      color: app_colors.AppColors.gold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1189,25 +1335,34 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     final membershipAccent = hasProAccess
         ? app_colors.AppColors.gold
         : const Color(0xFFC8CED6);
-    return AnimatedBuilder(
-      animation: _activeSlipController,
-      builder: (context, _) => AppShell(
-        leftSidebar: _buildLeftSidebar(),
-        topNavigation: _buildTopNavigation(),
-        content: _buildMainContent(),
-        rightSidebar: _buildRightPanel(),
-        activeSlipCount: _activeSlipController.legCount,
-        mobileSelectedIndex: switch (_selectedPage) {
-          AppPage.board => 0,
-          AppPage.gameMarkets => 1,
-          AppPage.watchlist => 2,
-          _ => 3,
-        },
-        onMobileBoard: () =>
-            _switchToPage(AppPage.board, source: 'mobile-bottom-nav'),
-        onMobileGameMarkets: () =>
-            _switchToPage(AppPage.gameMarkets, source: 'mobile-bottom-nav'),
-        accentColor: membershipAccent,
+    return LayoutBuilder(
+      builder: (context, constraints) => Stack(
+        children: [
+          AnimatedBuilder(
+            animation: _activeSlipController,
+            builder: (context, _) => AppShell(
+              leftSidebar: _buildLeftSidebar(),
+              topNavigation: _buildTopNavigation(),
+              content: _buildMainContent(),
+              rightSidebar: _buildRightPanel(),
+              activeSlipCount: _activeSlipController.legCount,
+              mobileSelectedIndex: switch (_selectedPage) {
+                AppPage.board => 0,
+                AppPage.gameMarkets => 1,
+                AppPage.watchlist => 2,
+                _ => 3,
+              },
+              onMobileBoard: () =>
+                  _switchToPage(AppPage.board, source: 'mobile-bottom-nav'),
+              onMobileGameMarkets: () => _switchToPage(
+                AppPage.gameMarkets,
+                source: 'mobile-bottom-nav',
+              ),
+              accentColor: membershipAccent,
+            ),
+          ),
+          if (_chatFloating) _buildFloatingChat(constraints),
+        ],
       ),
     );
   }
@@ -1832,6 +1987,7 @@ class MainDashboard extends StatefulWidget {
   final String sportFilter;
   final AppPage selectedPage;
   final ValueChanged<AppPage>? onSelectPage;
+  final VoidCallback? onFloatChat;
 
   const MainDashboard({
     super.key,
@@ -1843,6 +1999,7 @@ class MainDashboard extends StatefulWidget {
     required this.sportFilter,
     required this.selectedPage,
     this.onSelectPage,
+    this.onFloatChat,
   });
 
   @override
@@ -3580,7 +3737,7 @@ class _MainDashboardState extends State<MainDashboard> {
                     onClear: widget.onClearLabSelections,
                   )
                 : widget.selectedPage == AppPage.propChat
-                ? const PropChatPage()
+                ? PropChatPage(onPopOut: widget.onFloatChat)
                 : Scrollbar(
                     controller: _boardVerticalController,
                     thumbVisibility: true,
