@@ -186,12 +186,15 @@ async def lifespan(_: FastAPI):
 		storage["path"],
 	)
 	startup_sync_task = asyncio.create_task(_ensure_props_available())
+	freshness_watchdog_task = asyncio.create_task(_maintain_prop_freshness())
 	try:
 		yield
 	finally:
-		startup_sync_task.cancel()
-		with suppress(asyncio.CancelledError):
-			await startup_sync_task
+		for task in (startup_sync_task, freshness_watchdog_task):
+			task.cancel()
+		for task in (startup_sync_task, freshness_watchdog_task):
+			with suppress(asyncio.CancelledError):
+				await task
 		close_database_pool()
 
 app = FastAPI(
@@ -352,26 +355,95 @@ def _run_sync_background() -> None:
 
 
 async def _ensure_props_available() -> None:
-	"""Populate an empty production cache without waiting for the cron schedule."""
+	"""Restore an empty or stale cache without waiting for the external cron."""
 	attempts = max(1, int(os.getenv("EMPTY_PROP_SYNC_ATTEMPTS", "3")))
 	retry_seconds = max(30, int(os.getenv("EMPTY_PROP_SYNC_RETRY_SECONDS", "300")))
 	for attempt in range(1, attempts + 1):
-		if get_props():
-			logging.info("Startup prop check ready attempt=%s", attempt)
+		props = get_props()
+		if not _prop_cache_needs_refresh(props):
+			logging.info(
+				"Startup prop check ready attempt=%s props=%s",
+				attempt,
+				len(props),
+			)
 			return
 		if _sync_run_lock.acquire(blocking=False):
-			logging.warning("Prop cache empty; starting recovery sync attempt=%s/%s", attempt, attempts)
+			logging.warning(
+				"Prop cache empty or stale; starting recovery sync attempt=%s/%s props=%s",
+				attempt,
+				attempts,
+				len(props),
+			)
 			_mark_sync_running()
 			await asyncio.to_thread(_run_sync_background)
 		else:
 			logging.info("Prop recovery sync already running attempt=%s/%s", attempt, attempts)
-		if get_props():
-			logging.info("Prop recovery sync restored live feed attempt=%s", attempt)
+		refreshed_props = get_props()
+		if not _prop_cache_needs_refresh(refreshed_props):
+			logging.info(
+				"Prop recovery sync restored fresh feed attempt=%s props=%s",
+				attempt,
+				len(refreshed_props),
+			)
 			return
 		if attempt < attempts:
-			logging.warning("Prop feed still empty; retrying in %s seconds", retry_seconds)
+			logging.warning(
+				"Prop feed still empty or stale; retrying in %s seconds",
+				retry_seconds,
+			)
 			await asyncio.sleep(retry_seconds)
-	logging.error("Prop feed remained empty after %s recovery attempts", attempts)
+	logging.error(
+		"Prop feed remained empty or stale after %s recovery attempts",
+		attempts,
+	)
+
+
+def _prop_cache_needs_refresh(
+	props: list[PropResponse],
+	now_utc: datetime | None = None,
+) -> bool:
+	if not props:
+		return True
+	latest = max(
+		(str(getattr(prop, "lastUpdatedUtc", "") or "") for prop in props),
+		default="",
+	)
+	stale_after_minutes = max(
+		5,
+		int(os.getenv("PROP_FEED_STALE_MINUTES", "45")),
+	)
+	return _is_stale_timestamp(
+		latest,
+		now_utc or datetime.now(timezone.utc),
+		stale_after_minutes,
+	)
+
+
+async def _maintain_prop_freshness() -> None:
+	"""Self-heal missed cron runs while respecting the global sync lock."""
+	check_seconds = max(
+		60,
+		int(os.getenv("PROP_FEED_WATCHDOG_SECONDS", "300")),
+	)
+	while True:
+		await asyncio.sleep(check_seconds)
+		try:
+			props = await asyncio.to_thread(get_props)
+			if not _prop_cache_needs_refresh(props):
+				continue
+			if not _sync_run_lock.acquire(blocking=False):
+				logging.info("Prop freshness watchdog found an existing sync")
+				continue
+			logging.warning(
+				"Prop freshness watchdog starting recovery sync props=%s",
+				len(props),
+			)
+			_mark_sync_running()
+			await asyncio.to_thread(_run_sync_background)
+		except asyncio.CancelledError:
+			raise
+		except Exception:
+			logging.exception("Prop freshness watchdog check failed")
 
 
 SCOREBOARD_SPORT_KEYS: list[tuple[str, str]] = [
@@ -1218,7 +1290,15 @@ def prop_feed_health() -> dict[str, object]:
 		metrics = dict(_prop_metrics)
 	requests_count = max(1, int(metrics["requests"]))
 	last_data_updated = str(metrics.get("lastDataUpdatedAt") or "")
-	stale = _is_stale_timestamp(last_data_updated, datetime.now(timezone.utc), 45)
+	stale_after_minutes = max(
+		5,
+		int(os.getenv("PROP_FEED_STALE_MINUTES", "45")),
+	)
+	stale = _is_stale_timestamp(
+		last_data_updated,
+		datetime.now(timezone.utc),
+		stale_after_minutes,
+	)
 	latest_empty = int(metrics.get("lastTotalCount") or 0) == 0
 	return {
 		"status": (
@@ -1229,7 +1309,7 @@ def prop_feed_health() -> dict[str, object]:
 		"version": APP_VERSION,
 		"latestEmpty": latest_empty,
 		"stale": stale,
-		"staleAfterMinutes": 45,
+		"staleAfterMinutes": stale_after_minutes,
 		"successRate": round(
 			(requests_count - int(metrics["errors"])) / requests_count,
 			4,
