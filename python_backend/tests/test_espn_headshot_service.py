@@ -39,6 +39,31 @@ def test_espn_cache_resolves_pga_and_ufc_headshots(monkeypatch, tmp_path):
     assert health["leagueCounts"] == {"PGA": 1, "UFC": 1}
 
 
+def test_espn_player_id_is_recovered_from_cached_headshot(monkeypatch, tmp_path):
+    path = tmp_path / "espn_headshot_map.json"
+    path.write_text(
+        json.dumps(
+            {
+                "leagues": {
+                    "SOCCER": {
+                        "example player": (
+                            "https://a.espncdn.com/i/headshots/soccer/"
+                            "players/full/232755.png"
+                        )
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    _use_map(monkeypatch, path)
+
+    assert espn_headshot_service.espn_player_id(
+        "Example Player",
+        "SOCCER",
+    ) == "232755"
+
+
 def test_espn_refresh_includes_team_and_event_leagues(monkeypatch, tmp_path):
     path = tmp_path / "espn_headshot_map.json"
     _use_map(monkeypatch, path)

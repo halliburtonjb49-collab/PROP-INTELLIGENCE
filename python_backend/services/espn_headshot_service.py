@@ -80,6 +80,14 @@ def espn_headshot_url(player_name: str, sport: str) -> str | None:
     return players.get(_normalize_name(player_name))
 
 
+def espn_player_id(player_name: str, sport: str) -> str | None:
+    url = espn_headshot_url(player_name, sport)
+    if not url:
+        return None
+    match = re.search(r"/(?:full|athletes)/(\d+)(?:\.png)?", url)
+    return match.group(1) if match else None
+
+
 def espn_headshot_cache_health() -> dict[str, object]:
     result: dict[str, object] = {
         "status": "missing",

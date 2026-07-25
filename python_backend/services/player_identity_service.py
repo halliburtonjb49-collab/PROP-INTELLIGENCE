@@ -162,6 +162,7 @@ def resolve_player_identity(
     source_provider: str,
     source_player_id: str,
     player_name: str,
+    identity_scope: str = "",
 ) -> dict[str, object]:
     payload = _load_identity_map()
     providers = payload.get("providers", {})
@@ -187,12 +188,23 @@ def resolve_player_identity(
             "matched_by": "provider_source_id",
         }
 
-    # If the provider does not expose a stable player id, mark identity as unresolved
-    # so it can be mapped explicitly through the identity-map API.
-    unresolved_slug = _slug(player_name) or "unknown-player"
+    # The Odds API frequently omits player ids even though the normalized player
+    # name is stable across its bookmaker payloads. A scoped deterministic id
+    # allows enrichment across refreshes without conflating names across sports.
+    player_slug = _slug(_normalize_name(player_name))
+    scope_slug = _slug(identity_scope)
+    if player_slug:
+        scoped_name = f"{scope_slug}:{player_slug}" if scope_slug else player_slug
+        return {
+            "canonical_player_id": f"{provider_key}:name:{scoped_name}",
+            "source_player_id": "",
+            "confidence": 0.8,
+            "matched_by": "normalized_provider_name",
+        }
+
     return {
-        "canonical_player_id": f"unresolved:{provider_key}:{unresolved_slug}",
+        "canonical_player_id": f"unresolved:{provider_key}:unknown-player",
         "source_player_id": "",
         "confidence": 0.0,
-        "matched_by": "missing_source_player_id",
+        "matched_by": "missing_player_identity",
     }

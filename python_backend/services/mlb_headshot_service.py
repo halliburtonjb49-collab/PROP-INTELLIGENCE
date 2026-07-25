@@ -48,10 +48,14 @@ def _load_map() -> dict[str, int]:
 
 
 def mlb_headshot_url(player_name: str) -> str | None:
-    mlb_id = _load_map().get(_normalize_name(player_name))
+    mlb_id = mlb_player_id(player_name)
     if mlb_id is None:
         return None
     return _HEADSHOT_URL_TEMPLATE.format(mlb_id=mlb_id)
+
+
+def mlb_player_id(player_name: str) -> int | None:
+    return _load_map().get(_normalize_name(player_name))
 
 
 def refresh_mlb_headshot_map(season: int | None = None) -> int:

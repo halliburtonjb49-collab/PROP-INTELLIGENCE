@@ -150,9 +150,11 @@ void main() {
 
     await tester.pumpWidget(const PropIntelligenceApp());
     await tester.pump(const Duration(milliseconds: 800));
-    // The dashboard currently has a separately tracked initial-layout overflow.
-    // Clear it so this regression test only attributes new failures to chat.
-    tester.takeException();
+    expect(
+      tester.takeException(),
+      isNull,
+      reason: 'initial mobile board must fit',
+    );
     await tester.tap(find.byKey(const ValueKey('mobile-nav-menu')));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull, reason: 'mobile drawer must fit');
