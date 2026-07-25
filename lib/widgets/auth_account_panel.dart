@@ -457,7 +457,9 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
           ),
           child: state.authenticated
               ? _SignedInView(
-                  email: state.email ?? 'Unknown',
+                  username:
+                      state.username ??
+                      resolvePublicUsername(userId: state.userId ?? ''),
                   role: state.role,
                   subscriptionTier: state.subscriptionTier,
                   accessPreviewTier: state.accessPreviewTier,
@@ -598,7 +600,7 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
 }
 
 class _SignedInView extends StatelessWidget {
-  final String email;
+  final String username;
   final String role;
   final SubscriptionTier subscriptionTier;
   final SubscriptionTier? accessPreviewTier;
@@ -611,7 +613,7 @@ class _SignedInView extends StatelessWidget {
   final Future<void> Function() onSignOut;
 
   const _SignedInView({
-    required this.email,
+    required this.username,
     required this.role,
     required this.subscriptionTier,
     required this.accessPreviewTier,
@@ -639,8 +641,6 @@ class _SignedInView extends StatelessWidget {
       'tester' => const Color(0xFFE0E0E0),
       _ => const Color(0xFF56D38A),
     };
-    final displayName = email.contains('@') ? email.split('@').first : email;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -672,7 +672,7 @@ class _SignedInView extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    displayName,
+                    '@$username',
                     key: const ValueKey('account-display-name'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -682,18 +682,6 @@ class _SignedInView extends StatelessWidget {
                           : Colors.white,
                       fontSize: 13,
                       fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    email,
-                    key: const ValueKey('account-email'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFFB7C2CE),
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],

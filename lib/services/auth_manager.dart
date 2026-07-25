@@ -87,6 +87,7 @@ class AuthSessionState {
   final String role;
   final String? userId;
   final String? email;
+  final String? username;
   final String message;
 
   bool get isOwner => role == 'owner';
@@ -117,6 +118,7 @@ class AuthSessionState {
     required this.role,
     required this.userId,
     required this.email,
+    this.username,
     required this.message,
   });
 
@@ -129,6 +131,7 @@ class AuthSessionState {
       role = 'user',
       userId = null,
       email = null,
+      username = null,
       message = 'Initializing auth...';
 
   const AuthSessionState.unavailable()
@@ -140,6 +143,7 @@ class AuthSessionState {
       role = 'user',
       userId = null,
       email = null,
+      username = null,
       message = 'Supabase auth is not configured.';
 
   const AuthSessionState.signedOut()
@@ -151,7 +155,42 @@ class AuthSessionState {
       role = 'user',
       userId = null,
       email = null,
+      username = null,
       message = 'Signed out';
+}
+
+String resolvePublicUsername({
+  required String userId,
+  Map<String, dynamic> metadata = const <String, dynamic>{},
+  String? profileDisplayName,
+}) {
+  final candidates = <Object?>[
+    profileDisplayName,
+    metadata['username'],
+    metadata['preferred_username'],
+    metadata['display_name'],
+    metadata['full_name'],
+    metadata['name'],
+  ];
+
+  for (final candidate in candidates) {
+    final normalized = candidate
+        ?.toString()
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9_]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+    if (normalized != null && normalized.length >= 3) {
+      return normalized.length <= 24 ? normalized : normalized.substring(0, 24);
+    }
+  }
+
+  final safeId = userId.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  final suffix = safeId.isEmpty
+      ? 'member'
+      : safeId.substring(0, safeId.length.clamp(0, 8));
+  return 'user_$suffix';
 }
 
 class AuthManager {
@@ -272,6 +311,7 @@ class AuthManager {
       role: current.role,
       userId: current.userId,
       email: current.email,
+      username: current.username,
       message: current.message,
     );
     debugPrint(
@@ -434,6 +474,10 @@ class AuthManager {
       email: user.email,
       role: user.appMetadata['role'],
     );
+    final metadataUsername = resolvePublicUsername(
+      userId: user.id,
+      metadata: user.userMetadata ?? const <String, dynamic>{},
+    );
     final hasPrivilegedRole =
         role == 'owner' || role == 'admin' || role == 'tester';
     if (hasPrivilegedRole) {
@@ -448,6 +492,7 @@ class AuthManager {
         role: role,
         userId: user.id,
         email: user.email,
+        username: metadataUsername,
         message: 'Authenticated',
       );
       return;
@@ -455,13 +500,15 @@ class AuthManager {
 
     var isPremium = false;
     var subscriptionTier = SubscriptionTier.free;
+    String? profileDisplayName;
     try {
       final row = await _client
           ?.from('user_profiles')
-          .select('is_premium, subscription_tier')
+          .select('is_premium, subscription_tier, display_name')
           .eq('id', user.id)
           .maybeSingle();
       if (row is Map<String, dynamic>) {
+        profileDisplayName = row['display_name']?.toString();
         final raw = row['is_premium'];
         if (raw is bool) {
           isPremium = raw;
@@ -488,6 +535,11 @@ class AuthManager {
       role: role,
       userId: user.id,
       email: user.email,
+      username: resolvePublicUsername(
+        userId: user.id,
+        metadata: user.userMetadata ?? const <String, dynamic>{},
+        profileDisplayName: profileDisplayName,
+      ),
       message: 'Authenticated',
     );
   }
