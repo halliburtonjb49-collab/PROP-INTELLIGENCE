@@ -47,7 +47,11 @@ void main() {
     await tester.tap(find.text('SIGN UP').first);
     await tester.pump();
 
-    expect(find.text('CREATE YOUR ACCOUNT'), findsOneWidget);
+    expect(find.text('CREATE YOUR LOGIN'), findsOneWidget);
+    expect(find.text('Create App Password'), findsOneWidget);
+    expect(find.text('Confirm App Password'), findsOneWidget);
+    expect(find.textContaining('not your Gmail password'), findsOneWidget);
+    expect(find.text('CONTINUE TO EMAIL VERIFICATION'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
