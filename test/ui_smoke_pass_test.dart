@@ -112,13 +112,9 @@ void main() {
       expect(tester.takeException(), isNull);
     }
 
-    await tester.tap(find.byKey(const ValueKey('board-active-slip-button')));
+    await tester.tap(find.byKey(const ValueKey('board-prop-chat-button')));
     await tester.pump(const Duration(milliseconds: 500));
-    expect(
-      find.textContaining('ACTIVE SLIP is your draft on the right'),
-      findsOneWidget,
-    );
-    expect(find.text('SLIP WATCHER'), findsWidgets);
+    expect(find.text('PROP CHAT'), findsWidgets);
     expect(tester.takeException(), isNull);
 
     await openWorkspace('THE LAB', 'INTELLIGENCE LAB');
