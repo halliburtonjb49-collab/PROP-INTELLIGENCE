@@ -1,4 +1,4 @@
-"""Trigger a Sportmonks soccer-history backfill on the API service."""
+"""Trigger the full-season soccer-history backfill on the API service."""
 
 import logging
 import sys
@@ -16,10 +16,10 @@ def main() -> int:
             "/api/admin/refresh-sportmonks-history",
             timeout_seconds=900,
         )
-        logging.info("Sportmonks history refresh completed: %s", payload)
+        logging.info("Soccer history refresh completed: %s", payload)
         return 0
     except Exception:
-        logging.exception("Sportmonks history refresh failed")
+        logging.exception("Soccer history refresh failed")
         return 1
 
 

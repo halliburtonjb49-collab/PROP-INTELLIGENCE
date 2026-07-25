@@ -13,6 +13,7 @@ from typing import Iterable
 
 from database.postgres import database_is_configured, get_database_pool
 from providers.historical_data import MlbHistoricalProvider, NbaHistoricalProvider
+from providers.espn_soccer_statistics import EspnSoccerStatisticsProvider
 from providers.sportmonks_statistics import SportmonksStatisticsProvider
 from services.vector_similarity_service import upsert_basketball_stretches
 from services.officiating_profile_service import (calculate_mlb_umpire_profiles,
@@ -204,6 +205,80 @@ def normalize_sportmonks_fixtures(
     return normalized
 
 
+_ESPN_SOCCER_STAT_CODES = {
+    "totalShots": "shots",
+    "shotsOnTarget": "shots_on_target",
+    "goalAssists": "assists",
+    "totalGoals": "goals",
+    "redCards": "red_cards",
+    "yellowCards": "yellow_cards",
+}
+
+
+def normalize_espn_soccer_fixtures(
+    fixtures: Iterable[dict[str, object]],
+) -> list[dict[str, object]]:
+    """Normalize completed ESPN roster stats into soccer game logs."""
+    normalized: list[dict[str, object]] = []
+    for fixture in fixtures:
+        event_id = str(fixture.get("id") or "")
+        game_date = _as_date(fixture.get("starting_at"))
+        league_id = str(fixture.get("league_id") or "")
+        if not event_id or not game_date:
+            continue
+        rosters = fixture.get("rosters")
+        for team_roster in rosters if isinstance(rosters, list) else []:
+            if not isinstance(team_roster, dict):
+                continue
+            team = team_roster.get("team")
+            team_id = str(team.get("id") or "") if isinstance(team, dict) else ""
+            roster = team_roster.get("roster")
+            for player in roster if isinstance(roster, list) else []:
+                if not isinstance(player, dict):
+                    continue
+                athlete = player.get("athlete")
+                if not isinstance(athlete, dict):
+                    continue
+                stats_by_name = {
+                    str(stat.get("name") or ""): _number(stat.get("value"))
+                    for stat in player.get("stats", [])
+                    if isinstance(stat, dict)
+                }
+                if not (stats_by_name.get("appearances") or 0):
+                    continue
+                player_id = str(athlete.get("id") or "")
+                player_name = str(
+                    athlete.get("displayName")
+                    or athlete.get("fullName")
+                    or ""
+                ).strip()
+                if not player_id or not player_name:
+                    continue
+                stats = {
+                    target: float(stats_by_name.get(source) or 0)
+                    for source, target in _ESPN_SOCCER_STAT_CODES.items()
+                }
+                stats["yellow_red_cards"] = 0.0
+                stats["received_card"] = float(
+                    stats["red_cards"] > 0 or stats["yellow_cards"] > 0
+                )
+                stats["received_red_card"] = float(stats["red_cards"] > 0)
+                normalized.append({
+                    "id": _stable_id("SOCCER", event_id, player_id),
+                    "sport": "SOCCER",
+                    "league": league_id,
+                    "event_id": event_id,
+                    "player_id": player_id,
+                    "player_name": player_name,
+                    "team_id": team_id,
+                    "game_date": game_date,
+                    "stats": stats,
+                    "source": "ESPN",
+                    "raw": _json_safe(player),
+                })
+    return normalized
+
+
 class HistoricalRepository:
     def upsert_player_game_logs(self, rows: list[dict[str, object]]) -> int:
         if not rows or not database_is_configured():
@@ -315,14 +390,15 @@ def run_mlb_historical_backfill(
 def run_soccer_historical_backfill(
     *,
     end_date: date | None = None,
-    days: int = 60,
+    days: int = 365,
 ) -> dict[str, object]:
-    """Backfill completed Sportmonks fixtures into normalized player game logs."""
+    """Backfill soccer history, using ESPN for uncovered leagues such as MLS."""
     end = end_date or (datetime.now(timezone.utc).date() - timedelta(days=1))
     start = end - timedelta(days=max(1, days) - 1)
     repository = HistoricalRepository()
     provider = SportmonksStatisticsProvider()
     fetched = upserted = failed_days = 0
+    sportmonks_leagues: set[str] = set()
     errors: list[dict[str, str]] = []
     current = start
     while current <= end:
@@ -331,6 +407,7 @@ def run_soccer_historical_backfill(
                 provider.completed_fixtures(target_date=current)
             )
             fetched += len(rows)
+            sportmonks_leagues.update(str(row["league"]) for row in rows)
             upserted += repository.upsert_player_game_logs(rows)
         except Exception as exc:
             failed_days += 1
@@ -339,6 +416,35 @@ def run_soccer_historical_backfill(
         current += timedelta(days=1)
     if failed_days == days:
         raise RuntimeError(errors[0]["error"] if errors else "Soccer backfill failed")
+    espn_fetched = 0
+    espn_error: str | None = None
+    espn_skipped = "779" in sportmonks_leagues
+    try:
+        fixture_batch: list[dict] = []
+        fallback_fixtures = (
+            ()
+            if espn_skipped
+            else EspnSoccerStatisticsProvider().completed_fixtures(
+                start_date=start,
+                end_date=end,
+            )
+        )
+        for fixture in fallback_fixtures:
+            fixture_batch.append(fixture)
+            if len(fixture_batch) < 20:
+                continue
+            rows = normalize_espn_soccer_fixtures(fixture_batch)
+            upserted += repository.upsert_player_game_logs(rows)
+            espn_fetched += len(rows)
+            fixture_batch.clear()
+        if fixture_batch:
+            rows = normalize_espn_soccer_fixtures(fixture_batch)
+            upserted += repository.upsert_player_game_logs(rows)
+            espn_fetched += len(rows)
+        fetched += espn_fetched
+    except Exception as exc:
+        espn_error = str(exc)
+        logger.warning("Historical ESPN soccer fallback failed", exc_info=True)
     return {
         "startDate": start.isoformat(),
         "endDate": end.isoformat(),
@@ -346,7 +452,12 @@ def run_soccer_historical_backfill(
         "upserted": upserted,
         "failedDays": failed_days,
         "errors": errors[:5],
-        "source": "Sportmonks",
+        "sources": {
+            "Sportmonks": fetched - espn_fetched,
+            "ESPN": espn_fetched,
+        },
+        "espnError": espn_error,
+        "espnSkipped": espn_skipped,
     }
 
 

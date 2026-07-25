@@ -3079,7 +3079,7 @@ def refresh_sportmonks_history(
 ) -> dict[str, object]:
 	return _sportmonks_history_job.start(
 		background_tasks,
-		lambda: run_soccer_historical_backfill(days=60),
+		lambda: run_soccer_historical_backfill(days=365),
 	)
 
 

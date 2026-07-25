@@ -1,9 +1,11 @@
 from services.historical_ingestion_service import (
     build_official_assignments,
     normalize_basketball_logs,
+    normalize_espn_soccer_fixtures,
     normalize_sportmonks_fixtures,
     normalize_statcast,
     run_mlb_historical_backfill,
+    run_soccer_historical_backfill,
 )
 from providers.historical_data import MlbHistoricalProvider
 
@@ -55,6 +57,41 @@ def test_normalizes_sportmonks_player_fixture_stats() -> None:
     assert rows[0]["stats"]["shots_on_target"] == 2
     assert rows[0]["stats"]["assists"] == 0
     assert rows[0]["stats"]["received_card"] == 0
+
+
+def test_normalizes_espn_soccer_player_fixture_stats() -> None:
+    rows = normalize_espn_soccer_fixtures([{
+        "id": "event-1",
+        "league_id": "779",
+        "starting_at": "2026-07-24T19:00:00Z",
+        "rosters": [{
+            "team": {"id": "team-1"},
+            "roster": [
+                {
+                    "athlete": {"id": "7", "displayName": "Test Striker"},
+                    "stats": [
+                        {"name": "appearances", "value": 1},
+                        {"name": "totalShots", "value": 4},
+                        {"name": "shotsOnTarget", "value": 2},
+                        {"name": "totalGoals", "value": 1},
+                        {"name": "yellowCards", "value": 1},
+                    ],
+                },
+                {
+                    "athlete": {"id": "8", "displayName": "Unused Substitute"},
+                    "stats": [{"name": "appearances", "value": 0}],
+                },
+            ],
+        }],
+    }])
+
+    assert len(rows) == 1
+    assert rows[0]["source"] == "ESPN"
+    assert rows[0]["league"] == "779"
+    assert rows[0]["stats"]["shots"] == 4
+    assert rows[0]["stats"]["shots_on_target"] == 2
+    assert rows[0]["stats"]["goals"] == 1
+    assert rows[0]["stats"]["received_card"] == 1
 
 
 def test_builds_basketball_official_assignment_context() -> None:
@@ -131,3 +168,65 @@ def test_mlb_backfill_uses_a_rolling_window(monkeypatch) -> None:
     )
     assert result["startDate"] == "2026-07-04"
     assert result["endDate"] == "2026-07-24"
+
+
+def test_soccer_backfill_defaults_to_full_season_and_adds_espn_fallback(
+    monkeypatch,
+) -> None:
+    calls = {}
+
+    class SportmonksProvider:
+        def completed_fixtures(self, *, target_date):
+            calls.setdefault("sportmonks_dates", []).append(target_date)
+            return []
+
+    class EspnProvider:
+        def completed_fixtures(self, *, start_date, end_date):
+            calls["espn_range"] = (start_date, end_date)
+            return [{
+                "id": "event-1",
+                "league_id": "779",
+                "starting_at": "2026-07-24T19:00:00Z",
+                "rosters": [{
+                    "team": {"id": "team-1"},
+                    "roster": [{
+                        "athlete": {"id": "7", "displayName": "Test Striker"},
+                        "stats": [
+                            {"name": "appearances", "value": 1},
+                            {"name": "totalShots", "value": 2},
+                        ],
+                    }],
+                }],
+            }]
+
+    class Repository:
+        def upsert_player_game_logs(self, rows):
+            return len(rows)
+
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.SportmonksStatisticsProvider",
+        SportmonksProvider,
+    )
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.EspnSoccerStatisticsProvider",
+        EspnProvider,
+    )
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.HistoricalRepository",
+        Repository,
+    )
+
+    result = run_soccer_historical_backfill(
+        end_date=__import__("datetime").date(2026, 7, 24),
+    )
+
+    expected_start = __import__("datetime").date(2025, 7, 25)
+    assert calls["sportmonks_dates"][0] == expected_start
+    assert len(calls["sportmonks_dates"]) == 365
+    assert calls["espn_range"] == (
+        expected_start,
+        __import__("datetime").date(2026, 7, 24),
+    )
+    assert result["fetched"] == 1
+    assert result["upserted"] == 1
+    assert result["sources"] == {"Sportmonks": 0, "ESPN": 1}
