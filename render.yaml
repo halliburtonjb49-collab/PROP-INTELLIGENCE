@@ -3,6 +3,7 @@ services:
     name: prop-intelligence-api
     runtime: python
     buildCommand: pip install -r requirements.txt
+    preDeployCommand: python python_backend/scripts/apply_supabase_migrations.py
     startCommand: uvicorn main:app --app-dir python_backend --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:

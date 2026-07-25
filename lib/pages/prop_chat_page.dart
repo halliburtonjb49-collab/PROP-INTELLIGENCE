@@ -1,10 +1,47 @@
 import 'dart:async';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/auth_manager.dart';
 import '../services/prop_chat_service.dart';
 import '../theme/app_colors.dart';
+
+String? _firstSecureLink(String text) {
+  final match = RegExp(
+    r'https://[a-zA-Z0-9.-]+(?::[0-9]+)?(?:/[^\s]*)?',
+  ).firstMatch(text);
+  return match?.group(0);
+}
+
+Future<void> _openSecureLink(BuildContext context, String value) async {
+  final uri = Uri.tryParse(value);
+  if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) return;
+  final approved = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('OPEN EXTERNAL LINK?'),
+      content: Text(
+        'This link was shared by another member and is not endorsed by '
+        'PROP INTELLIGENCE.\n\nDestination: ${uri.host}',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('CANCEL'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('OPEN'),
+        ),
+      ],
+    ),
+  );
+  if (approved == true) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
 
 class PropChatPage extends StatefulWidget {
   const PropChatPage({super.key, this.service});
@@ -28,6 +65,8 @@ class _PropChatPageState extends State<PropChatPage> {
   Timer? _typingTimer;
   Timer? _presenceTimer;
   bool _sending = false;
+  String? _attachmentPath;
+  String? _attachmentKind;
 
   @override
   void initState() {
@@ -126,21 +165,79 @@ class _PropChatPageState extends State<PropChatPage> {
   }
 
   Future<void> _send() async {
-    if (_sending || _messageController.text.trim().isEmpty) return;
+    if (_sending ||
+        (_messageController.text.trim().isEmpty && _attachmentPath == null)) {
+      return;
+    }
     setState(() => _sending = true);
     try {
       await _service.sendMessage(
         _messageController.text,
         roomId: _roomId,
         replyToId: _replyingTo?.id,
+        attachmentPath: _attachmentPath,
+        attachmentKind: _attachmentKind,
+        linkUrl: _firstSecureLink(_messageController.text),
       );
       _messageController.clear();
-      setState(() => _replyingTo = null);
+      setState(() {
+        _replyingTo = null;
+        _attachmentPath = null;
+        _attachmentKind = null;
+      });
     } catch (error) {
       _notice('Unable to send: $error');
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
+        withData: true,
+      );
+      final file = result?.files.single;
+      if (file == null) return;
+      if (file.size > 5 * 1024 * 1024 || file.bytes == null) {
+        _notice('Choose a JPG, PNG, or WebP image smaller than 5 MB.');
+        return;
+      }
+      final extension = (file.extension ?? '').toLowerCase();
+      final contentType = switch (extension) {
+        'jpg' || 'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        _ => '',
+      };
+      final isTicket = await _confirm(
+        'Betting-ticket screenshot?',
+        'Select CONFIRM if this image is a betting-ticket screenshot. '
+            'Remove account numbers, balances, barcodes, and personal information before uploading.',
+      );
+      final path = await _service.uploadChatImage(
+        file.bytes!,
+        extension: extension,
+        contentType: contentType,
+      );
+      if (!mounted) return;
+      setState(() {
+        _attachmentPath = path;
+        _attachmentKind = isTicket ? 'ticket' : 'image';
+      });
+      _notice('Image secured and ready to send.');
+    } catch (error) {
+      _notice('Unable to attach image: $error');
+    }
+  }
+
+  Future<void> _openDirectMessages() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _DirectMessagesDialog(service: _service),
+    );
   }
 
   Future<void> _edit(PropChatMessage message) async {
@@ -412,6 +509,7 @@ class _PropChatPageState extends State<PropChatPage> {
             onSettings: _preferences,
             onGuidelines: _guidelines,
             onModeration: _moderation,
+            onDirectMessages: _openDirectMessages,
           ),
           StreamBuilder<List<PropChatModerationNotice>>(
             stream: _service.watchModerationNotices(),
@@ -518,6 +616,10 @@ class _PropChatPageState extends State<PropChatPage> {
                           onDelete: isOwn || canModerate
                               ? () => _delete(message)
                               : null,
+                          onOpenLink: message.linkUrl == null
+                              ? null
+                              : () =>
+                                    _openSecureLink(context, message.linkUrl!),
                         ),
                       ],
                     );
@@ -535,6 +637,12 @@ class _PropChatPageState extends State<PropChatPage> {
             controller: _messageController,
             sending: _sending,
             onSend: _send,
+            onAttach: _pickImage,
+            attachmentKind: _attachmentKind,
+            onRemoveAttachment: () => setState(() {
+              _attachmentPath = null;
+              _attachmentKind = null;
+            }),
           ),
         ],
       ),
@@ -551,6 +659,7 @@ class _ChatHeader extends StatelessWidget {
     required this.onSettings,
     required this.onGuidelines,
     required this.onModeration,
+    required this.onDirectMessages,
   });
   final String roomId;
   final Stream<List<Map<String, dynamic>>> presence;
@@ -559,6 +668,7 @@ class _ChatHeader extends StatelessWidget {
   final VoidCallback onSettings;
   final VoidCallback onGuidelines;
   final VoidCallback onModeration;
+  final VoidCallback onDirectMessages;
 
   @override
   Widget build(BuildContext context) {
@@ -604,6 +714,14 @@ class _ChatHeader extends StatelessWidget {
                   ],
                 );
               },
+            ),
+          ),
+          IconButton(
+            tooltip: 'Direct messages',
+            onPressed: onDirectMessages,
+            icon: const Icon(
+              Icons.mark_chat_unread_outlined,
+              color: AppColors.gold,
             ),
           ),
           PopupMenuButton<String>(
@@ -652,6 +770,7 @@ class _MessageBubble extends StatelessWidget {
     required this.onReport,
     required this.onBlock,
     required this.onDelete,
+    required this.onOpenLink,
   });
   final PropChatMessage message;
   final PropChatMessage? reply;
@@ -662,6 +781,7 @@ class _MessageBubble extends StatelessWidget {
   final VoidCallback? onReport;
   final VoidCallback? onBlock;
   final VoidCallback? onDelete;
+  final VoidCallback? onOpenLink;
 
   @override
   Widget build(BuildContext context) {
@@ -784,6 +904,50 @@ class _MessageBubble extends StatelessWidget {
                   message.body,
                   style: const TextStyle(color: AppColors.white, height: 1.35),
                 ),
+                if (message.attachmentUrl != null) ...[
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Stack(
+                      children: [
+                        Image.network(
+                          message.attachmentUrl!,
+                          width: 360,
+                          height: 220,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const SizedBox(
+                            width: 360,
+                            height: 90,
+                            child: Center(child: Text('Image unavailable')),
+                          ),
+                        ),
+                        if (message.attachmentKind == 'ticket')
+                          const Positioned(
+                            left: 8,
+                            top: 8,
+                            child: Chip(
+                              avatar: Icon(
+                                Icons.receipt_long_rounded,
+                                size: 16,
+                              ),
+                              label: Text('TICKET SCREENSHOT'),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (message.linkUrl != null && onOpenLink != null) ...[
+                  const SizedBox(height: 6),
+                  TextButton.icon(
+                    onPressed: onOpenLink,
+                    icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                    label: Text(
+                      Uri.tryParse(message.linkUrl!)?.host ??
+                          'Open secure link',
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 5,
@@ -820,10 +984,16 @@ class _Composer extends StatelessWidget {
     required this.controller,
     required this.sending,
     required this.onSend,
+    required this.onAttach,
+    required this.attachmentKind,
+    required this.onRemoveAttachment,
   });
   final TextEditingController controller;
   final bool sending;
   final VoidCallback onSend;
+  final VoidCallback onAttach;
+  final String? attachmentKind;
+  final VoidCallback onRemoveAttachment;
 
   @override
   Widget build(BuildContext context) {
@@ -835,39 +1005,71 @@ class _Composer extends StatelessWidget {
           color: AppColors.sidebar,
           border: Border(top: BorderSide(color: AppColors.borderGold)),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: TextField(
-                key: const ValueKey('prop-chat-message-field'),
-                controller: controller,
-                minLines: 1,
-                maxLines: 4,
-                maxLength: 500,
-                decoration: const InputDecoration(
-                  hintText: 'Message the community…',
-                  counterText: '',
-                  fillColor: AppColors.panel,
+            if (attachmentKind != null)
+              Row(
+                children: [
+                  const Icon(
+                    Icons.lock_rounded,
+                    size: 16,
+                    color: AppColors.gold,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      attachmentKind == 'ticket'
+                          ? 'Private ticket screenshot attached'
+                          : 'Private image attached',
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: onRemoveAttachment,
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                IconButton(
+                  tooltip: 'Attach image or ticket screenshot',
+                  onPressed: sending ? null : onAttach,
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
                 ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton.filled(
-              key: const ValueKey('prop-chat-send-button'),
-              tooltip: 'Send message',
-              onPressed: sending ? null : onSend,
-              style: IconButton.styleFrom(
-                backgroundColor: AppColors.gold,
-                foregroundColor: AppColors.background,
-                disabledBackgroundColor: AppColors.gunmetal,
-              ),
-              icon: sending
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.send_rounded),
+                Expanded(
+                  child: TextField(
+                    key: const ValueKey('prop-chat-message-field'),
+                    controller: controller,
+                    minLines: 1,
+                    maxLines: 4,
+                    maxLength: 500,
+                    decoration: const InputDecoration(
+                      hintText: 'Message the community…',
+                      counterText: '',
+                      fillColor: AppColors.panel,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  key: const ValueKey('prop-chat-send-button'),
+                  tooltip: 'Send message',
+                  onPressed: sending ? null : onSend,
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppColors.gold,
+                    foregroundColor: AppColors.background,
+                    disabledBackgroundColor: AppColors.gunmetal,
+                  ),
+                  icon: sending
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send_rounded),
+                ),
+              ],
             ),
           ],
         ),
@@ -906,6 +1108,337 @@ class _ReplyComposerBanner extends StatelessWidget {
   }
 }
 
+class _DirectMessagesDialog extends StatefulWidget {
+  const _DirectMessagesDialog({required this.service});
+  final PropChatService service;
+
+  @override
+  State<_DirectMessagesDialog> createState() => _DirectMessagesDialogState();
+}
+
+class _DirectMessagesDialogState extends State<_DirectMessagesDialog> {
+  final _message = TextEditingController();
+  List<PropChatConversation> _conversations = const [];
+  PropChatConversation? _selected;
+  bool _loading = true;
+  bool _sending = false;
+  String? _attachmentPath;
+  String? _attachmentKind;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _message.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final values = await widget.service.loadDirectConversations();
+      if (!mounted) return;
+      setState(() {
+        _conversations = values;
+        _selected ??= values.firstOrNull;
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _newConversation() async {
+    final search = TextEditingController();
+    List<PropChatMember> results = const [];
+    final member = await showDialog<PropChatMember>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('NEW DIRECT MESSAGE'),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: search,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Search public username',
+                    prefixIcon: Icon(Icons.search_rounded),
+                  ),
+                  onChanged: (value) async {
+                    final found = await widget.service.findMembers(value);
+                    if (dialogContext.mounted) {
+                      setDialogState(() => results = found);
+                    }
+                  },
+                ),
+                const SizedBox(height: 8),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final result in results)
+                        ListTile(
+                          leading: const CircleAvatar(
+                            child: Icon(Icons.person_rounded),
+                          ),
+                          title: Text('@${result.username}'),
+                          onTap: () => Navigator.pop(dialogContext, result),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    search.dispose();
+    if (member == null) return;
+    final id = await widget.service.startDirectConversation(member.userId);
+    await _load();
+    if (!mounted) return;
+    setState(() {
+      _selected = _conversations
+          .where((conversation) => conversation.id == id)
+          .firstOrNull;
+    });
+  }
+
+  Future<void> _pickImage() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
+      withData: true,
+    );
+    final file = result?.files.single;
+    if (file == null || file.bytes == null || file.size > 5 * 1024 * 1024) {
+      return;
+    }
+    final extension = (file.extension ?? '').toLowerCase();
+    final contentType = switch (extension) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      _ => '',
+    };
+    if (!mounted) return;
+    final ticket =
+        await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('BETTING-TICKET SCREENSHOT?'),
+            content: const Text(
+              'Remove balances, barcodes, account numbers, and personal '
+              'information before sharing.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('REGULAR IMAGE'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('TICKET SCREENSHOT'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    final path = await widget.service.uploadChatImage(
+      file.bytes!,
+      extension: extension,
+      contentType: contentType,
+    );
+    if (mounted) {
+      setState(() {
+        _attachmentPath = path;
+        _attachmentKind = ticket ? 'ticket' : 'image';
+      });
+    }
+  }
+
+  Future<void> _send() async {
+    final conversation = _selected;
+    if (conversation == null ||
+        _sending ||
+        (_message.text.trim().isEmpty && _attachmentPath == null)) {
+      return;
+    }
+    setState(() => _sending = true);
+    try {
+      await widget.service.sendDirectMessage(
+        conversation.id,
+        _message.text,
+        attachmentPath: _attachmentPath,
+        attachmentKind: _attachmentKind,
+        linkUrl: _firstSecureLink(_message.text),
+      );
+      _message.clear();
+      setState(() {
+        _attachmentPath = null;
+        _attachmentKind = null;
+      });
+      await _load();
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _report(PropChatMessage message) async {
+    await widget.service.reportDirectMessage(
+      message.id,
+      'Reported from direct messages',
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Direct message reported for review.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: SizedBox(
+        width: 920,
+        height: 680,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 250,
+              child: Column(
+                children: [
+                  ListTile(
+                    title: const Text(
+                      'DIRECT MESSAGES',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    trailing: IconButton(
+                      tooltip: 'New direct message',
+                      onPressed: _newConversation,
+                      icon: const Icon(Icons.edit_square),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: _loading
+                        ? const Center(child: CircularProgressIndicator())
+                        : ListView(
+                            children: [
+                              for (final conversation in _conversations)
+                                ListTile(
+                                  selected: conversation.id == _selected?.id,
+                                  title: Text('@${conversation.otherUsername}'),
+                                  trailing: conversation.unreadCount > 0
+                                      ? Badge(
+                                          label: Text(
+                                            '${conversation.unreadCount}',
+                                          ),
+                                        )
+                                      : null,
+                                  onTap: () {
+                                    setState(() => _selected = conversation);
+                                    unawaited(
+                                      widget.service.markDirectConversationRead(
+                                        conversation.id,
+                                      ),
+                                    );
+                                  },
+                                ),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
+            ),
+            const VerticalDivider(width: 1),
+            Expanded(
+              child: _selected == null
+                  ? const _ChatNotice(
+                      icon: Icons.lock_outline_rounded,
+                      text: 'Choose a conversation or start a secure DM.',
+                    )
+                  : Column(
+                      children: [
+                        ListTile(
+                          leading: const Icon(
+                            Icons.lock_rounded,
+                            color: AppColors.gold,
+                          ),
+                          title: Text('@${_selected!.otherUsername}'),
+                          subtitle: const Text(
+                            'Private conversation · report abuse immediately',
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        Expanded(
+                          child: StreamBuilder<List<PropChatMessage>>(
+                            stream: widget.service.watchDirectMessages(
+                              _selected!.id,
+                            ),
+                            builder: (context, snapshot) {
+                              final messages = snapshot.data ?? const [];
+                              return ListView(
+                                padding: const EdgeInsets.all(12),
+                                children: [
+                                  for (final message in messages)
+                                    _MessageBubble(
+                                      message: message,
+                                      reply: null,
+                                      isOwn:
+                                          message.userId ==
+                                          widget.service.currentUserId,
+                                      onReply: () {},
+                                      onReact: (_) {},
+                                      onEdit: null,
+                                      onReport:
+                                          message.userId ==
+                                              widget.service.currentUserId
+                                          ? null
+                                          : () => _report(message),
+                                      onBlock: null,
+                                      onDelete: null,
+                                      onOpenLink: message.linkUrl == null
+                                          ? null
+                                          : () => _openSecureLink(
+                                              context,
+                                              message.linkUrl!,
+                                            ),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                        _Composer(
+                          controller: _message,
+                          sending: _sending,
+                          onSend: _send,
+                          onAttach: _pickImage,
+                          attachmentKind: _attachmentKind,
+                          onRemoveAttachment: () => setState(() {
+                            _attachmentPath = null;
+                            _attachmentKind = null;
+                          }),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ModerationDialog extends StatefulWidget {
   const _ModerationDialog({
     required this.reports,
@@ -930,7 +1463,11 @@ class _ModerationDialogState extends State<_ModerationDialog> {
 
   Future<void> _act(PropChatReport report, String action) async {
     if (action == 'dismiss') {
-      await widget.service.resolveReport(report.id, 'dismissed');
+      await widget.service.resolveReport(
+        report.id,
+        'dismissed',
+        isDirect: report.isDirect,
+      );
     } else {
       final expiry = switch (action) {
         'muted' => DateTime.now().add(const Duration(hours: 24)),
@@ -943,7 +1480,11 @@ class _ModerationDialogState extends State<_ModerationDialog> {
         reason: report.reason,
         expiresAt: expiry,
       );
-      await widget.service.resolveReport(report.id, 'resolved');
+      await widget.service.resolveReport(
+        report.id,
+        'resolved',
+        isDirect: report.isDirect,
+      );
     }
     setState(() => reports.remove(report));
     widget.onNotice('Moderation action saved.');
@@ -1047,7 +1588,10 @@ class _ModerationDialogState extends State<_ModerationDialog> {
             else
               for (final report in reports)
                 ListTile(
-                  title: Text('@${report.username}: ${report.body}'),
+                  title: Text(
+                    '${report.isDirect ? 'DIRECT · ' : ''}'
+                    '@${report.username}: ${report.body}',
+                  ),
                   subtitle: Text('Reason: ${report.reason}'),
                   trailing: PopupMenuButton<String>(
                     onSelected: (action) => _act(report, action),

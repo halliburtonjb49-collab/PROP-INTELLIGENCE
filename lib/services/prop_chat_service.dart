@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,6 +31,10 @@ class PropChatMessage {
     this.replyToId,
     this.editedAt,
     this.reactions = const {},
+    this.attachmentPath,
+    this.attachmentKind,
+    this.linkUrl,
+    this.attachmentUrl,
   });
 
   final int id;
@@ -42,6 +47,10 @@ class PropChatMessage {
   final int? replyToId;
   final DateTime? editedAt;
   final Map<String, int> reactions;
+  final String? attachmentPath;
+  final String? attachmentKind;
+  final String? linkUrl;
+  final String? attachmentUrl;
 
   bool get isVerified => authorRole == 'owner' || authorRole == 'admin';
 
@@ -55,6 +64,9 @@ class PropChatMessage {
       authorRole: json['author_role']?.toString() ?? 'user',
       replyToId: (json['reply_to_id'] as num?)?.toInt(),
       editedAt: DateTime.tryParse(json['edited_at']?.toString() ?? ''),
+      attachmentPath: json['attachment_path']?.toString(),
+      attachmentKind: json['attachment_kind']?.toString(),
+      linkUrl: json['link_url']?.toString(),
       createdAt:
           DateTime.tryParse(json['created_at']?.toString() ?? '')?.toLocal() ??
           DateTime.now(),
@@ -72,7 +84,62 @@ class PropChatMessage {
     replyToId: replyToId,
     editedAt: editedAt,
     reactions: value,
+    attachmentPath: attachmentPath,
+    attachmentKind: attachmentKind,
+    linkUrl: linkUrl,
+    attachmentUrl: attachmentUrl,
   );
+
+  PropChatMessage withAttachmentUrl(String? value) => PropChatMessage(
+    id: id,
+    userId: userId,
+    username: username,
+    body: body,
+    createdAt: createdAt,
+    roomId: roomId,
+    authorRole: authorRole,
+    replyToId: replyToId,
+    editedAt: editedAt,
+    reactions: reactions,
+    attachmentPath: attachmentPath,
+    attachmentKind: attachmentKind,
+    linkUrl: linkUrl,
+    attachmentUrl: value,
+  );
+}
+
+class PropChatMember {
+  const PropChatMember({required this.userId, required this.username});
+  final String userId;
+  final String username;
+}
+
+class PropChatConversation {
+  const PropChatConversation({
+    required this.id,
+    required this.otherUserId,
+    required this.otherUsername,
+    required this.updatedAt,
+    required this.unreadCount,
+  });
+  final String id;
+  final String otherUserId;
+  final String otherUsername;
+  final DateTime updatedAt;
+  final int unreadCount;
+
+  factory PropChatConversation.fromJson(Map<String, dynamic> json) =>
+      PropChatConversation(
+        id: json['conversation_id']?.toString() ?? '',
+        otherUserId: json['other_user_id']?.toString() ?? '',
+        otherUsername: json['other_username']?.toString() ?? 'member',
+        updatedAt:
+            DateTime.tryParse(
+              json['updated_at']?.toString() ?? '',
+            )?.toLocal() ??
+            DateTime.now(),
+        unreadCount: (json['unread_count'] as num?)?.toInt() ?? 0,
+      );
 }
 
 class PropChatReport {
@@ -82,19 +149,25 @@ class PropChatReport {
     required this.body,
     required this.reason,
     required this.userId,
+    this.isDirect = false,
   });
   final int id;
   final String username;
   final String body;
   final String reason;
   final String userId;
+  final bool isDirect;
 
-  factory PropChatReport.fromJson(Map<String, dynamic> json) => PropChatReport(
+  factory PropChatReport.fromJson(
+    Map<String, dynamic> json, {
+    bool isDirect = false,
+  }) => PropChatReport(
     id: (json['id'] as num?)?.toInt() ?? 0,
     username: json['message_username']?.toString() ?? 'unknown',
     body: json['message_body']?.toString() ?? '[message unavailable]',
     reason: json['reason']?.toString() ?? 'No reason supplied',
     userId: json['message_user_id']?.toString() ?? '',
+    isDirect: isDirect,
   );
 }
 
@@ -332,9 +405,31 @@ class PropChatService {
       if (id == null || emoji == null) continue;
       counts.putIfAbsent(id, () => {})[emoji] = (counts[id]?[emoji] ?? 0) + 1;
     }
-    return messages
+    final withReactions = messages
         .map((message) => message.withReactions(counts[message.id] ?? const {}))
         .toList(growable: false);
+    return _attachSignedUrls(withReactions);
+  }
+
+  Future<List<PropChatMessage>> _attachSignedUrls(
+    List<PropChatMessage> messages,
+  ) async {
+    final client = _client;
+    if (client == null) return messages;
+    return Future.wait(
+      messages.map((message) async {
+        final path = message.attachmentPath;
+        if (path == null || path.isEmpty) return message;
+        try {
+          final url = await client.storage
+              .from('prop-chat-private')
+              .createSignedUrl(path, 600);
+          return message.withAttachmentUrl(url);
+        } catch (_) {
+          return message;
+        }
+      }),
+    );
   }
 
   Future<Set<String>> loadBlockedUserIds() async {
@@ -355,6 +450,9 @@ class PropChatService {
     String body, {
     String roomId = 'general',
     int? replyToId,
+    String? attachmentPath,
+    String? attachmentKind,
+    String? linkUrl,
   }) async {
     final client = _client;
     final userId = currentUserId;
@@ -362,7 +460,7 @@ class PropChatService {
     if (client == null || userId == null) {
       throw StateError('Sign in to use PROP CHAT.');
     }
-    if (trimmed.isEmpty || trimmed.length > 500) {
+    if ((trimmed.isEmpty && attachmentPath == null) || trimmed.length > 500) {
       throw ArgumentError('Messages must contain 1–500 characters.');
     }
     await client.from('prop_chat_messages').insert({
@@ -371,7 +469,143 @@ class PropChatService {
       'body': trimmed,
       'room_id': roomId,
       'reply_to_id': replyToId,
+      'attachment_path': attachmentPath,
+      'attachment_kind': attachmentKind,
+      'link_url': linkUrl,
     });
+  }
+
+  Future<String> uploadChatImage(
+    Uint8List bytes, {
+    required String extension,
+    required String contentType,
+  }) async {
+    if (bytes.isEmpty || bytes.length > 5 * 1024 * 1024) {
+      throw ArgumentError('Images must be between 1 byte and 5 MB.');
+    }
+    const allowed = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'webp': 'image/webp',
+    };
+    final normalized = extension.toLowerCase();
+    if (allowed[normalized] != contentType ||
+        !allowed.containsKey(normalized)) {
+      throw ArgumentError('Only JPG, PNG, and WebP images are allowed.');
+    }
+    final userId = currentUserId;
+    if (userId == null) throw StateError('Sign in to upload an image.');
+    final random = Random.secure();
+    String hex(int count) => List.generate(
+      count,
+      (_) => random.nextInt(16).toRadixString(16),
+    ).join();
+    final id =
+        '${hex(8)}-${hex(4)}-4${hex(3)}-'
+        '${(8 + random.nextInt(4)).toRadixString(16)}${hex(3)}-${hex(12)}';
+    final path = '$userId/$id.$normalized';
+    await _requireClient().storage
+        .from('prop-chat-private')
+        .uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(contentType: contentType, upsert: false),
+        );
+    return path;
+  }
+
+  Future<List<PropChatMember>> findMembers(String query) async {
+    final value = query.trim();
+    if (value.length < 2) return const [];
+    final rows = await _requireClient().rpc(
+      'find_prop_chat_members',
+      params: {'query': value},
+    );
+    return (rows as List)
+        .map(
+          (row) => PropChatMember(
+            userId: (row as Map<String, dynamic>)['user_id'].toString(),
+            username: row['username'].toString(),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<String> startDirectConversation(String otherUserId) async {
+    final result = await _requireClient().rpc(
+      'start_prop_chat_direct_conversation',
+      params: {'other_user': otherUserId},
+    );
+    return result.toString();
+  }
+
+  Future<List<PropChatConversation>> loadDirectConversations() async {
+    final rows = await _requireClient().rpc('prop_chat_direct_conversations');
+    return (rows as List)
+        .map(
+          (row) => PropChatConversation.fromJson(row as Map<String, dynamic>),
+        )
+        .toList(growable: false);
+  }
+
+  Stream<List<PropChatMessage>> watchDirectMessages(String conversationId) {
+    final client = _client;
+    if (client == null || currentUserId == null) {
+      return Stream.value(const []);
+    }
+    return client
+        .from('prop_chat_direct_messages')
+        .stream(primaryKey: ['id'])
+        .eq('conversation_id', conversationId)
+        .order('created_at')
+        .asyncMap(
+          (rows) => _attachSignedUrls(
+            rows.map(PropChatMessage.fromJson).toList(growable: false),
+          ),
+        );
+  }
+
+  Future<void> sendDirectMessage(
+    String conversationId,
+    String body, {
+    String? attachmentPath,
+    String? attachmentKind,
+    String? linkUrl,
+  }) async {
+    final userId = currentUserId;
+    if (userId == null) throw StateError('Sign in to send a message.');
+    final trimmed = body.trim();
+    if ((trimmed.isEmpty && attachmentPath == null) || trimmed.length > 500) {
+      throw ArgumentError('Messages must contain text or an image.');
+    }
+    await _requireClient().from('prop_chat_direct_messages').insert({
+      'conversation_id': conversationId,
+      'user_id': userId,
+      'username': 'server-assigned',
+      'body': trimmed,
+      'attachment_path': attachmentPath,
+      'attachment_kind': attachmentKind,
+      'link_url': linkUrl,
+    });
+  }
+
+  Future<void> reportDirectMessage(int messageId, String reason) async {
+    final userId = currentUserId;
+    if (userId == null) throw StateError('Sign in to report a message.');
+    await _requireClient().from('prop_chat_direct_reports').upsert({
+      'message_id': messageId,
+      'reporter_id': userId,
+      'reason': reason.trim(),
+    });
+  }
+
+  Future<void> markDirectConversationRead(String conversationId) async {
+    await _requireClient()
+        .from('prop_chat_conversation_members')
+        .update({'last_read_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('conversation_id', conversationId)
+        .eq('user_id', currentUserId!);
   }
 
   Future<void> editMessage(int messageId, String body) async {
@@ -535,14 +769,25 @@ class PropChatService {
   }
 
   Future<List<PropChatReport>> loadOpenReports() async {
-    final rows = await _requireClient()
-        .from('prop_chat_reports')
-        .select('id, message_username, message_body, message_user_id, reason')
-        .eq('status', 'open')
-        .order('created_at');
-    return (rows as List)
-        .map((row) => PropChatReport.fromJson(row as Map<String, dynamic>))
-        .toList(growable: false);
+    final client = _requireClient();
+    final values = await Future.wait([
+      client
+          .from('prop_chat_reports')
+          .select('id, message_username, message_body, message_user_id, reason')
+          .eq('status', 'open')
+          .order('created_at'),
+      client
+          .from('prop_chat_direct_reports')
+          .select('id, message_username, message_body, message_user_id, reason')
+          .eq('status', 'open')
+          .order('created_at'),
+    ]);
+    return [
+      for (final row in values[0] as List)
+        PropChatReport.fromJson(row as Map<String, dynamic>),
+      for (final row in values[1] as List)
+        PropChatReport.fromJson(row as Map<String, dynamic>, isDirect: true),
+    ];
   }
 
   Future<Map<String, dynamic>> loadHealth() async {
@@ -578,9 +823,13 @@ class PropChatService {
     });
   }
 
-  Future<void> resolveReport(int reportId, String status) async {
+  Future<void> resolveReport(
+    int reportId,
+    String status, {
+    bool isDirect = false,
+  }) async {
     await _requireClient()
-        .from('prop_chat_reports')
+        .from(isDirect ? 'prop_chat_direct_reports' : 'prop_chat_reports')
         .update({
           'status': status,
           'reviewed_by': currentUserId,
