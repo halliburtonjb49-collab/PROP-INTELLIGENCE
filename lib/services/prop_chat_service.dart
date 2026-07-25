@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_service.dart';
+import 'app_sound_service.dart';
 
 class PropChatRoom {
   const PropChatRoom({required this.id, required this.name});
@@ -104,8 +107,68 @@ class PropChatPreferences {
   final bool soundsEnabled;
 }
 
+class PropChatModerationNotice {
+  const PropChatModerationNotice({
+    required this.id,
+    required this.restriction,
+    required this.reason,
+    this.expiresAt,
+  });
+  final int id;
+  final String restriction;
+  final String reason;
+  final DateTime? expiresAt;
+
+  factory PropChatModerationNotice.fromJson(Map<String, dynamic> json) =>
+      PropChatModerationNotice(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        restriction: json['restriction']?.toString() ?? 'warning',
+        reason: json['reason']?.toString() ?? 'Community guidelines violation',
+        expiresAt: DateTime.tryParse(json['expires_at']?.toString() ?? ''),
+      );
+}
+
+class PropChatNotification {
+  const PropChatNotification({
+    required this.roomId,
+    required this.username,
+    required this.body,
+  });
+  final String roomId;
+  final String username;
+  final String body;
+}
+
+class PropChatOperationalAlert {
+  const PropChatOperationalAlert({
+    required this.id,
+    required this.severity,
+    required this.type,
+    required this.details,
+  });
+  final int id;
+  final String severity;
+  final String type;
+  final Map<String, dynamic> details;
+
+  factory PropChatOperationalAlert.fromJson(Map<String, dynamic> json) =>
+      PropChatOperationalAlert(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        severity: json['severity']?.toString() ?? 'warning',
+        type: json['alert_type']?.toString() ?? 'chat_health',
+        details: (json['details'] as Map?)?.cast<String, dynamic>() ?? const {},
+      );
+}
+
 class PropChatService {
   static final ValueNotifier<int> unreadCount = ValueNotifier<int>(0);
+  static final ValueNotifier<Map<String, int>> unreadByRoom =
+      ValueNotifier<Map<String, int>>(const {});
+  static final ValueNotifier<PropChatNotification?> latestNotification =
+      ValueNotifier<PropChatNotification?>(null);
+  static StreamSubscription<List<Map<String, dynamic>>>? _globalMessages;
+  static StreamSubscription<AuthState>? _globalAuth;
+  static int? _latestObservedMessageId;
   SupabaseClient? get _client => SupabaseService.client;
   String? get currentUserId => _client?.auth.currentUser?.id;
 
@@ -129,13 +192,126 @@ class PropChatService {
     if (client == null || currentUserId == null) {
       return Stream<List<PropChatMessage>>.value(const []);
     }
-    return client
+    late final StreamController<List<PropChatMessage>> controller;
+    StreamSubscription<List<Map<String, dynamic>>>? messages;
+    StreamSubscription<List<Map<String, dynamic>>>? reactions;
+    var refreshing = false;
+    var refreshQueued = false;
+
+    Future<void> refresh() async {
+      if (refreshing) {
+        refreshQueued = true;
+        return;
+      }
+      refreshing = true;
+      try {
+        final rows = await client
+            .from('prop_chat_messages')
+            .select()
+            .eq('room_id', roomId)
+            .order('created_at')
+            .limit(200);
+        if (!controller.isClosed) {
+          controller.add(
+            await _attachReactions((rows as List).cast<Map<String, dynamic>>()),
+          );
+        }
+      } catch (error, stackTrace) {
+        if (!controller.isClosed) controller.addError(error, stackTrace);
+      } finally {
+        refreshing = false;
+        if (refreshQueued) {
+          refreshQueued = false;
+          unawaited(refresh());
+        }
+      }
+    }
+
+    controller = StreamController<List<PropChatMessage>>(
+      onListen: () {
+        messages = client
+            .from('prop_chat_messages')
+            .stream(primaryKey: ['id'])
+            .eq('room_id', roomId)
+            .listen((_) => unawaited(refresh()));
+        reactions = client
+            .from('prop_chat_reactions')
+            .stream(primaryKey: ['message_id', 'user_id', 'emoji'])
+            .listen((_) => unawaited(refresh()));
+        unawaited(refresh());
+      },
+      onCancel: () async {
+        await messages?.cancel();
+        await reactions?.cancel();
+      },
+    );
+    return controller.stream;
+  }
+
+  Future<void> startGlobalMonitoring() async {
+    final client = _client;
+    if (client == null) return;
+    _globalAuth ??= client.auth.onAuthStateChange.listen((_) {
+      unawaited(_restartGlobalMessageMonitor());
+    });
+    await _restartGlobalMessageMonitor();
+  }
+
+  Future<void> _restartGlobalMessageMonitor() async {
+    await _globalMessages?.cancel();
+    _globalMessages = null;
+    final client = _client;
+    if (client == null || currentUserId == null) {
+      unreadCount.value = 0;
+      unreadByRoom.value = const {};
+      return;
+    }
+    _globalMessages = client
         .from('prop_chat_messages')
         .stream(primaryKey: ['id'])
-        .eq('room_id', roomId)
         .order('created_at')
-        .limit(200)
-        .asyncMap(_attachReactions);
+        .listen((rows) => unawaited(_handleGlobalMessages(rows)));
+  }
+
+  Future<void> _handleGlobalMessages(
+    List<Map<String, dynamic>> messages,
+  ) async {
+    await refreshUnreadSummary();
+    if (messages.isEmpty) return;
+    final latest = PropChatMessage.fromJson(messages.last);
+    if (_latestObservedMessageId == null) {
+      _latestObservedMessageId = latest.id;
+      return;
+    }
+    if (latest.id <= _latestObservedMessageId! ||
+        latest.userId == currentUserId) {
+      return;
+    }
+    _latestObservedMessageId = latest.id;
+    final preferences = await loadPreferences();
+    if (!preferences.notificationsEnabled) return;
+    latestNotification.value = PropChatNotification(
+      roomId: latest.roomId,
+      username: latest.username,
+      body: latest.body,
+    );
+    if (preferences.soundsEnabled) {
+      unawaited(AppSoundService.instance.play(AppSoundEvent.selection));
+    }
+  }
+
+  Future<void> refreshUnreadSummary() async {
+    final client = _client;
+    if (client == null || currentUserId == null) return;
+    final rows = await client.rpc('prop_chat_unread_summary');
+    final values = <String, int>{};
+    for (final raw in rows as List) {
+      final row = raw as Map<String, dynamic>;
+      values[row['room_id']?.toString() ?? 'general'] =
+          (row['unread_count'] as num?)?.toInt() ?? 0;
+    }
+    unreadByRoom.value = values;
+    unreadCount.value = values.values.fold(0, (sum, value) => sum + value);
   }
 
   Future<List<PropChatMessage>> _attachReactions(
@@ -279,6 +455,7 @@ class PropChatService {
       'prop_chat_last_read_$roomId',
       DateTime.now().toUtc().toIso8601String(),
     );
+    await refreshUnreadSummary();
   }
 
   Future<DateTime?> localLastRead(String roomId) async {
@@ -334,6 +511,29 @@ class PropChatService {
         .eq('room_id', roomId);
   }
 
+  Stream<List<PropChatModerationNotice>> watchModerationNotices() {
+    final client = _client;
+    final userId = currentUserId;
+    if (client == null || userId == null) return Stream.value(const []);
+    return client
+        .from('prop_chat_moderation_notices')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .map(
+          (rows) => rows
+              .where((row) => row['acknowledged_at'] == null)
+              .map(PropChatModerationNotice.fromJson)
+              .toList(growable: false),
+        );
+  }
+
+  Future<void> acknowledgeModerationNotice(int noticeId) async {
+    await _requireClient().rpc(
+      'acknowledge_prop_chat_notice',
+      params: {'notice_id': noticeId},
+    );
+  }
+
   Future<List<PropChatReport>> loadOpenReports() async {
     final rows = await _requireClient()
         .from('prop_chat_reports')
@@ -343,6 +543,39 @@ class PropChatService {
     return (rows as List)
         .map((row) => PropChatReport.fromJson(row as Map<String, dynamic>))
         .toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> loadHealth() async {
+    final result = await _requireClient().rpc('prop_chat_health');
+    return (result as Map?)?.cast<String, dynamic>() ?? const {};
+  }
+
+  Future<List<PropChatOperationalAlert>> loadOperationalAlerts() async {
+    final rows = await _requireClient()
+        .from('prop_chat_operational_alerts')
+        .select('id, severity, alert_type, details')
+        .isFilter('resolved_at', null)
+        .order('created_at');
+    return (rows as List)
+        .map(
+          (row) =>
+              PropChatOperationalAlert.fromJson(row as Map<String, dynamic>),
+        )
+        .toList(growable: false);
+  }
+
+  Future<void> resolveOperationalAlert(int alertId) async {
+    await _requireClient()
+        .from('prop_chat_operational_alerts')
+        .update({'resolved_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', alertId);
+  }
+
+  Future<void> addBlockedTerm(String term) async {
+    await _requireClient().from('prop_chat_blocked_terms').insert({
+      'term': term.trim().toLowerCase(),
+      'category': 'owner',
+    });
   }
 
   Future<void> resolveReport(int reportId, String status) async {

@@ -167,6 +167,7 @@ Future<void> main() async {
       try {
         await SupabaseService.initialize();
         AuthManager.instance.attach();
+        await PropChatService().startGlobalMonitoring();
         await PropWatchlistService().syncLocalAndCloudWatchlist().timeout(
           const Duration(seconds: 5),
         );
@@ -544,6 +545,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   @override
   void initState() {
     super.initState();
+    PropChatService.latestNotification.addListener(_showChatNotification);
     _startupLog('active slip load start');
     unawaited(
       _activeSlipController.load().then(
@@ -572,6 +574,28 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     });
   }
 
+  void _showChatNotification() {
+    final notification = PropChatService.latestNotification.value;
+    if (!mounted || notification == null || _selectedPage == AppPage.propChat) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '#${notification.roomId} · @${notification.username}: '
+          '${notification.body}',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        action: SnackBarAction(
+          label: 'OPEN',
+          onPressed: () =>
+              _switchToPage(AppPage.propChat, source: 'chat-notification'),
+        ),
+      ),
+    );
+  }
+
   /// So the SLIP WATCHER sidebar badge is correct immediately on load,
   /// not just after the user visits that page (which is what actually
   /// keeps it updated afterward, via SlipHistoryPanel).
@@ -587,6 +611,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 
   @override
   void dispose() {
+    PropChatService.latestNotification.removeListener(_showChatNotification);
     _activeSlipController.dispose();
     super.dispose();
   }
