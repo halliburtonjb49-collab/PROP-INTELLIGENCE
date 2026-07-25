@@ -112,6 +112,34 @@ class PropData {
     return double.tryParse(rawValue?.toString() ?? '');
   }
 
+  static double? _impliedProbability(double? odds) {
+    if (odds == null || odds == 0) return null;
+    if (odds > 1 && odds < 20) return 1 / odds;
+    if (odds < 0) return (-odds) / ((-odds) + 100);
+    if (odds >= 100) return 100 / (odds + 100);
+    return null;
+  }
+
+  /// A price-derived direction that is explicitly separate from the model.
+  ///
+  /// This remains useful when projections are unavailable, but must never be
+  /// displayed as an AI pick or model confidence score.
+  String get marketLeanSide {
+    final over = _impliedProbability(overOdds);
+    final under = _impliedProbability(underOdds);
+    if (over == null || under == null || (over - under).abs() < 0.005) {
+      return 'EVEN';
+    }
+    return over > under ? 'OVER' : 'UNDER';
+  }
+
+  int? get marketLeanPercentage {
+    final over = _impliedProbability(overOdds);
+    final under = _impliedProbability(underOdds);
+    if (over == null || under == null || over + under <= 0) return null;
+    return ((over > under ? over : under) / (over + under) * 100).round();
+  }
+
   factory PropData.fromJson(Map<String, dynamic> json) {
     return PropData(
       id:
