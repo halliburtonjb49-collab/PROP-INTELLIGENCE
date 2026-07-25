@@ -36,6 +36,7 @@ void main() {
       AppPage.evScanner,
       AppPage.strikeoutProGold,
       AppPage.intelligenceLab,
+      AppPage.propChat,
     ]) {
       expect(
         requiredTierForPage(page),
