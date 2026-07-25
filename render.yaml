@@ -80,6 +80,8 @@ services:
         sync: false
       - key: OWNER_EMAILS
         value: halliburtonjb49@gmail.com
+      - key: OWNER_USER_IDS
+        value: 84a76503-f704-46b6-be87-760ea8c9f2f5
       - key: PIPELINE_ALERT_WEBHOOK_URL
         sync: false
     disk:

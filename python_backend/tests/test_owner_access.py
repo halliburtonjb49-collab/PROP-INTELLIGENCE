@@ -24,6 +24,24 @@ def test_verified_owner_email_has_admin_api_access(monkeypatch):
     assert api_auth_service.require_admin(authorization="Bearer valid-token") == "owner-id"
 
 
+def test_verified_owner_user_id_has_owner_access(monkeypatch):
+    owner_id = "84a76503-f704-46b6-be87-760ea8c9f2f5"
+    monkeypatch.setattr(
+        api_auth_service,
+        "_supabase_user",
+        lambda _token: {
+            "id": owner_id,
+            "email": "changed@example.com",
+            "app_metadata": {"role": "user"},
+            "user_metadata": {},
+        },
+    )
+
+    assert api_auth_service.require_owner(
+        authorization="Bearer valid-token"
+    ) == owner_id
+
+
 def test_regular_verified_email_does_not_gain_admin_access(monkeypatch):
     monkeypatch.setattr(
         api_auth_service,
