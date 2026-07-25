@@ -20,6 +20,24 @@ class _FakeChatService extends PropChatService {
   Future<Set<String>> loadBlockedUserIds() async => const {};
 
   @override
+  Future<List<PropChatConversation>> loadDirectConversations() async => [
+    PropChatConversation(
+      id: 'conversation-1',
+      otherUserId: 'other-user',
+      otherUsername: 'line_watcher',
+      updatedAt: DateTime(2026, 7, 25, 12),
+      unreadCount: 2,
+    ),
+  ];
+
+  @override
+  Stream<List<PropChatMessage>> watchDirectMessages(String conversationId) =>
+      Stream.value(messages);
+
+  @override
+  Future<void> markDirectConversationRead(String conversationId) async {}
+
+  @override
   Future<void> sendMessage(
     String body, {
     String roomId = 'general',
@@ -113,5 +131,79 @@ void main() {
     await tester.pump();
 
     expect(service.sentBody, 'I see it.');
+  });
+
+  testWidgets('PROP CHAT direct messages use a mobile master-detail flow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    final service = _FakeChatService([
+      PropChatMessage(
+        id: 1,
+        userId: 'other-user',
+        username: 'line_watcher',
+        body: 'Mobile DM is visible.',
+        createdAt: DateTime(2026, 7, 25, 12),
+      ),
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(),
+        home: Scaffold(body: PropChatPage(service: service)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const ValueKey('prop-chat-direct-messages')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('mobile-direct-conversation-list')),
+      findsOneWidget,
+    );
+    expect(find.text('@line_watcher'), findsWidgets);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('mobile-direct-conversation-list')),
+        matching: find.text('@line_watcher'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final mobileDialog = find.byKey(
+      const ValueKey('mobile-direct-messages-dialog'),
+    );
+    expect(
+      find.descendant(
+        of: mobileDialog,
+        matching: find.text('Mobile DM is visible.'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('mobile-direct-message-back')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: mobileDialog,
+        matching: find.byKey(const ValueKey('prop-chat-message-field')),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const ValueKey('mobile-direct-message-back')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('mobile-direct-conversation-list')),
+      findsOneWidget,
+    );
   });
 }

@@ -241,9 +241,12 @@ class _PropChatPageState extends State<PropChatPage> {
   }
 
   Future<void> _openDirectMessages() async {
+    final compact = MediaQuery.sizeOf(context).width < 700;
     await showDialog<void>(
       context: context,
-      builder: (_) => _DirectMessagesDialog(service: _service),
+      builder: (_) => compact
+          ? _MobileDirectMessagesDialog(service: _service)
+          : _DirectMessagesDialog(service: _service),
     );
   }
 
@@ -730,6 +733,7 @@ class _ChatHeader extends StatelessWidget {
             ),
           ),
           IconButton(
+            key: const ValueKey('prop-chat-direct-messages'),
             tooltip: 'Direct messages',
             onPressed: onDirectMessages,
             icon: const Icon(
@@ -737,7 +741,9 @@ class _ChatHeader extends StatelessWidget {
               color: AppColors.gold,
             ),
           ),
-          if (!isFloating && onPopOut != null)
+          if (!isFloating &&
+              onPopOut != null &&
+              MediaQuery.sizeOf(context).width >= 700)
             IconButton(
               key: const ValueKey('pop-out-prop-chat'),
               tooltip: 'Open PROP CHAT in a floating panel',
@@ -1131,6 +1137,270 @@ class _ReplyComposerBanner extends StatelessWidget {
   }
 }
 
+class _MobileDirectMessagesDialog extends StatefulWidget {
+  const _MobileDirectMessagesDialog({required this.service});
+  final PropChatService service;
+
+  @override
+  State<_MobileDirectMessagesDialog> createState() =>
+      _MobileDirectMessagesDialogState();
+}
+
+class _MobileDirectMessagesDialogState
+    extends State<_MobileDirectMessagesDialog> {
+  final _message = TextEditingController();
+  List<PropChatConversation> _conversations = const [];
+  PropChatConversation? _selected;
+  bool _loading = true;
+  bool _sending = false;
+  String? _attachmentPath;
+  String? _attachmentKind;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _message.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final conversations = await widget.service.loadDirectConversations();
+      if (mounted) {
+        setState(() {
+          _conversations = conversations;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _send() async {
+    final selected = _selected;
+    final body = _message.text.trim();
+    if (selected == null ||
+        (body.isEmpty && _attachmentPath == null) ||
+        _sending) {
+      return;
+    }
+    setState(() => _sending = true);
+    try {
+      await widget.service.sendDirectMessage(
+        selected.id,
+        body,
+        attachmentPath: _attachmentPath,
+        attachmentKind: _attachmentKind,
+        linkUrl: _firstSecureLink(body),
+      );
+      _message.clear();
+      setState(() {
+        _attachmentPath = null;
+        _attachmentKind = null;
+      });
+      await _load();
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
+      withData: true,
+    );
+    final file = result?.files.single;
+    if (file == null || file.bytes == null || file.size > 5 * 1024 * 1024) {
+      return;
+    }
+    final extension = (file.extension ?? '').toLowerCase();
+    final contentType = switch (extension) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      _ => '',
+    };
+    if (!mounted) return;
+    final ticket =
+        await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('BETTING-TICKET SCREENSHOT?'),
+            content: const Text(
+              'Remove balances, barcodes, account numbers, and personal '
+              'information before sharing.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('REGULAR IMAGE'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('TICKET SCREENSHOT'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    final path = await widget.service.uploadChatImage(
+      file.bytes!,
+      extension: extension,
+      contentType: contentType,
+    );
+    if (mounted) {
+      setState(() {
+        _attachmentPath = path;
+        _attachmentKind = ticket ? 'ticket' : 'image';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = _selected;
+    return Dialog.fullscreen(
+      key: const ValueKey('mobile-direct-messages-dialog'),
+      child: SafeArea(
+        child: Column(
+          children: [
+            ListTile(
+              leading: IconButton(
+                key: ValueKey(
+                  selected == null
+                      ? 'close-mobile-direct-messages'
+                      : 'mobile-direct-message-back',
+                ),
+                tooltip: selected == null
+                    ? 'Close direct messages'
+                    : 'Back to conversations',
+                onPressed: () {
+                  if (selected == null) {
+                    Navigator.pop(context);
+                  } else {
+                    setState(() => _selected = null);
+                  }
+                },
+                icon: Icon(
+                  selected == null
+                      ? Icons.close_rounded
+                      : Icons.arrow_back_rounded,
+                ),
+              ),
+              title: Text(
+                selected == null
+                    ? 'DIRECT MESSAGES'
+                    : '@${selected.otherUsername}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+              subtitle: selected == null
+                  ? const Text('Private, participant-only conversations')
+                  : const Text('Private conversation · report abuse'),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: selected == null
+                  ? _loading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _conversations.isEmpty
+                        ? const _ChatNotice(
+                            icon: Icons.lock_outline_rounded,
+                            text:
+                                'No direct messages yet. Start one from a member’s message.',
+                          )
+                        : ListView(
+                            key: const ValueKey(
+                              'mobile-direct-conversation-list',
+                            ),
+                            children: [
+                              for (final conversation in _conversations)
+                                ListTile(
+                                  title: Text('@${conversation.otherUsername}'),
+                                  subtitle: const Text('Private conversation'),
+                                  trailing: conversation.unreadCount > 0
+                                      ? Badge(
+                                          label: Text(
+                                            '${conversation.unreadCount}',
+                                          ),
+                                        )
+                                      : const Icon(Icons.chevron_right_rounded),
+                                  onTap: () {
+                                    setState(() => _selected = conversation);
+                                    unawaited(
+                                      widget.service.markDirectConversationRead(
+                                        conversation.id,
+                                      ),
+                                    );
+                                  },
+                                ),
+                            ],
+                          )
+                  : StreamBuilder<List<PropChatMessage>>(
+                      stream: widget.service.watchDirectMessages(selected.id),
+                      builder: (context, snapshot) {
+                        final messages = snapshot.data ?? const [];
+                        if (messages.isEmpty) {
+                          return const _ChatNotice(
+                            icon: Icons.lock_outline_rounded,
+                            text: 'Messages in this conversation are private.',
+                          );
+                        }
+                        return ListView(
+                          padding: const EdgeInsets.all(8),
+                          children: [
+                            for (final message in messages)
+                              _MessageBubble(
+                                message: message,
+                                reply: null,
+                                isOwn:
+                                    message.userId ==
+                                    widget.service.currentUserId,
+                                onReply: () {},
+                                onReact: (_) {},
+                                onEdit: null,
+                                onReport: null,
+                                onBlock: null,
+                                onDelete: null,
+                                onOpenLink: message.linkUrl == null
+                                    ? null
+                                    : () => _openSecureLink(
+                                        context,
+                                        message.linkUrl!,
+                                      ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+            ),
+            if (selected != null)
+              _Composer(
+                controller: _message,
+                sending: _sending,
+                onSend: _send,
+                onAttach: _pickImage,
+                attachmentKind: _attachmentKind,
+                onRemoveAttachment: () => setState(() {
+                  _attachmentPath = null;
+                  _attachmentKind = null;
+                }),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _DirectMessagesDialog extends StatefulWidget {
   const _DirectMessagesDialog({required this.service});
   final PropChatService service;
@@ -1164,9 +1434,10 @@ class _DirectMessagesDialogState extends State<_DirectMessagesDialog> {
     try {
       final values = await widget.service.loadDirectConversations();
       if (!mounted) return;
+      final useTwoColumns = MediaQuery.sizeOf(context).width >= 700;
       setState(() {
         _conversations = values;
-        _selected ??= values.firstOrNull;
+        if (useTwoColumns) _selected ??= values.firstOrNull;
         _loading = false;
       });
     } catch (_) {
