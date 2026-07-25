@@ -29,6 +29,7 @@ import 'services/auth_manager.dart';
 import 'services/developer_mode_service.dart';
 import 'services/prop_watchlist_service.dart';
 import 'services/player_image_resolver.dart';
+import 'services/prop_chat_service.dart';
 import 'services/slip_manager.dart';
 import 'services/supabase_service.dart';
 import 'services/user_facing_error.dart';
@@ -1353,14 +1354,18 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     onTap: () => widget.onSelectPage?.call(AppPage.evScanner),
                   ),
                   const SizedBox(height: 6),
-                  SidebarButton(
-                    label: 'PROP CHAT',
-                    selected: widget.selectedPage == AppPage.propChat,
-                    requiredTier: SubscriptionTier.edge,
-                    showGoldBar: true,
-                    leadingIcons: const [Icons.forum_rounded],
-                    leadingIconColors: const [AppColors.gold],
-                    onTap: () => widget.onSelectPage?.call(AppPage.propChat),
+                  ValueListenableBuilder<int>(
+                    valueListenable: PropChatService.unreadCount,
+                    builder: (context, unread, _) => SidebarButton(
+                      label: 'PROP CHAT',
+                      badge: unread > 0 ? '$unread' : null,
+                      selected: widget.selectedPage == AppPage.propChat,
+                      requiredTier: SubscriptionTier.edge,
+                      showGoldBar: true,
+                      leadingIcons: const [Icons.forum_rounded],
+                      leadingIconColors: const [AppColors.gold],
+                      onTap: () => widget.onSelectPage?.call(AppPage.propChat),
+                    ),
                   ),
                   const SizedBox(height: 18),
                   const _SidebarSectionLabel('SPORTS'),
