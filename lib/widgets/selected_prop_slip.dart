@@ -163,7 +163,7 @@ class _SelectedPropSlipState extends State<SelectedPropSlip> {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'Review your selections',
+                  'Draft picks before you build',
                   style: TextStyle(color: mutedText, fontSize: 9),
                 ),
               ],

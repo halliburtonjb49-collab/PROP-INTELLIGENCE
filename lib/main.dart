@@ -219,7 +219,12 @@ SubscriptionTier? requiredTierForPage(AppPage page) => switch (page) {
 SubscriptionTier displayedTierForBadge({
   required SubscriptionTier requiredTier,
   required bool hasEdgeAccess,
-}) => hasEdgeAccess ? SubscriptionTier.edge : requiredTier;
+}) {
+  // Badges describe the minimum tier required by the feature, not the tier
+  // currently held by the signed-in member. Otherwise every Core feature is
+  // mislabeled "PRO" for Pro members and owners.
+  return requiredTier;
+}
 
 class AppColors {
   static const background = Color(0xFF050A0F);
@@ -1751,18 +1756,16 @@ class SidebarButton extends StatelessWidget {
               const SizedBox(width: 8),
             ],
             Expanded(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  label,
-                  maxLines: label.contains('\n') ? 2 : 1,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 10.5,
-                    fontWeight: textWeight,
-                    letterSpacing: 0.2,
-                  ),
+              child: Text(
+                label,
+                maxLines: label.contains('\n') ? 2 : 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 10.5,
+                  height: 1.15,
+                  fontWeight: textWeight,
+                  letterSpacing: 0.2,
                 ),
               ),
             ),
@@ -3040,19 +3043,34 @@ class _MainDashboardState extends State<MainDashboard> {
                   );
                 }
                 if (index == 2) {
-                  return OutlinedButton.icon(
-                    key: const ValueKey('board-active-slip-button'),
-                    onPressed: () =>
-                        widget.onSelectPage?.call(AppPage.watchlist),
-                    icon: const Icon(Icons.receipt_long_outlined, size: 17),
-                    label: Text('ACTIVE SLIP  ${widget.selections.length}'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.gold,
-                      backgroundColor: AppColors.gold.withValues(alpha: .08),
-                      side: const BorderSide(color: AppColors.gold),
-                      padding: const EdgeInsets.symmetric(horizontal: 13),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(7),
+                  return Tooltip(
+                    message:
+                        'Active Slip is your draft on the right. Build the ticket to move it into Slip Watcher.',
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('board-active-slip-button'),
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            behavior: SnackBarBehavior.floating,
+                            duration: Duration(seconds: 3),
+                            content: Text(
+                              'ACTIVE SLIP is your draft on the right. Build the ticket to move it into SLIP WATCHER for live tracking.',
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.edit_note_rounded, size: 17),
+                      label: Text(
+                        'ACTIVE SLIP DRAFT  ${widget.selections.length}',
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.gold,
+                        backgroundColor: AppColors.gold.withValues(alpha: .08),
+                        side: const BorderSide(color: AppColors.gold),
+                        padding: const EdgeInsets.symmetric(horizontal: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(7),
+                        ),
                       ),
                     ),
                   );
@@ -5285,65 +5303,100 @@ class TopNavigation extends StatelessWidget {
                 const SizedBox(width: 10),
               ],
               Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildNavItem(
-                        label: 'BOARD',
-                        page: AppPage.board,
-                        icon: Icons.dashboard_customize_outlined,
-                      ),
-                      const SizedBox(width: 4),
-                      _buildNavItem(
-                        label: 'SCOREBOARD',
-                        page: AppPage.scoreboard,
-                        icon: Icons.sports_score_rounded,
-                      ),
-                      const SizedBox(width: 4),
-                      _buildNavItem(
-                        label: 'GAME MARKETS',
-                        page: AppPage.gameMarkets,
-                        icon: Icons.sports_rounded,
-                        requiredTier: SubscriptionTier.core,
-                      ),
-                      const SizedBox(width: 4),
-                      _buildNavItem(
-                        label: 'ANALYTICS',
-                        page: AppPage.analytics,
-                        icon: Icons.analytics_outlined,
-                        requiredTier: SubscriptionTier.core,
-                      ),
-                      const SizedBox(width: 4),
-                      _buildNavItem(
-                        label: 'SLIP WATCHER',
-                        page: AppPage.watchlist,
-                        icon: Icons.receipt_long_rounded,
-                        requiredTier: SubscriptionTier.core,
-                      ),
-                      const SizedBox(width: 4),
-                      _buildNavItem(
-                        label: 'PAST SLIP HISTORY',
-                        page: AppPage.pastSlipHistory,
-                        icon: Icons.history_rounded,
-                        requiredTier: SubscriptionTier.core,
-                      ),
-                      const SizedBox(width: 4),
-                      _buildNavItem(
-                        label: 'LINE MOVEMENT',
-                        page: AppPage.lineMovement,
-                        icon: Icons.stacked_line_chart_rounded,
-                        requiredTier: SubscriptionTier.core,
-                      ),
-                    ],
-                  ),
+                child: _TopNavScroller(
+                  children: [
+                    _buildNavItem(
+                      label: 'BOARD',
+                      page: AppPage.board,
+                      icon: Icons.dashboard_customize_outlined,
+                    ),
+                    const SizedBox(width: 4),
+                    _buildNavItem(
+                      label: 'SCOREBOARD',
+                      page: AppPage.scoreboard,
+                      icon: Icons.sports_score_rounded,
+                    ),
+                    const SizedBox(width: 4),
+                    _buildNavItem(
+                      label: 'GAME MARKETS',
+                      page: AppPage.gameMarkets,
+                      icon: Icons.sports_rounded,
+                      requiredTier: SubscriptionTier.core,
+                    ),
+                    const SizedBox(width: 4),
+                    _buildNavItem(
+                      label: 'ANALYTICS',
+                      page: AppPage.analytics,
+                      icon: Icons.analytics_outlined,
+                      requiredTier: SubscriptionTier.core,
+                    ),
+                    const SizedBox(width: 4),
+                    _buildNavItem(
+                      label: 'SLIP WATCHER',
+                      page: AppPage.watchlist,
+                      icon: Icons.receipt_long_rounded,
+                      requiredTier: SubscriptionTier.core,
+                    ),
+                    const SizedBox(width: 4),
+                    _buildNavItem(
+                      label: 'PAST SLIP HISTORY',
+                      page: AppPage.pastSlipHistory,
+                      icon: Icons.history_rounded,
+                      requiredTier: SubscriptionTier.core,
+                    ),
+                    const SizedBox(width: 4),
+                    _buildNavItem(
+                      label: 'LINE MOVEMENT',
+                      page: AppPage.lineMovement,
+                      icon: Icons.stacked_line_chart_rounded,
+                      requiredTier: SubscriptionTier.core,
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _TopNavScroller extends StatefulWidget {
+  const _TopNavScroller({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  State<_TopNavScroller> createState() => _TopNavScrollerState();
+}
+
+class _TopNavScrollerState extends State<_TopNavScroller> {
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scrollbar(
+      key: const ValueKey('top-navigation-scrollbar'),
+      controller: _controller,
+      thumbVisibility: true,
+      trackVisibility: true,
+      interactive: true,
+      scrollbarOrientation: ScrollbarOrientation.bottom,
+      thickness: 4,
+      radius: const Radius.circular(99),
+      child: SingleChildScrollView(
+        controller: _controller,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(mainAxisSize: MainAxisSize.min, children: widget.children),
+      ),
     );
   }
 }
