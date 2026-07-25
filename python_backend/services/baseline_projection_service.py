@@ -236,7 +236,7 @@ class _HistoricalProjectionIndex:
             role, stat = "batter", "total_bases"
         elif "home run" in text:
             role, stat = "batter", "home_runs"
-        elif "hit" in text:
+        elif text in {"batter hits", "player hits", "hits"}:
             role, stat = "batter", "hits"
         else:
             return None

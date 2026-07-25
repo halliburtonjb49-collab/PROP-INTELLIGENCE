@@ -34,6 +34,31 @@ def test_basketball_combination_markets_use_actual_components() -> None:
     assert basketball_market_value("player_first_basket", row) is None
 
 
+def test_mlb_combination_market_is_not_treated_as_hits(monkeypatch) -> None:
+    from services.baseline_projection_service import _HistoricalProjectionIndex
+
+    index = _HistoricalProjectionIndex()
+    index.loaded_at = __import__("datetime").datetime.now(
+        __import__("datetime").timezone.utc,
+    )
+    index.mlb[("batter:7", "hits")] = [1] * 10
+
+    assert index.project(
+        sport="MLB",
+        player="Player",
+        player_id="7",
+        market="batter_hits_runs_rbis",
+        line=1.5,
+    ) is None
+    assert index.project(
+        sport="MLB",
+        player="Player",
+        player_id="7",
+        market="batter_hits",
+        line=0.5,
+    ) is not None
+
+
 def test_baseline_requires_both_model_strength_and_historical_support() -> None:
     result = compute_baseline_projection(
         [23, 21, 24, 22, 25, 23, 24, 22, 25, 24],

@@ -117,7 +117,8 @@ def _mlb_market_value(cursor, market: str, player_id: str, game_date) -> float |
             from historical_mlb_pitches where batter_id=%s and game_date=%s""", (player_id, game_date))
         return float(cursor.fetchone()[0])
     event = "home_run" if "home run" in text else None
-    if event or "hit" in text:
+    is_hits_market = text in {"batter hits", "player hits", "hits"}
+    if event or is_hits_market:
         cursor.execute("""select count(*) from historical_mlb_pitches where batter_id=%s
             and game_date=%s and events = any(%s)""",
             (player_id, game_date, [event] if event else ["single", "double", "triple", "home_run"]))
