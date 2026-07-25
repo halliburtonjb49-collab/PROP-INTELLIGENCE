@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_service.dart';
 
 const Set<String> _ownerEmails = {'halliburtonjb49@gmail.com'};
+const Set<String> _ownerUserIds = {'84a76503-f704-46b6-be87-760ea8c9f2f5'};
 
 @visibleForTesting
 bool isPasswordRecoveryUri(Uri uri) =>
@@ -13,7 +14,14 @@ bool isPasswordRecoveryUri(Uri uri) =>
     uri.fragment.split('&').contains('type=recovery');
 
 @visibleForTesting
-String resolveAccountRole({required String? email, required Object? role}) {
+String resolveAccountRole({
+  required String? email,
+  required Object? role,
+  String? userId,
+}) {
+  if (_ownerUserIds.contains(userId?.trim().toLowerCase())) {
+    return 'owner';
+  }
   final normalizedEmail = email?.trim().toLowerCase() ?? '';
   if (_ownerEmails.contains(normalizedEmail)) {
     return 'owner';
@@ -490,6 +498,7 @@ class AuthManager {
     final role = resolveAccountRole(
       email: user.email,
       role: user.appMetadata['role'],
+      userId: user.id,
     );
     final metadataUsername = resolvePublicUsername(
       userId: user.id,

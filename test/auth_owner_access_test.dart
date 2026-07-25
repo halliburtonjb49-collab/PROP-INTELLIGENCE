@@ -9,6 +9,20 @@ void main() {
     );
   });
 
+  test(
+    'verified owner user ID resolves to owner regardless of email or role',
+    () {
+      expect(
+        resolveAccountRole(
+          email: 'changed@example.com',
+          role: 'user',
+          userId: '84a76503-f704-46b6-be87-760ea8c9f2f5',
+        ),
+        'owner',
+      );
+    },
+  );
+
   test('owner receives full Core and Edge access', () {
     const state = AuthSessionState(
       ready: true,

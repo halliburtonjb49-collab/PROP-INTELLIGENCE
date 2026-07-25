@@ -7,6 +7,7 @@ from fastapi import Header, HTTPException
 from config import HTTP_TIMEOUT_SECONDS
 
 _DEFAULT_OWNER_EMAILS = {"halliburtonjb49@gmail.com"}
+_DEFAULT_OWNER_USER_IDS = {"84a76503-f704-46b6-be87-760ea8c9f2f5"}
 
 
 def _owner_emails() -> set[str]:
@@ -16,6 +17,15 @@ def _owner_emails() -> set[str]:
         if value.strip()
     }
     return _DEFAULT_OWNER_EMAILS | configured
+
+
+def _owner_user_ids() -> set[str]:
+    configured = {
+        value.strip().lower()
+        for value in os.getenv("OWNER_USER_IDS", "").split(",")
+        if value.strip()
+    }
+    return _DEFAULT_OWNER_USER_IDS | configured
 
 
 def _token_claims(token: str) -> dict[str, object]:
@@ -78,7 +88,12 @@ def require_admin(x_admin_key: str = Header(default=""), authorization: str = He
     user_metadata = (user or {}).get("user_metadata") or {}
     role = str(metadata.get("role") or user_metadata.get("role") or "").lower() if isinstance(metadata, dict) and isinstance(user_metadata, dict) else ""
     email = str((user or {}).get("email") or "").strip().lower()
-    if user and (role in {"owner", "admin"} or email in _owner_emails()):
+    user_id = str((user or {}).get("id") or "").strip().lower()
+    if user and (
+        role in {"owner", "admin"}
+        or email in _owner_emails()
+        or user_id in _owner_user_ids()
+    ):
         return str(user.get("id"))
     raise HTTPException(status_code=401, detail="Administrator access required")
 
@@ -93,6 +108,11 @@ def require_owner(authorization: str = Header(default="")) -> str:
     user_metadata = (user or {}).get("user_metadata") or {}
     role = str(metadata.get("role") or user_metadata.get("role") or "").lower() if isinstance(metadata, dict) and isinstance(user_metadata, dict) else ""
     email = str((user or {}).get("email") or "").strip().lower()
-    if user and (role == "owner" or email in _owner_emails()):
+    user_id = str((user or {}).get("id") or "").strip().lower()
+    if user and (
+        role == "owner"
+        or email in _owner_emails()
+        or user_id in _owner_user_ids()
+    ):
         return str(user.get("id"))
     raise HTTPException(status_code=403, detail="Owner access required")
