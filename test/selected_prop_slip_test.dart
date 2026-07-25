@@ -45,7 +45,7 @@ void main() {
     );
 
     expect(find.text('ACTIVE SLIP'), findsOneWidget);
-    expect(find.text('Review your selections'), findsOneWidget);
+    expect(find.text('Draft picks before you build'), findsOneWidget);
     expect(find.text('READY TO BUILD'), findsOneWidget);
     expect(find.text('BUILD TICKET'), findsOneWidget);
 

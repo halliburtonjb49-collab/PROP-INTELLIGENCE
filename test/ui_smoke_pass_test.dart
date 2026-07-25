@@ -28,6 +28,10 @@ void main() {
     expect(find.text('GAME MARKETS'), findsWidgets);
     expect(find.text('ANALYTICS'), findsOneWidget);
     expect(find.text('LINE MOVEMENT'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('top-navigation-scrollbar')),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('tier-badge-core')), findsWidgets);
     expect(find.byKey(const ValueKey('tier-badge-edge')), findsWidgets);
     expect(tester.takeException(), isNull);
@@ -110,6 +114,11 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('board-active-slip-button')));
     await tester.pump(const Duration(milliseconds: 500));
+    expect(
+      find.textContaining('ACTIVE SLIP is your draft on the right'),
+      findsOneWidget,
+    );
+    expect(find.text('SLIP WATCHER'), findsWidgets);
     expect(tester.takeException(), isNull);
 
     await openWorkspace('THE LAB', 'INTELLIGENCE LAB');

@@ -69,6 +69,14 @@ class _LegPhoto extends StatelessWidget {
 enum SlipHistoryMode { active, history }
 
 @visibleForTesting
+bool supportsEnhancedSlipWatcher({
+  required SlipHistoryMode mode,
+  required bool hasProAccess,
+}) {
+  return mode == SlipHistoryMode.active && hasProAccess;
+}
+
+@visibleForTesting
 List<SavedSlip> limitHistoryForCore(
   Iterable<SavedSlip> slips, {
   required bool hasProAccess,
@@ -115,6 +123,10 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   Map<String, Map<String, dynamic>> _liveStats = const {};
 
   bool get _isHistory => widget.mode == SlipHistoryMode.history;
+  bool get _hasEnhancedLiveTracking => supportsEnhancedSlipWatcher(
+    mode: widget.mode,
+    hasProAccess: widget.hasProAccess,
+  );
 
   /// Fetches slips for a given tab, respecting the panel's mode. The
   /// backend only supports filtering by one status at a time, so history
@@ -153,12 +165,36 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       const Duration(minutes: 2),
       (_) => _refreshGameStatuses(),
     );
-    if (!_isHistory) {
-      unawaited(_refreshLiveStats());
-      _liveStatsTimer = Timer.periodic(
-        const Duration(seconds: 20),
-        (_) => _refreshLiveStats(),
-      );
+    if (_hasEnhancedLiveTracking) _startLiveStatsTracking();
+  }
+
+  void _startLiveStatsTracking() {
+    unawaited(_refreshLiveStats());
+    _liveStatsTimer?.cancel();
+    _liveStatsTimer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => _refreshLiveStats(),
+    );
+  }
+
+  void _stopLiveStatsTracking() {
+    _liveStatsTimer?.cancel();
+    _liveStatsTimer = null;
+    _liveStats = const {};
+  }
+
+  @override
+  void didUpdateWidget(covariant SlipHistoryPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final previouslyEnhanced = supportsEnhancedSlipWatcher(
+      mode: oldWidget.mode,
+      hasProAccess: oldWidget.hasProAccess,
+    );
+    if (previouslyEnhanced == _hasEnhancedLiveTracking) return;
+    if (_hasEnhancedLiveTracking) {
+      _startLiveStatsTracking();
+    } else {
+      _stopLiveStatsTracking();
     }
   }
 
@@ -206,7 +242,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       _slipsFuture = _fetchForTab(_selectedTab);
     });
     unawaited(_refreshLockedSlipCount());
-    if (!_isHistory) {
+    if (_hasEnhancedLiveTracking) {
       unawaited(_refreshLiveStats());
     }
   }
@@ -367,11 +403,31 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       children: [
         Row(
           children: [
-            Text(
-              _isHistory ? 'PAST SLIP HISTORY' : 'SLIP WATCHER',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _isHistory ? 'PAST SLIP HISTORY' : 'SLIP WATCHER',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _isHistory
+                        ? 'Settled tickets and final results'
+                        : 'Locked tickets with live grading',
+                    style: const TextStyle(
+                      color: Color(0xFF8B98A8),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const Spacer(),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -408,6 +464,10 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
             ),
           ],
         ),
+        if (!_isHistory) ...[
+          const SizedBox(height: 8),
+          _SlipWatcherTierBanner(hasProAccess: widget.hasProAccess),
+        ],
         if (_isHistory) ...[
           const SizedBox(height: 8),
           Row(
@@ -540,7 +600,9 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                         final slip = slips[index];
                         return _SavedSlipCard(
                           slip: slip,
-                          liveStats: _liveStats[slip.id] ?? const {},
+                          liveStats: _hasEnhancedLiveTracking
+                              ? _liveStats[slip.id] ?? const {}
+                              : const {},
                           onWon: () => _changeStatus(slip, 'won'),
                           onLost: () => _changeStatus(slip, 'lost'),
                           onUnlock: () => _unlockSlip(slip),
@@ -661,6 +723,66 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
             style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SlipWatcherTierBanner extends StatelessWidget {
+  const _SlipWatcherTierBanner({required this.hasProAccess});
+
+  final bool hasProAccess;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = hasProAccess
+        ? const Color(0xFFF2BC35)
+        : const Color(0xFFC8CED6);
+    return Container(
+      key: ValueKey(
+        hasProAccess ? 'pro-slip-watcher-banner' : 'core-slip-watcher-banner',
+      ),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: accent),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            hasProAccess
+                ? Icons.bolt_rounded
+                : Icons.check_circle_outline_rounded,
+            color: accent,
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              hasProAccess
+                  ? 'PRO SLIP WATCHER • LIVE LEG PROGRESS • 20-SECOND UPDATES • PROFIT + CLV'
+                  : 'CORE SLIP WATCHER • TICKET STATUS • FINAL GRADING • WIN/LOSS TOTALS',
+              style: TextStyle(
+                color: accent,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .3,
+              ),
+            ),
+          ),
+          if (!hasProAccess)
+            const Tooltip(
+              message:
+                  'Pro adds live leg progress, 20-second updates, Profit Keeper, and closing-line value.',
+              child: Icon(
+                Icons.lock_outline_rounded,
+                color: Color(0xFFC8CED6),
+                size: 15,
+              ),
+            ),
+        ],
       ),
     );
   }

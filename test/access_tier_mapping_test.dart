@@ -3,13 +3,13 @@ import 'package:prop_intelligence/main.dart';
 import 'package:prop_intelligence/services/auth_manager.dart';
 
 void main() {
-  test('feature badges reflect an upgraded Pro membership', () {
+  test('feature badges reflect the minimum tier required by the feature', () {
     expect(
       displayedTierForBadge(
         requiredTier: SubscriptionTier.core,
         hasEdgeAccess: true,
       ),
-      SubscriptionTier.edge,
+      SubscriptionTier.core,
     );
     expect(
       displayedTierForBadge(
