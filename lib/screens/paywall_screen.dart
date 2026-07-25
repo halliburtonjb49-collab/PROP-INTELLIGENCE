@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/auth_manager.dart';
 import '../services/billing_service.dart';
 
 class SubscriptionRequiredScreen extends StatelessWidget {
@@ -15,11 +16,22 @@ class SubscriptionRequiredScreen extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 680),
-              child: const BrandedPaywallModalSheet(
-                heading: 'CHOOSE A PLAN TO CONTINUE',
-                supportingText:
-                    'PROP INTELLIGENCE requires an active Core or Pro plan. '
-                    'Any promotional trial provides temporary Core access.',
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const BrandedPaywallModalSheet(
+                    heading: 'CHOOSE A PLAN TO CONTINUE',
+                    supportingText:
+                        'PROP INTELLIGENCE requires an active Core or Pro plan. '
+                        'Any promotional trial provides temporary Core access.',
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: () => AuthManager.instance.signOut(),
+                    icon: const Icon(Icons.logout, size: 18),
+                    label: const Text('SIGN OUT'),
+                  ),
+                ],
               ),
             ),
           ),
