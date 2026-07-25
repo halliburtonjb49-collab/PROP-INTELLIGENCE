@@ -26,6 +26,7 @@ MIGRATIONS = (
     "supabase_pipeline_monitoring.sql",
     "supabase_prop_chat.sql",
     "supabase_prop_chat_v2.sql",
+    "supabase_prop_chat_v3.sql",
 )
 
 

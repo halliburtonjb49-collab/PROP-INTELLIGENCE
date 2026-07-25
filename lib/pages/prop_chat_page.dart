@@ -349,12 +349,18 @@ class _PropChatPageState extends State<PropChatPage> {
 
   Future<void> _moderation() async {
     try {
-      final reports = await _service.loadOpenReports();
+      final results = await Future.wait([
+        _service.loadOpenReports(),
+        _service.loadHealth(),
+        _service.loadOperationalAlerts(),
+      ]);
       if (!mounted) return;
       await showDialog<void>(
         context: context,
         builder: (context) => _ModerationDialog(
-          reports: reports,
+          reports: results[0] as List<PropChatReport>,
+          health: results[1] as Map<String, dynamic>,
+          alerts: results[2] as List<PropChatOperationalAlert>,
           service: _service,
           onNotice: _notice,
         ),
@@ -406,6 +412,29 @@ class _PropChatPageState extends State<PropChatPage> {
             onSettings: _preferences,
             onGuidelines: _guidelines,
             onModeration: _moderation,
+          ),
+          StreamBuilder<List<PropChatModerationNotice>>(
+            stream: _service.watchModerationNotices(),
+            builder: (context, snapshot) {
+              final notices = snapshot.data ?? const [];
+              if (notices.isEmpty) return const SizedBox.shrink();
+              final notice = notices.first;
+              return MaterialBanner(
+                backgroundColor: AppColors.panelLight,
+                leading: const Icon(Icons.gavel_rounded, color: AppColors.gold),
+                content: Text(
+                  '${notice.restriction.toUpperCase()}: ${notice.reason}'
+                  '${notice.expiresAt == null ? '' : '\nExpires ${notice.expiresAt!.toLocal()}'}',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () =>
+                        _service.acknowledgeModerationNotice(notice.id),
+                    child: const Text('ACKNOWLEDGE'),
+                  ),
+                ],
+              );
+            },
           ),
           SizedBox(
             height: 52,
@@ -880,10 +909,14 @@ class _ReplyComposerBanner extends StatelessWidget {
 class _ModerationDialog extends StatefulWidget {
   const _ModerationDialog({
     required this.reports,
+    required this.health,
+    required this.alerts,
     required this.service,
     required this.onNotice,
   });
   final List<PropChatReport> reports;
+  final Map<String, dynamic> health;
+  final List<PropChatOperationalAlert> alerts;
   final PropChatService service;
   final ValueChanged<String> onNotice;
 
@@ -893,6 +926,7 @@ class _ModerationDialog extends StatefulWidget {
 
 class _ModerationDialogState extends State<_ModerationDialog> {
   late final List<PropChatReport> reports = [...widget.reports];
+  late final List<PropChatOperationalAlert> alerts = [...widget.alerts];
 
   Future<void> _act(PropChatReport report, String action) async {
     if (action == 'dismiss') {
@@ -915,51 +949,134 @@ class _ModerationDialogState extends State<_ModerationDialog> {
     widget.onNotice('Moderation action saved.');
   }
 
+  Future<void> _addBlockedTerm() async {
+    final controller = TextEditingController();
+    final term = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ADD BLOCKED TERM'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Phrase to block'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('ADD'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (term == null || term.length < 2) return;
+    await widget.service.addBlockedTerm(term);
+    widget.onNotice('Safety filter updated.');
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text('MODERATION · ${reports.length} OPEN'),
       content: SizedBox(
         width: 680,
-        child: reports.isEmpty
-            ? const Center(child: Text('No open reports.'))
-            : ListView.separated(
-                shrinkWrap: true,
-                itemCount: reports.length,
-                separatorBuilder: (_, _) => const Divider(),
-                itemBuilder: (context, index) {
-                  final report = reports[index];
-                  return ListTile(
-                    title: Text('@${report.username}: ${report.body}'),
-                    subtitle: Text('Reason: ${report.reason}'),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (action) => _act(report, action),
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(
-                          value: 'warned',
-                          child: Text('Issue warning'),
-                        ),
-                        PopupMenuItem(
-                          value: 'muted',
-                          child: Text('Mute 24 hours'),
-                        ),
-                        PopupMenuItem(
-                          value: 'suspended',
-                          child: Text('Suspend 7 days'),
-                        ),
-                        PopupMenuItem(
-                          value: 'banned',
-                          child: Text('Permanent ban'),
-                        ),
-                        PopupMenuItem(
-                          value: 'dismiss',
-                          child: Text('Dismiss report'),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Chip(
+                  label: Text('${widget.health['online_users'] ?? 0} ONLINE'),
+                ),
+                Chip(
+                  label: Text(
+                    '${widget.health['messages_24h'] ?? 0} MESSAGES / 24H',
+                  ),
+                ),
+                Chip(
+                  label: Text(
+                    '${widget.health['open_reports'] ?? reports.length} REPORTS',
+                  ),
+                ),
+                ActionChip(
+                  avatar: const Icon(Icons.filter_alt_rounded, size: 17),
+                  label: const Text('ADD BLOCKED TERM'),
+                  onPressed: _addBlockedTerm,
+                ),
+              ],
+            ),
+            if (alerts.isNotEmpty) ...[
+              const Divider(),
+              const Text(
+                'OPERATIONAL ALERTS',
+                style: TextStyle(fontWeight: FontWeight.w900),
               ),
+              for (final alert in alerts)
+                ListTile(
+                  leading: Icon(
+                    alert.severity == 'critical'
+                        ? Icons.error_rounded
+                        : Icons.warning_rounded,
+                    color: alert.severity == 'critical'
+                        ? AppColors.red
+                        : AppColors.gold,
+                  ),
+                  title: Text(alert.type.replaceAll('_', ' ').toUpperCase()),
+                  subtitle: Text('${alert.details}'),
+                  trailing: TextButton(
+                    onPressed: () async {
+                      await widget.service.resolveOperationalAlert(alert.id);
+                      setState(() => alerts.remove(alert));
+                    },
+                    child: const Text('RESOLVE'),
+                  ),
+                ),
+            ],
+            const Divider(),
+            if (reports.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(child: Text('No open reports.')),
+              )
+            else
+              for (final report in reports)
+                ListTile(
+                  title: Text('@${report.username}: ${report.body}'),
+                  subtitle: Text('Reason: ${report.reason}'),
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (action) => _act(report, action),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: 'warned',
+                        child: Text('Issue warning'),
+                      ),
+                      PopupMenuItem(
+                        value: 'muted',
+                        child: Text('Mute 24 hours'),
+                      ),
+                      PopupMenuItem(
+                        value: 'suspended',
+                        child: Text('Suspend 7 days'),
+                      ),
+                      PopupMenuItem(
+                        value: 'banned',
+                        child: Text('Permanent ban'),
+                      ),
+                      PopupMenuItem(
+                        value: 'dismiss',
+                        child: Text('Dismiss report'),
+                      ),
+                    ],
+                  ),
+                ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
