@@ -819,6 +819,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                 child: Column(
                   children: [
                     GestureDetector(
+                      key: const ValueKey('floating-prop-chat-drag-handle'),
                       behavior: HitTestBehavior.opaque,
                       onPanUpdate: (details) {
                         _chatOffset.value += details.delta;
@@ -880,6 +881,9 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                       Align(
                         alignment: Alignment.bottomRight,
                         child: GestureDetector(
+                          key: const ValueKey(
+                            'floating-prop-chat-resize-handle',
+                          ),
                           behavior: HitTestBehavior.opaque,
                           onPanUpdate: (details) {
                             _chatSize.value = Size(

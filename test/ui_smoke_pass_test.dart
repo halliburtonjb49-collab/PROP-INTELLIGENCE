@@ -34,6 +34,11 @@ void main() {
     );
     expect(find.byKey(const ValueKey('tier-badge-core')), findsWidgets);
     expect(find.byKey(const ValueKey('tier-badge-edge')), findsWidgets);
+    expect(find.byKey(const ValueKey('global-sound-toggle')), findsOneWidget);
+    expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('global-sound-toggle')));
+    await tester.pump();
+    expect(find.byIcon(Icons.volume_off_rounded), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.text('GAME MARKETS').first);
@@ -120,6 +125,19 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byKey(const ValueKey('floating-prop-chat')), findsOneWidget);
     expect(find.text('BOARD'), findsWidgets);
+    final beforeDrag = tester.getTopLeft(
+      find.byKey(const ValueKey('floating-prop-chat')),
+    );
+    await tester.drag(
+      find.byKey(const ValueKey('floating-prop-chat-drag-handle')),
+      const Offset(90, 55),
+    );
+    await tester.pump();
+    final afterDrag = tester.getTopLeft(
+      find.byKey(const ValueKey('floating-prop-chat')),
+    );
+    expect(afterDrag.dx, greaterThan(beforeDrag.dx));
+    expect(afterDrag.dy, greaterThan(beforeDrag.dy));
 
     await openWorkspace('THE LAB', 'INTELLIGENCE LAB');
     expect(find.byKey(const ValueKey('floating-prop-chat')), findsOneWidget);
