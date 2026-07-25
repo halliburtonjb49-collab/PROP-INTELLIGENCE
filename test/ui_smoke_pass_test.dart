@@ -116,8 +116,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('PROP CHAT'), findsWidgets);
     expect(tester.takeException(), isNull);
+    await tester.tap(find.byKey(const ValueKey('pop-out-prop-chat')));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(const ValueKey('floating-prop-chat')), findsOneWidget);
+    expect(find.text('BOARD'), findsWidgets);
 
     await openWorkspace('THE LAB', 'INTELLIGENCE LAB');
+    expect(find.byKey(const ValueKey('floating-prop-chat')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('close-floating-prop-chat')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byKey(const ValueKey('floating-prop-chat')), findsNothing);
     await openWorkspace('PROP BUILDER', 'PROP BUILDER');
     await openWorkspace('BUILD\nPERFORM', null);
     await openWorkspace('EV SCANNER', 'EV SCANNER');

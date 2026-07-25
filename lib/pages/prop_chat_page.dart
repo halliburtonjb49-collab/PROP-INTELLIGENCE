@@ -44,8 +44,15 @@ Future<void> _openSecureLink(BuildContext context, String value) async {
 }
 
 class PropChatPage extends StatefulWidget {
-  const PropChatPage({super.key, this.service});
+  const PropChatPage({
+    super.key,
+    this.service,
+    this.onPopOut,
+    this.isFloating = false,
+  });
   final PropChatService? service;
+  final VoidCallback? onPopOut;
+  final bool isFloating;
 
   @override
   State<PropChatPage> createState() => _PropChatPageState();
@@ -510,6 +517,8 @@ class _PropChatPageState extends State<PropChatPage> {
             onGuidelines: _guidelines,
             onModeration: _moderation,
             onDirectMessages: _openDirectMessages,
+            onPopOut: widget.onPopOut,
+            isFloating: widget.isFloating,
           ),
           StreamBuilder<List<PropChatModerationNotice>>(
             stream: _service.watchModerationNotices(),
@@ -660,6 +669,8 @@ class _ChatHeader extends StatelessWidget {
     required this.onGuidelines,
     required this.onModeration,
     required this.onDirectMessages,
+    required this.onPopOut,
+    required this.isFloating,
   });
   final String roomId;
   final Stream<List<Map<String, dynamic>>> presence;
@@ -669,6 +680,8 @@ class _ChatHeader extends StatelessWidget {
   final VoidCallback onGuidelines;
   final VoidCallback onModeration;
   final VoidCallback onDirectMessages;
+  final VoidCallback? onPopOut;
+  final bool isFloating;
 
   @override
   Widget build(BuildContext context) {
@@ -724,6 +737,16 @@ class _ChatHeader extends StatelessWidget {
               color: AppColors.gold,
             ),
           ),
+          if (!isFloating && onPopOut != null)
+            IconButton(
+              key: const ValueKey('pop-out-prop-chat'),
+              tooltip: 'Open PROP CHAT in a floating panel',
+              onPressed: onPopOut,
+              icon: const Icon(
+                Icons.open_in_new_rounded,
+                color: AppColors.silver,
+              ),
+            ),
           PopupMenuButton<String>(
             tooltip: 'PROP CHAT options',
             icon: const Icon(Icons.tune_rounded, color: AppColors.silver),
