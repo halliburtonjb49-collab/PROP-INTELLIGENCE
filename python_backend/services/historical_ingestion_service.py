@@ -370,22 +370,41 @@ def run_mlb_historical_backfill(
     *,
     end_date: date | None = None,
     days: int = 21,
+    chunk_days: int = 7,
 ) -> dict[str, object]:
-    """Backfill a rolling MLB window so missed cron days heal automatically."""
+    """Backfill MLB history in bounded chunks so Starter workers stay healthy."""
     end = end_date or (datetime.now(timezone.utc).date() - timedelta(days=1))
     start = end - timedelta(days=max(1, days) - 1)
     repository = HistoricalRepository()
     provider = MlbHistoricalProvider()
-    pitches = normalize_statcast(provider.statcast(start=start, end=end))
-    upserted = repository.upsert_mlb_pitches(pitches)
+    fetched = upserted = chunks = 0
+    chunk_start = start
+    bounded_chunk_days = max(1, min(int(chunk_days), 14))
+    while chunk_start <= end:
+        chunk_end = min(
+            end,
+            chunk_start + timedelta(days=bounded_chunk_days - 1),
+        )
+        # Persist each result immediately. Holding an entire season of
+        # pitch-level Statcast rows can exceed a 512 MiB Render worker.
+        pitches = normalize_statcast(
+            provider.statcast(start=chunk_start, end=chunk_end)
+        )
+        fetched += len(pitches)
+        upserted += repository.upsert_mlb_pitches(pitches)
+        chunks += 1
+        del pitches
+        chunk_start = chunk_end + timedelta(days=1)
     assignments = provider.umpire_assignments(start=start, end=end)
     assignments_upserted = repository.upsert_mlb_umpire_assignments(assignments)
     profiles = calculate_mlb_umpire_profiles(repository.load_mlb_umpire_pitches())
     return {
         "startDate": start.isoformat(),
         "endDate": end.isoformat(),
-        "fetched": len(pitches),
+        "fetched": fetched,
         "upserted": upserted,
+        "chunks": chunks,
+        "chunkDays": bounded_chunk_days,
         "umpireAssignmentsUpserted": assignments_upserted,
         "officiatingProfilesUpserted": persist_officiating_profiles(profiles),
     }

@@ -125,11 +125,11 @@ def test_mlb_provider_extracts_home_plate_assignment(monkeypatch) -> None:
 
 
 def test_mlb_backfill_uses_a_rolling_window(monkeypatch) -> None:
-    calls = {}
+    calls = {"ranges": []}
 
     class Provider:
         def statcast(self, *, start, end):
-            calls["range"] = (start, end)
+            calls["ranges"].append((start, end))
             return []
 
         def umpire_assignments(self, *, start, end):
@@ -162,12 +162,24 @@ def test_mlb_backfill_uses_a_rolling_window(monkeypatch) -> None:
         days=21,
     )
 
-    assert calls["range"] == (
-        __import__("datetime").date(2026, 7, 4),
-        __import__("datetime").date(2026, 7, 24),
-    )
+    assert calls["ranges"] == [
+        (
+            __import__("datetime").date(2026, 7, 4),
+            __import__("datetime").date(2026, 7, 10),
+        ),
+        (
+            __import__("datetime").date(2026, 7, 11),
+            __import__("datetime").date(2026, 7, 17),
+        ),
+        (
+            __import__("datetime").date(2026, 7, 18),
+            __import__("datetime").date(2026, 7, 24),
+        ),
+    ]
     assert result["startDate"] == "2026-07-04"
     assert result["endDate"] == "2026-07-24"
+    assert result["chunks"] == 3
+    assert result["chunkDays"] == 7
 
 
 def test_soccer_backfill_defaults_to_full_season_and_adds_espn_fallback(
