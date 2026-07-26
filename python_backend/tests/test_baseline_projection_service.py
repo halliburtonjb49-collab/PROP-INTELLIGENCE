@@ -59,6 +59,39 @@ def test_mlb_combination_market_is_not_treated_as_hits(monkeypatch) -> None:
     ) is not None
 
 
+def test_mlb_pitcher_strikeout_history_produces_baseline() -> None:
+    from services.baseline_projection_service import _HistoricalProjectionIndex
+
+    index = _HistoricalProjectionIndex()
+    index.loaded_at = __import__("datetime").datetime.now(
+        __import__("datetime").timezone.utc,
+    )
+    index.mlb[("pitcher:656876", "strikeouts")] = [
+        4,
+        6,
+        5,
+        7,
+        6,
+        8,
+        5,
+        7,
+        6,
+        7,
+    ]
+
+    result = index.project(
+        sport="MLB",
+        player="Drew Rasmussen",
+        player_id="656876",
+        market="Pitcher Strikeouts",
+        line=5.0,
+    )
+
+    assert result is not None
+    assert result.sample_size == 10
+    assert result.projection > 5.0
+
+
 def test_soccer_uses_only_exact_supported_markets() -> None:
     from services.baseline_projection_service import _HistoricalProjectionIndex
 

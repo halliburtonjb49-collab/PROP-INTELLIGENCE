@@ -35,7 +35,7 @@ def main() -> int:
     parser.add_argument(
         "--mlb-backfill-days",
         type=int,
-        default=max(1, int(os.getenv("HISTORICAL_MLB_LOOKBACK_DAYS", "21"))),
+        default=max(1, int(os.getenv("HISTORICAL_MLB_LOOKBACK_DAYS", "120"))),
         help="Rolling MLB Statcast window used to heal missed daily runs.",
     )
     args = parser.parse_args()

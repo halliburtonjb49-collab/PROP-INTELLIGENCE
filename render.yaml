@@ -86,7 +86,7 @@ services:
       - key: PIPELINE_ALERT_WEBHOOK_URL
         sync: false
       - key: HISTORICAL_MLB_LOOKBACK_DAYS
-        value: 21
+        value: 120
     disk:
       name: prop-intelligence-ticket-data
       mountPath: /var/data
@@ -113,6 +113,8 @@ services:
         sync: false
       - key: PIPELINE_ALERT_WEBHOOK_URL
         sync: false
+      - key: HISTORICAL_MLB_LOOKBACK_DAYS
+        value: 120
 
   - type: cron
     name: prop-intelligence-pregame-sync

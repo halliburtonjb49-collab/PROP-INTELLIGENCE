@@ -14,7 +14,7 @@ from services.historical_ingestion_service import run_mlb_historical_backfill
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--days", type=int, default=21)
+    parser.add_argument("--days", type=int, default=120)
     parser.add_argument("--end-date", type=date.fromisoformat)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)

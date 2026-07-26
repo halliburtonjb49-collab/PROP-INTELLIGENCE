@@ -54,14 +54,17 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
   }
 
   PickSide? _recommendedSide(PropData prop) {
-    if (prop.projection != null && prop.line > 0) {
-      return prop.projection! >= prop.line ? PickSide.over : PickSide.under;
-    }
-    final text = '${prop.recommendedSide} ${prop.pick} ${prop.pickText}'
-        .toLowerCase();
-    if (text.contains('under') || text.contains('less')) return PickSide.under;
-    if (text.contains('over') || text.contains('more')) return PickSide.over;
+    final side = prop.proSuggestedSide;
+    if (side == 'OVER') return PickSide.over;
+    if (side == 'UNDER') return PickSide.under;
     return null;
+  }
+
+  String _signalLabel(PropData prop, PickSide? side) {
+    if (side == null) return 'SIGNAL';
+    if (prop.proSuggestionUsesModel) return 'MODEL PICK';
+    if (prop.proSuggestionUsesHistoricalStats) return 'STATS LEAN';
+    return 'MARKET LEAN';
   }
 
   double _edge(PropData prop) => prop.projection == null
@@ -587,7 +590,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      side == null ? 'SIGNAL' : 'PRO PICK',
+                      _signalLabel(prop, side),
                       style: TextStyle(
                         color: signalColor,
                         fontSize: 7,
@@ -605,7 +608,13 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                       ),
                     ),
                     Text(
-                      projection == null ? 'LIVE FEED' : 'MODEL PROJECTION',
+                      prop.proSuggestionUsesModel
+                          ? 'VERIFIED MODEL'
+                          : prop.proSuggestionUsesHistoricalStats
+                          ? 'HISTORICAL BASELINE'
+                          : prop.proSuggestionUsesMarket
+                          ? 'SPORTSBOOK PRICING'
+                          : 'LIVE FEED',
                       style: const TextStyle(
                         color: AppColors.textMuted,
                         fontSize: 6.5,
@@ -726,8 +735,10 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
             Text(
               side == null
                   ? 'No valid Over or Under signal is available for this line. The app will not manufacture a pick.'
-                  : projection == null
-                  ? 'The feed has not supplied a numeric projection. The displayed side comes from the live recommendation and should be independently verified.'
+                  : prop.proSuggestionUsesMarket
+                  ? 'Informational market lean based on unequal Over and Under prices. This is not a model pick or claimed edge.'
+                  : !prop.proSuggestionUsesModel
+                  ? 'Informational stats lean based on recent historical results. It is not a validated top model pick.'
                   : 'Projection is ${delta!.abs().toStringAsFixed(2)} strikeouts ${delta >= 0 ? 'above' : 'below'} the posted line. Verify lineup and price before selecting.',
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
