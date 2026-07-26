@@ -153,3 +153,86 @@ def test_sync_prunes_expired_events_and_populates_the_new_slate(
     assert lifecycle["processed"] == ["new-event"]
     assert result["fetchedEvents"] == 1
     assert result["props"] == 3
+
+
+def test_complete_event_cycle_refreshes_lines_and_removes_expired_props(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    from database.cache import PropCache
+
+    cache = PropCache(tmp_path / "event-cycle.db")
+    sport = "basketball_wnba"
+    slate = [
+        {"id": "old-event", "commence_time": "2026-07-26T16:15:00Z"},
+    ]
+    lines = {"old-event": 18.5}
+
+    def process(*, cache, sport_key, event, odds_payload):
+        line = float(odds_payload["line"])
+        cache.replace_event_props(
+            sport=sport_key,
+            game={
+                "id": event["id"],
+                "home_team": "Home",
+                "away_team": "Away",
+                "commence_time": event["commence_time"],
+            },
+            props=[
+                (
+                    event["id"],
+                    "Test Player",
+                    "player_points",
+                    line,
+                    line,
+                    line,
+                    "2026-07-26T16:00:00Z",
+                    -110,
+                    -110,
+                    "prizepicks",
+                    "",
+                    0,
+                    "player-1",
+                    "2026-07-26T16:00:00Z",
+                ),
+            ],
+        )
+        return 1
+
+    monkeypatch.setattr(sync_service, "cache", cache)
+    monkeypatch.setattr(sync_service, "fetch_events", lambda _sport: slate)
+    monkeypatch.setattr(
+        sync_service,
+        "fetch_event_odds",
+        lambda **kwargs: {"line": lines[kwargs["event_id"]]},
+    )
+    monkeypatch.setattr(
+        sync_service,
+        "markets_for_sport",
+        lambda _sport: ["player_points"],
+    )
+    monkeypatch.setattr(
+        sync_service,
+        "quota_allows",
+        lambda _cost: {"allowed": True},
+    )
+    monkeypatch.setattr(sync_service, "process_and_cache_props", process)
+
+    first = sync_service.sync_sport(sport)
+    assert first["props"] == 1
+    assert cache.load_props()[0]["line"] == 18.5
+
+    lines["old-event"] = 19.5
+    refreshed = sync_service.sync_sport(sport)
+    assert refreshed["props"] == 1
+    assert cache.load_props()[0]["line"] == 19.5
+
+    slate[:] = [
+        {"id": "new-event", "commence_time": "2026-07-27T16:15:00Z"},
+    ]
+    lines["new-event"] = 21.5
+    replacement = sync_service.sync_sport(sport)
+    rows = cache.load_props()
+    assert replacement["props"] == 1
+    assert [row["game_id"] for row in rows] == ["new-event"]
+    assert rows[0]["line"] == 21.5
