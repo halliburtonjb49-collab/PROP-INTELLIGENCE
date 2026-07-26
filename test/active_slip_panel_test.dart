@@ -54,6 +54,8 @@ void main() {
     expect(find.text('1-PICK ENTRY'), findsOneWidget);
     expect(find.text('A Player'), findsOneWidget);
     expect(find.text('MORE 22.0'), findsOneWidget);
+    expect(find.text('24 / 22 POINTS'), findsOneWidget);
+    expect(find.byKey(const ValueKey('live-progress-p1')), findsOneWidget);
     expect(find.text('VIEW / LOCK ENTRY'), findsOneWidget);
   });
 }

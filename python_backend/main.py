@@ -127,7 +127,7 @@ from services.slip_service import (
 	update_slip_results,
 	update_slip_status,
 )
-from services.live_stats_service import get_live_player_stat
+from services.live_stats_service import get_live_player_stat_snapshot
 from services.multi_sport_grading_service import grade_active_slips
 from services.sync_service import run_global_sync_pipeline
 from services.prop_recommendation_service import (
@@ -1185,10 +1185,7 @@ def _grade_active_ticket_leg(
 def _graded_slip_legs(slip: SlipResponse, *, season: str) -> list[dict[str, object]]:
 	legs: list[dict[str, object]] = []
 	for leg in slip.legs:
-		game_status = "Final" if leg.game_completed else (
-			"Live" if str(leg.game_status).strip().lower() == "live" else "Scheduled"
-		)
-		current_value = get_live_player_stat(
+		snapshot = get_live_player_stat_snapshot(
 			player_name=leg.player,
 			team="",
 			prop_type=leg.market,
@@ -1197,6 +1194,16 @@ def _graded_slip_legs(slip: SlipResponse, *, season: str) -> list[dict[str, obje
 			event_id=leg.event_id,
 			matchup=leg.matchup,
 			game_start_time=leg.game_start_time,
+		)
+		current_value = snapshot.value
+		snapshot_status = snapshot.status.strip().lower()
+		game_status = (
+			"Final"
+			if leg.game_completed or snapshot.completed
+			else "Live"
+			if snapshot_status in {"live", "in_progress", "inprogress", "ongoing"}
+			or str(leg.game_status).strip().lower() == "live"
+			else "Scheduled"
 		)
 		result = _grade_active_ticket_leg(
 			side=leg.side,
@@ -1225,6 +1232,7 @@ def _graded_slip_legs(slip: SlipResponse, *, season: str) -> list[dict[str, obje
 				"player_image": "",
 				"result": result,
 				"result_status": result,
+				"live_stat_status": snapshot.status,
 				"odds": leg.odds,
 			}
 		)

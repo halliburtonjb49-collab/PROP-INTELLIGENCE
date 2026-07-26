@@ -35,6 +35,10 @@ SPORT_CONFIG = {
         "base_url": "https://api.sportsdata.io/v3/wnba/stats/json",
         "live_boxscores_path": "/BoxScores/{date}",
     },
+    "NFL": {
+        "base_url": "https://api.sportsdata.io/v3/nfl/stats/json",
+        "live_boxscores_path": "/BoxScores/{date}",
+    },
     "NHL": {
         "base_url": "https://api.sportsdata.io/v3/nhl/stats/json",
         "live_boxscores_path": "/BoxScores/{date}",

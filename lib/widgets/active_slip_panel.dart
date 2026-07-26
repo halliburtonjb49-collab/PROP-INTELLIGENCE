@@ -1137,6 +1137,93 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     );
   }
 
+  String _liveStatNumber(double value) {
+    return value == value.roundToDouble()
+        ? value.toStringAsFixed(0)
+        : value.toStringAsFixed(1);
+  }
+
+  Widget _buildLiveStatProgress({
+    required Map<String, dynamic> leg,
+    required double? current,
+    required double target,
+    required String market,
+    required Color color,
+  }) {
+    final gameStatus = (leg['game_status'] ?? '').toString().toLowerCase();
+    final resultStatus = (leg['result_status'] ?? '').toString().toLowerCase();
+    final isFinal =
+        gameStatus == 'final' ||
+        const {'won', 'lost', 'win', 'loss', 'push'}.contains(resultStatus);
+    final isLive =
+        current != null ||
+        const {
+          'live',
+          'in_progress',
+          'in progress',
+          'ongoing',
+        }.contains(gameStatus);
+    final progress = current == null || target <= 0
+        ? 0.0
+        : (current / target).clamp(0.0, 1.0);
+    final label = isFinal
+        ? resultStatus == 'pending'
+              ? 'FINAL'
+              : resultStatus.toUpperCase()
+        : isLive
+        ? 'LIVE'
+        : 'NOT STARTED';
+    final valueLabel = current == null
+        ? '-- / ${_liveStatNumber(target)} $market'
+        : '${_liveStatNumber(current)} / ${_liveStatNumber(target)} $market';
+
+    return Semantics(
+      label: '$label, $valueLabel',
+      child: Column(
+        key: ValueKey('live-progress-${_propId(leg)}'),
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 7,
+              backgroundColor: const Color(0xFF2B3540),
+              valueColor: AlwaysStoppedAnimation(color),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Flexible(
+                child: Text(
+                  valueLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPrizePicksLeg({
     required Map<String, dynamic> leg,
     required int index,
@@ -1151,10 +1238,6 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     final resultValue = (leg['result_value'] as num?)?.toDouble();
     final resultStatus =
         leg['result_status']?.toString().toLowerCase() ?? 'pending';
-    final progress = resultValue == null || lineNumber == 0
-        ? 0.0
-        : (resultValue / lineNumber).clamp(0.0, 1.0);
-
     Color progressColor;
     switch (resultStatus) {
       case 'won':
@@ -1268,39 +1351,12 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             ],
           ),
           const SizedBox(height: 9),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 7,
-              backgroundColor: const Color(0xFF2B3540),
-              valueColor: AlwaysStoppedAnimation(progressColor),
-            ),
-          ),
-          const SizedBox(height: 5),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  resultStatus == 'pending'
-                      ? 'PENDING'
-                      : resultStatus.toUpperCase(),
-                  style: TextStyle(
-                    color: progressColor,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Text(
-                resultValue == null ? '--' : resultValue.toStringAsFixed(1),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
+          _buildLiveStatProgress(
+            leg: leg,
+            current: resultValue,
+            target: lineNumber,
+            market: market,
+            color: progressColor,
           ),
         ],
       ),
@@ -1327,9 +1383,6 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     final target = lineValue is num
         ? lineValue.toDouble()
         : double.tryParse(lineValue.toString()) ?? 1;
-    final progress = resultValue == null
-        ? 0.0
-        : (resultValue / target).clamp(0.0, 1.0);
 
     Color statusColor;
     switch (resultStatus) {
@@ -1454,39 +1507,12 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             ],
           ),
           const SizedBox(height: 9),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 7,
-              backgroundColor: const Color(0xFF2B3540),
-              valueColor: AlwaysStoppedAnimation(statusColor),
-            ),
-          ),
-          const SizedBox(height: 5),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  resultStatus == 'pending'
-                      ? 'LIVE TRACKING'
-                      : resultStatus.toUpperCase(),
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Text(
-                resultValue == null ? '--' : resultValue.toStringAsFixed(1),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
+          _buildLiveStatProgress(
+            leg: leg,
+            current: resultValue,
+            target: target,
+            market: market,
+            color: statusColor,
           ),
         ],
       ),
@@ -1665,30 +1691,15 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               valueColor: AlwaysStoppedAnimation(statusColor),
             ),
           ),
-          const SizedBox(height: 5),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  resultStatus == 'pending'
-                      ? 'LIVE TRACKING'
-                      : resultStatus.toUpperCase(),
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Text(
-                resultValue == null ? '--' : resultValue.toStringAsFixed(1),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
+          const SizedBox(height: 9),
+          _buildLiveStatProgress(
+            leg: leg,
+            current: resultValue,
+            target: lineValue is num
+                ? lineValue.toDouble()
+                : double.tryParse(lineValue.toString()) ?? 0,
+            market: market,
+            color: statusColor,
           ),
         ],
       ),
@@ -1797,6 +1808,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     final sport = (leg['sport'] ?? leg['league'] ?? '').toString();
     final side = leg['side']?.toString().toUpperCase() ?? '';
     final line = leg['current_line'] ?? leg['line'] ?? '';
+    final lineNumber = line is num
+        ? line.toDouble()
+        : double.tryParse(line.toString()) ?? 0;
     final matchup = leg['matchup']?.toString() ?? '';
     final odds = _americanOdds(leg);
     final resultStatus =
@@ -1913,6 +1927,14 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                     ],
                   ),
                 ],
+                const SizedBox(height: 8),
+                _buildLiveStatProgress(
+                  leg: leg,
+                  current: resultValue,
+                  target: lineNumber,
+                  market: market,
+                  color: statusColor,
+                ),
               ],
             ),
           ),
@@ -2173,6 +2195,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     final sport = (leg['sport'] ?? leg['league'] ?? '').toString();
     final side = leg['side']?.toString().toUpperCase() ?? '';
     final line = leg['current_line'] ?? leg['line'] ?? '';
+    final lineNumber = line is num
+        ? line.toDouble()
+        : double.tryParse(line.toString()) ?? 0;
     final matchup =
         leg['matchup']?.toString() ?? leg['event_name']?.toString() ?? '';
     final odds = _americanOdds(leg);
@@ -2295,6 +2320,14 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                     ],
                   ),
                 ],
+                const SizedBox(height: 8),
+                _buildLiveStatProgress(
+                  leg: leg,
+                  current: resultValue,
+                  target: lineNumber,
+                  market: market,
+                  color: statusColor,
+                ),
               ],
             ),
           ),

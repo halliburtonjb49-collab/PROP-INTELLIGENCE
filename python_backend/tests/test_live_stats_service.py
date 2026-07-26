@@ -1,7 +1,12 @@
 from services.live_stats_service import (
+    SPORT_CONFIG,
     _golf_round_value,
     find_player_match_in_boxscores,
 )
+
+
+def test_nfl_live_boxscores_are_configured() -> None:
+    assert SPORT_CONFIG["NFL"]["live_boxscores_path"] == "/BoxScores/{date}"
 
 
 def test_golf_round_markets_derive_from_holes() -> None:
