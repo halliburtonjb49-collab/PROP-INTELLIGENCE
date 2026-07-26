@@ -40,6 +40,18 @@ def main() -> int:
     )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
+    target = args.date or date.today()
+    # Run isolated Statcast children before NBA endpoints allocate pandas/http
+    # state in this parent process. Render enforces memory across the full
+    # process group, so ordering prevents parent+child memory overlap.
+    mlb_backfill = _run_stage(
+        "mlbBackfill",
+        lambda: run_mlb_historical_backfill(
+            end_date=args.date,
+            days=args.mlb_backfill_days,
+            isolate_chunks=True,
+        ),
+    )
     result = _run_stage(
         "historicalSync",
         lambda: run_daily_historical_sync(
@@ -49,16 +61,12 @@ def main() -> int:
         ),
     )
     if not isinstance(result, dict):
-        result = {"historicalSync": {"error": "Historical sync returned an invalid result"}}
-    target = args.date or date.today()
-    result["mlbBackfill"] = _run_stage(
-        "mlbBackfill",
-        lambda: run_mlb_historical_backfill(
-            end_date=args.date,
-            days=args.mlb_backfill_days,
-            isolate_chunks=True,
-        ),
-    )
+        result = {
+            "historicalSync": {
+                "error": "Historical sync returned an invalid result"
+            }
+        }
+    result["mlbBackfill"] = mlb_backfill
     nba_start = target.year if target.month >= 7 else target.year - 1
     result["scheduleFatigue"] = _run_stage(
         "scheduleFatigue",
