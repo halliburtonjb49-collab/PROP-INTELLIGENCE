@@ -635,21 +635,37 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                     const SizedBox(height: 10),
                   ],
                   Expanded(
-                    child: ListView.separated(
-                      itemCount: slips.length,
-                      separatorBuilder: (context, _) =>
-                          const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final slip = slips[index];
-                        return _SavedSlipCard(
-                          slip: slip,
-                          liveStats: _hasEnhancedLiveTracking
-                              ? _liveStats[slip.id] ?? const {}
-                              : const {},
-                          onWon: () => _changeStatus(slip, 'won'),
-                          onLost: () => _changeStatus(slip, 'lost'),
-                          onUnlock: () => _unlockSlip(slip),
-                          showDetails: _showInsights,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final columns = constraints.maxWidth >= 1160
+                            ? 3
+                            : constraints.maxWidth >= 720
+                            ? 2
+                            : 1;
+                        final cardWidth =
+                            (constraints.maxWidth - ((columns - 1) * 12)) /
+                            columns;
+                        return SingleChildScrollView(
+                          child: Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              for (final slip in slips)
+                                SizedBox(
+                                  width: cardWidth,
+                                  child: _SavedSlipCard(
+                                    slip: slip,
+                                    liveStats: _hasEnhancedLiveTracking
+                                        ? _liveStats[slip.id] ?? const {}
+                                        : const {},
+                                    onWon: () => _changeStatus(slip, 'won'),
+                                    onLost: () => _changeStatus(slip, 'lost'),
+                                    onUnlock: () => _unlockSlip(slip),
+                                    showDetails: _showInsights,
+                                  ),
+                                ),
+                            ],
+                          ),
                         );
                       },
                     ),
@@ -1117,6 +1133,176 @@ _SlipLiveProjection? _slipLiveProjection(
       : _SlipLiveProjection.live;
 }
 
+class _CompactSlipLegRow extends StatelessWidget {
+  const _CompactSlipLegRow({
+    required this.leg,
+    required this.live,
+    required this.progress,
+    required this.statusColor,
+    required this.statusLabel,
+  });
+
+  final SavedSlipLeg leg;
+  final _LiveLegState live;
+  final double progress;
+  final Color statusColor;
+  final String statusLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final isOver = leg.side.toUpperCase() == 'OVER';
+    final pickColor = isOver
+        ? const Color(0xFFF2BC35)
+        : const Color(0xFFC8CED6);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFF091620),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const SizedBox(width: 7),
+          SizedBox(
+            width: 52,
+            height: 68,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: _LegPhoto(leg: leg, size: 52),
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        leg.player,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    GameStatusBadge(status: live.gameStatus),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  leg.matchup,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Color(0xFF8996A6), fontSize: 8),
+                ),
+                const SizedBox(height: 7),
+                Row(
+                  children: [
+                    Text(
+                      live.current?.toStringAsFixed(1) ?? '0.0',
+                      style: TextStyle(
+                        color: statusColor,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      live.current == null ? 'PENDING' : statusLabel,
+                      style: TextStyle(
+                        color: live.current == null
+                            ? const Color(0xFF8B98A8)
+                            : statusColor,
+                        fontSize: 7,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: LinearProgressIndicator(
+                    minHeight: 6,
+                    value: progress,
+                    backgroundColor: const Color(0xFF263746),
+                    valueColor: AlwaysStoppedAnimation(statusColor),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    leg.line.toStringAsFixed(1),
+                    style: const TextStyle(
+                      color: Color(0xFF8B98A8),
+                      fontSize: 7,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 82,
+            constraints: const BoxConstraints(minHeight: 84),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF101D28),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: pickColor.withValues(alpha: .45)),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  isOver ? 'MORE' : 'LESS',
+                  style: TextStyle(
+                    color: pickColor,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  leg.line.toStringAsFixed(1),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  leg.market.toUpperCase(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFFD7DEE5),
+                    fontSize: 7,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 7),
+        ],
+      ),
+    );
+  }
+}
+
 class _SavedSlipCard extends StatelessWidget {
   final SavedSlip slip;
   final Map<String, dynamic> liveStats;
@@ -1153,7 +1339,7 @@ class _SavedSlipCard extends StatelessWidget {
         ? const Color(0xFF4CAF50)
         : isLost || isLiveLosing
         ? const Color(0xFFFF5D68)
-        : const Color(0xFF73500B);
+        : const Color(0xFFF2BC35);
     final statusColor = isWon
         ? const Color(0xFFF2BC35)
         : isLiveWinning
@@ -1176,7 +1362,7 @@ class _SavedSlipCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF0C1824),
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: borderColor),
       ),
       child: Stack(
@@ -1186,14 +1372,14 @@ class _SavedSlipCard extends StatelessWidget {
               child: IgnorePointer(child: _GoldTicketConfetti()),
             ),
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Text(
-                      '${slip.legs.length} LEG SLIP',
+                      '${slip.legs.length} PICKS',
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -1274,6 +1460,15 @@ class _SavedSlipCard extends StatelessWidget {
                   final progress = leg.line <= 0 || live.current == null
                       ? 0.0
                       : (live.current! / leg.line).clamp(0.0, 1.0);
+                  if (!showDetails) {
+                    return _CompactSlipLegRow(
+                      leg: leg,
+                      live: live,
+                      progress: progress,
+                      statusColor: statusColor,
+                      statusLabel: statusLabel,
+                    );
+                  }
 
                   return Container(
                     margin: const EdgeInsets.only(bottom: 8),

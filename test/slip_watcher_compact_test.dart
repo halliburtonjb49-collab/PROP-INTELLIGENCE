@@ -29,6 +29,30 @@ void main() {
             entryLine: 1.5,
             side: 'OVER',
           ),
+          SavedSlipLeg(
+            propId: 'prop-2',
+            eventId: 'event-1',
+            player: 'Second Player',
+            sport: 'MLB',
+            matchup: 'Away @ Home',
+            sportsbook: 'PrizePicks',
+            market: 'Runs',
+            line: 0.5,
+            entryLine: 0.5,
+            side: 'UNDER',
+          ),
+          SavedSlipLeg(
+            propId: 'prop-3',
+            eventId: 'event-1',
+            player: 'Third Player',
+            sport: 'MLB',
+            matchup: 'Away @ Home',
+            sportsbook: 'PrizePicks',
+            market: 'RBIs',
+            line: 1.5,
+            entryLine: 1.5,
+            side: 'OVER',
+          ),
         ],
       ),
     );
@@ -50,7 +74,9 @@ void main() {
     await tester.pump();
 
     expect(find.text('Test Player'), findsOneWidget);
-    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.text('Second Player'), findsOneWidget);
+    expect(find.text('Third Player'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNWidgets(3));
     expect(find.text('PROFIT KEEPER'), findsNothing);
     expect(find.textContaining('UPDATING SLIP RESULTS'), findsNothing);
 
