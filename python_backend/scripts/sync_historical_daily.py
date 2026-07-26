@@ -1,91 +1,61 @@
+"""Memory-bounded coordinator for the daily historical-data cron."""
+
 import argparse
-import json
-import logging
 import os
+import subprocess
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from services.historical_ingestion_service import (
-    backfill_basketball_officiating,
-    run_daily_historical_sync,
-    run_mlb_historical_backfill,
-)
-from services.prediction_automation_service import grade_completed_predictions
-from services.schedule_fatigue_service import sync_schedule_and_fatigue
-
-
-def _run_stage(name: str, operation):
-    """Keep an upstream provider outage from aborting unrelated daily work."""
-    try:
-        return operation()
-    except Exception as exc:  # cron boundary: report the stage and continue
-        logging.exception("Daily sync stage %s failed", name)
-        return {"error": str(exc), "stage": name}
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Sync NBA/WNBA/MLB and licensed Sportmonks soccer history."
-    )
-    parser.add_argument("--date", type=date.fromisoformat, help="UTC date in YYYY-MM-DD format")
-    parser.add_argument("--season", help="NBA season such as 2025-26")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--date", type=date.fromisoformat)
+    parser.add_argument("--season")
     parser.add_argument(
         "--mlb-backfill-days",
         type=int,
         default=max(1, int(os.getenv("HISTORICAL_MLB_LOOKBACK_DAYS", "120"))),
-        help="Rolling MLB Statcast window used to heal missed daily runs.",
     )
+    parser.add_argument("--mlb-chunk-days", type=int, default=7)
     args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO)
-    target = args.date or date.today()
-    # Run isolated Statcast children before NBA endpoints allocate pandas/http
-    # state in this parent process. Render enforces memory across the full
-    # process group, so ordering prevents parent+child memory overlap.
-    mlb_backfill = _run_stage(
-        "mlbBackfill",
-        lambda: run_mlb_historical_backfill(
-            end_date=args.date,
-            days=args.mlb_backfill_days,
-            isolate_chunks=True,
-        ),
-    )
-    result = _run_stage(
-        "historicalSync",
-        lambda: run_daily_historical_sync(
-            target_date=args.date,
-            season=args.season,
-            include_mlb=False,
-        ),
-    )
-    if not isinstance(result, dict):
-        result = {
-            "historicalSync": {
-                "error": "Historical sync returned an invalid result"
-            }
-        }
-    result["mlbBackfill"] = mlb_backfill
-    nba_start = target.year if target.month >= 7 else target.year - 1
-    result["scheduleFatigue"] = _run_stage(
-        "scheduleFatigue",
-        lambda: sync_schedule_and_fatigue(
-            nba_season=args.season or f"{nba_start}-{str(nba_start + 1)[-2:]}",
-            wnba_season=str(target.year),
-        ),
-    )
-    result["wnbaOfficiatingBackfill"] = _run_stage(
-        "wnbaOfficiatingBackfill",
-        lambda: backfill_basketball_officiating(
-            sport="WNBA", season=str(target.year), days=14,
-        ),
-    )
-    result["predictionGrading"] = _run_stage(
-        "predictionGrading", grade_completed_predictions,
-    )
-    print(json.dumps(result, indent=2))
-    return 1 if all(isinstance(result.get(s), dict) and "error" in result[s] for s in ("NBA", "WNBA", "MLB")) else 0
+
+    scripts = Path(__file__).resolve().parent
+    end = args.date or (date.today() - timedelta(days=1))
+    start = end - timedelta(days=max(1, args.mlb_backfill_days) - 1)
+    chunk_days = max(1, min(args.mlb_chunk_days, 14))
+    chunk_start = start
+
+    # This coordinator intentionally imports no pandas, pybaseball, nba_api,
+    # or application services. Render measures the whole process group against
+    # 512 MiB, so only one data-heavy child may exist at a time.
+    while chunk_start <= end:
+        chunk_end = min(
+            end,
+            chunk_start + timedelta(days=chunk_days - 1),
+        )
+        subprocess.run(
+            [
+                sys.executable,
+                str(scripts / "sync_mlb_statcast_chunk.py"),
+                "--start-date",
+                chunk_start.isoformat(),
+                "--end-date",
+                chunk_end.isoformat(),
+            ],
+            check=True,
+        )
+        chunk_start = chunk_end + timedelta(days=1)
+
+    other_command = [
+        sys.executable,
+        str(scripts / "sync_other_historical_daily.py"),
+    ]
+    if args.date is not None:
+        other_command.extend(["--date", args.date.isoformat()])
+    if args.season:
+        other_command.extend(["--season", args.season])
+    return subprocess.run(other_command, check=False).returncode
 
 
 if __name__ == "__main__":
