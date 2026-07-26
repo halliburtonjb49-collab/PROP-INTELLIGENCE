@@ -42,7 +42,11 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO)
     result = _run_stage(
         "historicalSync",
-        lambda: run_daily_historical_sync(target_date=args.date, season=args.season),
+        lambda: run_daily_historical_sync(
+            target_date=args.date,
+            season=args.season,
+            include_mlb=False,
+        ),
     )
     if not isinstance(result, dict):
         result = {"historicalSync": {"error": "Historical sync returned an invalid result"}}
@@ -52,6 +56,7 @@ def main() -> int:
         lambda: run_mlb_historical_backfill(
             end_date=args.date,
             days=args.mlb_backfill_days,
+            isolate_chunks=True,
         ),
     )
     nba_start = target.year if target.month >= 7 else target.year - 1

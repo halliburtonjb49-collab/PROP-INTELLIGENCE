@@ -182,6 +182,57 @@ def test_mlb_backfill_uses_a_rolling_window(monkeypatch) -> None:
     assert result["chunkDays"] == 7
 
 
+def test_mlb_backfill_can_isolate_each_statcast_chunk(monkeypatch) -> None:
+    calls = []
+
+    class Provider:
+        def umpire_assignments(self, *, start, end):
+            return []
+
+    class Repository:
+        def upsert_mlb_umpire_assignments(self, rows):
+            return 0
+
+        def load_mlb_umpire_pitches(self):
+            return []
+
+    class Completed:
+        stdout = "pybaseball progress\n{\"fetched\": 10, \"upserted\": 9}\n"
+
+    def run(command, **kwargs):
+        calls.append(command)
+        assert kwargs["check"] is True
+        assert kwargs["capture_output"] is True
+        return Completed()
+
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.MlbHistoricalProvider",
+        Provider,
+    )
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.HistoricalRepository",
+        Repository,
+    )
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.subprocess.run",
+        run,
+    )
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.persist_officiating_profiles",
+        lambda rows: 0,
+    )
+
+    result = run_mlb_historical_backfill(
+        end_date=__import__("datetime").date(2026, 7, 24),
+        days=8,
+        isolate_chunks=True,
+    )
+
+    assert len(calls) == 2
+    assert result["fetched"] == 20
+    assert result["upserted"] == 18
+
+
 def test_soccer_backfill_defaults_to_full_season_and_adds_espn_fallback(
     monkeypatch,
 ) -> None:

@@ -6,9 +6,12 @@ import hashlib
 import json
 import logging
 import math
+import subprocess
+import sys
 from numbers import Real
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from typing import Iterable
 
 from database.postgres import database_is_configured, get_database_pool
@@ -371,6 +374,7 @@ def run_mlb_historical_backfill(
     end_date: date | None = None,
     days: int = 21,
     chunk_days: int = 7,
+    isolate_chunks: bool = False,
 ) -> dict[str, object]:
     """Backfill MLB history in bounded chunks so Starter workers stay healthy."""
     end = end_date or (datetime.now(timezone.utc).date() - timedelta(days=1))
@@ -385,15 +389,44 @@ def run_mlb_historical_backfill(
             end,
             chunk_start + timedelta(days=bounded_chunk_days - 1),
         )
-        # Persist each result immediately. Holding an entire season of
-        # pitch-level Statcast rows can exceed a 512 MiB Render worker.
-        pitches = normalize_statcast(
-            provider.statcast(start=chunk_start, end=chunk_end)
-        )
-        fetched += len(pitches)
-        upserted += repository.upsert_mlb_pitches(pitches)
+        if isolate_chunks:
+            # pandas/pybaseball may retain native allocations after a frame is
+            # deleted. A short-lived child guarantees that the OS returns all
+            # memory before the next chunk starts.
+            script = (
+                Path(__file__).resolve().parents[1]
+                / "scripts"
+                / "sync_mlb_statcast_chunk.py"
+            )
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(script),
+                    "--start-date",
+                    chunk_start.isoformat(),
+                    "--end-date",
+                    chunk_end.isoformat(),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            output_lines = completed.stdout.strip().splitlines()
+            if not output_lines:
+                raise RuntimeError("Statcast chunk returned no result")
+            chunk_result = json.loads(output_lines[-1])
+            fetched += int(chunk_result.get("fetched") or 0)
+            upserted += int(chunk_result.get("upserted") or 0)
+        else:
+            # Persist each result immediately. Holding an entire season of
+            # pitch-level Statcast rows can exceed a 512 MiB Render worker.
+            pitches = normalize_statcast(
+                provider.statcast(start=chunk_start, end=chunk_end)
+            )
+            fetched += len(pitches)
+            upserted += repository.upsert_mlb_pitches(pitches)
+            del pitches
         chunks += 1
-        del pitches
         chunk_start = chunk_end + timedelta(days=1)
     assignments = provider.umpire_assignments(start=start, end=end)
     assignments_upserted = repository.upsert_mlb_umpire_assignments(assignments)
@@ -484,7 +517,12 @@ def run_soccer_historical_backfill(
     }
 
 
-def run_daily_historical_sync(target_date: date | None = None, season: str | None = None) -> dict[str, object]:
+def run_daily_historical_sync(
+    target_date: date | None = None,
+    season: str | None = None,
+    *,
+    include_mlb: bool = True,
+) -> dict[str, object]:
     target = target_date or (datetime.now(timezone.utc).date() - timedelta(days=1))
     nba_start_year = target.year if target.month >= 7 else target.year - 1
     nba_season = season or f"{nba_start_year}-{str(nba_start_year + 1)[-2:]}"
@@ -527,19 +565,20 @@ def run_daily_historical_sync(target_date: date | None = None, season: str | Non
         except Exception as exc:
             logger.exception("Historical %s sync failed", sport)
             results[sport] = {"error": str(exc)}
-    try:
-        mlb = MlbHistoricalProvider()
-        pitches = normalize_statcast(mlb.statcast(start=target, end=target))
-        upserted = repository.upsert_mlb_pitches(pitches)
-        umpire_assignments = mlb.umpire_assignments(start=target, end=target)
-        assignments_upserted = repository.upsert_mlb_umpire_assignments(umpire_assignments)
-        profiles = calculate_mlb_umpire_profiles(repository.load_mlb_umpire_pitches())
-        results["MLB"] = {"fetched": len(pitches), "upserted": upserted,
-                          "umpireAssignmentsUpserted": assignments_upserted,
-                          "officiatingProfilesUpserted": persist_officiating_profiles(profiles)}
-    except Exception as exc:
-        logger.exception("Historical MLB sync failed")
-        results["MLB"] = {"error": str(exc)}
+    if include_mlb:
+        try:
+            mlb = MlbHistoricalProvider()
+            pitches = normalize_statcast(mlb.statcast(start=target, end=target))
+            upserted = repository.upsert_mlb_pitches(pitches)
+            umpire_assignments = mlb.umpire_assignments(start=target, end=target)
+            assignments_upserted = repository.upsert_mlb_umpire_assignments(umpire_assignments)
+            profiles = calculate_mlb_umpire_profiles(repository.load_mlb_umpire_pitches())
+            results["MLB"] = {"fetched": len(pitches), "upserted": upserted,
+                              "umpireAssignmentsUpserted": assignments_upserted,
+                              "officiatingProfilesUpserted": persist_officiating_profiles(profiles)}
+        except Exception as exc:
+            logger.exception("Historical MLB sync failed")
+            results["MLB"] = {"error": str(exc)}
     try:
         soccer_rows = normalize_sportmonks_fixtures(
             SportmonksStatisticsProvider().completed_fixtures(target_date=target)
