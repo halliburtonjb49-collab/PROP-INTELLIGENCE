@@ -68,3 +68,30 @@ def recent_pipeline_runs(limit: int = 25) -> list[dict[str, object]]:
                  "finishedAt": row[4].isoformat() if row[4] else None,
                  "durationMs": row[5], "metrics": row[6], "errors": row[7]}
                 for row in cursor.fetchall()]
+
+
+def summarize_pipeline_health(
+    runs: list[dict[str, object]],
+) -> dict[str, object]:
+    """Report current health from each pipeline's latest run.
+
+    Older failures remain visible for investigation but do not keep operations
+    red after a later successful recovery.
+    """
+    latest_by_pipeline: dict[str, dict[str, object]] = {}
+    for run in runs:
+        pipeline = str(run.get("pipeline") or "unknown")
+        latest_by_pipeline.setdefault(pipeline, run)
+    unhealthy = [
+        run for run in latest_by_pipeline.values()
+        if run.get("status") != "SUCCEEDED"
+    ]
+    historical_failures = [
+        run for run in runs if run.get("status") != "SUCCEEDED"
+    ]
+    return {
+        "healthy": not unhealthy,
+        "latestByPipeline": latest_by_pipeline,
+        "activeFailures": unhealthy,
+        "recentFailures": historical_failures,
+    }

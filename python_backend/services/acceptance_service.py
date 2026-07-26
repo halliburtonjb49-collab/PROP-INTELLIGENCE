@@ -4,6 +4,7 @@ from collections import Counter
 from datetime import datetime, timezone
 import os
 
+from database.postgres import database_is_configured, get_database_pool
 from services.odds_service import quota_snapshot
 from services.prop_service import get_props
 
@@ -16,6 +17,26 @@ def _parse_timestamp(value: str) -> datetime | None:
         return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
     except ValueError:
         return None
+
+
+def _webhook_delivery_snapshot() -> dict[str, object]:
+    if not database_is_configured():
+        return {"verified": False, "eventCount": 0, "lastReceivedAt": None}
+    try:
+        with get_database_pool().connection() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "select count(*),max(received_at) from billing_webhook_events"
+            )
+            count, last_received = cursor.fetchone()
+        return {
+            "verified": int(count or 0) > 0,
+            "eventCount": int(count or 0),
+            "lastReceivedAt": (
+                last_received.isoformat() if last_received is not None else None
+            ),
+        }
+    except Exception:
+        return {"verified": False, "eventCount": 0, "lastReceivedAt": None}
 
 
 def production_acceptance_snapshot(now: datetime | None = None) -> dict[str, object]:
@@ -36,6 +57,7 @@ def production_acceptance_snapshot(now: datetime | None = None) -> dict[str, obj
     webhook_configured = bool(os.getenv("REVENUECAT_WEBHOOK_SECRET", "").strip())
     core_configured = bool(os.getenv("REVENUECAT_CORE_PRODUCT_IDS", "").strip())
     edge_configured = bool(os.getenv("REVENUECAT_EDGE_PRODUCT_IDS", "").strip())
+    webhook_delivery = _webhook_delivery_snapshot()
 
     issues: list[dict[str, str]] = []
     if not props:
@@ -68,7 +90,9 @@ def production_acceptance_snapshot(now: datetime | None = None) -> dict[str, obj
             "webhookConfigured": webhook_configured,
             "coreProductsConfigured": core_configured,
             "edgeProductsConfigured": edge_configured,
-            "webhookDeliveryVerified": False,
+            "webhookDeliveryVerified": webhook_delivery["verified"],
+            "webhookEventCount": webhook_delivery["eventCount"],
+            "lastWebhookReceivedAt": webhook_delivery["lastReceivedAt"],
             "note": "Configuration is verified here; delivery is verified by a successful test or purchase event.",
         },
     }

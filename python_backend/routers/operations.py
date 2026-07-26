@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends
 
 from services.api_auth_service import require_admin, require_owner
-from services.pipeline_run_service import recent_pipeline_runs
+from services.pipeline_run_service import recent_pipeline_runs, summarize_pipeline_health
 from services.readiness_service import production_readiness
 from services.acceptance_service import production_acceptance_snapshot
 
@@ -24,5 +24,4 @@ def acceptance() -> dict[str, object]:
 def pipelines(limit: int = 25) -> dict[str, object]:
     bounded_limit = max(1, min(limit, 100))
     runs = recent_pipeline_runs(bounded_limit)
-    failures = [run for run in runs if run["status"] not in {"SUCCEEDED"}]
-    return {"runs": runs, "failures": failures, "healthy": not failures}
+    return {"runs": runs, **summarize_pipeline_health(runs)}

@@ -13,6 +13,20 @@ def test_expiration_removes_access() -> None:
     assert tier_from_event({"type": "EXPIRATION", "entitlement_ids": ["edge_tier"]}) == "free"
 
 
+def test_cancellation_preserves_access_until_expiration() -> None:
+    assert tier_from_event({
+        "type": "CANCELLATION",
+        "entitlement_ids": ["edge_tier"],
+    }) == "edge"
+
+
+def test_failed_payment_preserves_access_during_provider_grace_period() -> None:
+    assert tier_from_event({
+        "type": "BILLING_ISSUE",
+        "entitlement_ids": ["core_tier"],
+    }) == "core"
+
+
 def test_unknown_product_does_not_grant_access() -> None:
     assert tier_from_event({"type": "INITIAL_PURCHASE", "product_id": "unknown"}) is None
 
