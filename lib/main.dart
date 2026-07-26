@@ -12,6 +12,7 @@ import 'package:window_manager/window_manager.dart';
 import 'layout/app_shell.dart';
 import 'controllers/active_slip_controller.dart';
 import 'models/prop_data.dart';
+import 'models/saved_slip.dart';
 import 'pages/analytics_page.dart';
 import 'pages/line_movement_page.dart';
 import 'pages/prop_chat_page.dart';
@@ -1302,15 +1303,56 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       _isSavingSlip = true;
     });
 
+    final temporaryId =
+        'pending-${DateTime.now().microsecondsSinceEpoch.toString()}';
+    final optimisticSlip = SavedSlip(
+      id: temporaryId,
+      status: 'active',
+      stake: stake,
+      potentialPayout: stake,
+      createdAt: DateTime.now(),
+      legs: selections
+          .map(
+            (selection) => SavedSlipLeg(
+              propId: selection.prop.id,
+              eventId: selection.prop.eventId,
+              player: selection.prop.player,
+              imagePath: selection.prop.imagePath,
+              sport: selection.prop.sport,
+              matchup: selection.prop.matchup,
+              sportsbook: selection.prop.sportsbook,
+              market: selection.prop.market,
+              line: selection.prop.line,
+              entryLine: selection.prop.line,
+              side: selection.sideLabel,
+              odds: selection.odds,
+              customLabel: selection.prop.customLabel,
+              manualNote: selection.prop.manualNote,
+              gameStatus: selection.prop.gameStatus.isEmpty
+                  ? 'scheduled'
+                  : selection.prop.gameStatus,
+            ),
+          )
+          .toList(),
+    );
+    _activeSlipController.addOptimisticLockedSlip(optimisticSlip);
+    await _activeSlipController.clear();
+    if (!mounted) return;
+    setState(() => _slipSelections.clear());
+    _switchToPage(AppPage.watchlist, source: 'slip-locked');
+
     try {
-      await _apiService.saveSlip(selections: selections, stake: stake);
+      final response = await _apiService.saveSlip(
+        selections: selections,
+        stake: stake,
+      );
       if (!mounted) {
         return;
       }
-      await _activeSlipController.clear();
-      setState(() {
-        _slipSelections.clear();
-      });
+      _activeSlipController.replaceOptimisticLockedSlip(
+        temporaryId,
+        SavedSlip.fromJson(response),
+      );
 
       // Show success message
       if (mounted) {
@@ -1329,11 +1371,12 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             duration: Duration(seconds: 3),
           ),
         );
-
-        // Switch to watchlist view
-        _switchToPage(AppPage.watchlist, source: 'slip-locked');
       }
     } catch (error) {
+      _activeSlipController.removeOptimisticLockedSlip(temporaryId);
+      await _activeSlipController.addLegs(
+        selections.map(_selectionToLeg).toList(),
+      );
       if (!mounted) {
         return;
       }

@@ -4,6 +4,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/saved_slip.dart';
+
 class ActiveSlipController extends ChangeNotifier {
   static const String _storageKey = 'prop_intelligence_active_slip_v1';
 
@@ -18,17 +20,62 @@ class ActiveSlipController extends ChangeNotifier {
   int get legCount => _legs.length;
 
   int _lockedSlipCount = 0;
+  final List<SavedSlip> _recentLockedSlips = [];
 
   /// Count of the user's currently-active (locked, unresolved) saved slips,
   /// kept in sync by SlipHistoryPanel whenever it fetches from the server.
   /// Lives here (rather than a new singleton) since this controller is
   /// already shared between the sidebar and the slip watcher panel.
   int get lockedSlipCount => _lockedSlipCount;
+  List<SavedSlip> get recentLockedSlips =>
+      List<SavedSlip>.unmodifiable(_recentLockedSlips);
 
   void setLockedSlipCount(int count) {
     if (_lockedSlipCount == count) return;
     _lockedSlipCount = count;
     notifyListeners();
+  }
+
+  void addOptimisticLockedSlip(SavedSlip slip) {
+    _recentLockedSlips.removeWhere((existing) => existing.id == slip.id);
+    _recentLockedSlips.insert(0, slip);
+    _lockedSlipCount += 1;
+    notifyListeners();
+  }
+
+  void replaceOptimisticLockedSlip(String temporaryId, SavedSlip saved) {
+    final index = _recentLockedSlips.indexWhere(
+      (existing) => existing.id == temporaryId,
+    );
+    if (index < 0) {
+      _recentLockedSlips.insert(0, saved);
+    } else {
+      _recentLockedSlips[index] = saved;
+    }
+    notifyListeners();
+  }
+
+  void removeOptimisticLockedSlip(String temporaryId) {
+    final before = _recentLockedSlips.length;
+    _recentLockedSlips.removeWhere((existing) => existing.id == temporaryId);
+    final removed = before - _recentLockedSlips.length;
+    if (removed > 0) {
+      _lockedSlipCount = _lockedSlipCount > removed
+          ? _lockedSlipCount - removed
+          : 0;
+      notifyListeners();
+    }
+  }
+
+  List<SavedSlip> mergeWithRecentLockedSlips(List<SavedSlip> serverSlips) {
+    final serverIds = serverSlips.map((slip) => slip.id).toSet();
+    return [
+      ..._recentLockedSlips.where(
+        (slip) =>
+            slip.id.startsWith('pending-') && !serverIds.contains(slip.id),
+      ),
+      ...serverSlips,
+    ];
   }
 
   String _propId(Map<String, dynamic> leg) {

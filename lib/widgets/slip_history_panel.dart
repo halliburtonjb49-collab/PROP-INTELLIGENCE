@@ -118,6 +118,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   Timer? _refreshTimer;
   Timer? _liveStatsTimer;
   bool _isRefreshingGames = false;
+  bool _showInsights = false;
   String? _refreshError;
   DateTime? _lastUpdated;
   Map<String, Map<String, dynamic>> _liveStats = const {};
@@ -134,7 +135,8 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   /// and dropping active ones client-side.
   Future<List<SavedSlip>> _fetchForTab(String tab) async {
     if (!_isHistory) {
-      return _apiService.fetchSlips(status: 'active');
+      final slips = await _apiService.fetchSlips(status: 'active');
+      return widget.activeSlipController.mergeWithRecentLockedSlips(slips);
     }
     if (tab == 'all') {
       final all = await _apiService.fetchSlips();
@@ -151,7 +153,11 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   void initState() {
     super.initState();
     _selectedTab = _isHistory ? 'all' : 'active';
-    _slipsFuture = _fetchForTab(_selectedTab);
+    final recent = widget.activeSlipController.recentLockedSlips;
+    _slipsFuture = !_isHistory && recent.isNotEmpty
+        ? Future.value(recent)
+        : _fetchForTab(_selectedTab);
+    widget.activeSlipController.addListener(_handleLockedSlipChange);
     unawaited(_refreshLockedSlipCount());
     _liveSubscription = _liveUpdates.stream.listen(
       (_) => _reloadFromTicketEvent(),
@@ -159,7 +165,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     );
     _liveUpdates.connect();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshGameStatuses();
+      unawaited(_reloadSlipsOnly());
     });
     _refreshTimer = Timer.periodic(
       const Duration(minutes: 2),
@@ -220,7 +226,9 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     try {
       final activeSlips = await _apiService.fetchSlips(status: 'active');
       if (!mounted) return;
-      widget.activeSlipController.setLockedSlipCount(activeSlips.length);
+      final visibleSlips = widget.activeSlipController
+          .mergeWithRecentLockedSlips(activeSlips);
+      widget.activeSlipController.setLockedSlipCount(visibleSlips.length);
     } catch (_) {
       // Leave the last known count in place on a transient failure.
     }
@@ -232,7 +240,31 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     _liveStatsTimer?.cancel();
     unawaited(_liveSubscription?.cancel());
     unawaited(_liveUpdates.dispose());
+    widget.activeSlipController.removeListener(_handleLockedSlipChange);
     super.dispose();
+  }
+
+  void _handleLockedSlipChange() {
+    if (!mounted || _isHistory) return;
+    final recent = widget.activeSlipController.recentLockedSlips;
+    if (recent.isNotEmpty) {
+      setState(() => _slipsFuture = Future.value(recent));
+    }
+    unawaited(_reloadSlipsOnly());
+  }
+
+  Future<void> _reloadSlipsOnly() async {
+    try {
+      final slips = await _fetchForTab(_selectedTab);
+      if (!mounted) return;
+      setState(() {
+        _lastUpdated = DateTime.now();
+        _slipsFuture = Future.value(slips);
+      });
+      widget.activeSlipController.setLockedSlipCount(slips.length);
+    } catch (_) {
+      // Keep the optimistic/local ticket visible during a transient failure.
+    }
   }
 
   void _reloadFromTicketEvent() {
@@ -431,26 +463,41 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                TextButton.icon(
-                  onPressed: _isRefreshingGames ? null : _refreshGameStatuses,
-                  icon: _isRefreshingGames
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Color(0xFFF2BC35),
-                          ),
-                        )
-                      : const Icon(Icons.refresh, size: 17),
-                  label: Text(_isRefreshingGames ? 'UPDATING' : 'REFRESH'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFFF2BC35),
-                    textStyle: const TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
+                Row(
+                  children: [
+                    if (!_isHistory)
+                      IconButton(
+                        tooltip: _showInsights
+                            ? 'Hide Slip Watcher insights'
+                            : 'Show Slip Watcher insights',
+                        onPressed: () =>
+                            setState(() => _showInsights = !_showInsights),
+                        icon: Icon(
+                          _showInsights
+                              ? Icons.close_rounded
+                              : Icons.insights_rounded,
+                          color: const Color(0xFFF2BC35),
+                          size: 19,
+                        ),
+                      ),
+                    IconButton(
+                      tooltip: 'Refresh slips',
+                      onPressed: _isRefreshingGames
+                          ? null
+                          : _refreshGameStatuses,
+                      icon: _isRefreshingGames
+                          ? const SizedBox(
+                              width: 15,
+                              height: 15,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFFF2BC35),
+                              ),
+                            )
+                          : const Icon(Icons.refresh, size: 19),
+                      color: const Color(0xFFF2BC35),
                     ),
-                  ),
+                  ],
                 ),
                 if (_lastUpdated != null)
                   Text(
@@ -464,7 +511,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
             ),
           ],
         ),
-        if (!_isHistory) ...[
+        if (!_isHistory && _showInsights) ...[
           const SizedBox(height: 8),
           _SlipWatcherTierBanner(hasProAccess: widget.hasProAccess),
         ],
@@ -501,42 +548,44 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
             ),
           ],
         ],
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: const Color(0xFF201A06),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFF8B6813)),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                _isRefreshingGames ? Icons.sync : Icons.track_changes,
-                size: 15,
-                color: const Color(0xFFF2BC35),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  _isRefreshingGames
-                      ? 'UPDATING SLIP RESULTS AND TOTALS...'
-                      : _lastUpdated == null
-                      ? 'LIVE SLIP TRACKING READY'
-                      : 'LIVE TOTALS UPDATED ${_formatRefreshTime(_lastUpdated!)}',
-                  style: const TextStyle(
-                    color: Color(0xFFF2BC35),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.3,
+        const SizedBox(height: 8),
+        if (_showInsights) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF201A06),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF8B6813)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _isRefreshingGames ? Icons.sync : Icons.track_changes,
+                  size: 15,
+                  color: const Color(0xFFF2BC35),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _isRefreshingGames
+                        ? 'UPDATING SLIP RESULTS AND TOTALS...'
+                        : _lastUpdated == null
+                        ? 'LIVE SLIP TRACKING READY'
+                        : 'LIVE TOTALS UPDATED ${_formatRefreshTime(_lastUpdated!)}',
+                    style: const TextStyle(
+                      color: Color(0xFFF2BC35),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
+          const SizedBox(height: 8),
+        ],
         if (_refreshError != null) ...[
           Container(
             width: double.infinity,
@@ -571,26 +620,20 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
               final slips = snapshot.data ?? [];
               final totals = _buildTotals(slips);
               if (slips.isEmpty) {
-                return Column(
-                  children: [
-                    _TotalsBar(totals: totals),
-                    const SizedBox(height: 10),
-                    const Expanded(
-                      child: Center(child: Text('No slips in this view.')),
-                    ),
-                  ],
-                );
+                return const Center(child: Text('No slips in this view.'));
               }
               return Column(
                 children: [
-                  _TotalsBar(totals: totals),
-                  if (widget.hasProAccess) ...[
+                  if (_showInsights) ...[
+                    _TotalsBar(totals: totals),
                     const SizedBox(height: 8),
-                    _ProfitKeeper(totals: totals),
-                    const SizedBox(height: 8),
-                    _ClvSummary(totals: totals),
+                    if (widget.hasProAccess) ...[
+                      _ProfitKeeper(totals: totals),
+                      const SizedBox(height: 8),
+                      _ClvSummary(totals: totals),
+                    ],
+                    const SizedBox(height: 10),
                   ],
-                  const SizedBox(height: 10),
                   Expanded(
                     child: ListView.separated(
                       itemCount: slips.length,
@@ -606,6 +649,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                           onWon: () => _changeStatus(slip, 'won'),
                           onLost: () => _changeStatus(slip, 'lost'),
                           onUnlock: () => _unlockSlip(slip),
+                          showDetails: _showInsights,
                         );
                       },
                     ),
@@ -1079,6 +1123,7 @@ class _SavedSlipCard extends StatelessWidget {
   final VoidCallback onWon;
   final VoidCallback onLost;
   final VoidCallback onUnlock;
+  final bool showDetails;
 
   const _SavedSlipCard({
     required this.slip,
@@ -1086,6 +1131,7 @@ class _SavedSlipCard extends StatelessWidget {
     required this.onWon,
     required this.onLost,
     required this.onUnlock,
+    this.showDetails = false,
   });
 
   _LiveLegState _liveState(SavedSlipLeg leg) =>
@@ -1357,7 +1403,7 @@ class _SavedSlipCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        if (leg.closingLine == null)
+                        if (showDetails && leg.closingLine == null)
                           const Text(
                             'CLV: pending closing line',
                             style: TextStyle(
@@ -1365,7 +1411,7 @@ class _SavedSlipCard extends StatelessWidget {
                               fontSize: 9,
                             ),
                           )
-                        else
+                        else if (showDetails)
                           Text(
                             'Entry ${leg.entryLine.toStringAsFixed(1)} → Close ${leg.closingLine!.toStringAsFixed(1)}  •  ${leg.beatClosingLine == true
                                 ? 'BEAT CLOSE'

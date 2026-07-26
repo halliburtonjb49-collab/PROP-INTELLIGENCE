@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:prop_intelligence/controllers/active_slip_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:prop_intelligence/models/saved_slip.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -69,5 +70,33 @@ void main() {
     expect(controller.legCount, 1);
     expect(controller.legs.first['prop_id'], 'prop-1');
     expect(controller.legs.first['player'], 'Player One');
+  });
+
+  test('optimistic locked slip is visible and replaceable immediately', () {
+    final controller = ActiveSlipController();
+    final pending = SavedSlip(
+      id: 'pending-1',
+      status: 'active',
+      stake: 10,
+      potentialPayout: 10,
+      createdAt: DateTime.utc(2026, 7, 26),
+      legs: const [],
+    );
+    final saved = SavedSlip(
+      id: 'saved-1',
+      status: 'active',
+      stake: 10,
+      potentialPayout: 30,
+      createdAt: DateTime.utc(2026, 7, 26),
+      legs: const [],
+    );
+
+    controller.addOptimisticLockedSlip(pending);
+    expect(controller.recentLockedSlips.single.id, 'pending-1');
+    expect(controller.lockedSlipCount, 1);
+
+    controller.replaceOptimisticLockedSlip('pending-1', saved);
+    expect(controller.recentLockedSlips.single.id, 'saved-1');
+    expect(controller.lockedSlipCount, 1);
   });
 }
