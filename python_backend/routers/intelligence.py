@@ -19,7 +19,10 @@ from services.compound_alert_service import create_alert, delete_alert, evaluate
 from routers.realtime import hub as realtime_hub
 from services.engagement_service import record_engagement, sentiment_rollup
 from services.vector_similarity_service import database_similarity
-from services.officiating_profile_service import get_officiating_profile
+from services.officiating_profile_service import (
+    get_officiating_profile,
+    list_officiating_tracker,
+)
 from services.matchup_profile_service import get_matchup_profile
 from services.clv_service import closing_line_value
 from services.model_performance_service import model_performance, operations_summary
@@ -58,6 +61,11 @@ def get_automatic_officiating(sport: str, official_id: str, market: str = "strik
             sport="NBA", market=market, baseline=baseline,
             crew_whistle_rate_index=float(profile["tendencyIndex"])))
     return {"profile": profile, "adjustment": adjustment}
+
+
+@router.get("/officiating-tracker")
+def get_officiating_tracker(sport: str = "WNBA", limit: int = 100) -> dict[str, object]:
+    return list_officiating_tracker(sport, limit)
 
 
 @router.post("/matchup")

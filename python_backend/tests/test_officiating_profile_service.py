@@ -1,4 +1,8 @@
-from services.officiating_profile_service import calculate_basketball_official_profiles, calculate_mlb_umpire_profiles
+from services.officiating_profile_service import (
+    calculate_basketball_official_profiles,
+    calculate_mlb_umpire_profiles,
+    list_officiating_tracker,
+)
 
 
 def test_umpire_profiles_shrink_small_samples() -> None:
@@ -26,3 +30,10 @@ def test_basketball_whistle_profiles_use_game_sample_shrinkage() -> None:
     wide = next(profile for profile in profiles if profile["officialId"] == "wide")
     assert wide["tendencyIndex"] > 1
     assert wide["confidence"] == .2
+
+
+def test_tracker_rejects_unsupported_sports_without_querying_database() -> None:
+    result = list_officiating_tracker("NFL")
+    assert result["sport"] == "NFL"
+    assert result["officials"] == []
+    assert "NBA and WNBA" in result["reason"]

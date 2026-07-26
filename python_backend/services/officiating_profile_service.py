@@ -62,6 +62,82 @@ def get_officiating_profile(sport: str, official_id: str) -> dict[str, object] |
             "confidence": row[6], "metrics": row[7], "computedAt": row[8].isoformat()}
 
 
+def list_officiating_tracker(sport: str, limit: int = 100) -> dict[str, object]:
+    normalized_sport = sport.strip().upper()
+    if normalized_sport not in {"NBA", "WNBA"}:
+        return {
+            "sport": normalized_sport,
+            "officials": [],
+            "reason": "Referee Tracker currently supports NBA and WNBA.",
+        }
+    if not database_is_configured():
+        return {
+            "sport": normalized_sport,
+            "officials": [],
+            "reason": "Officiating data storage is not configured.",
+        }
+
+    safe_limit = max(1, min(limit, 250))
+    with get_database_pool().connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """select official_id,official_name,sample_size,raw_rate,league_rate,
+                tendency_index,confidence,metrics,computed_at
+                from officiating_tendency_profiles where sport=%s
+                order by sample_size desc, official_name asc limit %s""",
+            (normalized_sport, safe_limit),
+        )
+        profile_rows = cursor.fetchall()
+        official_ids = [row[0] for row in profile_rows]
+        assignment_rows = []
+        if official_ids:
+            cursor.execute(
+                """select official_id,league_game_id,game_date,total_fouls,
+                    total_free_throw_attempts from (
+                    select official_id,league_game_id,game_date,total_fouls,
+                        total_free_throw_attempts,
+                        row_number() over (
+                            partition by official_id order by game_date desc
+                        ) assignment_rank
+                    from basketball_official_game_assignments
+                    where sport=%s and official_id = any(%s)
+                ) recent where assignment_rank <= 5
+                order by official_id,game_date desc""",
+                (normalized_sport, official_ids),
+            )
+            assignment_rows = cursor.fetchall()
+
+    recent_by_official: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for row in assignment_rows:
+        recent_by_official[str(row[0])].append({
+            "gameId": row[1],
+            "gameDate": row[2].isoformat(),
+            "totalFouls": row[3],
+            "totalFreeThrowAttempts": row[4],
+        })
+
+    officials = [{
+        "officialId": row[0],
+        "officialName": row[1],
+        "sampleSize": row[2],
+        "rawRate": row[3],
+        "leagueRate": row[4],
+        "tendencyIndex": row[5],
+        "confidence": row[6],
+        "metrics": row[7] or {},
+        "computedAt": row[8].isoformat(),
+        "recentAssignments": recent_by_official.get(str(row[0]), []),
+    } for row in profile_rows]
+    return {
+        "sport": normalized_sport,
+        "officials": officials,
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "disclaimer": (
+            "Historical officiating tendencies are informational and do not "
+            "guarantee future game outcomes."
+        ),
+    }
+
+
 def calculate_basketball_official_profiles(rows: list[dict[str, object]], prior_games: int = 20) -> list[dict[str, object]]:
     if not rows:
         return []

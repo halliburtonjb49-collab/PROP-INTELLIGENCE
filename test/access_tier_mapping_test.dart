@@ -57,6 +57,7 @@ void main() {
       AppPage.evScanner,
       AppPage.strikeoutProGold,
       AppPage.intelligenceLab,
+      AppPage.refereeTracker,
     ]) {
       expect(
         requiredTierForPage(page),

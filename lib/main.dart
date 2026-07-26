@@ -15,6 +15,7 @@ import 'models/prop_data.dart';
 import 'pages/analytics_page.dart';
 import 'pages/line_movement_page.dart';
 import 'pages/prop_chat_page.dart';
+import 'pages/referee_tracker_page.dart';
 import 'screens/prop_builder_performance_screen.dart';
 import 'screens/prop_builder_screen.dart';
 import 'screens/strikeout_pro_gold_screen.dart';
@@ -200,6 +201,7 @@ enum AppPage {
   lineMovement,
   dataAdmin,
   intelligenceLab,
+  refereeTracker,
   propChat,
 }
 
@@ -215,7 +217,8 @@ SubscriptionTier? requiredTierForPage(AppPage page) => switch (page) {
   AppPage.strikeoutProGold ||
   AppPage.evScanner ||
   AppPage.propAlerts ||
-  AppPage.intelligenceLab => SubscriptionTier.edge,
+  AppPage.intelligenceLab ||
+  AppPage.refereeTracker => SubscriptionTier.edge,
   _ => null,
 };
 
@@ -694,6 +697,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       case AppPage.lineMovement:
       case AppPage.dataAdmin:
       case AppPage.intelligenceLab:
+      case AppPage.refereeTracker:
       case AppPage.propChat:
         return 0;
       case AppPage.propBuilder:
@@ -1519,6 +1523,17 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     showGoldBar: true,
                     onTap: () =>
                         widget.onSelectPage?.call(AppPage.intelligenceLab),
+                  ),
+                  const SizedBox(height: 6),
+                  SidebarButton(
+                    label: 'REFEREE\nTRACKER',
+                    leadingIcons: const [Icons.sports_outlined],
+                    leadingIconColors: const [AppColors.gold],
+                    selected: widget.selectedPage == AppPage.refereeTracker,
+                    requiredTier: SubscriptionTier.edge,
+                    showGoldBar: true,
+                    onTap: () =>
+                        widget.onSelectPage?.call(AppPage.refereeTracker),
                   ),
                   const SizedBox(height: 6),
                   SidebarButton(
@@ -3848,6 +3863,8 @@ class _MainDashboardState extends State<MainDashboard> {
                     onRemove: widget.onRemoveLabSelection,
                     onClear: widget.onClearLabSelections,
                   )
+                : widget.selectedPage == AppPage.refereeTracker
+                ? const RefereeTrackerPage()
                 : widget.selectedPage == AppPage.propChat
                 ? PropChatPage(onPopOut: widget.onFloatChat)
                 : Scrollbar(
@@ -5326,6 +5343,8 @@ class TopNavigation extends StatelessWidget {
       'Select a sport or tracked prop and compare its opening, current and closing values. Favor current numbers that still preserve the projected edge and avoid chasing a line after the value disappears.',
     AppPage.intelligenceLab =>
       'Choose a sport, add players or props, then run correlation and scenario tools. Remove individual selections or clear the lab before starting a different game or strategy.',
+    AppPage.refereeTracker =>
+      'Choose NBA or WNBA, search for an official and compare sample-adjusted whistle rates with the league average. Treat tendencies as context, not a guaranteed prediction.',
     AppPage.scoreboard =>
       'Choose a date or sport to follow upcoming, live and completed games. Use scores and game status to confirm context before evaluating or grading a prop.',
     AppPage.searchPlayers =>
@@ -5395,6 +5414,7 @@ class TopNavigation extends StatelessWidget {
         AppPage.lineMovement => 'Track changes across sportsbook lines',
         AppPage.intelligenceLab =>
           'Model correlation, scripts, and historical analogs',
+        AppPage.refereeTracker => 'Compare NBA and WNBA officiating tendencies',
         AppPage.propChat => 'Chat with the PROP INTELLIGENCE community',
         _ => label,
       },
@@ -5460,6 +5480,7 @@ class TopNavigation extends StatelessWidget {
     AppPage.analytics => 'PERFORMANCE ANALYTICS',
     AppPage.lineMovement => 'LINE MOVEMENT',
     AppPage.intelligenceLab => 'INTELLIGENCE LAB',
+    AppPage.refereeTracker => 'REFEREE TRACKER',
     AppPage.searchPlayers => 'PLAYER SEARCH',
     AppPage.propAlerts => 'PROP ALERTS',
     AppPage.propBuilder => 'PROP BUILDER',
@@ -5480,6 +5501,8 @@ class TopNavigation extends StatelessWidget {
     AppPage.analytics => 'Analytics and owner data-management workspace',
     AppPage.lineMovement => 'Monitor number and price changes in real time',
     AppPage.intelligenceLab => 'Stress-test correlation, context and scenarios',
+    AppPage.refereeTracker =>
+      'Compare sample-adjusted referee tendencies and assignments',
     AppPage.searchPlayers => 'Open focused player and market research',
     AppPage.propAlerts => 'Review monitored conditions and changes',
     AppPage.propBuilder => 'Build a disciplined, research-backed slip',
