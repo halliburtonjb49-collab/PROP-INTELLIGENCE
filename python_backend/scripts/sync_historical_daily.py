@@ -17,7 +17,7 @@ def main() -> int:
         type=int,
         default=max(1, int(os.getenv("HISTORICAL_MLB_LOOKBACK_DAYS", "120"))),
     )
-    parser.add_argument("--mlb-chunk-days", type=int, default=7)
+    parser.add_argument("--mlb-chunk-days", type=int, default=1)
     args = parser.parse_args()
 
     scripts = Path(__file__).resolve().parent
