@@ -63,7 +63,7 @@ def test_normalizes_espn_soccer_player_fixture_stats() -> None:
     rows = normalize_espn_soccer_fixtures([{
         "id": "event-1",
         "league_id": "779",
-        "starting_at": "2026-07-24T19:00:00Z",
+        "starting_at": "2026-07-24T19:00Z",
         "rosters": [{
             "team": {"id": "team-1"},
             "roster": [

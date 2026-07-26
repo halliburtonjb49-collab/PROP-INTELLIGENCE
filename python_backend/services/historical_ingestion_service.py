@@ -25,6 +25,10 @@ logger = logging.getLogger(__name__)
 
 def _as_date(value: object) -> date | None:
     text = str(value or "").strip()
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).date()
+    except ValueError:
+        pass
     for pattern in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S",
                     "%Y-%m-%dT%H:%M:%SZ", "%b %d, %Y",
                     "%m/%d/%Y", "%m/%d/%Y %H:%M:%S"):

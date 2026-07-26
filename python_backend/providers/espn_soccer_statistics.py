@@ -35,6 +35,13 @@ class EspnSoccerStatisticsProvider:
         response = requests.get(
             url,
             params=params,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": (
+                    "Mozilla/5.0 (compatible; PropsIntell/1.0; "
+                    "+https://propsintell.com)"
+                ),
+            },
             timeout=HTTP_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
@@ -104,9 +111,9 @@ class EspnSoccerStatisticsProvider:
                     continue
                 if start_date <= event_date <= end_date:
                     events.append(event)
-            # ESPN can reset highly parallel site-API connections. Three workers
-            # keeps the fallback quick without behaving like a burst scraper.
-            with ThreadPoolExecutor(max_workers=3) as executor:
+            # ESPN resets bursty site-API connections. A single worker is
+            # deliberate: this is a scheduled fallback, not request-time work.
+            with ThreadPoolExecutor(max_workers=1) as executor:
                 pending = [
                     executor.submit(
                         self._event_summary,
