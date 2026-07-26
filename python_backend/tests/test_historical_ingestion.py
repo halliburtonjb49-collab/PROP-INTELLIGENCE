@@ -5,6 +5,7 @@ from services.historical_ingestion_service import (
     normalize_sportmonks_fixtures,
     normalize_statcast,
     run_mlb_historical_backfill,
+    run_daily_historical_sync,
     run_soccer_historical_backfill,
 )
 from providers.historical_data import MlbHistoricalProvider
@@ -23,6 +24,146 @@ def test_normalizes_non_finite_values_for_postgres_json() -> None:
         "PTS": float("nan"), "FG3_PCT": float("nan")}], "WNBA")
     assert rows[0]["points"] is None
     assert rows[0]["raw"]["FG3_PCT"] is None
+
+
+def test_espn_basketball_box_score_maps_to_projection_columns(
+    monkeypatch,
+) -> None:
+    from providers.espn_basketball_statistics import (
+        EspnBasketballStatisticsProvider,
+    )
+
+    provider = EspnBasketballStatisticsProvider()
+    responses = [
+        {
+            "events": [
+                {
+                    "id": "game-1",
+                    "name": "Away at Home",
+                    "status": {"type": {"completed": True}},
+                }
+            ]
+        },
+        {
+            "boxscore": {
+                "players": [
+                    {
+                        "team": {"id": "team-1"},
+                        "statistics": [
+                            {
+                                "keys": [
+                                    "minutes",
+                                    "points",
+                                    "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+                                    "freeThrowsMade-freeThrowsAttempted",
+                                    "rebounds",
+                                    "assists",
+                                    "turnovers",
+                                    "steals",
+                                    "blocks",
+                                    "fouls",
+                                ],
+                                "athletes": [
+                                    {
+                                        "athlete": {
+                                            "id": "7",
+                                            "displayName": "Test Player",
+                                        },
+                                        "stats": [
+                                            "32",
+                                            "24",
+                                            "4-9",
+                                            "6-7",
+                                            "10",
+                                            "8",
+                                            "3",
+                                            "2",
+                                            "1",
+                                            "4",
+                                        ],
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            }
+        },
+    ]
+    monkeypatch.setattr(provider, "_json", lambda *args, **kwargs: responses.pop(0))
+
+    rows = provider.daily_game_logs(
+        sport="WNBA",
+        target_date=__import__("datetime").date(2026, 7, 25),
+    )
+
+    assert rows[0]["PLAYER_NAME"] == "Test Player"
+    assert rows[0]["PTS"] == 24
+    assert rows[0]["REB"] == 10
+    assert rows[0]["AST"] == 8
+    assert rows[0]["FG3M"] == 4
+    assert rows[0]["FTA"] == 7
+    assert rows[0]["SOURCE"] == "ESPN"
+
+
+def test_daily_basketball_sync_falls_back_to_espn(monkeypatch) -> None:
+    class FailingNbaProvider:
+        def league_game_logs(self, **kwargs):
+            raise TimeoutError("NBA Stats timeout")
+
+    class EspnProvider:
+        def daily_game_logs(self, *, sport, target_date):
+            return [
+                {
+                    "PLAYER_ID": f"{sport}-7",
+                    "PLAYER_NAME": "Fallback Player",
+                    "TEAM_ID": "team-1",
+                    "GAME_ID": f"{sport}-game",
+                    "GAME_DATE": target_date.isoformat(),
+                    "PTS": 20,
+                    "REB": 8,
+                    "AST": 6,
+                    "SOURCE": "ESPN",
+                }
+            ]
+
+    class SportmonksProvider:
+        def completed_fixtures(self, *, target_date):
+            return []
+
+    class Repository:
+        def upsert_basketball_logs(self, rows):
+            return len(rows)
+
+        def upsert_player_game_logs(self, rows):
+            return len(rows)
+
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.NbaHistoricalProvider",
+        FailingNbaProvider,
+    )
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.EspnBasketballStatisticsProvider",
+        EspnProvider,
+    )
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.SportmonksStatisticsProvider",
+        SportmonksProvider,
+    )
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.HistoricalRepository",
+        Repository,
+    )
+
+    result = run_daily_historical_sync(
+        target_date=__import__("datetime").date(2026, 7, 25),
+        include_mlb=False,
+    )
+
+    assert result["NBA"]["source"] == "ESPN"
+    assert result["NBA"]["upserted"] == 1
+    assert result["WNBA"]["source"] == "ESPN"
+    assert result["WNBA"]["upserted"] == 1
 
 
 def test_normalizes_statcast_pitch() -> None:

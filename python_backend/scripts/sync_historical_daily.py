@@ -17,7 +17,7 @@ def main() -> int:
     parser.add_argument(
         "--mlb-backfill-days",
         type=int,
-        default=max(1, int(os.getenv("HISTORICAL_MLB_LOOKBACK_DAYS", "120"))),
+        default=max(1, int(os.getenv("HISTORICAL_MLB_LOOKBACK_DAYS", "21"))),
     )
     parser.add_argument("--mlb-chunk-days", type=int, default=1)
     args = parser.parse_args()

@@ -13,6 +13,7 @@ from services.historical_ingestion_service import (
     backfill_basketball_officiating,
     run_daily_historical_sync,
 )
+from services.pipeline_run_service import finish_pipeline_run, start_pipeline_run
 from services.prediction_automation_service import grade_completed_predictions
 from services.schedule_fatigue_service import sync_schedule_and_fatigue
 
@@ -32,6 +33,7 @@ def main() -> int:
     parser.add_argument("--season")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
+    identifier, started = start_pipeline_run("historical-sync")
     target = args.date or date.today()
     result = _run_stage(
         "historicalSync",
@@ -68,7 +70,51 @@ def main() -> int:
         "predictionGrading",
         grade_completed_predictions,
     )
-    print(json.dumps(result, indent=2))
+    errors: list[dict[str, object]] = []
+    for stage in ("NBA", "WNBA", "SOCCER", "wnbaOfficiatingBackfill"):
+        stage_result = result.get(stage)
+        if isinstance(stage_result, dict) and stage_result.get("error"):
+            errors.append(
+                {
+                    "stage": stage,
+                    "error": stage_result.get("error"),
+                    "providers": stage_result.get("providers"),
+                }
+            )
+    schedule_result = result.get("scheduleFatigue")
+    if (
+        isinstance(schedule_result, dict)
+        and schedule_result.get("persisted") is not True
+    ):
+        errors.append(
+            {
+                "stage": "scheduleFatigue",
+                "error": schedule_result.get("reason")
+                or schedule_result.get("error")
+                or "Schedule and fatigue persistence failed",
+            }
+        )
+    grading_result = result.get("predictionGrading")
+    if isinstance(grading_result, dict) and grading_result.get("error"):
+        errors.append(
+            {
+                "stage": "predictionGrading",
+                "error": grading_result.get("error"),
+            }
+        )
+    telemetry = finish_pipeline_run(
+        identifier,
+        started,
+        metrics=result,
+        errors=errors,
+    )
+    print(
+        json.dumps(
+            {"results": result, "pipeline": telemetry},
+            indent=2,
+            default=str,
+        )
+    )
     return 0
 
 

@@ -16,6 +16,9 @@ from typing import Iterable
 
 from database.postgres import database_is_configured, get_database_pool
 from providers.historical_data import MlbHistoricalProvider, NbaHistoricalProvider
+from providers.espn_basketball_statistics import (
+    EspnBasketballStatisticsProvider,
+)
 from providers.espn_soccer_statistics import EspnSoccerStatisticsProvider
 from providers.sportmonks_statistics import SportmonksStatisticsProvider
 from services.vector_similarity_service import upsert_basketball_stretches
@@ -529,6 +532,7 @@ def run_daily_historical_sync(
     wnba_season = season or str(target.year)
     repository = HistoricalRepository()
     nba = NbaHistoricalProvider()
+    espn_basketball = EspnBasketballStatisticsProvider()
     results: dict[str, object] = {"targetDate": target.isoformat(), "startedAt": datetime.now(timezone.utc).isoformat()}
     for sport, league_id, league_season in (
         ("NBA", "00", nba_season),
@@ -562,9 +566,38 @@ def run_daily_historical_sync(
                               "officialAssignmentsUpserted": persist_basketball_assignments(assignments),
                               "officiatingProfilesUpserted": refresh_basketball_profiles(sport),
                               "matchupProfilesUpserted": matchup_profiles_upserted}
-        except Exception as exc:
-            logger.exception("Historical %s sync failed", sport)
-            results[sport] = {"error": str(exc)}
+        except Exception as primary_exc:
+            logger.warning(
+                "NBA Stats historical %s sync failed; trying ESPN",
+                sport,
+                exc_info=True,
+            )
+            try:
+                fallback_logs = normalize_basketball_logs(
+                    espn_basketball.daily_game_logs(
+                        sport=sport,
+                        target_date=target,
+                    ),
+                    sport,
+                )
+                results[sport] = {
+                    "fetched": len(fallback_logs),
+                    "upserted": repository.upsert_basketball_logs(fallback_logs),
+                    "source": "ESPN",
+                    "primaryProviderError": str(primary_exc),
+                }
+            except Exception as fallback_exc:
+                logger.exception(
+                    "Historical %s sync failed for NBA Stats and ESPN",
+                    sport,
+                )
+                results[sport] = {
+                    "error": "All historical basketball providers failed",
+                    "providers": {
+                        "NBA Stats": str(primary_exc),
+                        "ESPN": str(fallback_exc),
+                    },
+                }
     if include_mlb:
         try:
             mlb = MlbHistoricalProvider()
