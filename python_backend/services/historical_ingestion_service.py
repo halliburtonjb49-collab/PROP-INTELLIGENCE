@@ -636,12 +636,34 @@ def backfill_basketball_officiating(*, sport: str, season: str,
     league_id = "10" if sport.upper() == "WNBA" else "00"
     provider = NbaHistoricalProvider()
     cutoff = datetime.now(timezone.utc).date() - timedelta(days=max(1, days))
-    schedule = provider.league_schedule(season=season, league_id=league_id)
-    game_ids = []
-    for row in schedule:
-        game_date = _as_date(row.get("gameDate") or row.get("gameDateUTC"))
-        if game_date and game_date >= cutoff and str(row.get("gameId") or ""):
-            game_ids.append(str(row["gameId"]))
+    source = "NBA Stats"
+    primary_provider_error = None
+    espn_assignments: list[dict[str, object]] = []
+    try:
+        schedule = provider.league_schedule(season=season, league_id=league_id)
+        game_ids = []
+        for row in schedule:
+            game_date = _as_date(row.get("gameDate") or row.get("gameDateUTC"))
+            if game_date and game_date >= cutoff and str(row.get("gameId") or ""):
+                game_ids.append(str(row["gameId"]))
+    except Exception as exc:
+        primary_provider_error = str(exc)
+        logger.warning(
+            "NBA Stats officiating schedule failed sport=%s; using ESPN fallback",
+            sport,
+            exc_info=True,
+        )
+        source = "ESPN"
+        espn_assignments = EspnBasketballStatisticsProvider().officiating_assignments(
+            sport=sport,
+            start_date=cutoff,
+            end_date=datetime.now(timezone.utc).date(),
+        )
+        game_ids = [
+            str(row["league_game_id"])
+            for row in espn_assignments
+            if row.get("league_game_id")
+        ]
     with get_database_pool().connection() as connection, connection.cursor() as cursor:
         cursor.execute("""select league_game_id,game_date,personal_fouls,free_throw_attempts
             from historical_basketball_game_logs where sport=%s and game_date >= %s""",
@@ -660,16 +682,31 @@ def backfill_basketball_officiating(*, sport: str, season: str,
     failures = 0
     def fetch(game_id: str) -> tuple[str, list[dict[str, object]]]:
         return game_id, provider.game_officials(game_id=game_id, timeout=30)
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = {executor.submit(fetch, game_id): game_id for game_id in candidate_ids}
-        completed = []
-        for future in as_completed(futures):
-            try:
-                completed.append(future.result())
-            except Exception:
-                failures += 1
-                logger.warning("Official backfill failed sport=%s game=%s error=%s",
-                               sport, futures[future], future.exception())
+    completed = []
+    if source == "NBA Stats":
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = {executor.submit(fetch, game_id): game_id for game_id in candidate_ids}
+            for future in as_completed(futures):
+                try:
+                    completed.append(future.result())
+                except Exception:
+                    failures += 1
+                    logger.warning("Official backfill failed sport=%s game=%s error=%s",
+                                   sport, futures[future], future.exception())
+    else:
+        by_game: dict[str, list[dict[str, object]]] = {}
+        for row in espn_assignments:
+            game_id = str(row.get("league_game_id") or "")
+            if game_id in candidate_ids:
+                by_game.setdefault(game_id, []).append(
+                    {
+                        "PERSON_ID": row.get("official_id"),
+                        "FIRST_NAME": row.get("official_name"),
+                        "LAST_NAME": "",
+                        "_raw": row.get("raw", {}),
+                    }
+                )
+        completed = list(by_game.items())
     for game_id, officials in completed:
         try:
             total = totals[game_id]
@@ -680,11 +717,13 @@ def backfill_basketball_officiating(*, sport: str, season: str,
                         "official_id": official_id,
                         "official_name": f"{official.get('FIRST_NAME') or ''} {official.get('LAST_NAME') or ''}".strip(),
                         "game_date": total["game_date"], "total_fouls": total["fouls"],
-                        "total_free_throw_attempts": total["attempts"], "raw": official})
+                        "total_free_throw_attempts": total["attempts"],
+                        "raw": official.get("_raw") or official})
         except Exception:
             failures += 1
             logger.warning("Official normalization failed sport=%s game=%s", sport, game_id, exc_info=True)
     persisted = persist_basketball_assignments(assignments)
     profiles = refresh_basketball_profiles(sport.upper())
     return {"persisted": True, "candidateGames": len(candidate_ids),
-            "assignments": persisted, "profiles": profiles, "failures": failures}
+            "assignments": persisted, "profiles": profiles, "failures": failures,
+            "source": source, "primaryProviderError": primary_provider_error}

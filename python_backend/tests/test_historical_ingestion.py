@@ -1,4 +1,5 @@
 from services.historical_ingestion_service import (
+    backfill_basketball_officiating,
     build_official_assignments,
     normalize_basketball_logs,
     normalize_espn_soccer_fixtures,
@@ -104,6 +105,133 @@ def test_espn_basketball_box_score_maps_to_projection_columns(
     assert rows[0]["FG3M"] == 4
     assert rows[0]["FTA"] == 7
     assert rows[0]["SOURCE"] == "ESPN"
+
+
+def test_espn_basketball_officiating_assignments_are_stable(
+    monkeypatch,
+) -> None:
+    from datetime import date
+    from providers.espn_basketball_statistics import (
+        EspnBasketballStatisticsProvider,
+    )
+
+    provider = EspnBasketballStatisticsProvider()
+
+    def payload(url, *, params):
+        if url.endswith("/scoreboard"):
+            assert params["dates"] == "20260720-20260721"
+            return {
+                "events": [{
+                    "id": "401",
+                    "date": "2026-07-20T19:00Z",
+                    "status": {"type": {"completed": True}},
+                }]
+            }
+        return {
+            "gameInfo": {
+                "officials": [
+                    {"displayName": "Pat Ref", "position": {"name": "Referee"}}
+                ]
+            }
+        }
+
+    monkeypatch.setattr(provider, "_json", payload)
+    rows = provider.officiating_assignments(
+        sport="WNBA",
+        start_date=date(2026, 7, 20),
+        end_date=date(2026, 7, 21),
+    )
+
+    assert rows[0]["league_game_id"] == "401"
+    assert rows[0]["official_name"] == "Pat Ref"
+    assert rows[0]["official_id"].startswith("espn-")
+    assert rows[0]["source"] == "ESPN"
+
+
+def test_wnba_officiating_falls_back_to_espn_when_nba_stats_fails(
+    monkeypatch,
+) -> None:
+    from contextlib import contextmanager
+    from datetime import date
+
+    class NbaProvider:
+        def league_schedule(self, **kwargs):
+            raise TimeoutError("NBA Stats timed out")
+
+    class EspnProvider:
+        def officiating_assignments(self, **kwargs):
+            return [{
+                "league_game_id": "espn-game",
+                "official_id": "espn-ref",
+                "official_name": "Pat Ref",
+                "game_date": date.today(),
+                "raw": {"displayName": "Pat Ref"},
+            }]
+
+    class Cursor:
+        def __init__(self):
+            self._rows = []
+
+        def execute(self, query, params):
+            if "historical_basketball_game_logs" in query:
+                self._rows = [("espn-game", date.today(), 30, 20)]
+            else:
+                self._rows = []
+
+        def fetchall(self):
+            return self._rows
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    class Connection:
+        def cursor(self):
+            return Cursor()
+
+    class Pool:
+        @contextmanager
+        def connection(self):
+            yield Connection()
+
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.database_is_configured",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.NbaHistoricalProvider",
+        NbaProvider,
+    )
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.EspnBasketballStatisticsProvider",
+        EspnProvider,
+    )
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.get_database_pool",
+        Pool,
+    )
+    captured = []
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.persist_basketball_assignments",
+        lambda rows: captured.extend(rows) or len(rows),
+    )
+    monkeypatch.setattr(
+        "services.historical_ingestion_service.refresh_basketball_profiles",
+        lambda sport: 1,
+    )
+
+    result = backfill_basketball_officiating(
+        sport="WNBA",
+        season="2026",
+        days=14,
+    )
+
+    assert result["source"] == "ESPN"
+    assert result["assignments"] == 1
+    assert result["primaryProviderError"] == "NBA Stats timed out"
+    assert captured[0]["official_id"] == "espn-ref"
 
 
 def test_daily_basketball_sync_falls_back_to_espn(monkeypatch) -> None:

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import date
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date, datetime
+import hashlib
 from typing import Iterable
 
 import requests
@@ -157,3 +159,91 @@ class EspnBasketballStatisticsProvider:
                 )
             )
         return rows
+
+    def officiating_assignments(
+        self,
+        *,
+        sport: str,
+        start_date: date,
+        end_date: date,
+    ) -> list[dict[str, object]]:
+        """Fetch completed-game referee crews for a bounded date range."""
+        normalized_sport = sport.upper()
+        league = _LEAGUES[normalized_sport]
+        payload = self._json(
+            f"{_BASE_URL}/{league}/scoreboard",
+            params={
+                "dates": (
+                    f"{start_date.strftime('%Y%m%d')}-"
+                    f"{end_date.strftime('%Y%m%d')}"
+                ),
+                "limit": 100,
+            },
+        )
+        completed_events: list[tuple[str, date]] = []
+        for event in payload.get("events", []):
+            if not isinstance(event, dict):
+                continue
+            status = event.get("status")
+            status_type = status.get("type") if isinstance(status, dict) else {}
+            if not isinstance(status_type, dict) or status_type.get("completed") is not True:
+                continue
+            event_id = str(event.get("id") or "").strip()
+            event_date_text = str(event.get("date") or "")
+            if not event_id:
+                continue
+            try:
+                event_date = datetime.fromisoformat(
+                    event_date_text.replace("Z", "+00:00")
+                ).date()
+            except ValueError:
+                continue
+            completed_events.append((event_id, event_date))
+
+        def event_assignments(
+            event: tuple[str, date],
+        ) -> list[dict[str, object]]:
+            event_id, event_date = event
+            summary = self._json(
+                f"{_BASE_URL}/{league}/summary",
+                params={"event": event_id},
+            )
+            game_info = summary.get("gameInfo")
+            officials = (
+                game_info.get("officials", [])
+                if isinstance(game_info, dict)
+                else []
+            )
+            rows: list[dict[str, object]] = []
+            for official in officials if isinstance(officials, list) else []:
+                if not isinstance(official, dict):
+                    continue
+                name = str(
+                    official.get("displayName")
+                    or official.get("fullName")
+                    or ""
+                ).strip()
+                if not name:
+                    continue
+                official_id = "espn-" + hashlib.sha256(
+                    name.casefold().encode("utf-8")
+                ).hexdigest()[:16]
+                rows.append(
+                    {
+                        "sport": normalized_sport,
+                        "league_game_id": event_id,
+                        "official_id": official_id,
+                        "official_name": name,
+                        "game_date": event_date,
+                        "source": "ESPN",
+                        "raw": official,
+                    }
+                )
+            return rows
+
+        assignments: list[dict[str, object]] = []
+        worker_count = min(6, max(1, len(completed_events)))
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            for rows in executor.map(event_assignments, completed_events):
+                assignments.extend(rows)
+        return assignments

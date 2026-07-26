@@ -83,6 +83,7 @@ class RevenueCatBillingService {
     PurchaseTier tier,
   ) async {
     try {
+      await initializeBillingEngine();
       final offerings = await Purchases.getOfferings();
       final current = offerings.all[tier.offeringId];
       final package =

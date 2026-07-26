@@ -109,3 +109,47 @@ def test_event_odds_fetches_overlap_but_cache_processing_is_serial(monkeypatch) 
     assert result["fetchedEvents"] == 6
     assert result["props"] == 6
     assert result["eventWorkers"] == 4
+
+
+def test_sync_prunes_expired_events_and_populates_the_new_slate(
+    monkeypatch,
+) -> None:
+    events = [
+        {"id": "new-event", "commence_time": "2026-07-27T20:00:00Z"},
+    ]
+    lifecycle = {"active_ids": [], "processed": []}
+
+    class Cache:
+        def prune_sport_to_event_ids(self, *, sport, active_event_ids):
+            lifecycle["active_ids"] = active_event_ids
+
+    monkeypatch.setattr(sync_service, "fetch_events", lambda _sport: events)
+    monkeypatch.setattr(
+        sync_service,
+        "fetch_event_odds",
+        lambda **_kwargs: {"bookmakers": [{"key": "test"}]},
+    )
+    monkeypatch.setattr(
+        sync_service,
+        "markets_for_sport",
+        lambda _sport: ["player_points"],
+    )
+    monkeypatch.setattr(
+        sync_service,
+        "quota_allows",
+        lambda _cost: {"allowed": True},
+    )
+
+    def process(**kwargs):
+        lifecycle["processed"].append(kwargs["event"]["id"])
+        return 3
+
+    monkeypatch.setattr(sync_service, "process_and_cache_props", process)
+    monkeypatch.setattr(sync_service, "cache", Cache())
+
+    result = sync_service.sync_sport("basketball_wnba")
+
+    assert lifecycle["active_ids"] == ["new-event"]
+    assert lifecycle["processed"] == ["new-event"]
+    assert result["fetchedEvents"] == 1
+    assert result["props"] == 3
