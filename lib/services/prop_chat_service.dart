@@ -9,13 +9,30 @@ import 'supabase_service.dart';
 import 'app_sound_service.dart';
 
 class PropChatRoom {
-  const PropChatRoom({required this.id, required this.name});
+  const PropChatRoom({
+    required this.id,
+    required this.name,
+    this.roomType = 'sport',
+    this.sport,
+    this.eventId,
+    this.requiredTier = 'edge',
+  });
   final String id;
   final String name;
+  final String roomType;
+  final String? sport;
+  final String? eventId;
+  final String requiredTier;
+  bool get isGame => roomType == 'game';
+  bool get isPro => requiredTier == 'edge';
 
   factory PropChatRoom.fromJson(Map<String, dynamic> json) => PropChatRoom(
     id: json['id']?.toString() ?? 'general',
     name: json['name']?.toString() ?? 'General',
+    roomType: json['room_type']?.toString() ?? 'sport',
+    sport: json['sport']?.toString(),
+    eventId: json['event_id']?.toString(),
+    requiredTier: json['required_tier']?.toString() ?? 'edge',
   );
 }
 
@@ -35,6 +52,7 @@ class PropChatMessage {
     this.attachmentKind,
     this.linkUrl,
     this.attachmentUrl,
+    this.sharedPayload,
   });
 
   final int id;
@@ -51,8 +69,10 @@ class PropChatMessage {
   final String? attachmentKind;
   final String? linkUrl;
   final String? attachmentUrl;
+  final Map<String, dynamic>? sharedPayload;
 
-  bool get isVerified => authorRole == 'owner' || authorRole == 'admin';
+  bool get isVerified =>
+      const {'owner', 'admin', 'expert', 'creator'}.contains(authorRole);
 
   factory PropChatMessage.fromJson(Map<String, dynamic> json) {
     return PropChatMessage(
@@ -67,6 +87,7 @@ class PropChatMessage {
       attachmentPath: json['attachment_path']?.toString(),
       attachmentKind: json['attachment_kind']?.toString(),
       linkUrl: json['link_url']?.toString(),
+      sharedPayload: (json['shared_payload'] as Map?)?.cast<String, dynamic>(),
       createdAt:
           DateTime.tryParse(json['created_at']?.toString() ?? '')?.toLocal() ??
           DateTime.now(),
@@ -88,6 +109,7 @@ class PropChatMessage {
     attachmentKind: attachmentKind,
     linkUrl: linkUrl,
     attachmentUrl: attachmentUrl,
+    sharedPayload: sharedPayload,
   );
 
   PropChatMessage withAttachmentUrl(String? value) => PropChatMessage(
@@ -105,6 +127,7 @@ class PropChatMessage {
     attachmentKind: attachmentKind,
     linkUrl: linkUrl,
     attachmentUrl: value,
+    sharedPayload: sharedPayload,
   );
 }
 
@@ -252,7 +275,7 @@ class PropChatService {
     }
     final rows = await client
         .from('prop_chat_rooms')
-        .select('id, name')
+        .select('id, name, room_type, sport, event_id, required_tier')
         .eq('is_active', true)
         .order('position');
     return (rows as List)
@@ -453,6 +476,7 @@ class PropChatService {
     String? attachmentPath,
     String? attachmentKind,
     String? linkUrl,
+    Map<String, dynamic>? sharedPayload,
   }) async {
     final client = _client;
     final userId = currentUserId;
@@ -460,7 +484,8 @@ class PropChatService {
     if (client == null || userId == null) {
       throw StateError('Sign in to use PROP CHAT.');
     }
-    if ((trimmed.isEmpty && attachmentPath == null) || trimmed.length > 500) {
+    if ((trimmed.isEmpty && attachmentPath == null && sharedPayload == null) ||
+        trimmed.length > 500) {
       throw ArgumentError('Messages must contain 1–500 characters.');
     }
     await client.from('prop_chat_messages').insert({
@@ -472,7 +497,41 @@ class PropChatService {
       'attachment_path': attachmentPath,
       'attachment_kind': attachmentKind,
       'link_url': linkUrl,
+      'shared_payload': sharedPayload,
     });
+  }
+
+  Future<String> createGameThread({
+    required String eventId,
+    required String sport,
+    required String name,
+  }) async {
+    final result = await _requireClient().rpc(
+      'create_prop_chat_game_thread',
+      params: {
+        'game_event_id': eventId,
+        'game_sport': sport,
+        'game_name': name,
+      },
+    );
+    return result.toString();
+  }
+
+  Future<void> registerPushSubscription({
+    required String deviceKey,
+    required String platform,
+    required String endpoint,
+  }) async {
+    final userId = currentUserId;
+    if (userId == null) throw StateError('Sign in to enable notifications.');
+    await _requireClient().from('prop_chat_push_subscriptions').upsert({
+      'user_id': userId,
+      'device_key': deviceKey,
+      'platform': platform,
+      'endpoint': endpoint,
+      'active': true,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }, onConflict: 'user_id,device_key');
   }
 
   Future<String> uploadChatImage(

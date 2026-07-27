@@ -214,6 +214,7 @@ SubscriptionTier? requiredTierForPage(AppPage page) => switch (page) {
   AppPage.analytics ||
   AppPage.lineMovement ||
   AppPage.pastSlipHistory => SubscriptionTier.core,
+  AppPage.propChat => SubscriptionTier.core,
   AppPage.builderPerformance ||
   AppPage.strikeoutProGold ||
   AppPage.evScanner ||
@@ -939,7 +940,17 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                         ),
                       ),
                     ),
-                    const Expanded(child: PropChatPage(isFloating: true)),
+                    Expanded(
+                      child: PropChatPage(
+                        isFloating: true,
+                        sharedAnalysis: {
+                          'kind': 'slip',
+                          'title':
+                              '${_activeSlipController.legCount}-leg active slip',
+                          'legs': _activeSlipController.legs,
+                        },
+                      ),
+                    ),
                     Align(
                       alignment: Alignment.bottomRight,
                       child: GestureDetector(
@@ -4148,7 +4159,26 @@ class _MainDashboardState extends State<MainDashboard> {
                 : widget.selectedPage == AppPage.refereeTracker
                 ? const RefereeTrackerPage()
                 : widget.selectedPage == AppPage.propChat
-                ? PropChatPage(onPopOut: widget.onFloatChat)
+                ? PropChatPage(
+                    onPopOut: widget.onFloatChat,
+                    sharedAnalysis: {
+                      'kind': widget.selections.length == 1 ? 'prop' : 'slip',
+                      'title': widget.selections.length == 1
+                          ? 'Prop analysis'
+                          : '${widget.selections.length}-leg slip',
+                      'legs': widget.selections
+                          .map(
+                            (selection) => {
+                              'player': selection.prop.player,
+                              'market': selection.prop.propType,
+                              'side': selection.sideLabel,
+                              'line': selection.prop.line,
+                              'odds': selection.odds,
+                            },
+                          )
+                          .toList(growable: false),
+                    },
+                  )
                 : Scrollbar(
                     controller: _boardVerticalController,
                     thumbVisibility: true,

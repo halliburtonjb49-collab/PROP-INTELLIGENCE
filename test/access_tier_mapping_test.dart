@@ -71,7 +71,7 @@ void main() {
     expect(requiredTierForPage(AppPage.board), isNull);
     expect(requiredTierForPage(AppPage.scoreboard), isNull);
     expect(requiredTierForPage(AppPage.searchPlayers), isNull);
-    expect(requiredTierForPage(AppPage.propChat), isNull);
+    expect(requiredTierForPage(AppPage.propChat), SubscriptionTier.core);
   });
 
   test('market lean derives direction without inventing a model pick', () {

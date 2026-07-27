@@ -49,10 +49,12 @@ class PropChatPage extends StatefulWidget {
     this.service,
     this.onPopOut,
     this.isFloating = false,
+    this.sharedAnalysis,
   });
   final PropChatService? service;
   final VoidCallback? onPopOut;
   final bool isFloating;
+  final Map<String, dynamic>? sharedAnalysis;
 
   @override
   State<PropChatPage> createState() => _PropChatPageState();
@@ -74,6 +76,90 @@ class _PropChatPageState extends State<PropChatPage> {
   bool _sending = false;
   String? _attachmentPath;
   String? _attachmentKind;
+  Map<String, dynamic>? _sharedPayload;
+
+  bool get _hasProAccess =>
+      AuthManager.instance.sessionState.value.hasEdgeAccess;
+
+  Future<void> _createGameThread() async {
+    if (!_hasProAccess) {
+      _notice('Game threads are included with Pro.');
+      return;
+    }
+    final event = TextEditingController();
+    final sport = TextEditingController();
+    final name = TextEditingController();
+    final values = await showDialog<List<String>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('CREATE GAME THREAD'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: sport,
+              decoration: const InputDecoration(labelText: 'Sport'),
+            ),
+            TextField(
+              controller: name,
+              decoration: const InputDecoration(labelText: 'Game name'),
+            ),
+            TextField(
+              controller: event,
+              decoration: const InputDecoration(labelText: 'Event ID'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(context, [event.text, sport.text, name.text]),
+            child: const Text('CREATE'),
+          ),
+        ],
+      ),
+    );
+    event.dispose();
+    sport.dispose();
+    name.dispose();
+    if (values == null) return;
+    try {
+      final roomId = await _service.createGameThread(
+        eventId: values[0],
+        sport: values[1],
+        name: values[2],
+      );
+      final rooms = await _service.loadRooms();
+      if (!mounted) return;
+      setState(() {
+        _rooms = rooms;
+        _roomId = roomId;
+      });
+      _notice('Game thread ready.');
+    } catch (error) {
+      _notice('Unable to create game thread: $error');
+    }
+  }
+
+  void _shareAnalysis() {
+    if (!_hasProAccess) {
+      _notice('Structured prop and slip sharing is included with Pro.');
+      return;
+    }
+    final payload = widget.sharedAnalysis;
+    if (payload == null || payload.isEmpty) {
+      _notice('Build or open a slip first, then share it here.');
+      return;
+    }
+    setState(() {
+      _sharedPayload = payload;
+      _attachmentKind = payload['kind']?.toString() == 'prop' ? 'prop' : 'slip';
+    });
+  }
 
   @override
   void initState() {
@@ -173,17 +259,24 @@ class _PropChatPageState extends State<PropChatPage> {
 
   Future<void> _send() async {
     if (_sending ||
-        (_messageController.text.trim().isEmpty && _attachmentPath == null)) {
+        (_messageController.text.trim().isEmpty &&
+            _attachmentPath == null &&
+            _sharedPayload == null)) {
       return;
     }
     setState(() => _sending = true);
     try {
       await _service.sendMessage(
-        _messageController.text,
+        _messageController.text.trim().isEmpty && _sharedPayload != null
+            ? (_attachmentKind == 'prop'
+                  ? 'Shared a Pro prop analysis.'
+                  : 'Shared a Pro slip analysis.')
+            : _messageController.text,
         roomId: _roomId,
         replyToId: _replyingTo?.id,
         attachmentPath: _attachmentPath,
         attachmentKind: _attachmentKind,
+        sharedPayload: _sharedPayload,
         linkUrl: _firstSecureLink(_messageController.text),
       );
       _messageController.clear();
@@ -191,6 +284,7 @@ class _PropChatPageState extends State<PropChatPage> {
         _replyingTo = null;
         _attachmentPath = null;
         _attachmentKind = null;
+        _sharedPayload = null;
       });
     } catch (error) {
       _notice('Unable to send: $error');
@@ -522,6 +616,9 @@ class _PropChatPageState extends State<PropChatPage> {
             onDirectMessages: _openDirectMessages,
             onPopOut: widget.onPopOut,
             isFloating: widget.isFloating,
+            hasProAccess: _hasProAccess,
+            onGameThread: _createGameThread,
+            onShareAnalysis: _shareAnalysis,
           ),
           StreamBuilder<List<PropChatModerationNotice>>(
             stream: _service.watchModerationNotices(),
@@ -674,6 +771,9 @@ class _ChatHeader extends StatelessWidget {
     required this.onDirectMessages,
     required this.onPopOut,
     required this.isFloating,
+    required this.hasProAccess,
+    required this.onGameThread,
+    required this.onShareAnalysis,
   });
   final String roomId;
   final Stream<List<Map<String, dynamic>>> presence;
@@ -685,6 +785,9 @@ class _ChatHeader extends StatelessWidget {
   final VoidCallback onDirectMessages;
   final VoidCallback? onPopOut;
   final bool isFloating;
+  final bool hasProAccess;
+  final VoidCallback onGameThread;
+  final VoidCallback onShareAnalysis;
 
   @override
   Widget build(BuildContext context) {
@@ -741,6 +844,26 @@ class _ChatHeader extends StatelessWidget {
               color: AppColors.gold,
             ),
           ),
+          IconButton(
+            key: const ValueKey('prop-chat-share-slip'),
+            tooltip: hasProAccess
+                ? 'Share current prop or slip'
+                : 'Pro: shared analysis',
+            onPressed: onShareAnalysis,
+            icon: Icon(
+              Icons.ios_share_rounded,
+              color: hasProAccess ? AppColors.gold : AppColors.textMuted,
+            ),
+          ),
+          IconButton(
+            key: const ValueKey('prop-chat-game-thread'),
+            tooltip: hasProAccess ? 'Create game thread' : 'Pro: game threads',
+            onPressed: onGameThread,
+            icon: Icon(
+              Icons.sports_score_rounded,
+              color: hasProAccess ? AppColors.gold : AppColors.textMuted,
+            ),
+          ),
           if (!isFloating && onPopOut != null)
             IconButton(
               key: const ValueKey('pop-out-prop-chat'),
@@ -780,6 +903,79 @@ class _ChatHeader extends StatelessWidget {
                 ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SharedAnalysisCard extends StatelessWidget {
+  const _SharedAnalysisCard({required this.kind, required this.payload});
+  final String kind;
+  final Map<String, dynamic> payload;
+
+  @override
+  Widget build(BuildContext context) {
+    final rawLegs = payload['legs'];
+    final legs = rawLegs is List ? rawLegs.take(8).toList() : const [];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.sidebar,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.borderGold),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.analytics_rounded,
+                color: AppColors.gold,
+                size: 18,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                kind == 'prop' ? 'SHARED PRO PROP' : 'SHARED PRO SLIP',
+                style: const TextStyle(
+                  color: AppColors.gold,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+          if (payload['title'] != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              payload['title'].toString(),
+              style: const TextStyle(
+                color: AppColors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          for (final raw in legs) ...[
+            const SizedBox(height: 4),
+            Text(
+              raw is Map
+                  ? [
+                      raw['player'],
+                      raw['market'],
+                      raw['side'],
+                      raw['line'],
+                    ].where((value) => value != null).join(' · ')
+                  : raw.toString(),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -851,8 +1047,12 @@ class _MessageBubble extends StatelessWidget {
                           ),
                           if (message.isVerified) ...[
                             const SizedBox(width: 5),
-                            const Tooltip(
-                              message: 'Verified PROP INTELLIGENCE staff',
+                            Tooltip(
+                              message: message.authorRole == 'expert'
+                                  ? 'Verified expert'
+                                  : message.authorRole == 'creator'
+                                  ? 'Verified creator'
+                                  : 'Verified PROP INTELLIGENCE staff',
                               child: Icon(
                                 Icons.verified_rounded,
                                 size: 15,
@@ -931,6 +1131,13 @@ class _MessageBubble extends StatelessWidget {
                   message.body,
                   style: const TextStyle(color: AppColors.white, height: 1.35),
                 ),
+                if (message.sharedPayload != null) ...[
+                  const SizedBox(height: 8),
+                  _SharedAnalysisCard(
+                    kind: message.attachmentKind ?? 'slip',
+                    payload: message.sharedPayload!,
+                  ),
+                ],
                 if (message.attachmentUrl != null) ...[
                   const SizedBox(height: 8),
                   ClipRRect(

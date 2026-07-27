@@ -45,6 +45,7 @@ class _FakeChatService extends PropChatService {
     String? attachmentPath,
     String? attachmentKind,
     String? linkUrl,
+    Map<String, dynamic>? sharedPayload,
   }) async {
     sentBody = body;
   }
