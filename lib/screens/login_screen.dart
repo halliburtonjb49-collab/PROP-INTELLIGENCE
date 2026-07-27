@@ -289,6 +289,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               'Live player props, moneylines, spreads, totals and multi-sportsbook lines',
               'Player search, market comparison and line-movement tracking',
               'Live, upcoming and final scoreboards across major sports',
+              'Freshness labels, stale-data protection and monitored provider fallbacks',
             ],
           ),
           _FeatureGroup(
@@ -298,6 +299,8 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               'Projections, confidence, edge and expected-value signals',
               'Matchup, fatigue, travel, officiating and game-script context',
               'Correlation analysis, simulations and historical analogs',
+              'Poisson and Monte Carlo modeling with de-vigged market probabilities',
+              'Model-version, calibration and closing-line-value reporting',
             ],
           ),
           _FeatureGroup(
@@ -307,6 +310,17 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               'Guided prop builder with same-sportsbook slip protection',
               'Slip Watcher with live scoring, ticket results and profit by site',
               'Build Performance by sport, player, site and category',
+              'Shared props and slips with a clear path from research to tracking',
+            ],
+          ),
+          _FeatureGroup(
+            icon: Icons.forum_rounded,
+            title: 'PROP CHAT & ALERTS',
+            items: [
+              'Main community chat, direct messages and shared research',
+              'Pro sport rooms, game threads and verified expert or creator badges',
+              'A movable mobile chat bubble that keeps the board visible',
+              'Web and mobile push notifications for important activity and updates',
             ],
           ),
           _FeatureGroup(
@@ -316,6 +330,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               'Actionable EV Scanner with fair-price and sportsbook comparison',
               'Strikeout Pro Gold with all-site and individual-site views',
               'Multi-sport Intelligence Lab and the updated PI Guide',
+              'Real-time feed monitoring for failures, duplicates and provider limits',
             ],
           ),
           _AboutNotice(
@@ -459,11 +474,14 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               'Basic analytics and recent line changes',
               '14-day slip history with standard grading',
               'Multi-sport research across major leagues',
+              'Read and participate in the main Prop Chat room',
+              'Web and mobile push notifications',
             ],
             notIncluded: [
               'No AI projections, confidence scores or edge percentages',
               'No alerts, simulations, EV Scanner or Intelligence Lab',
               'No Strikeout Pro Gold or advanced performance reports',
+              'No Pro sport rooms, game threads, expert badges or advanced chat tools',
             ],
             onPressed: (dialogContext) =>
                 _choosePlan(dialogContext, PurchaseTier.core),
@@ -486,6 +504,10 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               'Historical similarity matching and sentiment signals',
               'EV Scanner, Intelligence Lab and Strikeout Pro Gold',
               'Advanced performance reports and prediction history',
+              'Pro sport rooms, game threads and direct messages',
+              'Shared Pro analysis, props and slips',
+              'Verified expert or creator badges and future advanced chat tools',
+              'Priority push alerts for tracked tickets and community activity',
             ],
             onPressed: (dialogContext) =>
                 _choosePlan(dialogContext, PurchaseTier.edge),

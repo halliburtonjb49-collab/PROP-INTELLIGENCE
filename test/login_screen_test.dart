@@ -94,6 +94,14 @@ void main() {
     expect(find.text('BEST VALUE'), findsOneWidget);
     expect(find.text('CHOOSE CORE'), findsOneWidget);
     expect(find.text('CHOOSE PRO / EDGE'), findsOneWidget);
+    expect(
+      find.text('Read and participate in the main Prop Chat room'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Pro sport rooms, game threads and direct messages'),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -111,7 +119,18 @@ void main() {
     expect(find.text('DISCOVER & COMPARE'), findsOneWidget);
     expect(find.text('MODEL INTELLIGENCE'), findsOneWidget);
     expect(find.text('BUILD & TRACK'), findsOneWidget);
+    expect(find.text('PROP CHAT & ALERTS'), findsOneWidget);
     expect(find.text('ADVANCED EDGE TOOLS'), findsOneWidget);
+    expect(
+      find.text(
+        'Poisson and Monte Carlo modeling with de-vigged market probabilities',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text('A movable mobile chat bubble that keeps the board visible'),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
