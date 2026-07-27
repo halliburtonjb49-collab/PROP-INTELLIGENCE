@@ -24,6 +24,7 @@ API_SPORTS_BASEBALL_KEY = os.getenv(
 WNBA_LEAGUE_ID = os.getenv("WNBA_LEAGUE_ID", "").strip()
 SPORTMONKS_API_KEY = os.getenv("SPORTMONKS_API_KEY", "").strip()
 SPORTSDATAIO_API_KEY = os.getenv("SPORTSDATAIO_API_KEY", "").strip()
+SPORTSGAMEODDS_API_KEY = os.getenv("SPORTSGAMEODDS_API_KEY", "").strip()
 DATABASE_URL = (os.getenv("DATABASE_URL") or "").strip()
 DATABASE_SSLMODE = os.getenv("DATABASE_SSLMODE", "require").strip() or "require"
 CORS_ALLOWED_ORIGINS = [

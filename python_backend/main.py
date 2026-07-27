@@ -114,6 +114,7 @@ from services.prop_builder_strategy_service import (
 )
 from services.score_service import fetch_scores
 from services.odds_service import fetch_events, quota_snapshot
+from providers.sportsgameodds import usage_snapshot as sportsgameodds_usage
 from services.game_market_service import get_game_markets, game_market_health
 from services.slip_service import (
 	capture_closing_lines_from_props,
@@ -1367,6 +1368,7 @@ def provider_health() -> dict[str, object]:
 			"status": "low_quota" if quota["lowQuota"] else "ok",
 			**quota,
 		},
+		"sportsGameOdds": sportsgameodds_usage(),
 		"sportmonksHeadshots": sportmonks_headshot_cache_health(),
 		"espnHeadshots": espn_headshot_cache_health(),
 	}

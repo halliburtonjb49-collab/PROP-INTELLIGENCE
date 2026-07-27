@@ -460,7 +460,11 @@ def get_props() -> list[PropResponse]:
 				isDelayed=source_game_status == "delayed",
 				lastUpdatedUtc=updated_at,
 				sourceUpdatedUtc=updated_at,
-				sourceProvider="odds-api",
+				sourceProvider=(
+					"sportsgameodds"
+					if str(row["game_id"]).startswith("sgo:")
+					else "odds-api"
+				),
 				injuryStatus=injury_status,
 				lineupStatus=lineup_status,
 				imagePath=resolve_player_image(player, sport_label),
@@ -533,5 +537,19 @@ def get_props() -> list[PropResponse]:
 			)
 		)
 
+	deduped: dict[tuple[str, str, str, str, float, str], PropResponse] = {}
+	for prop in results:
+		key = (
+			prop.sport.strip().lower(),
+			re.sub(r"[^a-z0-9]+", "", prop.matchup.lower()),
+			re.sub(r"[^a-z0-9]+", "", prop.player.lower()),
+			prop.marketKey.strip().lower(),
+			float(prop.line),
+			prop.sportsbook.strip().lower(),
+		)
+		existing = deduped.get(key)
+		if existing is None or prop.sourceProvider == "sportsgameodds":
+			deduped[key] = prop
+	results = list(deduped.values())
 	enrich_props(results)
 	return results

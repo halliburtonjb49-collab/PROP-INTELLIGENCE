@@ -16,6 +16,14 @@ from services.prop_processor import process_and_cache_props
 from services.prediction_automation_service import snapshot_live_predictions
 from services.compound_alert_service import evaluate_all_alerts
 from services.prop_service import get_props
+from config import SPORTSGAMEODDS_API_KEY
+from providers.sportsgameodds import (
+    LEAGUE_TO_SPORT,
+    fetch_account_usage as fetch_sgo_account_usage,
+    fetch_upcoming_events as fetch_sgo_events,
+    normalize_event as normalize_sgo_event,
+    usage_snapshot as sgo_usage_snapshot,
+)
 
 cache = PropCache(DB_PATH)
 logger = logging.getLogger(__name__)
@@ -219,6 +227,69 @@ def sync_sport(sport_key: str) -> dict[str, object]:
     }
 
 
+def sync_sportsgameodds() -> dict[str, object]:
+    """Sync the supplemental multi-book player-prop feed."""
+    if not SPORTSGAMEODDS_API_KEY:
+        return {
+            "sport": "sportsgameodds",
+            "events": 0,
+            "props": 0,
+            "skipped": "not configured",
+        }
+    total_events = 0
+    total_props = 0
+    failures: list[dict[str, str]] = []
+    account_usage: dict[str, object] | None = None
+    try:
+        account_usage = fetch_sgo_account_usage()
+    except Exception as exc:
+        logger.info("sportsgameodds usage unavailable error=%s", exc)
+    for league_id, sport_key in LEAGUE_TO_SPORT.items():
+        try:
+            raw_events = _with_retries(
+                lambda league_id=league_id: fetch_sgo_events(league_id),
+                label=f"sportsgameodds events {league_id}",
+                attempts=2,
+            )
+            normalized = [
+                normalize_sgo_event(raw, sport_key=sport_key)
+                for raw in raw_events
+            ]
+            valid_ids = [
+                str(event.get("id") or "")
+                for event, _ in normalized
+                if event.get("id")
+            ]
+            cache.prune_provider_events(
+                sport=sport_key,
+                event_prefix="sgo:",
+                active_event_ids=valid_ids,
+            )
+            for event, odds_payload in normalized:
+                total_props += process_and_cache_props(
+                    cache=cache,
+                    sport_key=sport_key,
+                    event=event,
+                    odds_payload=odds_payload,
+                )
+            total_events += len(normalized)
+        except Exception as exc:
+            logger.warning(
+                "sportsgameodds sync failed league=%s error=%s",
+                league_id,
+                exc,
+            )
+            failures.append({"league": league_id, "error": str(exc)})
+    return {
+        "sport": "sportsgameodds",
+        "events": total_events,
+        "props": total_props,
+        "failedLeagues": failures,
+        "providerUsage": sgo_usage_snapshot(),
+        "accountUsage": account_usage,
+    }
+
+
 def run_global_sync_pipeline(
     on_fast_lane_complete: Callable[[list[dict[str, object]]], None] | None = None,
 ) -> list[dict[str, object]]:
@@ -252,6 +323,7 @@ def run_global_sync_pipeline(
             "lane": "coverage",
             "skipped": "coverage cooldown",
         } for sport_key in coverage_sports)
+    results.append(sync_sportsgameodds())
     snapshot = snapshot_live_predictions()
     results.append({"sport": "prediction_snapshots", "events": 0,
                     "props": int(snapshot.get("created", 0))})

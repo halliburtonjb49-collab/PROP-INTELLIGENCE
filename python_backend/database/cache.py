@@ -220,11 +220,14 @@ class PropCache:
         with self.connect() as connection:
             if not active_event_ids:
                 connection.execute(
-                    "DELETE FROM props WHERE game_id IN (SELECT id FROM games WHERE sport = ?)",
+                    """DELETE FROM props WHERE game_id IN (
+                        SELECT id FROM games
+                        WHERE sport = ? AND id NOT LIKE 'sgo:%'
+                    )""",
                     (sport,),
                 )
                 connection.execute(
-                    "DELETE FROM games WHERE sport = ?",
+                    "DELETE FROM games WHERE sport = ? AND id NOT LIKE 'sgo:%'",
                     (sport,),
                 )
                 return
@@ -237,6 +240,7 @@ class PropCache:
                 WHERE game_id IN (
                     SELECT id FROM games
                     WHERE sport = ?
+                    AND id NOT LIKE 'sgo:%'
                     AND id NOT IN ({placeholders})
                 )
                 """,
@@ -246,10 +250,53 @@ class PropCache:
                 f"""
                 DELETE FROM games
                 WHERE sport = ?
+                AND id NOT LIKE 'sgo:%'
                 AND id NOT IN ({placeholders})
                 """,
                 tuple(params),
             )
+
+    def prune_provider_events(
+        self,
+        *,
+        sport: str,
+        event_prefix: str,
+        active_event_ids: list[str],
+    ) -> None:
+        """Prune one provider namespace without touching other live feeds."""
+        escaped_prefix = event_prefix.replace("%", r"\%").replace("_", r"\_")
+        pattern = f"{escaped_prefix}%"
+        with self.connect() as connection:
+            if active_event_ids:
+                placeholders = ",".join(["?"] * len(active_event_ids))
+                params: tuple[object, ...] = (
+                    sport,
+                    pattern,
+                    *active_event_ids,
+                )
+                connection.execute(
+                    f"""DELETE FROM props WHERE game_id IN (
+                        SELECT id FROM games WHERE sport=? AND id LIKE ? ESCAPE '\\'
+                        AND id NOT IN ({placeholders})
+                    )""",
+                    params,
+                )
+                connection.execute(
+                    f"""DELETE FROM games WHERE sport=? AND id LIKE ? ESCAPE '\\'
+                        AND id NOT IN ({placeholders})""",
+                    params,
+                )
+            else:
+                connection.execute(
+                    """DELETE FROM props WHERE game_id IN (
+                        SELECT id FROM games WHERE sport=? AND id LIKE ? ESCAPE '\\'
+                    )""",
+                    (sport, pattern),
+                )
+                connection.execute(
+                    "DELETE FROM games WHERE sport=? AND id LIKE ? ESCAPE '\\'",
+                    (sport, pattern),
+                )
 
     def insert_prop(
         self,
