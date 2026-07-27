@@ -506,6 +506,8 @@ def get_props() -> list[PropResponse]:
 				isPositiveEv=bool(
 					market_evaluation is not None
 					and market_evaluation.is_positive_ev
+					and recommendation["recommendationAvailable"]
+					and adjusted_tier != "Pass"
 				),
 				probabilityMethod=(
 					market_evaluation.distribution

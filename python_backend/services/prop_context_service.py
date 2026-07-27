@@ -130,6 +130,7 @@ def apply_projection_context(prop: object) -> None:
     )
     if prop.tier == "Pass":
         prop.recommendationAvailable = False
+        prop.isPositiveEv = False
         prop.pick = "N/A"
         prop.pickText = "No Pick"
 
