@@ -57,6 +57,10 @@ class PropData {
   final double? evPercentage;
   final double? fairProbability;
   final bool isPositiveEv;
+  final double? fatigueMultiplier;
+  final double? matchupMultiplier;
+  final String matchupContext;
+  final double? officiatingAdjustment;
 
   const PropData({
     required this.id,
@@ -117,6 +121,10 @@ class PropData {
     this.evPercentage,
     this.fairProbability,
     this.isPositiveEv = false,
+    this.fatigueMultiplier,
+    this.matchupMultiplier,
+    this.matchupContext = '',
+    this.officiatingAdjustment,
   });
 
   static double? _safeDoubleOrNull(dynamic rawValue) {
@@ -365,6 +373,19 @@ class PropData {
       ),
       isPositiveEv:
           json['isPositiveEv'] == true || json['is_positive_ev'] == true,
+      fatigueMultiplier: _safeDoubleOrNull(
+        json['fatigueMultiplier'] ?? json['fatigue_multiplier'],
+      ),
+      matchupMultiplier: _safeDoubleOrNull(
+        json['matchupMultiplier'] ?? json['matchup_multiplier'],
+      ),
+      matchupContext:
+          json['matchupContext']?.toString() ??
+          json['matchup_context']?.toString() ??
+          '',
+      officiatingAdjustment: _safeDoubleOrNull(
+        json['officiatingAdjustment'] ?? json['officiating_adjustment'],
+      ),
     );
   }
 

@@ -129,6 +129,7 @@ from services.slip_service import (
 )
 from services.live_stats_service import get_live_player_stat_snapshot
 from services.multi_sport_grading_service import grade_active_slips
+from services.result_reconciliation_service import reconcile_user_slips
 from services.sync_service import run_global_sync_pipeline
 from services.prop_recommendation_service import (
 	build_prop_recommendation,
@@ -2775,6 +2776,18 @@ def grade_slips(user_id: str = Depends(require_user_id)) -> dict[str, object]:
 		raise HTTPException(
 			status_code=502,
 			detail=f"Slip grading failed: {exc}",
+		) from exc
+
+
+@app.post("/api/slips/reconcile")
+def reconcile_slips(user_id: str = Depends(require_user_id)) -> dict[str, object]:
+	try:
+		return reconcile_user_slips(user_id=user_id)
+	except Exception as exc:
+		logging.exception("Authoritative slip reconciliation failed")
+		raise HTTPException(
+			status_code=502,
+			detail=f"Slip reconciliation failed: {exc}",
 		) from exc
 
 

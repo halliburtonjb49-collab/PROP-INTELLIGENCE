@@ -17,11 +17,15 @@ void main() {
       'line_clv': 2.0,
       'line_clv_percent': 9.7561,
       'beat_closing_line': true,
+      'result_verified': true,
+      'result_source': 'mlb-stats-api',
       'side': 'OVER',
     });
     expect(leg.entryLine, 20.5);
     expect(leg.closingLine, 22.5);
     expect(leg.lineClv, 2);
     expect(leg.beatClosingLine, isTrue);
+    expect(leg.resultVerified, isTrue);
+    expect(leg.resultSource, 'mlb-stats-api');
   });
 }

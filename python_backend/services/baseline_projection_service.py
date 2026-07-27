@@ -16,8 +16,13 @@ from typing import Iterable
 import re
 
 from database.postgres import database_is_configured, get_database_pool
+from services.projection_calibration_service import (
+    calibrated_hit_probability,
+    confidence_from_probability,
+    exponentially_weighted_mean,
+)
 
-MODEL_VERSION = "baseline-v1"
+MODEL_VERSION = "baseline-v2"
 MINIMUM_SAMPLE_SIZE = 8
 MAXIMUM_SAMPLE_SIZE = 20
 _CACHE_TTL = timedelta(minutes=5)
@@ -30,6 +35,7 @@ class BaselineProjection:
     sample_size: int
     volatility: float
     historical_hit_rate: int
+    hit_probability: float
     model_version: str = MODEL_VERSION
     source: str = "historical-game-logs"
     calibrated: bool = False
@@ -87,29 +93,40 @@ def compute_baseline_projection(
     recent = ordered[-min(5, len(ordered)) :]
     recent_mean = fmean(recent)
     robust_center = median(ordered)
-    projection = (recent_mean * 0.50) + (long_mean * 0.35) + (robust_center * 0.15)
+    weighted_mean = exponentially_weighted_mean(ordered)
+    projection = (
+        (weighted_mean * 0.50)
+        + (recent_mean * 0.20)
+        + (long_mean * 0.15)
+        + (robust_center * 0.15)
+    )
     variance = sum((value - long_mean) ** 2 for value in ordered) / max(
         1, len(ordered) - 1
     )
     volatility = sqrt(variance)
 
-    # This is a relative model-strength score, not a claimed win probability.
-    standardized_edge = abs(projection - float(line)) / max(volatility, 1.0)
-    sample_bonus = min(4.0, (len(ordered) - minimum_sample_size) / 3)
-    confidence = round(50 + min(18.0, standardized_edge * 10) + sample_bonus)
-    confidence = max(50, min(72, confidence))
     side_is_over = projection > float(line)
     hits = sum(
         1
         for value in ordered
         if (value > float(line) if side_is_over else value < float(line))
     )
+    historical_hit_rate = round(hits / len(ordered) * 100)
+    hit_probability = calibrated_hit_probability(
+        projection=projection,
+        line=line,
+        volatility=volatility,
+        side="OVER" if side_is_over else "UNDER",
+        sample_size=len(ordered),
+        empirical_hit_rate=historical_hit_rate / 100,
+    )
     return BaselineProjection(
         projection=round(projection, 3),
-        confidence=confidence,
+        confidence=confidence_from_probability(hit_probability),
         sample_size=len(ordered),
         volatility=round(volatility, 3),
-        historical_hit_rate=round(hits / len(ordered) * 100),
+        historical_hit_rate=historical_hit_rate,
+        hit_probability=hit_probability,
     )
 
 

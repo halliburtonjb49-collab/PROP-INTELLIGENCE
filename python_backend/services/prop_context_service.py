@@ -6,8 +6,97 @@ from datetime import datetime, timezone
 
 from database.postgres import database_is_configured, get_database_pool
 import logging
+from services.projection_calibration_service import (
+    ProjectionContext,
+    calibrated_hit_probability,
+    confidence_from_probability,
+    contextual_projection,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _availability_multiplier(injury_status: object, lineup_status: object) -> float:
+    injury = str(injury_status or "").strip().lower()
+    lineup = str(lineup_status or "").strip().lower()
+    if injury in {"out", "inactive", "injured reserve"} or lineup in {
+        "out",
+        "inactive",
+    }:
+        return 0.0
+    if injury in {"doubtful"}:
+        return 0.82
+    if injury in {"questionable", "day-to-day", "probable"}:
+        return 0.96
+    return 1.0
+
+
+def apply_projection_context(prop: object) -> None:
+    projection = getattr(prop, "projection", None)
+    if projection is None:
+        return
+    availability = _availability_multiplier(
+        getattr(prop, "injuryStatus", ""),
+        getattr(prop, "lineupStatus", ""),
+    )
+    if availability == 0:
+        prop.recommendationAvailable = False
+        prop.recommendationUnavailableReason = "player_unavailable"
+        prop.recommendedSide = "N/A"
+        prop.pick = "N/A"
+        prop.pickText = "No Pick"
+        prop.confidence = 0
+        return
+    context = ProjectionContext(
+        workload_multiplier=float(getattr(prop, "fatigueMultiplier", None) or 1),
+        opponent_multiplier=float(getattr(prop, "matchupMultiplier", None) or 1),
+        availability_multiplier=availability,
+    )
+    adjusted = contextual_projection(float(projection), context)
+    line = float(getattr(prop, "line", 0))
+    side = "OVER" if adjusted > line else "UNDER" if adjusted < line else "PASS"
+    prop.projection = adjusted
+    prop.edgeSigned = round(adjusted - line, 4)
+    prop.edge = round(abs(adjusted - line), 2)
+    prop.recommendationEdge = prop.edge
+    if side == "PASS":
+        prop.recommendationAvailable = False
+        prop.recommendedSide = "N/A"
+        prop.pick = "N/A"
+        prop.pickText = "No Pick"
+        return
+    probability = calibrated_hit_probability(
+        projection=adjusted,
+        line=line,
+        volatility=float(getattr(prop, "projectionVolatility", None) or 1),
+        side=side,
+        sample_size=max(8, int(getattr(prop, "projectionSampleSize", 0) or 0)),
+        sport=str(getattr(prop, "sport", "")),
+        market=str(getattr(prop, "market", "")),
+        empirical_hit_rate=(
+            float(getattr(prop, "historicalHitRate")) / 100
+            if getattr(prop, "historicalHitRate", None) is not None
+            else None
+        ),
+    )
+    prop.fairProbability = probability
+    prop.confidence = confidence_from_probability(probability)
+    prop.recommendedSide = side.title()
+    prop.pick = side
+    prop.pickText = f"{side.title()} {line:g}"
+    prop.tier = (
+        "Premium"
+        if prop.confidence >= 65
+        else "Strong"
+        if prop.confidence >= 60
+        else "Lean"
+        if prop.confidence >= 57
+        else "Pass"
+    )
+    if prop.tier == "Pass":
+        prop.recommendationAvailable = False
+        prop.pick = "N/A"
+        prop.pickText = "No Pick"
 
 
 def enrich_props(props: list[object]) -> None:
@@ -65,3 +154,4 @@ def enrich_props(props: list[object]) -> None:
             prop.sentimentSampleSize = count
             prop.sentimentScore = round(score, 1)
             prop.sentimentLabel = "FOLLOW" if score >= 15 else "FADE" if score <= -15 else "NEUTRAL"
+        apply_projection_context(prop)

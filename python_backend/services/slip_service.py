@@ -455,6 +455,65 @@ def update_slip_results(
     return changed_slips
 
 
+def reconcile_verified_slip_results(
+    verified_results: dict[str, tuple[float, str, str]],
+    *,
+    user_id: str,
+) -> dict[str, int]:
+    """Correct any saved slip using authoritative final results.
+
+    Unlike the live grader, reconciliation intentionally revisits won/lost
+    slips because a provider may have marked an incomplete value as final.
+    """
+    initialize_slip_table()
+    slips_changed = 0
+    legs_verified = 0
+    values_corrected = 0
+    with _connect() as connection:
+        rows = connection.execute(
+            "SELECT id, status, legs_json FROM slips WHERE user_id = ?",
+            (user_id,),
+        ).fetchall()
+        for row in rows:
+            legs = json.loads(row["legs_json"])
+            changed = False
+            statuses: list[str] = []
+            for leg in legs:
+                prop_id = str(leg.get("prop_id", ""))
+                verified = verified_results.get(prop_id)
+                if verified is not None:
+                    value, source, verified_at = verified
+                    prior_value = leg.get("result_value")
+                    if prior_value is None or float(prior_value) != float(value):
+                        values_corrected += 1
+                    leg["result_value"] = value
+                    leg["result_status"] = grade_leg(
+                        side=str(leg.get("side", "")),
+                        line=float(leg.get("line", 0)),
+                        result_value=value,
+                    )
+                    leg["game_completed"] = True
+                    leg["game_status"] = "completed"
+                    leg["result_verified"] = True
+                    leg["result_source"] = source
+                    leg["result_verified_at"] = verified_at
+                    legs_verified += 1
+                    changed = True
+                statuses.append(str(leg.get("result_status", "pending")))
+            if not changed:
+                continue
+            connection.execute(
+                "UPDATE slips SET status = ?, legs_json = ? WHERE id = ?",
+                (grade_slip_status(statuses), json.dumps(legs), row["id"]),
+            )
+            slips_changed += 1
+    return {
+        "slips_reconciled": slips_changed,
+        "legs_verified": legs_verified,
+        "values_corrected": values_corrected,
+    }
+
+
 def update_slip_game_statuses(
     scores: list[dict[str, object]],
 ) -> int:

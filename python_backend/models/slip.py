@@ -29,6 +29,19 @@ class SlipLeg(BaseModel):
     closing_line: float | None = None
     side: Literal["OVER", "UNDER"]
     odds: float | None = None
+    projection: float | None = None
+    hit_probability: float | None = Field(default=None, ge=0, le=1)
+    confidence: int | None = Field(default=None, ge=0, le=100)
+    recommendation_edge: float | None = None
+    projection_source: str = ""
+    projection_model_version: str = ""
+    projection_sample_size: int = Field(default=0, ge=0)
+    projection_volatility: float | None = Field(default=None, ge=0)
+    projection_calibrated: bool = False
+    historical_hit_rate: int | None = Field(default=None, ge=0, le=100)
+    injury_status: str = "unknown"
+    lineup_status: str = "unknown"
+    calculation_inputs: dict[str, object] = Field(default_factory=dict)
     closing_odds: float | None = None
     line_clv: float | None = None
     line_clv_percent: float | None = None
@@ -40,6 +53,9 @@ class SlipLeg(BaseModel):
         "lost",
         "push",
     ] = "pending"
+    result_verified: bool = False
+    result_source: str = ""
+    result_verified_at: str = ""
 
     @model_validator(mode="after")
     def snapshot_entry_line(self) -> "SlipLeg":

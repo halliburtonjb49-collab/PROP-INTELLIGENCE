@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from database.postgres import database_is_configured, get_database_pool
 from services.prop_service import get_props
 from services.baseline_projection_service import MODEL_VERSION
+from services.mlb_official_stats_service import official_mlb_result
 
 
 def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, object]:
@@ -72,17 +73,24 @@ def grade_completed_predictions() -> dict[str, object]:
         return {"graded": 0, "reason": "DATABASE_URL is not configured"}
     graded, unsupported = 0, 0
     with get_database_pool().connection() as connection, connection.cursor() as cursor:
-        cursor.execute("""select id,sport,market,side,line,event_time,inputs->>'playerName',player_id
+        cursor.execute("""select id,sport,market,side,line,event_time,inputs->>'playerName',
+            player_id,inputs->>'matchup'
             from prediction_snapshots where graded_at is null and event_time < now() - interval '3 hours'
             and created_at < event_time - interval '5 minutes'
             order by event_time limit 5000""")
         pending = cursor.fetchall()
-        for identifier, sport, market, side, line, event_time, player_name, player_id in pending:
+        for identifier, sport, market, side, line, event_time, player_name, player_id, matchup in pending:
             if sport not in {"NBA", "WNBA", "MLB"} or not player_name or event_time is None:
                 unsupported += 1
                 continue
             if sport == "MLB":
-                actual = _mlb_market_value(cursor, str(market), str(player_id), event_time.date())
+                official = official_mlb_result(
+                    player_name=str(player_name),
+                    market=str(market),
+                    matchup=str(matchup or ""),
+                    game_start_time=event_time.isoformat(),
+                )
+                actual = official.value if official is not None else None
             else:
                 cursor.execute("""select points,rebounds,assists,steals,blocks,turnovers,threes
                     from historical_basketball_game_logs where sport=%s and lower(player_name)=lower(%s)
@@ -96,8 +104,14 @@ def grade_completed_predictions() -> dict[str, object]:
                 unsupported += 1
                 continue
             hit = actual > float(line) if side == "OVER" else actual < float(line)
-            cursor.execute("""update prediction_snapshots set actual_value=%s,hit=%s,graded_at=now()
-                where id=%s""", (actual, hit, identifier))
+            cursor.execute("""update prediction_snapshots set actual_value=%s,hit=%s,graded_at=now(),
+                inputs=jsonb_set(inputs,'{resultSource}',to_jsonb(%s::text),true)
+                where id=%s""", (
+                    actual,
+                    hit,
+                    "mlb-stats-api" if sport == "MLB" else "historical-game-logs",
+                    identifier,
+                ))
             graded += 1
         connection.commit()
     return {"graded": graded, "pendingChecked": len(pending), "unsupported": unsupported,

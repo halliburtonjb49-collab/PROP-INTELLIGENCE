@@ -32,6 +32,11 @@ from services.baseline_projection_service import (
 	baseline_is_actionable,
 	baseline_projection_for_prop,
 )
+from services.projection_calibration_service import (
+	calibrated_hit_probability,
+	confidence_from_probability,
+	market_volatility_floor,
+)
 
 cache = PropCache(DB_PATH)
 
@@ -184,6 +189,7 @@ def get_props() -> list[PropResponse]:
 		projection_calibrated = False
 		projection_label = ""
 		historical_hit_rate = None
+		hit_probability = None
 		if projection is None:
 			projection = _row_optional_value(
 				row,
@@ -243,14 +249,26 @@ def get_props() -> list[PropResponse]:
 				projection_calibrated = baseline.calibrated
 				projection_label = "Baseline historical model"
 				historical_hit_rate = baseline.historical_hit_rate
+				hit_probability = baseline.hit_probability
+		confidence_override = baseline.confidence if baseline is not None else None
+		if projection is not None and baseline is None and float(projection) != line:
+			provider_side = "OVER" if float(projection) > line else "UNDER"
+			hit_probability = calibrated_hit_probability(
+				projection=float(projection),
+				line=line,
+				volatility=market_volatility_floor(sport_label, raw_market),
+				side=provider_side,
+				sample_size=8,
+				sport=sport_label,
+				market=raw_market,
+			)
+			confidence_override = confidence_from_probability(hit_probability)
 		recommendation = build_verified_prop_recommendation(
 			projection=projection,
 			line=line,
 			canonical_player_id=canonical_player_id,
 			identity_confidence=identity_confidence,
-			confidence_override=(
-				baseline.confidence if baseline is not None else None
-			),
+			confidence_override=confidence_override,
 		)
 		if baseline is not None and not baseline_is_actionable(
 			baseline,
@@ -406,6 +424,7 @@ def get_props() -> list[PropResponse]:
 				underImpliedProbability=under_implied,
 				noVigOverProbability=no_vig_over,
 				noVigUnderProbability=no_vig_under,
+				fairProbability=hit_probability,
 			)
 		)
 

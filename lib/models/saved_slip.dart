@@ -22,6 +22,8 @@ class SavedSlipLeg {
   final bool gameCompleted;
   final double? resultValue;
   final String resultStatus;
+  final bool resultVerified;
+  final String resultSource;
 
   const SavedSlipLeg({
     required this.propId,
@@ -47,6 +49,8 @@ class SavedSlipLeg {
     this.gameCompleted = false,
     this.resultValue,
     this.resultStatus = 'pending',
+    this.resultVerified = false,
+    this.resultSource = '',
   });
 
   factory SavedSlipLeg.fromJson(Map<String, dynamic> json) {
@@ -77,6 +81,8 @@ class SavedSlipLeg {
       gameCompleted: json['game_completed'] as bool? ?? false,
       resultValue: (json['result_value'] as num?)?.toDouble(),
       resultStatus: json['result_status']?.toString() ?? 'pending',
+      resultVerified: json['result_verified'] as bool? ?? false,
+      resultSource: json['result_source']?.toString() ?? '',
     );
   }
 }

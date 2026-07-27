@@ -6,6 +6,7 @@ from datetime import datetime
 from models.slip import LegResultUpdate
 from services.live_stats_service import get_live_player_stat_snapshot
 from services.slip_service import get_slips, update_slip_results
+from services.result_reconciliation_service import reconcile_user_slips
 
 
 SUPPORTED_SPORTS = {"NBA", "WNBA", "MLB", "NHL", "PGA", "GOLF"}
@@ -52,6 +53,7 @@ def grade_active_slips(*, user_id: str) -> dict[str, object]:
         list(updates.values()),
         user_id=user_id,
     ) if updates else 0
+    reconciliation = reconcile_user_slips(user_id=user_id)
     return {
         "status": "complete",
         "slips_checked": len(active_slips),
@@ -61,6 +63,7 @@ def grade_active_slips(*, user_id: str) -> dict[str, object]:
         "checked_by_sport": dict(checked),
         "graded_by_sport": dict(graded),
         "pending_reasons": dict(pending_reasons),
+        "reconciliation": reconciliation,
     }
 
 

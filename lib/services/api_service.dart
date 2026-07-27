@@ -345,6 +345,38 @@ class ApiService {
         'line': prop.line,
         'side': selection.sideLabel,
         'odds': selection.odds,
+        'projection': prop.projection,
+        'hit_probability': prop.winProbability == null
+            ? prop.fairProbability
+            : prop.winProbability! > 1
+            ? prop.winProbability! / 100
+            : prop.winProbability,
+        'confidence': prop.confidence,
+        'recommendation_edge': prop.recommendationEdge,
+        'projection_source': prop.projectionSource,
+        'projection_model_version': prop.projectionModelVersion,
+        'projection_sample_size': prop.projectionSampleSize,
+        'projection_volatility': prop.projectionVolatility,
+        'projection_calibrated': prop.projectionCalibrated,
+        'historical_hit_rate': prop.historicalHitRate,
+        'injury_status': prop.injuryStatus,
+        'lineup_status': prop.lineupStatus,
+        'calculation_inputs': {
+          'opening_line': prop.openingLine,
+          'current_line': prop.currentLine,
+          'line_moved_at_utc': prop.lineMovedAtUtc,
+          'source_player_id': prop.sourcePlayerId,
+          'canonical_player_id': prop.canonicalPlayerId,
+          'identity_confidence': prop.playerIdentityConfidence,
+          'over_odds': prop.overOdds,
+          'under_odds': prop.underOdds,
+          'tier': prop.tier,
+          'pick_text': prop.pickText,
+          'workload_multiplier': prop.fatigueMultiplier,
+          'opponent_multiplier': prop.matchupMultiplier,
+          'matchup_context': prop.matchupContext,
+          'officiating_adjustment': prop.officiatingAdjustment,
+        },
       };
     }).toList();
   }
@@ -1214,6 +1246,26 @@ class ApiService {
     final decoded = jsonDecode(response.body);
     if (decoded is! Map<String, dynamic>) {
       throw const FormatException('Invalid slip grading response.');
+    }
+    return decoded;
+  }
+
+  Future<Map<String, dynamic>> reconcileSlips() async {
+    final uri = Uri.parse('$baseUrl/api/slips/reconcile');
+    var response = await http
+        .post(uri, headers: await _authenticatedHeaders())
+        .timeout(const Duration(seconds: 60));
+    if (response.statusCode == 401) {
+      response = await http
+          .post(uri, headers: await _authenticatedHeaders(forceRefresh: true))
+          .timeout(const Duration(seconds: 60));
+    }
+    if (response.statusCode != 200) {
+      throw Exception('Unable to reconcile slips: ${response.body}');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Invalid slip reconciliation response.');
     }
     return decoded;
   }

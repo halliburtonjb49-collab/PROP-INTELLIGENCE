@@ -165,7 +165,11 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     );
     _liveUpdates.connect();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_reloadSlipsOnly());
+      if (_isHistory) {
+        unawaited(_reconcileHistory());
+      } else {
+        unawaited(_reloadSlipsOnly());
+      }
     });
     _refreshTimer = Timer.periodic(
       const Duration(minutes: 2),
@@ -267,6 +271,15 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     }
   }
 
+  Future<void> _reconcileHistory() async {
+    try {
+      await _apiService.reconcileSlips();
+    } catch (_) {
+      // History remains readable if authoritative verification is unavailable.
+    }
+    await _reloadSlipsOnly();
+  }
+
   void _reloadFromTicketEvent() {
     if (!mounted) return;
     setState(() {
@@ -358,9 +371,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     });
     try {
       if (_isHistory) {
-        // Resolved slips don't need game-status refreshing or re-grading -
-        // just pull the latest list (e.g. a slip resolved elsewhere since
-        // this page loaded).
+        await _apiService.reconcileSlips();
         final refreshedSlips = await _fetchForTab(_selectedTab);
         if (!mounted) return;
         setState(() {
@@ -1193,6 +1204,19 @@ class _CompactSlipLegRow extends StatelessWidget {
                       ),
                     ),
                     GameStatusBadge(status: live.gameStatus),
+                    if (leg.resultVerified) ...[
+                      const SizedBox(width: 4),
+                      Tooltip(
+                        message: leg.resultSource.isEmpty
+                            ? 'Result verified'
+                            : 'Verified by ${leg.resultSource}',
+                        child: const Icon(
+                          Icons.verified_rounded,
+                          size: 13,
+                          color: Color(0xFF59E769),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 2),

@@ -1310,6 +1310,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       'player_id': prop.playerId,
       'custom_label': prop.customLabel,
       'manual_note': prop.manualNote,
+      'game_start_time': prop.gameStartTime,
       'player': prop.player,
       'sport': prop.sport,
       'matchup': prop.matchup,
@@ -1334,6 +1335,26 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       'win_probability': prop.winProbability,
       'edge': prop.edge,
       'confidence': prop.confidence,
+      'projection': prop.projection,
+      'projection_source': prop.projectionSource,
+      'projection_model_version': prop.projectionModelVersion,
+      'projection_sample_size': prop.projectionSampleSize,
+      'projection_volatility': prop.projectionVolatility,
+      'projection_calibrated': prop.projectionCalibrated,
+      'historical_hit_rate': prop.historicalHitRate,
+      'fair_probability': prop.fairProbability,
+      'injury_status': prop.injuryStatus,
+      'lineup_status': prop.lineupStatus,
+      'recommendation_edge': prop.recommendationEdge,
+      'opening_line': prop.openingLine,
+      'line_moved_at_utc': prop.lineMovedAtUtc,
+      'source_player_id': prop.sourcePlayerId,
+      'canonical_player_id': prop.canonicalPlayerId,
+      'player_identity_confidence': prop.playerIdentityConfidence,
+      'fatigue_multiplier': prop.fatigueMultiplier,
+      'matchup_multiplier': prop.matchupMultiplier,
+      'matchup_context': prop.matchupContext,
+      'officiating_adjustment': prop.officiatingAdjustment,
       'display_time': prop.localGameTimeDisplay,
       'game_time': prop.gameTime,
       'player_image': prop.imagePath,
@@ -1368,6 +1389,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         sportsbook:
             leg['prop_site']?.toString() ?? leg['sportsbook']?.toString() ?? '',
         market: leg['market']?.toString() ?? '',
+        gameStartTime: leg['game_start_time']?.toString() ?? '',
         line:
             ((leg['current_line'] as num?) ?? (leg['line'] as num?))
                 ?.toDouble() ??
@@ -1381,7 +1403,37 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             leg['pick_text']?.toString() ??
             leg['pickText']?.toString() ??
             '${sideText == 'UNDER' ? 'Under' : 'Over'} ${((leg['current_line'] as num?) ?? (leg['line'] as num?) ?? 0).toString()}',
+        recommendationAvailable: leg['recommendation_available'] == true,
+        recommendationUnavailableReason:
+            leg['recommendation_unavailable_reason']?.toString() ?? '',
         edge: (leg['edge'] as num?)?.toDouble() ?? 0,
+        recommendationEdge:
+            (leg['recommendation_edge'] as num?)?.toDouble() ?? 0,
+        confidence: (leg['confidence'] as num?)?.toInt() ?? 0,
+        projection: (leg['projection'] as num?)?.toDouble(),
+        projectionSource: leg['projection_source']?.toString() ?? '',
+        projectionModelVersion:
+            leg['projection_model_version']?.toString() ?? '',
+        projectionSampleSize:
+            (leg['projection_sample_size'] as num?)?.toInt() ?? 0,
+        projectionVolatility: (leg['projection_volatility'] as num?)
+            ?.toDouble(),
+        projectionCalibrated: leg['projection_calibrated'] == true,
+        historicalHitRate: (leg['historical_hit_rate'] as num?)?.toInt(),
+        fairProbability: (leg['fair_probability'] as num?)?.toDouble(),
+        injuryStatus: leg['injury_status']?.toString() ?? 'unknown',
+        lineupStatus: leg['lineup_status']?.toString() ?? 'unknown',
+        openingLine: (leg['opening_line'] as num?)?.toDouble() ?? 0,
+        lineMovedAtUtc: leg['line_moved_at_utc']?.toString() ?? '',
+        sourcePlayerId: leg['source_player_id']?.toString() ?? '',
+        canonicalPlayerId: leg['canonical_player_id']?.toString() ?? '',
+        playerIdentityConfidence:
+            (leg['player_identity_confidence'] as num?)?.toDouble() ?? 0,
+        fatigueMultiplier: (leg['fatigue_multiplier'] as num?)?.toDouble(),
+        matchupMultiplier: (leg['matchup_multiplier'] as num?)?.toDouble(),
+        matchupContext: leg['matchup_context']?.toString() ?? '',
+        officiatingAdjustment: (leg['officiating_adjustment'] as num?)
+            ?.toDouble(),
         imagePath:
             leg['image_path']?.toString() ?? leg['imagePath']?.toString() ?? '',
         customLabel: leg['custom_label']?.toString() ?? '',
