@@ -48,6 +48,7 @@ dependencies:
   supabase_flutter: ^2.9.1
   purchases_flutter: ^10.4.3
   audioplayers: ^6.8.1
+  onesignal_flutter: 5.5.2
 
 dev_dependencies:
   flutter_test:

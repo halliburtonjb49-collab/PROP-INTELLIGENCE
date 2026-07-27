@@ -27,6 +27,7 @@ import 'screens/password_recovery_screen.dart';
 import 'models/slip_selection.dart';
 import 'services/api_service.dart';
 import 'services/app_sound_service.dart';
+import 'services/onesignal_service.dart';
 import 'services/auth_manager.dart';
 import 'services/developer_mode_service.dart';
 import 'services/prop_watchlist_service.dart';
@@ -153,6 +154,7 @@ Future<void> main() async {
   };
 
   await _configureDesktopWindow();
+  await OneSignalService.instance.initialize();
 
   SupabaseService.configure(
     url: kSupabaseProjectUrl,
@@ -406,12 +408,84 @@ ThemeData buildPropIntelligenceBrandedTheme() {
   );
 }
 
-class PropIntelligenceApp extends StatelessWidget {
+final GlobalKey<NavigatorState> _oneSignalNavigatorKey =
+    GlobalKey<NavigatorState>();
+
+class PropIntelligenceApp extends StatefulWidget {
   const PropIntelligenceApp({super.key});
+
+  @override
+  State<PropIntelligenceApp> createState() => _PropIntelligenceAppState();
+}
+
+class _PropIntelligenceAppState extends State<PropIntelligenceApp> {
+  String? _oneSignalUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    AuthManager.instance.sessionState.addListener(_syncOneSignalIdentity);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      OneSignalService.instance.observeRegistration(_showVerificationDialog);
+      _syncOneSignalIdentity();
+    });
+  }
+
+  void _syncOneSignalIdentity() {
+    final session = AuthManager.instance.sessionState.value;
+    final userId = session.authenticated ? session.userId : null;
+    if (userId == _oneSignalUserId) return;
+    _oneSignalUserId = userId;
+    if (userId == null) {
+      OneSignalService.instance.logout();
+    } else {
+      OneSignalService.instance.login(userId);
+      final email = session.email;
+      if (email != null && email.isNotEmpty) {
+        OneSignalService.instance.setEmail(email);
+      }
+      OneSignalService.instance.setTag(
+        'subscription_tier',
+        session.subscriptionTier.name,
+      );
+    }
+  }
+
+  Future<void> _showVerificationDialog() async {
+    final context = _oneSignalNavigatorKey.currentContext;
+    if (context == null || !mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Your OneSignal SDK integration is complete!'),
+        content: const Text(
+          'You can now send Push Notifications & In-App Messages through '
+          'OneSignal. Tap below to enable push notifications.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              unawaited(OneSignalService.instance.requestPermission());
+            },
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    AuthManager.instance.sessionState.removeListener(_syncOneSignalIdentity);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: _oneSignalNavigatorKey,
       title: 'PROP INTELLIGENCE',
       debugShowCheckedModeBanner: false,
       scrollBehavior: const AppScrollBehavior(),
