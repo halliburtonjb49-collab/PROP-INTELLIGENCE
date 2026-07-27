@@ -1206,7 +1206,7 @@ class _CompactSlipLegRow extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      live.current?.toStringAsFixed(1) ?? '0.0',
+                      live.current?.floor().toString() ?? '0',
                       style: TextStyle(
                         color: statusColor,
                         fontSize: 9,
@@ -1562,7 +1562,7 @@ class _SavedSlipCard extends StatelessWidget {
                                   Text(
                                     live.current == null
                                         ? '--'
-                                        : '${live.current!.toStringAsFixed(1)} / ${leg.line.toStringAsFixed(1)}',
+                                        : '${live.current!.floor()} / ${leg.line.toStringAsFixed(1)}',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 10.5,

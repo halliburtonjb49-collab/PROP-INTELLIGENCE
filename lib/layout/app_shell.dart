@@ -10,9 +10,10 @@ class AppShell extends StatelessWidget {
     required this.content,
     required this.rightSidebar,
     this.activeSlipCount = 0,
+    this.watchedSlipCount = 0,
     this.mobileSelectedIndex = 0,
-    this.onMobileBoard,
-    this.onMobileGameMarkets,
+    this.onMobileWatchSlip,
+    this.onMobileChat,
     this.accentColor = AppColors.gold,
   });
 
@@ -21,9 +22,10 @@ class AppShell extends StatelessWidget {
   final Widget content;
   final Widget rightSidebar;
   final int activeSlipCount;
+  final int watchedSlipCount;
   final int mobileSelectedIndex;
-  final VoidCallback? onMobileBoard;
-  final VoidCallback? onMobileGameMarkets;
+  final VoidCallback? onMobileWatchSlip;
+  final VoidCallback? onMobileChat;
   final Color accentColor;
 
   static const double leftWidth = 244;
@@ -71,9 +73,10 @@ class AppShell extends StatelessWidget {
             content: content,
             rightSidebar: rightSidebar,
             activeSlipCount: activeSlipCount,
+            watchedSlipCount: watchedSlipCount,
             selectedIndex: mobileSelectedIndex,
-            onBoard: onMobileBoard,
-            onGameMarkets: onMobileGameMarkets,
+            onWatchSlip: onMobileWatchSlip,
+            onChat: onMobileChat,
             accentColor: accentColor,
           );
         }
@@ -146,9 +149,10 @@ class _MobileAppShell extends StatefulWidget {
     required this.content,
     required this.rightSidebar,
     required this.activeSlipCount,
+    required this.watchedSlipCount,
     required this.selectedIndex,
-    required this.onBoard,
-    required this.onGameMarkets,
+    required this.onWatchSlip,
+    required this.onChat,
     required this.accentColor,
   });
 
@@ -157,9 +161,10 @@ class _MobileAppShell extends StatefulWidget {
   final Widget content;
   final Widget rightSidebar;
   final int activeSlipCount;
+  final int watchedSlipCount;
   final int selectedIndex;
-  final VoidCallback? onBoard;
-  final VoidCallback? onGameMarkets;
+  final VoidCallback? onWatchSlip;
+  final VoidCallback? onChat;
   final Color accentColor;
 
   @override
@@ -226,72 +231,7 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                       border: Border.all(color: widget.accentColor),
                     ),
                     child: Row(
-                      children: [
-                        IconButton(
-                          tooltip: 'Open workspace navigation',
-                          onPressed: () =>
-                              _scaffoldKey.currentState?.openDrawer(),
-                          icon: Icon(
-                            Icons.menu_rounded,
-                            color: widget.accentColor,
-                            size: screenWidth < 360 ? 20 : 24,
-                          ),
-                          padding: EdgeInsets.all(screenWidth < 360 ? 8 : 12),
-                          constraints: BoxConstraints(
-                            minWidth: screenWidth < 360 ? 36 : 48,
-                            minHeight: screenWidth < 360 ? 36 : 48,
-                          ),
-                        ),
-                        Expanded(child: widget.topNavigation),
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            IconButton(
-                              key: const ValueKey('mobile-active-slip-button'),
-                              tooltip: 'Open account and active slip',
-                              onPressed: () =>
-                                  _scaffoldKey.currentState?.openEndDrawer(),
-                              icon: Icon(
-                                Icons.receipt_long_rounded,
-                                color: widget.accentColor,
-                              ),
-                            ),
-                            if (widget.activeSlipCount > 0)
-                              Positioned(
-                                right: 0,
-                                top: 2,
-                                child: Container(
-                                  key: const ValueKey(
-                                    'mobile-active-slip-count',
-                                  ),
-                                  constraints: const BoxConstraints(
-                                    minWidth: 18,
-                                    minHeight: 18,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 5,
-                                    vertical: 2,
-                                  ),
-                                  alignment: Alignment.center,
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.gold,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Text(
-                                    widget.activeSlipCount > 99
-                                        ? '99+'
-                                        : '${widget.activeSlipCount}',
-                                    style: const TextStyle(
-                                      color: Color(0xFF06111B),
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ],
+                      children: [Expanded(child: widget.topNavigation)],
                     ),
                   ),
                   const SizedBox(height: 7),
@@ -312,9 +252,10 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                   _MobileBottomNavigation(
                     selectedIndex: widget.selectedIndex,
                     activeSlipCount: widget.activeSlipCount,
-                    onBoard: widget.onBoard,
-                    onGameMarkets: widget.onGameMarkets,
-                    onSlip: () => _scaffoldKey.currentState?.openEndDrawer(),
+                    watchedSlipCount: widget.watchedSlipCount,
+                    onWatchSlip: widget.onWatchSlip,
+                    onChat: widget.onChat,
+                    onTicket: () => _scaffoldKey.currentState?.openEndDrawer(),
                     onMenu: () => _scaffoldKey.currentState?.openDrawer(),
                     accentColor: widget.accentColor,
                   ),
@@ -332,18 +273,20 @@ class _MobileBottomNavigation extends StatelessWidget {
   const _MobileBottomNavigation({
     required this.selectedIndex,
     required this.activeSlipCount,
-    required this.onBoard,
-    required this.onGameMarkets,
-    required this.onSlip,
+    required this.watchedSlipCount,
+    required this.onWatchSlip,
+    required this.onChat,
+    required this.onTicket,
     required this.onMenu,
     required this.accentColor,
   });
 
   final int selectedIndex;
   final int activeSlipCount;
-  final VoidCallback? onBoard;
-  final VoidCallback? onGameMarkets;
-  final VoidCallback onSlip;
+  final int watchedSlipCount;
+  final VoidCallback? onWatchSlip;
+  final VoidCallback? onChat;
+  final VoidCallback onTicket;
   final VoidCallback onMenu;
   final Color accentColor;
 
@@ -367,42 +310,43 @@ class _MobileBottomNavigation extends StatelessWidget {
         children: [
           Expanded(
             child: _MobileNavItem(
-              key: const ValueKey('mobile-nav-board'),
-              icon: Icons.dashboard_customize_outlined,
-              label: 'BOARD',
-              selected: selectedIndex == 0,
-              onTap: onBoard,
+              key: const ValueKey('mobile-nav-menu'),
+              icon: Icons.grid_view_rounded,
+              label: 'MENU',
+              selected: selectedIndex == 3,
+              onTap: onMenu,
               accentColor: accentColor,
             ),
           ),
           Expanded(
             child: _MobileNavItem(
-              key: const ValueKey('mobile-nav-game-markets'),
-              icon: Icons.sports_rounded,
-              label: 'GAMES',
-              selected: selectedIndex == 1,
-              onTap: onGameMarkets,
+              key: const ValueKey('mobile-nav-chat'),
+              icon: Icons.forum_rounded,
+              label: 'CHAT',
+              selected: false,
+              onTap: onChat,
               accentColor: accentColor,
             ),
           ),
           Expanded(
             child: _MobileNavItem(
               key: const ValueKey('mobile-nav-active-slip'),
-              icon: Icons.receipt_long_rounded,
-              label: 'SLIP',
+              icon: Icons.visibility_outlined,
+              label: 'SLIP WATCHER',
               selected: selectedIndex == 2,
-              badge: activeSlipCount,
-              onTap: onSlip,
+              badge: watchedSlipCount,
+              onTap: onWatchSlip,
               accentColor: accentColor,
             ),
           ),
           Expanded(
             child: _MobileNavItem(
-              key: const ValueKey('mobile-nav-menu'),
-              icon: Icons.grid_view_rounded,
-              label: 'MENU',
-              selected: selectedIndex == 3,
-              onTap: onMenu,
+              key: const ValueKey('mobile-nav-ticket'),
+              icon: Icons.receipt_long_rounded,
+              label: 'TICKET',
+              selected: false,
+              badge: activeSlipCount,
+              onTap: onTicket,
               accentColor: accentColor,
             ),
           ),

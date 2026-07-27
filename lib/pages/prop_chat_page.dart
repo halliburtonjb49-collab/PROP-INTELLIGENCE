@@ -741,9 +741,7 @@ class _ChatHeader extends StatelessWidget {
               color: AppColors.gold,
             ),
           ),
-          if (!isFloating &&
-              onPopOut != null &&
-              MediaQuery.sizeOf(context).width >= 700)
+          if (!isFloating && onPopOut != null)
             IconButton(
               key: const ValueKey('pop-out-prop-chat'),
               tooltip: 'Open PROP CHAT in a floating panel',

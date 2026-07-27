@@ -156,9 +156,7 @@ void main() {
     expect(find.text('LSTM SEQUENCE MODEL'), findsOneWidget);
   });
 
-  testWidgets('mobile menu opens PROP CHAT without desktop pop-out controls', (
-    tester,
-  ) async {
+  testWidgets('mobile PROP CHAT bubble opens over the board', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(() {
@@ -173,6 +171,21 @@ void main() {
       isNull,
       reason: 'initial mobile board must fit',
     );
+    expect(
+      find.byKey(const ValueKey('prop-chat-bubble-launcher')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('mobile-nav-chat')));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(const ValueKey('floating-prop-chat')), findsOneWidget);
+    expect(find.text('BOARD'), findsWidgets);
+    expect(
+      find.byKey(const ValueKey('prop-chat-message-field')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('close-floating-prop-chat')));
+    await tester.pump(const Duration(milliseconds: 300));
+
     await tester.tap(find.byKey(const ValueKey('mobile-nav-menu')));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull, reason: 'mobile drawer must fit');
@@ -184,7 +197,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('mobile-sidebar-prop-chat')));
     await tester.pump(const Duration(milliseconds: 800));
     expect(find.text('PROP CHAT'), findsWidgets);
-    expect(find.byKey(const ValueKey('pop-out-prop-chat')), findsNothing);
+    expect(find.byKey(const ValueKey('pop-out-prop-chat')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('prop-chat-message-field')),
       findsOneWidget,

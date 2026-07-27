@@ -782,22 +782,60 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   }
 
   Widget _buildFloatingChat(BoxConstraints constraints) {
-    const minimumWidth = 360.0;
-    const minimumHeight = 320.0;
-    final maximumWidth = (constraints.maxWidth - 24).clamp(minimumWidth, 760.0);
-    final maximumHeight = (constraints.maxHeight - 24).clamp(
-      minimumHeight,
-      820.0,
-    );
+    final availableWidth = (constraints.maxWidth - 24).clamp(1.0, 760.0);
+    final availableHeight = (constraints.maxHeight - 24).clamp(1.0, 820.0);
+    final minimumWidth = availableWidth.clamp(1.0, 360.0);
+    final minimumHeight = availableHeight.clamp(1.0, 320.0);
+    final maximumWidth = availableWidth;
+    final maximumHeight = availableHeight;
     return ValueListenableBuilder<Offset>(
       valueListenable: _chatOffset,
       builder: (context, offset, _) => ValueListenableBuilder<Size>(
         valueListenable: _chatSize,
         builder: (context, panelSize, _) {
+          if (_chatMinimized) {
+            const bubbleSize = 58.0;
+            final left = offset.dx.clamp(
+              12.0,
+              (constraints.maxWidth - bubbleSize - 12).clamp(
+                12.0,
+                double.infinity,
+              ),
+            );
+            final top = offset.dy.clamp(
+              12.0,
+              (constraints.maxHeight - bubbleSize - 12).clamp(
+                12.0,
+                double.infinity,
+              ),
+            );
+            return Positioned(
+              left: left,
+              top: top,
+              width: bubbleSize,
+              height: bubbleSize,
+              child: GestureDetector(
+                key: const ValueKey('floating-prop-chat-bubble'),
+                behavior: HitTestBehavior.opaque,
+                onPanUpdate: (details) => _chatOffset.value += details.delta,
+                onTap: () => setState(() => _chatMinimized = false),
+                child: Material(
+                  elevation: 18,
+                  color: app_colors.AppColors.gold,
+                  shape: const CircleBorder(
+                    side: BorderSide(color: Colors.white, width: 1.5),
+                  ),
+                  child: const Icon(
+                    Icons.forum_rounded,
+                    color: Color(0xFF06111B),
+                    size: 27,
+                  ),
+                ),
+              ),
+            );
+          }
           final width = panelSize.width.clamp(minimumWidth, maximumWidth);
-          final height = _chatMinimized
-              ? 54.0
-              : panelSize.height.clamp(minimumHeight, maximumHeight);
+          final height = panelSize.height.clamp(minimumHeight, maximumHeight);
           final left = offset.dx.clamp(12.0, constraints.maxWidth - width - 12);
           final top = offset.dy.clamp(
             12.0,
@@ -880,38 +918,34 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                         ),
                       ),
                     ),
-                    if (!_chatMinimized)
-                      const Expanded(child: PropChatPage(isFloating: true)),
-                    if (!_chatMinimized)
-                      Align(
-                        alignment: Alignment.bottomRight,
-                        child: GestureDetector(
-                          key: const ValueKey(
-                            'floating-prop-chat-resize-handle',
-                          ),
-                          behavior: HitTestBehavior.opaque,
-                          onPanUpdate: (details) {
-                            _chatSize.value = Size(
-                              (_chatSize.value.width + details.delta.dx).clamp(
-                                minimumWidth,
-                                maximumWidth,
-                              ),
-                              (_chatSize.value.height + details.delta.dy).clamp(
-                                minimumHeight,
-                                maximumHeight,
-                              ),
-                            );
-                          },
-                          child: const Padding(
-                            padding: EdgeInsets.all(7),
-                            child: Icon(
-                              Icons.drag_handle_rounded,
-                              size: 20,
-                              color: app_colors.AppColors.gold,
+                    const Expanded(child: PropChatPage(isFloating: true)),
+                    Align(
+                      alignment: Alignment.bottomRight,
+                      child: GestureDetector(
+                        key: const ValueKey('floating-prop-chat-resize-handle'),
+                        behavior: HitTestBehavior.opaque,
+                        onPanUpdate: (details) {
+                          _chatSize.value = Size(
+                            (_chatSize.value.width + details.delta.dx).clamp(
+                              minimumWidth,
+                              maximumWidth,
                             ),
+                            (_chatSize.value.height + details.delta.dy).clamp(
+                              minimumHeight,
+                              maximumHeight,
+                            ),
+                          );
+                        },
+                        child: const Padding(
+                          padding: EdgeInsets.all(7),
+                          child: Icon(
+                            Icons.drag_handle_rounded,
+                            size: 20,
+                            color: app_colors.AppColors.gold,
                           ),
                         ),
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -919,6 +953,79 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildChatBubble(BoxConstraints constraints) {
+    const size = 58.0;
+    return ValueListenableBuilder<Offset>(
+      valueListenable: _chatOffset,
+      builder: (context, offset, _) {
+        final defaultLeft = constraints.maxWidth - size - 18;
+        final defaultTop = constraints.maxHeight - size - 90;
+        final left = (offset.dx == 360 ? defaultLeft : offset.dx).clamp(
+          12.0,
+          (constraints.maxWidth - size - 12).clamp(12.0, double.infinity),
+        );
+        final top = (offset.dy == 110 ? defaultTop : offset.dy).clamp(
+          12.0,
+          (constraints.maxHeight - size - 12).clamp(12.0, double.infinity),
+        );
+        return Positioned(
+          left: left,
+          top: top,
+          width: size,
+          height: size,
+          child: GestureDetector(
+            key: const ValueKey('prop-chat-bubble-launcher'),
+            behavior: HitTestBehavior.opaque,
+            onPanUpdate: (details) {
+              _chatOffset.value = Offset(left, top) + details.delta;
+            },
+            onTap: _floatChat,
+            child: Material(
+              elevation: 18,
+              color: app_colors.AppColors.gold,
+              shape: const CircleBorder(
+                side: BorderSide(color: Colors.white, width: 1.5),
+              ),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Center(
+                    child: Icon(
+                      Icons.forum_rounded,
+                      color: Color(0xFF06111B),
+                      size: 27,
+                    ),
+                  ),
+                  ValueListenableBuilder<int>(
+                    valueListenable: PropChatService.unreadCount,
+                    builder: (context, unread, _) => unread <= 0
+                        ? const SizedBox.shrink()
+                        : Positioned(
+                            right: -2,
+                            top: -2,
+                            child: CircleAvatar(
+                              radius: 10,
+                              backgroundColor: Color(0xFFFF4D5A),
+                              child: Text(
+                                unread > 9 ? '9+' : '$unread',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1432,22 +1539,22 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
               content: _buildMainContent(),
               rightSidebar: _buildRightPanel(),
               activeSlipCount: _activeSlipController.legCount,
+              watchedSlipCount: _activeSlipController.lockedSlipCount,
               mobileSelectedIndex: switch (_selectedPage) {
                 AppPage.board => 0,
                 AppPage.gameMarkets => 1,
                 AppPage.watchlist => 2,
                 _ => 3,
               },
-              onMobileBoard: () =>
-                  _switchToPage(AppPage.board, source: 'mobile-bottom-nav'),
-              onMobileGameMarkets: () => _switchToPage(
-                AppPage.gameMarkets,
-                source: 'mobile-bottom-nav',
-              ),
+              onMobileWatchSlip: () =>
+                  _switchToPage(AppPage.watchlist, source: 'mobile-bottom-nav'),
+              onMobileChat: _floatChat,
               accentColor: membershipAccent,
             ),
           ),
           if (_chatFloating) _buildFloatingChat(constraints),
+          if (!_chatFloating && _selectedPage != AppPage.propChat)
+            _buildChatBubble(constraints),
         ],
       ),
     );
