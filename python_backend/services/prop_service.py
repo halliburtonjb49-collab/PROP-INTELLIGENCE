@@ -1,5 +1,6 @@
 import re
-from datetime import datetime
+import os
+from datetime import datetime, timezone
 from collections import defaultdict
 
 from config import DB_PATH
@@ -41,6 +42,26 @@ from services.prop_probability_service import evaluate_market
 from services.market_calibration_service import market_calibration_adjustment
 
 cache = PropCache(DB_PATH)
+
+
+def data_freshness(
+	updated_at: object,
+	now_utc: datetime | None = None,
+) -> tuple[int | None, bool]:
+	"""Return source age and fail closed when freshness cannot be verified."""
+	raw = str(updated_at or "").strip()
+	if not raw:
+		return None, True
+	try:
+		parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+	except ValueError:
+		return None, True
+	if parsed.tzinfo is None:
+		parsed = parsed.replace(tzinfo=timezone.utc)
+	now = now_utc or datetime.now(timezone.utc)
+	age_seconds = max(0, int((now - parsed.astimezone(timezone.utc)).total_seconds()))
+	stale_after = max(300, int(os.getenv("PROP_FEED_STALE_MINUTES", "45")) * 60)
+	return age_seconds, age_seconds > stale_after
 
 
 def _row_optional_value(row: object, key: str) -> object:
@@ -387,6 +408,20 @@ def get_props() -> list[PropResponse]:
 			is_doubleheader = True
 
 		updated_at = str(row["updated_at"] or "")
+		data_age_seconds, data_stale = data_freshness(updated_at)
+		if data_stale:
+			recommendation.update(
+				{
+					"recommendedSide": "N/A",
+					"pickText": "No Pick",
+					"recommendationAvailable": False,
+					"recommendationUnavailableReason": "stale_source_data",
+					"edge": 0.0,
+				}
+			)
+			recommended_pick = "N/A"
+			adjusted_confidence = 0
+			adjusted_tier = "No Pick"
 		results.append(
 			PropResponse(
 				id=_make_prop_id(
@@ -460,6 +495,8 @@ def get_props() -> list[PropResponse]:
 				isDelayed=source_game_status == "delayed",
 				lastUpdatedUtc=updated_at,
 				sourceUpdatedUtc=updated_at,
+				dataAgeSeconds=data_age_seconds,
+				dataStale=data_stale,
 				sourceProvider=(
 					"sportsgameodds"
 					if str(row["game_id"]).startswith("sgo:")

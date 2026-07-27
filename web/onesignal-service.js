@@ -21,7 +21,35 @@ window.PropIntelligenceOneSignal = (() => {
     }, { once: true });
   }
 
+  function withOneSignal(action) {
+    return new Promise((resolve, reject) => {
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      window.OneSignalDeferred.push(async (OneSignal) => {
+        try {
+          resolve(await action(OneSignal));
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+  }
+
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   window.OneSignalDeferred.push(initialize);
-  return Object.freeze({ appId });
+  return Object.freeze({
+    appId,
+    requestPermission: () => withOneSignal(
+      (OneSignal) => OneSignal.Notifications.requestPermission()
+    ),
+    login: (externalId) => withOneSignal(
+      (OneSignal) => OneSignal.login(externalId)
+    ),
+    logout: () => withOneSignal((OneSignal) => OneSignal.logout()),
+    setEmail: (email) => withOneSignal(
+      (OneSignal) => OneSignal.User.addEmail(email)
+    ),
+    setTag: (key, value) => withOneSignal(
+      (OneSignal) => OneSignal.User.addTag(key, value)
+    )
+  });
 })();

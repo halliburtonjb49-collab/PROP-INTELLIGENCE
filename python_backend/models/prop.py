@@ -52,6 +52,8 @@ class PropResponse(BaseModel):
     isDelayed: bool = False
     lastUpdatedUtc: str = ""
     sourceUpdatedUtc: str = ""
+    dataAgeSeconds: int | None = None
+    dataStale: bool = False
     sourceProvider: str = "odds-api"
     injuryStatus: str = "unknown"
     lineupStatus: str = "unknown"

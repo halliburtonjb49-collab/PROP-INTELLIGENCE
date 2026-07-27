@@ -131,6 +131,23 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('privacy policy is available from the public navigation', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(const MaterialApp(home: CorporateLoginScreen()));
+    await tester.pump();
+    await tester.tap(find.text('PRIVACY'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('PRIVACY POLICY'), findsOneWidget);
+    expect(find.text('DATA WE COLLECT'), findsOneWidget);
+    expect(find.text('YOUR CHOICES'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('login page stacks safely on a mobile viewport', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -159,6 +176,7 @@ void main() {
     expect(find.text('PRICING'), findsOneWidget);
     expect(find.text('ABOUT'), findsOneWidget);
     expect(find.text('TERMS'), findsOneWidget);
+    expect(find.text('PRIVACY'), findsOneWidget);
     expect(find.text('CONTACT'), findsOneWidget);
     expect(find.text('INSTALL APP'), findsOneWidget);
 

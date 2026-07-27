@@ -420,15 +420,44 @@ class PropIntelligenceApp extends StatefulWidget {
 
 class _PropIntelligenceAppState extends State<PropIntelligenceApp> {
   String? _oneSignalUserId;
+  String? _oneSignalSubscriptionId;
 
   @override
   void initState() {
     super.initState();
     AuthManager.instance.sessionState.addListener(_syncOneSignalIdentity);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      OneSignalService.instance.observeRegistration((subscriptionId) {
+        _oneSignalSubscriptionId = subscriptionId;
+        unawaited(_registerPropChatPushSubscription());
+      });
       _syncOneSignalIdentity();
-      unawaited(OneSignalService.instance.requestPermission());
+      if (!kIsWeb) {
+        unawaited(OneSignalService.instance.requestPermission());
+      }
     });
+  }
+
+  Future<void> _registerPropChatPushSubscription() async {
+    final subscriptionId = _oneSignalSubscriptionId;
+    if (subscriptionId == null ||
+        subscriptionId.isEmpty ||
+        !AuthManager.instance.sessionState.value.authenticated) {
+      return;
+    }
+    try {
+      await PropChatService().registerPushSubscription(
+        deviceKey: subscriptionId,
+        endpoint: subscriptionId,
+        platform: switch (defaultTargetPlatform) {
+          TargetPlatform.android => 'android',
+          TargetPlatform.iOS => 'ios',
+          _ => 'unknown',
+        },
+      );
+    } catch (error) {
+      debugPrint('Push subscription registration deferred: $error');
+    }
   }
 
   void _syncOneSignalIdentity() {
@@ -448,6 +477,7 @@ class _PropIntelligenceAppState extends State<PropIntelligenceApp> {
         'subscription_tier',
         session.subscriptionTier.name,
       );
+      unawaited(_registerPropChatPushSubscription());
     }
   }
 
@@ -2590,7 +2620,10 @@ class _MainDashboardState extends State<MainDashboard> {
             'Estimated fair decimal price: ${fairDecimal == 0 ? '--' : fairDecimal.toStringAsFixed(2)}\n'
             'Expected value: ${(prop.evPercentage ?? 0) >= 0 ? '+' : ''}${(prop.evPercentage ?? 0).toStringAsFixed(1)}%\n'
             'Method: ${prop.probabilityMethod.isEmpty ? 'calibrated model' : prop.probabilityMethod}\n'
+            'Model version: ${prop.projectionModelVersion.isEmpty ? 'not available' : prop.projectionModelVersion}\n'
             'Sample size: ${prop.projectionSampleSize} games\n'
+            'Data freshness: ${prop.freshnessLabel}\n'
+            'Source: ${prop.sourceProvider.isEmpty ? prop.sportsbook : prop.sourceProvider}\n'
             'Market blend weight: ${(prop.probabilityMarketWeight * 100).toStringAsFixed(0)}%\n'
             'Out-of-sample calibration: ${prop.probabilityCalibrationSampleSize == 0 ? 'pending' : '${prop.probabilityCalibrationAdjustment >= 0 ? '+' : ''}${(prop.probabilityCalibrationAdjustment * 100).toStringAsFixed(1)}% from ${prop.probabilityCalibrationSampleSize} graded picks'}\n'
             'Probability uncertainty: ${prop.probabilityUncertainty == null ? '--' : '±${(prop.probabilityUncertainty! * 100).toStringAsFixed(1)}%'}\n\n'
@@ -7699,7 +7732,9 @@ class _PropGridState extends State<PropGrid> {
               ? 'Model advised pick'
               : 'Select ${isOver ? 'OVER' : 'UNDER'}',
           child: OutlinedButton(
-            onPressed: () => widget.onSelect(prop, side),
+            onPressed: prop.dataStale
+                ? null
+                : () => widget.onSelect(prop, side),
             style: OutlinedButton.styleFrom(
               padding: EdgeInsets.zero,
               minimumSize: const Size(0, 24),
@@ -7767,6 +7802,17 @@ class _PropGridState extends State<PropGrid> {
                     color: Colors.white,
                     fontSize: 7,
                     fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  prop.freshnessLabel,
+                  style: TextStyle(
+                    color: prop.dataStale
+                        ? const Color(0xFFFF6B6B)
+                        : AppColors.muted,
+                    fontSize: 6,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const Spacer(),

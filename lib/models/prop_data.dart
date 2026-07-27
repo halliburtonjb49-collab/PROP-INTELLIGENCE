@@ -19,6 +19,8 @@ class PropData {
   final String gameStatus;
   final String sourceProvider;
   final String lastUpdatedUtc;
+  final int? dataAgeSeconds;
+  final bool dataStale;
   final String sourcePlayerId;
   final String canonicalPlayerId;
   final double playerIdentityConfidence;
@@ -98,6 +100,8 @@ class PropData {
     this.gameStatus = '',
     this.sourceProvider = '',
     this.lastUpdatedUtc = '',
+    this.dataAgeSeconds,
+    this.dataStale = false,
     this.sourcePlayerId = '',
     this.canonicalPlayerId = '',
     this.playerIdentityConfidence = 0,
@@ -272,6 +276,10 @@ class PropData {
           json['last_updated_utc']?.toString() ??
           json['sourceUpdatedUtc']?.toString() ??
           '',
+      dataAgeSeconds:
+          (json['dataAgeSeconds'] as num?)?.toInt() ??
+          (json['data_age_seconds'] as num?)?.toInt(),
+      dataStale: json['dataStale'] == true || json['data_stale'] == true,
       sourcePlayerId:
           json['sourcePlayerId']?.toString() ??
           json['source_player_id']?.toString() ??
@@ -535,6 +543,15 @@ class PropData {
     final minute = local.minute.toString().padLeft(2, '0');
     final period = local.hour >= 12 ? 'PM' : 'AM';
     return '$hour:$minute $period';
+  }
+
+  String get freshnessLabel {
+    if (dataStale) return 'STALE DATA';
+    final seconds = dataAgeSeconds;
+    if (seconds == null) return 'FRESHNESS UNKNOWN';
+    if (seconds < 120) return 'UPDATED NOW';
+    if (seconds < 3600) return 'UPDATED ${seconds ~/ 60}M AGO';
+    return 'UPDATED ${seconds ~/ 3600}H AGO';
   }
 
   /// Returns true if the game has already started

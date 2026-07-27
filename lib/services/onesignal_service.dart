@@ -1,4 +1,5 @@
 import 'onesignal_service_stub.dart'
+    if (dart.library.js_interop) 'onesignal_service_web.dart'
     if (dart.library.io) 'onesignal_service_mobile.dart'
     as implementation;
 
@@ -22,7 +23,7 @@ class OneSignalService {
 
   final OneSignalPlatform _platform = implementation.createOneSignalPlatform();
   bool _initialized = false;
-  bool _verificationShown = false;
+  String? _lastRegistrationId;
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -30,14 +31,14 @@ class OneSignalService {
     _initialized = true;
   }
 
-  void observeRegistration(void Function() onRegistered) {
+  void observeRegistration(void Function(String id) onRegistered) {
     void evaluate(String? id) {
-      if (!_verificationShown &&
-          id != null &&
+      if (id != null &&
           id.isNotEmpty &&
-          !id.startsWith('local-')) {
-        _verificationShown = true;
-        onRegistered();
+          !id.startsWith('local-') &&
+          id != _lastRegistrationId) {
+        _lastRegistrationId = id;
+        onRegistered(id);
       }
     }
 

@@ -181,6 +181,12 @@ class BrandedPaywallModalSheet extends StatelessWidget {
             'Cancel anytime. Purchases and renewals are managed securely by the billing platform available on your device.',
             style: TextStyle(color: Colors.grey[500], fontSize: 10),
           ),
+          const SizedBox(height: 6),
+          Text(
+            'Informational research only. Predictions are estimates, not guarantees. Use only where lawful and if you meet local age requirements.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[500], fontSize: 10),
+          ),
         ],
       ),
     );

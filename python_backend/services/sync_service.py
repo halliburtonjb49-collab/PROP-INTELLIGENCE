@@ -13,7 +13,10 @@ from services.odds_service import (
     estimate_event_odds_cost, fetch_event_odds, fetch_events, quota_allows,
 )
 from services.prop_processor import process_and_cache_props
-from services.prediction_automation_service import snapshot_live_predictions
+from services.prediction_automation_service import (
+    capture_prediction_closing_lines,
+    snapshot_live_predictions,
+)
 from services.compound_alert_service import evaluate_all_alerts
 from services.prop_service import get_props
 from config import SPORTSGAMEODDS_API_KEY
@@ -327,6 +330,9 @@ def run_global_sync_pipeline(
     snapshot = snapshot_live_predictions()
     results.append({"sport": "prediction_snapshots", "events": 0,
                     "props": int(snapshot.get("created", 0))})
+    clv = capture_prediction_closing_lines()
+    results.append({"sport": "prediction_clv", "events": 0,
+                    "props": int(clv.get("updated", 0))})
     alert_snapshots = [{
         "propId": prop.id, "player": prop.player, "playerId": prop.playerId,
         "sport": prop.sport, "market": prop.market, "marketKey": prop.marketKey,

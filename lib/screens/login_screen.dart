@@ -561,6 +561,47 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 'Questions: propsintell@gmail.com. Effective July 18, 2026. The complete published Terms and Privacy Policy govern use of the service.',
           ),
         ];
+      case 'privacy':
+        title = 'PRIVACY POLICY';
+        subtitle = 'HOW PROP INTELLIGENCE HANDLES YOUR DATA';
+        icon = Icons.privacy_tip_outlined;
+        content = const [
+          _LegalSection(
+            title: 'DATA WE COLLECT',
+            text:
+                'We collect account details, authentication identifiers, subscription status, saved props and slips, chat activity, notification subscription identifiers, and technical usage information needed to operate and secure the service.',
+          ),
+          _LegalSection(
+            title: 'HOW DATA IS USED',
+            text:
+                'Data is used to provide personalized research tools, synchronize your account, process subscriptions, deliver requested notifications, prevent abuse, diagnose failures, and improve product reliability and model performance.',
+          ),
+          _LegalSection(
+            title: 'SERVICE PROVIDERS',
+            text:
+                'We use contracted providers for authentication and storage, sports data, payments, application hosting, analytics, and notifications. Each provider processes only the information needed for its service and is governed by its own privacy terms.',
+          ),
+          _LegalSection(
+            title: 'SHARING & SALES',
+            text:
+                'We do not sell personal information. Information may be disclosed to service providers, when required by law, to protect users or the service, or as part of a business transfer subject to applicable safeguards.',
+          ),
+          _LegalSection(
+            title: 'RETENTION & SECURITY',
+            text:
+                'We retain information only as long as reasonably needed for the purposes described, legal obligations, fraud prevention, and dispute resolution. We use reasonable safeguards, but no online system can guarantee absolute security.',
+          ),
+          _LegalSection(
+            title: 'YOUR CHOICES',
+            text:
+                'You can disable notifications in device or browser settings, manage or cancel subscriptions through the purchase platform, and request access, correction, or deletion of eligible account information by contacting support.',
+          ),
+          _AboutNotice(
+            title: 'CONTACT & EFFECTIVE DATE',
+            text:
+                'Privacy questions and account-data requests: propsintell@gmail.com. Effective July 27, 2026. Rights may vary based on your location.',
+          ),
+        ];
       default:
         return;
     }
@@ -1373,6 +1414,7 @@ class _TopNavigation extends StatelessWidget {
       ('ABOUT', 'about', Icons.info_outline_rounded),
       ('INSTALL APP', 'install', Icons.install_mobile_rounded),
       ('TERMS', 'terms', Icons.gavel_rounded),
+      ('PRIVACY', 'privacy', Icons.privacy_tip_outlined),
       ('CONTACT', 'contact', Icons.forum_outlined),
     ];
     final section = await showModalBottomSheet<String>(
@@ -1468,13 +1510,14 @@ class _TopNavigation extends StatelessWidget {
           ),
           const Spacer(),
           if (!compact) ...[
-            for (final item in const [
-              ('FEATURES', 'features'),
-              ('HOW IT WORKS', 'how-it-works'),
-              ('PRICING', 'pricing'),
-              ('ABOUT', 'about'),
-              ('TERMS', 'terms'),
-              ('CONTACT', 'contact'),
+            for (final item in [
+              const ('FEATURES', 'features'),
+              const ('HOW IT WORKS', 'how-it-works'),
+              const ('PRICING', 'pricing'),
+              const ('ABOUT', 'about'),
+              const ('TERMS', 'terms'),
+              if (!tight) const ('PRIVACY', 'privacy'),
+              if (!tight) const ('CONTACT', 'contact'),
             ])
               TextButton(
                 onPressed: () => onNavigate(item.$2),

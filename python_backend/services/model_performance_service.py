@@ -37,10 +37,33 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
               when hit_probability>=.6 then 'MEDIUM' else 'BASELINE' end {base}
             group by sport,market,7 order by count(*) desc""", (model_version,))
         segments = [_segment(row) for row in cursor.fetchall()]
+        cursor.execute(
+            """select count(*),
+                avg(case when (inputs->>'beatClosingLine')::boolean then 1 else 0 end),
+                avg((inputs->>'lineClvPoints')::double precision)
+            from prediction_snapshots
+            where model_version=%s and inputs ? 'closingLine'""",
+            (model_version,),
+        )
+        clv_count, beat_close_rate, average_points = cursor.fetchone()
     return {"modelVersion": model_version, **overall, "segments": segments,
             "minimumCalibrationSample": 100, "calibrated": overall["sampleSize"] >= 100,
-            "clv": {"available": False,
-                    "reason": "Prediction-level closing lines will populate as captured events approach start time."}}
+            "clv": {
+                "available": bool(clv_count),
+                "sampleSize": int(clv_count or 0),
+                "beatClosingLineRate": (
+                    round(float(beat_close_rate), 4)
+                    if beat_close_rate is not None else None
+                ),
+                "averageLineClvPoints": (
+                    round(float(average_points), 4)
+                    if average_points is not None else None
+                ),
+                "reason": (
+                    None if clv_count else
+                    "Closing lines populate during the final 20 minutes before start."
+                ),
+            }}
 
 
 def operations_summary() -> dict[str, object]:
