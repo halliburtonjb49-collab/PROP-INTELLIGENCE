@@ -130,6 +130,7 @@ from services.slip_service import (
 from services.live_stats_service import get_live_player_stat_snapshot
 from services.multi_sport_grading_service import grade_active_slips
 from services.result_reconciliation_service import reconcile_user_slips
+from services.prediction_automation_service import prediction_calibration_report
 from services.sync_service import run_global_sync_pipeline
 from services.prop_recommendation_service import (
 	build_prop_recommendation,
@@ -1641,13 +1642,13 @@ def props(
 			for prop in filtered_props
 			if bool(getattr(prop, "recommendationAvailable", False))
 			and str(getattr(prop, "projectionModelVersion", "") or "")
-			== "baseline-v1"
+			== "baseline-v2"
 		)
 		baseline_projection_count = sum(
 			1
 			for prop in filtered_props
 			if str(getattr(prop, "projectionModelVersion", "") or "")
-			== "baseline-v1"
+			== "baseline-v2"
 		)
 		provider_pick_count = max(0, model_pick_count - baseline_pick_count)
 
@@ -1774,6 +1775,13 @@ def positive_ev_props(
 		"sport": sport,
 		"version": APP_VERSION,
 	}
+
+
+@app.get("/api/props/calibration")
+def prop_calibration(
+	minimum_sample: int = Query(default=20, ge=5, le=1000),
+) -> dict[str, object]:
+	return prediction_calibration_report(minimum_sample)
 
 
 @app.get("/api/props-test")

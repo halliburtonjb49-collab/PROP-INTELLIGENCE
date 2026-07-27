@@ -2,7 +2,7 @@
 
 from math import asin, cos, radians, sin, sqrt
 from random import Random
-from statistics import fmean
+from statistics import fmean, NormalDist
 
 from models.intelligence import (
     AlertCondition,
@@ -16,6 +16,10 @@ from models.intelligence import (
     ScheduleFatigueRequest, TravelLeg,
 )
 from services.historical_correlation_service import empirical_pair
+from services.prop_probability_service import (
+    distribution_for_market,
+    outcome_from_quantile,
+)
 
 
 def derive_schedule_fatigue(request: ScheduleFatigueRequest) -> dict[str, object]:
@@ -186,10 +190,17 @@ def simulate_game_script(request: GameScriptRequest) -> dict[str, object]:
         baseline = prop.baseline_projection if prop.baseline_projection is not None else prop.line
         line = prop.line if prop.line is not None else baseline
         deviation = prop.volatility if prop.volatility is not None else max(1.0, (baseline or 10.0) * .22)
+        distribution = distribution_for_market(
+            prop.sport,
+            prop.market,
+            mean=float(baseline or 0),
+            variance=float(deviation) ** 2,
+        )
         impacts.append({"id": prop.id, "player": prop.player, "market": prop.market,
                         "projectionMultiplier": multiplier, "hitProbabilityShift": round(hit_shift, 3),
                         "adjustedProjection": round(baseline * multiplier, 2) if baseline is not None else None,
-                        "line": line, "volatility": round(deviation, 3), "reason": reason})
+                        "line": line, "volatility": round(deviation, 3),
+                        "distribution": distribution, "reason": reason})
 
     simulated = [index for index, prop in enumerate(request.props)
                  if impacts[index]["adjustedProjection"] is not None and impacts[index]["line"] is not None]
@@ -215,7 +226,12 @@ def simulate_game_script(request: GameScriptRequest) -> dict[str, object]:
         all_hit = True
         for position, impact_index in enumerate(simulated):
             prop, impact = request.props[impact_index], impacts[impact_index]
-            outcome = float(impact["adjustedProjection"]) + correlated[position] * float(impact["volatility"])
+            outcome = outcome_from_quantile(
+                NormalDist().cdf(correlated[position]),
+                projection=float(impact["adjustedProjection"]),
+                volatility=float(impact["volatility"]),
+                distribution=str(impact["distribution"]),
+            )
             hit = outcome > float(impact["line"]) if prop.side == "OVER" else outcome < float(impact["line"])
             hits[position] += int(hit)
             all_hit = all_hit and hit
@@ -224,7 +240,7 @@ def simulate_game_script(request: GameScriptRequest) -> dict[str, object]:
         impacts[impact_index]["hitProbability"] = round(hits[position] / request.simulations, 4)
     return {"script": request.script, "impacts": impacts, "simulations": request.simulations,
             "portfolioHitProbability": round(portfolio_hits / request.simulations, 4),
-            "seed": request.seed, "method": "correlated-gaussian-monte-carlo"}
+            "seed": request.seed, "method": "correlated-distribution-copula-monte-carlo"}
 
 
 def similarity_matches(request: SimilarityRequest) -> dict[str, object]:

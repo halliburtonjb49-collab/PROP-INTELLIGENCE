@@ -8,10 +8,10 @@ from database.postgres import database_is_configured, get_database_pool
 import logging
 from services.projection_calibration_service import (
     ProjectionContext,
-    calibrated_hit_probability,
     confidence_from_probability,
     contextual_projection,
 )
+from services.prop_probability_service import evaluate_market
 
 logger = logging.getLogger(__name__)
 
@@ -48,9 +48,17 @@ def apply_projection_context(prop: object) -> None:
         prop.confidence = 0
         return
     context = ProjectionContext(
-        workload_multiplier=float(getattr(prop, "fatigueMultiplier", None) or 1),
-        opponent_multiplier=float(getattr(prop, "matchupMultiplier", None) or 1),
+        workload_multiplier=(
+            float(getattr(prop, "fatigueMultiplier", None) or 1)
+            * float(getattr(prop, "usageMultiplier", None) or 1)
+        ),
+        opponent_multiplier=(
+            float(getattr(prop, "matchupMultiplier", None) or 1)
+            * float(getattr(prop, "opponentDefenseMultiplier", None) or 1)
+            * float(getattr(prop, "paceMultiplier", None) or 1)
+        ),
         availability_multiplier=availability,
+        venue_multiplier=float(getattr(prop, "homeAwayMultiplier", None) or 1),
     )
     adjusted = contextual_projection(float(projection), context)
     line = float(getattr(prop, "line", 0))
@@ -65,21 +73,48 @@ def apply_projection_context(prop: object) -> None:
         prop.pick = "N/A"
         prop.pickText = "No Pick"
         return
-    probability = calibrated_hit_probability(
+    over_side = side == "OVER"
+    evaluation = evaluate_market(
         projection=adjusted,
         line=line,
         volatility=float(getattr(prop, "projectionVolatility", None) or 1),
         side=side,
-        sample_size=max(8, int(getattr(prop, "projectionSampleSize", 0) or 0)),
+        sample_size=max(1, int(getattr(prop, "projectionSampleSize", 0) or 0)),
         sport=str(getattr(prop, "sport", "")),
         market=str(getattr(prop, "market", "")),
+        model_calibrated=bool(getattr(prop, "projectionCalibrated", False)),
         empirical_hit_rate=(
             float(getattr(prop, "historicalHitRate")) / 100
             if getattr(prop, "historicalHitRate", None) is not None
             else None
         ),
+        sharp_probability=(
+            getattr(prop, "noVigOverProbability", None)
+            if over_side
+            else getattr(prop, "noVigUnderProbability", None)
+        ),
+        decimal_odds=(
+            getattr(prop, "overDecimalOdds", None)
+            if over_side
+            else getattr(prop, "underDecimalOdds", None)
+        ),
+        calibration_adjustment=float(
+            getattr(prop, "probabilityCalibrationAdjustment", 0) or 0
+        ),
     )
+    probability = evaluation.fair_probability
     prop.fairProbability = probability
+    prop.modelProbability = evaluation.model_probability
+    prop.marketProbability = evaluation.market_probability
+    prop.pushProbability = evaluation.push_probability
+    prop.lossProbability = evaluation.loss_probability
+    prop.evPercentage = evaluation.ev_percentage
+    prop.fairDecimalOdds = evaluation.fair_decimal_odds
+    prop.isPositiveEv = evaluation.is_positive_ev
+    prop.probabilityMethod = evaluation.distribution
+    prop.probabilityMarketWeight = evaluation.market_weight
+    prop.probabilityUncertainty = evaluation.uncertainty
+    prop.probabilityCalibrationAdjustment = evaluation.calibration_adjustment
     prop.confidence = confidence_from_probability(probability)
     prop.recommendedSide = side.title()
     prop.pick = side
@@ -100,7 +135,11 @@ def apply_projection_context(prop: object) -> None:
 
 
 def enrich_props(props: list[object]) -> None:
-    if not props or not database_is_configured():
+    if not props:
+        return
+    if not database_is_configured():
+        for prop in props:
+            apply_projection_context(prop)
         return
     player_ids = sorted({str(getattr(prop, "playerId", "")) for prop in props if getattr(prop, "playerId", "")})
     prop_ids = sorted({str(getattr(prop, "id", "")) for prop in props if getattr(prop, "id", "")})
@@ -125,6 +164,8 @@ def enrich_props(props: list[object]) -> None:
                 sentiment = {str(row[0]): row[1:] for row in cursor.fetchall()}
     except Exception as exc:
         logger.warning("prop context unavailable: %s", exc)
+        for prop in props:
+            apply_projection_context(prop)
         return
 
     for prop in props:
@@ -141,6 +182,7 @@ def enrich_props(props: list[object]) -> None:
             score, multiplier, miles, zones, rest_days, road_games = values
             prop.fatigueIndex = float(score)
             prop.fatigueMultiplier = float(multiplier)
+            prop.restDays = float(rest_days)
             prop.travelMiles = float(miles)
             prop.timezoneChangeHours = float(zones)
             prop.matchupContext = (

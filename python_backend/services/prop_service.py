@@ -37,6 +37,8 @@ from services.projection_calibration_service import (
 	confidence_from_probability,
 	market_volatility_floor,
 )
+from services.prop_probability_service import evaluate_market
+from services.market_calibration_service import market_calibration_adjustment
 
 cache = PropCache(DB_PATH)
 
@@ -323,6 +325,52 @@ def get_props() -> list[PropResponse]:
 			if total > 0:
 				no_vig_over = round(over_implied / total, 6)
 				no_vig_under = round(under_implied / total, 6)
+		market_evaluation = None
+		calibration_adjustment, calibration_sample_size = (
+			market_calibration_adjustment(
+				sport_label,
+				raw_market,
+				projection_model_version,
+			)
+		)
+		evaluation_side = recommended_pick
+		if (
+			projection is not None
+			and evaluation_side not in {"OVER", "UNDER"}
+			and float(projection) != line
+		):
+			evaluation_side = "OVER" if float(projection) > line else "UNDER"
+		if projection is not None and evaluation_side in {"OVER", "UNDER"}:
+			selected_market_probability = (
+				no_vig_over if evaluation_side == "OVER" else no_vig_under
+			)
+			selected_decimal_odds = (
+				_american_to_decimal(over_odds)
+				if evaluation_side == "OVER"
+				else _american_to_decimal(under_odds)
+			)
+			market_evaluation = evaluate_market(
+				projection=float(projection),
+				line=line,
+				volatility=float(
+					projection_volatility
+					or market_volatility_floor(sport_label, raw_market)
+				),
+				sport=sport_label,
+				market=raw_market,
+				side=evaluation_side,
+				sample_size=max(1, projection_sample_size),
+				model_calibrated=projection_calibrated,
+				empirical_hit_rate=(
+					historical_hit_rate / 100
+					if historical_hit_rate is not None
+					else None
+				),
+				sharp_probability=selected_market_probability,
+				decimal_odds=selected_decimal_odds,
+				calibration_adjustment=calibration_adjustment,
+			)
+			hit_probability = market_evaluation.fair_probability
 
 		source_game_status = _normalize_game_status(
 			row["game_status"],
@@ -425,6 +473,61 @@ def get_props() -> list[PropResponse]:
 				noVigOverProbability=no_vig_over,
 				noVigUnderProbability=no_vig_under,
 				fairProbability=hit_probability,
+				modelProbability=(
+					market_evaluation.model_probability
+					if market_evaluation is not None
+					else None
+				),
+				marketProbability=(
+					market_evaluation.market_probability
+					if market_evaluation is not None
+					else None
+				),
+				pushProbability=(
+					market_evaluation.push_probability
+					if market_evaluation is not None
+					else 0
+				),
+				lossProbability=(
+					market_evaluation.loss_probability
+					if market_evaluation is not None
+					else None
+				),
+				evPercentage=(
+					market_evaluation.ev_percentage
+					if market_evaluation is not None
+					else None
+				),
+				fairDecimalOdds=(
+					market_evaluation.fair_decimal_odds
+					if market_evaluation is not None
+					else None
+				),
+				isPositiveEv=bool(
+					market_evaluation is not None
+					and market_evaluation.is_positive_ev
+				),
+				probabilityMethod=(
+					market_evaluation.distribution
+					if market_evaluation is not None
+					else ""
+				),
+				probabilityMarketWeight=(
+					market_evaluation.market_weight
+					if market_evaluation is not None
+					else 0
+				),
+				probabilityUncertainty=(
+					market_evaluation.uncertainty
+					if market_evaluation is not None
+					else None
+				),
+				probabilityCalibrationAdjustment=(
+					market_evaluation.calibration_adjustment
+					if market_evaluation is not None
+					else 0
+				),
+				probabilityCalibrationSampleSize=calibration_sample_size,
 			)
 		)
 

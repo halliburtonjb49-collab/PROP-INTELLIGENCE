@@ -35,19 +35,11 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
             if projection is None:
                 signed = prop.edgeSigned or (prop.recommendationEdge if side == "OVER" else -prop.recommendationEdge)
                 projection = prop.line + signed
-            if (
-                prop.projectionModelVersion == MODEL_VERSION
-                and prop.historicalHitRate is not None
-            ):
-                sample = max(0, int(prop.projectionSampleSize))
-                observed = max(0.0, min(1.0, prop.historicalHitRate / 100))
-                # Shrink a small historical sample toward 50% before it enters
-                # calibration. The stored value is a probability estimate;
-                # the UI confidence field remains a relative strength score.
-                probability = 0.5 + (observed - 0.5) * (sample / (sample + 20))
-                probability = max(.5, min(.80, probability))
-            else:
-                probability = max(.5, min(.95, prop.confidence / 100))
+            probability = (
+                float(prop.fairProbability)
+                if prop.fairProbability is not None
+                else max(.5, min(.95, prop.confidence / 100))
+            )
             cursor.execute("""select 1 from prediction_snapshots where prop_id=%s and model_version=%s
                 and snapshot_date=(now() at time zone 'UTC')::date limit 1""", (prop.id, snapshot_model_version))
             if cursor.fetchone():
@@ -60,6 +52,14 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
                  json.dumps({"playerName": prop.player, "sportsbook": prop.sportsbook,
                              "matchup": prop.matchup, "confidence": prop.confidence,
                              "edge": prop.recommendationEdge,
+                             "modelProbability": prop.modelProbability,
+                             "marketProbability": prop.marketProbability,
+                             "pushProbability": prop.pushProbability,
+                             "probabilityMethod": prop.probabilityMethod,
+                             "marketBlendWeight": prop.probabilityMarketWeight,
+                             "calibrationAdjustment": prop.probabilityCalibrationAdjustment,
+                             "calibrationSampleSize": prop.probabilityCalibrationSampleSize,
+                             "expectedValuePercentage": prop.evPercentage,
                              "entryOdds": prop.overOdds if side == "OVER" else prop.underOdds,
                              "openingLine": prop.openingLine,
                              "currentLine": prop.currentLine}), event_time))
@@ -116,6 +116,78 @@ def grade_completed_predictions() -> dict[str, object]:
         connection.commit()
     return {"graded": graded, "pendingChecked": len(pending), "unsupported": unsupported,
             "gradedAt": datetime.now(timezone.utc).isoformat()}
+
+
+def prediction_calibration_report(minimum_sample: int = 20) -> dict[str, object]:
+    """Out-of-sample calibration, accuracy, and flat-stake ROI by market."""
+    if not database_is_configured():
+        return {"sampleSize": 0, "groups": [], "reason": "DATABASE_URL is not configured"}
+    with get_database_pool().connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """select sport,market,model_version,side,line,actual_value,
+                hit_probability,hit,inputs->>'entryOdds'
+            from prediction_snapshots
+            where graded_at is not null and actual_value is not null
+            order by graded_at desc limit 50000"""
+        )
+        rows = cursor.fetchall()
+
+    groups: dict[tuple[str, str, str], list[dict[str, float | bool | None]]] = {}
+    for sport, market, version, side, line, actual, probability, hit, odds in rows:
+        if float(actual) == float(line):
+            continue
+        try:
+            american_odds = float(odds) if odds is not None else None
+        except (TypeError, ValueError):
+            american_odds = None
+        key = (str(sport), str(market), str(version))
+        groups.setdefault(key, []).append(
+            {
+                "probability": float(probability),
+                "hit": bool(hit),
+                "odds": american_odds,
+            }
+        )
+
+    output: list[dict[str, object]] = []
+    for (sport, market, version), observations in groups.items():
+        if len(observations) < minimum_sample:
+            continue
+        brier = sum(
+            (float(row["probability"]) - (1.0 if row["hit"] else 0.0)) ** 2
+            for row in observations
+        ) / len(observations)
+        predicted = sum(float(row["probability"]) for row in observations) / len(observations)
+        actual = sum(1 for row in observations if row["hit"]) / len(observations)
+        returns: list[float] = []
+        for row in observations:
+            odds = row["odds"]
+            if odds is None or odds == 0:
+                continue
+            decimal = 1 + (odds / 100 if odds > 0 else 100 / abs(odds))
+            returns.append(decimal - 1 if row["hit"] else -1)
+        output.append(
+            {
+                "sport": sport,
+                "market": market,
+                "modelVersion": version,
+                "sampleSize": len(observations),
+                "predictedHitRate": round(predicted, 4),
+                "actualHitRate": round(actual, 4),
+                "calibrationError": round(abs(predicted - actual), 4),
+                "brierScore": round(brier, 4),
+                "flatStakeRoi": (
+                    round(sum(returns) / len(returns), 4) if returns else None
+                ),
+            }
+        )
+    output.sort(key=lambda group: int(group["sampleSize"]), reverse=True)
+    return {
+        "sampleSize": sum(len(values) for values in groups.values()),
+        "minimumGroupSample": minimum_sample,
+        "groups": output,
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 def _mlb_market_value(cursor, market: str, player_id: str, game_date) -> float | None:

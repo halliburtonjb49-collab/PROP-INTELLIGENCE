@@ -57,7 +57,22 @@ class PropData {
   final double? evPercentage;
   final double? fairProbability;
   final bool isPositiveEv;
+  final double? modelProbability;
+  final double? marketProbability;
+  final double pushProbability;
+  final double? lossProbability;
+  final double? fairDecimalOdds;
+  final String probabilityMethod;
+  final double probabilityMarketWeight;
+  final double? probabilityUncertainty;
+  final double probabilityCalibrationAdjustment;
+  final int probabilityCalibrationSampleSize;
   final double? fatigueMultiplier;
+  final double? restDays;
+  final double? paceMultiplier;
+  final double? opponentDefenseMultiplier;
+  final double? usageMultiplier;
+  final double? homeAwayMultiplier;
   final double? matchupMultiplier;
   final String matchupContext;
   final double? officiatingAdjustment;
@@ -121,7 +136,22 @@ class PropData {
     this.evPercentage,
     this.fairProbability,
     this.isPositiveEv = false,
+    this.modelProbability,
+    this.marketProbability,
+    this.pushProbability = 0,
+    this.lossProbability,
+    this.fairDecimalOdds,
+    this.probabilityMethod = '',
+    this.probabilityMarketWeight = 0,
+    this.probabilityUncertainty,
+    this.probabilityCalibrationAdjustment = 0,
+    this.probabilityCalibrationSampleSize = 0,
     this.fatigueMultiplier,
+    this.restDays,
+    this.paceMultiplier,
+    this.opponentDefenseMultiplier,
+    this.usageMultiplier,
+    this.homeAwayMultiplier,
     this.matchupMultiplier,
     this.matchupContext = '',
     this.officiatingAdjustment,
@@ -373,8 +403,62 @@ class PropData {
       ),
       isPositiveEv:
           json['isPositiveEv'] == true || json['is_positive_ev'] == true,
+      modelProbability: _safeDoubleOrNull(
+        json['modelProbability'] ?? json['model_probability'],
+      ),
+      marketProbability: _safeDoubleOrNull(
+        json['marketProbability'] ?? json['market_probability'],
+      ),
+      pushProbability:
+          _safeDoubleOrNull(
+            json['pushProbability'] ?? json['push_probability'],
+          ) ??
+          0,
+      lossProbability: _safeDoubleOrNull(
+        json['lossProbability'] ?? json['loss_probability'],
+      ),
+      fairDecimalOdds: _safeDoubleOrNull(
+        json['fairDecimalOdds'] ?? json['fair_decimal_odds'],
+      ),
+      probabilityMethod:
+          json['probabilityMethod']?.toString() ??
+          json['probability_method']?.toString() ??
+          '',
+      probabilityMarketWeight:
+          _safeDoubleOrNull(
+            json['probabilityMarketWeight'] ??
+                json['probability_market_weight'],
+          ) ??
+          0,
+      probabilityUncertainty: _safeDoubleOrNull(
+        json['probabilityUncertainty'] ?? json['probability_uncertainty'],
+      ),
+      probabilityCalibrationAdjustment:
+          _safeDoubleOrNull(
+            json['probabilityCalibrationAdjustment'] ??
+                json['probability_calibration_adjustment'],
+          ) ??
+          0,
+      probabilityCalibrationSampleSize:
+          (json['probabilityCalibrationSampleSize'] as num?)?.toInt() ??
+          (json['probability_calibration_sample_size'] as num?)?.toInt() ??
+          0,
       fatigueMultiplier: _safeDoubleOrNull(
         json['fatigueMultiplier'] ?? json['fatigue_multiplier'],
+      ),
+      restDays: _safeDoubleOrNull(json['restDays'] ?? json['rest_days']),
+      paceMultiplier: _safeDoubleOrNull(
+        json['paceMultiplier'] ?? json['pace_multiplier'],
+      ),
+      opponentDefenseMultiplier: _safeDoubleOrNull(
+        json['opponentDefenseMultiplier'] ??
+            json['opponent_defense_multiplier'],
+      ),
+      usageMultiplier: _safeDoubleOrNull(
+        json['usageMultiplier'] ?? json['usage_multiplier'],
+      ),
+      homeAwayMultiplier: _safeDoubleOrNull(
+        json['homeAwayMultiplier'] ?? json['home_away_multiplier'],
       ),
       matchupMultiplier: _safeDoubleOrNull(
         json['matchupMultiplier'] ?? json['matchup_multiplier'],

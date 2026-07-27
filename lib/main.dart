@@ -1343,6 +1343,19 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       'projection_calibrated': prop.projectionCalibrated,
       'historical_hit_rate': prop.historicalHitRate,
       'fair_probability': prop.fairProbability,
+      'model_probability': prop.modelProbability,
+      'market_probability': prop.marketProbability,
+      'push_probability': prop.pushProbability,
+      'loss_probability': prop.lossProbability,
+      'fair_decimal_odds': prop.fairDecimalOdds,
+      'probability_method': prop.probabilityMethod,
+      'probability_market_weight': prop.probabilityMarketWeight,
+      'probability_uncertainty': prop.probabilityUncertainty,
+      'probability_calibration_adjustment':
+          prop.probabilityCalibrationAdjustment,
+      'probability_calibration_sample_size':
+          prop.probabilityCalibrationSampleSize,
+      'ev_percentage': prop.evPercentage,
       'injury_status': prop.injuryStatus,
       'lineup_status': prop.lineupStatus,
       'recommendation_edge': prop.recommendationEdge,
@@ -1352,6 +1365,11 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       'canonical_player_id': prop.canonicalPlayerId,
       'player_identity_confidence': prop.playerIdentityConfidence,
       'fatigue_multiplier': prop.fatigueMultiplier,
+      'rest_days': prop.restDays,
+      'pace_multiplier': prop.paceMultiplier,
+      'opponent_defense_multiplier': prop.opponentDefenseMultiplier,
+      'usage_multiplier': prop.usageMultiplier,
+      'home_away_multiplier': prop.homeAwayMultiplier,
       'matchup_multiplier': prop.matchupMultiplier,
       'matchup_context': prop.matchupContext,
       'officiating_adjustment': prop.officiatingAdjustment,
@@ -1421,6 +1439,22 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         projectionCalibrated: leg['projection_calibrated'] == true,
         historicalHitRate: (leg['historical_hit_rate'] as num?)?.toInt(),
         fairProbability: (leg['fair_probability'] as num?)?.toDouble(),
+        modelProbability: (leg['model_probability'] as num?)?.toDouble(),
+        marketProbability: (leg['market_probability'] as num?)?.toDouble(),
+        pushProbability: (leg['push_probability'] as num?)?.toDouble() ?? 0,
+        lossProbability: (leg['loss_probability'] as num?)?.toDouble(),
+        fairDecimalOdds: (leg['fair_decimal_odds'] as num?)?.toDouble(),
+        probabilityMethod: leg['probability_method']?.toString() ?? '',
+        probabilityMarketWeight:
+            (leg['probability_market_weight'] as num?)?.toDouble() ?? 0,
+        probabilityUncertainty: (leg['probability_uncertainty'] as num?)
+            ?.toDouble(),
+        probabilityCalibrationAdjustment:
+            (leg['probability_calibration_adjustment'] as num?)?.toDouble() ??
+            0,
+        probabilityCalibrationSampleSize:
+            (leg['probability_calibration_sample_size'] as num?)?.toInt() ?? 0,
+        evPercentage: (leg['ev_percentage'] as num?)?.toDouble(),
         injuryStatus: leg['injury_status']?.toString() ?? 'unknown',
         lineupStatus: leg['lineup_status']?.toString() ?? 'unknown',
         openingLine: (leg['opening_line'] as num?)?.toDouble() ?? 0,
@@ -1430,6 +1464,12 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         playerIdentityConfidence:
             (leg['player_identity_confidence'] as num?)?.toDouble() ?? 0,
         fatigueMultiplier: (leg['fatigue_multiplier'] as num?)?.toDouble(),
+        restDays: (leg['rest_days'] as num?)?.toDouble(),
+        paceMultiplier: (leg['pace_multiplier'] as num?)?.toDouble(),
+        opponentDefenseMultiplier: (leg['opponent_defense_multiplier'] as num?)
+            ?.toDouble(),
+        usageMultiplier: (leg['usage_multiplier'] as num?)?.toDouble(),
+        homeAwayMultiplier: (leg['home_away_multiplier'] as num?)?.toDouble(),
         matchupMultiplier: (leg['matchup_multiplier'] as num?)?.toDouble(),
         matchupContext: leg['matchup_context']?.toString() ?? '',
         officiatingAdjustment: (leg['officiating_adjustment'] as num?)
@@ -2466,7 +2506,12 @@ class _MainDashboardState extends State<MainDashboard> {
 
   void _showEvDetails(PropData prop) {
     final probability = prop.fairProbability ?? 0;
-    final fairDecimal = probability > 0 ? 100 / probability : 0;
+    final fairDecimal =
+        prop.fairDecimalOdds ?? (probability > 0 ? 1 / probability : 0);
+    final side = _evSide(prop);
+    final availableOdds = side == PickSide.over
+        ? prop.overOdds
+        : prop.underOdds;
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -2476,11 +2521,19 @@ class _MainDashboardState extends State<MainDashboard> {
           width: 430,
           child: Text(
             'Sportsbook: ${prop.sportsbook}\n'
-            'Recommended side: ${_evSide(prop).name.toUpperCase()} ${prop.line.toStringAsFixed(1)}\n'
-            'Available odds: ${(prop.overOdds ?? -110).round()}\n'
-            'Estimated fair probability: ${probability.toStringAsFixed(1)}%\n'
+            'Recommended side: ${side.name.toUpperCase()} ${prop.line.toStringAsFixed(1)}\n'
+            'Available odds: ${(availableOdds ?? -110).round()}\n'
+            'Model probability: ${((prop.modelProbability ?? probability) * 100).toStringAsFixed(1)}%\n'
+            'Sharp no-vig probability: ${prop.marketProbability == null ? '--' : '${(prop.marketProbability! * 100).toStringAsFixed(1)}%'}\n'
+            'Blended fair probability: ${(probability * 100).toStringAsFixed(1)}%\n'
+            'Push probability: ${(prop.pushProbability * 100).toStringAsFixed(1)}%\n'
             'Estimated fair decimal price: ${fairDecimal == 0 ? '--' : fairDecimal.toStringAsFixed(2)}\n'
-            'Expected value: +${(prop.evPercentage ?? 0).toStringAsFixed(1)}%\n\n'
+            'Expected value: ${(prop.evPercentage ?? 0) >= 0 ? '+' : ''}${(prop.evPercentage ?? 0).toStringAsFixed(1)}%\n'
+            'Method: ${prop.probabilityMethod.isEmpty ? 'calibrated model' : prop.probabilityMethod}\n'
+            'Sample size: ${prop.projectionSampleSize} games\n'
+            'Market blend weight: ${(prop.probabilityMarketWeight * 100).toStringAsFixed(0)}%\n'
+            'Out-of-sample calibration: ${prop.probabilityCalibrationSampleSize == 0 ? 'pending' : '${prop.probabilityCalibrationAdjustment >= 0 ? '+' : ''}${(prop.probabilityCalibrationAdjustment * 100).toStringAsFixed(1)}% from ${prop.probabilityCalibrationSampleSize} graded picks'}\n'
+            'Probability uncertainty: ${prop.probabilityUncertainty == null ? '--' : '±${(prop.probabilityUncertainty! * 100).toStringAsFixed(1)}%'}\n\n'
             'Positive EV is a long-run estimate, not a guarantee. Confirm the current line and price before adding the prop.',
             style: const TextStyle(height: 1.5),
           ),
@@ -2629,9 +2682,14 @@ class _MainDashboardState extends State<MainDashboard> {
                 propType: market.isEmpty ? prop.market : market,
                 lineValue: prop.line,
                 slowBookmaker: prop.sportsbook,
-                slowBookOdds: (prop.overOdds ?? -110).round(),
+                slowBookOdds:
+                    ((_evSide(prop) == PickSide.over
+                                ? prop.overOdds
+                                : prop.underOdds) ??
+                            -110)
+                        .round(),
                 evPercentage: prop.evPercentage ?? 0,
-                fairProbability: prop.fairProbability ?? 0,
+                fairProbability: (prop.fairProbability ?? 0) * 100,
                 onInspect: () => _showEvDetails(prop),
                 onAdd: () => widget.onSelect(prop, _evSide(prop)),
               );
@@ -7393,7 +7451,7 @@ class _PropGridState extends State<PropGrid> {
           const SizedBox(height: 8),
           Text(
             hasModelRecommendation
-                ? prop.projectionModelVersion == 'baseline-v1'
+                ? prop.projectionModelVersion == 'baseline-v2'
                       ? 'Baseline historical model • ${prop.projectionSampleSize} games • ${prop.historicalHitRate ?? '--'}% historical hit rate'
                       : 'Verified provider projection • $confidence% confidence'
                 : hasHistoricalLean
@@ -7413,7 +7471,7 @@ class _PropGridState extends State<PropGrid> {
           ),
           const SizedBox(height: 3),
           Text(
-            prop.projectionModelVersion == 'baseline-v1'
+            prop.projectionModelVersion == 'baseline-v2'
                 ? 'Experimental until 100 pregame predictions are graded'
                 : 'Live market model',
             style: const TextStyle(color: AppColors.muted, fontSize: 7),

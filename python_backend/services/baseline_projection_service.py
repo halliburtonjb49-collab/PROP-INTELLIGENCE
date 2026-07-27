@@ -17,10 +17,10 @@ import re
 
 from database.postgres import database_is_configured, get_database_pool
 from services.projection_calibration_service import (
-    calibrated_hit_probability,
     confidence_from_probability,
     exponentially_weighted_mean,
 )
+from services.prop_probability_service import evaluate_market
 
 MODEL_VERSION = "baseline-v2"
 MINIMUM_SAMPLE_SIZE = 8
@@ -83,6 +83,8 @@ def compute_baseline_projection(
     values: Iterable[float],
     *,
     line: float,
+    sport: str = "",
+    market: str = "",
     minimum_sample_size: int = MINIMUM_SAMPLE_SIZE,
 ) -> BaselineProjection | None:
     ordered = [float(value) for value in values][-MAXIMUM_SAMPLE_SIZE:]
@@ -112,14 +114,20 @@ def compute_baseline_projection(
         if (value > float(line) if side_is_over else value < float(line))
     )
     historical_hit_rate = round(hits / len(ordered) * 100)
-    hit_probability = calibrated_hit_probability(
+    evaluation = evaluate_market(
         projection=projection,
         line=line,
         volatility=volatility,
         side="OVER" if side_is_over else "UNDER",
         sample_size=len(ordered),
+        sport=sport,
+        market=market,
+        model_calibrated=False,
         empirical_hit_rate=historical_hit_rate / 100,
+        sharp_probability=None,
+        decimal_odds=None,
     )
+    hit_probability = evaluation.model_probability
     return BaselineProjection(
         projection=round(projection, 3),
         confidence=confidence_from_probability(hit_probability),
@@ -272,7 +280,9 @@ class _HistoricalProjectionIndex:
                 for row in rows
                 if (value := basketball_market_value(market, row)) is not None
             ]
-            return compute_baseline_projection(values, line=line)
+            return compute_baseline_projection(
+                values, line=line, sport=normalized_sport, market=market
+            )
 
         if normalized_sport == "SOCCER":
             text = _market_text(market)
@@ -297,7 +307,9 @@ class _HistoricalProjectionIndex:
                 ("SOCCER", _normalized(player), stat),
                 [],
             )
-            return compute_baseline_projection(values, line=line)
+            return compute_baseline_projection(
+                values, line=line, sport=normalized_sport, market=market
+            )
 
         if normalized_sport != "MLB" or not player_id:
             return None
@@ -313,7 +325,9 @@ class _HistoricalProjectionIndex:
         else:
             return None
         values = self.mlb.get((f"{role}:{player_id}", stat), [])
-        return compute_baseline_projection(values, line=line)
+        return compute_baseline_projection(
+            values, line=line, sport=normalized_sport, market=market
+        )
 
 
 _INDEX = _HistoricalProjectionIndex()
