@@ -13,11 +13,10 @@ window.PropIntelligenceOneSignal = (() => {
 
     const modal = document.getElementById("onesignal-verification");
     const button = document.getElementById("onesignal-verification-button");
-    if (!modal || !button || localStorage.getItem("onesignalVerified")) return;
+    if (!modal || !button || Notification.permission !== "default") return;
     modal.hidden = false;
     button.addEventListener("click", async () => {
       modal.hidden = true;
-      localStorage.setItem("onesignalVerified", "true");
       await OneSignal.Notifications.requestPermission();
     }, { once: true });
   }

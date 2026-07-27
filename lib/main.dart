@@ -426,8 +426,8 @@ class _PropIntelligenceAppState extends State<PropIntelligenceApp> {
     super.initState();
     AuthManager.instance.sessionState.addListener(_syncOneSignalIdentity);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      OneSignalService.instance.observeRegistration(_showVerificationDialog);
       _syncOneSignalIdentity();
+      unawaited(OneSignalService.instance.requestPermission());
     });
   }
 
@@ -449,31 +449,6 @@ class _PropIntelligenceAppState extends State<PropIntelligenceApp> {
         session.subscriptionTier.name,
       );
     }
-  }
-
-  Future<void> _showVerificationDialog() async {
-    final context = _oneSignalNavigatorKey.currentContext;
-    if (context == null || !mounted) return;
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Your OneSignal SDK integration is complete!'),
-        content: const Text(
-          'You can now send Push Notifications & In-App Messages through '
-          'OneSignal. Tap below to enable push notifications.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(dialogContext);
-              unawaited(OneSignalService.instance.requestPermission());
-            },
-            child: const Text('Got it'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
