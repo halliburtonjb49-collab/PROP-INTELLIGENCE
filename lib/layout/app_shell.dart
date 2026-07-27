@@ -14,6 +14,7 @@ class AppShell extends StatelessWidget {
     this.mobileSelectedIndex = 0,
     this.onMobileWatchSlip,
     this.onMobileChat,
+    this.onMobileDismissOverlay,
     this.accentColor = AppColors.gold,
   });
 
@@ -26,6 +27,7 @@ class AppShell extends StatelessWidget {
   final int mobileSelectedIndex;
   final VoidCallback? onMobileWatchSlip;
   final VoidCallback? onMobileChat;
+  final VoidCallback? onMobileDismissOverlay;
   final Color accentColor;
 
   static const double leftWidth = 244;
@@ -77,6 +79,7 @@ class AppShell extends StatelessWidget {
             selectedIndex: mobileSelectedIndex,
             onWatchSlip: onMobileWatchSlip,
             onChat: onMobileChat,
+            onDismissOverlay: onMobileDismissOverlay,
             accentColor: accentColor,
           );
         }
@@ -153,6 +156,7 @@ class _MobileAppShell extends StatefulWidget {
     required this.selectedIndex,
     required this.onWatchSlip,
     required this.onChat,
+    required this.onDismissOverlay,
     required this.accentColor,
   });
 
@@ -165,6 +169,7 @@ class _MobileAppShell extends StatefulWidget {
   final int selectedIndex;
   final VoidCallback? onWatchSlip;
   final VoidCallback? onChat;
+  final VoidCallback? onDismissOverlay;
   final Color accentColor;
 
   @override
@@ -253,10 +258,19 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                     selectedIndex: widget.selectedIndex,
                     activeSlipCount: widget.activeSlipCount,
                     watchedSlipCount: widget.watchedSlipCount,
-                    onWatchSlip: widget.onWatchSlip,
+                    onWatchSlip: () {
+                      widget.onDismissOverlay?.call();
+                      widget.onWatchSlip?.call();
+                    },
                     onChat: widget.onChat,
-                    onTicket: () => _scaffoldKey.currentState?.openEndDrawer(),
-                    onMenu: () => _scaffoldKey.currentState?.openDrawer(),
+                    onTicket: () {
+                      widget.onDismissOverlay?.call();
+                      _scaffoldKey.currentState?.openEndDrawer();
+                    },
+                    onMenu: () {
+                      widget.onDismissOverlay?.call();
+                      _scaffoldKey.currentState?.openDrawer();
+                    },
                     accentColor: widget.accentColor,
                   ),
                 ],

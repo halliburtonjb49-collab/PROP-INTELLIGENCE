@@ -125,6 +125,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byKey(const ValueKey('floating-prop-chat')), findsOneWidget);
     expect(find.text('BOARD'), findsWidgets);
+    final floatingChatSize = tester.getSize(
+      find.byKey(const ValueKey('floating-prop-chat')),
+    );
+    expect(floatingChatSize.height, lessThan(844 * .75));
     final beforeDrag = tester.getTopLeft(
       find.byKey(const ValueKey('floating-prop-chat')),
     );
@@ -183,11 +187,9 @@ void main() {
       find.byKey(const ValueKey('prop-chat-message-field')),
       findsOneWidget,
     );
-    await tester.tap(find.byKey(const ValueKey('close-floating-prop-chat')));
-    await tester.pump(const Duration(milliseconds: 300));
-
     await tester.tap(find.byKey(const ValueKey('mobile-nav-menu')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('floating-prop-chat')), findsNothing);
     expect(tester.takeException(), isNull, reason: 'mobile drawer must fit');
     expect(
       find.byKey(const ValueKey('mobile-sidebar-prop-chat')),

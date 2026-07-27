@@ -646,6 +646,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   }
 
   void _switchToPage(AppPage page, {String source = 'ui'}) {
+    final dismissMobileChat =
+        MediaQuery.sizeOf(context).width < 1000 && _chatFloating;
     final requiredTier = _requiredTier(page);
     final session = AuthManager.instance.sessionState.value;
     final allowed =
@@ -662,12 +664,16 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       );
       return;
     }
-    if (_selectedPage == page) {
+    if (_selectedPage == page && !dismissMobileChat) {
       return;
     }
     unawaited(AppSoundService.instance.play(AppSoundEvent.navigation));
     final timer = Stopwatch()..start();
     setState(() {
+      if (dismissMobileChat) {
+        _chatFloating = false;
+        _chatMinimized = false;
+      }
       _selectedPage = page;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -781,9 +787,23 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     });
   }
 
+  void _closeFloatingChat() {
+    if (!_chatFloating && !_chatMinimized) return;
+    setState(() {
+      _chatFloating = false;
+      _chatMinimized = false;
+    });
+  }
+
   Widget _buildFloatingChat(BoxConstraints constraints) {
-    final availableWidth = (constraints.maxWidth - 24).clamp(1.0, 760.0);
-    final availableHeight = (constraints.maxHeight - 24).clamp(1.0, 820.0);
+    final isMobile = constraints.maxWidth < 1000;
+    final availableWidth = (constraints.maxWidth - (isMobile ? 32 : 24)).clamp(
+      1.0,
+      isMobile ? 520.0 : 760.0,
+    );
+    final availableHeight = isMobile
+        ? (constraints.maxHeight * .68).clamp(320.0, 620.0)
+        : (constraints.maxHeight - 24).clamp(1.0, 820.0);
     final minimumWidth = availableWidth.clamp(1.0, 360.0);
     final minimumHeight = availableHeight.clamp(1.0, 320.0);
     final maximumWidth = availableWidth;
@@ -837,10 +857,11 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           final width = panelSize.width.clamp(minimumWidth, maximumWidth);
           final height = panelSize.height.clamp(minimumHeight, maximumHeight);
           final left = offset.dx.clamp(12.0, constraints.maxWidth - width - 12);
-          final top = offset.dy.clamp(
-            12.0,
-            constraints.maxHeight - height - 12,
-          );
+          final minimumTop = isMobile ? 76.0 : 12.0;
+          final bottomClearance = isMobile ? 86.0 : 12.0;
+          final maximumTop = (constraints.maxHeight - height - bottomClearance)
+              .clamp(minimumTop, double.infinity);
+          final top = offset.dy.clamp(minimumTop, maximumTop);
           return Positioned(
             left: left,
             top: top,
@@ -1549,6 +1570,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
               onMobileWatchSlip: () =>
                   _switchToPage(AppPage.watchlist, source: 'mobile-bottom-nav'),
               onMobileChat: _floatChat,
+              onMobileDismissOverlay: _closeFloatingChat,
               accentColor: membershipAccent,
             ),
           ),
