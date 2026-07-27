@@ -78,7 +78,14 @@ class _CentralPropsDisplayGridCanvasState
     _primeFavoritePlayerNames();
     _channelStream = _liveUpdates.stream;
     _liveUpdates.connect();
-    _startFallbackPolling();
+    // Give the realtime connection a chance to deliver before polling. This
+    // avoids duplicate network requests during normal WebSocket operation.
+    _fallbackPollTimer = Timer(const Duration(seconds: 12), () {
+      _fallbackPollTimer = null;
+      if (mounted && _fetchedProps.isEmpty) {
+        _startFallbackPolling();
+      }
+    });
   }
 
   Future<void> _fetchFallbackProps() async {

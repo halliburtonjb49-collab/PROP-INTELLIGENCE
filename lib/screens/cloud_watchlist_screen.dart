@@ -29,7 +29,13 @@ class _CloudWatchlistScreenState extends State<CloudWatchlistScreen> {
     super.initState();
     _channelStream = _liveUpdates.stream;
     _liveUpdates.connect();
-    _startFallbackPolling();
+    // Avoid an immediate duplicate API request while the WebSocket connects.
+    _fallbackPollTimer = Timer(const Duration(seconds: 12), () {
+      _fallbackPollTimer = null;
+      if (mounted && _fetchedProps.isEmpty) {
+        _startFallbackPolling();
+      }
+    });
   }
 
   Future<void> _fetchFallbackProps() async {

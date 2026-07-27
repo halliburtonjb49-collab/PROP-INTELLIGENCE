@@ -10,6 +10,63 @@ import '../models/saved_slip.dart';
 import '../models/slip_selection.dart';
 import 'supabase_service.dart';
 
+class _ParsedPropsPayload {
+  const _ParsedPropsPayload({
+    required this.props,
+    required this.count,
+    required this.facetCount,
+    required this.categoryCounts,
+    required this.rawMaps,
+  });
+
+  final List<PropData> props;
+  final int count;
+  final int facetCount;
+  final Map<String, int> categoryCounts;
+  final List<Map<String, dynamic>> rawMaps;
+}
+
+_ParsedPropsPayload _parsePropsPayload(String body) {
+  final decoded = jsonDecode(body);
+  if (decoded is! Map<String, dynamic>) {
+    throw const FormatException('The backend returned invalid data.');
+  }
+  final rawProps = decoded['props'];
+  if (rawProps is! List) {
+    throw const FormatException('The backend did not return a props list.');
+  }
+
+  final rawMaps = rawProps
+      .whereType<Map>()
+      .map((raw) => Map<String, dynamic>.from(raw))
+      .toList(growable: false);
+  final propsById = <String, PropData>{};
+  for (final raw in rawMaps) {
+    final prop = PropData.fromJson(raw);
+    propsById.putIfAbsent(prop.id, () => prop);
+  }
+  final totalCount = decoded['count'] is num
+      ? (decoded['count'] as num).toInt()
+      : rawMaps.length;
+  final facetCount = (decoded['facetCount'] as num?)?.toInt() ?? totalCount;
+  final rawCategoryCounts = decoded['categoryCounts'];
+  final categoryCounts = rawCategoryCounts is Map
+      ? {
+          for (final entry in rawCategoryCounts.entries)
+            entry.key.toString().trim().toUpperCase():
+                (entry.value as num?)?.toInt() ?? 0,
+        }
+      : const <String, int>{};
+
+  return _ParsedPropsPayload(
+    props: propsById.values.toList(growable: false),
+    count: totalCount,
+    facetCount: facetCount,
+    categoryCounts: categoryCounts,
+    rawMaps: rawMaps,
+  );
+}
+
 class _IntelligenceRequestException implements Exception {
   const _IntelligenceRequestException(this.message);
   final String message;
@@ -608,34 +665,13 @@ class ApiService {
           },
         );
         final response = await _getPropsPage(uri);
-        final decoded = jsonDecode(response.body);
-        if (decoded is! Map<String, dynamic>) {
-          throw const FormatException('The backend returned invalid data.');
-        }
-        final rawProps = decoded['props'];
-        if (rawProps is! List) {
-          throw const FormatException(
-            'The backend did not return a props list.',
-          );
-        }
-        final totalCount = decoded['count'] is num
-            ? (decoded['count'] as num).toInt()
-            : rawProps.length;
-        _lastFacetCount =
-            (decoded['facetCount'] as num?)?.toInt() ?? totalCount;
-        final rawCategoryCounts = decoded['categoryCounts'];
-        _lastCategoryCounts = rawCategoryCounts is Map
-            ? {
-                for (final entry in rawCategoryCounts.entries)
-                  entry.key.toString().trim().toUpperCase():
-                      (entry.value as num?)?.toInt() ?? 0,
-              }
-            : const {};
-        final rawMaps = rawProps
-            .whereType<Map>()
-            .map((raw) => Map<String, dynamic>.from(raw))
-            .toList(growable: false);
-        final props = _dedupePropsById(rawMaps.map(PropData.fromJson).toList());
+        // Parsing and model construction can be expensive on large feeds. Keep
+        // it off the UI isolate so scrolling and animations remain responsive.
+        final parsed = await compute(_parsePropsPayload, response.body);
+        final props = parsed.props;
+        final totalCount = parsed.count;
+        _lastFacetCount = parsed.facetCount;
+        _lastCategoryCounts = parsed.categoryCounts;
         _resolvedBaseUrl = candidate;
         _lastPropsCount = totalCount > 0 ? totalCount : props.length;
         _lastSuccessfulProps = props;
@@ -651,7 +687,7 @@ class ApiService {
               minConfidence,
               sortBy,
             ),
-            rawMaps,
+            parsed.rawMaps,
             _lastPropsCount,
             _lastFacetCount,
             _lastCategoryCounts,
