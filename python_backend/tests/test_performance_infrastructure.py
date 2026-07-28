@@ -29,6 +29,40 @@ def test_health_exposes_cache_queue_and_query_performance() -> None:
     assert "recentSlowQueries" in database_performance_snapshot()
 
 
+def test_queue_uses_explicit_rq_call_arguments(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeJob:
+        id = "job-1"
+
+        @staticmethod
+        def get_status() -> str:
+            return "queued"
+
+    class FakeQueue:
+        def enqueue_call(self, **kwargs):
+            captured.update(kwargs)
+            return FakeJob()
+
+    monkeypatch.setattr(job_queue_service, "_queue", lambda: FakeQueue())
+
+    result = job_queue_service.enqueue(
+        "jobs.fetch_sport_raw",
+        args=("baseball_mlb",),
+        kwargs={"force": True},
+        job_id="fetch-1",
+    )
+
+    assert result == {
+        "id": "job-1",
+        "status": "queued",
+        "queue": job_queue_service.QUEUE_NAME,
+    }
+    assert captured["func"] == "jobs.fetch_sport_raw"
+    assert captured["args"] == ("baseball_mlb",)
+    assert captured["kwargs"] == {"force": True}
+
+
 def test_large_responses_support_brotli() -> None:
     response = TestClient(main.app).get(
         "/openapi.json",
