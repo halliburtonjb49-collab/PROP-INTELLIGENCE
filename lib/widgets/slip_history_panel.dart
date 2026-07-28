@@ -8,6 +8,7 @@ import '../models/saved_slip.dart';
 import '../services/api_service.dart';
 import '../services/live_update_service.dart';
 import '../services/player_image_resolver.dart';
+import '../services/slip_manager.dart';
 import 'context_help.dart';
 
 class _LegPhoto extends StatelessWidget {
@@ -122,6 +123,8 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   String? _refreshError;
   DateTime? _lastUpdated;
   Map<String, Map<String, dynamic>> _liveStats = const {};
+  List<SavedSlip> _lastGoodSlips = const [];
+  final Set<String> _earlyWinNotified = <String>{};
 
   bool get _isHistory => widget.mode == SlipHistoryMode.history;
   bool get _hasEnhancedLiveTracking => supportsEnhancedSlipWatcher(
@@ -134,19 +137,22 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   /// mode's "ALL" tab (all resolved slips) is built by fetching everything
   /// and dropping active ones client-side.
   Future<List<SavedSlip>> _fetchForTab(String tab) async {
+    late final List<SavedSlip> result;
     if (!_isHistory) {
       final slips = await _apiService.fetchSlips(status: 'active');
-      return widget.activeSlipController.mergeWithRecentLockedSlips(slips);
-    }
-    if (tab == 'all') {
+      result = widget.activeSlipController.mergeWithRecentLockedSlips(slips);
+    } else if (tab == 'all') {
       final all = await _apiService.fetchSlips();
       final resolved = all
           .where((slip) => slip.status.toLowerCase() != 'active')
           .toList();
-      return limitHistoryForCore(resolved, hasProAccess: widget.hasProAccess);
+      result = limitHistoryForCore(resolved, hasProAccess: widget.hasProAccess);
+    } else {
+      final slips = await _apiService.fetchSlips(status: tab);
+      result = limitHistoryForCore(slips, hasProAccess: widget.hasProAccess);
     }
-    final slips = await _apiService.fetchSlips(status: tab);
-    return limitHistoryForCore(slips, hasProAccess: widget.hasProAccess);
+    _rememberSlips(result);
+    return result;
   }
 
   @override
@@ -172,7 +178,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       }
     });
     _refreshTimer = Timer.periodic(
-      const Duration(minutes: 2),
+      const Duration(seconds: 30),
       (_) => _refreshGameStatuses(),
     );
     if (_hasEnhancedLiveTracking) _startLiveStatsTracking();
@@ -182,7 +188,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     unawaited(_refreshLiveStats());
     _liveStatsTimer?.cancel();
     _liveStatsTimer = Timer.periodic(
-      const Duration(seconds: 20),
+      const Duration(seconds: 15),
       (_) => _refreshLiveStats(),
     );
   }
@@ -218,8 +224,39 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       setState(() {
         _liveStats = stats;
       });
+      _notifyEarlyWinners(stats);
     } catch (_) {
       // Keep the last known live stats on a transient failure.
+    }
+  }
+
+  void _notifyEarlyWinners(Map<String, Map<String, dynamic>> stats) {
+    for (final slip in _lastGoodSlips) {
+      if (_earlyWinNotified.contains(slip.id)) continue;
+      final projection = _slipLiveProjection(slip, stats[slip.id] ?? const {});
+      if (projection != _SlipLiveProjection.winning) continue;
+      _earlyWinNotified.add(slip.id);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xFF8CFFB2),
+          content: Text(
+            'WINNING TICKET — every pick has already cleared its line.',
+            style: TextStyle(
+              color: Color(0xFF050A0F),
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  void _rememberSlips(List<SavedSlip> slips) {
+    _lastGoodSlips = slips;
+    if (!_isHistory) {
+      widget.activeSlipController.reconcileActiveLockedSlips(slips);
+      SlipManager.reserveActiveSlips(slips);
     }
   }
 
@@ -265,6 +302,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
         _lastUpdated = DateTime.now();
         _slipsFuture = Future.value(slips);
       });
+      _rememberSlips(slips);
       widget.activeSlipController.setLockedSlipCount(slips.length);
     } catch (_) {
       // Keep the optimistic/local ticket visible during a transient failure.
@@ -300,14 +338,29 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   }
 
   Future<void> _changeStatus(SavedSlip slip, String status) async {
-    await _apiService.updateSlipStatus(slipId: slip.id, status: status);
-    if (!mounted) {
-      return;
-    }
+    final previous = _lastGoodSlips;
+    final remaining = previous.where((item) => item.id != slip.id).toList();
+    widget.activeSlipController.removeLockedSlip(slip.id);
+    SlipManager.reserveActiveSlips(remaining);
     setState(() {
-      _slipsFuture = _fetchForTab(_selectedTab);
+      _lastGoodSlips = remaining;
+      _slipsFuture = Future.value(remaining);
     });
-    unawaited(_refreshLockedSlipCount());
+    try {
+      await _apiService.updateSlipStatus(slipId: slip.id, status: status);
+      if (!mounted) return;
+      unawaited(_reloadSlipsOnly());
+      unawaited(_refreshLockedSlipCount());
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _lastGoodSlips = previous;
+        _slipsFuture = Future.value(previous);
+        _refreshError =
+            'That result could not be saved. The ticket was restored; tap refresh to retry.';
+      });
+      SlipManager.reserveActiveSlips(previous);
+    }
   }
 
   Future<void> _unlockSlip(SavedSlip slip) async {
@@ -355,9 +408,16 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     if (!mounted) {
       return;
     }
+    widget.activeSlipController.removeLockedSlip(slip.id);
+    final remaining = _lastGoodSlips
+        .where((item) => item.id != slip.id)
+        .toList();
+    _lastGoodSlips = remaining;
+    SlipManager.reserveActiveSlips(remaining);
     setState(() {
-      _slipsFuture = _fetchForTab(_selectedTab);
+      _slipsFuture = Future.value(remaining);
     });
+    unawaited(_reloadSlipsOnly());
     unawaited(_refreshLockedSlipCount());
   }
 
@@ -380,10 +440,11 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
         });
         return;
       }
-      await _apiService.refreshAllSlipGames();
+      await _apiService.refreshSavedSlipGameStatuses();
       // Grade every completed leg covered by an authoritative stat provider.
       await _apiService.gradePendingSlips();
       final refreshedSlips = await _fetchForTab(_selectedTab);
+      _rememberSlips(refreshedSlips);
       await _syncActiveSlipFromSavedSlips(refreshedSlips);
       if (!mounted) {
         return;
@@ -398,7 +459,8 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
         return;
       }
       setState(() {
-        _refreshError = error.toString();
+        _refreshError =
+            'Live updates paused briefly. Your last ticket view is still safe; tap refresh to retry.';
       });
     } finally {
       if (mounted) {
@@ -621,12 +683,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
-                return Center(
-                  child: Text(
-                    snapshot.error.toString(),
-                    textAlign: TextAlign.center,
-                  ),
-                );
+                return _SlipLoadError(onRetry: _refreshGameStatuses);
               }
               final slips = snapshot.data ?? [];
               final totals = _buildTotals(slips);
@@ -1077,6 +1134,49 @@ class _ProfitKeeper extends StatelessWidget {
   }
 }
 
+class _SlipLoadError extends StatelessWidget {
+  const _SlipLoadError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.cloud_off_rounded,
+              color: Color(0xFFF2BC35),
+              size: 34,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'SLIP WATCHER IS RECONNECTING',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Your tickets remain saved. Check your connection and try again.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF8B98A8)),
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('TRY AGAIN'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 typedef _LiveLegState = ({
   double? current,
   String resultStatus,
@@ -1159,6 +1259,13 @@ class _CompactSlipLegRow extends StatelessWidget {
   final Color statusColor;
   final String statusLabel;
 
+  String _eventTime(BuildContext context) {
+    final parsed = DateTime.tryParse(leg.gameStartTime);
+    if (parsed == null) return '';
+    final local = parsed.toLocal();
+    return TimeOfDay.fromDateTime(local).format(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isOver = leg.side.toUpperCase() == 'OVER';
@@ -1221,7 +1328,10 @@ class _CompactSlipLegRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  leg.matchup,
+                  [
+                    leg.matchup,
+                    if (_eventTime(context).isNotEmpty) _eventTime(context),
+                  ].join('  •  '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: Color(0xFF8996A6), fontSize: 8),

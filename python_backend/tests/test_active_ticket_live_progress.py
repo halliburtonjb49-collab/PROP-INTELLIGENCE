@@ -66,3 +66,18 @@ def test_active_ticket_final_snapshot_grades_the_leg(monkeypatch) -> None:
 
     assert rows[0]["game_status"] == "Final"
     assert rows[0]["result_status"] == "win"
+
+
+def test_active_ticket_reports_irreversible_over_win_before_final() -> None:
+    assert main._grade_active_ticket_leg(
+        side="over",
+        current=6.0,
+        line=5.5,
+        game_status="Live",
+    ) == "win"
+    assert main._grade_active_ticket_leg(
+        side="under",
+        current=6.0,
+        line=5.5,
+        game_status="Live",
+    ) == "loss"

@@ -3,6 +3,8 @@ from services import slip_service
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
+import pytest
+
 
 def _request(player: str) -> SlipCreate:
     return SlipCreate(legs=[SlipLeg(prop_id=player, player=player, sport="NBA", matchup="A @ B",
@@ -17,6 +19,18 @@ def test_saved_slips_are_isolated_by_user(tmp_path, monkeypatch) -> None:
     assert [slip.id for slip in slip_service.get_slips(user_id="user-2")] == [second.id]
     assert slip_service.update_slip_status(first.id, "won", user_id="user-2") is False
     assert slip_service.update_slip_status(first.id, "won", user_id="user-1") is True
+
+
+def test_prop_cannot_be_reused_until_active_slip_is_resolved(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(slip_service, "DATABASE_PATH", tmp_path / "slips.db")
+    first = slip_service.create_slip(_request("reserved-prop"), user_id="user-1")
+    with pytest.raises(ValueError, match="already locked"):
+        slip_service.create_slip(_request("reserved-prop"), user_id="user-1")
+
+    assert slip_service.update_slip_status(first.id, "won", user_id="user-1")
+    slip_service.create_slip(_request("reserved-prop"), user_id="user-1")
 
 
 def test_delete_slip_is_scoped_to_owner(tmp_path, monkeypatch) -> None:

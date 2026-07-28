@@ -1209,11 +1209,19 @@ def _grade_active_ticket_leg(
 ) -> str:
 	if current is None:
 		return "live"
-	if str(game_status).strip().lower() != "final":
+	normalized_side = str(side).strip().lower()
+	is_final = str(game_status).strip().lower() == "final"
+	# Overs that have cleared their line and unders that have exceeded it
+	# are irreversible, so surface the outcome immediately. Other outcomes
+	# remain live until the authoritative final snapshot arrives.
+	if not is_final:
+		if normalized_side == "over" and current > line:
+			return "win"
+		if normalized_side == "under" and current > line:
+			return "loss"
 		return "live"
 	if current == line:
 		return "push"
-	normalized_side = str(side).strip().lower()
 	if normalized_side == "over":
 		return "win" if current > line else "loss"
 	if normalized_side == "under":
@@ -2719,7 +2727,10 @@ def preview_slip(
 
 @app.post("/api/slips")
 def save_slip(request: SlipCreate, user_id: str = Depends(require_user_id)) -> dict[str, object]:
-	slip = create_slip(request, user_id=user_id)
+	try:
+		slip = create_slip(request, user_id=user_id)
+	except ValueError as exc:
+		raise HTTPException(status_code=409, detail=str(exc)) from exc
 	realtime_hub.broadcast_user_from_thread(
 		{"type": "ticket.updated", "version": 1, "eventId": f"ticket-{slip.id}",
 		 "occurredAt": datetime.now(timezone.utc).isoformat(), "data": slip.model_dump(mode="json")},

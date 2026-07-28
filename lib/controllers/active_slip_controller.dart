@@ -67,6 +67,23 @@ class ActiveSlipController extends ChangeNotifier {
     }
   }
 
+  void removeLockedSlip(String slipId) {
+    final before = _recentLockedSlips.length;
+    _recentLockedSlips.removeWhere((slip) => slip.id == slipId);
+    if (_recentLockedSlips.length == before) return;
+    _lockedSlipCount = _lockedSlipCount > 0 ? _lockedSlipCount - 1 : 0;
+    notifyListeners();
+  }
+
+  void reconcileActiveLockedSlips(Iterable<SavedSlip> activeSlips) {
+    final activeIds = activeSlips.map((slip) => slip.id).toSet();
+    final before = _recentLockedSlips.length;
+    _recentLockedSlips.removeWhere(
+      (slip) => !slip.id.startsWith('pending-') && !activeIds.contains(slip.id),
+    );
+    if (_recentLockedSlips.length != before) notifyListeners();
+  }
+
   List<SavedSlip> mergeWithRecentLockedSlips(List<SavedSlip> serverSlips) {
     final serverIds = serverSlips.map((slip) => slip.id).toSet();
     return [

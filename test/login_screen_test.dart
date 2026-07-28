@@ -88,10 +88,9 @@ void main() {
     expect(find.text('EXPLORE'), findsNothing);
     expect(find.text('FREE'), findsNothing);
     expect(find.text('CORE'), findsOneWidget);
-    expect(find.text('PRO / EDGE'), findsOneWidget);
+    expect(find.text('PRO'), findsOneWidget);
     expect(find.text(r'$29.99 / MONTH'), findsOneWidget);
     expect(find.text(r'$89.99 / MONTH'), findsOneWidget);
-    expect(find.text('BEST VALUE'), findsOneWidget);
     expect(find.text('CHOOSE CORE'), findsOneWidget);
     expect(find.text('CHOOSE PRO / EDGE'), findsOneWidget);
     expect(

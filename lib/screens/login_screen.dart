@@ -488,7 +488,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
           ),
           const SizedBox(height: 12),
           _PricingTierCard(
-            name: 'PRO / EDGE',
+            name: 'PRO',
             price: '\$89.99 / MONTH',
             description:
                 'Gold access to the complete model and automation suite.',
@@ -1823,82 +1823,42 @@ class _PricingTierCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            name,
-                            style: const TextStyle(
-                              color: _silver,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: featured ? _gold : _silver,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            featured ? 'GOLD ACCESS' : 'SILVER ACCESS',
-                            style: const TextStyle(
-                              color: Colors.black,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.7,
-                            ),
-                          ),
-                        ),
-                        if (featured) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _gold,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Text(
-                              'BEST VALUE',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 8,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.7,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      description,
-                      style: const TextStyle(
-                        color: _silver70,
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
+              Text(
+                name,
+                maxLines: 1,
+                softWrap: false,
+                style: const TextStyle(
+                  color: _silver,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: featured ? _gold : _silver,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  featured ? 'GOLD ACCESS' : 'SILVER ACCESS',
+                  maxLines: 1,
+                  softWrap: false,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              const SizedBox(width: 8),
               Text(
                 price,
+                maxLines: 1,
+                softWrap: false,
                 textAlign: TextAlign.right,
                 style: TextStyle(
                   color: featured ? _gold : _silver,
@@ -1907,6 +1867,11 @@ class _PricingTierCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            description,
+            style: const TextStyle(color: _silver70, fontSize: 12, height: 1.4),
           ),
           const SizedBox(height: 14),
           for (final feature in features)
