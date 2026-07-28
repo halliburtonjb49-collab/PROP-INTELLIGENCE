@@ -1,8 +1,16 @@
 from dataclasses import dataclass
 
 from fastapi.testclient import TestClient
+import pytest
 
 import main
+
+
+@pytest.fixture(autouse=True)
+def authenticated_prop_feed():
+    main.app.dependency_overrides[main.require_user_id] = lambda: "test-user"
+    yield
+    main.app.dependency_overrides.pop(main.require_user_id, None)
 
 
 @dataclass
@@ -77,7 +85,17 @@ def test_prop_page_filters_server_side_and_exposes_version(monkeypatch) -> None:
     assert [row["id"] for row in payload["props"]] == ["pp-mlb"]
     assert payload["version"] == main.APP_VERSION
     assert response.headers["etag"]
-    assert "stale-while-revalidate" in response.headers["cache-control"]
+    assert response.headers["cache-control"] == "private, no-store, max-age=0"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert int(response.headers["x-ratelimit-limit"]) > 0
+
+
+def test_prop_feed_requires_a_valid_user_session() -> None:
+    main.app.dependency_overrides.pop(main.require_user_id, None)
+    response = TestClient(main.app).get("/api/props")
+    assert response.status_code == 401
+    assert "no-store" in response.headers["cache-control"]
 
 
 def test_category_facets_are_not_reduced_by_selected_category(monkeypatch) -> None:

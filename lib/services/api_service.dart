@@ -488,7 +488,7 @@ class ApiService {
     for (var attempt = 1; attempt <= 3; attempt++) {
       try {
         final response = await http
-            .get(uri)
+            .get(uri, headers: await _authenticatedHeaders())
             .timeout(const Duration(seconds: 35));
         if (response.statusCode == 200) return response;
         lastError = Exception('Unable to load props: ${response.statusCode}');
@@ -514,7 +514,7 @@ class ApiService {
       for (final uri in uris) {
         try {
           final response = await http
-              .get(uri)
+              .get(uri, headers: await _authenticatedHeaders())
               .timeout(const Duration(seconds: 4));
           if (response.statusCode == 200) {
             _resolvedBaseUrl = candidate;
@@ -547,7 +547,7 @@ class ApiService {
       for (final uri in uris) {
         try {
           final response = await http
-              .get(uri)
+              .get(uri, headers: await _authenticatedHeaders())
               .timeout(const Duration(seconds: 8));
           if (response.statusCode != 200) {
             lastError = Exception(
@@ -841,7 +841,7 @@ class ApiService {
 
       try {
         final response = await http
-            .get(uri)
+            .get(uri, headers: await _authenticatedHeaders())
             .timeout(const Duration(seconds: 15));
 
         if (response.statusCode != 200) {
@@ -895,7 +895,7 @@ class ApiService {
       final uri = Uri.parse('$candidate/api/prop-alerts');
       try {
         final response = await http
-            .get(uri)
+            .get(uri, headers: await _authenticatedHeaders())
             .timeout(const Duration(seconds: 12));
 
         if (response.statusCode != 200) {

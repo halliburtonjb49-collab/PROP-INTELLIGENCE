@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta, timezone, tzinfo
 from collections import Counter, defaultdict
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import BackgroundTasks, Body, Depends, FastAPI, Header, HTTPException, Query, Response
+from fastapi import BackgroundTasks, Body, Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
@@ -84,6 +84,7 @@ from services.job_queue_service import (
 	health as job_queue_health,
 )
 from services.raw_ingestion_service import health as ingestion_pipeline_health
+from services.rate_limit_service import allow_request
 from services.market_intelligence_service import latest_market_intelligence
 from services.mlb_headshot_service import refresh_mlb_headshot_map
 from services.espn_headshot_service import (
@@ -257,6 +258,58 @@ app.add_middleware(
 )
 app.add_middleware(BrotliMiddleware, minimum_size=1000, quality=4)
 app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
+
+_PROTECTED_DATA_PATHS = (
+	"/api/props",
+	"/api/intelligence",
+	"/api/prop-alerts",
+)
+
+
+@app.middleware("http")
+async def protect_premium_api(request: Request, call_next: Callable):
+	"""Throttle valuable datasets and apply browser-safe response headers."""
+	path = request.url.path
+	if any(path.startswith(prefix) for prefix in _PROTECTED_DATA_PATHS):
+		authorization = request.headers.get("authorization", "")
+		authenticated = authorization.lower().startswith("bearer ")
+		identity = authorization if authenticated else (
+			request.headers.get("cf-connecting-ip")
+			or (request.client.host if request.client else "unknown")
+		)
+		allowed, remaining, limit = allow_request(
+			f"{path.split('/')[2]}:{identity}",
+			authenticated=authenticated,
+		)
+		if not allowed:
+			return Response(
+				content='{"detail":"Request limit reached. Try again shortly."}',
+				status_code=429,
+				media_type="application/json",
+				headers={
+					"Retry-After": "60",
+					"X-RateLimit-Limit": str(limit),
+					"X-RateLimit-Remaining": "0",
+					"Cache-Control": "no-store",
+				},
+			)
+		response = await call_next(request)
+		response.headers["X-RateLimit-Limit"] = str(limit)
+		response.headers["X-RateLimit-Remaining"] = str(remaining)
+		response.headers["Cache-Control"] = "private, no-store, max-age=0"
+	else:
+		response = await call_next(request)
+	response.headers["X-Content-Type-Options"] = "nosniff"
+	response.headers["X-Frame-Options"] = "DENY"
+	response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+	response.headers["Permissions-Policy"] = (
+		"camera=(), microphone=(), geolocation=(), payment=(self)"
+	)
+	response.headers["Strict-Transport-Security"] = (
+		"max-age=31536000; includeSubDomains"
+	)
+	return response
+
 
 @app.get("/player-images/{filename}", include_in_schema=False)
 def player_image(filename: str) -> FileResponse:
@@ -1592,8 +1645,12 @@ def _prop_alert_items() -> list[dict[str, object]]:
 
 
 @app.get("/api/prop-alerts")
-def prop_alerts() -> dict[str, object]:
+def prop_alerts(
+	response: Response,
+	_user_id: str = Depends(require_user_id),
+) -> dict[str, object]:
 	try:
+		response.headers["Cache-Control"] = "private, no-store, max-age=0"
 		alerts = _prop_alert_items()
 		return {
 			"count": len(alerts),
@@ -1619,9 +1676,10 @@ def props(
 	sortBy: str = Query(default="confidence"),
 	includePastDates: bool = Query(default=False),
 	includeStarted: bool = Query(default=False),
-	limit: int = Query(default=1500, ge=1, le=5000),
+	limit: int = Query(default=75, ge=1, le=500),
 	offset: int = Query(default=0, ge=0),
 	if_none_match: str | None = Header(default=None, alias="If-None-Match"),
+	_user_id: str = Depends(require_user_id),
 ) -> dict[str, object]:
 	started_at = time.perf_counter()
 	try:
@@ -1833,7 +1891,7 @@ def props(
 		)
 		etag = f'"{hashlib.sha256(etag_source.encode()).hexdigest()[:24]}"'
 		response.headers["ETag"] = etag
-		response.headers["Cache-Control"] = "public, max-age=15, stale-while-revalidate=120"
+		response.headers["Cache-Control"] = "private, no-store, max-age=0"
 		response.headers["X-App-Version"] = APP_VERSION
 		if if_none_match == etag:
 			response.status_code = 304
@@ -1868,10 +1926,13 @@ def props(
 
 @app.get("/api/props/ev")
 def positive_ev_props(
+	response: Response,
 	min_ev: float = Query(default=0.0),
 	sport: str = Query(default="All"),
+	_user_id: str = Depends(require_user_id),
 ) -> dict[str, object]:
 	"""Return only props backed by a genuine positive-EV calculation."""
+	response.headers["Cache-Control"] = "private, no-store, max-age=0"
 	sport_filter = sport.strip().lower().replace(" ", "")
 	minimum = float(min_ev)
 	rows: list[dict[str, object]] = []

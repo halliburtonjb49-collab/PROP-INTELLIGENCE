@@ -70,6 +70,10 @@ services:
         value: prop-intelligence:raw-feeds
       - key: RAW_PROP_STREAM_MAXLEN
         value: 5000
+      - key: ANONYMOUS_REQUESTS_PER_MINUTE
+        value: 20
+      - key: AUTHENTICATED_REQUESTS_PER_MINUTE
+        value: 120
       - key: PROP_COVERAGE_SYNC_SECONDS
         value: 1800
       - key: EMPTY_PROP_SYNC_ATTEMPTS
