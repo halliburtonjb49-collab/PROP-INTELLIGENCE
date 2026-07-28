@@ -840,6 +840,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           SlipHistoryPanel(
             activeSlipController: _activeSlipController,
             hasProAccess: hasProAccess,
+            isActive: _selectedPage == AppPage.watchlist,
           ),
           const PropBuilderPerformanceScreen(),
           StrikeoutProGoldScreen(onSelect: _toggleSelection),
@@ -847,6 +848,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             activeSlipController: _activeSlipController,
             mode: SlipHistoryMode.history,
             hasProAccess: hasProAccess,
+            isActive: _selectedPage == AppPage.pastSlipHistory,
           ),
         ],
       ),
@@ -6937,7 +6939,7 @@ class _PreparedProp {
 }
 
 class _PropGridState extends State<PropGrid> {
-  static const int _visiblePropStep = 75;
+  static const int _visiblePropStep = 24;
   final ApiService _apiService = ApiService();
   late Future<List<PropData>> _propsFuture;
   List<_PreparedProp> _preparedProps = const [];
@@ -7528,11 +7530,6 @@ class _PropGridState extends State<PropGrid> {
 
   void _handleCardSelection(PropData prop, PickSide side) {
     widget.onSelect(prop, side);
-    if (mounted) {
-      // Refresh every visible card so duplicate props and availability remain
-      // synchronized after any selection or deselection.
-      setState(() {});
-    }
   }
 
   Widget _buildPortraitPropCard(PropData prop, PickSide? selectedSide) {
@@ -8843,7 +8840,6 @@ class _PropGridState extends State<PropGrid> {
     });
 
     try {
-      await _apiService.wakeBackend();
       await _apiService.syncProps();
       await SlipManager.refreshSelectedProps(_apiService);
       if (!mounted) {

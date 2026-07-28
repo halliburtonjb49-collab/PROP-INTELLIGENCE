@@ -13,12 +13,13 @@ class LiveUpdateService {
   WebSocketChannel? _channel;
   Timer? _reconnectTimer;
   bool _closed = false;
+  bool _paused = false;
   int _attempt = 0;
 
   Stream<dynamic> get stream => _events.stream;
 
   void connect() {
-    if (_closed || _channel != null) return;
+    if (_closed || _paused || _channel != null) return;
     final configuredBase = ApiService.baseUrl.trim();
     if (configuredBase.isEmpty) return;
     final httpBase = Uri.tryParse(configuredBase);
@@ -59,11 +60,29 @@ class LiveUpdateService {
     _channel?.sink.close();
     _channel = null;
     if (error != null && !_events.isClosed) _events.addError(error);
-    if (_closed || _reconnectTimer != null) return;
+    if (_closed || _paused || _reconnectTimer != null) return;
     final exponent = _attempt > 5 ? 5 : _attempt;
     final delay = Duration(seconds: 1 << exponent);
     _attempt++;
     _reconnectTimer = Timer(delay, () {
+      _reconnectTimer = null;
+      connect();
+    });
+  }
+
+  Future<void> pause() async {
+    if (_closed || _paused) return;
+    _paused = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    await _channel?.sink.close();
+  }
+
+  void resume() {
+    if (_closed || !_paused) return;
+    _paused = false;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(const Duration(milliseconds: 100), () {
       _reconnectTimer = null;
       connect();
     });

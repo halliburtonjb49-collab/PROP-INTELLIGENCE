@@ -98,11 +98,13 @@ class SlipHistoryPanel extends StatefulWidget {
     required this.activeSlipController,
     this.mode = SlipHistoryMode.active,
     this.hasProAccess = true,
+    this.isActive = true,
   });
 
   final ActiveSlipController activeSlipController;
   final SlipHistoryMode mode;
   final bool hasProAccess;
+  final bool isActive;
 
   @override
   State<SlipHistoryPanel> createState() => _SlipHistoryPanelState();
@@ -160,28 +162,42 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     super.initState();
     _selectedTab = _isHistory ? 'all' : 'active';
     final recent = widget.activeSlipController.recentLockedSlips;
-    _slipsFuture = !_isHistory && recent.isNotEmpty
+    _slipsFuture = !widget.isActive
+        ? Future.value(recent)
+        : !_isHistory && recent.isNotEmpty
         ? Future.value(recent)
         : _fetchForTab(_selectedTab);
     widget.activeSlipController.addListener(_handleLockedSlipChange);
-    unawaited(_refreshLockedSlipCount());
-    _liveSubscription = _liveUpdates.stream.listen(
-      (_) => _reloadFromTicketEvent(),
-      onError: (_) {},
-    );
-    _liveUpdates.connect();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_isHistory) {
-        unawaited(_reconcileHistory());
-      } else {
-        unawaited(_reloadSlipsOnly());
-      }
-    });
+    if (widget.isActive) unawaited(_refreshLockedSlipCount());
+    _liveSubscription = _liveUpdates.stream.listen((_) {
+      if (widget.isActive) _reloadFromTicketEvent();
+    }, onError: (_) {});
+    if (widget.isActive) _liveUpdates.connect();
+    if (widget.isActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_isHistory) {
+          unawaited(_reconcileHistory());
+        } else {
+          unawaited(_reloadSlipsOnly());
+        }
+      });
+    }
+    if (widget.isActive) _startPolling();
+  }
+
+  void _startPolling() {
+    _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 30),
       (_) => _refreshGameStatuses(),
     );
     if (_hasEnhancedLiveTracking) _startLiveStatsTracking();
+  }
+
+  void _stopPolling() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+    _stopLiveStatsTracking();
   }
 
   void _startLiveStatsTracking() {
@@ -202,6 +218,19 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   @override
   void didUpdateWidget(covariant SlipHistoryPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive != widget.isActive) {
+      if (widget.isActive) {
+        _liveUpdates.resume();
+        setState(() => _slipsFuture = _fetchForTab(_selectedTab));
+        unawaited(_refreshLockedSlipCount());
+        _startPolling();
+      } else {
+        unawaited(_liveUpdates.pause());
+        _stopPolling();
+      }
+      return;
+    }
+    if (!widget.isActive) return;
     final previouslyEnhanced = supportsEnhancedSlipWatcher(
       mode: oldWidget.mode,
       hasProAccess: oldWidget.hasProAccess,
@@ -286,7 +315,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   }
 
   void _handleLockedSlipChange() {
-    if (!mounted || _isHistory) return;
+    if (!mounted || _isHistory || !widget.isActive) return;
     final recent = widget.activeSlipController.recentLockedSlips;
     if (recent.isNotEmpty) {
       setState(() => _slipsFuture = Future.value(recent));

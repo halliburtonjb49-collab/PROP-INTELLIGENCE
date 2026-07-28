@@ -63,6 +63,9 @@ flutter pub get
 
 echo "Building Flutter web..."
 flutter build web --release \
+  -O4 \
+  --no-source-maps \
+  --no-wasm-dry-run \
   --base-href="/" \
   --dart-define="API_BASE_URL=${API_BASE_URL}" \
   --dart-define="APP_VERSION=${APP_VERSION}" \
