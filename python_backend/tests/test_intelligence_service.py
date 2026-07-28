@@ -7,6 +7,7 @@ from services.intelligence_service import (
     similarity_matches, simulate_game_script,
 )
 from services.prediction_tracking_service import historical_features
+from services.prediction_tracking_service import binary_log_loss
 from datetime import datetime, timedelta, timezone
 from models.intelligence import HistoricalFeatureRequest, ScheduleFatigueRequest, ScheduleGame
 
@@ -75,6 +76,11 @@ def test_historical_features_recommend_calibrated_inputs() -> None:
     assert result["recommendedProjection"] > result["mean"]
     assert result["recommendedVolatility"] > 0
     assert result["perMinuteRate"] is not None
+
+
+def test_log_loss_rewards_confident_correct_predictions() -> None:
+    assert binary_log_loss(.9, True) < binary_log_loss(.6, True)
+    assert binary_log_loss(.1, False) < binary_log_loss(.4, False)
 
 
 def test_schedule_derives_travel_and_fatigue() -> None:

@@ -74,7 +74,9 @@ def test_polars_computes_consensus_and_best_prices_across_books() -> None:
         "consensus_line": 21.0,
         "book_count": 2,
         "best_over_odds": 105.0,
+        "best_over_book": "Book B",
         "best_under_odds": -105.0,
+        "best_under_book": "Book A",
     }]
 
 

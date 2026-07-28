@@ -1,12 +1,19 @@
 """Historical feature engineering and auditable prediction tracking."""
 
-from math import sqrt
+from math import log, sqrt
 from statistics import fmean, median
 from uuid import UUID
 
 from database.postgres import database_is_configured, get_database_pool
 from models.intelligence import HistoricalFeatureRequest, PredictionSnapshotRequest
 from services.baseline_projection_service import MODEL_VERSION
+
+
+def binary_log_loss(probability: float, outcome: bool) -> float:
+    """Return numerically stable binary cross-entropy for one prediction."""
+    predicted = max(1e-15, min(1 - 1e-15, float(probability)))
+    actual = 1.0 if outcome else 0.0
+    return -(actual * log(predicted) + (1 - actual) * log(1 - predicted))
 
 
 def historical_features(request: HistoricalFeatureRequest) -> dict[str, object]:
@@ -56,7 +63,8 @@ def grade_prediction(identifier: UUID, actual_value: float) -> dict[str, object]
         connection.commit()
     hit, probability = row
     return {"persisted": True, "hit": hit,
-            "brierScore": round((float(probability) - int(hit)) ** 2, 6)}
+            "brierScore": round((float(probability) - int(hit)) ** 2, 6),
+            "logLoss": round(binary_log_loss(float(probability), bool(hit)), 6)}
 
 
 def calibration_summary(model_version: str = MODEL_VERSION) -> dict[str, object]:
@@ -64,13 +72,16 @@ def calibration_summary(model_version: str = MODEL_VERSION) -> dict[str, object]
         return {"sampleSize": 0, "brierScore": None, "buckets": [],
                 "reason": "DATABASE_URL is not configured"}
     with get_database_pool().connection() as connection, connection.cursor() as cursor:
-        cursor.execute("""select count(*), avg(power(hit_probability - case when hit then 1 else 0 end,2))
+        cursor.execute("""select count(*), avg(power(hit_probability - case when hit then 1 else 0 end,2)),
+            avg(-(case when hit then ln(greatest(hit_probability,1e-15))
+                else ln(greatest(1-hit_probability,1e-15)) end))
             from prediction_snapshots where model_version=%s and hit is not null""", (model_version,))
-        count, brier = cursor.fetchone()
+        count, brier, log_loss = cursor.fetchone()
         cursor.execute("""select floor(hit_probability*10)/10 bucket,count(*),avg(hit::int),avg(hit_probability)
             from prediction_snapshots where model_version=%s and hit is not null
             group by bucket order by bucket""", (model_version,))
         buckets = [{"bucket": float(row[0]), "count": row[1], "actualHitRate": round(float(row[2]), 4),
                     "averageProbability": round(float(row[3]), 4)} for row in cursor.fetchall()]
     return {"sampleSize": count, "brierScore": round(float(brier), 6) if brier is not None else None,
+            "logLoss": round(float(log_loss), 6) if log_loss is not None else None,
             "buckets": buckets, "modelVersion": model_version}

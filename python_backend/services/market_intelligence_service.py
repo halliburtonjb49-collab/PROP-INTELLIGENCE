@@ -82,7 +82,15 @@ def compute_market_intelligence(
             pl.col("line").median().alias("consensus_line"),
             pl.col("bookmaker").n_unique().alias("book_count"),
             pl.col("over_odds").max().alias("best_over_odds"),
+            pl.col("bookmaker")
+            .sort_by("over_odds")
+            .last()
+            .alias("best_over_book"),
             pl.col("under_odds").max().alias("best_under_odds"),
+            pl.col("bookmaker")
+            .sort_by("under_odds")
+            .last()
+            .alias("best_under_book"),
         )
         .sort(["sport", "event_id", "player", "market"])
     )
@@ -133,8 +141,18 @@ def persist_market_snapshot(
                     consensus_line double precision,
                     book_count integer not null,
                     best_over_odds double precision,
-                    best_under_odds double precision
+                    best_under_odds double precision,
+                    best_over_book text,
+                    best_under_book text
                 )
+            """)
+            cursor.execute("""
+                alter table prop_market_intelligence
+                add column if not exists best_over_book text
+            """)
+            cursor.execute("""
+                alter table prop_market_intelligence
+                add column if not exists best_under_book text
             """)
             line_values = []
             for row in rows:
@@ -157,12 +175,14 @@ def persist_market_snapshot(
                 timestamp, row["sport"], row["event_id"], row["player"],
                 row["market"], row.get("consensus_line"), row["book_count"],
                 row.get("best_over_odds"), row.get("best_under_odds"),
+                row.get("best_over_book"), row.get("best_under_book"),
             ) for row in intelligence]
             cursor.executemany("""
                 insert into prop_market_intelligence (
                     observed_at, sport, event_id, player, market, consensus_line,
-                    book_count, best_over_odds, best_under_odds
-                ) values (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    book_count, best_over_odds, best_under_odds,
+                    best_over_book, best_under_book
+                ) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """, intelligence_values)
         connection.commit()
     return {
@@ -188,7 +208,8 @@ def latest_market_intelligence(
             cursor.execute(f"""
                 select distinct on (sport, event_id, player, market)
                     observed_at, sport, event_id, player, market,
-                    consensus_line, book_count, best_over_odds, best_under_odds
+                    consensus_line, book_count, best_over_odds, best_under_odds,
+                    best_over_book, best_under_book
                 from prop_market_intelligence
                 {where}
                 order by sport, event_id, player, market, observed_at desc

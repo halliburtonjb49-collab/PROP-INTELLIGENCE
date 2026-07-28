@@ -8,9 +8,10 @@ from services.baseline_projection_service import MODEL_VERSION
 
 
 def _segment(row: tuple[object, ...]) -> dict[str, object]:
-    count, hits, brier, roi, sport, market, confidence = row
+    count, hits, brier, log_loss, roi, sport, market, confidence = row
     return {"sampleSize": count, "hits": hits, "accuracy": round(float(hits or 0) / count, 4) if count else None,
             "brierScore": round(float(brier), 6) if brier is not None else None,
+            "logLoss": round(float(log_loss), 6) if log_loss is not None else None,
             "simulatedRoi": round(float(roi), 4) if roi is not None else None,
             "sport": sport, "market": market, "confidenceTier": confidence}
 
@@ -27,11 +28,15 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
     with get_database_pool().connection() as connection, connection.cursor() as cursor:
         cursor.execute(f"""select count(*),count(*) filter(where hit),
             avg(power(hit_probability-case when hit then 1 else 0 end,2)),
+            avg(-(case when hit then ln(greatest(hit_probability,1e-15))
+                else ln(greatest(1-hit_probability,1e-15)) end)),
             avg({profit}) filter(where nullif(inputs->>'entryOdds','') is not null),
             null,null,null {base}""", (model_version,))
         overall = _segment(cursor.fetchone())
         cursor.execute(f"""select count(*),count(*) filter(where hit),
             avg(power(hit_probability-case when hit then 1 else 0 end,2)),
+            avg(-(case when hit then ln(greatest(hit_probability,1e-15))
+                else ln(greatest(1-hit_probability,1e-15)) end)),
             avg({profit}) filter(where nullif(inputs->>'entryOdds','') is not null),
             sport,market,case when hit_probability>=.7 then 'HIGH'
               when hit_probability>=.6 then 'MEDIUM' else 'BASELINE' end {base}
