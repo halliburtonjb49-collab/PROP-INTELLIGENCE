@@ -61,6 +61,7 @@ def test_queue_uses_explicit_rq_call_arguments(monkeypatch) -> None:
     assert captured["func"] == "jobs.fetch_sport_raw"
     assert captured["args"] == ("baseball_mlb",)
     assert captured["kwargs"] == {"force": True}
+    assert captured["timeout"] == 1800
 
 
 def test_large_responses_support_brotli() -> None:

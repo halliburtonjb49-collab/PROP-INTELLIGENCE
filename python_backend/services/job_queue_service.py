@@ -41,7 +41,7 @@ def enqueue(
             args=args,
             kwargs=kwargs or {},
             job_id=job_id,
-            job_timeout=1800,
+            timeout=1800,
             result_ttl=86400,
             failure_ttl=604800,
             retry=Retry(max=3, interval=[30, 120, 300]),
