@@ -7,6 +7,7 @@ from typing import Any
 
 from redis import Redis
 from rq import Queue, Retry
+from rq.registry import FailedJobRegistry, StartedJobRegistry
 
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
 QUEUE_NAME = os.getenv("BACKGROUND_QUEUE_NAME", "prop-intelligence")
@@ -35,8 +36,8 @@ def enqueue(
     if queue is None:
         return None
     try:
-        job = queue.enqueue(
-            function_name,
+        job = queue.enqueue_call(
+            func=function_name,
             args=args,
             kwargs=kwargs or {},
             job_id=job_id,
@@ -62,6 +63,14 @@ def health() -> dict[str, object]:
             "mode": "rq",
             "queue": QUEUE_NAME,
             "queued": queue.count,
+            "started": StartedJobRegistry(
+                queue.name,
+                connection=queue.connection,
+            ).count,
+            "failed": FailedJobRegistry(
+                queue.name,
+                connection=queue.connection,
+            ).count,
         }
     except Exception as exc:
         return {
