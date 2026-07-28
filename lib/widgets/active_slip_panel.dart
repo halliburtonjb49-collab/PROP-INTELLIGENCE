@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../controllers/active_slip_controller.dart';
 import '../services/api_service.dart';
+import '../services/live_update_service.dart';
 import 'context_help.dart';
 
 class PropIntelligenceColors {
@@ -59,8 +60,12 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   final TextEditingController _draftKingsWagerController =
       TextEditingController(text: '25.00');
   final Set<String> _prefetchedImageUrls = <String>{};
+  final LiveUpdateService _liveUpdates = LiveUpdateService(
+    channels: const {'tickets'},
+  );
   String _lastPrefetchKey = '';
   Timer? _liveTicketRefreshTimer;
+  StreamSubscription<dynamic>? _liveTicketSubscription;
   Map<String, dynamic>? _activeTicketPayload;
   bool _hideRemoteActiveTicket = true;
 
@@ -68,8 +73,13 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   void initState() {
     super.initState();
     unawaited(_refreshActiveTicket());
+    _liveTicketSubscription = _liveUpdates.stream.listen(
+      (_) => unawaited(_refreshActiveTicket()),
+      onError: (_) {},
+    );
+    _liveUpdates.connect();
     _liveTicketRefreshTimer = Timer.periodic(
-      const Duration(seconds: 10),
+      const Duration(seconds: 60),
       (_) => _refreshActiveTicket(),
     );
   }
@@ -77,6 +87,8 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   @override
   void dispose() {
     _liveTicketRefreshTimer?.cancel();
+    unawaited(_liveTicketSubscription?.cancel());
+    unawaited(_liveUpdates.dispose());
     _activeSlipScrollController.dispose();
     _entryController.dispose();
     _underdogEntryController.dispose();

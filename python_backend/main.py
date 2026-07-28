@@ -15,6 +15,7 @@ from fastapi import BackgroundTasks, Body, Depends, FastAPI, Header, HTTPExcepti
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
+from brotli_asgi import BrotliMiddleware
 import requests
 from threading import Lock
 
@@ -29,6 +30,7 @@ from database.postgres import (
 	check_database_connection,
 	close_database_pool,
 	database_is_configured,
+	database_performance_snapshot,
 )
 from models.prop_builder import (
 	PropBuilderRequest,
@@ -71,6 +73,16 @@ from services.game_status_service import (
 	refresh_saved_slip_game_statuses,
 )
 from services.prop_service import get_props
+from services.distributed_cache_service import (
+	delete as delete_distributed_cache,
+	get_json as get_distributed_json,
+	health as distributed_cache_health,
+	set_json as set_distributed_json,
+)
+from services.job_queue_service import (
+	enqueue as enqueue_background_job,
+	health as job_queue_health,
+)
 from services.mlb_headshot_service import refresh_mlb_headshot_map
 from services.espn_headshot_service import (
 	refresh_espn_headshot_map,
@@ -236,6 +248,7 @@ app.add_middleware(
 	allow_methods=["*"],
 	allow_headers=["*"],
 )
+app.add_middleware(BrotliMiddleware, minimum_size=1000, quality=4)
 app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
 
 @app.get("/player-images/{filename}", include_in_schema=False)
@@ -256,15 +269,31 @@ def _cached_prop_catalog() -> list[PropResponse]:
 		cached = _prop_catalog["props"]
 		if isinstance(cached, list) and cached and now - loaded_at < 20:
 			return cached
+	shared = get_distributed_json("props:catalog:v1")
+	if isinstance(shared, list) and shared:
+		try:
+			props = [PropResponse.model_validate(row) for row in shared]
+			with _prop_catalog_lock:
+				_prop_catalog.update(loadedAt=now, props=props)
+			return props
+		except Exception:
+			delete_distributed_cache("props:catalog:v1")
 	props = get_props()
 	with _prop_catalog_lock:
 		_prop_catalog.update(loadedAt=now, props=props)
+	if props:
+		set_distributed_json(
+			"props:catalog:v1",
+			[prop.model_dump(mode="json") for prop in props],
+			ttl_seconds=45,
+		)
 	return props
 
 
 def _invalidate_prop_catalog() -> None:
 	with _prop_catalog_lock:
 		_prop_catalog.update(loadedAt=0.0, props=[])
+	delete_distributed_cache("props:catalog:v1")
 
 _sync_run_lock = Lock()
 _sync_state_lock = Lock()
@@ -319,7 +348,7 @@ def _mark_sync_running() -> None:
 		)
 
 
-def _run_sync_background() -> None:
+def _run_sync_background(*, release_local_lock: bool = True) -> None:
 	try:
 		def mark_fast_lane_complete(results: list[dict[str, object]]) -> None:
 			_invalidate_prop_catalog()
@@ -355,7 +384,14 @@ def _run_sync_background() -> None:
 				error=str(exc),
 			)
 	finally:
-		_sync_run_lock.release()
+		if release_local_lock and _sync_run_lock.locked():
+			_sync_run_lock.release()
+
+
+def run_queued_prop_sync() -> None:
+	"""RQ worker entrypoint; retries are managed by the durable queue."""
+	_mark_sync_running()
+	_run_sync_background(release_local_lock=False)
 
 
 async def _ensure_props_available() -> None:
@@ -1293,6 +1329,9 @@ def health() -> dict[str, object]:
 		"ticket_storage_mode": str(storage.get("mode", "unknown")),
 		"version": APP_VERSION,
 		"propFeed": dict(_prop_metrics),
+		"cache": distributed_cache_health(),
+		"backgroundQueue": job_queue_health(),
+		"databasePerformance": database_performance_snapshot(),
 	}
 
 
@@ -1868,6 +1907,22 @@ def sync_props(background_tasks: BackgroundTasks) -> dict[str, object]:
 	if _sync_is_fresh():
 		return {**_sync_state_snapshot(), "reusedFreshData": True,
 			"message": "Current odds are still inside the server freshness window."}
+	queue_job = enqueue_background_job(
+		"jobs.run_prop_sync",
+		job_id=f"prop-sync-{int(time.time() // 300)}",
+	)
+	if queue_job is not None:
+		with _sync_state_lock:
+			_sync_state.update(
+				status="queued",
+				startedAt=datetime.now(timezone.utc).isoformat(),
+				error=None,
+				queueJob=queue_job,
+			)
+		return {
+			**_sync_state_snapshot(),
+			"message": "Global sports sync queued with retry protection.",
+		}
 	if not _sync_run_lock.acquire(blocking=False):
 		return _sync_state_snapshot()
 	if _sync_is_fresh():
