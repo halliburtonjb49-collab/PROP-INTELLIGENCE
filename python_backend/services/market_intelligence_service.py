@@ -8,8 +8,6 @@ import json
 import logging
 from typing import Any
 
-import polars as pl
-
 from database.postgres import database_is_configured, get_database_pool
 
 LOGGER = logging.getLogger(__name__)
@@ -72,6 +70,11 @@ def compute_market_intelligence(
     """Calculate consensus lines and best prices as a Rust-backed batch."""
     if not rows:
         return []
+    # Polars is worker-only. Keeping this import lazy prevents the Starter
+    # web service from paying the native engine's memory cost on every API
+    # process simply to expose read-only intelligence results.
+    import polars as pl
+
     frame = pl.DataFrame(rows)
     result = (
         frame.group_by(["sport", "event_id", "player", "market"])
