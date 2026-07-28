@@ -164,6 +164,29 @@ def test_prop_page_honors_etag(monkeypatch) -> None:
     assert second.status_code == 304
 
 
+def test_prop_filtering_serializes_only_the_requested_page(monkeypatch) -> None:
+    rows = [
+        FakeProp(f"prop-{index}", f"Player {index}", "MLB", "FANDUEL", "HITS")
+        for index in range(100)
+    ]
+    dumps = 0
+    original_dump = FakeProp.model_dump
+
+    def counted_dump(prop: FakeProp) -> dict[str, object]:
+        nonlocal dumps
+        dumps += 1
+        return original_dump(prop)
+
+    monkeypatch.setattr(FakeProp, "model_dump", counted_dump)
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: rows)
+
+    response = TestClient(main.app).get("/api/props?limit=1")
+
+    assert response.status_code == 200
+    assert response.json()["returned"] == 1
+    assert dumps == 1
+
+
 def test_positive_ev_route_returns_only_calculated_positive_rows(monkeypatch) -> None:
     positive = FakeProp("positive", "One", "MLB", "FANDUEL", "HITS")
     positive.evPercentage = 4.25

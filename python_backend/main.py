@@ -1592,8 +1592,10 @@ def props(
 			*,
 			apply_category: bool,
 		) -> bool:
-			row = prop.model_dump()
-			start_time = _parse_start_time(row.get("startTimeUtc"))
+			# This predicate runs across the complete live catalog, often more
+			# than 8,000 rows. Reading model attributes directly avoids creating
+			# two full temporary dictionaries per prop on every request.
+			start_time = _parse_start_time(prop.startTimeUtc)
 			if not includePastDates:
 				if start_time is None:
 					return False
@@ -1605,20 +1607,20 @@ def props(
 			if not includeStarted and start_time is not None and start_time <= now_utc:
 				return False
 			recommended_side = str(
-				row.get("recommendedSide") or ""
+				prop.recommendedSide or ""
 			).strip().lower()
 			recommended_tier = str(
-				row.get("tier") or ""
+				prop.tier or ""
 			).strip().lower()
-			confidence = int(row.get("confidence") or 0)
-			prop_sportsbook = str(row.get("sportsbook") or "").strip().lower().replace(" ", "")
-			prop_sport = str(row.get("sport") or "").strip().lower().replace(" ", "")
-			prop_category = str(row.get("category") or "").strip().lower()
+			confidence = int(prop.confidence or 0)
+			prop_sportsbook = str(prop.sportsbook or "").strip().lower().replace(" ", "")
+			prop_sport = str(prop.sport or "").strip().lower().replace(" ", "")
+			prop_category = str(prop.category or "").strip().lower()
 			searchable = " ".join((
-				str(row.get("player") or ""),
-				str(row.get("matchup") or ""),
-				str(row.get("market") or ""),
-				str(row.get("category") or ""),
+				str(prop.player or ""),
+				str(prop.matchup or ""),
+				str(prop.market or ""),
+				str(prop.category or ""),
 			)).lower()
 
 			if side_filter != "all" and recommended_side != side_filter:
