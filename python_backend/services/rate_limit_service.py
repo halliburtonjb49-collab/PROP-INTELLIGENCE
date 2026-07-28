@@ -98,4 +98,3 @@ def allow_request(
             pass
     allowed, remaining = _memory_allow(key, limit=limit, now=timestamp)
     return allowed, remaining, limit
-
