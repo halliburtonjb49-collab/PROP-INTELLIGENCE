@@ -25,6 +25,7 @@ MIGRATIONS = (
     "supabase_intelligence_features.sql",
     "supabase_operational_pipeline.sql",
     "supabase_pipeline_monitoring.sql",
+    "supabase_sportsbook_line_history.sql",
     "supabase_prop_chat.sql",
     "supabase_prop_chat_v2.sql",
     "supabase_prop_chat_v3.sql",
