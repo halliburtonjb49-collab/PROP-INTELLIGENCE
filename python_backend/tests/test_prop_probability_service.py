@@ -7,7 +7,9 @@ from services.prop_probability_service import (
     distribution_for_market,
     evaluate_market,
     expected_value,
+    fractional_kelly_stake,
     outcome_from_quantile,
+    power_method_devig,
     prop_probabilities,
 )
 
@@ -107,3 +109,26 @@ def test_quantile_sampling_preserves_discrete_outputs() -> None:
         for _ in range(5)
     ]
     assert all(value.is_integer() for value in values)
+
+
+def test_power_method_devig_removes_market_margin() -> None:
+    over, under = power_method_devig(115 / 215, 115 / 215)
+    assert over + under == pytest.approx(1)
+    assert over == pytest.approx(.5)
+
+
+def test_power_method_devig_handles_asymmetric_prices() -> None:
+    over, under = power_method_devig(120 / 220, 100 / 210)
+    assert over + under == pytest.approx(1)
+    assert over > under
+
+
+def test_fractional_kelly_only_sizes_positive_expected_value() -> None:
+    assert fractional_kelly_stake(
+        win_probability=.60,
+        decimal_odds=1.91,
+    ) == pytest.approx(.04011, abs=1e-5)
+    assert fractional_kelly_stake(
+        win_probability=.50,
+        decimal_odds=1.91,
+    ) == 0

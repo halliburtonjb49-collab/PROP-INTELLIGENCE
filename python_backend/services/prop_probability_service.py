@@ -44,6 +44,47 @@ class MarketEvaluation:
     market_weight: float
     uncertainty: float
     calibration_adjustment: float
+    recommended_stake_fraction: float
+
+
+def power_method_devig(
+    over_probability: float,
+    under_probability: float,
+) -> tuple[float, float]:
+    """Remove two-way market margin with the power method."""
+    over = float(over_probability)
+    under = float(under_probability)
+    if not 0 < over < 1 or not 0 < under < 1:
+        raise ValueError("Implied probabilities must be between zero and one")
+
+    # Bisection avoids adding SciPy to the production runtime.
+    low, high = 0.01, 20.0
+    for _ in range(80):
+        exponent = (low + high) / 2
+        if over**exponent + under**exponent > 1:
+            low = exponent
+        else:
+            high = exponent
+    exponent = (low + high) / 2
+    fair_over = over**exponent
+    fair_under = under**exponent
+    total = fair_over + fair_under
+    return round(fair_over / total, 6), round(fair_under / total, 6)
+
+
+def fractional_kelly_stake(
+    *,
+    win_probability: float,
+    decimal_odds: float,
+    fraction: float = 0.25,
+) -> float:
+    """Return a capped fractional-Kelly bankroll share for positive-EV plays."""
+    probability = max(0.0, min(1.0, float(win_probability)))
+    net_odds = float(decimal_odds) - 1.0
+    if net_odds <= 0 or fraction <= 0:
+        return 0.0
+    full_kelly = (probability * float(decimal_odds) - 1.0) / net_odds
+    return round(max(0.0, min(1.0, full_kelly * min(1.0, fraction))), 6)
 
 
 def distribution_for_market(
@@ -297,6 +338,14 @@ def evaluate_market(
         market_weight=market_weight,
         uncertainty=round(uncertainty, 6),
         calibration_adjustment=round(applied_adjustment, 6),
+        recommended_stake_fraction=(
+            fractional_kelly_stake(
+                win_probability=fair,
+                decimal_odds=decimal_odds,
+            )
+            if decimal_odds is not None
+            else 0.0
+        ),
     )
 
 

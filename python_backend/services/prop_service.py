@@ -38,7 +38,7 @@ from services.projection_calibration_service import (
 	confidence_from_probability,
 	market_volatility_floor,
 )
-from services.prop_probability_service import evaluate_market
+from services.prop_probability_service import evaluate_market, power_method_devig
 from services.market_calibration_service import market_calibration_adjustment
 
 cache = PropCache(DB_PATH)
@@ -342,10 +342,10 @@ def get_props() -> list[PropResponse]:
 		no_vig_over = None
 		no_vig_under = None
 		if over_implied is not None and under_implied is not None:
-			total = over_implied + under_implied
-			if total > 0:
-				no_vig_over = round(over_implied / total, 6)
-				no_vig_under = round(under_implied / total, 6)
+			no_vig_over, no_vig_under = power_method_devig(
+				over_implied,
+				under_implied,
+			)
 		market_evaluation = None
 		calibration_adjustment, calibration_sample_size = (
 			market_calibration_adjustment(
@@ -571,6 +571,11 @@ def get_props() -> list[PropResponse]:
 					else 0
 				),
 				probabilityCalibrationSampleSize=calibration_sample_size,
+				recommendedStakeFraction=(
+					market_evaluation.recommended_stake_fraction
+					if market_evaluation is not None
+					else 0
+				),
 			)
 		)
 

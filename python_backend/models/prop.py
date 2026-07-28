@@ -79,6 +79,7 @@ class PropResponse(BaseModel):
     probabilityUncertainty: float | None = None
     probabilityCalibrationAdjustment: float = 0.0
     probabilityCalibrationSampleSize: int = 0
+    recommendedStakeFraction: float = Field(default=0.0, ge=0, le=1)
     edgeSigned: float = 0.0
     fatigueIndex: float | None = None
     fatigueMultiplier: float | None = None

@@ -1,3 +1,6 @@
+from services.prop_probability_service import power_method_devig
+
+
 def american_to_implied_probability(odds: float) -> float:
     if odds > 0:
         return 100 / (odds + 100)
@@ -21,13 +24,10 @@ def calculate_prediction(
     under_probability = american_to_implied_probability(
         float(safe_under)
     )
-    total = over_probability + under_probability
-
-    if total <= 0:
-        return "UNDER", 50.0
-
-    normalized_over = over_probability / total
-    normalized_under = under_probability / total
+    normalized_over, normalized_under = power_method_devig(
+        over_probability,
+        under_probability,
+    )
 
     if normalized_over >= normalized_under:
         return "OVER", round(normalized_over * 100, 1)
