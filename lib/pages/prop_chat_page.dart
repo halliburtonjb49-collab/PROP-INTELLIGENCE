@@ -1522,32 +1522,33 @@ class _MobileDirectMessagesDialogState
                             text:
                                 'No direct messages yet. Start one from a member’s message.',
                           )
-                        : ListView(
+                        : ListView.builder(
                             key: const ValueKey(
                               'mobile-direct-conversation-list',
                             ),
-                            children: [
-                              for (final conversation in _conversations)
-                                ListTile(
-                                  title: Text('@${conversation.otherUsername}'),
-                                  subtitle: const Text('Private conversation'),
-                                  trailing: conversation.unreadCount > 0
-                                      ? Badge(
-                                          label: Text(
-                                            '${conversation.unreadCount}',
-                                          ),
-                                        )
-                                      : const Icon(Icons.chevron_right_rounded),
-                                  onTap: () {
-                                    setState(() => _selected = conversation);
-                                    unawaited(
-                                      widget.service.markDirectConversationRead(
-                                        conversation.id,
-                                      ),
-                                    );
-                                  },
-                                ),
-                            ],
+                            itemCount: _conversations.length,
+                            itemBuilder: (context, index) {
+                              final conversation = _conversations[index];
+                              return ListTile(
+                                title: Text('@${conversation.otherUsername}'),
+                                subtitle: const Text('Private conversation'),
+                                trailing: conversation.unreadCount > 0
+                                    ? Badge(
+                                        label: Text(
+                                          '${conversation.unreadCount}',
+                                        ),
+                                      )
+                                    : const Icon(Icons.chevron_right_rounded),
+                                onTap: () {
+                                  setState(() => _selected = conversation);
+                                  unawaited(
+                                    widget.service.markDirectConversationRead(
+                                      conversation.id,
+                                    ),
+                                  );
+                                },
+                              );
+                            },
                           )
                   : StreamBuilder<List<PropChatMessage>>(
                       stream: widget.service.watchDirectMessages(selected.id),
@@ -1559,30 +1560,31 @@ class _MobileDirectMessagesDialogState
                             text: 'Messages in this conversation are private.',
                           );
                         }
-                        return ListView(
+                        return ListView.builder(
                           padding: const EdgeInsets.all(8),
-                          children: [
-                            for (final message in messages)
-                              _MessageBubble(
-                                message: message,
-                                reply: null,
-                                isOwn:
-                                    message.userId ==
-                                    widget.service.currentUserId,
-                                onReply: () {},
-                                onReact: (_) {},
-                                onEdit: null,
-                                onReport: null,
-                                onBlock: null,
-                                onDelete: null,
-                                onOpenLink: message.linkUrl == null
-                                    ? null
-                                    : () => _openSecureLink(
-                                        context,
-                                        message.linkUrl!,
-                                      ),
-                              ),
-                          ],
+                          itemCount: messages.length,
+                          itemBuilder: (context, index) {
+                            final message = messages[index];
+                            return _MessageBubble(
+                              message: message,
+                              reply: null,
+                              isOwn:
+                                  message.userId ==
+                                  widget.service.currentUserId,
+                              onReply: () {},
+                              onReact: (_) {},
+                              onEdit: null,
+                              onReport: null,
+                              onBlock: null,
+                              onDelete: null,
+                              onOpenLink: message.linkUrl == null
+                                  ? null
+                                  : () => _openSecureLink(
+                                      context,
+                                      message.linkUrl!,
+                                    ),
+                            );
+                          },
                         );
                       },
                     ),
@@ -1679,18 +1681,19 @@ class _DirectMessagesDialogState extends State<_DirectMessagesDialog> {
                 ),
                 const SizedBox(height: 8),
                 Flexible(
-                  child: ListView(
+                  child: ListView.builder(
                     shrinkWrap: true,
-                    children: [
-                      for (final result in results)
-                        ListTile(
-                          leading: const CircleAvatar(
-                            child: Icon(Icons.person_rounded),
-                          ),
-                          title: Text('@${result.username}'),
-                          onTap: () => Navigator.pop(dialogContext, result),
+                    itemCount: results.length,
+                    itemBuilder: (context, index) {
+                      final result = results[index];
+                      return ListTile(
+                        leading: const CircleAvatar(
+                          child: Icon(Icons.person_rounded),
                         ),
-                    ],
+                        title: Text('@${result.username}'),
+                        onTap: () => Navigator.pop(dialogContext, result),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -1830,29 +1833,30 @@ class _DirectMessagesDialogState extends State<_DirectMessagesDialog> {
                   Expanded(
                     child: _loading
                         ? const Center(child: CircularProgressIndicator())
-                        : ListView(
-                            children: [
-                              for (final conversation in _conversations)
-                                ListTile(
-                                  selected: conversation.id == _selected?.id,
-                                  title: Text('@${conversation.otherUsername}'),
-                                  trailing: conversation.unreadCount > 0
-                                      ? Badge(
-                                          label: Text(
-                                            '${conversation.unreadCount}',
-                                          ),
-                                        )
-                                      : null,
-                                  onTap: () {
-                                    setState(() => _selected = conversation);
-                                    unawaited(
-                                      widget.service.markDirectConversationRead(
-                                        conversation.id,
-                                      ),
-                                    );
-                                  },
-                                ),
-                            ],
+                        : ListView.builder(
+                            itemCount: _conversations.length,
+                            itemBuilder: (context, index) {
+                              final conversation = _conversations[index];
+                              return ListTile(
+                                selected: conversation.id == _selected?.id,
+                                title: Text('@${conversation.otherUsername}'),
+                                trailing: conversation.unreadCount > 0
+                                    ? Badge(
+                                        label: Text(
+                                          '${conversation.unreadCount}',
+                                        ),
+                                      )
+                                    : null,
+                                onTap: () {
+                                  setState(() => _selected = conversation);
+                                  unawaited(
+                                    widget.service.markDirectConversationRead(
+                                      conversation.id,
+                                    ),
+                                  );
+                                },
+                              );
+                            },
                           ),
                   ),
                 ],
@@ -1885,34 +1889,35 @@ class _DirectMessagesDialogState extends State<_DirectMessagesDialog> {
                             ),
                             builder: (context, snapshot) {
                               final messages = snapshot.data ?? const [];
-                              return ListView(
+                              return ListView.builder(
                                 padding: const EdgeInsets.all(12),
-                                children: [
-                                  for (final message in messages)
-                                    _MessageBubble(
-                                      message: message,
-                                      reply: null,
-                                      isOwn:
-                                          message.userId ==
-                                          widget.service.currentUserId,
-                                      onReply: () {},
-                                      onReact: (_) {},
-                                      onEdit: null,
-                                      onReport:
-                                          message.userId ==
-                                              widget.service.currentUserId
-                                          ? null
-                                          : () => _report(message),
-                                      onBlock: null,
-                                      onDelete: null,
-                                      onOpenLink: message.linkUrl == null
-                                          ? null
-                                          : () => _openSecureLink(
-                                              context,
-                                              message.linkUrl!,
-                                            ),
-                                    ),
-                                ],
+                                itemCount: messages.length,
+                                itemBuilder: (context, index) {
+                                  final message = messages[index];
+                                  return _MessageBubble(
+                                    message: message,
+                                    reply: null,
+                                    isOwn:
+                                        message.userId ==
+                                        widget.service.currentUserId,
+                                    onReply: () {},
+                                    onReact: (_) {},
+                                    onEdit: null,
+                                    onReport:
+                                        message.userId ==
+                                            widget.service.currentUserId
+                                        ? null
+                                        : () => _report(message),
+                                    onBlock: null,
+                                    onDelete: null,
+                                    onOpenLink: message.linkUrl == null
+                                        ? null
+                                        : () => _openSecureLink(
+                                            context,
+                                            message.linkUrl!,
+                                          ),
+                                  );
+                                },
                               );
                             },
                           ),

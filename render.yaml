@@ -15,6 +15,13 @@ services:
         value: require
       - key: DATABASE_POOL_SIZE
         value: 5
+      - key: SLOW_QUERY_MS
+        value: 250
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: prop-intelligence-redis
+          property: connectionString
       - key: ODDS_API_KEY
         sync: false
       - key: ODDS_API_KEY_SECONDARY
@@ -93,6 +100,55 @@ services:
       name: prop-intelligence-ticket-data
       mountPath: /var/data
       sizeGB: 1
+
+  - type: keyvalue
+    name: prop-intelligence-redis
+    plan: starter
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+  - type: worker
+    name: prop-intelligence-worker
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd python_backend && rq worker --url $REDIS_URL prop-intelligence
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: prop-intelligence-redis
+          property: connectionString
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSLMODE
+        value: require
+      - key: ODDS_API_KEY
+        sync: false
+      - key: ODDS_API_KEY_SECONDARY
+        sync: false
+      - key: API_SPORTS_KEY
+        sync: false
+      - key: SPORTMONKS_API_KEY
+        sync: false
+      - key: API_SPORTS_BASEBALL_KEY
+        sync: false
+      - key: SPORTSDATAIO_API_KEY
+        sync: false
+      - key: SPORTSGAMEODDS_API_KEY
+        sync: false
+      - key: SLIP_DATABASE_PATH
+        value: /tmp/prop_intelligence_tickets.db
+      - key: PROP_CACHE_DB_PATH
+        value: /tmp/prop_intelligence_cache.db
+      - key: PROP_SYNC_EVENT_WORKERS
+        value: 6
+      - key: PREFERRED_BOOKMAKERS
+        value: prizepicks,underdog,draftkings,sleeper,fanduel,betr
+      - key: PROP_SYNC_SPORTS
+        value: baseball_mlb,basketball_wnba,basketball_nba,americanfootball_nfl,icehockey_nhl,soccer_epl,soccer_usa_mls,soccer_france_ligue_one,soccer_germany_bundesliga,soccer_italy_serie_a,soccer_spain_la_liga
 
   - type: cron
     name: prop-intelligence-historical-sync
