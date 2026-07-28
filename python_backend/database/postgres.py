@@ -37,7 +37,6 @@ class ProfilingCursor(Cursor):
                 statement = " ".join(str(query).split())[:180]
                 item = {
                     "durationMs": duration_ms,
-                    "statement": statement,
                     "recordedAt": time.time(),
                 }
                 with _slow_query_lock:
