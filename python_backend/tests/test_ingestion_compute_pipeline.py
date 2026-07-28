@@ -128,3 +128,21 @@ def test_tennis_uses_documented_sportsgameodds_stat_ids() -> None:
         bet_type="ou",
         market_name="Break Points Won",
     ) == "player_break_points_won"
+
+
+def test_ingestion_reuses_one_redis_connection_pool(monkeypatch) -> None:
+    clients: list[object] = []
+    sentinel = object()
+    monkeypatch.setattr(raw_ingestion_service, "REDIS_URL", "redis://example")
+    monkeypatch.setattr(
+        raw_ingestion_service.Redis,
+        "from_url",
+        lambda *_args, **_kwargs: clients.append(sentinel) or sentinel,
+    )
+    raw_ingestion_service._redis.cache_clear()
+    try:
+        assert raw_ingestion_service._redis() is sentinel
+        assert raw_ingestion_service._redis() is sentinel
+        assert len(clients) == 1
+    finally:
+        raw_ingestion_service._redis.cache_clear()

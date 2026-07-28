@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from functools import lru_cache
 import logging
 import os
 from typing import Any
@@ -38,6 +39,7 @@ _encoder = msgspec.json.Encoder()
 _decoder = msgspec.json.Decoder(RawFeedEnvelope)
 
 
+@lru_cache(maxsize=1)
 def _redis() -> Redis | None:
     if not REDIS_URL:
         return None
