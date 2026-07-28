@@ -19,6 +19,7 @@ class SavedSlipLeg {
   final String customLabel;
   final String manualNote;
   final String gameStatus;
+  final String gameStartTime;
   final bool gameCompleted;
   final double? resultValue;
   final String resultStatus;
@@ -46,6 +47,7 @@ class SavedSlipLeg {
     this.customLabel = '',
     this.manualNote = '',
     this.gameStatus = 'scheduled',
+    this.gameStartTime = '',
     this.gameCompleted = false,
     this.resultValue,
     this.resultStatus = 'pending',
@@ -78,6 +80,10 @@ class SavedSlipLeg {
       customLabel: json['custom_label']?.toString() ?? '',
       manualNote: json['manual_note']?.toString() ?? '',
       gameStatus: json['game_status']?.toString() ?? 'scheduled',
+      gameStartTime:
+          json['game_start_time']?.toString() ??
+          json['start_time_utc']?.toString() ??
+          '',
       gameCompleted: json['game_completed'] as bool? ?? false,
       resultValue: (json['result_value'] as num?)?.toDouble(),
       resultStatus: json['result_status']?.toString() ?? 'pending',

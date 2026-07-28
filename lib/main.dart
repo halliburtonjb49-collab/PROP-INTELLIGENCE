@@ -644,6 +644,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   String _selectedBoardSport = 'ALL';
   bool _chatFloating = false;
   bool _chatMinimized = false;
+  bool _chatBubbleVisible = true;
   final ValueNotifier<Offset> _chatOffset = ValueNotifier(
     const Offset(360, 110),
   );
@@ -710,6 +711,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     try {
       final activeSlips = await _apiService.fetchSlips(status: 'active');
       if (!mounted) return;
+      SlipManager.reserveActiveSlips(activeSlips);
       _activeSlipController.setLockedSlipCount(activeSlips.length);
     } catch (_) {
       // Non-critical - SlipHistoryPanel will populate it once visited.
@@ -853,6 +855,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     setState(() {
       _chatFloating = true;
       _chatMinimized = false;
+      _chatBubbleVisible = true;
       if (_selectedPage == AppPage.propChat) {
         _selectedPage = AppPage.board;
       }
@@ -868,10 +871,11 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   }
 
   void _closeFloatingChat() {
-    if (!_chatFloating && !_chatMinimized) return;
+    if (!_chatFloating && !_chatMinimized && !_chatBubbleVisible) return;
     setState(() {
       _chatFloating = false;
       _chatMinimized = false;
+      _chatBubbleVisible = false;
     });
   }
 
@@ -919,17 +923,31 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                 behavior: HitTestBehavior.opaque,
                 onPanUpdate: (details) => _chatOffset.value += details.delta,
                 onTap: () => setState(() => _chatMinimized = false),
-                child: Material(
-                  elevation: 18,
-                  color: app_colors.AppColors.gold,
-                  shape: const CircleBorder(
-                    side: BorderSide(color: Colors.white, width: 1.5),
-                  ),
-                  child: const Icon(
-                    Icons.forum_rounded,
-                    color: Color(0xFF06111B),
-                    size: 27,
-                  ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Positioned.fill(
+                      child: Material(
+                        elevation: 18,
+                        color: app_colors.AppColors.gold,
+                        shape: CircleBorder(
+                          side: BorderSide(color: Colors.white, width: 1.5),
+                        ),
+                        child: Icon(
+                          Icons.forum_rounded,
+                          color: Color(0xFF06111B),
+                          size: 27,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: -6,
+                      top: -6,
+                      child: _ChatBubbleCloseButton(
+                        onPressed: _closeFloatingChat,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             );
@@ -1009,10 +1027,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                             IconButton(
                               key: const ValueKey('close-floating-prop-chat'),
                               tooltip: 'Close floating chat',
-                              onPressed: () => setState(() {
-                                _chatFloating = false;
-                                _chatMinimized = false;
-                              }),
+                              onPressed: _closeFloatingChat,
                               icon: const Icon(Icons.close_rounded),
                             ),
                           ],
@@ -1130,6 +1145,13 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                               ),
                             ),
                           ),
+                  ),
+                  Positioned(
+                    right: -6,
+                    top: -6,
+                    child: _ChatBubbleCloseButton(
+                      onPressed: _closeFloatingChat,
+                    ),
                   ),
                 ],
               ),
@@ -1266,6 +1288,17 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   }
 
   void _toggleSelection(PropData prop, PickSide side) {
+    if (SlipManager.isLockedInActiveSlip(prop.id)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+            'That prop is already locked in an active ticket. Complete or unlock the ticket before selecting it again.',
+          ),
+        ),
+      );
+      return;
+    }
     unawaited(AppSoundService.instance.play(AppSoundEvent.selection));
     final selection = SlipSelection(prop: prop, side: side);
 
@@ -1641,6 +1674,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
               gameStatus: selection.prop.gameStatus.isEmpty
                   ? 'scheduled'
                   : selection.prop.gameStatus,
+              gameStartTime: selection.prop.gameStartTime,
             ),
           )
           .toList(),
@@ -1757,9 +1791,38 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             ),
           ),
           if (_chatFloating) _buildFloatingChat(constraints),
-          if (!_chatFloating && _selectedPage != AppPage.propChat)
+          if (_chatBubbleVisible &&
+              !_chatFloating &&
+              _selectedPage != AppPage.propChat)
             _buildChatBubble(constraints),
         ],
+      ),
+    );
+  }
+}
+
+class _ChatBubbleCloseButton extends StatelessWidget {
+  const _ChatBubbleCloseButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: Material(
+        elevation: 6,
+        color: const Color(0xFF101D28),
+        shape: const CircleBorder(side: BorderSide(color: Color(0xFFC8CED6))),
+        child: IconButton(
+          key: const ValueKey('close-prop-chat-bubble'),
+          tooltip: 'Remove chat bubble',
+          onPressed: onPressed,
+          padding: EdgeInsets.zero,
+          iconSize: 15,
+          icon: const Icon(Icons.close_rounded, color: Color(0xFFC8CED6)),
+        ),
       ),
     );
   }
@@ -3661,7 +3724,7 @@ class _MainDashboardState extends State<MainDashboard> {
             height: 42,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: books.length + 2,
+              itemCount: books.length + 3,
               separatorBuilder: (_, _) => const SizedBox(width: 6),
               itemBuilder: (context, index) {
                 if (index == 1) {
@@ -3705,7 +3768,20 @@ class _MainDashboardState extends State<MainDashboard> {
                     ),
                   );
                 }
-                final book = books[index > 2 ? index - 2 : index];
+                if (index == 3) {
+                  return OutlinedButton.icon(
+                    onPressed: _showBoardFilterOptions,
+                    icon: const Icon(Icons.filter_alt_outlined, size: 14),
+                    label: const Text('FILTERS', style: TextStyle(fontSize: 8)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: const Color(0xFF07131D),
+                      side: const BorderSide(color: AppColors.border),
+                      padding: const EdgeInsets.symmetric(horizontal: 11),
+                    ),
+                  );
+                }
+                final book = books[index > 3 ? index - 3 : index];
                 final selected = _selectedSite == book;
                 return OutlinedButton(
                   onPressed: () => setState(() {
@@ -3759,6 +3835,9 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
+  // Retained for reference while the per-prop E+ intelligence panels are
+  // validated in production.
+  // ignore: unused_element
   Widget _buildBoardIntelligence() {
     if (!AuthManager.instance.sessionState.value.hasEdgeAccess) {
       return LayoutBuilder(
@@ -4278,8 +4357,6 @@ class _MainDashboardState extends State<MainDashboard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildBoardSearchAndBooks(),
-                          const SizedBox(height: 12),
-                          _buildBoardIntelligence(),
                           const SizedBox(height: 12),
                           if (_selectedSite != 'ALL') ...[
                             _buildBoardCategories(),
@@ -6850,6 +6927,8 @@ class _PropGridState extends State<PropGrid> {
   List<_PreparedProp> _preparedProps = const [];
   bool _isRefreshing = false;
   bool _isLoadingMore = false;
+  Timer? _autoRetryTimer;
+  int _automaticRetryCount = 0;
   int _visiblePropLimit = _visiblePropStep;
   final Set<String> _favoritePropIds = <String>{};
 
@@ -7422,6 +7501,15 @@ class _PropGridState extends State<PropGrid> {
     return '${days[local.weekday - 1]} ${months[local.month - 1]} ${local.day}';
   }
 
+  String _propDateTimeLabel(PropData prop) {
+    final date = _propGameDayDate(prop);
+    final time = prop.localGameTimeDisplay.trim();
+    if (date.isEmpty && time.isEmpty) return 'DATE & TIME TBD';
+    if (date.isEmpty) return time;
+    if (time.isEmpty) return date;
+    return '$date  •  $time';
+  }
+
   Widget _buildPortraitPropCard(PropData prop, PickSide? selectedSide) {
     final hasProAccess = AuthManager.instance.sessionState.value.hasEdgeAccess;
     final suggestedSide = prop.proSuggestedSide;
@@ -7442,6 +7530,37 @@ class _PropGridState extends State<PropGrid> {
         : PickSide.over;
     final market = _marketCategory(prop);
     final confidence = prop.confidence.clamp(0, 100);
+
+    Widget intelligenceMetric(String label, String value) {
+      return Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 6,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     Widget sideButton(PickSide side) {
       final selected = side == selectedSide;
@@ -7509,7 +7628,7 @@ class _PropGridState extends State<PropGrid> {
             children: [
               Expanded(
                 child: Text(
-                  '$market • ${prop.localGameTimeDisplay}',
+                  '$market  •  ${_propDateTimeLabel(prop)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -7519,6 +7638,24 @@ class _PropGridState extends State<PropGrid> {
                   ),
                 ),
               ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.gold.withValues(alpha: .16),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: AppColors.gold),
+                ),
+                child: const Text(
+                  'E+',
+                  style: TextStyle(
+                    color: AppColors.gold,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .5,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 7),
               InkWell(
                 onTap: () => setState(() {
                   if (!_favoritePropIds.add(prop.id)) {
@@ -7558,6 +7695,36 @@ class _PropGridState extends State<PropGrid> {
                 fontSize: 8,
                 fontWeight: FontWeight.w900,
               ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .055),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.gold.withValues(alpha: .28)),
+            ),
+            child: Row(
+              children: [
+                intelligenceMetric(
+                  'EDGE',
+                  hasProAccess && prop.projection != null
+                      ? '${prop.edge >= 0 ? '+' : ''}${prop.edge.toStringAsFixed(2)}%'
+                      : '--',
+                ),
+                intelligenceMetric(
+                  'PROJECTION',
+                  hasProAccess && prop.projection != null
+                      ? prop.projection!.toStringAsFixed(1)
+                      : '--',
+                ),
+                intelligenceMetric(
+                  'HIT RATE',
+                  hasProAccess && confidence > 0 ? '$confidence%' : '--',
+                ),
+                intelligenceMetric('TIER', prop.tier.toUpperCase()),
+              ],
             ),
           ),
           const SizedBox(height: 8),
@@ -8489,6 +8656,7 @@ class _PropGridState extends State<PropGrid> {
 
   @override
   void dispose() {
+    _autoRetryTimer?.cancel();
     boardRefreshRequestNotifier.removeListener(_handleBoardRefreshRequest);
     super.dispose();
   }
@@ -8540,6 +8708,7 @@ class _PropGridState extends State<PropGrid> {
     );
     if (!mounted || requestKey != _queryKey) return const [];
     if (cached.isNotEmpty) {
+      _automaticRetryCount = 0;
       _preparedProps = _prepareProps(cached);
       widget.onPropsLoaded?.call(
         cached,
@@ -8551,6 +8720,7 @@ class _PropGridState extends State<PropGrid> {
       return cached;
     }
     final liveProps = await _fetchPropsPage();
+    _automaticRetryCount = 0;
     if (!mounted || requestKey != _queryKey) return const [];
     final props = liveProps;
     _startupLog(
@@ -8666,9 +8836,34 @@ class _PropGridState extends State<PropGrid> {
   }
 
   void _retryLoad() {
+    _autoRetryTimer?.cancel();
+    _automaticRetryCount = 0;
     setState(() {
       _propsFuture = _loadProps();
     });
+  }
+
+  void _scheduleAutomaticRetry() {
+    if (_autoRetryTimer?.isActive == true || _automaticRetryCount >= 3) return;
+    _automaticRetryCount += 1;
+    _autoRetryTimer = Timer(const Duration(seconds: 2), () {
+      unawaited(_runAutomaticRetry());
+    });
+  }
+
+  Future<void> _runAutomaticRetry() async {
+    if (!mounted) return;
+    try {
+      final props = await _loadProps();
+      if (!mounted) return;
+      setState(() {
+        _propsFuture = Future.value(props);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      _autoRetryTimer = null;
+      _scheduleAutomaticRetry();
+    }
   }
 
   @override
@@ -8684,6 +8879,7 @@ class _PropGridState extends State<PropGrid> {
             }
 
             if (snapshot.hasError) {
+              _scheduleAutomaticRetry();
               return Padding(
                 padding: const EdgeInsets.only(top: 24),
                 child: _LoadError(
@@ -8851,7 +9047,7 @@ class _PropGridState extends State<PropGrid> {
                         crossAxisCount: columns,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
-                        mainAxisExtent: 330,
+                        mainAxisExtent: 380,
                       ),
                       itemBuilder: (context, index) {
                         final prop = visibleProps[index];

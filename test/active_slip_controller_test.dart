@@ -99,4 +99,20 @@ void main() {
     expect(controller.recentLockedSlips.single.id, 'saved-1');
     expect(controller.lockedSlipCount, 1);
   });
+
+  test('settled locked slip is pruned from the recent cache', () {
+    final controller = ActiveSlipController();
+    final slip = SavedSlip(
+      id: 'saved-1',
+      status: 'active',
+      stake: 10,
+      potentialPayout: 20,
+      createdAt: DateTime.utc(2026, 7, 28),
+      legs: const [],
+    );
+    controller.addOptimisticLockedSlip(slip);
+    controller.reconcileActiveLockedSlips(const []);
+
+    expect(controller.recentLockedSlips, isEmpty);
+  });
 }

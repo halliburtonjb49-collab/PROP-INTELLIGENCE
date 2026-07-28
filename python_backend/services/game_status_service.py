@@ -1,13 +1,9 @@
 import json
 import sqlite3
-from pathlib import Path
 from typing import Any
 
 from services.score_service import fetch_scores
-from services.slip_service import initialize_slip_table
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-DATABASE_PATH = BASE_DIR / "prop_intelligence_cache.db"
+from services.slip_service import DATABASE_PATH, initialize_slip_table
 
 # Map display labels from saved legs back to odds-api sport keys.
 SPORT_TO_KEY = {

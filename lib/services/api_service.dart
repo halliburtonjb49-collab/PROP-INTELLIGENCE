@@ -1140,11 +1140,24 @@ class ApiService {
   Future<List<SavedSlip>> fetchSlips({String? status}) async {
     final query = status == null || status == 'all' ? '' : '?status=$status';
     final uri = Uri.parse('$baseUrl/api/slips$query');
-    var response = await http.get(uri, headers: await _authenticatedHeaders());
-    if (response.statusCode == 401) {
-      response = await http.get(
-        uri,
-        headers: await _authenticatedHeaders(forceRefresh: true),
+    http.Response? response;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        response = await http
+            .get(
+              uri,
+              headers: await _authenticatedHeaders(forceRefresh: attempt > 0),
+            )
+            .timeout(const Duration(seconds: 15));
+        if (response.statusCode != 401) break;
+      } catch (_) {
+        // Retry once immediately; keeping this delay-free also makes a
+        // reconnect feel responsive on mobile networks.
+      }
+    }
+    if (response == null) {
+      throw Exception(
+        'Slips are temporarily unavailable. Check your connection and retry.',
       );
     }
 
@@ -1273,6 +1286,16 @@ class ApiService {
       } catch (_) {
         // Continue refreshing the remaining sports.
       }
+    }
+  }
+
+  Future<void> refreshSavedSlipGameStatuses() async {
+    final uri = Uri.parse('$baseUrl/api/slips/game-status/refresh');
+    final response = await http
+        .post(uri, headers: await _authenticatedHeaders())
+        .timeout(const Duration(seconds: 30));
+    if (response.statusCode != 200) {
+      throw Exception('Unable to refresh ticket game status.');
     }
   }
 

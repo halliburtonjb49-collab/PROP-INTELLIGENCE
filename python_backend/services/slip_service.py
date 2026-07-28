@@ -117,6 +117,22 @@ def create_slip(request: SlipCreate, user_id: str | None = None) -> SlipResponse
     slip = create_slip_response(request, payout)
 
     with _connect() as connection:
+        if user_id:
+            requested_ids = {leg.prop_id for leg in request.legs}
+            active_rows = connection.execute(
+                "SELECT legs_json FROM slips WHERE user_id = ? AND status = 'active'",
+                (user_id,),
+            ).fetchall()
+            reserved_ids = {
+                str(leg.get("prop_id", ""))
+                for row in active_rows
+                for leg in json.loads(row["legs_json"])
+            }
+            duplicates = sorted(requested_ids & reserved_ids)
+            if duplicates:
+                raise ValueError(
+                    "One or more props are already locked in an active ticket."
+                )
         connection.execute(
             """
             INSERT INTO slips (

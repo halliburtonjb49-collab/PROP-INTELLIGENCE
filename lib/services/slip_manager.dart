@@ -1,12 +1,27 @@
 import 'package:flutter/material.dart';
 
 import '../models/prop_data.dart';
+import '../models/saved_slip.dart';
 import 'api_service.dart';
 
 class SlipManager {
   // A dynamic notifier tracking our current list of selected prop slips.
   static final ValueNotifier<List<Map<String, dynamic>>> selectedProps =
       ValueNotifier<List<Map<String, dynamic>>>([]);
+  static final ValueNotifier<Set<String>> lockedPropIds =
+      ValueNotifier<Set<String>>(<String>{});
+
+  static void reserveActiveSlips(Iterable<SavedSlip> slips) {
+    lockedPropIds.value = {
+      for (final slip in slips)
+        if (slip.status.toLowerCase() == 'active')
+          for (final leg in slip.legs)
+            if (leg.propId.isNotEmpty) leg.propId,
+    };
+  }
+
+  static bool isLockedInActiveSlip(String propId) =>
+      propId.isNotEmpty && lockedPropIds.value.contains(propId);
 
   // Toggles adding or removing a prop card from the workspace slip.
   static void togglePropSelection(Map<String, dynamic> prop) {
@@ -14,6 +29,9 @@ class SlipManager {
 
     final incomingId = _propId(prop);
     if (incomingId.isEmpty) {
+      return;
+    }
+    if (isLockedInActiveSlip(incomingId)) {
       return;
     }
 
@@ -34,6 +52,9 @@ class SlipManager {
     final currentList = List<Map<String, dynamic>>.from(selectedProps.value);
     final incomingId = _propId(prop);
     if (incomingId.isEmpty) {
+      return;
+    }
+    if (isLockedInActiveSlip(incomingId)) {
       return;
     }
 
