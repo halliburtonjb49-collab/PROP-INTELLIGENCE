@@ -826,6 +826,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             onSelectPage: (page) =>
                 _switchToPage(page, source: 'board-toolbar'),
             onFloatChat: _floatChat,
+            onShowChatBubble: _showChatBubble,
+            isChatBubbleVisible: _chatBubbleVisible,
           ),
           PropBuilderScreen(
             activeSlipController: _activeSlipController,
@@ -867,6 +869,14 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       _chatFloating = false;
       _chatMinimized = false;
       _selectedPage = AppPage.propChat;
+    });
+  }
+
+  void _showChatBubble() {
+    setState(() {
+      _chatFloating = false;
+      _chatMinimized = false;
+      _chatBubbleVisible = true;
     });
   }
 
@@ -1102,60 +1112,60 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           top: top,
           width: size,
           height: size,
-          child: GestureDetector(
+          child: Stack(
             key: const ValueKey('prop-chat-bubble-launcher'),
-            behavior: HitTestBehavior.opaque,
-            onPanUpdate: (details) {
-              _chatOffset.value = Offset(left, top) + details.delta;
-            },
-            onTap: _floatChat,
-            child: Material(
-              elevation: 18,
-              color: app_colors.AppColors.gold,
-              shape: const CircleBorder(
-                side: BorderSide(color: Colors.white, width: 1.5),
-              ),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Center(
-                    child: Icon(
-                      Icons.forum_rounded,
-                      color: Color(0xFF06111B),
-                      size: 27,
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanUpdate: (details) {
+                    _chatOffset.value = Offset(left, top) + details.delta;
+                  },
+                  onTap: _floatChat,
+                  child: const Material(
+                    elevation: 18,
+                    color: app_colors.AppColors.gold,
+                    shape: CircleBorder(
+                      side: BorderSide(color: Colors.white, width: 1.5),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.forum_rounded,
+                        color: Color(0xFF06111B),
+                        size: 27,
+                      ),
                     ),
                   ),
-                  ValueListenableBuilder<int>(
-                    valueListenable: PropChatService.unreadCount,
-                    builder: (context, unread, _) => unread <= 0
-                        ? const SizedBox.shrink()
-                        : Positioned(
-                            right: -2,
-                            top: -2,
-                            child: CircleAvatar(
-                              radius: 10,
-                              backgroundColor: Color(0xFFFF4D5A),
-                              child: Text(
-                                unread > 9 ? '9+' : '$unread',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
+                ),
+              ),
+              ValueListenableBuilder<int>(
+                valueListenable: PropChatService.unreadCount,
+                builder: (context, unread, _) => unread <= 0
+                    ? const SizedBox.shrink()
+                    : Positioned(
+                        right: -2,
+                        top: -2,
+                        child: CircleAvatar(
+                          radius: 10,
+                          backgroundColor: Color(0xFFFF4D5A),
+                          child: Text(
+                            unread > 9 ? '9+' : '$unread',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
-                  ),
-                  Positioned(
-                    right: -6,
-                    top: -6,
-                    child: _ChatBubbleCloseButton(
-                      onPressed: _closeFloatingChat,
-                    ),
-                  ),
-                ],
+                        ),
+                      ),
               ),
-            ),
+              Positioned(
+                right: -6,
+                top: -6,
+                child: _ChatBubbleCloseButton(onPressed: _closeFloatingChat),
+              ),
+            ],
           ),
         );
       },
@@ -2486,6 +2496,8 @@ class MainDashboard extends StatefulWidget {
   final AppPage selectedPage;
   final ValueChanged<AppPage>? onSelectPage;
   final VoidCallback? onFloatChat;
+  final VoidCallback? onShowChatBubble;
+  final bool isChatBubbleVisible;
 
   const MainDashboard({
     super.key,
@@ -2498,6 +2510,8 @@ class MainDashboard extends StatefulWidget {
     required this.selectedPage,
     this.onSelectPage,
     this.onFloatChat,
+    this.onShowChatBubble,
+    this.isChatBubbleVisible = true,
   });
 
   @override
@@ -4322,6 +4336,8 @@ class _MainDashboardState extends State<MainDashboard> {
                 : widget.selectedPage == AppPage.propChat
                 ? PropChatPage(
                     onPopOut: widget.onFloatChat,
+                    onShowBubble: widget.onShowChatBubble,
+                    isBubbleVisible: widget.isChatBubbleVisible,
                     sharedAnalysis: {
                       'kind': widget.selections.length == 1 ? 'prop' : 'slip',
                       'title': widget.selections.length == 1
@@ -7510,6 +7526,15 @@ class _PropGridState extends State<PropGrid> {
     return '$date  •  $time';
   }
 
+  void _handleCardSelection(PropData prop, PickSide side) {
+    widget.onSelect(prop, side);
+    if (mounted) {
+      // Refresh every visible card so duplicate props and availability remain
+      // synchronized after any selection or deselection.
+      setState(() {});
+    }
+  }
+
   Widget _buildPortraitPropCard(PropData prop, PickSide? selectedSide) {
     final hasProAccess = AuthManager.instance.sessionState.value.hasEdgeAccess;
     final suggestedSide = prop.proSuggestedSide;
@@ -7574,7 +7599,7 @@ class _PropGridState extends State<PropGrid> {
 
       return Expanded(
         child: OutlinedButton(
-          onPressed: () => widget.onSelect(prop, side),
+          onPressed: () => _handleCardSelection(prop, side),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(0, 36),
             foregroundColor: selected
@@ -7723,7 +7748,10 @@ class _PropGridState extends State<PropGrid> {
                   'HIT RATE',
                   hasProAccess && confidence > 0 ? '$confidence%' : '--',
                 ),
-                intelligenceMetric('TIER', prop.tier.toUpperCase()),
+                intelligenceMetric(
+                  'TIER',
+                  hasProAccess ? prop.tier.toUpperCase() : '--',
+                ),
               ],
             ),
           ),
@@ -7750,9 +7778,11 @@ class _PropGridState extends State<PropGrid> {
           ),
           const SizedBox(height: 3),
           Text(
-            prop.projectionModelVersion == 'baseline-v2'
+            hasProAccess && prop.projectionModelVersion == 'baseline-v2'
                 ? 'Experimental until 100 pregame predictions are graded'
-                : 'Live market model',
+                : hasProAccess
+                ? 'Live market model'
+                : 'Pro intelligence is locked',
             style: const TextStyle(color: AppColors.muted, fontSize: 7),
           ),
           const SizedBox(height: 8),

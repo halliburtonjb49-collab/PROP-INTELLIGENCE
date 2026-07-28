@@ -48,11 +48,15 @@ class PropChatPage extends StatefulWidget {
     super.key,
     this.service,
     this.onPopOut,
+    this.onShowBubble,
+    this.isBubbleVisible = true,
     this.isFloating = false,
     this.sharedAnalysis,
   });
   final PropChatService? service;
   final VoidCallback? onPopOut;
+  final VoidCallback? onShowBubble;
+  final bool isBubbleVisible;
   final bool isFloating;
   final Map<String, dynamic>? sharedAnalysis;
 
@@ -620,6 +624,21 @@ class _PropChatPageState extends State<PropChatPage> {
             onGameThread: _createGameThread,
             onShareAnalysis: _shareAnalysis,
           ),
+          if (!widget.isFloating &&
+              !widget.isBubbleVisible &&
+              widget.onShowBubble != null)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: OutlinedButton.icon(
+                  key: const ValueKey('restore-prop-chat-bubble'),
+                  onPressed: widget.onShowBubble,
+                  icon: const Icon(Icons.add_comment_rounded, size: 17),
+                  label: const Text('ADD CHAT BUBBLE'),
+                ),
+              ),
+            ),
           StreamBuilder<List<PropChatModerationNotice>>(
             stream: _service.watchModerationNotices(),
             builder: (context, snapshot) {

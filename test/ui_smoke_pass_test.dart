@@ -201,6 +201,21 @@ void main() {
     expect(find.text('PROP CHAT'), findsWidgets);
     expect(find.byKey(const ValueKey('pop-out-prop-chat')), findsOneWidget);
     expect(
+      find.byKey(const ValueKey('restore-prop-chat-bubble')),
+      findsOneWidget,
+    );
+    tester
+        .widget<OutlinedButton>(
+          find.byKey(const ValueKey('restore-prop-chat-bubble')),
+        )
+        .onPressed!
+        .call();
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('restore-prop-chat-bubble')),
+      findsNothing,
+    );
+    expect(
       find.byKey(const ValueKey('prop-chat-message-field')),
       findsOneWidget,
     );
