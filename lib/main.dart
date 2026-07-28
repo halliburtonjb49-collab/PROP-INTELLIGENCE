@@ -879,6 +879,10 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       _chatFloating = false;
       _chatMinimized = false;
       _chatBubbleVisible = true;
+      // The launcher is intentionally hidden on the full PROP CHAT page.
+      // Return to the board so restoring it produces an immediate, visible
+      // result instead of appearing to do nothing.
+      _selectedPage = AppPage.board;
     });
   }
 

@@ -216,9 +216,10 @@ void main() {
       findsNothing,
     );
     expect(
-      find.byKey(const ValueKey('prop-chat-message-field')),
+      find.byKey(const ValueKey('prop-chat-bubble-launcher')),
       findsOneWidget,
     );
+    expect(find.byKey(const ValueKey('prop-chat-message-field')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }
