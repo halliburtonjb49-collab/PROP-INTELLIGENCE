@@ -223,7 +223,12 @@ app = FastAPI(
 
 APP_VERSION = os.getenv("RENDER_GIT_COMMIT", os.getenv("APP_VERSION", "development"))
 _prop_catalog_lock = Lock()
-_prop_catalog: dict[str, object] = {"loadedAt": 0.0, "props": []}
+_prop_catalog: dict[str, object] = {
+	"loadedAt": 0.0,
+	"versionCheckedAt": 0.0,
+	"version": None,
+	"props": [],
+}
 _prop_metrics_lock = Lock()
 _prop_metrics: dict[str, object] = {
 	"requests": 0,
@@ -268,34 +273,79 @@ def _cached_prop_catalog() -> list[PropResponse]:
 	now = time.monotonic()
 	with _prop_catalog_lock:
 		loaded_at = float(_prop_catalog["loadedAt"] or 0.0)
+		version_checked_at = float(
+			_prop_catalog["versionCheckedAt"] or 0.0
+		)
+		cached_version = _prop_catalog["version"]
 		cached = _prop_catalog["props"]
-		if isinstance(cached, list) and cached and now - loaded_at < 20:
+		if (
+			isinstance(cached, list)
+			and cached
+			and now - version_checked_at < 10
+		):
+			return cached
+	shared_version = get_distributed_json("props:catalog:version:v1")
+	if isinstance(cached, list) and cached:
+		if (
+			shared_version is None
+			and now - loaded_at < 300
+		) or shared_version == cached_version:
+			with _prop_catalog_lock:
+				_prop_catalog["versionCheckedAt"] = now
 			return cached
 	shared = get_distributed_json("props:catalog:v1")
 	if isinstance(shared, list) and shared:
 		try:
 			props = [PropResponse.model_validate(row) for row in shared]
 			with _prop_catalog_lock:
-				_prop_catalog.update(loadedAt=now, props=props)
+				_prop_catalog.update(
+					loadedAt=now,
+					versionCheckedAt=now,
+					version=shared_version or "unversioned",
+					props=props,
+				)
 			return props
 		except Exception:
 			delete_distributed_cache("props:catalog:v1")
 	props = get_props()
 	with _prop_catalog_lock:
-		_prop_catalog.update(loadedAt=now, props=props)
+		_prop_catalog.update(
+			loadedAt=now,
+			versionCheckedAt=now,
+			version=shared_version,
+			props=props,
+		)
 	if props:
+		catalog_version = (
+			f"{APP_VERSION}:"
+			f"{max((prop.lastUpdatedUtc for prop in props), default='')}:"
+			f"{len(props)}"
+		)
 		set_distributed_json(
 			"props:catalog:v1",
 			[prop.model_dump(mode="json") for prop in props],
-			ttl_seconds=45,
+			ttl_seconds=900,
 		)
+		set_distributed_json(
+			"props:catalog:version:v1",
+			catalog_version,
+			ttl_seconds=900,
+		)
+		with _prop_catalog_lock:
+			_prop_catalog["version"] = catalog_version
 	return props
 
 
 def _invalidate_prop_catalog() -> None:
 	with _prop_catalog_lock:
-		_prop_catalog.update(loadedAt=0.0, props=[])
+		_prop_catalog.update(
+			loadedAt=0.0,
+			versionCheckedAt=0.0,
+			version=None,
+			props=[],
+		)
 	delete_distributed_cache("props:catalog:v1")
+	delete_distributed_cache("props:catalog:version:v1")
 
 _sync_run_lock = Lock()
 _sync_state_lock = Lock()

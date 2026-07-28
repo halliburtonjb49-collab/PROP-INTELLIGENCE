@@ -187,6 +187,36 @@ def test_prop_filtering_serializes_only_the_requested_page(monkeypatch) -> None:
     assert dumps == 1
 
 
+def test_catalog_reuses_models_when_distributed_version_is_unchanged(
+    monkeypatch,
+) -> None:
+    rows = [FakeProp("prop-1", "Player", "MLB", "FANDUEL", "HITS")]
+    main._prop_catalog.update(
+        loadedAt=main.time.monotonic(),
+        versionCheckedAt=0.0,
+        version="catalog-v1",
+        props=rows,
+    )
+    reads: list[str] = []
+
+    def fake_get(key: str):
+        reads.append(key)
+        return "catalog-v1"
+
+    monkeypatch.setattr(main, "get_distributed_json", fake_get)
+
+    try:
+        assert main._cached_prop_catalog() is rows
+        assert reads == ["props:catalog:version:v1"]
+    finally:
+        main._prop_catalog.update(
+            loadedAt=0.0,
+            versionCheckedAt=0.0,
+            version=None,
+            props=[],
+        )
+
+
 def test_positive_ev_route_returns_only_calculated_positive_rows(monkeypatch) -> None:
     positive = FakeProp("positive", "One", "MLB", "FANDUEL", "HITS")
     positive.evPercentage = 4.25
