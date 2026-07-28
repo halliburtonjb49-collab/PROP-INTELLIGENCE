@@ -66,6 +66,10 @@ services:
         value: 300
       - key: PROP_SYNC_EVENT_WORKERS
         value: 6
+      - key: RAW_PROP_STREAM
+        value: prop-intelligence:raw-feeds
+      - key: RAW_PROP_STREAM_MAXLEN
+        value: 5000
       - key: PROP_COVERAGE_SYNC_SECONDS
         value: 1800
       - key: EMPTY_PROP_SYNC_ATTEMPTS
@@ -145,6 +149,10 @@ services:
         value: /tmp/prop_intelligence_cache.db
       - key: PROP_SYNC_EVENT_WORKERS
         value: 6
+      - key: RAW_PROP_STREAM
+        value: prop-intelligence:raw-feeds
+      - key: RAW_PROP_STREAM_MAXLEN
+        value: 5000
       - key: PREFERRED_BOOKMAKERS
         value: prizepicks,underdog,draftkings,sleeper,fanduel,betr
       - key: PROP_SYNC_SPORTS

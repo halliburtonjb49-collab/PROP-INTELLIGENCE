@@ -21,6 +21,8 @@ LEAGUE_TO_SPORT = {
     "NHL": "icehockey_nhl",
     "EPL": "soccer_epl",
     "MLS": "soccer_usa_mls",
+    "ATP": "tennis_atp",
+    "WTA": "tennis_wta",
 }
 
 _STAT_MARKETS = {
@@ -186,6 +188,15 @@ def _market_key(
 ) -> str | None:
     normalized = _normalized_stat(stat_id)
     text = market_name.lower()
+    if sport_key.startswith("tennis_"):
+        return {
+            "points": "player_sets_won",
+            "truepoints": "player_tennis_points_won",
+            "breakpoints": "player_break_points_won",
+            "games": "player_games_won",
+            "servingaces": "player_aces",
+            "fantasyscore": "player_fantasy_points",
+        }.get(normalized)
     if normalized == "goals" and sport_key.startswith("soccer_"):
         return (
             "player_goal_scorer_anytime"

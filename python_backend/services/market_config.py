@@ -82,6 +82,22 @@ SPORT_MARKETS = {
         "player_goals",
         "player_total_saves",
     ],
+    "tennis_atp": [
+        "player_sets_won",
+        "player_tennis_points_won",
+        "player_aces",
+        "player_games_won",
+        "player_break_points_won",
+        "player_fantasy_points",
+    ],
+    "tennis_wta": [
+        "player_sets_won",
+        "player_tennis_points_won",
+        "player_aces",
+        "player_games_won",
+        "player_break_points_won",
+        "player_fantasy_points",
+    ],
 }
 
 SOCCER_PROP_MARKETS = [

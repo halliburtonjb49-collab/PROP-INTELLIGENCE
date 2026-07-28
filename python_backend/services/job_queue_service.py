@@ -24,13 +24,21 @@ def _queue() -> Queue | None:
     return Queue(QUEUE_NAME, connection=connection)
 
 
-def enqueue(function_name: str, *, job_id: str | None = None) -> dict[str, Any] | None:
+def enqueue(
+    function_name: str,
+    *,
+    job_id: str | None = None,
+    args: tuple[Any, ...] = (),
+    kwargs: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
     queue = _queue()
     if queue is None:
         return None
     try:
         job = queue.enqueue(
             function_name,
+            args=args,
+            kwargs=kwargs or {},
             job_id=job_id,
             job_timeout=1800,
             result_ttl=86400,

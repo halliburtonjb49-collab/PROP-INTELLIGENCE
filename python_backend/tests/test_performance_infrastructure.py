@@ -24,6 +24,7 @@ def test_health_exposes_cache_queue_and_query_performance() -> None:
     payload = response.json()
     assert "cache" in payload
     assert "backgroundQueue" in payload
+    assert "ingestionPipeline" in payload
     assert payload["databasePerformance"]["thresholdMs"] >= 1
     assert "recentSlowQueries" in database_performance_snapshot()
 

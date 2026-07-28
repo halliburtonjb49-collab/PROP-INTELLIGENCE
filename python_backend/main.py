@@ -83,6 +83,8 @@ from services.job_queue_service import (
 	enqueue as enqueue_background_job,
 	health as job_queue_health,
 )
+from services.raw_ingestion_service import health as ingestion_pipeline_health
+from services.market_intelligence_service import latest_market_intelligence
 from services.mlb_headshot_service import refresh_mlb_headshot_map
 from services.espn_headshot_service import (
 	refresh_espn_headshot_map,
@@ -1339,8 +1341,21 @@ def health() -> dict[str, object]:
 		"propFeed": dict(_prop_metrics),
 		"cache": distributed_cache_health(),
 		"backgroundQueue": job_queue_health(),
+		"ingestionPipeline": ingestion_pipeline_health(),
 		"databasePerformance": database_performance_snapshot(),
 	}
+
+
+@app.get("/api/market-intelligence")
+def market_intelligence(
+	sport: str | None = Query(default=None),
+	limit: int = Query(default=250, ge=1, le=1000),
+) -> dict[str, object]:
+	rows = latest_market_intelligence(
+		sport=sport.strip() if sport else None,
+		limit=limit,
+	)
+	return {"count": len(rows), "items": rows}
 
 
 @app.get("/api/operations/prop-feed-health")
