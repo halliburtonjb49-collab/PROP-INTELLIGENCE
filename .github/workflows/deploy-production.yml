@@ -17,9 +17,12 @@ jobs:
       - name: Require deployed commit only for Render changes
         shell: bash
         run: |
-          if git diff --quiet HEAD^ HEAD -- \
-            python_backend render.yaml requirements*.txt \
-            supabase*.sql .render-deploy-trigger; then
+          render_changes="$(
+            git diff --name-only HEAD^ HEAD |
+              grep -E '^(python_backend/|render\.yaml$|requirements.*\.txt$|supabase.*\.sql$|\.render-deploy-trigger$)' |
+              grep -Ev '^python_backend/tests/' || true
+          )"
+          if [[ -z "$render_changes" ]]; then
             echo "EXPECTED_PRODUCTION_VERSION=" >> "$GITHUB_ENV"
           else
             echo "EXPECTED_PRODUCTION_VERSION=$GITHUB_SHA" >> "$GITHUB_ENV"
