@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import urllib.error
 from pathlib import Path
 
@@ -16,8 +17,11 @@ SPEC.loader.exec_module(post_deploy_smoke)
 class _Response:
     status = 200
 
+    def __init__(self, body: bytes = b"ok") -> None:
+        self._body = body
+
     def read(self) -> bytes:
-        return b"ok"
+        return self._body
 
 
 def _bad_gateway(url: str) -> urllib.error.HTTPError:
@@ -70,3 +74,68 @@ def test_request_does_not_retry_authentication_failures(monkeypatch) -> None:
         raise AssertionError("401 response should fail immediately")
 
     assert attempts == 1
+
+
+def test_wait_for_expected_version_polls_until_render_activates_commit(
+    monkeypatch,
+) -> None:
+    versions = iter(["old-version", "expected-version"])
+    delays: list[int] = []
+
+    def fake_request(url, *, transient_attempts):
+        body = json.dumps(
+            {"status": "ok", "version": next(versions)}
+        ).encode()
+        return _Response(body), body, 1.0
+
+    monkeypatch.setenv("EXPECTED_PRODUCTION_VERSION", "expected-version")
+    monkeypatch.setenv("PRODUCTION_DEPLOY_WAIT_SECONDS", "60")
+    monkeypatch.setattr(post_deploy_smoke, "request", fake_request)
+    monkeypatch.setattr(post_deploy_smoke.time, "sleep", delays.append)
+
+    post_deploy_smoke.wait_for_expected_version()
+
+    assert delays == [post_deploy_smoke.DEPLOYMENT_POLL_SECONDS]
+
+
+def test_readiness_waits_for_feed_to_refresh_after_deployment(monkeypatch) -> None:
+    real_datetime = post_deploy_smoke.datetime
+    timestamps = iter(
+        [
+            "2026-07-29T16:00:00Z",
+            "2026-07-29T17:00:00Z",
+        ]
+    )
+    delays: list[int] = []
+
+    class _Now:
+        @classmethod
+        def now(cls, tz):
+            return real_datetime.fromisoformat(
+                "2026-07-29T17:30:00+00:00"
+            )
+
+        @classmethod
+        def fromisoformat(cls, value):
+            return real_datetime.fromisoformat(value)
+
+    def fake_request(url):
+        body = json.dumps(
+            {
+                "status": "ok",
+                "count": 10,
+                "dataProtected": True,
+                "lastDataUpdatedAt": next(timestamps),
+            }
+        ).encode()
+        return _Response(body), body, 1.0
+
+    monkeypatch.setenv("PRODUCTION_FEED_WARMUP_SECONDS", "60")
+    monkeypatch.setattr(post_deploy_smoke, "request", fake_request)
+    monkeypatch.setattr(post_deploy_smoke, "datetime", _Now)
+    monkeypatch.setattr(post_deploy_smoke.time, "sleep", delays.append)
+
+    _, _, _, _, feed_age = post_deploy_smoke.read_fresh_prop_readiness()
+
+    assert feed_age == 30
+    assert delays == [post_deploy_smoke.DEPLOYMENT_POLL_SECONDS]

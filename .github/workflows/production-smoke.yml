@@ -12,13 +12,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Wait for production deployment
-        if: github.event_name == 'push'
-        run: sleep 150
       - name: Verify app, CORS, props, payload, and production bundle
         id: production-check
         env:
           SMOKE_API_TOKEN: ${{ secrets.SMOKE_API_TOKEN }}
+          EXPECTED_PRODUCTION_VERSION: ${{ github.event_name == 'push' && github.sha || '' }}
+          PRODUCTION_DEPLOY_WAIT_SECONDS: "600"
+          PRODUCTION_FEED_WARMUP_SECONDS: ${{ github.event_name == 'push' && '300' || '0' }}
         run: python tools/post_deploy_smoke.py
       - name: Alert owner when deployment or service health fails
         if: failure()
