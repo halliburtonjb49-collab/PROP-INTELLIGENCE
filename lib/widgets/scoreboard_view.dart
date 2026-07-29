@@ -98,7 +98,18 @@ class _LiveScoreboardTickerGridWidgetState
   }
 
   String _gameTime(ScoreboardGame game) {
-    if ((game.displayTime ?? '').trim().isNotEmpty) return game.displayTime!;
+    final provided = (game.displayTime ?? '').trim();
+    if (provided.isNotEmpty) {
+      final military = RegExp(
+        r'^([01]?\d|2[0-3]):([0-5]\d)$',
+      ).firstMatch(provided);
+      if (military != null) {
+        final hour24 = int.parse(military.group(1)!);
+        final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+        return '$hour12:${military.group(2)} ${hour24 >= 12 ? 'PM' : 'AM'}';
+      }
+      return provided;
+    }
     final value = game.startTime?.toLocal();
     if (value == null) return game.detail.isEmpty ? 'Scheduled' : game.detail;
     final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;

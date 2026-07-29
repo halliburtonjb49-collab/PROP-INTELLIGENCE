@@ -2530,7 +2530,7 @@ class _MainDashboardState extends State<MainDashboard> {
   final ScrollController _boardVerticalController = ScrollController();
   final ScrollController _categoryHorizontalController = ScrollController();
   Timer? _searchDebounce;
-  final String _searchQuery = '';
+  String _searchQuery = '';
   String _selectedSite = 'PRIZEPICKS';
   String _selectedCategory = 'ALL';
   final String _selectedSide = 'All';
@@ -3614,6 +3614,208 @@ class _MainDashboardState extends State<MainDashboard> {
         .toList();
   }
 
+  Future<void> _showPlayerPropsOverlay(PropData focused) async {
+    setState(() => _focusedProp = focused);
+    List<PropData> playerProps;
+    try {
+      final fetched = await _apiService.fetchProps(
+        selectedSportsbook: focused.sportsbook,
+        selectedSport: focused.sport,
+        search: focused.player,
+        sortBy: 'time',
+        limit: 500,
+      );
+      final playerKey = focused.player.trim().toLowerCase();
+      final siteKey = _normalizeSite(focused.sportsbook);
+      playerProps = fetched
+          .where(
+            (prop) =>
+                prop.player.trim().toLowerCase() == playerKey &&
+                _normalizeSite(prop.sportsbook) == siteKey,
+          )
+          .toList(growable: false);
+    } catch (_) {
+      playerProps = _latestProps
+          .where(
+            (prop) =>
+                prop.player.trim().toLowerCase() ==
+                    focused.player.trim().toLowerCase() &&
+                _normalizeSite(prop.sportsbook) ==
+                    _normalizeSite(focused.sportsbook),
+          )
+          .toList(growable: false);
+    }
+    if (!mounted) return;
+    if (playerProps.isEmpty) playerProps = [focused];
+    playerProps.sort((a, b) => _propMarket(a).compareTo(_propMarket(b)));
+
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: .66),
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: Container(
+          key: const ValueKey('same-player-props-overlay'),
+          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 680),
+          decoration: BoxDecoration(
+            color: const Color(0xFF071520).withValues(alpha: .94),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.gold, width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.gold.withValues(alpha: .18),
+                blurRadius: 28,
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 16, 8, 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.person_search, color: AppColors.gold),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            focused.player,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            '${focused.sportsbook.toUpperCase()} • ${playerProps.length} available props',
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.pop(dialogContext),
+                      icon: const Icon(Icons.close, color: AppColors.gold),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: AppColors.border),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(14),
+                  itemCount: playerProps.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final prop = playerProps[index];
+                    final start = DateTime.tryParse(
+                      prop.startTimeUtc.isNotEmpty
+                          ? prop.startTimeUtc
+                          : prop.gameStartTime,
+                    )?.toLocal();
+                    final time = start == null
+                        ? prop.displayTime
+                        : '${start.month}/${start.day}/${start.year} '
+                              '${start.hour % 12 == 0 ? 12 : start.hour % 12}:'
+                              '${start.minute.toString().padLeft(2, '0')} '
+                              '${start.hour >= 12 ? 'PM' : 'AM'}';
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0B1B27).withValues(alpha: .78),
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _propMarket(prop).toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${prop.matchup} • ${time.isEmpty ? 'Time pending' : time}',
+                                  style: const TextStyle(
+                                    color: AppColors.muted,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  'Over ${prop.overOdds?.round() ?? '--'}  •  Under ${prop.underOdds?.round() ?? '--'}',
+                                  style: const TextStyle(
+                                    color: Color(0xFFC8CED6),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.gold.withValues(alpha: .1),
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(color: AppColors.gold),
+                            ),
+                            child: Column(
+                              children: [
+                                const Text(
+                                  'LINE',
+                                  style: TextStyle(
+                                    color: AppColors.muted,
+                                    fontSize: 8,
+                                  ),
+                                ),
+                                Text(
+                                  prop.line.toStringAsFixed(1),
+                                  style: const TextStyle(
+                                    color: AppColors.gold,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 14),
+                child: Text(
+                  'Live lines and prices can move. Confirm the current number on the listed prop site before completing a ticket.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.muted, fontSize: 9),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ignore: unused_element
   Future<void> _showPropAlertsOverlay(List<PropData> visibleProps) async {
     if (_propAlerts.isEmpty) {
@@ -3748,22 +3950,61 @@ class _MainDashboardState extends State<MainDashboard> {
               separatorBuilder: (_, _) => const SizedBox(width: 6),
               itemBuilder: (context, index) {
                 if (index == 1) {
-                  return Tooltip(
-                    message: 'Search players and open detailed prop research',
-                    child: OutlinedButton(
-                      onPressed: () =>
-                          widget.onSelectPage?.call(AppPage.searchPlayers),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.gold,
-                        backgroundColor: const Color(0xFF07131D),
-                        side: const BorderSide(color: AppColors.gold),
-                        minimumSize: const Size(42, 42),
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
+                  return SizedBox(
+                    key: const ValueKey('board-player-search'),
+                    width: 230,
+                    child: TextField(
+                      controller: _searchController,
+                      textInputAction: TextInputAction.search,
+                      onChanged: (value) {
+                        _searchDebounce?.cancel();
+                        _searchDebounce = Timer(
+                          const Duration(milliseconds: 250),
+                          () {
+                            if (!mounted) return;
+                            setState(() {
+                              _searchQuery = value.trim().toLowerCase();
+                              _focusedProp = null;
+                              _latestProps = const [];
+                              _lastUpdated = null;
+                            });
+                          },
+                        );
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Search players',
+                        prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                        suffixIcon: _searchQuery.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: 'Clear player search',
+                                onPressed: () {
+                                  _searchDebounce?.cancel();
+                                  _searchController.clear();
+                                  setState(() {
+                                    _searchQuery = '';
+                                    _focusedProp = null;
+                                    _latestProps = const [];
+                                    _lastUpdated = null;
+                                  });
+                                },
+                                icon: const Icon(Icons.close, size: 17),
+                              ),
+                        filled: true,
+                        fillColor: const Color(0xFF07131D),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                        enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(7),
+                          borderSide: const BorderSide(color: AppColors.gold),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(7),
+                          borderSide: const BorderSide(
+                            color: AppColors.gold,
+                            width: 1.4,
+                          ),
                         ),
                       ),
-                      child: const Icon(Icons.search_rounded, size: 18),
                     ),
                   );
                 }
@@ -4380,7 +4621,8 @@ class _MainDashboardState extends State<MainDashboard> {
                         children: [
                           _buildBoardSearchAndBooks(),
                           const SizedBox(height: 12),
-                          if (_selectedSite != 'ALL') ...[
+                          if (_selectedSite != 'ALL' ||
+                              _normalizeSport(widget.sportFilter) != 'ALL') ...[
                             _buildBoardCategories(),
                             const SizedBox(height: 10),
                           ],
@@ -4398,8 +4640,7 @@ class _MainDashboardState extends State<MainDashboard> {
                               setState(() => _focusedProp = prop);
                               widget.onSelect(prop, side);
                             },
-                            onPropFocused: (prop) =>
-                                setState(() => _focusedProp = prop),
+                            onPropFocused: _showPlayerPropsOverlay,
                             sportFilter: widget.sportFilter,
                             searchQuery: _searchQuery,
                             selectedSite: _selectedSite,

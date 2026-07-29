@@ -608,6 +608,9 @@ ESPN_SCOREBOARD_PATHS: dict[str, str] = {
 	"MLB": "baseball/mlb",
 	"NFL": "football/nfl",
 	"NHL": "hockey/nhl",
+	"EPL": "soccer/eng.1",
+	"MLS": "soccer/usa.1",
+	"UFC": "mma/ufc",
 }
 
 VALID_BULK_MODES = {"merge", "replace"}
@@ -1114,7 +1117,9 @@ def _normalize_scoreboard_game(
 
 
 def _shared_game_time_map() -> dict[str, dict[str, str]]:
-	prop_list = get_props()
+	# Reuse the Redis-backed prop catalog. Re-reading and rebuilding thousands
+	# of PropResponse rows made every scoreboard request pay the prop-feed cost.
+	prop_list = _cached_prop_catalog()
 	shared: dict[str, dict[str, str]] = {}
 	for prop in prop_list:
 		row = prop.model_dump()
@@ -1183,7 +1188,7 @@ def _scoreboard_games_for_sport(
 		target_date,
 	)
 	api_sports_baseball_games: list[dict[str, object]] = []
-	if league == "MLB":
+	if league == "MLB" and not espn_games:
 		try:
 			api_sports_baseball_games = (
 				ApiSportsBaseballProvider().get_games_by_date(target_date)
@@ -1203,6 +1208,22 @@ def _scoreboard_games_for_sport(
 			identity = str(live_game.get("identity") or "").strip()
 			if identity and str(live_game.get("detail") or "").strip():
 				live_detail_map[identity] = str(live_game.get("detail") or "").strip()
+
+	# ESPN already supplies scheduled times, scores, and live/final state in a
+	# single request. When it has the slate, avoid two additional provider
+	# round-trips (events + scores) for every sport.
+	if espn_games:
+		return [
+			_normalize_scoreboard_game(
+				event,
+				league,
+				now,
+				live_detail_map=live_detail_map,
+				shared_time_map=shared_time_map,
+			)
+			for event in espn_games
+			if _event_on_date(event, target_date=target_date)
+		]
 
 	try:
 		events = fetch_events(sport_key)
@@ -3037,6 +3058,13 @@ def scoreboard(
 			) from exc
 
 	now = datetime.now(timezone.utc)
+	cache_key = f"scoreboard:v2:{target_date.isoformat()}"
+	cached_scoreboard = get_distributed_json(cache_key)
+	if isinstance(cached_scoreboard, dict):
+		cached_games = cached_scoreboard.get("games")
+		if isinstance(cached_games, list):
+			return cached_scoreboard
+
 	shared_time_map = _shared_game_time_map()
 	games: list[dict[str, object]] = []
 
@@ -3089,11 +3117,18 @@ def scoreboard(
 		"scoreboard",
 	)
 
-	return {
+	payload = {
 		"date": target_date.isoformat(),
 		"updated_at": now.isoformat(),
 		"games": games,
 	}
+	today = now.astimezone(_scoreboard_timezone()).date()
+	set_distributed_json(
+		cache_key,
+		payload,
+		ttl_seconds=20 if target_date == today else 300,
+	)
+	return payload
 
 
 @app.post("/api/slips/{slip_id}/closing-lines")
