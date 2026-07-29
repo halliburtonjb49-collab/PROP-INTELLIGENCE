@@ -87,6 +87,7 @@ from services.job_queue_service import (
 from services.raw_ingestion_service import health as ingestion_pipeline_health
 from services.rate_limit_service import allow_request
 from services.security_event_service import record_security_event
+from services.scoreboard_metrics_service import record_scoreboard_request
 from services.market_intelligence_service import latest_market_intelligence
 from services.mlb_headshot_service import refresh_mlb_headshot_map
 from services.espn_headshot_service import (
@@ -311,6 +312,7 @@ def _queue_security_event(event_type: str, **kwargs: object) -> None:
 async def protect_premium_api(request: Request, call_next: Callable):
 	"""Throttle valuable datasets and apply browser-safe response headers."""
 	path = request.url.path
+	request_started = time.perf_counter()
 	rate_limit = _rate_limit_scope(request)
 	if rate_limit is not None:
 		scope, scoped_limit = rate_limit
@@ -381,6 +383,11 @@ async def protect_premium_api(request: Request, call_next: Callable):
 	response.headers["Strict-Transport-Security"] = (
 		"max-age=31536000; includeSubDomains"
 	)
+	if path == "/api/scoreboard":
+		record_scoreboard_request(
+			(time.perf_counter() - request_started) * 1000,
+			succeeded=response.status_code < 500,
+		)
 	return response
 
 

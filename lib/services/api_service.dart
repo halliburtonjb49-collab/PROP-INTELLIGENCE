@@ -280,6 +280,17 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> fetchLaunchControlPanel() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/operations/control-panel'),
+      headers: await _authenticatedHeaders(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load launch control panel: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<List<Map<String, dynamic>>> fetchAlertDeliveries() async {
     final response = await http.get(
       Uri.parse('$baseUrl/api/intelligence/alerts/deliveries'),

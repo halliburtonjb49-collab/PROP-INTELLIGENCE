@@ -4913,6 +4913,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
   Map<String, dynamic>? _lastUnresolvedGrouped;
   Map<String, dynamic>? _operations;
   Map<String, dynamic>? _acceptance;
+  Map<String, dynamic>? _controlPanel;
   final List<String> _uploadAuditEntries = [];
 
   static const String _auditPrefKey = 'data_admin_upload_audit_v1';
@@ -4933,6 +4934,255 @@ class _DataAdminPageState extends State<DataAdminPage> {
     unawaited(_refreshUnresolved());
     unawaited(_refreshOperations());
     unawaited(_refreshAcceptance());
+    unawaited(_refreshControlPanel());
+  }
+
+  Future<void> _refreshControlPanel() async {
+    try {
+      final result = await _apiService.fetchLaunchControlPanel();
+      if (mounted) {
+        setState(() => _controlPanel = result);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _statusText = 'Launch control panel failed: $error');
+      }
+    }
+  }
+
+  Widget _buildLaunchControlPanel() {
+    final api = _controlPanel?['api'] as Map? ?? const {};
+    final redis = _controlPanel?['redis'] as Map? ?? const {};
+    final workers = _controlPanel?['workers'] as Map? ?? const {};
+    final providers = _controlPanel?['providers'] as Map? ?? const {};
+    final freshness = _controlPanel?['propFreshness'] as Map? ?? const {};
+    final scoreboard = _controlPanel?['scoreboardLatency'] as Map? ?? const {};
+    final activeUsers = _controlPanel?['activeUsers'] as Map? ?? const {};
+    final failedLogins = _controlPanel?['failedLogins'] as Map? ?? const {};
+    final failedPayments = _controlPanel?['failedPayments'] as Map? ?? const {};
+    final unsettledSlips = _controlPanel?['unsettledSlips'] as Map? ?? const {};
+    final pipelines = _controlPanel?['pipelines'] as Map? ?? const {};
+
+    Widget signal(
+      String label,
+      String value,
+      IconData icon, {
+      bool healthy = true,
+      String? detail,
+    }) {
+      final color = healthy ? const Color(0xFF8CFFB2) : const Color(0xFFFFD166);
+      return Container(
+        width: 210,
+        constraints: const BoxConstraints(minHeight: 92),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF101C28),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: color.withValues(alpha: .25)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 17),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      color: Color(0xFF8296AA),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 7),
+            Text(
+              value,
+              style: TextStyle(
+                color: color,
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (detail != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                detail,
+                style: const TextStyle(color: Color(0xFF8296AA), fontSize: 9),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
+    final queueAvailable = workers['available'] == true;
+    final redisAvailable = redis['available'] == true;
+    final feedHealthy = freshness['healthy'] == true;
+    final quotaLow = providers['lowQuota'] == true;
+    final failedLoginCount = failedLogins['count'];
+    final version = api['version']?.toString() ?? 'Loading';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF07121C),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF2A3D51)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.dashboard_customize_outlined,
+                color: Color(0xFFFFC400),
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'LAUNCH-DAY CONTROL PANEL',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: _refreshControlPanel,
+                tooltip: 'Refresh launch telemetry',
+                icon: const Icon(
+                  Icons.refresh,
+                  color: Colors.white70,
+                  size: 18,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              signal(
+                'API HEALTH',
+                api['status']?.toString().toUpperCase() ?? 'LOADING',
+                Icons.cloud_done_outlined,
+                healthy: api['status'] == 'ok',
+              ),
+              signal(
+                'REDIS HEALTH',
+                redisAvailable
+                    ? 'CONNECTED'
+                    : (redis['mode']?.toString().toUpperCase() ?? 'LOADING'),
+                Icons.storage_outlined,
+                healthy: redisAvailable,
+              ),
+              signal(
+                'WORKERS / QUEUE',
+                queueAvailable
+                    ? '${workers['workers'] ?? 0} workers'
+                    : (workers['mode']?.toString().toUpperCase() ?? 'LOADING'),
+                Icons.precision_manufacturing_outlined,
+                healthy: queueAvailable,
+                detail:
+                    '${workers['queued'] ?? 0} queued • ${workers['failed'] ?? 0} failed',
+              ),
+              signal(
+                'PROVIDER ERRORS',
+                '${providers['errors'] ?? 0}',
+                Icons.report_problem_outlined,
+                healthy: (providers['errors'] ?? 0) == 0,
+                detail:
+                    '${providers['remainingQuota'] ?? 'Unknown'} quota remaining',
+              ),
+              signal(
+                'PROP FRESHNESS',
+                freshness['ageMinutes'] == null
+                    ? 'UNKNOWN'
+                    : '${freshness['ageMinutes']} min old',
+                Icons.update_outlined,
+                healthy: feedHealthy,
+                detail: '${freshness['total'] ?? 0} live props',
+              ),
+              signal(
+                'SCOREBOARD LATENCY',
+                scoreboard['lastMs'] == null
+                    ? 'NOT CHECKED'
+                    : '${scoreboard['lastMs']} ms',
+                Icons.speed_outlined,
+                healthy: scoreboard['status'] == 'ok',
+                detail: 'p95 ${scoreboard['p95Ms'] ?? '—'} ms',
+              ),
+              signal(
+                'ACTIVE USERS',
+                activeUsers['count']?.toString() ?? 'UNAVAILABLE',
+                Icons.people_outline,
+                healthy: activeUsers['instrumented'] == true,
+                detail: 'Observed in the last 15 minutes',
+              ),
+              signal(
+                'FAILED LOGINS',
+                failedLoginCount?.toString() ?? 'NOT INSTRUMENTED',
+                Icons.no_accounts_outlined,
+                healthy: failedLoginCount == 0,
+                detail: 'Supabase log integration required',
+              ),
+              signal(
+                'FAILED PAYMENTS',
+                '${failedPayments['count'] ?? 'Unknown'}',
+                Icons.credit_card_off_outlined,
+                healthy: (failedPayments['count'] ?? 0) == 0,
+                detail: 'Last 24 hours',
+              ),
+              signal(
+                'UNSETTLED SLIPS',
+                '${unsettledSlips['count'] ?? 'Unknown'}',
+                Icons.receipt_long_outlined,
+                detail: 'Active tickets awaiting settlement',
+              ),
+              signal(
+                'DEPLOYMENT VERSION',
+                version.length > 10 ? version.substring(0, 10) : version,
+                Icons.rocket_launch_outlined,
+                detail: 'API release commit',
+              ),
+              signal(
+                'PIPELINES',
+                pipelines['healthy'] == true ? 'HEALTHY' : 'ATTENTION',
+                Icons.account_tree_outlined,
+                healthy: pipelines['healthy'] == true,
+                detail:
+                    '${(pipelines['activeFailures'] as List?)?.length ?? 0} active failures',
+              ),
+            ],
+          ),
+          if (quotaLow) ...[
+            const SizedBox(height: 10),
+            const Text(
+              'Provider quota is below the configured reserve.',
+              style: TextStyle(
+                color: Color(0xFFFFD166),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Future<void> _refreshAcceptance() async {
@@ -5843,6 +6093,8 @@ class _DataAdminPageState extends State<DataAdminPage> {
               ],
             ],
           ),
+          const SizedBox(height: 8),
+          _buildLaunchControlPanel(),
           const SizedBox(height: 8),
           _buildOperationsPanel(),
           const SizedBox(height: 8),

@@ -26,6 +26,8 @@
 
 ## Operations and release
 
+- [ ] Owner launch-day control panel reports API, Redis, workers/queue, providers/quota, prop freshness, scoreboard latency, active users, failed payments, unsettled slips, and deployment version.
+- [ ] Failed-login telemetry is connected from Supabase without exposing credentials or user identifiers.
 - [ ] `PIPELINE_ALERT_WEBHOOK_URL` is configured for API and both cron services.
 - [ ] `/health` returns `status: ok` and `/api/operations/pipelines` reports healthy runs.
 - [ ] `python python_backend/scripts/production_smoke_check.py` exits successfully.

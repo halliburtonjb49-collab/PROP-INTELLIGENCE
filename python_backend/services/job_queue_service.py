@@ -6,7 +6,7 @@ import os
 from typing import Any
 
 from redis import Redis
-from rq import Queue, Retry
+from rq import Queue, Retry, Worker
 from rq.registry import FailedJobRegistry, StartedJobRegistry
 
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
@@ -71,6 +71,7 @@ def health() -> dict[str, object]:
                 queue.name,
                 connection=queue.connection,
             ).count,
+            "workers": len(Worker.all(queue=queue)),
         }
     except Exception as exc:
         return {
