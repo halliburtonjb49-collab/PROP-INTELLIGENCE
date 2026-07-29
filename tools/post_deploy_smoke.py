@@ -9,12 +9,21 @@ from datetime import datetime, timezone
 APP_URL = "https://app.propsintell.com"
 API_URL = "https://api.propsintell.com"
 MAX_PROP_FEED_AGE_MINUTES = 45
+DEFAULT_TRANSIENT_ATTEMPTS = 6
+MAX_RETRY_DELAY_SECONDS = 10
+TRANSIENT_HTTP_STATUSES = {502, 503, 504}
+
+
+def _retry_delay(attempt: int) -> int:
+    return min(2 ** (attempt + 1), MAX_RETRY_DELAY_SECONDS)
+
+
 def request(
     url: str,
     *,
     method: str = "GET",
     headers: dict[str, str] | None = None,
-    transient_attempts: int = 3,
+    transient_attempts: int = DEFAULT_TRANSIENT_ATTEMPTS,
 ):
     for attempt in range(transient_attempts):
         req = urllib.request.Request(url, method=method, headers=headers or {})
@@ -24,12 +33,21 @@ def request(
             body = response.read()
             return response, body, (time.perf_counter() - started) * 1000
         except urllib.error.HTTPError as exc:
-            if exc.code not in {502, 503, 504} or attempt + 1 >= transient_attempts:
+            if (
+                exc.code not in TRANSIENT_HTTP_STATUSES
+                or attempt + 1 >= transient_attempts
+            ):
                 raise
-        except urllib.error.URLError:
+        except (urllib.error.URLError, TimeoutError):
             if attempt + 1 >= transient_attempts:
                 raise
-        time.sleep(2 ** (attempt + 1))
+        delay = _retry_delay(attempt)
+        print(
+            f"temporary production response; retrying {url} in {delay}s "
+            f"({attempt + 2}/{transient_attempts})",
+            file=sys.stderr,
+        )
+        time.sleep(delay)
     raise RuntimeError("Production request exhausted transient retries")
 
 
