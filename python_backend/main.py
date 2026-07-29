@@ -1691,18 +1691,31 @@ def prop_alerts(
 def props_readiness(response: Response) -> dict[str, object]:
 	"""Expose feed health without exposing proprietary prop rows."""
 	started_at = time.perf_counter()
-	prop_list = _cached_prop_catalog()
-	last_data_updated_at = max(
-		(
-			str(getattr(prop, "lastUpdatedUtc", "") or "")
-			for prop in prop_list
-		),
-		default="",
-	)
+	shared_catalog = get_distributed_json("props:catalog:v1")
+	if isinstance(shared_catalog, list) and shared_catalog:
+		count = len(shared_catalog)
+		last_data_updated_at = max(
+			(
+				str(row.get("lastUpdatedUtc") or "")
+				for row in shared_catalog
+				if isinstance(row, dict)
+			),
+			default="",
+		)
+	else:
+		prop_list = _cached_prop_catalog()
+		count = len(prop_list)
+		last_data_updated_at = max(
+			(
+				str(getattr(prop, "lastUpdatedUtc", "") or "")
+				for prop in prop_list
+			),
+			default="",
+		)
 	response.headers["Cache-Control"] = "private, no-store, max-age=0"
 	return {
-		"status": "ok" if prop_list else "empty",
-		"count": len(prop_list),
+		"status": "ok" if count else "empty",
+		"count": count,
 		"lastDataUpdatedAt": last_data_updated_at or None,
 		"version": APP_VERSION,
 		"responseMs": round((time.perf_counter() - started_at) * 1000),

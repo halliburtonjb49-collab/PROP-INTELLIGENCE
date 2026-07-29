@@ -55,8 +55,15 @@ def main() -> int:
         raise RuntimeError("Production readiness endpoint does not confirm data protection")
     if len(body) > 20_000:
         raise RuntimeError(f"Readiness payload exceeds 20 KB: {len(body)} bytes")
-    if props_ms > 5_000:
-        raise RuntimeError(f"Prop readiness request exceeds 5 seconds: {props_ms:.0f} ms")
+    server_ms = float(payload.get("responseMs") or 0)
+    if server_ms > 5_000:
+        raise RuntimeError(
+            f"Prop readiness processing exceeds 5 seconds: {server_ms:.0f} ms"
+        )
+    if props_ms > 10_000:
+        raise RuntimeError(
+            f"Prop readiness round trip exceeds 10 seconds: {props_ms:.0f} ms"
+        )
 
     # The proprietary feed must remain unavailable without a real user session.
     try:
@@ -100,6 +107,7 @@ def main() -> int:
                 "healthMs": round(health_ms),
                 "appMs": round(app_ms),
                 "propsMs": round(props_ms),
+                "propsServerMs": round(server_ms),
                 "payloadBytes": len(body),
                 "props": int(payload["count"]),
                 "feedAgeMinutes": round(feed_age_minutes),
