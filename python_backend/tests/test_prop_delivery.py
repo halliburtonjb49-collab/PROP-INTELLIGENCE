@@ -30,7 +30,8 @@ class FakeProp:
     fairProbability: float | None = None
     isPositiveEv: bool = False
     startTimeUtc: str = "2099-07-20T20:00:00Z"
-    lastUpdatedUtc: str = "2026-07-18T20:00:00Z"
+    lastUpdatedUtc: str = "2099-07-20T19:55:00Z"
+    dataStale: bool = False
 
     def model_dump(self) -> dict[str, object]:
         return self.__dict__.copy()
@@ -122,6 +123,58 @@ def test_prop_readiness_exposes_metadata_without_authentication(monkeypatch) -> 
     assert "no-store" in response.headers["cache-control"]
 
 
+def test_prop_readiness_uses_compact_distributed_summary(monkeypatch) -> None:
+    monkeypatch.setattr(
+        main,
+        "get_distributed_json",
+        lambda key: {
+            "count": 8489,
+            "lastDataUpdatedAt": "2026-07-29T16:26:39Z",
+            "version": "catalog-v1",
+        }
+        if key == main._PROP_CATALOG_SUMMARY_KEY
+        else None,
+    )
+    monkeypatch.setattr(
+        main,
+        "_cached_prop_catalog",
+        lambda: pytest.fail("readiness loaded the full prop catalog"),
+    )
+    main.app.dependency_overrides.pop(main.require_user_id, None)
+
+    response = TestClient(main.app).get("/api/props/readiness")
+
+    assert response.status_code == 200
+    assert response.json()["count"] == 8489
+    assert response.json()["lastDataUpdatedAt"] == "2026-07-29T16:26:39Z"
+
+
+def test_prop_readiness_can_use_compact_catalog_version(monkeypatch) -> None:
+    def fake_get(key: str):
+        if key == main._PROP_CATALOG_VERSION_KEY:
+            return (
+                "commit-sha:2026-07-29T16:26:39.035904+00:00:8489"
+            )
+        return None
+
+    monkeypatch.setattr(main, "get_distributed_json", fake_get)
+    monkeypatch.setattr(
+        main,
+        "_cached_prop_catalog",
+        lambda: pytest.fail("readiness loaded the full prop catalog"),
+    )
+    main.app.dependency_overrides.pop(main.require_user_id, None)
+
+    response = TestClient(main.app).get("/api/props/readiness")
+
+    assert response.status_code == 200
+    assert response.json()["count"] == 8489
+    assert (
+        response.json()["lastDataUpdatedAt"]
+        == "2026-07-29T16:26:39.035904+00:00"
+    )
+
+
 def test_category_facets_are_not_reduced_by_selected_category(monkeypatch) -> None:
     rows = [
         FakeProp("hits", "One", "MLB", "FANDUEL", "HITS"),
@@ -153,6 +206,20 @@ def test_started_props_are_hidden_from_the_actionable_feed(monkeypatch) -> None:
         params={"includePastDates": True, "includeStarted": True},
     ).json()
     assert {row["id"] for row in historical["props"]} == {"started", "upcoming"}
+
+
+def test_stale_props_are_hidden_from_the_actionable_feed(monkeypatch) -> None:
+    stale = FakeProp("stale", "One", "MLB", "FANDUEL", "HITS")
+    stale.lastUpdatedUtc = "2020-07-20T20:00:00Z"
+    fresh = FakeProp("fresh", "Two", "MLB", "FANDUEL", "HITS")
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [stale, fresh])
+    client = TestClient(main.app)
+
+    payload = client.get("/api/props").json()
+    assert [row["id"] for row in payload["props"]] == ["fresh"]
+
+    audit = client.get("/api/props", params={"includeStale": True}).json()
+    assert {row["id"] for row in audit["props"]} == {"stale", "fresh"}
 
 
 def test_prop_feed_reports_recommendation_coverage(monkeypatch) -> None:

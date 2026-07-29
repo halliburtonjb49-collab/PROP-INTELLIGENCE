@@ -242,6 +242,9 @@ _prop_metrics: dict[str, object] = {
 	"lastDataUpdatedAt": None,
 	"lastRequestSucceeded": None,
 }
+_PROP_CATALOG_KEY = "props:catalog:v1"
+_PROP_CATALOG_VERSION_KEY = "props:catalog:version:v1"
+_PROP_CATALOG_SUMMARY_KEY = "props:catalog:summary:v1"
 
 app.include_router(intelligence_router)
 app.include_router(billing_router)
@@ -337,7 +340,7 @@ def _cached_prop_catalog() -> list[PropResponse]:
 			and now - version_checked_at < 10
 		):
 			return cached
-	shared_version = get_distributed_json("props:catalog:version:v1")
+	shared_version = get_distributed_json(_PROP_CATALOG_VERSION_KEY)
 	if isinstance(cached, list) and cached:
 		if (
 			shared_version is None
@@ -346,10 +349,11 @@ def _cached_prop_catalog() -> list[PropResponse]:
 			with _prop_catalog_lock:
 				_prop_catalog["versionCheckedAt"] = now
 			return cached
-	shared = get_distributed_json("props:catalog:v1")
+	shared = get_distributed_json(_PROP_CATALOG_KEY)
 	if isinstance(shared, list) and shared:
 		try:
 			props = [PropResponse.model_validate(row) for row in shared]
+			_publish_prop_catalog_summary(props)
 			with _prop_catalog_lock:
 				_prop_catalog.update(
 					loadedAt=now,
@@ -359,7 +363,7 @@ def _cached_prop_catalog() -> list[PropResponse]:
 				)
 			return props
 		except Exception:
-			delete_distributed_cache("props:catalog:v1")
+			delete_distributed_cache(_PROP_CATALOG_KEY)
 	props = get_props()
 	with _prop_catalog_lock:
 		_prop_catalog.update(
@@ -375,18 +379,62 @@ def _cached_prop_catalog() -> list[PropResponse]:
 			f"{len(props)}"
 		)
 		set_distributed_json(
-			"props:catalog:v1",
+			_PROP_CATALOG_KEY,
 			[prop.model_dump(mode="json") for prop in props],
 			ttl_seconds=900,
 		)
 		set_distributed_json(
-			"props:catalog:version:v1",
+			_PROP_CATALOG_VERSION_KEY,
 			catalog_version,
 			ttl_seconds=900,
 		)
+		_publish_prop_catalog_summary(props)
 		with _prop_catalog_lock:
 			_prop_catalog["version"] = catalog_version
 	return props
+
+
+def _prop_catalog_summary(
+	props: list[PropResponse],
+) -> dict[str, object]:
+	return {
+		"count": len(props),
+		"lastDataUpdatedAt": max(
+			(str(prop.lastUpdatedUtc or "") for prop in props),
+			default="",
+		) or None,
+		"version": APP_VERSION,
+	}
+
+
+def _prop_catalog_summary_from_version(
+	value: object,
+) -> dict[str, object] | None:
+	if not isinstance(value, str):
+		return None
+	try:
+		version_and_timestamp, raw_count = value.rsplit(":", 1)
+		_version, last_data_updated_at = version_and_timestamp.split(":", 1)
+		count = int(raw_count)
+	except (ValueError, TypeError):
+		return None
+	if count <= 0:
+		return None
+	return {
+		"count": count,
+		"lastDataUpdatedAt": last_data_updated_at or None,
+		"version": APP_VERSION,
+	}
+
+
+def _publish_prop_catalog_summary(props: list[PropResponse]) -> None:
+	if not props:
+		return
+	set_distributed_json(
+		_PROP_CATALOG_SUMMARY_KEY,
+		_prop_catalog_summary(props),
+		ttl_seconds=900,
+	)
 
 
 def _invalidate_prop_catalog() -> None:
@@ -397,8 +445,9 @@ def _invalidate_prop_catalog() -> None:
 			version=None,
 			props=[],
 		)
-	delete_distributed_cache("props:catalog:v1")
-	delete_distributed_cache("props:catalog:version:v1")
+	delete_distributed_cache(_PROP_CATALOG_KEY)
+	delete_distributed_cache(_PROP_CATALOG_VERSION_KEY)
+	delete_distributed_cache(_PROP_CATALOG_SUMMARY_KEY)
 
 _sync_run_lock = Lock()
 _sync_state_lock = Lock()
@@ -1322,6 +1371,28 @@ def _scoreboard_preference(game: dict[str, object]) -> int:
 	return 0
 
 
+def _scoreboard_dedupe_key(game: dict[str, object]) -> str:
+	"""Preserve doubleheaders while still collapsing duplicate provider rows."""
+	event_id = str(
+		game.get("id")
+		or game.get("gameId")
+		or game.get("eventId")
+		or ""
+	).strip()
+	if event_id:
+		return f"id:{event_id}"
+	return "|".join((
+		str(game.get("league", "")).strip(),
+		str(game.get("away_team", "")).strip(),
+		str(game.get("home_team", "")).strip(),
+		str(
+			game.get("startTimeUtc")
+			or game.get("start_time")
+			or ""
+		).strip(),
+	))
+
+
 def _active_ticket_team(leg: object) -> str:
 	if not isinstance(leg, dict):
 		return ""
@@ -1691,26 +1762,22 @@ def prop_alerts(
 def props_readiness(response: Response) -> dict[str, object]:
 	"""Expose feed health without exposing proprietary prop rows."""
 	started_at = time.perf_counter()
-	shared_catalog = get_distributed_json("props:catalog:v1")
-	if isinstance(shared_catalog, list) and shared_catalog:
-		count = len(shared_catalog)
-		last_data_updated_at = max(
-			(
-				str(row.get("lastUpdatedUtc") or "")
-				for row in shared_catalog
-				if isinstance(row, dict)
-			),
-			default="",
+	summary = get_distributed_json(_PROP_CATALOG_SUMMARY_KEY)
+	if not isinstance(summary, dict) or int(summary.get("count") or 0) <= 0:
+		summary = _prop_catalog_summary_from_version(
+			get_distributed_json(_PROP_CATALOG_VERSION_KEY)
+		)
+	if isinstance(summary, dict) and int(summary.get("count") or 0) > 0:
+		count = int(summary["count"])
+		last_data_updated_at = str(
+			summary.get("lastDataUpdatedAt") or ""
 		)
 	else:
 		prop_list = _cached_prop_catalog()
-		count = len(prop_list)
-		last_data_updated_at = max(
-			(
-				str(getattr(prop, "lastUpdatedUtc", "") or "")
-				for prop in prop_list
-			),
-			default="",
+		fallback_summary = _prop_catalog_summary(prop_list)
+		count = int(fallback_summary["count"])
+		last_data_updated_at = str(
+			fallback_summary.get("lastDataUpdatedAt") or ""
 		)
 	response.headers["Cache-Control"] = "private, no-store, max-age=0"
 	return {
@@ -1736,6 +1803,7 @@ def props(
 	sortBy: str = Query(default="confidence"),
 	includePastDates: bool = Query(default=False),
 	includeStarted: bool = Query(default=False),
+	includeStale: bool = Query(default=False),
 	limit: int = Query(default=75, ge=1, le=500),
 	offset: int = Query(default=0, ge=0),
 	if_none_match: str | None = Header(default=None, alias="If-None-Match"),
@@ -1754,6 +1822,10 @@ def props(
 		sort_by = sortBy.strip().lower()
 		today_local = datetime.now(_scoreboard_timezone()).date()
 		now_utc = datetime.now(timezone.utc)
+		stale_after_minutes = max(
+			5,
+			int(os.getenv("PROP_FEED_STALE_MINUTES", "180")),
+		)
 
 		def _matches_filters(
 			prop: PropResponse,
@@ -1773,6 +1845,15 @@ def props(
 				if event_date < today_local:
 					return False
 			if not includeStarted and start_time is not None and start_time <= now_utc:
+				return False
+			if not includeStale and (
+				bool(getattr(prop, "dataStale", False))
+				or _is_stale_timestamp(
+					str(getattr(prop, "lastUpdatedUtc", "") or ""),
+					now_utc,
+					stale_after_minutes,
+				)
+			):
 				return False
 			recommended_side = str(
 				prop.recommendedSide or ""
@@ -3097,7 +3178,7 @@ def scoreboard(
 			) from exc
 
 	now = datetime.now(timezone.utc)
-	cache_key = f"scoreboard:v2:{target_date.isoformat()}"
+	cache_key = f"scoreboard:v3:{target_date.isoformat()}"
 	cached_scoreboard = get_distributed_json(cache_key)
 	if isinstance(cached_scoreboard, dict):
 		cached_games = cached_scoreboard.get("games")
@@ -3132,11 +3213,7 @@ def scoreboard(
 
 	deduped: dict[str, dict[str, object]] = {}
 	for game in games:
-		key = (
-			f"{str(game.get('league', ''))}|"
-			f"{str(game.get('away_team', ''))}|"
-			f"{str(game.get('home_team', ''))}"
-		)
+		key = _scoreboard_dedupe_key(game)
 		existing = deduped.get(key)
 		if existing is None or _scoreboard_preference(game) >= _scoreboard_preference(existing):
 			deduped[key] = game
