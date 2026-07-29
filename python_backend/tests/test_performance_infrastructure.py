@@ -17,15 +17,14 @@ def test_optional_redis_services_fail_open_without_configuration(monkeypatch) ->
     assert job_queue_service.health()["mode"] == "in-process"
 
 
-def test_health_exposes_cache_queue_and_query_performance() -> None:
+def test_health_is_basic_liveness_only() -> None:
     response = TestClient(main.app).get("/health")
 
     assert response.status_code == 200
     payload = response.json()
-    assert "cache" in payload
-    assert "backgroundQueue" in payload
-    assert "ingestionPipeline" in payload
-    assert payload["databasePerformance"]["thresholdMs"] >= 1
+    assert payload["status"] == "ok"
+    assert "cache" not in payload
+    assert "database" not in payload
     assert "recentSlowQueries" in database_performance_snapshot()
 
 

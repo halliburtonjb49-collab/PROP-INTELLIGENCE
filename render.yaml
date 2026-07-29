@@ -5,7 +5,8 @@ services:
     buildCommand: pip install -r requirements.txt
     preDeployCommand: python python_backend/scripts/apply_supabase_migrations.py
     startCommand: uvicorn main:app --app-dir python_backend --host 0.0.0.0 --port $PORT
-    healthCheckPath: /health
+    healthCheckPath: /ready
+    maxShutdownDelaySeconds: 60
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.10
@@ -60,6 +61,8 @@ services:
         value: https://app.propsintell.com,https://www.propsintell.com,https://propsintell.com
       - key: SLIP_DATABASE_PATH
         value: /var/data/prop_intelligence_tickets.db
+      - key: SLIP_STORAGE_BACKEND
+        value: postgres
       - key: PROP_CACHE_DB_PATH
         value: /var/data/prop_intelligence_cache.db
       - key: LIVE_ODDS_SYNC_MIN_SECONDS
@@ -121,6 +124,7 @@ services:
     plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: cd python_backend && rq worker --url $REDIS_URL prop-intelligence
+    maxShutdownDelaySeconds: 120
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.10

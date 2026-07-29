@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -16,6 +16,14 @@ jobs:
         if: github.event_name == 'push'
         run: sleep 150
       - name: Verify app, CORS, props, payload, and production bundle
+        id: production-check
         env:
           SMOKE_API_TOKEN: ${{ secrets.SMOKE_API_TOKEN }}
         run: python tools/post_deploy_smoke.py
+      - name: Alert owner when deployment or service health fails
+        if: failure()
+        env:
+          OPERATIONS_ALERT_WEBHOOK_URL: ${{ secrets.OPERATIONS_ALERT_WEBHOOK_URL }}
+          OPERATIONS_ALERT_EVENT: production-deployment-or-health-failed
+          OPERATIONS_ALERT_DETAILS: Production smoke or readiness verification failed.
+        run: python tools/send_operations_alert.py

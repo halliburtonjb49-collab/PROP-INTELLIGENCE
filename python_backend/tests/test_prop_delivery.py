@@ -94,6 +94,7 @@ def test_prop_page_filters_server_side_and_exposes_version(monkeypatch) -> None:
 
 def test_prop_feed_requires_a_valid_user_session() -> None:
     main.app.dependency_overrides.pop(main.require_user_id, None)
+    main.app.dependency_overrides.pop(main.require_core, None)
     response = TestClient(main.app).get("/api/props")
     assert response.status_code == 401
     assert "no-store" in response.headers["cache-control"]

@@ -14,7 +14,7 @@ from services.prediction_tracking_service import (
     calibration_summary, grade_prediction, historical_features, save_prediction,
 )
 from services.baseline_projection_service import MODEL_VERSION
-from services.api_auth_service import require_user_id
+from services.api_auth_service import require_pro, require_user_id
 from services.compound_alert_service import create_alert, delete_alert, evaluate_user_alerts, list_alerts, list_deliveries
 from routers.realtime import hub as realtime_hub
 from services.engagement_service import record_engagement, sentiment_rollup
@@ -28,7 +28,11 @@ from services.clv_service import closing_line_value
 from services.model_performance_service import model_performance, operations_summary
 from services.api_auth_service import require_admin
 
-router = APIRouter(prefix="/api/intelligence", tags=["intelligence"])
+router = APIRouter(
+    prefix="/api/intelligence",
+    tags=["intelligence"],
+    dependencies=[Depends(require_pro)],
+)
 
 
 @router.post("/fatigue")
