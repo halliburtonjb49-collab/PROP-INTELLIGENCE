@@ -15,6 +15,7 @@ import 'models/prop_data.dart';
 import 'models/saved_slip.dart';
 import 'pages/analytics_page.dart';
 import 'pages/line_movement_page.dart';
+import 'pages/owner_operations_page.dart';
 import 'pages/prop_chat_page.dart';
 import 'pages/referee_tracker_page.dart';
 import 'screens/prop_builder_performance_screen.dart';
@@ -204,6 +205,7 @@ enum AppPage {
   analytics,
   lineMovement,
   dataAdmin,
+  ownerOperations,
   intelligenceLab,
   refereeTracker,
   propChat,
@@ -226,6 +228,10 @@ SubscriptionTier? requiredTierForPage(AppPage page) => switch (page) {
   AppPage.refereeTracker => SubscriptionTier.edge,
   _ => null,
 };
+
+@visibleForTesting
+bool canAccessOwnerOperations(String role) =>
+    role.trim().toLowerCase() == 'owner';
 
 @visibleForTesting
 SubscriptionTier displayedTierForBadge({
@@ -736,6 +742,13 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         MediaQuery.sizeOf(context).width < 1000 && _chatFloating;
     final requiredTier = _requiredTier(page);
     final session = AuthManager.instance.sessionState.value;
+    if (page == AppPage.ownerOperations &&
+        !canAccessOwnerOperations(session.role)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Owner access is required.')),
+      );
+      return;
+    }
     final allowed =
         !session.authenticated ||
         requiredTier == null ||
@@ -789,6 +802,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       case AppPage.analytics:
       case AppPage.lineMovement:
       case AppPage.dataAdmin:
+      case AppPage.ownerOperations:
       case AppPage.intelligenceLab:
       case AppPage.refereeTracker:
       case AppPage.propChat:
@@ -2104,6 +2118,23 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     onTap: () =>
                         widget.onSelectPage?.call(AppPage.strikeoutProGold),
                   ),
+                  if (AuthManager.instance.sessionState.value.isOwner) ...[
+                    const SizedBox(height: 18),
+                    const _SidebarSectionLabel('OWNER'),
+                    const SizedBox(height: 7),
+                    SidebarButton(
+                      key: const ValueKey('owner-operations-sidebar-button'),
+                      label: 'OPERATIONS\nCENTER',
+                      selected:
+                          widget.selectedPage == AppPage.ownerOperations,
+                      showGoldBar: true,
+                      leadingIcons: const [Icons.admin_panel_settings_outlined],
+                      leadingIconColors: const [AppColors.gold],
+                      onTap: () => widget.onSelectPage?.call(
+                        AppPage.ownerOperations,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -4692,6 +4723,8 @@ class _MainDashboardState extends State<MainDashboard> {
                     selectedSport: widget.sportFilter,
                     startInDataAdmin: true,
                   )
+                : widget.selectedPage == AppPage.ownerOperations
+                ? const OwnerOperationsPage()
                 : widget.selectedPage == AppPage.intelligenceLab
                 ? IntelligenceLabPage(
                     selections: widget.selections,
@@ -6467,6 +6500,8 @@ class TopNavigation extends StatelessWidget {
       'Review triggered market conditions, open the affected prop and confirm the latest line before taking action.',
     AppPage.dataAdmin =>
       'Refresh unresolved identities, validate payloads before upload and use Production Acceptance to confirm feeds, quotas and billing are healthy.',
+    AppPage.ownerOperations =>
+      'Run all checks to refresh production health, review provider and pipeline warnings, and inspect unsettled or questionable grading items.',
     AppPage.propChat =>
       'Join the shared community room using your public username. Keep messages respectful, never post personal information, and use the message menu to report or block abusive content.',
   };
@@ -6525,6 +6560,8 @@ class TopNavigation extends StatelessWidget {
         AppPage.scoreboard => 'Follow live, upcoming, and final games',
         AppPage.analytics =>
           'Review analytics and, for owners, manage platform data',
+        AppPage.ownerOperations =>
+          'Open the private owner production operations center',
         AppPage.lineMovement => 'Track changes across sportsbook lines',
         AppPage.intelligenceLab =>
           'Model correlation, scripts, and historical analogs',
@@ -6604,6 +6641,7 @@ class TopNavigation extends StatelessWidget {
     AppPage.evScanner => 'EV SCANNER',
     AppPage.strikeoutProGold => 'STRIKEOUT PRO GOLD',
     AppPage.dataAdmin => 'DATA ADMIN',
+    AppPage.ownerOperations => 'OWNER OPERATIONS',
     AppPage.propChat => 'PROP CHAT',
   };
 
@@ -6629,6 +6667,8 @@ class TopNavigation extends StatelessWidget {
     AppPage.strikeoutProGold =>
       'Rank MLB strikeout over/under opportunities with model transparency',
     AppPage.dataAdmin => 'Manage platform data sources',
+    AppPage.ownerOperations =>
+      'Monitor production health, issues, queues and grading reviews',
     AppPage.propChat =>
       'Talk props with the community using your public username',
   };
@@ -6800,6 +6840,14 @@ class TopNavigation extends StatelessWidget {
                       requiredTier: SubscriptionTier.core,
                       hasProUpgrade: true,
                     ),
+                    if (AuthManager.instance.sessionState.value.isOwner) ...[
+                      const SizedBox(width: 4),
+                      _buildNavItem(
+                        label: 'OWNER OPS',
+                        page: AppPage.ownerOperations,
+                        icon: Icons.admin_panel_settings_outlined,
+                      ),
+                    ],
                   ],
                 ),
               ),
