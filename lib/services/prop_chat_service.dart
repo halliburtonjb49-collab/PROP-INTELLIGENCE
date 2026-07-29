@@ -71,8 +71,14 @@ class PropChatMessage {
   final String? attachmentUrl;
   final Map<String, dynamic>? sharedPayload;
 
-  bool get isVerified =>
-      const {'owner', 'admin', 'expert', 'creator'}.contains(authorRole);
+  String get normalizedAuthorRole => authorRole.trim().toLowerCase();
+  bool get isOfficialOwner => normalizedAuthorRole == 'owner';
+  bool get isVerified => const {
+    'owner',
+    'admin',
+    'expert',
+    'creator',
+  }.contains(normalizedAuthorRole);
 
   factory PropChatMessage.fromJson(Map<String, dynamic> json) {
     return PropChatMessage(

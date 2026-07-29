@@ -70,6 +70,20 @@ void main() {
     expect(message.isVerified, isTrue);
   });
 
+  test('owner role is normalized and marked as official', () {
+    final message = PropChatMessage.fromJson({
+      'id': 10,
+      'user_id': 'owner-user',
+      'username': 'prop_owner',
+      'body': 'Official update.',
+      'author_role': ' OWNER ',
+      'created_at': '2026-07-25T12:00:00Z',
+    });
+
+    expect(message.isOfficialOwner, isTrue);
+    expect(message.isVerified, isTrue);
+  });
+
   test('chat messages parse secure attachments and HTTPS links', () {
     final message = PropChatMessage.fromJson({
       'id': 9,
@@ -132,6 +146,33 @@ void main() {
     await tester.pump();
 
     expect(service.sentBody, 'I see it.');
+  });
+
+  testWidgets('PROP CHAT identifies official owner messages in gold', (
+    tester,
+  ) async {
+    final service = _FakeChatService([
+      PropChatMessage(
+        id: 2,
+        userId: 'owner-user',
+        username: 'prop_owner',
+        body: 'Official board update.',
+        authorRole: 'owner',
+        createdAt: DateTime(2026, 7, 25, 12),
+      ),
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(),
+        home: Scaffold(body: PropChatPage(service: service)),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('@prop_owner'), findsOneWidget);
+    expect(find.text('OFFICIAL OWNER'), findsOneWidget);
+    expect(find.byKey(const ValueKey('official-owner-badge')), findsOneWidget);
   });
 
   testWidgets('PROP CHAT direct messages use a mobile master-detail flow', (

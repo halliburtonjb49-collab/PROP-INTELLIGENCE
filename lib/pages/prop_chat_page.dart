@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/auth_manager.dart';
 import '../services/prop_chat_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/official_identity_badge.dart';
 
 String? _firstSecureLink(String text) {
   final match = RegExp(
@@ -1027,6 +1028,7 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isOfficialOwner = message.isOfficialOwner;
     return Align(
       alignment: isOwn ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
@@ -1037,8 +1039,10 @@ class _MessageBubble extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
             side: BorderSide(
-              color: isOwn ? AppColors.gold : AppColors.gunmetalLight,
-              width: isOwn ? 1.4 : 1,
+              color: isOwn || isOfficialOwner
+                  ? AppColors.gold
+                  : AppColors.gunmetalLight,
+              width: isOwn || isOfficialOwner ? 1.4 : 1,
             ),
           ),
           child: Padding(
@@ -1056,7 +1060,7 @@ class _MessageBubble extends StatelessWidget {
                               '@${message.username}',
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: isOwn
+                                color: isOwn || isOfficialOwner
                                     ? AppColors.gold
                                     : AppColors.silver,
                                 fontSize: 11,
@@ -1064,12 +1068,16 @@ class _MessageBubble extends StatelessWidget {
                               ),
                             ),
                           ),
-                          if (message.isVerified) ...[
+                          if (isOfficialOwner) ...[
+                            const SizedBox(width: 6),
+                            const OfficialOwnerBadge(compact: true),
+                          ],
+                          if (message.isVerified && !isOfficialOwner) ...[
                             const SizedBox(width: 5),
                             Tooltip(
-                              message: message.authorRole == 'expert'
+                              message: message.normalizedAuthorRole == 'expert'
                                   ? 'Verified expert'
-                                  : message.authorRole == 'creator'
+                                  : message.normalizedAuthorRole == 'creator'
                                   ? 'Verified creator'
                                   : 'Verified PROP INTELLIGENCE staff',
                               child: Icon(
@@ -1136,8 +1144,23 @@ class _MessageBubble extends StatelessWidget {
                         left: BorderSide(color: AppColors.gold, width: 3),
                       ),
                     ),
-                    child: Text(
-                      '@${reply!.username}: ${reply!.body}',
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '@${reply!.username}',
+                            style: TextStyle(
+                              color: reply!.isOfficialOwner
+                                  ? AppColors.gold
+                                  : AppColors.textSecondary,
+                              fontWeight: reply!.isOfficialOwner
+                                  ? FontWeight.w900
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                          TextSpan(text: ': ${reply!.body}'),
+                        ],
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
