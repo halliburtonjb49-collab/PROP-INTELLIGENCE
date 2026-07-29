@@ -49,3 +49,20 @@ def test_security_migration_enables_public_rls_and_revokes_proprietary_data() ->
     assert "revoke all on public.prop_market_intelligence" in sql
     assert "create table if not exists public.security_events" in sql
     assert "revoke all on public.security_events from anon, authenticated" in sql
+
+
+def test_function_hardening_removes_anonymous_definer_execution() -> None:
+    sql = (ROOT / "supabase_function_execution_hardening.sql").read_text(
+        encoding="utf-8"
+    ).lower()
+    assert "alter function public.validate_prop_chat_link(text)" in sql
+    assert "set search_path = pg_catalog" in sql
+    assert (
+        "revoke execute on function %s from public, anon, authenticated"
+        in sql
+    )
+    assert "grant execute on function %s to service_role" in sql
+    assert "public.acknowledge_prop_chat_notice(bigint)" in sql
+    assert "public.assign_user_role(text,text)" in sql
+    assert "public.start_prop_chat_direct_conversation(uuid)" in sql
+    assert "public.enforce_prop_chat_message_v4()" not in sql

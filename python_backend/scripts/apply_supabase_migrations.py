@@ -38,6 +38,7 @@ MIGRATIONS = (
     "supabase_owner_user_id.sql",
     "supabase_performance_indexes.sql",
     "supabase_security_hardening.sql",
+    "supabase_function_execution_hardening.sql",
 )
 
 
@@ -133,6 +134,27 @@ def main() -> int:
             raise RuntimeError(
                 "Browser grants remain on proprietary tables: "
                 f"{exposed_proprietary}"
+            )
+
+        anonymous_definers = connection.execute(
+            """
+            select p.oid::regprocedure::text
+            from pg_proc p
+            join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public'
+              and p.prosecdef
+              and has_function_privilege(
+                'anon',
+                p.oid,
+                'EXECUTE'
+              )
+            order by 1
+            """
+        ).fetchall()
+        if anonymous_definers:
+            raise RuntimeError(
+                "Anonymous execution remains on SECURITY DEFINER functions: "
+                f"{anonymous_definers}"
             )
 
     print("Supabase migrations are current.")
