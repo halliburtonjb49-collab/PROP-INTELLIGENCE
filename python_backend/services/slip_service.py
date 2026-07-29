@@ -35,10 +35,12 @@ _postgres_init_lock = Lock()
 
 
 def _uses_postgres() -> bool:
-    return (
-        os.getenv("SLIP_STORAGE_BACKEND", "sqlite").strip().lower()
-        == "postgres"
-    )
+    configured = os.getenv("SLIP_STORAGE_BACKEND", "").strip().lower()
+    if configured:
+        return configured == "postgres"
+    # Render code deploys do not automatically resync Blueprint env changes.
+    # Prefer the managed database there while local development remains SQLite.
+    return bool(os.getenv("RENDER", "").strip()) and database_is_configured()
 
 
 class _PostgresConnection:

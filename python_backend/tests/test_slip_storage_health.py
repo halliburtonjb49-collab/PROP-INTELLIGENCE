@@ -9,3 +9,10 @@ def test_storage_health_initializes_writable_database(tmp_path, monkeypatch) -> 
     assert result["status"] == "ok"
     assert result["mode"] == "persistent-disk"
     assert path.exists()
+
+
+def test_render_defaults_ticket_storage_to_postgres(monkeypatch) -> None:
+    monkeypatch.delenv("SLIP_STORAGE_BACKEND", raising=False)
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.setattr(slip_service, "database_is_configured", lambda: True)
+    assert slip_service._uses_postgres() is True
