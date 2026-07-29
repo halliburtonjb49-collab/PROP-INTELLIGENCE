@@ -852,7 +852,10 @@ def _espn_scoreboard_games_for_sport(
 		response = requests.get(
 			f"https://site.api.espn.com/apis/site/v2/sports/{path}/scoreboard",
 			params={"dates": target_date.strftime("%Y%m%d")},
-			timeout=HTTP_TIMEOUT_SECONDS,
+			# A slow or unsupported league must not hold the full multi-sport
+			# board hostage. Other leagues load in parallel and provider
+			# fallbacks remain available.
+			timeout=min(4, HTTP_TIMEOUT_SECONDS),
 		)
 		response.raise_for_status()
 		payload = response.json()
@@ -3065,7 +3068,9 @@ def scoreboard(
 		if isinstance(cached_games, list):
 			return cached_scoreboard
 
-	shared_time_map = _shared_game_time_map()
+	# Scoreboard providers already return authoritative event timestamps.
+	# Avoid rebuilding the complete prop catalog on a cold scoreboard request.
+	shared_time_map: dict[str, dict[str, str]] = {}
 	games: list[dict[str, object]] = []
 
 	def load_sport(
