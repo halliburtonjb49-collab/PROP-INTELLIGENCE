@@ -34,9 +34,9 @@ services:
       - key: API_SPORTS_BASEBALL_KEY
         sync: false
       - key: SPORTMONKS_HEADSHOT_MAP_PATH
-        value: /var/data/sportmonks_headshot_map.json
+        value: /tmp/sportmonks_headshot_map.json
       - key: ESPN_HEADSHOT_MAP_PATH
-        value: /var/data/espn_headshot_map.json
+        value: /tmp/espn_headshot_map.json
       - key: SPORTSDATAIO_API_KEY
         sync: false
       - key: SPORTSGAMEODDS_API_KEY
@@ -60,11 +60,11 @@ services:
       - key: CORS_ALLOWED_ORIGINS
         value: https://app.propsintell.com,https://www.propsintell.com,https://propsintell.com
       - key: SLIP_DATABASE_PATH
-        value: /var/data/prop_intelligence_tickets.db
+        value: /tmp/prop_intelligence_tickets.db
       - key: SLIP_STORAGE_BACKEND
         value: postgres
       - key: PROP_CACHE_DB_PATH
-        value: /var/data/prop_intelligence_cache.db
+        value: /tmp/prop_intelligence_cache.db
       - key: LIVE_ODDS_SYNC_MIN_SECONDS
         value: 300
       - key: PROP_SYNC_EVENT_WORKERS
@@ -107,11 +107,6 @@ services:
         sync: false
       - key: HISTORICAL_MLB_LOOKBACK_DAYS
         value: 21
-    disk:
-      name: prop-intelligence-ticket-data
-      mountPath: /var/data
-      sizeGB: 1
-
   - type: keyvalue
     name: prop-intelligence-redis
     plan: starter
