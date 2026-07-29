@@ -69,6 +69,10 @@ def get_database_pool() -> ConnectionPool:
 
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL is not configured.")
+    if DATABASE_SSLMODE.lower() not in {"require", "verify-ca", "verify-full"}:
+        raise RuntimeError(
+            "DATABASE_SSLMODE must enforce TLS in every environment."
+        )
 
     with _pool_lock:
         if _pool is None:

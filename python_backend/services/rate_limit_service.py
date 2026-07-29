@@ -70,10 +70,11 @@ def allow_request(
     identity: str,
     *,
     authenticated: bool,
+    limit: int | None = None,
     now: float | None = None,
 ) -> tuple[bool, int, int]:
     """Return allowed, remaining tokens, and the configured per-minute limit."""
-    limit = (
+    limit = max(1, int(limit)) if limit is not None else (
         AUTHENTICATED_REQUESTS_PER_MINUTE
         if authenticated
         else ANONYMOUS_REQUESTS_PER_MINUTE
