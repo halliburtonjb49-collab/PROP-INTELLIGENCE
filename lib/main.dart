@@ -4961,6 +4961,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
     final failedLogins = _controlPanel?['failedLogins'] as Map? ?? const {};
     final failedPayments = _controlPanel?['failedPayments'] as Map? ?? const {};
     final unsettledSlips = _controlPanel?['unsettledSlips'] as Map? ?? const {};
+    final gradingReview = _controlPanel?['gradingReview'] as Map? ?? const {};
     final pipelines = _controlPanel?['pipelines'] as Map? ?? const {};
 
     Widget signal(
@@ -5152,6 +5153,14 @@ class _DataAdminPageState extends State<DataAdminPage> {
                 '${unsettledSlips['count'] ?? 'Unknown'}',
                 Icons.receipt_long_outlined,
                 detail: 'Active tickets awaiting settlement',
+              ),
+              signal(
+                'GRADING REVIEW',
+                '${gradingReview['questionableCount'] ?? 'Unknown'}',
+                Icons.fact_check_outlined,
+                healthy: (gradingReview['questionableCount'] ?? 0) == 0,
+                detail:
+                    '${gradingReview['unsettledCount'] ?? 'Unknown'} overdue pending legs',
               ),
               signal(
                 'DEPLOYMENT VERSION',
@@ -8393,6 +8402,19 @@ class _PropGridState extends State<PropGrid> {
                 : 'Projection data pending',
             style: const TextStyle(color: AppColors.muted, fontSize: 7.5),
           ),
+          if (hasModelRecommendation &&
+              prop.recommendationExplanation.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              prop.recommendationExplanation,
+              style: const TextStyle(
+                color: Color(0xFFB8C7D6),
+                fontSize: 7.5,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
           const SizedBox(height: 3),
           Text(
             hasProAccess && prop.projectionModelVersion == 'baseline-v2'

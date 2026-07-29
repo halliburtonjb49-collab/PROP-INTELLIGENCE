@@ -42,6 +42,31 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
               when hit_probability>=.6 then 'MEDIUM' else 'BASELINE' end {base}
             group by sport,market,7 order by count(*) desc""", (model_version,))
         segments = [_segment(row) for row in cursor.fetchall()]
+        cursor.execute(f"""select count(*), count(*) filter(where hit),
+            avg(power(hit_probability-case when hit then 1 else 0 end,2)),
+            avg(hit_probability), sport,
+            coalesce(nullif(inputs->>'category',''), market) category,
+            coalesce(nullif(inputs->>'sourceProvider',''), 'unknown') provider,
+            case when hit_probability>=.8 then '80-100%'
+              when hit_probability>=.7 then '70-79%'
+              when hit_probability>=.6 then '60-69%' else 'below-60%' end confidence_range
+            {base}
+            group by sport,6,7,8 order by count(*) desc""", (model_version,))
+        quality_segments = [{
+            "sampleSize": row[0],
+            "hits": row[1],
+            "accuracy": round(float(row[1] or 0) / row[0], 4) if row[0] else None,
+            "brierScore": round(float(row[2]), 6) if row[2] is not None else None,
+            "averageConfidence": round(float(row[3]), 4) if row[3] is not None else None,
+            "sport": row[4],
+            "category": row[5],
+            "provider": row[6],
+            "confidenceRange": row[7],
+            "calibrationGap": (
+                round(float(row[3]) - (float(row[1] or 0) / row[0]), 4)
+                if row[0] and row[3] is not None else None
+            ),
+        } for row in cursor.fetchall()]
         cursor.execute(
             """select count(*),
                 avg(case when (inputs->>'beatClosingLine')::boolean then 1 else 0 end),
@@ -52,6 +77,7 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
         )
         clv_count, beat_close_rate, average_points = cursor.fetchone()
     return {"modelVersion": model_version, **overall, "segments": segments,
+            "qualitySegments": quality_segments,
             "minimumCalibrationSample": 100, "calibrated": overall["sampleSize"] >= 100,
             "clv": {
                 "available": bool(clv_count),

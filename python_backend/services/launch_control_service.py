@@ -12,6 +12,8 @@ from services.game_market_service import game_market_health
 from services.job_queue_service import health as queue_health
 from services.pipeline_run_service import recent_pipeline_runs, summarize_pipeline_health
 from services.scoreboard_metrics_service import scoreboard_latency_snapshot
+from services.grading_review_service import grading_review_queue
+from services.provider_quality_service import provider_quality_score
 
 FAILED_PAYMENT_EVENTS = ("BILLING_ISSUE", "SUBSCRIPTION_PAUSED")
 
@@ -86,6 +88,20 @@ def launch_control_snapshot() -> dict[str, object]:
         for run in pipeline_health["activeFailures"]
         if isinstance(run, dict)
     )
+    provider_score = provider_quality_score(
+        success_rate=float(market.get("successRate") or 0),
+        freshness_score=1.0 if market.get("status") == "ok" else 0.4,
+        completeness_score=0.0 if market.get("latestEmpty") else 1.0,
+    )
+    try:
+        grading_review = grading_review_queue()
+    except Exception as exc:
+        grading_review = {
+            "count": None,
+            "unsettledCount": None,
+            "questionableCount": None,
+            "error": type(exc).__name__,
+        }
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "api": {
@@ -106,8 +122,10 @@ def launch_control_snapshot() -> dict[str, object]:
             "errors": provider_errors,
             "remainingQuota": acceptance["providerQuota"].get("remaining"),
             "lowQuota": acceptance["providerQuota"].get("lowQuota"),
+            "qualityScore": provider_score,
         },
         "propFreshness": acceptance["propFeed"],
         "scoreboardLatency": scoreboard_latency_snapshot(),
+        "gradingReview": grading_review,
         **database_counts,
     }

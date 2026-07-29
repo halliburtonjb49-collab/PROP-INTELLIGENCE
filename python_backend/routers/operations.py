@@ -7,6 +7,7 @@ from services.pipeline_run_service import recent_pipeline_runs, summarize_pipeli
 from services.readiness_service import production_readiness
 from services.acceptance_service import production_acceptance_snapshot
 from services.launch_control_service import launch_control_snapshot
+from services.grading_review_service import grading_review_queue
 
 router = APIRouter(prefix="/api/operations", tags=["operations"])
 
@@ -31,3 +32,8 @@ def pipelines(limit: int = 25) -> dict[str, object]:
 @router.get("/control-panel", dependencies=[Depends(require_owner)])
 def control_panel() -> dict[str, object]:
     return launch_control_snapshot()
+
+
+@router.get("/grading-review", dependencies=[Depends(require_owner)])
+def grading_review() -> dict[str, object]:
+    return grading_review_queue()

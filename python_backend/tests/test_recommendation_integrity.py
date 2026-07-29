@@ -69,3 +69,29 @@ def test_odds_fallback_is_not_exposed_as_model_confidence() -> None:
     assert result["recommendedSide"] == "N/A"
     assert result["confidence"] == 0
     assert result["tier"] == "No Pick"
+
+
+def test_low_data_quality_suppresses_pro_recommendation() -> None:
+    result = build_verified_prop_recommendation(
+        projection=27.2,
+        line=24.5,
+        canonical_player_id="odds-api:123",
+        identity_confidence=0.95,
+        data_quality_score=0.42,
+        data_quality_reasons=["limited_historical_sample"],
+    )
+    assert result["recommendationAvailable"] is False
+    assert result["recommendationUnavailableReason"] == "insufficient_data_quality"
+    assert result["dataQualityReasons"] == ["limited_historical_sample"]
+
+
+def test_recommendation_has_plain_language_explanation() -> None:
+    result = build_verified_prop_recommendation(
+        projection=27.2,
+        line=24.5,
+        canonical_player_id="odds-api:123",
+        identity_confidence=0.95,
+    )
+    assert result["explanation"] == (
+        "The model projects 27.2, which is 2.7 above the selected line of 24.5."
+    )

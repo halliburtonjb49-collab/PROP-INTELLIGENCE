@@ -41,6 +41,9 @@ class PropData {
   final String pickText;
   final bool recommendationAvailable;
   final String recommendationUnavailableReason;
+  final String recommendationExplanation;
+  final double dataQualityScore;
+  final List<String> dataQualityReasons;
   final String gameTime;
   final String gameStartTime;
   final double line;
@@ -122,6 +125,9 @@ class PropData {
     this.pickText = 'No Pick',
     this.recommendationAvailable = false,
     this.recommendationUnavailableReason = '',
+    this.recommendationExplanation = '',
+    this.dataQualityScore = 0,
+    this.dataQualityReasons = const [],
     this.gameTime = '',
     this.gameStartTime = '',
     required this.line,
@@ -352,6 +358,21 @@ class PropData {
           json['recommendationUnavailableReason']?.toString() ??
           json['recommendation_unavailable_reason']?.toString() ??
           '',
+      recommendationExplanation:
+          json['recommendationExplanation']?.toString() ??
+          json['recommendation_explanation']?.toString() ??
+          '',
+      dataQualityScore:
+          _safeDoubleOrNull(
+            json['dataQualityScore'] ?? json['data_quality_score'],
+          ) ??
+          0,
+      dataQualityReasons:
+          (json['dataQualityReasons'] as List? ??
+                  json['data_quality_reasons'] as List? ??
+                  const [])
+              .map((value) => value.toString())
+              .toList(growable: false),
       gameTime:
           json['game_time']?.toString() ?? json['gameTime']?.toString() ?? '',
       gameStartTime:

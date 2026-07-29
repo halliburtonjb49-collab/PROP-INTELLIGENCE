@@ -225,6 +225,7 @@ def get_props() -> list[PropResponse]:
 			)
 		if projection is not None:
 			projection_source = "provider"
+			projection_model_version = "provider-projection-v1"
 			projection_label = "Provider projection"
 		source_player_id = str(row["source_player_id"] or "")
 		identity_provider = "odds-api"
@@ -292,6 +293,20 @@ def get_props() -> list[PropResponse]:
 			canonical_player_id=canonical_player_id,
 			identity_confidence=identity_confidence,
 			confidence_override=confidence_override,
+			data_quality_score=(
+				min(
+					1.0,
+					0.35
+					+ (0.25 if identity_confidence >= 0.8 else 0.0)
+					+ (0.2 if projection is not None else 0.0)
+					+ (0.2 if baseline is None or projection_sample_size >= 5 else 0.0),
+				)
+			),
+			data_quality_reasons=(
+				[]
+				if baseline is None or projection_sample_size >= 5
+				else ["limited_historical_sample"]
+			),
 		)
 		if baseline is not None and not baseline_is_actionable(
 			baseline,
@@ -480,6 +495,15 @@ def get_props() -> list[PropResponse]:
 				),
 				recommendationUnavailableReason=str(
 					recommendation["recommendationUnavailableReason"]
+				),
+				recommendationExplanation=str(
+					recommendation.get("explanation") or ""
+				),
+				dataQualityScore=float(
+					recommendation.get("dataQualityScore") or 0
+				),
+				dataQualityReasons=list(
+					recommendation.get("dataQualityReasons") or []
 				),
 				startTimeUtc=start_time_utc,
 				displayTime=display_time,

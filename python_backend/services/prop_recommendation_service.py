@@ -82,14 +82,20 @@ def build_verified_prop_recommendation(
     canonical_player_id: str,
     identity_confidence: float,
     confidence_override: int | None = None,
+    data_quality_score: float = 1.0,
+    data_quality_reasons: list[str] | None = None,
 ) -> dict[str, Any]:
     """Return a model recommendation only when its required inputs are real."""
     projection_value = safe_float(projection)
-    if projection_value is None:
+    line_value = safe_float(line)
+    if projection_value is None or line_value is None:
         return {
             **build_prop_recommendation(None, line),
             "recommendationAvailable": False,
             "recommendationUnavailableReason": "projection_unavailable",
+            "explanation": "No recommendation is available because a verified projection could not be produced.",
+            "dataQualityScore": 0.0,
+            "dataQualityReasons": ["projection_unavailable"],
         }
 
     canonical = canonical_player_id.strip().lower()
@@ -102,6 +108,20 @@ def build_verified_prop_recommendation(
             **build_prop_recommendation(None, line),
             "recommendationAvailable": False,
             "recommendationUnavailableReason": "player_identity_unresolved",
+            "explanation": "No recommendation is available because the player identity could not be verified.",
+            "dataQualityScore": round(max(0.0, min(1.0, data_quality_score)), 3),
+            "dataQualityReasons": ["player_identity_unresolved"],
+        }
+    quality = max(0.0, min(1.0, float(data_quality_score)))
+    quality_reasons = list(data_quality_reasons or [])
+    if quality < 0.6:
+        return {
+            **build_prop_recommendation(None, line),
+            "recommendationAvailable": False,
+            "recommendationUnavailableReason": "insufficient_data_quality",
+            "explanation": "No Pro recommendation is shown because the supporting data does not meet the quality threshold.",
+            "dataQualityScore": round(quality, 3),
+            "dataQualityReasons": quality_reasons or ["quality_threshold_not_met"],
         }
 
     recommendation = build_prop_recommendation(projection_value, line)
@@ -121,6 +141,14 @@ def build_verified_prop_recommendation(
         **recommendation,
         "recommendationAvailable": True,
         "recommendationUnavailableReason": "",
+        "explanation": (
+            f"The model projects {projection_value:g}, which is "
+            f"{abs(projection_value - float(line_value)):g} "
+            f"{'above' if projection_value > float(line_value) else 'below'} "
+            f"the selected line of {float(line_value):g}."
+        ),
+        "dataQualityScore": round(quality, 3),
+        "dataQualityReasons": quality_reasons,
     }
 
 
