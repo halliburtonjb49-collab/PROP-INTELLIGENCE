@@ -2531,7 +2531,7 @@ class _MainDashboardState extends State<MainDashboard> {
   final ScrollController _categoryHorizontalController = ScrollController();
   Timer? _searchDebounce;
   String _searchQuery = '';
-  String _selectedSite = 'PRIZEPICKS';
+  String _selectedSite = 'ALL';
   String _selectedCategory = 'ALL';
   final String _selectedSide = 'All';
   final String _selectedTier = 'All';
@@ -3733,67 +3733,137 @@ class _MainDashboardState extends State<MainDashboard> {
                         borderRadius: BorderRadius.circular(11),
                         border: Border.all(color: AppColors.border),
                       ),
-                      child: Row(
+                      child: Column(
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _propMarket(prop).toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                  ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _propMarket(prop).toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${prop.matchup} • ${time.isEmpty ? 'Time pending' : time}',
+                                      style: const TextStyle(
+                                        color: AppColors.muted,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      'Over ${prop.overOdds?.round() ?? '--'}  •  Under ${prop.underOdds?.round() ?? '--'}',
+                                      style: const TextStyle(
+                                        color: Color(0xFFC8CED6),
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${prop.matchup} • ${time.isEmpty ? 'Time pending' : time}',
-                                  style: const TextStyle(
-                                    color: AppColors.muted,
-                                    fontSize: 10,
-                                  ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
                                 ),
-                                const SizedBox(height: 5),
-                                Text(
-                                  'Over ${prop.overOdds?.round() ?? '--'}  •  Under ${prop.underOdds?.round() ?? '--'}',
-                                  style: const TextStyle(
-                                    color: Color(0xFFC8CED6),
-                                    fontSize: 11,
-                                  ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.gold.withValues(alpha: .1),
+                                  borderRadius: BorderRadius.circular(9),
+                                  border: Border.all(color: AppColors.gold),
                                 ),
-                              ],
-                            ),
+                                child: Column(
+                                  children: [
+                                    const Text(
+                                      'LINE',
+                                      style: TextStyle(
+                                        color: AppColors.muted,
+                                        fontSize: 8,
+                                      ),
+                                    ),
+                                    Text(
+                                      prop.line.toStringAsFixed(1),
+                                      style: const TextStyle(
+                                        color: AppColors.gold,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.gold.withValues(alpha: .1),
-                              borderRadius: BorderRadius.circular(9),
-                              border: Border.all(color: AppColors.gold),
-                            ),
-                            child: Column(
-                              children: [
-                                const Text(
-                                  'LINE',
-                                  style: TextStyle(
-                                    color: AppColors.muted,
-                                    fontSize: 8,
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  key: ValueKey(
+                                    'player-overlay-over-${prop.id}',
+                                  ),
+                                  onPressed: prop.dataStale
+                                      ? null
+                                      : () {
+                                          Navigator.pop(dialogContext);
+                                          widget.onSelect(prop, PickSide.over);
+                                        },
+                                  icon: const Icon(
+                                    Icons.arrow_upward_rounded,
+                                    size: 16,
+                                  ),
+                                  label: Text(
+                                    'PICK OVER ${prop.line.toStringAsFixed(1)}',
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF7EE787),
+                                    side: const BorderSide(
+                                      color: Color(0xFF4CAF50),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 10,
+                                    ),
                                   ),
                                 ),
-                                Text(
-                                  prop.line.toStringAsFixed(1),
-                                  style: const TextStyle(
-                                    color: AppColors.gold,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w900,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  key: ValueKey(
+                                    'player-overlay-under-${prop.id}',
+                                  ),
+                                  onPressed: prop.dataStale
+                                      ? null
+                                      : () {
+                                          Navigator.pop(dialogContext);
+                                          widget.onSelect(prop, PickSide.under);
+                                        },
+                                  icon: const Icon(
+                                    Icons.arrow_downward_rounded,
+                                    size: 16,
+                                  ),
+                                  label: Text(
+                                    'PICK UNDER ${prop.line.toStringAsFixed(1)}',
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFFFF8A93),
+                                    side: const BorderSide(
+                                      color: Color(0xFFEF5350),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 10,
+                                    ),
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -4621,8 +4691,7 @@ class _MainDashboardState extends State<MainDashboard> {
                         children: [
                           _buildBoardSearchAndBooks(),
                           const SizedBox(height: 12),
-                          if (_selectedSite != 'ALL' ||
-                              _normalizeSport(widget.sportFilter) != 'ALL') ...[
+                          if (_selectedSite != 'ALL') ...[
                             _buildBoardCategories(),
                             const SizedBox(height: 10),
                           ],
@@ -7844,6 +7913,8 @@ class _PropGridState extends State<PropGrid> {
           onPressed: () => _handleCardSelection(prop, side),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(0, 36),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             foregroundColor: selected
                 ? Colors.white
                 : (advised ? AppColors.gold : Colors.white),
@@ -9318,7 +9389,7 @@ class _PropGridState extends State<PropGrid> {
                         crossAxisCount: columns,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
-                        mainAxisExtent: 380,
+                        mainAxisExtent: 410,
                       ),
                       itemBuilder: (context, index) {
                         final prop = visibleProps[index];
