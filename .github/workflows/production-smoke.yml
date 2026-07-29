@@ -16,4 +16,6 @@ jobs:
         if: github.event_name == 'push'
         run: sleep 150
       - name: Verify app, CORS, props, payload, and production bundle
+        env:
+          SMOKE_API_TOKEN: ${{ secrets.SMOKE_API_TOKEN }}
         run: python tools/post_deploy_smoke.py
