@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import time
 import urllib.request
@@ -8,6 +9,16 @@ from datetime import datetime, timezone
 APP_URL = "https://app.propsintell.com"
 API_URL = "https://api.propsintell.com"
 MAX_PROP_FEED_AGE_MINUTES = 45
+API_TOKEN = os.getenv("SMOKE_API_TOKEN")
+
+
+def api_headers(extra: dict[str, str] | None = None) -> dict[str, str]:
+    headers: dict[str, str] = {}
+    if API_TOKEN:
+        headers["Authorization"] = f"Bearer {API_TOKEN}"
+    if extra:
+        headers.update(extra)
+    return headers
 
 
 def request(url: str, *, method: str = "GET", headers: dict[str, str] | None = None):
@@ -19,7 +30,10 @@ def request(url: str, *, method: str = "GET", headers: dict[str, str] | None = N
 
 
 def main() -> int:
-    health, health_body, health_ms = request(f"{API_URL}/health")
+    if not API_TOKEN:
+        raise RuntimeError("SMOKE_API_TOKEN is not set")
+
+    health, health_body, health_ms = request(f"{API_URL}/health", headers=api_headers())
     health_payload = json.loads(health_body)
     if health.status != 200 or health_payload.get("status") != "ok":
         raise RuntimeError("API health check is unavailable")
@@ -34,16 +48,19 @@ def main() -> int:
     cors, _, _ = request(
         f"{API_URL}/api/props?limit=1",
         method="OPTIONS",
-        headers={
-            "Origin": APP_URL,
-            "Access-Control-Request-Method": "GET",
-        },
+        headers=api_headers(
+            {
+                "Origin": APP_URL,
+                "Access-Control-Request-Method": "GET",
+            }
+        ),
     )
     if cors.headers.get("Access-Control-Allow-Origin") != APP_URL:
         raise RuntimeError("Production CORS origin is not allowed")
 
     props, body, props_ms = request(
-        f"{API_URL}/api/props?sportsbook=PRIZEPICKS&limit=75&offset=0"
+        f"{API_URL}/api/props?sportsbook=PRIZEPICKS&limit=75&offset=0",
+        headers=api_headers(),
     )
     payload = json.loads(body)
     if props.status != 200 or not payload.get("props"):
@@ -56,7 +73,7 @@ def main() -> int:
     # A freshly deployed API instance starts with empty in-memory feed metrics.
     # Read health again after the real prop request so the freshness assertion
     # measures the live request instead of treating a cold start as a failure.
-    feed_health, feed_health_body, _ = request(f"{API_URL}/health")
+    feed_health, feed_health_body, _ = request(f"{API_URL}/health", headers=api_headers())
     feed_health_payload = json.loads(feed_health_body)
     if feed_health.status != 200:
         raise RuntimeError("API health check failed after loading props")
