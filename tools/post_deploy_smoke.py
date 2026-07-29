@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -9,9 +10,10 @@ from datetime import datetime, timezone
 APP_URL = "https://app.propsintell.com"
 API_URL = "https://api.propsintell.com"
 MAX_PROP_FEED_AGE_MINUTES = 45
-DEFAULT_TRANSIENT_ATTEMPTS = 6
+DEFAULT_TRANSIENT_ATTEMPTS = 12
 MAX_RETRY_DELAY_SECONDS = 10
 TRANSIENT_HTTP_STATUSES = {502, 503, 504}
+DEPLOYMENT_POLL_SECONDS = 10
 
 
 def _retry_delay(attempt: int) -> int:
@@ -51,7 +53,85 @@ def request(
     raise RuntimeError("Production request exhausted transient retries")
 
 
+def wait_for_expected_version() -> None:
+    expected_version = os.getenv("EXPECTED_PRODUCTION_VERSION", "").strip()
+    if not expected_version:
+        return
+    wait_seconds = int(os.getenv("PRODUCTION_DEPLOY_WAIT_SECONDS", "600"))
+    deadline = time.monotonic() + wait_seconds
+    last_observation = "production API did not respond"
+    while time.monotonic() < deadline:
+        try:
+            response, body, _ = request(
+                f"{API_URL}/health",
+                transient_attempts=1,
+            )
+            payload = json.loads(body)
+            actual_version = str(payload.get("version") or "")
+            if (
+                response.status == 200
+                and payload.get("status") == "ok"
+                and actual_version == expected_version
+            ):
+                return
+            last_observation = (
+                f"expected version {expected_version}, received "
+                f"{actual_version or 'unknown'}"
+            )
+        except (
+            json.JSONDecodeError,
+            urllib.error.HTTPError,
+            urllib.error.URLError,
+            TimeoutError,
+        ) as exc:
+            last_observation = str(exc)
+        time.sleep(DEPLOYMENT_POLL_SECONDS)
+    raise RuntimeError(
+        "Production deployment did not become active within "
+        f"{wait_seconds} seconds: {last_observation}"
+    )
+
+
+def _feed_age_minutes(payload: dict) -> float:
+    last_data_updated = payload.get("lastDataUpdatedAt")
+    if not last_data_updated:
+        raise RuntimeError("Production prop-feed freshness is unavailable")
+    last_data_at = datetime.fromisoformat(
+        str(last_data_updated).replace("Z", "+00:00")
+    )
+    if last_data_at.tzinfo is None:
+        last_data_at = last_data_at.replace(tzinfo=timezone.utc)
+    return (
+        datetime.now(timezone.utc) - last_data_at
+    ).total_seconds() / 60
+
+
+def read_fresh_prop_readiness() -> tuple[object, bytes, float, dict, float]:
+    warmup_seconds = int(os.getenv("PRODUCTION_FEED_WARMUP_SECONDS", "0"))
+    deadline = time.monotonic() + warmup_seconds
+    while True:
+        readiness, body, props_ms = request(
+            f"{API_URL}/api/props/readiness"
+        )
+        payload = json.loads(body)
+        feed_age_minutes = _feed_age_minutes(payload)
+        if feed_age_minutes <= MAX_PROP_FEED_AGE_MINUTES:
+            return readiness, body, props_ms, payload, feed_age_minutes
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                "Production prop feed is stale: "
+                f"{feed_age_minutes:.0f} minutes old"
+            )
+        print(
+            "production prop feed is warming; retrying freshness check in "
+            f"{DEPLOYMENT_POLL_SECONDS}s",
+            file=sys.stderr,
+        )
+        time.sleep(DEPLOYMENT_POLL_SECONDS)
+
+
 def main() -> int:
+    wait_for_expected_version()
     health, health_body, health_ms = request(f"{API_URL}/health")
     health_payload = json.loads(health_body)
     if health.status != 200 or health_payload.get("status") != "ok":
@@ -80,10 +160,9 @@ def main() -> int:
     if cors.headers.get("Access-Control-Allow-Origin") != APP_URL:
         raise RuntimeError("Production CORS origin is not allowed")
 
-    readiness, body, props_ms = request(
-        f"{API_URL}/api/props/readiness"
+    readiness, body, props_ms, payload, feed_age_minutes = (
+        read_fresh_prop_readiness()
     )
-    payload = json.loads(body)
     if (
         readiness.status != 200
         or payload.get("status") != "ok"
@@ -114,23 +193,6 @@ def main() -> int:
             ) from exc
     else:
         raise RuntimeError("Production prop feed is anonymously accessible")
-
-    last_data_updated = payload.get("lastDataUpdatedAt")
-    if not last_data_updated:
-        raise RuntimeError("Production prop-feed freshness is unavailable")
-    last_data_at = datetime.fromisoformat(
-        str(last_data_updated).replace("Z", "+00:00")
-    )
-    if last_data_at.tzinfo is None:
-        last_data_at = last_data_at.replace(tzinfo=timezone.utc)
-    feed_age_minutes = (
-        datetime.now(timezone.utc) - last_data_at
-    ).total_seconds() / 60
-    if feed_age_minutes > MAX_PROP_FEED_AGE_MINUTES:
-        raise RuntimeError(
-            "Production prop feed is stale: "
-            f"{feed_age_minutes:.0f} minutes old"
-        )
 
     bundle, javascript, _ = request(f"{APP_URL}/main.dart.js")
     lowered = javascript.lower()

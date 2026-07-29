@@ -12,9 +12,11 @@ jobs:
       - uses: actions/checkout@v7
       - name: Confirm automatic deployment
         run: echo "Main was updated; waiting for the production services to deploy."
-      - name: Wait for Render build
-        run: sleep 180
       - name: Run blocking production smoke tests
+        env:
+          EXPECTED_PRODUCTION_VERSION: ${{ github.sha }}
+          PRODUCTION_DEPLOY_WAIT_SECONDS: "600"
+          PRODUCTION_FEED_WARMUP_SECONDS: "300"
         run: python tools/post_deploy_smoke.py
       - name: Deployment summary
         run: echo "Production deployment passed all smoke checks."
