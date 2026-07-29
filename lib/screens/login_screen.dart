@@ -604,6 +604,11 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 'We use contracted providers for authentication and storage, sports data, payments, application hosting, analytics, and notifications. Each provider processes only the information needed for its service and is governed by its own privacy terms.',
           ),
           _LegalSection(
+            title: 'BOT AND ABUSE PROTECTION',
+            text:
+                'We use Cloudflare Turnstile to help distinguish legitimate users from automated abuse during authentication. Turnstile is subject to Cloudflare’s Turnstile Privacy Addendum: https://www.cloudflare.com/turnstile-privacy-policy/.',
+          ),
+          _LegalSection(
             title: 'SHARING & SALES',
             text:
                 'We do not sell personal information. Information may be disclosed to service providers, when required by law, to protect users or the service, or as part of a business transfer subject to applicable safeguards.',
@@ -621,7 +626,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
           _AboutNotice(
             title: 'CONTACT & EFFECTIVE DATE',
             text:
-                'Privacy questions and account-data requests: propsintell@gmail.com. Effective July 27, 2026. Rights may vary based on your location.',
+                'Privacy questions and account-data requests: propsintell@gmail.com. Effective July 29, 2026. Rights may vary based on your location.',
           ),
         ];
       default:
