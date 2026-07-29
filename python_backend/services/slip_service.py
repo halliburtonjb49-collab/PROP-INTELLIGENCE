@@ -2,9 +2,12 @@ import json
 import os
 import sqlite3
 from collections.abc import Callable
+from contextlib import contextmanager
 from pathlib import Path
+from threading import Lock
 from typing import Any
 from datetime import datetime, timedelta, timezone
+from psycopg.rows import dict_row
 
 from calculations.slip_grader import (
     grade_leg,
@@ -21,18 +24,55 @@ from models.intelligence import ClosingLineValueRequest
 from services.clv_service import closing_line_value
 from services.market_normalizer import normalize_market
 from services.team_normalizer import normalize_team_name
+from database.postgres import database_is_configured, get_database_pool
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATABASE_PATH = Path(
     os.getenv("SLIP_DATABASE_PATH", str(BASE_DIR / "prop_intelligence_cache.db"))
 ).expanduser().resolve()
+_postgres_initialized = False
+_postgres_init_lock = Lock()
 
 
-def _connect() -> sqlite3.Connection:
+def _uses_postgres() -> bool:
+    return (
+        os.getenv("SLIP_STORAGE_BACKEND", "sqlite").strip().lower()
+        == "postgres"
+    )
+
+
+class _PostgresConnection:
+    def __init__(self, connection):
+        self._connection = connection
+
+    def execute(self, query: str, params: tuple[object, ...] = ()):
+        translated = query.replace("?", "%s")
+        return self._connection.cursor(row_factory=dict_row).execute(
+            translated,
+            params,
+            prepare=False,
+        )
+
+
+@contextmanager
+def _connect():
+    if _uses_postgres():
+        if not database_is_configured():
+            raise RuntimeError(
+                "SLIP_STORAGE_BACKEND=postgres requires DATABASE_URL."
+            )
+        with get_database_pool().connection() as connection:
+            yield _PostgresConnection(connection)
+        return
+
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DATABASE_PATH)
     connection.row_factory = sqlite3.Row
-    return connection
+    try:
+        with connection:
+            yield connection
+    finally:
+        connection.close()
 
 
 def slip_storage_health() -> dict[str, object]:
@@ -42,13 +82,20 @@ def slip_storage_health() -> dict[str, object]:
         initialize_slip_table()
         with _connect() as connection:
             connection.execute("SELECT 1").fetchone()
+        if _uses_postgres():
+            return {
+                "status": "ok",
+                "path": "postgresql://managed",
+                "persistentPathConfigured": False,
+                "mode": "postgresql",
+            }
         return {
             "status": "ok",
             "path": str(DATABASE_PATH),
             "persistentPathConfigured": bool(configured),
             "mode": "persistent-disk" if configured else "local-development",
         }
-    except (OSError, sqlite3.Error) as error:
+    except Exception as error:
         return {
             "status": "error", "path": str(DATABASE_PATH),
             "persistentPathConfigured": bool(configured), "error": str(error),
@@ -56,6 +103,36 @@ def slip_storage_health() -> dict[str, object]:
 
 
 def initialize_slip_table() -> None:
+    global _postgres_initialized
+    if _uses_postgres():
+        if _postgres_initialized:
+            return
+        with _postgres_init_lock:
+            if _postgres_initialized:
+                return
+            with _connect() as connection:
+                connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS slips (
+                        id TEXT PRIMARY KEY,
+                        user_id TEXT,
+                        status TEXT NOT NULL
+                          CHECK (status IN ('active', 'won', 'lost')),
+                        stake DOUBLE PRECISION NOT NULL,
+                        potential_payout DOUBLE PRECISION NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL,
+                        legs_json JSONB NOT NULL
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS slips_user_status_idx
+                    ON slips(user_id, status, created_at DESC)
+                    """
+                )
+            _postgres_initialized = True
+        return
     with _connect() as connection:
         connection.execute(
             """
@@ -153,9 +230,7 @@ def create_slip(request: SlipCreate, user_id: str | None = None) -> SlipResponse
                 slip.stake,
                 slip.potential_payout,
                 slip.created_at,
-                json.dumps(
-                    [leg.model_dump() for leg in slip.legs]
-                ),
+                json.dumps([leg.model_dump() for leg in slip.legs]),
             ),
         )
 
@@ -198,7 +273,7 @@ def get_slips(status: str | None = None, user_id: str | None = None) -> list[Sli
 
     slips: list[SlipResponse] = []
     for row in rows:
-        raw_legs = json.loads(row["legs_json"])
+        raw_legs = _decoded_legs(row["legs_json"])
         slips.append(
             SlipResponse(
                 id=row["id"],
@@ -216,6 +291,62 @@ def get_slips(status: str | None = None, user_id: str | None = None) -> list[Sli
         )
 
     return slips
+
+
+def _decoded_legs(value: object) -> list[dict[str, object]]:
+    if isinstance(value, list):
+        return value
+    return json.loads(str(value))
+
+
+def migrate_legacy_sqlite_slips() -> dict[str, int | str]:
+    """Idempotently copy attached-disk SQLite tickets into PostgreSQL."""
+    if not _uses_postgres():
+        return {"status": "skipped", "sourceRows": 0, "importedRows": 0}
+    if not DATABASE_PATH.exists():
+        return {"status": "no_legacy_database", "sourceRows": 0, "importedRows": 0}
+
+    source = sqlite3.connect(DATABASE_PATH)
+    source.row_factory = sqlite3.Row
+    try:
+        exists = source.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='slips'"
+        ).fetchone()
+        if exists is None:
+            return {"status": "no_legacy_table", "sourceRows": 0, "importedRows": 0}
+        rows = source.execute(
+            """
+            SELECT id, user_id, status, stake, potential_payout,
+                   created_at, legs_json
+            FROM slips
+            """
+        ).fetchall()
+    finally:
+        source.close()
+
+    initialize_slip_table()
+    imported = 0
+    with _connect() as target:
+        for row in rows:
+            cursor = target.execute(
+                """
+                INSERT INTO slips (
+                    id, user_id, status, stake, potential_payout,
+                    created_at, legs_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (id) DO NOTHING
+                """,
+                (
+                    row["id"], row["user_id"], row["status"], row["stake"],
+                    row["potential_payout"], row["created_at"], row["legs_json"],
+                ),
+            )
+            imported += max(0, cursor.rowcount)
+    return {
+        "status": "complete",
+        "sourceRows": len(rows),
+        "importedRows": imported,
+    }
 
 
 def update_slip_status(
@@ -265,7 +396,7 @@ def update_slip_closing_lines(
         ).fetchone()
         if row is None:
             return None
-        legs = json.loads(row["legs_json"])
+        legs = _decoded_legs(row["legs_json"])
         updated = 0
         for leg in legs:
             update = update_map.get(str(leg.get("prop_id", "")))
@@ -349,7 +480,7 @@ def capture_closing_lines_from_props(
             "SELECT id, legs_json FROM slips WHERE status = 'active'"
         ).fetchall()
         for row in rows:
-            legs = json.loads(row["legs_json"])
+            legs = _decoded_legs(row["legs_json"])
             changed = False
             for leg in legs:
                 scanned += 1
@@ -419,7 +550,7 @@ def update_slip_results(
         ).fetchall()
 
         for row in rows:
-            raw_legs = json.loads(row["legs_json"])
+            raw_legs = _decoded_legs(row["legs_json"])
             changed = False
             leg_statuses: list[str] = []
 
@@ -491,7 +622,7 @@ def reconcile_verified_slip_results(
             (user_id,),
         ).fetchall()
         for row in rows:
-            legs = json.loads(row["legs_json"])
+            legs = _decoded_legs(row["legs_json"])
             changed = False
             statuses: list[str] = []
             for leg in legs:
@@ -551,7 +682,7 @@ def update_slip_game_statuses(
         ).fetchall()
 
         for row in rows:
-            raw_legs = json.loads(row["legs_json"])
+            raw_legs = _decoded_legs(row["legs_json"])
             changed = False
 
             for leg in raw_legs:
@@ -621,7 +752,7 @@ def update_slip_with_stat_results(
         ).fetchall()
 
         for row in rows:
-            legs = json.loads(row["legs_json"])
+            legs = _decoded_legs(row["legs_json"])
             changed = False
 
             for leg in legs:

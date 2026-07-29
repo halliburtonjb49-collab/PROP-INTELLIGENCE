@@ -56,10 +56,15 @@ def main() -> int:
     health_payload = json.loads(health_body)
     if health.status != 200 or health_payload.get("status") != "ok":
         raise RuntimeError("API health check is unavailable")
-    if health_payload.get("ticket_storage_mode") != "persistent-disk":
-        raise RuntimeError(
-            "Production ticket storage is not using the persistent disk"
-        )
+    readiness, readiness_body, _ = request(f"{API_URL}/ready")
+    readiness_payload = json.loads(readiness_body)
+    if readiness.status != 200 or readiness_payload.get("ready") is not True:
+        raise RuntimeError("API dependencies are not ready")
+    ticket_storage = (
+        readiness_payload.get("checks", {}).get("ticketStorage", {})
+    )
+    if ticket_storage.get("mode") != "postgresql":
+        raise RuntimeError("Production tickets are not using PostgreSQL")
     app, html, app_ms = request(APP_URL)
     if app.status != 200 or b"flutter_bootstrap.js" not in html:
         raise RuntimeError("Web application shell is unavailable")

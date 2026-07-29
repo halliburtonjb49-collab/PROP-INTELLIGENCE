@@ -38,6 +38,7 @@ from models.prop_builder import (
 	PropReplacementRequest,
 )
 from models.prop import PropResponse
+from models.prop_access import core_prop_payload
 from models.prop_line_movement import (
 	PropLineMovementRequest,
 	PropLineMovementResponse,
@@ -138,6 +139,7 @@ from services.slip_service import (
 	create_slip,
 	delete_slip,
 	get_slips,
+	migrate_legacy_sqlite_slips,
 	update_slip_game_statuses,
 	update_slip_closing_lines,
 	update_slip_results,
@@ -147,6 +149,7 @@ from services.live_stats_service import get_live_player_stat_snapshot
 from services.multi_sport_grading_service import grade_active_slips
 from services.result_reconciliation_service import reconcile_user_slips
 from services.prediction_automation_service import prediction_calibration_report
+from services.runtime_readiness_service import runtime_readiness
 from services.sync_service import run_global_sync_pipeline
 from services.prop_recommendation_service import (
 	build_prop_recommendation,
@@ -174,7 +177,13 @@ from services.wnba_grading_service import (
 	grade_active_wnba_slips,
 )
 from services.wnba_mapping_service import map_wnba_event
-from services.api_auth_service import require_admin, require_user_id
+from services.api_auth_service import (
+	Membership,
+	require_admin,
+	require_core,
+	require_pro,
+	require_user_id,
+)
 from routers.intelligence import router as intelligence_router
 from routers.billing import router as billing_router
 from routers.realtime import hub as realtime_hub, router as realtime_router
@@ -203,6 +212,10 @@ async def lifespan(_: FastAPI):
 		"Ticket storage ready mode=%s path=%s",
 		storage["mode"],
 		storage["path"],
+	)
+	logging.info(
+		"Legacy ticket import result=%s",
+		migrate_legacy_sqlite_slips(),
 	)
 	startup_sync_task = asyncio.create_task(_ensure_props_available())
 	freshness_watchdog_task = asyncio.create_task(_maintain_prop_freshness())
@@ -1525,23 +1538,19 @@ def _live_slip_stats_payload(*, season: str, user_id: str) -> dict[str, object]:
 
 @app.get("/health")
 def health() -> dict[str, object]:
-	storage = slip_storage_health()
 	return {
 		"status": "ok",
-		"database": (
-			"configured"
-			if database_is_configured()
-			else "not_configured"
-		),
-		"ticket_storage": str(storage["status"]),
-		"ticket_storage_mode": str(storage.get("mode", "unknown")),
+		"service": "prop-intelligence-api",
 		"version": APP_VERSION,
-		"propFeed": dict(_prop_metrics),
-		"cache": distributed_cache_health(),
-		"backgroundQueue": job_queue_health(),
-		"ingestionPipeline": ingestion_pipeline_health(),
-		"databasePerformance": database_performance_snapshot(),
 	}
+
+
+@app.get("/ready")
+def ready(response: Response) -> dict[str, object]:
+	result = runtime_readiness()
+	if not result["ready"]:
+		response.status_code = 503
+	return {"version": APP_VERSION, **result}
 
 
 @app.get("/api/market-intelligence")
@@ -1742,7 +1751,7 @@ def _prop_alert_items() -> list[dict[str, object]]:
 @app.get("/api/prop-alerts")
 def prop_alerts(
 	response: Response,
-	_user_id: str = Depends(require_user_id),
+	_membership: Membership = Depends(require_pro),
 ) -> dict[str, object]:
 	try:
 		response.headers["Cache-Control"] = "private, no-store, max-age=0"
@@ -1793,6 +1802,7 @@ def props_readiness(response: Response) -> dict[str, object]:
 @app.get("/api/props")
 def props(
 	response: Response,
+	membership: Membership = Depends(require_core),
 	side: str = Query(default="All"),
 	tier: str = Query(default="All"),
 	sportsbook: str = Query(default="All"),
@@ -1807,19 +1817,19 @@ def props(
 	limit: int = Query(default=75, ge=1, le=500),
 	offset: int = Query(default=0, ge=0),
 	if_none_match: str | None = Header(default=None, alias="If-None-Match"),
-	_user_id: str = Depends(require_user_id),
 ) -> dict[str, object]:
 	started_at = time.perf_counter()
 	try:
+		is_pro = membership.has_pro_access
 		prop_list = _cached_prop_catalog()
-		side_filter = side.strip().lower()
-		tier_filter = tier.strip().lower()
+		side_filter = side.strip().lower() if is_pro else "all"
+		tier_filter = tier.strip().lower() if is_pro else "all"
 		sportsbook_filter = sportsbook.strip().lower().replace(" ", "")
 		sport_filter = sport.strip().lower().replace(" ", "")
 		category_filter = category.strip().lower()
 		search_filter = search.strip().lower()
-		min_confidence = max(0, int(minConfidence))
-		sort_by = sortBy.strip().lower()
+		min_confidence = max(0, int(minConfidence)) if is_pro else 0
+		sort_by = sortBy.strip().lower() if is_pro else "time"
 		today_local = datetime.now(_scoreboard_timezone()).date()
 		now_utc = datetime.now(timezone.utc)
 		stale_after_minutes = max(
@@ -2004,9 +2014,9 @@ def props(
 				"systemPicks": system_pick_count,
 				"pending": max(0, total_count - system_pick_count),
 				"total": total_count,
-			},
+			} if is_pro else {"total": total_count},
 			"props": [
-				prop.model_dump()
+				prop.model_dump() if is_pro else core_prop_payload(prop)
 				for prop in page
 			],
 			"filters": {
@@ -2024,7 +2034,7 @@ def props(
 			"version": APP_VERSION,
 		}
 		etag_source = (
-			f"{APP_VERSION}|{side}|{tier}|{sportsbook}|{sport}|{category}|"
+			f"{APP_VERSION}|{membership.subscription_tier}|{side}|{tier}|{sportsbook}|{sport}|{category}|"
 			f"{search}|{min_confidence}|{sort_by}|{includePastDates}|"
 			f"{includeStarted}|"
 			f"{limit}|{offset}|{total_count}|"
@@ -2033,6 +2043,7 @@ def props(
 		etag = f'"{hashlib.sha256(etag_source.encode()).hexdigest()[:24]}"'
 		response.headers["ETag"] = etag
 		response.headers["Cache-Control"] = "private, no-store, max-age=0"
+		response.headers["Vary"] = "Authorization"
 		response.headers["X-App-Version"] = APP_VERSION
 		if if_none_match == etag:
 			response.status_code = 304
@@ -2070,7 +2081,7 @@ def positive_ev_props(
 	response: Response,
 	min_ev: float = Query(default=0.0),
 	sport: str = Query(default="All"),
-	_user_id: str = Depends(require_user_id),
+	_membership: Membership = Depends(require_pro),
 ) -> dict[str, object]:
 	"""Return only props backed by a genuine positive-EV calculation."""
 	response.headers["Cache-Control"] = "private, no-store, max-age=0"
@@ -2098,12 +2109,15 @@ def positive_ev_props(
 @app.get("/api/props/calibration")
 def prop_calibration(
 	minimum_sample: int = Query(default=20, ge=5, le=1000),
+	_membership: Membership = Depends(require_pro),
 ) -> dict[str, object]:
 	return prediction_calibration_report(minimum_sample)
 
 
 @app.get("/api/props-test")
-def props_test() -> dict[str, object]:
+def props_test(
+	_membership: Membership = Depends(require_pro),
+) -> dict[str, object]:
 	raw_props = [
 		{
 			"player": "Ernie Clement",

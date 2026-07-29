@@ -2,12 +2,39 @@
 import base64
 import json
 import os
+from dataclasses import dataclass
+from enum import IntEnum
+
 import requests
 from fastapi import Header, HTTPException
 from config import HTTP_TIMEOUT_SECONDS
 
 _DEFAULT_OWNER_EMAILS = {"halliburtonjb49@gmail.com"}
 _DEFAULT_OWNER_USER_IDS = {"84a76503-f704-46b6-be87-760ea8c9f2f5"}
+
+
+class AccessLevel(IntEnum):
+    FREE = 0
+    CORE = 1
+    PRO = 2
+    ADMIN = 3
+    OWNER = 4
+
+
+@dataclass(frozen=True)
+class Membership:
+    user_id: str
+    level: AccessLevel
+    subscription_tier: str
+    role: str
+
+    @property
+    def has_core_access(self) -> bool:
+        return self.level >= AccessLevel.CORE
+
+    @property
+    def has_pro_access(self) -> bool:
+        return self.level >= AccessLevel.PRO
 
 
 def _owner_emails() -> set[str]:
@@ -59,6 +86,98 @@ def _supabase_user(token: str) -> dict[str, object] | None:
         if payload.get(key) in (None, "", {}):
             payload[key] = claims.get(key)
     return payload
+
+
+def _supabase_profile(token: str, user_id: str) -> dict[str, object]:
+    """Read the authenticated user's trusted subscription row through RLS."""
+    url = os.getenv("SUPABASE_URL", "").rstrip("/")
+    anon_key = os.getenv("SUPABASE_ANON_KEY", "").strip()
+    if not url or not anon_key:
+        return {}
+    response = requests.get(
+        f"{url}/rest/v1/user_profiles",
+        params={
+            "id": f"eq.{user_id}",
+            "select": "subscription_tier,is_premium",
+            "limit": "1",
+        },
+        headers={
+            "apikey": anon_key,
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+        },
+        timeout=HTTP_TIMEOUT_SECONDS,
+    )
+    if response.status_code != 200:
+        raise HTTPException(status_code=503, detail="Membership service unavailable")
+    payload = response.json()
+    if not isinstance(payload, list) or not payload:
+        return {}
+    row = payload[0]
+    return row if isinstance(row, dict) else {}
+
+
+def resolve_membership(authorization: str = Header(default="")) -> Membership:
+    """Resolve identity and access from Supabase-verified server-side data."""
+    token = authorization.removeprefix("Bearer ").strip()
+    try:
+        user = _supabase_user(token)
+    except requests.RequestException as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Authentication service unavailable",
+        ) from exc
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Valid Supabase access token required",
+        )
+
+    user_id = str(user.get("id") or "").strip()
+    if not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Valid Supabase access token required",
+        )
+    email = str(user.get("email") or "").strip().lower()
+    metadata = user.get("app_metadata") or {}
+    role = (
+        str(metadata.get("role") or "").strip().lower()
+        if isinstance(metadata, dict)
+        else ""
+    )
+    if user_id.lower() in _owner_user_ids() or email in _owner_emails() or role == "owner":
+        return Membership(user_id, AccessLevel.OWNER, "pro", "owner")
+    if role == "admin":
+        return Membership(user_id, AccessLevel.ADMIN, "pro", "admin")
+
+    try:
+        profile = _supabase_profile(token, user_id)
+    except requests.RequestException as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Membership service unavailable",
+        ) from exc
+    raw_tier = str(profile.get("subscription_tier") or "free").strip().lower()
+    if raw_tier in {"edge", "pro"} or profile.get("is_premium") is True:
+        return Membership(user_id, AccessLevel.PRO, "pro", "user")
+    if raw_tier == "core":
+        return Membership(user_id, AccessLevel.CORE, "core", "user")
+    return Membership(user_id, AccessLevel.FREE, "free", "user")
+
+
+def require_core(authorization: str = Header(default="")) -> Membership:
+    membership = resolve_membership(authorization)
+    if not membership.has_core_access:
+        raise HTTPException(status_code=403, detail="Core membership required")
+    return membership
+
+
+def require_pro(authorization: str = Header(default="")) -> Membership:
+    membership = resolve_membership(authorization)
+    if not membership.has_pro_access:
+        raise HTTPException(status_code=403, detail="Pro membership required")
+    return membership
 
 def verify_supabase_token(token: str) -> str | None:
     user = _supabase_user(token)
