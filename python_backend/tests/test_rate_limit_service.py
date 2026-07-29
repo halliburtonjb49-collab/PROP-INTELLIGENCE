@@ -33,3 +33,19 @@ def test_authenticated_bucket_uses_separate_configured_capacity(monkeypatch) -> 
     assert allowed is True
     assert remaining == 4
     assert limit == 5
+
+
+def test_endpoint_specific_limit_overrides_global_limit(monkeypatch) -> None:
+    monkeypatch.setattr(rate_limit_service, "REDIS_URL", "")
+    rate_limit_service._memory_buckets.clear()
+
+    allowed, remaining, limit = rate_limit_service.allow_request(
+        "ticket-create:user-1",
+        authenticated=True,
+        limit=10,
+        now=100,
+    )
+
+    assert allowed is True
+    assert limit == 10
+    assert remaining == 9

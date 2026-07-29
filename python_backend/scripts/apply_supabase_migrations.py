@@ -37,6 +37,7 @@ MIGRATIONS = (
     "supabase_slip_postgres_storage.sql",
     "supabase_owner_user_id.sql",
     "supabase_performance_indexes.sql",
+    "supabase_security_hardening.sql",
 )
 
 
@@ -47,6 +48,12 @@ def main() -> int:
         return 2
 
     sslmode = os.getenv("DATABASE_SSLMODE", "require").strip() or "require"
+    if sslmode.lower() not in {"require", "verify-ca", "verify-full"}:
+        print(
+            "DATABASE_SSLMODE must enforce TLS for migrations.",
+            file=sys.stderr,
+        )
+        return 2
     with psycopg.connect(database_url, sslmode=sslmode) as connection:
         connection.execute(
             """create table if not exists public.prop_intelligence_schema_migrations (
@@ -85,6 +92,48 @@ def main() -> int:
             except Exception:
                 connection.rollback()
                 raise
+
+        rls_disabled = connection.execute(
+            """
+            select c.relname
+            from pg_class c
+            join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname = 'public'
+              and c.relkind in ('r', 'p')
+              and not c.relrowsecurity
+            order by c.relname
+            """
+        ).fetchall()
+        if rls_disabled:
+            names = ", ".join(str(row[0]) for row in rls_disabled)
+            raise RuntimeError(
+                f"Public tables without RLS detected: {names}"
+            )
+
+        exposed_proprietary = connection.execute(
+            """
+            select table_name, grantee
+            from information_schema.role_table_grants
+            where table_schema = 'public'
+              and grantee in ('anon', 'authenticated')
+              and table_name in (
+                'billing_webhook_events',
+                'sportsbook_line_snapshots',
+                'prop_market_intelligence',
+                'prediction_snapshots',
+                'player_stretch_embeddings',
+                'player_fatigue_features',
+                'officiating_tendency_profiles',
+                'team_matchup_profiles',
+                'security_events'
+              )
+            """
+        ).fetchall()
+        if exposed_proprietary:
+            raise RuntimeError(
+                "Browser grants remain on proprietary tables: "
+                f"{exposed_proprietary}"
+            )
 
     print("Supabase migrations are current.")
     return 0

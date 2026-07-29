@@ -86,6 +86,7 @@ from services.job_queue_service import (
 )
 from services.raw_ingestion_service import health as ingestion_pipeline_health
 from services.rate_limit_service import allow_request
+from services.security_event_service import record_security_event
 from services.market_intelligence_service import latest_market_intelligence
 from services.mlb_headshot_service import refresh_mlb_headshot_map
 from services.espn_headshot_service import (
@@ -275,18 +276,44 @@ app.add_middleware(
 app.add_middleware(BrotliMiddleware, minimum_size=1000, quality=4)
 app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
 
-_PROTECTED_DATA_PATHS = (
-	"/api/props",
-	"/api/intelligence",
-	"/api/prop-alerts",
-)
+def _rate_limit_scope(request: Request) -> tuple[str, int] | None:
+	path = request.url.path
+	method = request.method.upper()
+	if path.startswith("/api/intelligence") or path in {
+		"/api/props/ev",
+		"/api/props/calibration",
+		"/api/prop-alerts",
+	}:
+		return "pro-calculation", 30
+	if path == "/api/props" and request.query_params.get("search", "").strip():
+		return "player-search", 30
+	if path.startswith("/api/props"):
+		return "prop-feed", 60
+	if path == "/api/slips" and method == "POST":
+		return "ticket-create", 10
+	if path.startswith("/api/slips") or path == "/api/active-ticket":
+		return "tickets", 60
+	if path.startswith("/api/realtime"):
+		return "chat-realtime", 30
+	if path.startswith("/api/scoreboard") or path.startswith("/api/scores"):
+		return "scoreboard", 60
+	return None
+
+
+def _queue_security_event(event_type: str, **kwargs: object) -> None:
+	"""Keep security persistence off the request's latency-sensitive path."""
+	asyncio.create_task(
+		asyncio.to_thread(record_security_event, event_type, **kwargs)
+	)
 
 
 @app.middleware("http")
 async def protect_premium_api(request: Request, call_next: Callable):
 	"""Throttle valuable datasets and apply browser-safe response headers."""
 	path = request.url.path
-	if any(path.startswith(prefix) for prefix in _PROTECTED_DATA_PATHS):
+	rate_limit = _rate_limit_scope(request)
+	if rate_limit is not None:
+		scope, scoped_limit = rate_limit
 		authorization = request.headers.get("authorization", "")
 		authenticated = authorization.lower().startswith("bearer ")
 		identity = authorization if authenticated else (
@@ -294,10 +321,19 @@ async def protect_premium_api(request: Request, call_next: Callable):
 			or (request.client.host if request.client else "unknown")
 		)
 		allowed, remaining, limit = allow_request(
-			f"{path.split('/')[2]}:{identity}",
+			f"{scope}:{identity}",
 			authenticated=authenticated,
+			limit=scoped_limit if authenticated else min(scoped_limit, 20),
 		)
 		if not allowed:
+			_queue_security_event(
+				"rate_limit_blocked",
+				identity=identity,
+				route=path,
+				method=request.method,
+				outcome="blocked",
+				metadata={"scope": scope, "limit": limit},
+			)
 			return Response(
 				content='{"detail":"Request limit reached. Try again shortly."}',
 				status_code=429,
@@ -313,6 +349,27 @@ async def protect_premium_api(request: Request, call_next: Callable):
 		response.headers["X-RateLimit-Limit"] = str(limit)
 		response.headers["X-RateLimit-Remaining"] = str(remaining)
 		response.headers["Cache-Control"] = "private, no-store, max-age=0"
+		if response.status_code in {401, 403}:
+			_queue_security_event(
+				"subscription_or_access_denied",
+				identity=identity,
+				route=path,
+				method=request.method,
+				outcome=str(response.status_code),
+				metadata={"scope": scope},
+			)
+		elif (
+			scope in {"pro-calculation", "ticket-create"}
+			and response.status_code < 400
+		):
+			_queue_security_event(
+				"protected_feature_access",
+				identity=identity,
+				route=path,
+				method=request.method,
+				outcome="allowed",
+				metadata={"scope": scope},
+			)
 	else:
 		response = await call_next(request)
 	response.headers["X-Content-Type-Options"] = "nosniff"

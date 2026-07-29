@@ -103,7 +103,7 @@ def _deny_core() -> Membership:
 def test_core_props_contain_facts_and_no_proprietary_fields(monkeypatch) -> None:
     monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [SensitiveProp()])
     main.app.dependency_overrides[require_core] = lambda: CORE
-    response = TestClient(main.app).get("/api/props")
+    response = TestClient(main.app).get("/api/props?includeStale=true")
 
     assert response.status_code == 200
     payload = response.json()
@@ -120,7 +120,9 @@ def test_core_props_contain_facts_and_no_proprietary_fields(monkeypatch) -> None
 def test_pro_props_retain_proprietary_fields(monkeypatch) -> None:
     monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [SensitiveProp()])
     main.app.dependency_overrides[require_core] = lambda: PRO
-    row = TestClient(main.app).get("/api/props").json()["props"][0]
+    row = TestClient(main.app).get(
+        "/api/props?includeStale=true"
+    ).json()["props"][0]
     assert row["recommendedSide"] == "OVER"
     assert row["confidence"] == 86
     assert row["edge"] == 7.4
