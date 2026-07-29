@@ -64,6 +64,29 @@ def test_espn_player_id_is_recovered_from_cached_headshot(monkeypatch, tmp_path)
     ) == "232755"
 
 
+def test_espn_cache_reads_shared_redis_payload(monkeypatch, tmp_path):
+    _use_map(monkeypatch, tmp_path / "missing.json")
+    monkeypatch.setattr(
+        espn_headshot_service,
+        "get_distributed_json",
+        lambda _key: {
+            "updatedAtUtc": "2026-07-29T20:00:00+00:00",
+            "leagues": {
+                "PGA": {"rory mcilroy": "https://cdn.example/rory.png"}
+            },
+        },
+    )
+
+    assert (
+        espn_headshot_service.espn_headshot_url("Rory McIlroy", "PGA")
+        == "https://cdn.example/rory.png"
+    )
+    health = espn_headshot_service.espn_headshot_cache_health()
+    assert health["status"] == "ok"
+    assert health["mode"] == "redis"
+    assert health["playerCount"] == 1
+
+
 def test_espn_refresh_includes_team_and_event_leagues(monkeypatch, tmp_path):
     path = tmp_path / "espn_headshot_map.json"
     _use_map(monkeypatch, path)
@@ -118,6 +141,11 @@ def test_espn_refresh_includes_team_and_event_leagues(monkeypatch, tmp_path):
 
 
 def test_var_data_espn_cache_reports_persistent_mode(monkeypatch):
+    monkeypatch.setattr(
+        espn_headshot_service,
+        "_BUNDLED_MAP_PATH",
+        Path("/var/data/espn_headshot_map.json"),
+    )
     _use_map(monkeypatch, Path("/var/data/espn_headshot_map.json"))
 
     health = espn_headshot_service.espn_headshot_cache_health()

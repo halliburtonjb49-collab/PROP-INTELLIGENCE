@@ -30,8 +30,14 @@ from config import (
     SPORTMONKS_API_KEY,
     SPORTMONKS_HEADSHOT_MAP_PATH,
 )
+from services.distributed_cache_service import (
+    get_json as get_distributed_json,
+    set_json as set_distributed_json,
+)
 
 HEADSHOT_MAP_PATH = SPORTMONKS_HEADSHOT_MAP_PATH
+_DISTRIBUTED_CACHE_KEY = "headshots:sportmonks:v1"
+_DISTRIBUTED_CACHE_TTL_SECONDS = 8 * 24 * 60 * 60
 _BASE_URL = "https://api.sportmonks.com/v3/football"
 
 # Stable Sportmonks league ids keyed to the app's own PROP_SYNC_SPORTS
@@ -56,16 +62,33 @@ def _normalize_name(value: str) -> str:
 
 @lru_cache(maxsize=1)
 def _load_map() -> dict[str, str]:
-    if not HEADSHOT_MAP_PATH.exists():
-        return {}
-    try:
-        payload = json.loads(HEADSHOT_MAP_PATH.read_text(encoding="utf-8"))
-        players = payload.get("players") if isinstance(payload, dict) else None
-        if isinstance(players, dict):
-            return {str(name): str(url) for name, url in players.items()}
-    except Exception:
-        pass
+    payload, _source = _load_payload()
+    players = payload.get("players") if isinstance(payload, dict) else None
+    if isinstance(players, dict):
+        return {str(name): str(url) for name, url in players.items()}
     return {}
+
+
+def _load_payload() -> tuple[dict[str, object] | None, str]:
+    shared = get_distributed_json(_DISTRIBUTED_CACHE_KEY)
+    if isinstance(shared, dict):
+        return shared, "redis"
+    if HEADSHOT_MAP_PATH.exists():
+        try:
+            payload = json.loads(HEADSHOT_MAP_PATH.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                return payload, (
+                    "persistent-disk"
+                    if HEADSHOT_MAP_PATH.parent == Path("/var/data")
+                    else "local-file"
+                )
+        except (OSError, ValueError):
+            return None, "invalid"
+    return None, (
+        "persistent-disk"
+        if HEADSHOT_MAP_PATH.parent == Path("/var/data")
+        else "local-file"
+    )
 
 
 def sportmonks_headshot_url(player_name: str) -> str | None:
@@ -74,19 +97,18 @@ def sportmonks_headshot_url(player_name: str) -> str | None:
 
 def sportmonks_headshot_cache_health() -> dict[str, object]:
     """Reports whether the request-time soccer headshot cache is usable."""
-    persistent = HEADSHOT_MAP_PATH.parent == Path("/var/data")
+    payload, source = _load_payload()
     result: dict[str, object] = {
         "status": "missing",
-        "mode": "persistent-disk" if persistent else "local-development",
+        "mode": source,
         "leagueCounts": {},
         "leagueTeamCounts": {},
         "playerCount": 0,
         "updatedAtUtc": None,
     }
-    if not HEADSHOT_MAP_PATH.exists():
+    if payload is None:
         return result
     try:
-        payload = json.loads(HEADSHOT_MAP_PATH.read_text(encoding="utf-8"))
         players = payload.get("players") if isinstance(payload, dict) else None
         if not isinstance(players, dict):
             result["status"] = "invalid"
@@ -277,18 +299,20 @@ def refresh_sportmonks_headshot_map() -> dict[str, object]:
             "headshots; the existing cache was not overwritten."
         )
 
+    payload = {
+        "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+        "leagueCounts": counts,
+        "leagueTeamCounts": team_counts,
+        "players": all_players,
+    }
+    set_distributed_json(
+        _DISTRIBUTED_CACHE_KEY,
+        payload,
+        ttl_seconds=_DISTRIBUTED_CACHE_TTL_SECONDS,
+    )
     HEADSHOT_MAP_PATH.parent.mkdir(parents=True, exist_ok=True)
     HEADSHOT_MAP_PATH.write_text(
-        json.dumps(
-            {
-                "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
-                "leagueCounts": counts,
-                "leagueTeamCounts": team_counts,
-                "players": all_players,
-            },
-            indent=2,
-            sort_keys=True,
-        ),
+        json.dumps(payload, indent=2, sort_keys=True),
         encoding="utf-8",
     )
     _load_map.cache_clear()

@@ -5,6 +5,21 @@ from providers import sportsgameodds
 from services.prop_processor import process_and_cache_props
 
 
+def _reset_usage() -> None:
+    sportsgameodds._usage.update(
+        {
+            "configured": True,
+            "requests": 0,
+            "lastResponseAt": None,
+            "lastStatus": None,
+            "lastError": None,
+            "rateLimitedResponses": 0,
+            "consecutiveRateLimits": 0,
+            "cooldownUntil": None,
+        }
+    )
+
+
 def _event() -> dict[str, object]:
     return {
         "eventID": "NBA_LAL_BOS_2026",
@@ -141,3 +156,43 @@ def test_primary_pruning_preserves_supplemental_namespace(tmp_path: Path) -> Non
     with cache.connect() as connection:
         ids = {row["id"] for row in connection.execute("select id from games")}
     assert ids == {"primary", "sgo:backup"}
+
+
+def test_429_starts_cooldown_and_blocks_followup_network_call(monkeypatch) -> None:
+    class FakeResponse:
+        status_code = 429
+        headers = {"Retry-After": "120"}
+
+    class FakeSession:
+        calls = 0
+
+        def get(self, *_args, **_kwargs):
+            self.calls += 1
+            return FakeResponse()
+
+    _reset_usage()
+    session = FakeSession()
+    monkeypatch.setattr(sportsgameodds, "SPORTSGAMEODDS_API_KEY", "test-key")
+    monkeypatch.setattr(sportsgameodds, "_session", lambda: session)
+
+    try:
+        sportsgameodds._get("events", {})
+    except sportsgameodds.ProviderCooldownError:
+        pass
+    else:
+        raise AssertionError("Expected provider cooldown")
+
+    snapshot = sportsgameodds.usage_snapshot()
+    assert snapshot["lastStatus"] == 429
+    assert snapshot["coolingDown"] is True
+    assert snapshot["retryAfterSeconds"] > 0
+    assert snapshot["rateLimitedResponses"] == 1
+
+    try:
+        sportsgameodds._get("events", {})
+    except sportsgameodds.ProviderCooldownError:
+        pass
+    else:
+        raise AssertionError("Expected active cooldown")
+    assert session.calls == 1
+    _reset_usage()

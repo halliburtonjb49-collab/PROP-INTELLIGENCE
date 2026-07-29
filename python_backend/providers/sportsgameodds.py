@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 import re
 from threading import Lock, local
 from typing import Any
@@ -89,7 +90,14 @@ _usage: dict[str, object] = {
     "lastResponseAt": None,
     "lastStatus": None,
     "lastError": None,
+    "rateLimitedResponses": 0,
+    "consecutiveRateLimits": 0,
+    "cooldownUntil": None,
 }
+
+
+class ProviderCooldownError(RuntimeError):
+    """Raised without making a request while the provider cooldown is active."""
 
 
 def _session() -> requests.Session:
@@ -104,22 +112,88 @@ def _session() -> requests.Session:
 
 def usage_snapshot() -> dict[str, object]:
     with _usage_lock:
-        return dict(_usage)
+        snapshot = dict(_usage)
+    cooldown_until = snapshot.get("cooldownUntil")
+    retry_after = 0
+    if isinstance(cooldown_until, str):
+        try:
+            parsed = datetime.fromisoformat(cooldown_until.replace("Z", "+00:00"))
+            retry_after = max(
+                0,
+                int((parsed - datetime.now(timezone.utc)).total_seconds()),
+            )
+        except ValueError:
+            retry_after = 0
+    snapshot["coolingDown"] = retry_after > 0
+    snapshot["retryAfterSeconds"] = retry_after
+    return snapshot
 
 
-def _record(status: int | None, error: str | None = None) -> None:
+def _record(
+    status: int | None,
+    error: str | None = None,
+    *,
+    rate_limited: bool = False,
+    cooldown_until: datetime | None = None,
+) -> None:
     with _usage_lock:
+        consecutive = int(_usage["consecutiveRateLimits"])
+        if rate_limited:
+            consecutive += 1
+        elif status is not None and status < 400:
+            consecutive = 0
         _usage.update(
             requests=int(_usage["requests"]) + 1,
             lastResponseAt=datetime.now(timezone.utc).isoformat(),
             lastStatus=status,
             lastError=error,
+            rateLimitedResponses=(
+                int(_usage["rateLimitedResponses"]) + (1 if rate_limited else 0)
+            ),
+            consecutiveRateLimits=consecutive,
+            cooldownUntil=(
+                cooldown_until.isoformat()
+                if cooldown_until is not None
+                else None
+                if status is not None and status < 400
+                else _usage.get("cooldownUntil")
+            ),
+        )
+
+
+def _retry_after_seconds(response: requests.Response) -> int:
+    raw = response.headers.get("Retry-After", "").strip()
+    if raw.isdigit():
+        return max(1, int(raw))
+    if raw:
+        try:
+            retry_at = parsedate_to_datetime(raw)
+            if retry_at.tzinfo is None:
+                retry_at = retry_at.replace(tzinfo=timezone.utc)
+            return max(
+                1,
+                int((retry_at - datetime.now(timezone.utc)).total_seconds()),
+            )
+        except (TypeError, ValueError):
+            pass
+    with _usage_lock:
+        consecutive = int(_usage["consecutiveRateLimits"]) + 1
+    return min(900, 60 * (2 ** min(4, consecutive - 1)))
+
+
+def _enforce_cooldown() -> None:
+    snapshot = usage_snapshot()
+    if snapshot["coolingDown"] is True:
+        raise ProviderCooldownError(
+            "SportsGameOdds cooldown active; "
+            f"retry in {snapshot['retryAfterSeconds']} seconds"
         )
 
 
 def _get(path: str, params: dict[str, object]) -> dict[str, Any]:
     if not SPORTSGAMEODDS_API_KEY:
         raise RuntimeError("SPORTSGAMEODDS_API_KEY is not configured")
+    _enforce_cooldown()
     try:
         response = _session().get(
             f"{BASE_URL}/{path.lstrip('/')}",
@@ -127,12 +201,28 @@ def _get(path: str, params: dict[str, object]) -> dict[str, Any]:
             headers={"x-api-key": SPORTSGAMEODDS_API_KEY},
             timeout=HTTP_TIMEOUT_SECONDS,
         )
+        if response.status_code == 429:
+            delay = _retry_after_seconds(response)
+            cooldown_until = datetime.now(timezone.utc) + timedelta(seconds=delay)
+            error = f"HTTP 429 rate limited; retry after {delay} seconds"
+            _record(
+                429,
+                error,
+                rate_limited=True,
+                cooldown_until=cooldown_until,
+            )
+            raise ProviderCooldownError(error)
         response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, dict) or payload.get("success") is False:
             raise RuntimeError(str(payload.get("error") or "invalid response"))
         _record(response.status_code)
         return payload
+    except ProviderCooldownError:
+        raise
+    except requests.HTTPError as exc:
+        _record(exc.response.status_code if exc.response is not None else None, str(exc))
+        raise
     except Exception as exc:
         _record(None, str(exc))
         raise

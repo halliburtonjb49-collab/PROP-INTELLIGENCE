@@ -27,7 +27,7 @@ def test_missing_sportmonks_cache_reports_missing(monkeypatch, tmp_path):
 
     assert result["status"] == "missing"
     assert result["playerCount"] == 0
-    assert result["mode"] == "local-development"
+    assert result["mode"] == "local-file"
 
 
 def test_sportmonks_cache_resolves_normalized_name_and_reports_count(
@@ -54,7 +54,7 @@ def test_sportmonks_cache_resolves_normalized_name_and_reports_count(
     )
     assert sportmonks_headshot_service.sportmonks_headshot_cache_health() == {
         "status": "ok",
-        "mode": "local-development",
+        "mode": "local-file",
         "leagueCounts": {},
         "leagueTeamCounts": {},
         "playerCount": 1,
@@ -71,6 +71,27 @@ def test_var_data_sportmonks_cache_reports_persistent_mode(monkeypatch):
     result = sportmonks_headshot_service.sportmonks_headshot_cache_health()
 
     assert result["mode"] == "persistent-disk"
+
+
+def test_sportmonks_cache_reads_shared_redis_payload(monkeypatch, tmp_path):
+    _use_map(monkeypatch, tmp_path / "missing.json")
+    monkeypatch.setattr(
+        sportmonks_headshot_service,
+        "get_distributed_json",
+        lambda _key: {
+            "updatedAtUtc": "2026-07-29T20:00:00+00:00",
+            "players": {"kylian mbappe": "https://cdn.example/mbappe.png"},
+        },
+    )
+
+    assert (
+        sportmonks_headshot_service.sportmonks_headshot_url("Kylian Mbappe")
+        == "https://cdn.example/mbappe.png"
+    )
+    health = sportmonks_headshot_service.sportmonks_headshot_cache_health()
+    assert health["status"] == "ok"
+    assert health["mode"] == "redis"
+    assert health["playerCount"] == 1
 
 
 def test_sportmonks_uses_raw_token_in_authorization_header(monkeypatch):
