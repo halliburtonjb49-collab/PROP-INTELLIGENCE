@@ -12,11 +12,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - name: Require deployed commit only for Render changes
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          if git diff --quiet HEAD^ HEAD -- \
+            python_backend render.yaml requirements*.txt \
+            supabase*.sql .render-deploy-trigger; then
+            echo "EXPECTED_PRODUCTION_VERSION=" >> "$GITHUB_ENV"
+          else
+            echo "EXPECTED_PRODUCTION_VERSION=$GITHUB_SHA" >> "$GITHUB_ENV"
+          fi
       - name: Verify app, CORS, props, payload, and production bundle
         id: production-check
         env:
           SMOKE_API_TOKEN: ${{ secrets.SMOKE_API_TOKEN }}
-          EXPECTED_PRODUCTION_VERSION: ${{ github.event_name == 'push' && github.sha || '' }}
           PRODUCTION_DEPLOY_WAIT_SECONDS: "600"
           PRODUCTION_FEED_WARMUP_SECONDS: ${{ github.event_name == 'push' && '300' || '0' }}
         run: python tools/post_deploy_smoke.py
