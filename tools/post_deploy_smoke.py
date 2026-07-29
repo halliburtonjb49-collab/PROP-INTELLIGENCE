@@ -115,15 +115,33 @@ def read_fresh_prop_readiness() -> tuple[object, bytes, float, dict, float]:
         )
         payload = json.loads(body)
         feed_age_minutes = _feed_age_minutes(payload)
-        if feed_age_minutes <= MAX_PROP_FEED_AGE_MINUTES:
+        server_ms = float(payload.get("responseMs") or 0)
+        feed_is_ready = feed_age_minutes <= MAX_PROP_FEED_AGE_MINUTES
+        performance_is_ready = server_ms <= 5_000 and props_ms <= 10_000
+        if feed_is_ready and performance_is_ready:
             return readiness, body, props_ms, payload, feed_age_minutes
         if time.monotonic() >= deadline:
+            if not feed_is_ready:
+                raise RuntimeError(
+                    "Production prop feed is stale: "
+                    f"{feed_age_minutes:.0f} minutes old"
+                )
+            if server_ms > 5_000:
+                raise RuntimeError(
+                    "Prop readiness processing exceeds 5 seconds: "
+                    f"{server_ms:.0f} ms"
+                )
             raise RuntimeError(
-                "Production prop feed is stale: "
-                f"{feed_age_minutes:.0f} minutes old"
+                "Prop readiness round trip exceeds 10 seconds: "
+                f"{props_ms:.0f} ms"
             )
+        reason = (
+            "feed freshness"
+            if not feed_is_ready
+            else "cold-cache performance"
+        )
         print(
-            "production prop feed is warming; retrying freshness check in "
+            f"production {reason} is warming; retrying readiness check in "
             f"{DEPLOYMENT_POLL_SECONDS}s",
             file=sys.stderr,
         )
