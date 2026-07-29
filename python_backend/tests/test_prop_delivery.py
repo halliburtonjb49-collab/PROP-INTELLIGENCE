@@ -98,6 +98,30 @@ def test_prop_feed_requires_a_valid_user_session() -> None:
     assert "no-store" in response.headers["cache-control"]
 
 
+def test_prop_readiness_exposes_metadata_without_authentication(monkeypatch) -> None:
+    rows = [
+        FakeProp("hits", "One", "MLB", "FANDUEL", "HITS"),
+        FakeProp("ks", "Two", "MLB", "FANDUEL", "STRIKEOUTS"),
+    ]
+    rows[0].lastUpdatedUtc = "2026-07-29T12:00:00Z"
+    rows[1].lastUpdatedUtc = "2026-07-29T12:05:00Z"
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: rows)
+    main.app.dependency_overrides.pop(main.require_user_id, None)
+
+    response = TestClient(main.app).get("/api/props/readiness")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "count": 2,
+        "lastDataUpdatedAt": "2026-07-29T12:05:00Z",
+        "version": main.APP_VERSION,
+        "responseMs": response.json()["responseMs"],
+        "dataProtected": True,
+    }
+    assert "no-store" in response.headers["cache-control"]
+
+
 def test_category_facets_are_not_reduced_by_selected_category(monkeypatch) -> None:
     rows = [
         FakeProp("hits", "One", "MLB", "FANDUEL", "HITS"),

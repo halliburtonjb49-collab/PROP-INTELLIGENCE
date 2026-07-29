@@ -1687,6 +1687,29 @@ def prop_alerts(
 		) from exc
 
 
+@app.get("/api/props/readiness")
+def props_readiness(response: Response) -> dict[str, object]:
+	"""Expose feed health without exposing proprietary prop rows."""
+	started_at = time.perf_counter()
+	prop_list = _cached_prop_catalog()
+	last_data_updated_at = max(
+		(
+			str(getattr(prop, "lastUpdatedUtc", "") or "")
+			for prop in prop_list
+		),
+		default="",
+	)
+	response.headers["Cache-Control"] = "private, no-store, max-age=0"
+	return {
+		"status": "ok" if prop_list else "empty",
+		"count": len(prop_list),
+		"lastDataUpdatedAt": last_data_updated_at or None,
+		"version": APP_VERSION,
+		"responseMs": round((time.perf_counter() - started_at) * 1000),
+		"dataProtected": True,
+	}
+
+
 @app.get("/api/props")
 def props(
 	response: Response,
