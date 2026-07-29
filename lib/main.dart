@@ -33,6 +33,7 @@ import 'services/developer_mode_service.dart';
 import 'services/prop_watchlist_service.dart';
 import 'services/player_image_resolver.dart';
 import 'services/prop_chat_service.dart';
+import 'services/recommendation_access.dart';
 import 'services/slip_manager.dart';
 import 'services/supabase_service.dart';
 import 'services/user_facing_error.dart';
@@ -806,7 +807,9 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   }
 
   Widget _buildMainContent() {
-    final hasProAccess = AuthManager.instance.sessionState.value.hasEdgeAccess;
+    final hasProAccess = canShowSystemRecommendation(
+      hasEdgeAccess: AuthManager.instance.sessionState.value.hasEdgeAccess,
+    );
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -3853,7 +3856,7 @@ class _MainDashboardState extends State<MainDashboard> {
                                     size: 16,
                                   ),
                                   label: Text(
-                                    'PICK OVER ${prop.line.toStringAsFixed(1)}',
+                                    'SELECT OVER ${prop.line.toStringAsFixed(1)}',
                                   ),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: const Color(0xFF7EE787),
@@ -3884,7 +3887,7 @@ class _MainDashboardState extends State<MainDashboard> {
                                     size: 16,
                                   ),
                                   label: Text(
-                                    'PICK UNDER ${prop.line.toStringAsFixed(1)}',
+                                    'SELECT UNDER ${prop.line.toStringAsFixed(1)}',
                                   ),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: const Color(0xFFFF8A93),
@@ -7894,7 +7897,9 @@ class _PropGridState extends State<PropGrid> {
   }
 
   Widget _buildPortraitPropCard(PropData prop, PickSide? selectedSide) {
-    final hasProAccess = AuthManager.instance.sessionState.value.hasEdgeAccess;
+    final hasProAccess = canShowSystemRecommendation(
+      hasEdgeAccess: AuthManager.instance.sessionState.value.hasEdgeAccess,
+    );
     final suggestedSide = prop.proSuggestedSide;
     final hasModelRecommendation =
         hasProAccess && prop.proSuggestionUsesModel && suggestedSide != null;

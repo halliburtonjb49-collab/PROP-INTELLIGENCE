@@ -1,10 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/main.dart';
+import 'package:prop_intelligence/services/recommendation_access.dart';
 import 'package:prop_intelligence/services/auth_manager.dart';
 import 'package:prop_intelligence/models/prop_data.dart';
 import 'package:prop_intelligence/models/slip_selection.dart';
 
 void main() {
+  test('system OVER/UNDER direction is available only with Edge access', () {
+    expect(canShowSystemRecommendation(hasEdgeAccess: false), isFalse);
+    expect(canShowSystemRecommendation(hasEdgeAccess: true), isTrue);
+  });
   test('feature badges reflect the minimum tier required by the feature', () {
     expect(
       displayedTierForBadge(

@@ -50,4 +50,45 @@ void main() {
     );
     expect(find.text('80% Hit'), findsNothing);
   });
+
+  testWidgets('Core keeps factual lines but never receives a suggested side', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ElitePropCard(
+              playerName: 'Core Player',
+              propType: 'Strikeouts',
+              sportsbookLine: 5.5,
+              americanOdds: -110,
+              aiProjection: 7.1,
+              edgePercentage: 8.2,
+              isUserPremium: false,
+              propData: {
+                'recommended_side': 'OVER',
+                'pick': 'OVER',
+                'odds_data': [
+                  {'bookmaker': 'Book A', 'line': 5.5, 'over_odds': 105},
+                ],
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.textContaining('5.5'), findsWidgets);
+    await tester.tap(find.text('Core Player'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('WHY THIS PICK?'), findsNothing);
+    expect(find.text('LINE SHOP'), findsNothing);
+    expect(find.textContaining('Projection is'), findsNothing);
+    expect(
+      find.textContaining('System OVER/UNDER suggestions are Pro only'),
+      findsOneWidget,
+    );
+  });
 }

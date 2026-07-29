@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/recommendation_access.dart';
 import '../services/auth_service.dart';
 import 'player_analytics_chart.dart';
 import 'premium_gate.dart';
@@ -825,12 +826,48 @@ class _ElitePropCardState extends State<ElitePropCard> {
                 ],
                 if (_isExpanded) ...[
                   const Divider(color: Colors.white10, height: 24),
-                  if (_bookOffers().isNotEmpty) ...[
-                    _buildLineShop(),
+                  if (canShowSystemRecommendation(
+                    hasEdgeAccess: widget.isUserPremium,
+                  )) ...[
+                    if (_bookOffers().isNotEmpty) ...[
+                      _buildLineShop(),
+                      const SizedBox(height: 14),
+                    ],
+                    _buildDecisionSummary(last10GameStats),
+                    const SizedBox(height: 14),
+                  ] else ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF09131D),
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(color: const Color(0xFF344758)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Icons.lock_outline_rounded,
+                            color: Color(0xFFFFD700),
+                            size: 17,
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Core shows the live line and factual research. '
+                              'System OVER/UNDER suggestions are Pro only.',
+                              style: TextStyle(
+                                color: Color(0xFFB9C6D3),
+                                fontSize: 11,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 14),
                   ],
-                  _buildDecisionSummary(last10GameStats),
-                  const SizedBox(height: 14),
                   PremiumFeatureGateGuard(
                     isUserPremium: widget.isUserPremium,
                     lockedChild: const Padding(

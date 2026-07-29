@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../models/prop_data.dart';
 import '../services/api_service.dart';
+import '../services/recommendation_access.dart';
 import '../services/player_image_resolver.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_panel.dart';
@@ -758,7 +759,12 @@ class _LineMovementPageState extends State<LineMovementPage> {
                     child: Text(
                       '${p.percentChange >= 0 ? '+' : ''}${p.percentChange.toStringAsFixed(2)}%',
                       style: TextStyle(
-                        color: _statusColor(p.status),
+                        color:
+                            canShowSystemRecommendation(
+                              hasEdgeAccess: widget.hasProAccess,
+                            )
+                            ? _statusColor(p.status)
+                            : AppColors.textSecondary,
                         fontSize: 9,
                         fontWeight: FontWeight.w900,
                       ),
