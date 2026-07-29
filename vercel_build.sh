@@ -26,6 +26,8 @@ flutter --version
 : "${SUPABASE_URL:=https://doncoxjilytojmnpukxi.supabase.co}"
 : "${AUTH_EMAIL_REDIRECT_URL:=https://app.propsintell.com}"
 : "${ALLOW_PUBLIC_SIGNUP:=true}"
+: "${TURNSTILE_SITE_KEY:=}"
+: "${TURNSTILE_BASE_URL:=https://app.propsintell.com/}"
 
 # Accept the legacy lowercase Preview variable while keeping the canonical
 # uppercase name used by production and the Flutter build.
@@ -74,6 +76,8 @@ flutter build web --release \
   --dart-define="AUTH_EMAIL_REDIRECT_URL=${AUTH_EMAIL_REDIRECT_URL}" \
   --dart-define="MOBILE_AUTH_REDIRECT_URL=com.propintelligence.app://login-callback/" \
   --dart-define="ALLOW_PUBLIC_SIGNUP=${ALLOW_PUBLIC_SIGNUP:-true}" \
+  --dart-define="TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY}" \
+  --dart-define="TURNSTILE_BASE_URL=${TURNSTILE_BASE_URL}" \
   --dart-define="REVENUECAT_PUBLIC_API_KEY=${REVENUECAT_PUBLIC_API_KEY}"
 
 echo "Build complete! Output in build/web"

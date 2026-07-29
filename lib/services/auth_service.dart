@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_service.dart';
+import 'captcha_service.dart';
 
 class AuthActionResult {
   final bool success;
@@ -134,10 +135,18 @@ class SportsAppAuthService {
     }
 
     try {
+      final captcha = await CaptchaService.tokenFor('signup');
+      if (!captcha.passed) {
+        return const AuthActionResult(
+          success: false,
+          message: 'Security verification failed. Please try again.',
+        );
+      }
       final response = await client.auth.signUp(
         email: email.trim(),
         password: password,
         emailRedirectTo: _redirectUrlOrNull,
+        captchaToken: captcha.token,
       );
 
       if (response.user != null && response.session != null) {
@@ -181,9 +190,17 @@ class SportsAppAuthService {
     }
 
     try {
+      final captcha = await CaptchaService.tokenFor('login');
+      if (!captcha.passed) {
+        return const AuthActionResult(
+          success: false,
+          message: 'Security verification failed. Please try again.',
+        );
+      }
       final response = await client.auth.signInWithPassword(
         email: email.trim(),
         password: password,
+        captchaToken: captcha.token,
       );
       if (response.user != null) {
         return const AuthActionResult(success: true, message: 'Welcome back!');
@@ -218,9 +235,17 @@ class SportsAppAuthService {
     }
 
     try {
+      final captcha = await CaptchaService.tokenFor('recovery');
+      if (!captcha.passed) {
+        return const AuthActionResult(
+          success: false,
+          message: 'Security verification failed. Please try again.',
+        );
+      }
       await client.auth.resetPasswordForEmail(
         trimmedEmail,
         redirectTo: _passwordResetRedirectUrl,
+        captchaToken: captcha.token,
       );
       return const AuthActionResult(
         success: true,
