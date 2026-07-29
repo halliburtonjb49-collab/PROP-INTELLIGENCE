@@ -690,8 +690,11 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '#${notification.roomId} · @${notification.username}: '
-          '${notification.body}',
+          notification.isDirect
+              ? 'Direct message from @${notification.username}: '
+                    '${notification.body}'
+              : '@${notification.username} mentioned you in '
+                    '#${notification.roomId}: ${notification.body}',
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
@@ -963,6 +966,11 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                         onPressed: _closeFloatingChat,
                       ),
                     ),
+                    const Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: _ChatUnreadBadge(),
+                    ),
                   ],
                 ),
               ),
@@ -1145,26 +1153,10 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                   ),
                 ),
               ),
-              ValueListenableBuilder<int>(
-                valueListenable: PropChatService.unreadCount,
-                builder: (context, unread, _) => unread <= 0
-                    ? const SizedBox.shrink()
-                    : Positioned(
-                        right: -2,
-                        top: -2,
-                        child: CircleAvatar(
-                          radius: 10,
-                          backgroundColor: Color(0xFFFF4D5A),
-                          child: Text(
-                            unread > 9 ? '9+' : '$unread',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ),
+              const Positioned(
+                right: -2,
+                bottom: -2,
+                child: _ChatUnreadBadge(),
               ),
               Positioned(
                 right: -6,
@@ -1840,6 +1832,49 @@ class _ChatBubbleCloseButton extends StatelessWidget {
           icon: const Icon(Icons.close_rounded, color: Color(0xFFC8CED6)),
         ),
       ),
+    );
+  }
+}
+
+class _ChatUnreadBadge extends StatelessWidget {
+  const _ChatUnreadBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: PropChatService.unreadCount,
+      builder: (context, unread, _) {
+        if (unread <= 0) return const SizedBox.shrink();
+        return Semantics(
+          label: '$unread unread chat notifications',
+          child: Container(
+            key: const ValueKey('chat-unread-badge'),
+            constraints: const BoxConstraints(minWidth: 21, minHeight: 21),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 5),
+            decoration: BoxDecoration(
+              color: app_colors.AppColors.gold,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: const Color(0xFF06111B), width: 1.4),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x66000000),
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Text(
+              unread > 99 ? '99+' : '$unread',
+              style: const TextStyle(
+                color: Color(0xFF06111B),
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -4081,21 +4116,33 @@ class _MainDashboardState extends State<MainDashboard> {
                 if (index == 2) {
                   return Tooltip(
                     message: 'Open PROP CHAT and join the community.',
-                    child: OutlinedButton.icon(
-                      key: const ValueKey('board-prop-chat-button'),
-                      onPressed: () =>
-                          widget.onSelectPage?.call(AppPage.propChat),
-                      icon: const Icon(Icons.forum_rounded, size: 17),
-                      label: const Text('PROP CHAT'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.gold,
-                        backgroundColor: AppColors.gold.withValues(alpha: .08),
-                        side: const BorderSide(color: AppColors.gold),
-                        padding: const EdgeInsets.symmetric(horizontal: 13),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(7),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        OutlinedButton.icon(
+                          key: const ValueKey('board-prop-chat-button'),
+                          onPressed: () =>
+                              widget.onSelectPage?.call(AppPage.propChat),
+                          icon: const Icon(Icons.forum_rounded, size: 17),
+                          label: const Text('PROP CHAT'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.gold,
+                            backgroundColor: AppColors.gold.withValues(
+                              alpha: .08,
+                            ),
+                            side: const BorderSide(color: AppColors.gold),
+                            padding: const EdgeInsets.symmetric(horizontal: 13),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(7),
+                            ),
+                          ),
                         ),
-                      ),
+                        const Positioned(
+                          right: -7,
+                          top: -7,
+                          child: _ChatUnreadBadge(),
+                        ),
+                      ],
                     ),
                   );
                 }

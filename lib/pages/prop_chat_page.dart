@@ -576,13 +576,7 @@ class _PropChatPageState extends State<PropChatPage> {
     }
   }
 
-  void _afterMessages(List<PropChatMessage> messages) {
-    final unread = _lastRead == null
-        ? 0
-        : messages
-              .where((message) => message.createdAt.isAfter(_lastRead!))
-              .length;
-    PropChatService.unreadCount.value = unread;
+  void _afterMessages() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (_scrollController.hasClients) {
@@ -702,7 +696,7 @@ class _PropChatPageState extends State<PropChatPage> {
                     text: 'No messages yet. Start the conversation.',
                   );
                 }
-                _afterMessages(messages);
+                _afterMessages();
                 final firstUnread = _lastRead == null
                     ? -1
                     : messages.indexWhere(

@@ -32,6 +32,7 @@ MIGRATIONS = (
     "supabase_prop_chat_v4.sql",
     "supabase_prop_chat_v5.sql",
     "supabase_prop_chat_v6.sql",
+    "supabase_prop_chat_v7.sql",
     "supabase_owner_user_id.sql",
     "supabase_performance_indexes.sql",
 )

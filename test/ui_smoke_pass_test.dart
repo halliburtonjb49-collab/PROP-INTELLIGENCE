@@ -1,5 +1,6 @@
 import 'package:prop_intelligence/controllers/active_slip_controller.dart';
 import 'package:prop_intelligence/main.dart';
+import 'package:prop_intelligence/services/prop_chat_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +10,48 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    PropChatService.unreadCount.value = 0;
+  });
+
+  tearDown(() {
+    PropChatService.unreadCount.value = 0;
+  });
+
+  testWidgets('chat mentions and direct contacts show gold unread badges', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1600, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    PropChatService.unreadCount.value = 3;
+    await tester.pumpWidget(const PropIntelligenceApp());
+    await tester.pump(const Duration(milliseconds: 800));
+
+    expect(
+      find.byKey(const ValueKey('board-prop-chat-button')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('prop-chat-bubble-launcher')),
+        matching: find.byKey(const ValueKey('chat-unread-badge')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('board-prop-chat-button')).first,
+        matching: find.text('3'),
+      ),
+      findsNothing,
+      reason: 'The badge sits above the button without changing its label.',
+    );
+    expect(find.text('3'), findsWidgets);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('smoke: scoreboard, analytics, line movement top navigation', (

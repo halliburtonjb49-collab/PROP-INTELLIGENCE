@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'auth_manager.dart';
 import 'supabase_service.dart';
 import 'app_sound_service.dart';
 
@@ -235,10 +236,12 @@ class PropChatNotification {
     required this.roomId,
     required this.username,
     required this.body,
+    this.isDirect = false,
   });
   final String roomId;
   final String username;
   final String body;
+  final bool isDirect;
 }
 
 class PropChatOperationalAlert {
@@ -269,8 +272,10 @@ class PropChatService {
   static final ValueNotifier<PropChatNotification?> latestNotification =
       ValueNotifier<PropChatNotification?>(null);
   static StreamSubscription<List<Map<String, dynamic>>>? _globalMessages;
+  static StreamSubscription<List<Map<String, dynamic>>>? _globalDirectMessages;
   static StreamSubscription<AuthState>? _globalAuth;
   static int? _latestObservedMessageId;
+  static int? _latestObservedDirectMessageId;
   SupabaseClient? get _client => SupabaseService.client;
   String? get currentUserId => _client?.auth.currentUser?.id;
 
@@ -361,7 +366,11 @@ class PropChatService {
 
   Future<void> _restartGlobalMessageMonitor() async {
     await _globalMessages?.cancel();
+    await _globalDirectMessages?.cancel();
     _globalMessages = null;
+    _globalDirectMessages = null;
+    _latestObservedMessageId = null;
+    _latestObservedDirectMessageId = null;
     final client = _client;
     if (client == null || currentUserId == null) {
       unreadCount.value = 0;
@@ -373,6 +382,11 @@ class PropChatService {
         .stream(primaryKey: ['id'])
         .order('created_at')
         .listen((rows) => unawaited(_handleGlobalMessages(rows)));
+    _globalDirectMessages = client
+        .from('prop_chat_direct_messages')
+        .stream(primaryKey: ['id'])
+        .order('created_at')
+        .listen((rows) => unawaited(_handleGlobalDirectMessages(rows)));
   }
 
   Future<void> _handleGlobalMessages(
@@ -390,6 +404,12 @@ class PropChatService {
       return;
     }
     _latestObservedMessageId = latest.id;
+    final username = AuthManager.instance.sessionState.value.username?.trim();
+    if (username == null ||
+        username.isEmpty ||
+        !_containsMention(latest.body, username)) {
+      return;
+    }
     final preferences = await loadPreferences();
     if (!preferences.notificationsEnabled) return;
     latestNotification.value = PropChatNotification(
@@ -402,15 +422,52 @@ class PropChatService {
     }
   }
 
+  Future<void> _handleGlobalDirectMessages(
+    List<Map<String, dynamic>> messages,
+  ) async {
+    await refreshUnreadSummary();
+    if (messages.isEmpty) return;
+    final latest = PropChatMessage.fromJson(messages.last);
+    if (_latestObservedDirectMessageId == null) {
+      _latestObservedDirectMessageId = latest.id;
+      return;
+    }
+    if (latest.id <= _latestObservedDirectMessageId! ||
+        latest.userId == currentUserId) {
+      return;
+    }
+    _latestObservedDirectMessageId = latest.id;
+    final preferences = await loadPreferences();
+    if (!preferences.notificationsEnabled) return;
+    latestNotification.value = PropChatNotification(
+      roomId: latest.roomId,
+      username: latest.username,
+      body: latest.body,
+      isDirect: true,
+    );
+    if (preferences.soundsEnabled) {
+      unawaited(AppSoundService.instance.play(AppSoundEvent.selection));
+    }
+  }
+
+  static bool _containsMention(String body, String username) {
+    final escaped = RegExp.escape(username);
+    return RegExp(
+      '(^|[^a-zA-Z0-9_])@$escaped([^a-zA-Z0-9_]|\$)',
+      caseSensitive: false,
+    ).hasMatch(body);
+  }
+
   Future<void> refreshUnreadSummary() async {
     final client = _client;
     if (client == null || currentUserId == null) return;
-    final rows = await client.rpc('prop_chat_unread_summary');
+    final rows = await client.rpc('prop_chat_notification_summary');
     final values = <String, int>{};
     for (final raw in rows as List) {
       final row = raw as Map<String, dynamic>;
-      values[row['room_id']?.toString() ?? 'general'] =
-          (row['unread_count'] as num?)?.toInt() ?? 0;
+      final type = row['notification_type']?.toString() ?? 'mention';
+      final source = row['source_id']?.toString() ?? 'general';
+      values['$type:$source'] = (row['unread_count'] as num?)?.toInt() ?? 0;
     }
     unreadByRoom.value = values;
     unreadCount.value = values.values.fold(0, (sum, value) => sum + value);
@@ -671,6 +728,7 @@ class PropChatService {
         .update({'last_read_at': DateTime.now().toUtc().toIso8601String()})
         .eq('conversation_id', conversationId)
         .eq('user_id', currentUserId!);
+    await refreshUnreadSummary();
   }
 
   Future<void> editMessage(int messageId, String body) async {

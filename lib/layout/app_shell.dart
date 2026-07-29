@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/prop_chat_service.dart';
 import '../theme/app_colors.dart';
 
 class AppShell extends StatelessWidget {
@@ -333,13 +334,17 @@ class _MobileBottomNavigation extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: _MobileNavItem(
-              key: const ValueKey('mobile-nav-chat'),
-              icon: Icons.forum_rounded,
-              label: 'CHAT',
-              selected: false,
-              onTap: onChat,
-              accentColor: accentColor,
+            child: ValueListenableBuilder<int>(
+              valueListenable: PropChatService.unreadCount,
+              builder: (context, unread, _) => _MobileNavItem(
+                key: const ValueKey('mobile-nav-chat'),
+                icon: Icons.forum_rounded,
+                label: 'CHAT',
+                selected: false,
+                badge: unread,
+                onTap: onChat,
+                accentColor: accentColor,
+              ),
             ),
           ),
           Expanded(
