@@ -9,12 +9,28 @@ from datetime import datetime, timezone
 APP_URL = "https://app.propsintell.com"
 API_URL = "https://api.propsintell.com"
 MAX_PROP_FEED_AGE_MINUTES = 45
-def request(url: str, *, method: str = "GET", headers: dict[str, str] | None = None):
-    req = urllib.request.Request(url, method=method, headers=headers or {})
-    started = time.perf_counter()
-    response = urllib.request.urlopen(req, timeout=20)
-    body = response.read()
-    return response, body, (time.perf_counter() - started) * 1000
+def request(
+    url: str,
+    *,
+    method: str = "GET",
+    headers: dict[str, str] | None = None,
+    transient_attempts: int = 3,
+):
+    for attempt in range(transient_attempts):
+        req = urllib.request.Request(url, method=method, headers=headers or {})
+        started = time.perf_counter()
+        try:
+            response = urllib.request.urlopen(req, timeout=20)
+            body = response.read()
+            return response, body, (time.perf_counter() - started) * 1000
+        except urllib.error.HTTPError as exc:
+            if exc.code not in {502, 503, 504} or attempt + 1 >= transient_attempts:
+                raise
+        except urllib.error.URLError:
+            if attempt + 1 >= transient_attempts:
+                raise
+        time.sleep(2 ** (attempt + 1))
+    raise RuntimeError("Production request exhausted transient retries")
 
 
 def main() -> int:
