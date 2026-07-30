@@ -866,6 +866,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           StrikeoutProGoldScreen(
             onSelect: _toggleSelection,
             onPropsRefreshed: _refreshActiveSlipProps,
+            onPropsExpired: _removeExpiredStrikeoutProps,
           ),
           SlipHistoryPanel(
             activeSlipController: _activeSlipController,
@@ -1447,6 +1448,20 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     for (final selection in refreshed) {
       SlipManager.upsertProp(_selectionToLeg(selection));
     }
+  }
+
+  Future<void> _removeExpiredStrikeoutProps(Set<String> propIds) async {
+    if (propIds.isEmpty) return;
+    for (final propId in propIds) {
+      await _activeSlipController.removeLeg(propId);
+      SlipManager.removePropById(propId);
+    }
+    if (!mounted) return;
+    setState(() {
+      _slipSelections.removeWhere(
+        (selection) => propIds.contains(selection.prop.id),
+      );
+    });
   }
 
   void _showMixedSiteNotAllowedMessage() {

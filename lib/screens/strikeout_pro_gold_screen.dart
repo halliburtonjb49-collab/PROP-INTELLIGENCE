@@ -16,10 +16,12 @@ class StrikeoutProGoldScreen extends StatefulWidget {
     super.key,
     required this.onSelect,
     this.onPropsRefreshed,
+    this.onPropsExpired,
   });
 
   final void Function(PropData prop, PickSide side) onSelect;
   final Future<void> Function(List<PropData> props)? onPropsRefreshed;
+  final Future<void> Function(Set<String> propIds)? onPropsExpired;
 
   @override
   State<StrikeoutProGoldScreen> createState() => _StrikeoutProGoldScreenState();
@@ -110,10 +112,20 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
         );
         strikeouts = fallback.where(_isStrikeout).toList(growable: false);
       }
+      final expiredIds = {
+        for (final prop in [..._props, ...strikeouts])
+          if (prop.gameHasStarted && prop.id.isNotEmpty) prop.id,
+      };
+      strikeouts = strikeouts
+          .where((prop) => !prop.gameHasStarted)
+          .toList(growable: false);
       strikeouts.sort((a, b) {
         final confidence = b.confidence.compareTo(a.confidence);
         return confidence != 0 ? confidence : _edge(b).compareTo(_edge(a));
       });
+      if (expiredIds.isNotEmpty) {
+        await widget.onPropsExpired?.call(expiredIds);
+      }
       if (mounted) {
         setState(() {
           _props = strikeouts;
