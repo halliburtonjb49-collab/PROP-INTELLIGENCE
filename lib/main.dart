@@ -5827,23 +5827,15 @@ class _DataAdminPageState extends State<DataAdminPage> {
       final picked = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: const ['json'],
-        withData: true,
       );
       if (picked == null || picked.files.isEmpty) {
         return;
       }
 
       final selected = picked.files.first;
-      String? content;
+      final content = utf8.decode(await selected.readAsBytes());
 
-      final bytes = selected.bytes;
-      if (bytes != null) {
-        content = utf8.decode(bytes);
-      } else if (selected.path != null) {
-        content = await File(selected.path!).readAsString();
-      }
-
-      if (content == null || content.trim().isEmpty) {
+      if (content.trim().isEmpty) {
         throw const FormatException('Selected file is empty or unreadable.');
       }
 

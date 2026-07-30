@@ -303,14 +303,14 @@ class _PropChatPageState extends State<PropChatPage> {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
-        withData: true,
       );
       final file = result?.files.single;
       if (file == null) return;
-      if (file.size > 5 * 1024 * 1024 || file.bytes == null) {
+      if (file.size > 5 * 1024 * 1024) {
         _notice('Choose a JPG, PNG, or WebP image smaller than 5 MB.');
         return;
       }
+      final bytes = await file.readAsBytes();
       final extension = (file.extension ?? '').toLowerCase();
       final contentType = switch (extension) {
         'jpg' || 'jpeg' => 'image/jpeg',
@@ -324,7 +324,7 @@ class _PropChatPageState extends State<PropChatPage> {
             'Remove account numbers, balances, barcodes, and personal information before uploading.',
       );
       final path = await _service.uploadChatImage(
-        file.bytes!,
+        bytes,
         extension: extension,
         contentType: contentType,
       );
@@ -1455,12 +1455,12 @@ class _MobileDirectMessagesDialogState
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
-      withData: true,
     );
     final file = result?.files.single;
-    if (file == null || file.bytes == null || file.size > 5 * 1024 * 1024) {
+    if (file == null || file.size > 5 * 1024 * 1024) {
       return;
     }
+    final bytes = await file.readAsBytes();
     final extension = (file.extension ?? '').toLowerCase();
     final contentType = switch (extension) {
       'jpg' || 'jpeg' => 'image/jpeg',
@@ -1492,7 +1492,7 @@ class _MobileDirectMessagesDialogState
         ) ??
         false;
     final path = await widget.service.uploadChatImage(
-      file.bytes!,
+      bytes,
       extension: extension,
       contentType: contentType,
     );
@@ -1754,12 +1754,12 @@ class _DirectMessagesDialogState extends State<_DirectMessagesDialog> {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
-      withData: true,
     );
     final file = result?.files.single;
-    if (file == null || file.bytes == null || file.size > 5 * 1024 * 1024) {
+    if (file == null || file.size > 5 * 1024 * 1024) {
       return;
     }
+    final bytes = await file.readAsBytes();
     final extension = (file.extension ?? '').toLowerCase();
     final contentType = switch (extension) {
       'jpg' || 'jpeg' => 'image/jpeg',
@@ -1791,7 +1791,7 @@ class _DirectMessagesDialogState extends State<_DirectMessagesDialog> {
         ) ??
         false;
     final path = await widget.service.uploadChatImage(
-      file.bytes!,
+      bytes,
       extension: extension,
       contentType: contentType,
     );
