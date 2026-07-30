@@ -2737,14 +2737,11 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
         fileName: 'prop_intelligence_slip.png',
         type: FileType.custom,
         allowedExtensions: const ['png'],
+        bytes: bytes,
       );
       if (path == null) {
         return;
       }
-      final finalPath = path.toLowerCase().endsWith('.png')
-          ? path
-          : '$path.png';
-      await File(finalPath).writeAsBytes(bytes, flush: true);
       _showExportMessage('Slip image saved.');
     } catch (error) {
       _showExportMessage('Unable to save image: $error');
@@ -2902,14 +2899,11 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
         fileName: 'prop_intelligence_slip.pdf',
         type: FileType.custom,
         allowedExtensions: const ['pdf'],
+        bytes: bytes,
       );
       if (path == null) {
         return;
       }
-      final finalPath = path.toLowerCase().endsWith('.pdf')
-          ? path
-          : '$path.pdf';
-      await File(finalPath).writeAsBytes(bytes, flush: true);
       _showExportMessage('Slip PDF saved.');
     } catch (error) {
       _showExportMessage('Unable to save PDF: $error');

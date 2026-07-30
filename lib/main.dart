@@ -2125,14 +2125,12 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     SidebarButton(
                       key: const ValueKey('owner-operations-sidebar-button'),
                       label: 'OPERATIONS\nCENTER',
-                      selected:
-                          widget.selectedPage == AppPage.ownerOperations,
+                      selected: widget.selectedPage == AppPage.ownerOperations,
                       showGoldBar: true,
                       leadingIcons: const [Icons.admin_panel_settings_outlined],
                       leadingIconColors: const [AppColors.gold],
-                      onTap: () => widget.onSelectPage?.call(
-                        AppPage.ownerOperations,
-                      ),
+                      onTap: () =>
+                          widget.onSelectPage?.call(AppPage.ownerOperations),
                     ),
                   ],
                 ],
@@ -5541,6 +5539,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
         fileName: 'identity_unresolved_grouped.json',
         type: FileType.custom,
         allowedExtensions: const ['json'],
+        bytes: Uint8List.fromList(utf8.encode(payload)),
       );
 
       if (savePath == null || savePath.trim().isEmpty) {
@@ -5553,7 +5552,6 @@ class _DataAdminPageState extends State<DataAdminPage> {
         return;
       }
 
-      await File(savePath).writeAsString(payload, flush: true);
       if (!mounted) {
         return;
       }
@@ -8455,10 +8453,7 @@ class _PropGridState extends State<PropGrid> {
             const SizedBox(height: 3),
             Text(
               prop.recommendationExplanation,
-              style: const TextStyle(
-                color: Color(0xFFB8C7D6),
-                fontSize: 7.5,
-              ),
+              style: const TextStyle(color: Color(0xFFB8C7D6), fontSize: 7.5),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
