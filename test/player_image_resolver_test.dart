@@ -19,4 +19,29 @@ void main() {
       'assets/branding/logo.png',
     );
   });
+
+  test('routes approved sports CDN photos through the API proxy', () {
+    final resolved = resolvePlayerImagePath(
+      'https://a.espncdn.com/i/headshots/nba/players/full/1.png',
+      apiBaseUrl: 'https://api.propsintell.com',
+    );
+
+    final uri = Uri.parse(resolved);
+    expect(uri.origin, 'https://api.propsintell.com');
+    expect(uri.path, '/player-image-proxy');
+    expect(
+      uri.queryParameters['url'],
+      'https://a.espncdn.com/i/headshots/nba/players/full/1.png',
+    );
+  });
+
+  test('does not proxy unknown image hosts', () {
+    expect(
+      resolvePlayerImagePath(
+        'https://cdn.example.com/player.png',
+        apiBaseUrl: 'https://api.propsintell.com',
+      ),
+      'https://cdn.example.com/player.png',
+    );
+  });
 }

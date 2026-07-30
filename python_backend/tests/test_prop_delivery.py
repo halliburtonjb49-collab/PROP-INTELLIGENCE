@@ -61,6 +61,41 @@ def test_missing_player_image_returns_not_found() -> None:
     assert response.status_code == 404
 
 
+def test_player_image_proxy_rejects_unapproved_hosts() -> None:
+    response = TestClient(main.app).get(
+        "/player-image-proxy",
+        params={"url": "https://example.com/player.png"},
+    )
+    assert response.status_code == 400
+
+
+def test_player_image_proxy_retries_and_returns_cacheable_image(monkeypatch) -> None:
+    class Upstream:
+        status_code = 200
+        is_redirect = False
+        content = b"\x89PNG\r\n\x1a\n"
+        headers = {"content-type": "image/png"}
+
+    attempts = 0
+
+    def fake_get(*args, **kwargs):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise main.requests.ConnectionError("temporary")
+        return Upstream()
+
+    monkeypatch.setattr(main.requests, "get", fake_get)
+    response = TestClient(main.app).get(
+        "/player-image-proxy",
+        params={"url": "https://a.espncdn.com/i/headshots/nba/players/full/1.png"},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert "max-age=604800" in response.headers["cache-control"]
+    assert attempts == 2
+
+
 def test_prop_page_filters_server_side_and_exposes_version(monkeypatch) -> None:
     rows = [
         FakeProp("pp-mlb", "One", "MLB", "PRIZEPICKS", "HITS"),

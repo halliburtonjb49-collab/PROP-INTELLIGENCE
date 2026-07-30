@@ -3,6 +3,7 @@ import hashlib
 import logging
 import os
 import time
+from urllib.parse import urljoin, urlparse
 from pathlib import Path
 from contextlib import asynccontextmanager, suppress
 from typing import Callable
@@ -399,6 +400,72 @@ def player_image(filename: str) -> FileResponse:
 	return FileResponse(
 		path,
 		headers={"Cache-Control": "public, max-age=604800, stale-while-revalidate=86400"},
+	)
+
+
+_PLAYER_IMAGE_PROXY_HOSTS = {"a.espncdn.com", "img.mlbstatic.com"}
+_PLAYER_IMAGE_MAX_BYTES = 5 * 1024 * 1024
+
+
+def _validated_player_image_url(value: str) -> str:
+	parsed = urlparse(value)
+	if (
+		parsed.scheme != "https"
+		or parsed.hostname is None
+		or parsed.hostname.lower() not in _PLAYER_IMAGE_PROXY_HOSTS
+		or parsed.username is not None
+		or parsed.password is not None
+	):
+		raise HTTPException(status_code=400, detail="Unsupported player image URL")
+	return value
+
+
+@app.get("/player-image-proxy", include_in_schema=False)
+def player_image_proxy(url: str = Query(..., max_length=2048)) -> Response:
+	current_url = _validated_player_image_url(url)
+	upstream = None
+	for _redirect in range(3):
+		for attempt in range(2):
+			try:
+				upstream = requests.get(
+					current_url,
+					headers={"User-Agent": "PropIntelligence/1.0"},
+					timeout=HTTP_TIMEOUT_SECONDS,
+					allow_redirects=False,
+				)
+				break
+			except requests.RequestException:
+				if attempt == 1:
+					raise HTTPException(
+						status_code=502,
+						detail="Player image provider unavailable",
+					)
+		if upstream is None:
+			raise HTTPException(status_code=502, detail="Player image provider unavailable")
+		if upstream.is_redirect:
+			location = upstream.headers.get("location")
+			if not location:
+				raise HTTPException(status_code=502, detail="Invalid image redirect")
+			current_url = _validated_player_image_url(urljoin(current_url, location))
+			continue
+		break
+	else:
+		raise HTTPException(status_code=502, detail="Too many image redirects")
+
+	if upstream.status_code != 200:
+		raise HTTPException(status_code=upstream.status_code, detail="Player image unavailable")
+	content_type = upstream.headers.get("content-type", "").split(";", 1)[0].lower()
+	if content_type not in {"image/jpeg", "image/png", "image/webp"}:
+		raise HTTPException(status_code=502, detail="Invalid player image response")
+	if len(upstream.content) > _PLAYER_IMAGE_MAX_BYTES:
+		raise HTTPException(status_code=502, detail="Player image is too large")
+	return Response(
+		content=upstream.content,
+		media_type=content_type,
+		headers={
+			"Cache-Control": "public, max-age=604800, stale-while-revalidate=86400",
+			"X-Content-Type-Options": "nosniff",
+		},
 	)
 
 
