@@ -59,6 +59,12 @@ class PropData {
   final double? winProbability;
   final double? overOdds;
   final double? underOdds;
+  final double? marketOriginLine;
+  final double? lineDiscrepancy;
+  final int marketBookCount;
+  final double? publicBetPercentage;
+  final double? moneyPercentage;
+  final String volumeSource;
   final double? evPercentage;
   final double? fairProbability;
   final bool isPositiveEv;
@@ -143,6 +149,12 @@ class PropData {
     this.winProbability,
     this.overOdds,
     this.underOdds,
+    this.marketOriginLine,
+    this.lineDiscrepancy,
+    this.marketBookCount = 0,
+    this.publicBetPercentage,
+    this.moneyPercentage,
+    this.volumeSource = '',
     this.evPercentage,
     this.fairProbability,
     this.isPositiveEv = false,
@@ -424,6 +436,26 @@ class PropData {
       ),
       overOdds: _safeDoubleOrNull(json['overOdds'] ?? json['over_odds']),
       underOdds: _safeDoubleOrNull(json['underOdds'] ?? json['under_odds']),
+      marketOriginLine: _safeDoubleOrNull(
+        json['marketOriginLine'] ?? json['market_origin_line'],
+      ),
+      lineDiscrepancy: _safeDoubleOrNull(
+        json['lineDiscrepancy'] ?? json['line_discrepancy'],
+      ),
+      marketBookCount:
+          (json['marketBookCount'] as num?)?.toInt() ??
+          (json['market_book_count'] as num?)?.toInt() ??
+          0,
+      publicBetPercentage: _safeDoubleOrNull(
+        json['publicBetPercentage'] ?? json['public_bet_percentage'],
+      ),
+      moneyPercentage: _safeDoubleOrNull(
+        json['moneyPercentage'] ?? json['money_percentage'],
+      ),
+      volumeSource:
+          json['volumeSource']?.toString() ??
+          json['volume_source']?.toString() ??
+          '',
       evPercentage: _safeDoubleOrNull(
         json['evPercentage'] ?? json['ev_percentage'],
       ),

@@ -189,6 +189,11 @@ def simulate_game_script(request: GameScriptRequest) -> dict[str, object]:
         hit_shift = (multiplier - 1) * (1 if prop.side == "OVER" else -1)
         baseline = prop.baseline_projection if prop.baseline_projection is not None else prop.line
         line = prop.line if prop.line is not None else baseline
+        if baseline is not None and line is not None:
+            baseline = (
+                baseline * (1 - request.regression_weight)
+                + line * request.regression_weight
+            ) * request.pace_adjustment
         deviation = prop.volatility if prop.volatility is not None else max(1.0, (baseline or 10.0) * .22)
         distribution = distribution_for_market(
             prop.sport,
@@ -240,7 +245,9 @@ def simulate_game_script(request: GameScriptRequest) -> dict[str, object]:
         impacts[impact_index]["hitProbability"] = round(hits[position] / request.simulations, 4)
     return {"script": request.script, "impacts": impacts, "simulations": request.simulations,
             "portfolioHitProbability": round(portfolio_hits / request.simulations, 4),
-            "seed": request.seed, "method": "correlated-distribution-copula-monte-carlo"}
+            "seed": request.seed, "regressionWeight": request.regression_weight,
+            "paceAdjustment": request.pace_adjustment,
+            "method": "correlated-distribution-copula-monte-carlo"}
 
 
 def similarity_matches(request: SimilarityRequest) -> dict[str, object]:

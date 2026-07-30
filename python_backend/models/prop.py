@@ -63,6 +63,16 @@ class PropResponse(BaseModel):
     imagePath: str = ""
     overOdds: float | None = None
     underOdds: float | None = None
+    marketOriginLine: float | None = None
+    lineDiscrepancy: float | None = None
+    marketBookCount: int = 0
+    bestOverOdds: float | None = None
+    bestUnderOdds: float | None = None
+    bestOverBook: str = ""
+    bestUnderBook: str = ""
+    publicBetPercentage: float | None = None
+    moneyPercentage: float | None = None
+    volumeSource: str = ""
     overDecimalOdds: float | None = None
     underDecimalOdds: float | None = None
     overImpliedProbability: float | None = None

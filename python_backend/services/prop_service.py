@@ -1,5 +1,6 @@
 import re
 import os
+from statistics import median
 from datetime import datetime, timezone
 from collections import defaultdict
 
@@ -71,6 +72,32 @@ def _row_optional_value(row: object, key: str) -> object:
 	except Exception:
 		return None
 	return None
+
+
+def market_snapshot(rows: list[object], fallback_line: float) -> dict[str, object]:
+	"""Build an honest cross-book snapshot without inventing unavailable volume."""
+	lines = [float(row["line"]) for row in rows]
+	books = {
+		str(row["bookmaker"] or "").strip().lower()
+		for row in rows
+		if str(row["bookmaker"] or "").strip()
+	}
+	over_prices = [
+		(float(row["over_odds"]), str(row["bookmaker"] or ""))
+		for row in rows
+		if isinstance(row["over_odds"], (int, float))
+	]
+	under_prices = [
+		(float(row["under_odds"]), str(row["bookmaker"] or ""))
+		for row in rows
+		if isinstance(row["under_odds"], (int, float))
+	]
+	return {
+		"origin_line": median(lines) if lines else fallback_line,
+		"book_count": len(books),
+		"best_over": max(over_prices, default=(None, ""), key=lambda value: value[0] or -100000),
+		"best_under": max(under_prices, default=(None, ""), key=lambda value: value[0] or -100000),
+	}
 
 
 def _make_prop_id(
@@ -149,6 +176,7 @@ def get_props() -> list[PropResponse]:
 	rows = cache.load_props()
 	results: list[PropResponse] = []
 	matchup_key_games: dict[str, set[str]] = defaultdict(set)
+	market_groups: dict[tuple[str, str, str, str], list[object]] = defaultdict(list)
 	local_tz = app_timezone()
 
 	for row in rows:
@@ -176,6 +204,12 @@ def get_props() -> list[PropResponse]:
 		game_id = str(row["game_id"] or "")
 		if game_id:
 			matchup_key_games[matchup_key].add(game_id)
+		market_groups[(
+			str(row["sport"]).strip().lower(),
+			game_id,
+			str(row["player_name"]).strip().lower(),
+			str(row["prop_type"]).strip().lower(),
+		)].append(row)
 
 	for row in rows:
 		player = str(row["player_name"])
@@ -424,6 +458,20 @@ def get_props() -> list[PropResponse]:
 
 		updated_at = str(row["updated_at"] or "")
 		data_age_seconds, data_stale = data_freshness(updated_at)
+		market_rows = market_groups.get((
+			str(row["sport"]).strip().lower(),
+			str(row["game_id"] or ""),
+			player.strip().lower(),
+			raw_market.strip().lower(),
+		), [])
+		snapshot = market_snapshot(market_rows, line)
+		market_origin_line = float(snapshot["origin_line"])
+		book_count = int(snapshot["book_count"])
+		best_over = snapshot["best_over"]
+		best_under = snapshot["best_under"]
+		public_bet_percentage = _row_optional_value(row, "public_bet_percentage")
+		money_percentage = _row_optional_value(row, "money_percentage")
+		volume_source = str(_row_optional_value(row, "volume_source") or "")
 		if data_stale:
 			recommendation.update(
 				{
@@ -531,6 +579,24 @@ def get_props() -> list[PropResponse]:
 				imagePath=resolve_player_image(player, sport_label),
 				overOdds=over_odds,
 				underOdds=under_odds,
+				marketOriginLine=float(market_origin_line),
+				lineDiscrepancy=round(line - float(market_origin_line), 3),
+				marketBookCount=book_count,
+				bestOverOdds=best_over[0],
+				bestUnderOdds=best_under[0],
+				bestOverBook=best_over[1],
+				bestUnderBook=best_under[1],
+				publicBetPercentage=(
+					float(public_bet_percentage)
+					if isinstance(public_bet_percentage, (int, float))
+					else None
+				),
+				moneyPercentage=(
+					float(money_percentage)
+					if isinstance(money_percentage, (int, float))
+					else None
+				),
+				volumeSource=volume_source,
 				overDecimalOdds=_american_to_decimal(over_odds),
 				underDecimalOdds=_american_to_decimal(under_odds),
 				overImpliedProbability=over_implied,

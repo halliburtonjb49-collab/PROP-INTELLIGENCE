@@ -21,6 +21,12 @@ void main() {
               propData: {
                 'source_provider': 'Verified Feed',
                 'recommended_side': 'OVER',
+                'marketOriginLine': 23.5,
+                'lineDiscrepancy': 1.0,
+                'marketBookCount': 3,
+                'publicBetPercentage': 41,
+                'moneyPercentage': 67,
+                'volumeSource': 'Licensed Test Feed',
                 'odds_data': [
                   {'bookmaker': 'Book A', 'line': 24.5, 'over_odds': -115},
                   {'bookmaker': 'Book B', 'line': 24.5, 'over_odds': 105},
@@ -42,6 +48,12 @@ void main() {
     expect(find.text('BEST • Book B'), findsOneWidget);
     expect(find.text('24.5  +105'), findsOneWidget);
     expect(find.textContaining('3 books compared'), findsOneWidget);
+    expect(find.text('MARKET ORIGIN'), findsOneWidget);
+    expect(find.text('DISCREPANCY'), findsOneWidget);
+    expect(find.text('+1.0'), findsOneWidget);
+    expect(find.text('PUBLIC BETS'), findsOneWidget);
+    expect(find.text('MONEY'), findsOneWidget);
+    expect(find.text('Volume source: Licensed Test Feed'), findsOneWidget);
     expect(find.textContaining('Projection is 1.7 above'), findsOneWidget);
     expect(find.textContaining('Estimated edge is +4.8%'), findsOneWidget);
     expect(

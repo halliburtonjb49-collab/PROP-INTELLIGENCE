@@ -69,6 +69,32 @@ def test_monte_carlo_is_reproducible_and_prices_props() -> None:
     assert all(0 < impact["hitProbability"] < 1 for impact in first["impacts"])
 
 
+def test_game_script_applies_regression_and_pace_controls() -> None:
+    request = GameScriptRequest(
+        script="CLOSE",
+        sport="NBA",
+        props=[
+            PropLegInput(
+                player="Guard",
+                sport="NBA",
+                market="points",
+                side="OVER",
+                baseline_projection=30,
+                line=20,
+            )
+        ],
+        simulations=500,
+        regression_weight=.5,
+        pace_adjustment=1.1,
+    )
+
+    result = simulate_game_script(request)
+
+    assert result["regressionWeight"] == .5
+    assert result["paceAdjustment"] == 1.1
+    assert result["impacts"][0]["adjustedProjection"] == 27.5
+
+
 def test_historical_features_recommend_calibrated_inputs() -> None:
     result = historical_features(HistoricalFeatureRequest(
         values=[18, 20, 21, 23, 24, 26], minutes=[30, 32, 32, 34, 35, 36], window=6))

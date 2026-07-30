@@ -50,6 +50,8 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
   String _script = 'CLOSE';
   String _sideA = 'OVER';
   String _sideB = 'OVER';
+  double _regressionWeight = 0;
+  double _paceAdjustment = 1;
   bool _busy = false;
   String? _error;
   Map<String, dynamic>? _correlation;
@@ -425,6 +427,8 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
           'props': legs,
           'simulations': 10000,
           'seed': 42,
+          'regression_weight': _regressionWeight,
+          'pace_adjustment': _paceAdjustment,
         }),
         _api.fetchPropSentiment(_sentimentPropId),
         _api.postIntelligence('alerts/evaluate', {
@@ -808,25 +812,65 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
         const SizedBox(height: 14),
         _card(
           'GAME-SCRIPT SIMULATOR',
-          DropdownButton<String>(
-            value: _script,
-            isExpanded: true,
-            items:
-                const [
-                      'CLOSE',
-                      'HOME_BLOWOUT',
-                      'AWAY_BLOWOUT',
-                      'SHOOTOUT',
-                      'LOW_SCORING',
-                    ]
-                    .map(
-                      (v) => DropdownMenuItem(
-                        value: v,
-                        child: Text(_scriptLabel(v)),
-                      ),
-                    )
-                    .toList(),
-            onChanged: _busy ? null : (v) => setState(() => _script = v!),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DropdownButton<String>(
+                value: _script,
+                isExpanded: true,
+                items:
+                    const [
+                          'CLOSE',
+                          'HOME_BLOWOUT',
+                          'AWAY_BLOWOUT',
+                          'SHOOTOUT',
+                          'LOW_SCORING',
+                        ]
+                        .map(
+                          (v) => DropdownMenuItem(
+                            value: v,
+                            child: Text(_scriptLabel(v)),
+                          ),
+                        )
+                        .toList(),
+                onChanged: _busy ? null : (v) => setState(() => _script = v!),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'REGRESSION TO MARKET  ${(_regressionWeight * 100).round()}%',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Slider(
+                value: _regressionWeight,
+                divisions: 10,
+                label: '${(_regressionWeight * 100).round()}%',
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() => _regressionWeight = value),
+              ),
+              Text(
+                'PACE ADJUSTMENT  ${(_paceAdjustment * 100).round()}%',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Slider(
+                value: _paceAdjustment,
+                min: .75,
+                max: 1.25,
+                divisions: 20,
+                label: '${(_paceAdjustment * 100).round()}%',
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() => _paceAdjustment = value),
+              ),
+            ],
           ),
           step: 2,
           description:

@@ -72,6 +72,8 @@ class GameScriptRequest(BaseModel):
     props: list[PropLegInput] = Field(default_factory=list, max_length=12)
     simulations: int = Field(default=10_000, ge=500, le=50_000)
     seed: int = Field(default=42, ge=0, le=2_147_483_647)
+    regression_weight: float = Field(default=0.0, ge=0, le=1)
+    pace_adjustment: float = Field(default=1.0, ge=0.75, le=1.25)
 
 
 class SimilarityCandidate(BaseModel):

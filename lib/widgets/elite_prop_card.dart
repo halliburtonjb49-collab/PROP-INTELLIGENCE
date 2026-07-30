@@ -405,7 +405,19 @@ class _ElitePropCardState extends State<ElitePropCard> {
 
   Widget _buildLineShop() {
     final offers = _bookOffers();
-    if (offers.isEmpty) return const SizedBox.shrink();
+    final originLine = _number(const [
+      'marketOriginLine',
+      'market_origin_line',
+      'consensus_line',
+    ]);
+    final discrepancy = _number(const ['lineDiscrepancy', 'line_discrepancy']);
+    final publicBets = _number(const [
+      'publicBetPercentage',
+      'public_bet_percentage',
+    ]);
+    final money = _number(const ['moneyPercentage', 'money_percentage']);
+    final volumeSource = _text(const ['volumeSource', 'volume_source']);
+    if (offers.isEmpty && originLine == null) return const SizedBox.shrink();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -444,6 +456,31 @@ class _ElitePropCardState extends State<ElitePropCard> {
             ],
           ),
           const SizedBox(height: 9),
+          if (originLine != null) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _marketMetric(
+                  'MARKET ORIGIN',
+                  originLine.toStringAsFixed(1),
+                  const Color(0xFF36B9FF),
+                ),
+                _marketMetric(
+                  'THIS LINE',
+                  widget.sportsbookLine.toStringAsFixed(1),
+                  Colors.white,
+                ),
+                if (discrepancy != null && discrepancy.abs() >= .01)
+                  _marketMetric(
+                    'DISCREPANCY',
+                    '${discrepancy > 0 ? '+' : ''}${discrepancy.toStringAsFixed(1)}',
+                    const Color(0xFFFFB74D),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -499,8 +536,101 @@ class _ElitePropCardState extends State<ElitePropCard> {
             '${offers.length} book${offers.length == 1 ? '' : 's'} compared • verify before placing',
             style: const TextStyle(color: Color(0xFF98A6B8), fontSize: 10),
           ),
+          if (publicBets != null || money != null) ...[
+            const SizedBox(height: 12),
+            if (publicBets != null)
+              _volumeBar('PUBLIC BETS', publicBets, const Color(0xFF36B9FF)),
+            if (money != null) ...[
+              const SizedBox(height: 7),
+              _volumeBar('MONEY', money, const Color(0xFFFFD700)),
+            ],
+            if (volumeSource != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Volume source: $volumeSource',
+                style: const TextStyle(color: Color(0xFF738195), fontSize: 9),
+              ),
+            ],
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _marketMetric(String label, String value, Color color) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 92),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: .35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF98A6B8),
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _volumeBar(String label, double rawValue, Color color) {
+    final value = rawValue.clamp(0, 100).toDouble();
+    return Row(
+      children: [
+        SizedBox(
+          width: 78,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF98A6B8),
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: value / 100,
+              minHeight: 7,
+              color: color,
+              backgroundColor: Colors.white.withValues(alpha: .07),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 34,
+          child: Text(
+            '${value.round()}%',
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
