@@ -20,7 +20,9 @@ void main() {
     expect(find.text('GAME-SCRIPT SIMULATOR'), findsOneWidget);
     expect(find.text('RUN INTELLIGENCE'), findsOneWidget);
     expect(find.text('QUICK GUIDE'), findsOneWidget);
-    expect(find.byIcon(Icons.help_outline_rounded), findsAtLeastNWidgets(3));
+    expect(find.textContaining('REGRESSION TO MARKET'), findsOneWidget);
+    expect(find.textContaining('PACE ADJUSTMENT'), findsOneWidget);
+    expect(find.byIcon(Icons.help_outline_rounded), findsAtLeastNWidgets(2));
 
     await tester.tap(find.text('QUICK GUIDE'));
     await tester.pumpAndSettle();
