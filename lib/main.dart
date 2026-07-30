@@ -863,7 +863,10 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             isActive: _selectedPage == AppPage.watchlist,
           ),
           const PropBuilderPerformanceScreen(),
-          StrikeoutProGoldScreen(onSelect: _toggleSelection),
+          StrikeoutProGoldScreen(
+            onSelect: _toggleSelection,
+            onPropsRefreshed: _refreshActiveSlipProps,
+          ),
           SlipHistoryPanel(
             activeSlipController: _activeSlipController,
             mode: SlipHistoryMode.history,
@@ -1385,21 +1388,18 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   }
 
   String _normalizedSiteFromLeg(Map<String, dynamic> leg) {
-    return _normalizedSite(
-      leg['prop_site']?.toString() ??
-          leg['sportsbook']?.toString() ??
-          leg['site']?.toString() ??
-          '',
-    );
+    for (final key in const ['prop_site', 'sportsbook', 'site']) {
+      final value = leg[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty) return _normalizedSite(value);
+    }
+    return '';
   }
 
   String _normalizedSite(String value) {
-    final normalized = value
-        .trim()
-        .toUpperCase()
-        .replaceAll(' ', '')
-        .replaceAll('_', '')
-        .replaceAll('-', '');
+    final normalized = value.trim().toUpperCase().replaceAll(
+      RegExp(r'[^A-Z0-9]'),
+      '',
+    );
     if (normalized.contains('PRIZEPICKS')) {
       return 'PRIZEPICKS';
     }
@@ -1416,9 +1416,37 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       return 'DRAFTKINGS';
     }
     if (normalized.contains('DRAFTPICKS')) {
-      return 'DRAFT PICKS';
+      return 'DRAFTPICKS';
     }
+    if (normalized.contains('BETMGM')) return 'BETMGM';
+    if (normalized.contains('CAESARS')) return 'CAESARS';
+    if (normalized.contains('BET365')) return 'BET365';
+    if (normalized.contains('ESPNBET')) return 'ESPNBET';
     return normalized;
+  }
+
+  Future<void> _refreshActiveSlipProps(List<PropData> props) async {
+    await _activeSlipController.refreshFromProps(props);
+    if (!mounted || _slipSelections.isEmpty) return;
+    final latestById = {for (final prop in props) prop.id: prop};
+    var changed = false;
+    final refreshed = _slipSelections
+        .map((selection) {
+          final latest = latestById[selection.prop.id];
+          if (latest == null) return selection;
+          changed = true;
+          return SlipSelection(prop: latest, side: selection.side);
+        })
+        .toList(growable: false);
+    if (!changed) return;
+    setState(() {
+      _slipSelections
+        ..clear()
+        ..addAll(refreshed);
+    });
+    for (final selection in refreshed) {
+      SlipManager.upsertProp(_selectionToLeg(selection));
+    }
   }
 
   void _showMixedSiteNotAllowedMessage() {

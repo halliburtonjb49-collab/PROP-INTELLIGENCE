@@ -4,6 +4,7 @@ import 'package:prop_intelligence/controllers/active_slip_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prop_intelligence/models/saved_slip.dart';
+import 'package:prop_intelligence/models/prop_data.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,81 @@ void main() {
     expect(firstAdd, 1);
     expect(duplicateAdd, 0);
     expect(controller.legCount, 1);
+  });
+
+  test('allows multiple props from the same normalized prop site', () async {
+    final controller = ActiveSlipController();
+    await controller.load();
+
+    final added = await controller.addLegs([
+      {
+        'prop_id': 'prop-1',
+        'prop_site': 'DraftKings Sportsbook',
+        'player': 'Pitcher One',
+      },
+      {
+        'prop_id': 'prop-2',
+        'sportsbook': 'DRAFT KINGS',
+        'player': 'Pitcher Two',
+      },
+    ]);
+
+    expect(added, 2);
+    expect(controller.legCount, 2);
+  });
+
+  test('blocks a prop from a different site', () async {
+    final controller = ActiveSlipController();
+    await controller.load();
+    await controller.addLegs([
+      {'prop_id': 'prop-1', 'prop_site': 'FanDuel'},
+    ]);
+
+    final added = await controller.addLegs([
+      {'prop_id': 'prop-2', 'prop_site': 'PrizePicks'},
+    ]);
+
+    expect(added, 0);
+    expect(controller.legCount, 1);
+  });
+
+  test('refreshes an active leg when its site line changes', () async {
+    final controller = ActiveSlipController();
+    await controller.load();
+    await controller.addLegs([
+      {
+        'prop_id': 'strikeout-1',
+        'prop_site': 'FanDuel',
+        'line': 5.5,
+        'current_line': 5.5,
+        'side': 'OVER',
+        'current_odds': -110,
+      },
+    ]);
+
+    await controller.refreshFromProps([
+      const PropData(
+        id: 'strikeout-1',
+        eventId: 'game-1',
+        apiSportsGameId: '',
+        playerId: 'pitcher-1',
+        player: 'Pitcher One',
+        sport: 'MLB',
+        matchup: 'A @ B',
+        sportsbook: 'FanDuel',
+        market: 'Pitcher Strikeouts',
+        line: 6.5,
+        pick: 'OVER',
+        edge: 4,
+        imagePath: '',
+        overOdds: -105,
+        underOdds: -115,
+      ),
+    ]);
+
+    expect(controller.legs.single['current_line'], 6.5);
+    expect(controller.legs.single['current_odds'], -105);
+    expect(controller.legs.single['movement_status'], 'UPDATED');
   });
 
   test('removes a prop', () async {

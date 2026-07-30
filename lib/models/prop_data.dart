@@ -591,6 +591,41 @@ class PropData {
     return gameTime;
   }
 
+  String get localGameDateTimeDisplay {
+    DateTime? parsed;
+    if (startTimeUtc.isNotEmpty) parsed = DateTime.tryParse(startTimeUtc);
+    if (parsed == null && gameStartTime.isNotEmpty) {
+      parsed = DateTime.tryParse(gameStartTime);
+    }
+    if (parsed == null) return localGameTimeDisplay;
+
+    final local = parsed.toLocal();
+    const weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    const months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
+    ];
+    final hour = local.hour == 0
+        ? 12
+        : local.hour > 12
+        ? local.hour - 12
+        : local.hour;
+    final minute = local.minute.toString().padLeft(2, '0');
+    final period = local.hour >= 12 ? 'PM' : 'AM';
+    return '${weekdays[local.weekday - 1]} ${months[local.month - 1]} '
+        '${local.day} • $hour:$minute $period';
+  }
+
   String get lastUpdatedLocalDisplay {
     if (lastUpdatedUtc.isEmpty) {
       return '';

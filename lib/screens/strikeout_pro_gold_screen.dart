@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/prop_data.dart';
@@ -8,9 +10,14 @@ import '../theme/app_colors.dart';
 enum _StrikeoutView { all, over, under }
 
 class StrikeoutProGoldScreen extends StatefulWidget {
-  const StrikeoutProGoldScreen({super.key, required this.onSelect});
+  const StrikeoutProGoldScreen({
+    super.key,
+    required this.onSelect,
+    this.onPropsRefreshed,
+  });
 
   final void Function(PropData prop, PickSide side) onSelect;
+  final Future<void> Function(List<PropData> props)? onPropsRefreshed;
 
   @override
   State<StrikeoutProGoldScreen> createState() => _StrikeoutProGoldScreenState();
@@ -24,16 +31,24 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
   var _loading = true;
   String? _error;
   List<PropData> _props = const [];
+  final Map<String, PickSide> _selectedSides = {};
+  Timer? _refreshTimer;
+  bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 45),
+      (_) => unawaited(_refreshLive()),
+    );
   }
 
   @override
   void dispose() {
     _search.dispose();
+    _refreshTimer?.cancel();
     super.dispose();
   }
 
@@ -105,10 +120,22 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
           }
         });
       }
+      await widget.onPropsRefreshed?.call(strikeouts);
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _refreshLive() async {
+    if (_refreshing) return;
+    _refreshing = true;
+    try {
+      await _api.syncProps();
+      await _load();
+    } finally {
+      _refreshing = false;
     }
   }
 
@@ -193,7 +220,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                       crossAxisCount: columns,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
-                      mainAxisExtent: 320,
+                      mainAxisExtent: 375,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) => _card(_visible[index]),
@@ -317,7 +344,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
           ),
         ),
         OutlinedButton.icon(
-          onPressed: _load,
+          onPressed: _refreshLive,
           icon: const Icon(Icons.refresh_rounded),
           label: const Text('REFRESH'),
         ),
@@ -518,7 +545,8 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
   );
 
   Widget _card(PropData prop) {
-    final side = _recommendedSide(prop);
+    final systemSide = _recommendedSide(prop);
+    final side = _selectedSides[prop.id] ?? systemSide;
     final projection = prop.projection;
     final delta = projection == null ? null : projection - prop.line;
     final isExpired = prop.gameHasStarted;
@@ -624,6 +652,39 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   ],
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(
+                Icons.schedule_rounded,
+                color: AppColors.gold,
+                size: 14,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  prop.localGameDateTimeDisplay.isEmpty
+                      ? 'GAME TIME PENDING'
+                      : prop.localGameDateTimeDisplay,
+                  key: ValueKey('strikeout-game-time-${prop.id}'),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (prop.lastUpdatedLocalDisplay.isNotEmpty)
+                Text(
+                  'UPDATED ${prop.lastUpdatedLocalDisplay}',
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 7,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 10),
@@ -749,6 +810,29 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
               ),
             ),
           const SizedBox(height: 10),
+          if (!isExpired)
+            Row(
+              children: [
+                Expanded(
+                  child: _sideButton(
+                    prop: prop,
+                    side: PickSide.over,
+                    selected: side == PickSide.over,
+                    systemPick: systemSide == PickSide.over,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _sideButton(
+                    prop: prop,
+                    side: PickSide.under,
+                    selected: side == PickSide.under,
+                    systemPick: systemSide == PickSide.under,
+                  ),
+                ),
+              ],
+            ),
+          if (!isExpired) const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
@@ -762,6 +846,30 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _sideButton({
+    required PropData prop,
+    required PickSide side,
+    required bool selected,
+    required bool systemPick,
+  }) {
+    final label = side == PickSide.over ? 'OVER' : 'UNDER';
+    return OutlinedButton(
+      key: ValueKey('strikeout-${side.name}-${prop.id}'),
+      onPressed: () => setState(() => _selectedSides[prop.id] = side),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: selected ? const Color(0xFF07131D) : Colors.white,
+        backgroundColor: selected ? AppColors.gold : Colors.transparent,
+        side: BorderSide(color: selected ? AppColors.gold : AppColors.border),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      ),
+      child: Text(
+        systemPick ? '$label • SYSTEM PICK' : label,
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
       ),
     );
   }

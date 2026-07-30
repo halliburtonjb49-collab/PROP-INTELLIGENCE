@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/saved_slip.dart';
+import '../models/prop_data.dart';
 
 class ActiveSlipController extends ChangeNotifier {
   static const String _storageKey = 'prop_intelligence_active_slip_v1';
@@ -100,12 +101,10 @@ class ActiveSlipController extends ChangeNotifier {
   }
 
   String _normalizeSite(String value) {
-    final normalized = value
-        .trim()
-        .toUpperCase()
-        .replaceAll(' ', '')
-        .replaceAll('_', '')
-        .replaceAll('-', '');
+    final normalized = value.trim().toUpperCase().replaceAll(
+      RegExp(r'[^A-Z0-9]'),
+      '',
+    );
     if (normalized.contains('PRIZEPICKS')) {
       return 'PRIZEPICKS';
     }
@@ -121,16 +120,51 @@ class ActiveSlipController extends ChangeNotifier {
     if (normalized.contains('DRAFTKINGS')) {
       return 'DRAFTKINGS';
     }
+    if (normalized.contains('DRAFTPICKS')) return 'DRAFTPICKS';
+    if (normalized.contains('BETMGM')) return 'BETMGM';
+    if (normalized.contains('CAESARS')) return 'CAESARS';
+    if (normalized.contains('BET365')) return 'BET365';
+    if (normalized.contains('ESPNBET')) return 'ESPNBET';
     return normalized;
   }
 
   String _siteForLeg(Map<String, dynamic> leg) {
-    return _normalizeSite(
-      leg['prop_site']?.toString() ??
-          leg['sportsbook']?.toString() ??
-          leg['site']?.toString() ??
-          '',
-    );
+    for (final key in const ['prop_site', 'sportsbook', 'site']) {
+      final value = leg[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty) return _normalizeSite(value);
+    }
+    return '';
+  }
+
+  Future<void> refreshFromProps(Iterable<PropData> props) async {
+    final latestById = {for (final prop in props) prop.id: prop};
+    var changed = false;
+    for (final leg in _legs) {
+      final latest = latestById[_propId(leg)];
+      if (latest == null) continue;
+      final selectedSide = (leg['side'] ?? leg['pick'])
+          ?.toString()
+          .trim()
+          .toUpperCase();
+      final latestOdds = selectedSide == 'UNDER'
+          ? latest.underOdds
+          : latest.overOdds;
+      if (leg['current_line'] != latest.line ||
+          (latestOdds != null && leg['current_odds'] != latestOdds)) {
+        leg['line'] = latest.line;
+        leg['current_line'] = latest.line;
+        leg['current_odds'] = latestOdds ?? leg['current_odds'];
+        leg['over_odds'] = latest.overOdds;
+        leg['under_odds'] = latest.underOdds;
+        leg['line_moved_at_utc'] = latest.lineMovedAtUtc;
+        leg['last_updated_utc'] = latest.lastUpdatedUtc;
+        leg['movement_status'] = 'UPDATED';
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    notifyListeners();
+    await _save();
   }
 
   Future<void> load() async {
