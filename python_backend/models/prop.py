@@ -28,6 +28,8 @@ class PropResponse(BaseModel):
     projectionVolatility: float | None = None
     projectionCalibrated: bool = False
     projectionLabel: str = ""
+    projectionPreMarket: float | None = None
+    projectionMarketWeight: float = 0.0
     historicalHitRate: int | None = None
     pick: str
     edge: float = Field(ge=0)

@@ -67,3 +67,27 @@ def test_prop_context_recalculates_projection_probability_and_side() -> None:
     assert prop.projection != 5.5
     assert .5 <= prop.fairProbability <= .8
     assert prop.recommendedSide in {"Over", "Under"}
+
+
+def test_prop_context_shrinks_uncertain_projection_to_multi_book_market() -> None:
+    prop = SimpleNamespace(
+        projection=30,
+        line=24,
+        marketOriginLine=24,
+        marketBookCount=5,
+        injuryStatus="healthy",
+        lineupStatus="confirmed",
+        projectionVolatility=4.5,
+        projectionSampleSize=0,
+        projectionCalibrated=False,
+        historicalHitRate=None,
+        sport="NBA",
+        market="Points",
+        recommendationAvailable=True,
+    )
+
+    apply_projection_context(prop)
+
+    assert prop.projectionPreMarket == 30
+    assert prop.projectionMarketWeight == .3
+    assert prop.projection == 28.2

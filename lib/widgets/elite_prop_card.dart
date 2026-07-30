@@ -217,6 +217,17 @@ class _ElitePropCardState extends State<ElitePropCard> {
         positive: recommendsUnder ? projectionGap < 0 : projectionGap >= 0,
       ));
     }
+    final projectionMarketWeight = _number(const [
+      'projectionMarketWeight',
+      'projection_market_weight',
+    ]);
+    if (projectionMarketWeight != null && projectionMarketWeight > 0) {
+      signals.add((
+        text:
+            'Projection includes a ${(projectionMarketWeight * 100).round()}% multi-book market adjustment.',
+        positive: true,
+      ));
+    }
     if (widget.edgePercentage.abs() >= .05) {
       signals.add((
         text:

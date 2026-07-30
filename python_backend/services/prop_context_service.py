@@ -12,6 +12,7 @@ from services.projection_calibration_service import (
     contextual_projection,
 )
 from services.prop_probability_service import evaluate_market
+from services.projection_formula_service import blend_projection_with_market
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,16 @@ def apply_projection_context(prop: object) -> None:
     projection = getattr(prop, "projection", None)
     if projection is None:
         return
+    blend = blend_projection_with_market(
+        custom_projection=float(projection),
+        market_origin_line=getattr(prop, "marketOriginLine", None),
+        market_book_count=int(getattr(prop, "marketBookCount", 0) or 0),
+        sample_size=int(getattr(prop, "projectionSampleSize", 0) or 0),
+        calibrated=bool(getattr(prop, "projectionCalibrated", False)),
+    )
+    prop.projectionPreMarket = float(projection)
+    prop.projectionMarketWeight = blend.market_weight
+    projection = blend.projection
     availability = _availability_multiplier(
         getattr(prop, "injuryStatus", ""),
         getattr(prop, "lineupStatus", ""),

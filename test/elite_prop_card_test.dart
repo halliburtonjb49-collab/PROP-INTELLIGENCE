@@ -27,6 +27,7 @@ void main() {
                 'publicBetPercentage': 41,
                 'moneyPercentage': 67,
                 'volumeSource': 'Licensed Test Feed',
+                'projectionMarketWeight': .2,
                 'odds_data': [
                   {'bookmaker': 'Book A', 'line': 24.5, 'over_odds': -115},
                   {'bookmaker': 'Book B', 'line': 24.5, 'over_odds': 105},
@@ -54,6 +55,10 @@ void main() {
     expect(find.text('PUBLIC BETS'), findsOneWidget);
     expect(find.text('MONEY'), findsOneWidget);
     expect(find.text('Volume source: Licensed Test Feed'), findsOneWidget);
+    expect(
+      find.textContaining('20% multi-book market adjustment'),
+      findsOneWidget,
+    );
     expect(find.textContaining('Projection is 1.7 above'), findsOneWidget);
     expect(find.textContaining('Estimated edge is +4.8%'), findsOneWidget);
     expect(

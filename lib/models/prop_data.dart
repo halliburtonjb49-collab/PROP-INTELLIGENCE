@@ -33,6 +33,8 @@ class PropData {
   final double? projectionVolatility;
   final bool projectionCalibrated;
   final String projectionLabel;
+  final double? projectionPreMarket;
+  final double projectionMarketWeight;
   final int? historicalHitRate;
   final String recommendedSide;
   final int confidence;
@@ -123,6 +125,8 @@ class PropData {
     this.projectionVolatility,
     this.projectionCalibrated = false,
     this.projectionLabel = '',
+    this.projectionPreMarket,
+    this.projectionMarketWeight = 0,
     this.historicalHitRate,
     this.recommendedSide = 'N/A',
     this.confidence = 0,
@@ -343,6 +347,14 @@ class PropData {
           json['projectionLabel']?.toString() ??
           json['projection_label']?.toString() ??
           '',
+      projectionPreMarket: _safeDoubleOrNull(
+        json['projectionPreMarket'] ?? json['projection_pre_market'],
+      ),
+      projectionMarketWeight:
+          _safeDoubleOrNull(
+            json['projectionMarketWeight'] ?? json['projection_market_weight'],
+          ) ??
+          0,
       historicalHitRate:
           (json['historicalHitRate'] as num?)?.toInt() ??
           int.tryParse('${json['historical_hit_rate']}'),
