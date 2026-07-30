@@ -2057,7 +2057,8 @@ def props(
 		def _all_sports_priority(row: PropResponse) -> int:
 			if sport_filter != "all":
 				return 0
-			return 1 if str(row.sport or "").strip().upper() == "SOCCER" else 0
+			sport_label = str(row.sport or "").strip().upper()
+			return 1 if sport_label == "SOCCER" or sport_label.startswith("SOCCER_") else 0
 
 		if sort_by == "edge":
 			filtered_props.sort(

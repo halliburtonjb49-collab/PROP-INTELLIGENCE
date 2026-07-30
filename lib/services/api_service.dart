@@ -93,7 +93,7 @@ class BackendRefreshStatus {
 }
 
 class ApiService {
-  static const String _lastStablePropsCacheKey = 'prop-feed-v2-last-stable';
+  static const String _lastStablePropsCacheKey = 'prop-feed-v3-last-stable';
   static const String appVersion = String.fromEnvironment(
     'APP_VERSION',
     defaultValue: 'development',
@@ -789,7 +789,7 @@ class ApiService {
               ),
             )
             .join('_');
-    return 'prop-feed-v2-$raw';
+    return 'prop-feed-v3-$raw';
   }
 
   bool _isBroadPropsQuery({

@@ -7611,7 +7611,8 @@ List<PropData> deprioritizeSoccerForAllSports(
   final otherSports = <PropData>[];
   final soccer = <PropData>[];
   for (final prop in props) {
-    if (prop.sport.trim().toUpperCase() == 'SOCCER') {
+    final sport = prop.sport.trim().toUpperCase();
+    if (sport == 'SOCCER' || sport.startsWith('SOCCER_')) {
       soccer.add(prop);
     } else {
       otherSports.add(prop);
@@ -7619,6 +7620,18 @@ List<PropData> deprioritizeSoccerForAllSports(
   }
   if (otherSports.isEmpty || soccer.isEmpty) return props;
   return [...otherSports, ...soccer];
+}
+
+bool shouldRenderCachedPropsOnLaunch(
+  List<PropData> props, {
+  required String selectedSport,
+}) {
+  if (props.isEmpty) return false;
+  if (selectedSport.trim().toUpperCase() != 'ALL') return true;
+  return props.any((prop) {
+    final sport = prop.sport.trim().toUpperCase();
+    return sport != 'SOCCER' && !sport.startsWith('SOCCER_');
+  });
 }
 
 class _PropGridState extends State<PropGrid> {
@@ -9431,7 +9444,10 @@ class _PropGridState extends State<PropGrid> {
       sortBy: widget.sortBy,
     );
     if (!mounted || requestKey != _queryKey) return const [];
-    if (cached.isNotEmpty) {
+    if (shouldRenderCachedPropsOnLaunch(
+      cached,
+      selectedSport: widget.sportFilter,
+    )) {
       _automaticRetryCount = 0;
       _preparedProps = _prepareProps(cached);
       widget.onPropsLoaded?.call(

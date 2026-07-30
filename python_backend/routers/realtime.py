@@ -13,6 +13,15 @@ from services.api_auth_service import verify_supabase_token
 router = APIRouter(prefix="/api/realtime", tags=["realtime"])
 
 
+def _non_soccer_first(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Keep realtime updates consistent with the default all-sports HTTP feed."""
+    def priority(row: dict[str, object]) -> int:
+        sport = str(row.get("sport") or "").strip().upper()
+        return 1 if sport == "SOCCER" or sport.startswith("SOCCER_") else 0
+
+    return sorted(rows, key=priority)
+
+
 class LiveHub:
     def __init__(self) -> None:
         self.connections: dict[WebSocket, set[str]] = {}
@@ -77,7 +86,9 @@ class LiveHub:
             if prop_subscribers:
                 try:
                     props = await asyncio.to_thread(get_props)
-                    rows = [prop.model_dump(mode="json") for prop in props]
+                    rows = _non_soccer_first(
+                        [prop.model_dump(mode="json") for prop in props]
+                    )
                     payload = json.dumps(rows, sort_keys=True, default=str)
                     digest = hashlib.sha256(payload.encode()).hexdigest()
                     if digest != self.last_digest:
