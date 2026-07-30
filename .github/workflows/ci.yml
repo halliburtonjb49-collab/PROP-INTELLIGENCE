@@ -58,3 +58,35 @@ jobs:
             echo "Release bundle contains a development address."
             exit 1
           fi
+
+  android:
+    name: Android release build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Build Android release APK
+        run: >
+          flutter build apk --release
+          --dart-define=API_BASE_URL=https://api.propsintell.com
+          --dart-define=SUPABASE_URL=https://ci-placeholder.supabase.co
+          --dart-define=SUPABASE_ANON_KEY=ci-placeholder
+          --dart-define=REVENUECAT_ANDROID_PUBLIC_API_KEY=ci-placeholder
+          --dart-define=AUTH_EMAIL_REDIRECT_URL=com.propintelligence.app://login-callback/
+          --dart-define=ALLOW_PUBLIC_SIGNUP=false
+      - name: Upload Android verification build
+        uses: actions/upload-artifact@v6
+        with:
+          name: prop-intelligence-android-${{ github.sha }}
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14

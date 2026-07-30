@@ -10,11 +10,7 @@ class _FakeOperationsApi extends ApiService {
     'api': {'status': 'ok', 'version': 'abc123'},
     'redis': {'available': true},
     'workers': {'available': true, 'workers': 2, 'queued': 1, 'failed': 0},
-    'providers': {
-      'qualityScore': .94,
-      'errors': 0,
-      'remainingQuota': 1000,
-    },
+    'providers': {'qualityScore': .94, 'errors': 0, 'remainingQuota': 1000},
     'propFreshness': {'healthy': true, 'ageMinutes': 2, 'total': 450},
     'scoreboardLatency': {'status': 'ok', 'lastMs': 240, 'p95Ms': 300},
     'activeUsers': {'count': 3, 'instrumented': true},
@@ -61,12 +57,34 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('OWNER OPERATIONS CENTER'), findsOneWidget);
-    expect(find.byKey(const ValueKey('owner-operations-refresh')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('owner-operations-refresh')),
+      findsOneWidget,
+    );
     await tester.scrollUntilVisible(
       find.textContaining('Test Player'),
       400,
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.textContaining('Test Player'), findsOneWidget);
+  });
+
+  testWidgets('owner operations page fits a phone viewport', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OwnerOperationsPage(apiService: _FakeOperationsApi()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('OWNER OPERATIONS CENTER'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
