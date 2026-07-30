@@ -93,6 +93,7 @@ class BackendRefreshStatus {
 }
 
 class ApiService {
+  static const String _lastStablePropsCacheKey = 'prop-feed-v2-last-stable';
   static const String appVersion = String.fromEnvironment(
     'APP_VERSION',
     defaultValue: 'development',
@@ -701,8 +702,10 @@ class ApiService {
         _lastCategoryCounts = parsed.categoryCounts;
         _resolvedBaseUrl = candidate;
         _lastPropsCount = totalCount > 0 ? totalCount : props.length;
-        _lastSuccessfulProps = props;
-        if (offset == 0) {
+        if (props.isNotEmpty) {
+          _lastSuccessfulProps = props;
+        }
+        if (offset == 0 && props.isNotEmpty) {
           await _savePropsCache(
             _propsCacheKey(
               selectedSide,
@@ -719,6 +722,23 @@ class ApiService {
             _lastFacetCount,
             _lastCategoryCounts,
           );
+          if (_isBroadPropsQuery(
+            selectedSide: selectedSide,
+            selectedTier: selectedTier,
+            selectedSportsbook: selectedSportsbook,
+            selectedSport: selectedSport,
+            selectedCategory: selectedCategory,
+            search: search,
+            minConfidence: minConfidence,
+          )) {
+            await _savePropsCache(
+              _lastStablePropsCacheKey,
+              parsed.rawMaps,
+              _lastPropsCount,
+              _lastFacetCount,
+              _lastCategoryCounts,
+            );
+          }
         }
         refreshStatusNotifier.value = BackendRefreshStatus(
           lastRefreshAt: DateTime.now(),
@@ -772,6 +792,25 @@ class ApiService {
     return 'prop-feed-v2-$raw';
   }
 
+  bool _isBroadPropsQuery({
+    required String selectedSide,
+    required String selectedTier,
+    required String selectedSportsbook,
+    required String selectedSport,
+    required String selectedCategory,
+    required String search,
+    required int minConfidence,
+  }) {
+    bool isAll(String value) => value.trim().toUpperCase() == 'ALL';
+    return isAll(selectedSide) &&
+        isAll(selectedTier) &&
+        isAll(selectedSportsbook) &&
+        isAll(selectedSport) &&
+        isAll(selectedCategory) &&
+        search.trim().isEmpty &&
+        minConfidence <= 0;
+  }
+
   Future<void> _savePropsCache(
     String key,
     List<Map<String, dynamic>> rawProps,
@@ -813,38 +852,57 @@ class ApiService {
       minConfidence,
       sortBy,
     );
-    final encoded = preferences.getString(key);
-    if (encoded == null || encoded.isEmpty) return const [];
-    try {
-      final decoded = jsonDecode(encoded);
-      if (decoded is! Map<String, dynamic> || decoded['props'] is! List) {
-        return const [];
+    final broadQuery = _isBroadPropsQuery(
+      selectedSide: selectedSide,
+      selectedTier: selectedTier,
+      selectedSportsbook: selectedSportsbook,
+      selectedSport: selectedSport,
+      selectedCategory: selectedCategory,
+      search: search,
+      minConfidence: minConfidence,
+    );
+    final candidates = <String?>[
+      preferences.getString(key),
+      if (broadQuery && key != _lastStablePropsCacheKey)
+        preferences.getString(_lastStablePropsCacheKey),
+    ];
+    for (final encoded in candidates) {
+      if (encoded == null || encoded.isEmpty) continue;
+      try {
+        final decoded = jsonDecode(encoded);
+        if (decoded is! Map<String, dynamic> || decoded['props'] is! List) {
+          continue;
+        }
+        final cached = (decoded['props'] as List)
+            .whereType<Map>()
+            .map((raw) => Map<String, dynamic>.from(raw))
+            .map(PropData.fromJson)
+            .toList(growable: false);
+        if (cached.isEmpty) continue;
+        _lastPropsCount = (decoded['total'] as num?)?.toInt() ?? cached.length;
+        _lastFacetCount =
+            (decoded['facetTotal'] as num?)?.toInt() ?? _lastPropsCount;
+        final rawCategoryCounts = decoded['categoryCounts'];
+        _lastCategoryCounts = rawCategoryCounts is Map
+            ? {
+                for (final entry in rawCategoryCounts.entries)
+                  entry.key.toString().trim().toUpperCase():
+                      (entry.value as num?)?.toInt() ?? 0,
+              }
+            : const {};
+        refreshStatusNotifier.value = BackendRefreshStatus(
+          lastRefreshAt: DateTime.tryParse(
+            decoded['savedAt']?.toString() ?? '',
+          ),
+          sourceUrl: 'device cache',
+          message: 'Showing saved props while refreshing',
+        );
+        return cached;
+      } catch (_) {
+        // Try the last stable broad-feed snapshot next.
       }
-      _lastPropsCount = (decoded['total'] as num?)?.toInt() ?? 0;
-      _lastFacetCount =
-          (decoded['facetTotal'] as num?)?.toInt() ?? _lastPropsCount;
-      final rawCategoryCounts = decoded['categoryCounts'];
-      _lastCategoryCounts = rawCategoryCounts is Map
-          ? {
-              for (final entry in rawCategoryCounts.entries)
-                entry.key.toString().trim().toUpperCase():
-                    (entry.value as num?)?.toInt() ?? 0,
-            }
-          : const {};
-      final cached = (decoded['props'] as List)
-          .whereType<Map>()
-          .map((raw) => Map<String, dynamic>.from(raw))
-          .map(PropData.fromJson)
-          .toList(growable: false);
-      refreshStatusNotifier.value = BackendRefreshStatus(
-        lastRefreshAt: DateTime.tryParse(decoded['savedAt']?.toString() ?? ''),
-        sourceUrl: 'device cache',
-        message: 'Showing saved props while refreshing',
-      );
-      return cached;
-    } catch (_) {
-      return const [];
     }
+    return const [];
   }
 
   Future<List<PropData>> fetchPositiveEvProps({

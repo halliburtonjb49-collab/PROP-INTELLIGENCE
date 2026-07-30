@@ -127,6 +127,24 @@ def test_prop_page_filters_server_side_and_exposes_version(monkeypatch) -> None:
     assert int(response.headers["x-ratelimit-limit"]) > 0
 
 
+def test_all_sports_feed_places_soccer_after_other_sports(monkeypatch) -> None:
+    rows = [
+        FakeProp("soccer", "Soccer Star", "SOCCER", "FANDUEL", "SHOTS"),
+        FakeProp("nba", "Basketball Star", "NBA", "FANDUEL", "POINTS"),
+    ]
+    rows[0].confidence = 99
+    rows[1].confidence = 60
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: rows)
+
+    response = TestClient(main.app).get(
+        "/api/props",
+        params={"sport": "All", "sortBy": "confidence"},
+    )
+
+    assert response.status_code == 200
+    assert [row["id"] for row in response.json()["props"]] == ["nba", "soccer"]
+
+
 def test_prop_feed_requires_a_valid_user_session() -> None:
     main.app.dependency_overrides.pop(main.require_user_id, None)
     main.app.dependency_overrides.pop(main.require_core, None)

@@ -7601,6 +7601,26 @@ class _PreparedProp {
   });
 }
 
+List<PropData> deprioritizeSoccerForAllSports(
+  List<PropData> props, {
+  required String selectedSport,
+}) {
+  if (selectedSport.trim().toUpperCase() != 'ALL' || props.length < 2) {
+    return props;
+  }
+  final otherSports = <PropData>[];
+  final soccer = <PropData>[];
+  for (final prop in props) {
+    if (prop.sport.trim().toUpperCase() == 'SOCCER') {
+      soccer.add(prop);
+    } else {
+      otherSports.add(prop);
+    }
+  }
+  if (otherSports.isEmpty || soccer.isEmpty) return props;
+  return [...otherSports, ...soccer];
+}
+
 class _PropGridState extends State<PropGrid> {
   static const int _visiblePropStep = 24;
   final ApiService _apiService = ApiService();
@@ -9424,7 +9444,9 @@ class _PropGridState extends State<PropGrid> {
       return cached;
     }
     final liveProps = await _fetchPropsPage();
-    _automaticRetryCount = 0;
+    if (liveProps.isNotEmpty) {
+      _automaticRetryCount = 0;
+    }
     if (!mounted || requestKey != _queryKey) return const [];
     final props = liveProps;
     _startupLog(
@@ -9463,6 +9485,11 @@ class _PropGridState extends State<PropGrid> {
     try {
       final fresh = await _fetchPropsPage();
       if (!mounted || requestKey != _queryKey) return;
+      if (fresh.isEmpty && _preparedProps.isNotEmpty) {
+        _autoRetryTimer = null;
+        _scheduleAutomaticRetry();
+        return;
+      }
       setState(() {
         _preparedProps = _prepareProps(fresh);
         _propsFuture = Future.value(fresh);
@@ -9475,6 +9502,8 @@ class _PropGridState extends State<PropGrid> {
       );
     } catch (_) {
       // Keep the saved page visible while the connection recovers.
+      _autoRetryTimer = null;
+      _scheduleAutomaticRetry();
     }
   }
 
@@ -9557,11 +9586,24 @@ class _PropGridState extends State<PropGrid> {
   Future<void> _runAutomaticRetry() async {
     if (!mounted) return;
     try {
-      final props = await _loadProps();
-      if (!mounted) return;
+      final requestKey = _queryKey;
+      final props = await _fetchPropsPage();
+      if (!mounted || requestKey != _queryKey) return;
+      if (props.isEmpty) {
+        throw StateError('The live prop feed is temporarily empty.');
+      }
       setState(() {
+        _preparedProps = _prepareProps(props);
         _propsFuture = Future.value(props);
       });
+      widget.onPropsLoaded?.call(
+        props,
+        _apiService.lastPropsCount,
+        _apiService.lastFacetCount,
+        _apiService.lastCategoryCounts,
+      );
+      _autoRetryTimer = null;
+      _automaticRetryCount = 0;
     } catch (_) {
       if (!mounted) return;
       _autoRetryTimer = null;
@@ -9634,7 +9676,7 @@ class _PropGridState extends State<PropGrid> {
               return parsed ?? DateTime.fromMillisecondsSinceEpoch(0);
             }
 
-            final sortedProps = [...props]
+            var sortedProps = [...props]
               ..sort((left, right) {
                 switch (widget.sortBy) {
                   case 'source':
@@ -9654,7 +9696,12 @@ class _PropGridState extends State<PropGrid> {
                     return right.confidence.compareTo(left.confidence);
                 }
               });
+            sortedProps = deprioritizeSoccerForAllSports(
+              sortedProps,
+              selectedSport: widget.sportFilter,
+            );
             if (props.isEmpty) {
+              _scheduleAutomaticRetry();
               final hasFilters =
                   widget.sportFilter.toUpperCase() != 'ALL' ||
                   widget.selectedSite.toUpperCase() != 'ALL' ||

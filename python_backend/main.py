@@ -2054,33 +2054,43 @@ def props(
 			"no pick": 0,
 		}
 
+		def _all_sports_priority(row: PropResponse) -> int:
+			if sport_filter != "all":
+				return 0
+			return 1 if str(row.sport or "").strip().upper() == "SOCCER" else 0
+
 		if sort_by == "edge":
 			filtered_props.sort(
-				key=lambda row: float(row.edge or 0),
-				reverse=True,
+				key=lambda row: (
+					_all_sports_priority(row),
+					-float(row.edge or 0),
+				),
 			)
 		elif sort_by == "premium":
 			filtered_props.sort(
 				key=lambda row: (
-					tier_rank.get(
+					_all_sports_priority(row),
+					-tier_rank.get(
 						str(row.tier or "no pick").strip().lower(),
 						0,
 					),
-					int(row.confidence or 0),
+					-int(row.confidence or 0),
 				),
-				reverse=True,
 			)
 		elif sort_by == "time":
 			filtered_props.sort(
 				key=lambda row: (
+					_all_sports_priority(row),
 					_parse_start_time(row.startTimeUtc)
 					or datetime.max.replace(tzinfo=timezone.utc)
 				),
 			)
 		else:
 			filtered_props.sort(
-				key=lambda row: int(row.confidence or 0),
-				reverse=True,
+				key=lambda row: (
+					_all_sports_priority(row),
+					-int(row.confidence or 0),
+				),
 			)
 			sort_by = "confidence"
 
