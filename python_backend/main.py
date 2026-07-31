@@ -81,10 +81,7 @@ from services.distributed_cache_service import (
 	health as distributed_cache_health,
 	set_json as set_distributed_json,
 )
-from services.job_queue_service import (
-	enqueue as enqueue_background_job,
-	health as job_queue_health,
-)
+from services.job_queue_service import health as job_queue_health
 from services.raw_ingestion_service import health as ingestion_pipeline_health
 from services.rate_limit_service import allow_request
 from services.security_event_service import record_security_event
@@ -2361,22 +2358,6 @@ def sync_props(background_tasks: BackgroundTasks) -> dict[str, object]:
 	if _sync_is_fresh():
 		return {**_sync_state_snapshot(), "reusedFreshData": True,
 			"message": "Current odds are still inside the server freshness window."}
-	queue_job = enqueue_background_job(
-		"jobs.run_prop_sync",
-		job_id=f"prop-sync-{int(time.time() // 300)}",
-	)
-	if queue_job is not None:
-		with _sync_state_lock:
-			_sync_state.update(
-				status="queued",
-				startedAt=datetime.now(timezone.utc).isoformat(),
-				error=None,
-				queueJob=queue_job,
-			)
-		return {
-			**_sync_state_snapshot(),
-			"message": "Global sports sync queued with retry protection.",
-		}
 	if not _sync_run_lock.acquire(blocking=False):
 		return _sync_state_snapshot()
 	if _sync_is_fresh():
@@ -2388,7 +2369,7 @@ def sync_props(background_tasks: BackgroundTasks) -> dict[str, object]:
 	background_tasks.add_task(_run_sync_background)
 	return {
 		**_sync_state_snapshot(),
-		"message": "Global sports sync started in the background.",
+		"message": "Global sports sync started with directly observable status.",
 	}
 
 

@@ -171,7 +171,6 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
     if (_refreshing) return;
     _refreshing = true;
     try {
-      await _api.syncProps();
       await _load();
     } finally {
       _refreshing = false;

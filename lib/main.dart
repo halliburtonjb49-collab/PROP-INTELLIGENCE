@@ -8076,7 +8076,7 @@ bool shouldRenderCachedPropsOnLaunch(
   });
 }
 
-class _PropGridState extends State<PropGrid> {
+class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   static const int _visiblePropStep = 24;
   final ApiService _apiService = ApiService();
   late Future<List<PropData>> _propsFuture;
@@ -9856,6 +9856,7 @@ class _PropGridState extends State<PropGrid> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _propsFuture = _loadProps();
     boardRefreshRequestNotifier.addListener(_handleBoardRefreshRequest);
     _expiryTimer = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -9880,11 +9881,19 @@ class _PropGridState extends State<PropGrid> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _autoRetryTimer?.cancel();
     _expiryTimer?.cancel();
     _lineRefreshTimer?.cancel();
     boardRefreshRequestNotifier.removeListener(_handleBoardRefreshRequest);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshLiveLines());
+    }
   }
 
   @override
@@ -10065,14 +10074,11 @@ class _PropGridState extends State<PropGrid> {
     });
 
     try {
-      await _apiService.syncProps();
       await SlipManager.refreshSelectedProps(_apiService);
       if (!mounted) {
         return;
       }
-      setState(() {
-        _propsFuture = _loadProps();
-      });
+      await _refreshFirstPageFromNetwork(_queryKey);
     } catch (_) {
       if (!mounted) {
         return;

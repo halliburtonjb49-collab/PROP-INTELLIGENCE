@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -31,11 +33,22 @@ class _LineMovementPageState extends State<LineMovementPage> {
   bool _alertsEnabled = true;
   bool _criticalAlertsOnly = false;
   DateTime? _lastLoadedAt;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _movementFuture = _loadMovementData(refresh: false);
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => _refresh(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -47,6 +60,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
   }
 
   void _refresh() {
+    if (!mounted) return;
     setState(() {
       _movementFuture = _loadMovementData(refresh: true);
     });

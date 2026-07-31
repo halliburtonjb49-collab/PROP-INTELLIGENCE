@@ -84,7 +84,7 @@ services:
       - key: EMPTY_PROP_SYNC_RETRY_SECONDS
         value: 300
       - key: PROP_FEED_STALE_MINUTES
-        value: 45
+        value: 15
       - key: PROP_FEED_WATCHDOG_SECONDS
         value: 300
       - key: ODDS_API_LOW_QUOTA_THRESHOLD
@@ -188,7 +188,7 @@ services:
   - type: cron
     name: prop-intelligence-pregame-sync
     runtime: python
-    schedule: "*/30 * * * *"
+    schedule: "*/10 * * * *"
     buildCommand: pip install -r requirements.txt -r requirements-historical.txt
     startCommand: python python_backend/scripts/sync_pregame.py
     envVars:

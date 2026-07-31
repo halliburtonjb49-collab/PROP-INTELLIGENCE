@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../services/affiliate_router.dart';
 import '../services/api_service.dart';
@@ -36,7 +36,6 @@ class _CurrentSlipPanelContainerState extends State<CurrentSlipPanelContainer> {
     });
 
     try {
-      await _apiService.syncProps();
       await SlipManager.refreshSelectedProps(_apiService);
     } catch (_) {
       // Keep panel responsive even if refresh fails.
