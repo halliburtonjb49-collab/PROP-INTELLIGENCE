@@ -32,6 +32,32 @@ DATABASE_PATH = Path(
 ).expanduser().resolve()
 _postgres_initialized = False
 _postgres_init_lock = Lock()
+SELECTION_SAFETY_WINDOW = timedelta(minutes=2)
+
+
+def validate_slip_selection_times(
+    request: SlipCreate,
+    *,
+    now: datetime | None = None,
+) -> None:
+    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    cutoff = current + SELECTION_SAFETY_WINDOW
+    for leg in request.legs:
+        raw = str(leg.game_start_time or "").strip()
+        if not raw:
+            continue
+        try:
+            start = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError(
+                f"Selection closed for {leg.player}: invalid game start time."
+            ) from exc
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        if start.astimezone(timezone.utc) <= cutoff:
+            raise ValueError(
+                f"Selection closed for {leg.player}: the game is starting or already underway."
+            )
 
 
 def _uses_postgres() -> bool:
@@ -191,6 +217,7 @@ def calculate_payout_preview(
 
 
 def create_slip(request: SlipCreate, user_id: str | None = None) -> SlipResponse:
+    validate_slip_selection_times(request)
     initialize_slip_table()
     payout = _calculate_payout(request)
     slip = create_slip_response(request, payout)

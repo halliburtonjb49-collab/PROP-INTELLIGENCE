@@ -1,4 +1,5 @@
 class PropData {
+  static const Duration selectionSafetyWindow = Duration(minutes: 2);
   final String id;
   final String eventId;
   final String apiSportsGameId;
@@ -713,6 +714,17 @@ class PropData {
     return false;
   }
 
-  /// Returns true if the prop is selectable (game hasn't started)
-  bool get isSelectable => !gameHasStarted;
+  /// Closes selection shortly before the scheduled start so clock drift,
+  /// provider latency, and a stale card cannot admit an in-game pick.
+  bool get isSelectable {
+    if (gameHasStarted) return false;
+    DateTime? gameStart;
+    if (startTimeUtc.isNotEmpty) gameStart = DateTime.tryParse(startTimeUtc);
+    if (gameStart == null && gameStartTime.isNotEmpty) {
+      gameStart = DateTime.tryParse(gameStartTime);
+    }
+    if (gameStart == null) return true;
+    final closesAt = gameStart.toUtc().subtract(selectionSafetyWindow);
+    return DateTime.now().toUtc().isBefore(closesAt);
+  }
 }

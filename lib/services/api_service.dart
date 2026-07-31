@@ -470,7 +470,9 @@ class ApiService {
         'player_id': prop.playerId,
         'custom_label': prop.customLabel,
         'manual_note': prop.manualNote,
-        'game_start_time': prop.gameStartTime,
+        'game_start_time': prop.startTimeUtc.isNotEmpty
+            ? prop.startTimeUtc
+            : prop.gameStartTime,
         'player': prop.player,
         'image_path': prop.imagePath,
         'sport': prop.sport,

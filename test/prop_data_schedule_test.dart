@@ -33,4 +33,21 @@ void main() {
     expect(prop.gameHasStarted, isTrue);
     expect(prop.isSelectable, isFalse);
   });
+
+  test('selection closes two minutes before scheduled start', () {
+    final prop = scheduledProp(
+      DateTime.now().toUtc().add(const Duration(minutes: 1)).toIso8601String(),
+    );
+
+    expect(prop.gameHasStarted, isFalse);
+    expect(prop.isSelectable, isFalse);
+  });
+
+  test('future prop remains selectable outside safety window', () {
+    final prop = scheduledProp(
+      DateTime.now().toUtc().add(const Duration(minutes: 10)).toIso8601String(),
+    );
+
+    expect(prop.isSelectable, isTrue);
+  });
 }

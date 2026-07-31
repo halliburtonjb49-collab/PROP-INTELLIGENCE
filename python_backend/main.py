@@ -3155,6 +3155,21 @@ def preview_slip(
 @app.post("/api/slips")
 def save_slip(request: SlipCreate, user_id: str = Depends(require_user_id)) -> dict[str, object]:
 	try:
+		# Reconcile the client snapshot with the current authoritative feed before
+		# enforcing the server-side start-time lock.
+		current_props = {prop.id: prop for prop in get_props()}
+		for leg in request.legs:
+			current = current_props.get(leg.prop_id)
+			if current is None:
+				continue
+			status = str(current.gameStatus or "").strip().lower()
+			if status in {"live", "in progress", "final", "finished", "completed"}:
+				raise ValueError(
+					f"Selection closed for {leg.player}: the game is already underway."
+				)
+			start = str(current.startTimeUtc or current.gameStartTime or "").strip()
+			if start:
+				leg.game_start_time = start
 		slip = create_slip(request, user_id=user_id)
 	except ValueError as exc:
 		raise HTTPException(status_code=409, detail=str(exc)) from exc

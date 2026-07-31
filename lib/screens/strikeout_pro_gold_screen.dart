@@ -50,11 +50,11 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
       const Duration(seconds: 45),
       (_) => unawaited(_refreshLive()),
     );
-    _expiryTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+    _expiryTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted) return;
       final expired = {
         for (final prop in _props)
-          if (prop.gameHasStarted && prop.id.isNotEmpty) prop.id,
+          if (!prop.isSelectable && prop.id.isNotEmpty) prop.id,
       };
       if (expired.isEmpty) return;
       setState(() {
@@ -131,10 +131,10 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
       }
       final expiredIds = {
         for (final prop in [..._props, ...strikeouts])
-          if (prop.gameHasStarted && prop.id.isNotEmpty) prop.id,
+          if (!prop.isSelectable && prop.id.isNotEmpty) prop.id,
       };
       strikeouts = strikeouts
-          .where((prop) => !prop.gameHasStarted)
+          .where((prop) => prop.isSelectable)
           .toList(growable: false);
       strikeouts.sort((a, b) {
         DateTime? start(PropData prop) => DateTime.tryParse(
@@ -183,7 +183,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
     final query = _search.text.trim().toLowerCase();
     return _props
         .where((prop) {
-          if (prop.gameHasStarted) return false;
+          if (!prop.isSelectable) return false;
           final side = _recommendedSide(prop);
           final sideMatches =
               _view == _StrikeoutView.all ||
@@ -594,7 +594,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
     final selectedSide = _selectedSides[prop.id];
     final projection = prop.projection;
     final delta = projection == null ? null : projection - prop.line;
-    final isExpired = prop.gameHasStarted;
+    final isExpired = !prop.isSelectable;
     final sideText = systemSide == null
         ? 'NO PICK'
         : systemSide == PickSide.over

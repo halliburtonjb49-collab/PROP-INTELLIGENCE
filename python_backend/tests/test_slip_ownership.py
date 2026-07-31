@@ -1,6 +1,6 @@
 from models.slip import ClosingLineUpdate, LegResultUpdate, SlipCreate, SlipLeg
 from services import slip_service
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -31,6 +31,28 @@ def test_prop_cannot_be_reused_until_active_slip_is_resolved(
 
     assert slip_service.update_slip_status(first.id, "won", user_id="user-1")
     slip_service.create_slip(_request("reserved-prop"), user_id="user-1")
+
+
+def test_started_or_imminent_games_cannot_be_locked(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(slip_service, "DATABASE_PATH", tmp_path / "slips.db")
+    now = datetime.now(timezone.utc)
+    for offset in (-10, 1):
+        request = _request(f"closed-{offset}")
+        request.legs[0].game_start_time = (
+            now + timedelta(minutes=offset)
+        ).isoformat()
+        with pytest.raises(ValueError, match="Selection closed"):
+            slip_service.create_slip(request, user_id="user-1")
+
+
+def test_game_beyond_safety_window_can_be_locked(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(slip_service, "DATABASE_PATH", tmp_path / "slips.db")
+    request = _request("future-prop")
+    request.legs[0].game_start_time = (
+        datetime.now(timezone.utc) + timedelta(minutes=10)
+    ).isoformat()
+    slip = slip_service.create_slip(request, user_id="user-1")
+    assert slip.legs[0].prop_id == "future-prop"
 
 
 def test_delete_slip_is_scoped_to_owner(tmp_path, monkeypatch) -> None:

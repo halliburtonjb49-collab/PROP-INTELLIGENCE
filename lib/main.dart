@@ -511,6 +511,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   final ActiveSlipController _activeSlipController = ActiveSlipController();
   final List<SlipSelection> _slipSelections = [];
   bool _isSavingSlip = false;
+  Timer? _selectionExpiryTimer;
   AppPage _selectedPage = AppPage.board;
   String _selectedBoardSport = 'ALL';
   bool _chatFloating = false;
@@ -559,6 +560,41 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         unawaited(_loadLockedSlipCount());
       }
     });
+    _selectionExpiryTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _removeClosedDraftSelections(),
+    );
+  }
+
+  void _removeClosedDraftSelections() {
+    if (!mounted) return;
+    final expired = _slipSelections
+        .where((selection) => !selection.prop.isSelectable)
+        .toList(growable: false);
+    if (expired.isEmpty) return;
+    final expiredIds = expired.map((item) => item.prop.id).toSet();
+    setState(() {
+      _slipSelections.removeWhere(
+        (selection) => expiredIds.contains(selection.prop.id),
+      );
+    });
+    for (final selection in expired) {
+      unawaited(_activeSlipController.removeLeg(selection.prop.id));
+      SlipManager.removePropById(selection.prop.id);
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: app_colors.AppColors.gold,
+        content: Text(
+          '${expired.length} prop${expired.length == 1 ? '' : 's'} removed because the pregame selection window closed.',
+          style: const TextStyle(
+            color: app_colors.AppColors.bgBase,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+    );
   }
 
   void _showChatNotification() {
@@ -626,6 +662,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 
   @override
   void dispose() {
+    _selectionExpiryTimer?.cancel();
     PropChatService.latestNotification.removeListener(_showChatNotification);
     ScoreboardWatchlistService.instance.latestAlert.removeListener(
       _showScoreboardWatchAlert,
@@ -1219,6 +1256,27 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   }
 
   void _toggleSelection(PropData prop, PickSide side) {
+    final existingIndex = _slipSelections.indexWhere(
+      (item) => item.prop.id == prop.id,
+    );
+    final removingExisting =
+        existingIndex >= 0 && _slipSelections[existingIndex].side == side;
+    if (!prop.isSelectable && !removingExisting) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: app_colors.AppColors.gold,
+          content: Text(
+            'Selection closed: this game is starting or already underway.',
+            style: TextStyle(
+              color: app_colors.AppColors.bgBase,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
     if (SlipManager.isLockedInActiveSlip(prop.id)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1234,10 +1292,6 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     final selection = SlipSelection(prop: prop, side: side);
 
     setState(() {
-      final existingIndex = _slipSelections.indexWhere(
-        (item) => item.prop.id == prop.id,
-      );
-
       if (existingIndex >= 0) {
         final existing = _slipSelections[existingIndex];
         if (existing.side == side) {
@@ -1422,7 +1476,9 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       'player_id': prop.playerId,
       'custom_label': prop.customLabel,
       'manual_note': prop.manualNote,
-      'game_start_time': prop.gameStartTime,
+      'game_start_time': prop.startTimeUtc.isNotEmpty
+          ? prop.startTimeUtc
+          : prop.gameStartTime,
       'player': prop.player,
       'sport': prop.sport,
       'matchup': prop.matchup,
@@ -1628,6 +1684,10 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 
   Future<void> _saveSlip(double stake, List<SlipSelection> selections) async {
     if (selections.isEmpty || _isSavingSlip) {
+      return;
+    }
+    if (selections.any((selection) => !selection.prop.isSelectable)) {
+      _removeClosedDraftSelections();
       return;
     }
 
@@ -3355,7 +3415,7 @@ class _MainDashboardState extends State<MainDashboard> {
                       .where((entry) => entry.value > 0)
                       .map((entry) => _normalizeSport(entry.key))
                 : _siteInventoryProps
-                      .where((prop) => !prop.gameHasStarted)
+                      .where((prop) => prop.isSelectable)
                       .map((prop) => _normalizeSport(prop.sport)))
             .where((sport) => sport.isNotEmpty && sport != 'ALL')
             .toSet()
@@ -3392,7 +3452,7 @@ class _MainDashboardState extends State<MainDashboard> {
     }
     final counts = <String, int>{};
     for (final prop in _siteInventoryProps) {
-      if (prop.gameHasStarted ||
+      if (!prop.isSelectable ||
           _normalizeSport(prop.sport) != _selectedSiteSport) {
         continue;
       }
@@ -3843,7 +3903,7 @@ class _MainDashboardState extends State<MainDashboard> {
     }
     if (!mounted) return;
     playerProps = activePropsInChronologicalOrder(playerProps);
-    if (playerProps.isEmpty && !focused.gameHasStarted) playerProps = [focused];
+    if (playerProps.isEmpty && focused.isSelectable) playerProps = [focused];
     playerProps.sort((a, b) {
       final leftStart = propScheduledStart(a);
       final rightStart = propScheduledStart(b);
@@ -4967,7 +5027,7 @@ class _MainDashboardState extends State<MainDashboard> {
         _siteInventoryProps
             .where(
               (prop) =>
-                  !prop.gameHasStarted && _normalizeSport(prop.sport) == sport,
+                  prop.isSelectable && _normalizeSport(prop.sport) == sport,
             )
             .length;
     IconData sportIcon(String sport) => switch (sport) {
@@ -8019,7 +8079,7 @@ DateTime? propScheduledStart(PropData prop) {
 }
 
 List<PropData> activePropsInChronologicalOrder(Iterable<PropData> props) {
-  final active = props.where((prop) => !prop.gameHasStarted).toList();
+  final active = props.where((prop) => prop.isSelectable).toList();
   active.sort((left, right) {
     final leftStart = propScheduledStart(left);
     final rightStart = propScheduledStart(right);
@@ -9875,7 +9935,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _propsFuture = _loadProps();
     boardRefreshRequestNotifier.addListener(_handleBoardRefreshRequest);
-    _expiryTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    _expiryTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted) return;
       final active = activePropsInChronologicalOrder(
         _preparedProps.map((prepared) => prepared.prop),
@@ -10195,7 +10255,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   prepared.normalizedSite == normalizedSite;
               final searchMatches =
                   search.isEmpty || prepared.searchText.contains(search);
-              return !prepared.prop.gameHasStarted &&
+              return prepared.prop.isSelectable &&
                   sportMatches &&
                   siteMatches &&
                   searchMatches;
