@@ -1,153 +1,186 @@
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
-import 'prop_intelligence_colors.dart';
 
 abstract final class AppTheme {
   static ThemeData get theme {
-    final baseTheme = ThemeData.dark();
-    return baseTheme.copyWith(
-      scaffoldBackgroundColor: PropIntelligenceColors.darkCanvasBg,
-      cardColor: PropIntelligenceColors.darkCardBg,
-      dividerColor: Colors.white10,
-      colorScheme: baseTheme.colorScheme.copyWith(
-        primary: AppColors.gold,
-        secondary: AppColors.blue,
-        surface: AppColors.panel,
+    const base = AppColors.bgBase;
+    const panel = AppColors.bgPanel;
+    const gold = AppColors.goldMid;
+    const goldHi = AppColors.goldHighlight;
+    const chrome = AppColors.chromeMid;
+    const chromeLine = AppColors.chromeShadow;
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: base,
+      colorScheme: const ColorScheme.dark(
+        primary: gold,
+        onPrimary: base,
+        secondary: chrome,
+        onSecondary: base,
+        surface: panel,
+        onSurface: AppColors.chromeLight,
+        error: AppColors.red,
+        onError: base,
+        outline: chromeLine,
       ),
-      textTheme: baseTheme.textTheme
-          .apply(
-            bodyColor: PropIntelligenceColors.metallicSilver,
-            displayColor: Colors.white,
-          )
-          .copyWith(
-            titleLarge: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-      dropdownMenuTheme: const DropdownMenuThemeData(
-        textStyle: TextStyle(color: AppColors.white),
-        menuStyle: MenuStyle(
-          backgroundColor: WidgetStatePropertyAll(AppColors.panel),
-          surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: AppColors.sidebar,
-        labelStyle: const TextStyle(color: AppColors.textSecondary),
-        helperStyle: const TextStyle(color: AppColors.textMuted),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 14,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.gold, width: 1.4),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: base,
+        foregroundColor: AppColors.chromeLight,
+        elevation: 0,
+        iconTheme: IconThemeData(color: chrome),
+        titleTextStyle: TextStyle(
+          color: AppColors.chromeLight,
+          fontSize: 18,
+          fontWeight: FontWeight.w500,
         ),
       ),
-      tooltipTheme: TooltipThemeData(
-        decoration: BoxDecoration(
-          color: AppColors.panelLight,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border),
+      textTheme: const TextTheme(
+        bodyLarge: TextStyle(color: AppColors.chromeLight),
+        bodyMedium: TextStyle(color: AppColors.chromeLight),
+        bodySmall: TextStyle(color: chrome),
+        titleLarge: TextStyle(color: goldHi, fontWeight: FontWeight.w500),
+        titleMedium: TextStyle(
+          color: AppColors.chromeLight,
+          fontWeight: FontWeight.w500,
         ),
-        textStyle: const TextStyle(color: AppColors.white, fontSize: 12),
-        waitDuration: const Duration(milliseconds: 450),
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.gold,
-          foregroundColor: AppColors.background,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          textStyle: const TextStyle(
-            fontWeight: FontWeight.w900,
-            letterSpacing: .3,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
+        labelLarge: TextStyle(color: base),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.gold,
-          foregroundColor: AppColors.background,
-          elevation: 0,
-          minimumSize: const Size(44, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-          textStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w900,
-            letterSpacing: .35,
-          ),
+          backgroundColor: gold,
+          foregroundColor: base,
+          disabledBackgroundColor: AppColors.goldShadow,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: gold,
+          foregroundColor: base,
+          disabledBackgroundColor: AppColors.goldShadow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.white,
-          minimumSize: const Size(44, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-          side: const BorderSide(color: AppColors.border),
-          textStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            letterSpacing: .3,
-          ),
+          foregroundColor: AppColors.chromeLight,
+          side: const BorderSide(color: chrome),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.textSecondary,
-          minimumSize: const Size(40, 40),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          textStyle: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: .25,
-          ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+        style: TextButton.styleFrom(foregroundColor: goldHi),
+      ),
+      cardTheme: CardThemeData(
+        color: panel,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: chromeLine, width: .5),
         ),
       ),
-      iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(
-          foregroundColor: AppColors.textSecondary,
-          minimumSize: const Size(40, 40),
-          padding: const EdgeInsets.all(10),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: panel,
+        hintStyle: const TextStyle(color: chrome),
+        labelStyle: const TextStyle(color: chrome),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: chromeLine),
         ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: chromeLine),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: gold, width: 1.5),
+        ),
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: base,
+        selectedItemColor: goldHi,
+        unselectedItemColor: chrome,
+        type: BottomNavigationBarType.fixed,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: base,
+        indicatorColor: AppColors.goldShadow.withValues(alpha: .4),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(color: selected ? goldHi : chrome);
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return TextStyle(color: selected ? goldHi : chrome, fontSize: 12);
+        }),
+      ),
+      iconTheme: const IconThemeData(color: chrome),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(foregroundColor: chrome),
+      ),
+      dividerTheme: const DividerThemeData(color: chromeLine, thickness: .5),
+      dialogTheme: DialogThemeData(
+        backgroundColor: panel,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        titleTextStyle: const TextStyle(
+          color: AppColors.chromeLight,
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+        contentTextStyle: const TextStyle(color: chrome, fontSize: 14),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: panel,
+        labelStyle: const TextStyle(color: AppColors.chromeLight, fontSize: 12),
+        side: const BorderSide(color: chromeLine),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? gold : chrome,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.goldShadow
+              : chromeLine,
+        ),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) =>
+              states.contains(WidgetState.selected) ? gold : Colors.transparent,
+        ),
+        checkColor: const WidgetStatePropertyAll(base),
+        side: const BorderSide(color: chrome),
+      ),
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? gold : chrome,
+        ),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: gold,
+        linearTrackColor: chromeLine,
       ),
       scrollbarTheme: ScrollbarThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.dragged)) {
-            return PropIntelligenceColors.premiumGold;
-          }
-          if (states.contains(WidgetState.hovered)) {
-            return PropIntelligenceColors.premiumGold.withValues(alpha: .9);
-          }
-          return PropIntelligenceColors.premiumGold.withValues(alpha: .82);
-        }),
-        trackColor: WidgetStateProperty.all(AppColors.panelLight),
-        trackBorderColor: WidgetStateProperty.all(AppColors.borderGold),
+        thumbColor: WidgetStatePropertyAll(gold.withValues(alpha: .82)),
+        trackColor: const WidgetStatePropertyAll(panel),
+        trackBorderColor: const WidgetStatePropertyAll(chromeLine),
         radius: const Radius.circular(8),
-        thickness: WidgetStateProperty.all(9),
+        thickness: const WidgetStatePropertyAll(9),
         interactive: true,
       ),
     );

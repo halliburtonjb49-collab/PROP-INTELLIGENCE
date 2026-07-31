@@ -9,13 +9,13 @@ import '../services/live_update_service.dart';
 import 'context_help.dart';
 
 class PropIntelligenceColors {
-  static const Color background = Color(0xFF07121B);
-  static const Color deepBackground = Color(0xFF0B1924);
-  static const Color surface = Color(0xFF10202C);
-  static const Color gold = Color(0xFFD8B25C);
-  static const Color darkGold = Color(0xFF8F7138);
-  static const Color divider = Color(0xFF344754);
-  static const Color secondaryText = Color(0xFF96A4B2);
+  static const Color background = Color(0xFF080D15);
+  static const Color deepBackground = Color(0xFF0C131D);
+  static const Color surface = Color(0xFF111822);
+  static const Color gold = Color(0xFFA59256);
+  static const Color darkGold = Color(0xFF645529);
+  static const Color divider = Color(0xFF29323E);
+  static const Color secondaryText = Color(0xFFB7B4B4);
   static const Color win = Color(0xFF59E769);
   static const Color loss = Color(0xFFFF4D5A);
 }

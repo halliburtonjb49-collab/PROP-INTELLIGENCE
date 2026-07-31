@@ -267,15 +267,15 @@ List<PropData> boardIntelligenceScope({
 }
 
 class AppColors {
-  static const background = Color(0xFF07121B);
-  static const leftSidebar = Color(0xFF0B1924);
-  static const rightSidebar = Color(0xFF091620);
-  static const panel = Color(0xFF10202C);
-  static const border = Color(0xFF344754);
-  static const gold = Color(0xFFD8B25C);
-  static const goldBright = Color(0xFFE4C474);
-  static const text = Color(0xFFF3F1EC);
-  static const muted = Color(0xFF8996A6);
+  static const background = Color(0xFF080D15);
+  static const leftSidebar = Color(0xFF0C131D);
+  static const rightSidebar = Color(0xFF0A111A);
+  static const panel = Color(0xFF111822);
+  static const border = Color(0xFF29323E);
+  static const gold = Color(0xFFA59256);
+  static const goldBright = Color(0xFFFFE89D);
+  static const text = Color(0xFFE5E2E2);
+  static const muted = Color(0xFF868080);
 }
 
 final GlobalKey<NavigatorState> _oneSignalNavigatorKey =
