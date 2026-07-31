@@ -9,6 +9,10 @@ def _use_map(monkeypatch, path):
     espn_headshot_service._load_map.cache_clear()
 
 
+def test_default_team_leagues_include_nfl_headshots():
+    assert espn_headshot_service.LEAGUES["NFL"] == ("football", "nfl")
+
+
 def test_espn_cache_resolves_pga_and_ufc_headshots(monkeypatch, tmp_path):
     path = tmp_path / "espn_headshot_map.json"
     path.write_text(

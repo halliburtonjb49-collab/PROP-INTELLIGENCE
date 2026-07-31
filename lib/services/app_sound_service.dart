@@ -128,21 +128,18 @@ class AppSoundService extends ChangeNotifier {
   }
 
   Uint8List _toneFor(AppSoundEvent event) {
-    final (frequency, duration) = switch (event) {
-      AppSoundEvent.button => (610.0, .045),
-      AppSoundEvent.navigation => (520.0, .055),
-      AppSoundEvent.selection => (690.0, .075),
-      AppSoundEvent.success => (
-        _profile == AppSoundProfile.energetic ? 940.0 : 820.0,
-        .15,
-      ),
-      AppSoundEvent.warning => (310.0, .20),
+    final duration = switch (event) {
+      AppSoundEvent.button => .065,
+      AppSoundEvent.navigation => .09,
+      AppSoundEvent.selection => .13,
+      AppSoundEvent.success => .28,
+      AppSoundEvent.warning => .24,
     };
-    return _createWave(frequency: frequency, durationSeconds: duration);
+    return _createSportsWave(event: event, durationSeconds: duration);
   }
 
-  Uint8List _createWave({
-    required double frequency,
+  Uint8List _createSportsWave({
+    required AppSoundEvent event,
     required double durationSeconds,
   }) {
     const sampleRate = 22050;
@@ -172,11 +169,40 @@ class AppSoundService extends ChangeNotifier {
     ascii(36, 'data');
     bytes.setUint32(40, dataSize, Endian.little);
 
+    var noiseState = 0x12345;
     for (var sample = 0; sample < sampleCount; sample++) {
       final progress = sample / sampleCount;
+      final time = sample / sampleRate;
       final envelope = math.sin(math.pi * progress);
-      final harmonic = _harmonic(frequency, sample / sampleRate);
-      final value = (harmonic * envelope * 15000).round().clamp(-32768, 32767);
+      noiseState = (1103515245 * noiseState + 12345) & 0x7fffffff;
+      final noise = ((noiseState / 0x7fffffff) * 2) - 1;
+      final signal = switch (event) {
+        // Short leather-ball style thump.
+        AppSoundEvent.button =>
+          math.sin(2 * math.pi * (115 - 55 * progress) * time) *
+              math.exp(-progress * 5),
+        // Quick scoreboard sweep.
+        AppSoundEvent.navigation =>
+          _harmonic(430 + (progress * 260), time) * .72,
+        // Referee-whistle double chirp for adding a pick.
+        AppSoundEvent.selection =>
+          (math.sin(2 * math.pi * (1750 + 240 * progress) * time) *
+                  (progress < .43 || progress > .57 ? 1 : 0)) *
+              .62,
+        // Arena score: rising two-note horn with a light crowd texture.
+        AppSoundEvent.success =>
+          (_harmonic(progress < .48 ? 660 : 880, time) * .72) + (noise * .11),
+        // Shot-clock/buzzer style alert.
+        AppSoundEvent.warning =>
+          (math.sin(2 * math.pi * 235 * time) *
+                  (math.sin(2 * math.pi * 18 * time) >= 0 ? 1 : .2)) +
+              (noise * .06),
+      };
+      final profileGain = _profile == AppSoundProfile.energetic ? 1.0 : .82;
+      final value = (signal * envelope * profileGain * 14500).round().clamp(
+        -32768,
+        32767,
+      );
       bytes.setInt16(44 + (sample * 2), value, Endian.little);
     }
     return bytes.buffer.asUint8List();

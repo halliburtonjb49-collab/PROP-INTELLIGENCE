@@ -37,6 +37,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
   List<PropData> _props = const [];
   final Map<String, PickSide> _selectedSides = {};
   Timer? _refreshTimer;
+  Timer? _expiryTimer;
   bool _refreshing = false;
 
   @override
@@ -47,12 +48,28 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
       const Duration(seconds: 45),
       (_) => unawaited(_refreshLive()),
     );
+    _expiryTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted) return;
+      final expired = {
+        for (final prop in _props)
+          if (prop.gameHasStarted && prop.id.isNotEmpty) prop.id,
+      };
+      if (expired.isEmpty) return;
+      setState(() {
+        _props = _props
+            .where((prop) => !expired.contains(prop.id))
+            .toList(growable: false);
+        _selectedSides.removeWhere((id, _) => expired.contains(id));
+      });
+      unawaited(widget.onPropsExpired?.call(expired));
+    });
   }
 
   @override
   void dispose() {
     _search.dispose();
     _refreshTimer?.cancel();
+    _expiryTimer?.cancel();
     super.dispose();
   }
 
@@ -120,6 +137,16 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
           .where((prop) => !prop.gameHasStarted)
           .toList(growable: false);
       strikeouts.sort((a, b) {
+        DateTime? start(PropData prop) => DateTime.tryParse(
+          prop.startTimeUtc.isNotEmpty ? prop.startTimeUtc : prop.gameStartTime,
+        );
+        final left = start(a);
+        final right = start(b);
+        if (left == null && right == null) return a.player.compareTo(b.player);
+        if (left == null) return 1;
+        if (right == null) return -1;
+        final time = left.compareTo(right);
+        if (time != 0) return time;
         final confidence = b.confidence.compareTo(a.confidence);
         return confidence != 0 ? confidence : _edge(b).compareTo(_edge(a));
       });
@@ -157,6 +184,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
     final query = _search.text.trim().toLowerCase();
     return _props
         .where((prop) {
+          if (prop.gameHasStarted) return false;
           final side = _recommendedSide(prop);
           final sideMatches =
               _view == _StrikeoutView.all ||
@@ -234,7 +262,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                       crossAxisCount: columns,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
-                      mainAxisExtent: 375,
+                      mainAxisExtent: 410,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) => _card(_visible[index]),

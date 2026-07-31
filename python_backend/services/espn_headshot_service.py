@@ -37,6 +37,7 @@ _DISTRIBUTED_CACHE_TTL_SECONDS = 8 * 24 * 60 * 60
 # App sport label (services.formatters.format_sport_label output) ->
 # (ESPN sport slug, ESPN league slug).
 LEAGUES: dict[str, tuple[str, str]] = {
+    "NFL": ("football", "nfl"),
     "NBA": ("basketball", "nba"),
     "WNBA": ("basketball", "wnba"),
     "NHL": ("hockey", "nhl"),

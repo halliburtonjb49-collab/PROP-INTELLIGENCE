@@ -18,6 +18,47 @@ Map<String, dynamic> _prop(String id, String sport) => {
 };
 
 void main() {
+  test(
+    'active props are ordered by game time and expired props are removed',
+    () {
+      final early = PropData.fromJson({
+        ..._prop('early', 'NFL'),
+        'startTimeUtc': '2099-07-20T18:00:00Z',
+      });
+      final late = PropData.fromJson({
+        ..._prop('late', 'PGA'),
+        'startTimeUtc': '2099-07-20T22:00:00Z',
+      });
+      final expired = PropData.fromJson({
+        ..._prop('expired', 'UFC'),
+        'startTimeUtc': '2020-07-20T18:00:00Z',
+      });
+
+      final ordered = activePropsInChronologicalOrder([late, expired, early]);
+
+      expect(ordered.map((prop) => prop.id), ['early', 'late']);
+    },
+  );
+
+  test('props without a confirmed game time sort after scheduled props', () {
+    final pending = PropData.fromJson({
+      ..._prop('pending', 'NFL'),
+      'startTimeUtc': '',
+    });
+    final scheduled = PropData.fromJson({
+      ..._prop('scheduled', 'NFL'),
+      'startTimeUtc': '2099-07-20T18:00:00Z',
+    });
+
+    expect(
+      activePropsInChronologicalOrder([
+        pending,
+        scheduled,
+      ]).map((prop) => prop.id),
+      ['scheduled', 'pending'],
+    );
+  });
+
   test('all-sports display places soccer after available US sports', () {
     final ordered = deprioritizeSoccerForAllSports([
       PropData.fromJson(_prop('soccer', 'soccer_usa_mls')),

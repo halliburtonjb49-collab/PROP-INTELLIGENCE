@@ -2566,8 +2566,9 @@ class SidebarButton extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                maxLines: label.contains('\n') ? 2 : 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+                softWrap: true,
+                overflow: TextOverflow.visible,
                 style: TextStyle(
                   color: textColor,
                   fontSize: 10.5,
@@ -2646,7 +2647,7 @@ class _MainDashboardState extends State<MainDashboard> {
   final String _selectedSide = 'All';
   final String _selectedTier = 'All';
   int _minConfidence = 0;
-  String _sortBy = 'source';
+  String _sortBy = 'time';
   DateTime? _lastUpdated;
   List<PropData> _latestProps = const [];
   int _facetTotal = 0;
@@ -3756,8 +3757,19 @@ class _MainDashboardState extends State<MainDashboard> {
           .toList(growable: false);
     }
     if (!mounted) return;
-    if (playerProps.isEmpty) playerProps = [focused];
-    playerProps.sort((a, b) => _propMarket(a).compareTo(_propMarket(b)));
+    playerProps = activePropsInChronologicalOrder(playerProps);
+    if (playerProps.isEmpty && !focused.gameHasStarted) playerProps = [focused];
+    playerProps.sort((a, b) {
+      final leftStart = propScheduledStart(a);
+      final rightStart = propScheduledStart(b);
+      if (leftStart == null && rightStart == null) {
+        return _propMarket(a).compareTo(_propMarket(b));
+      }
+      if (leftStart == null) return 1;
+      if (rightStart == null) return -1;
+      final time = leftStart.compareTo(rightStart);
+      return time != 0 ? time : _propMarket(a).compareTo(_propMarket(b));
+    });
 
     await showDialog<void>(
       context: context,
@@ -4834,7 +4846,9 @@ class _MainDashboardState extends State<MainDashboard> {
                               widget.onSelect(prop, side);
                             },
                             onPropFocused: _showPlayerPropsOverlay,
-                            sportFilter: widget.sportFilter,
+                            sportFilter: _selectedSite == 'ALL'
+                                ? widget.sportFilter
+                                : 'ALL',
                             searchQuery: _searchQuery,
                             selectedSite: _selectedSite,
                             selectedCategory: _effectiveSelectedCategory,
@@ -7665,6 +7679,32 @@ List<PropData> deprioritizeSoccerForAllSports(
   return [...otherSports, ...soccer];
 }
 
+DateTime? propScheduledStart(PropData prop) {
+  final raw = prop.startTimeUtc.isNotEmpty
+      ? prop.startTimeUtc
+      : prop.gameStartTime;
+  return DateTime.tryParse(raw);
+}
+
+List<PropData> activePropsInChronologicalOrder(Iterable<PropData> props) {
+  final active = props.where((prop) => !prop.gameHasStarted).toList();
+  active.sort((left, right) {
+    final leftStart = propScheduledStart(left);
+    final rightStart = propScheduledStart(right);
+    if (leftStart == null && rightStart == null) {
+      final player = left.player.compareTo(right.player);
+      return player != 0 ? player : left.market.compareTo(right.market);
+    }
+    if (leftStart == null) return 1;
+    if (rightStart == null) return -1;
+    final start = leftStart.compareTo(rightStart);
+    if (start != 0) return start;
+    final player = left.player.compareTo(right.player);
+    return player != 0 ? player : left.market.compareTo(right.market);
+  });
+  return active;
+}
+
 bool shouldRenderCachedPropsOnLaunch(
   List<PropData> props, {
   required String selectedSport,
@@ -7685,6 +7725,7 @@ class _PropGridState extends State<PropGrid> {
   bool _isRefreshing = false;
   bool _isLoadingMore = false;
   Timer? _autoRetryTimer;
+  Timer? _expiryTimer;
   int _automaticRetryCount = 0;
   int _visiblePropLimit = _visiblePropStep;
   final Set<String> _favoritePropIds = <String>{};
@@ -9428,6 +9469,17 @@ class _PropGridState extends State<PropGrid> {
     super.initState();
     _propsFuture = _loadProps();
     boardRefreshRequestNotifier.addListener(_handleBoardRefreshRequest);
+    _expiryTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+      final active = activePropsInChronologicalOrder(
+        _preparedProps.map((prepared) => prepared.prop),
+      );
+      if (active.length == _preparedProps.length) return;
+      setState(() {
+        _preparedProps = _prepareProps(active);
+        _propsFuture = Future.value(active);
+      });
+    });
   }
 
   void _handleBoardRefreshRequest() {
@@ -9437,6 +9489,7 @@ class _PropGridState extends State<PropGrid> {
   @override
   void dispose() {
     _autoRetryTimer?.cancel();
+    _expiryTimer?.cancel();
     boardRefreshRequestNotifier.removeListener(_handleBoardRefreshRequest);
     super.dispose();
   }
@@ -9492,22 +9545,23 @@ class _PropGridState extends State<PropGrid> {
       selectedSport: widget.sportFilter,
     )) {
       _automaticRetryCount = 0;
-      _preparedProps = _prepareProps(cached);
+      final activeCached = activePropsInChronologicalOrder(cached);
+      _preparedProps = _prepareProps(activeCached);
       widget.onPropsLoaded?.call(
-        cached,
+        activeCached,
         _apiService.lastPropsCount,
         _apiService.lastFacetCount,
         _apiService.lastCategoryCounts,
       );
       unawaited(_refreshFirstPageFromNetwork(requestKey));
-      return cached;
+      return activeCached;
     }
     final liveProps = await _fetchPropsPage();
     if (liveProps.isNotEmpty) {
       _automaticRetryCount = 0;
     }
     if (!mounted || requestKey != _queryKey) return const [];
-    final props = liveProps;
+    final props = activePropsInChronologicalOrder(liveProps);
     _startupLog(
       'fetchProps() complete in ${fetchTimer.elapsedMilliseconds}ms (${props.length} props)',
     );
@@ -9542,7 +9596,7 @@ class _PropGridState extends State<PropGrid> {
 
   Future<void> _refreshFirstPageFromNetwork(String requestKey) async {
     try {
-      final fresh = await _fetchPropsPage();
+      final fresh = activePropsInChronologicalOrder(await _fetchPropsPage());
       if (!mounted || requestKey != _queryKey) return;
       if (fresh.isEmpty && _preparedProps.isNotEmpty) {
         _autoRetryTimer = null;
@@ -9575,10 +9629,13 @@ class _PropGridState extends State<PropGrid> {
     try {
       final next = await _fetchPropsPage(offset: _preparedProps.length);
       if (!mounted || requestKey != _queryKey) return;
-      final merged = <String, PropData>{
-        for (final prepared in _preparedProps) prepared.prop.id: prepared.prop,
-        for (final prop in next) prop.id: prop,
-      }.values.toList(growable: false);
+      final merged = activePropsInChronologicalOrder(
+        <String, PropData>{
+          for (final prepared in _preparedProps)
+            prepared.prop.id: prepared.prop,
+          for (final prop in next) prop.id: prop,
+        }.values,
+      );
       setState(() {
         _preparedProps = _prepareProps(merged);
         _visiblePropLimit = _preparedProps.length;
@@ -9646,7 +9703,7 @@ class _PropGridState extends State<PropGrid> {
     if (!mounted) return;
     try {
       final requestKey = _queryKey;
-      final props = await _fetchPropsPage();
+      final props = activePropsInChronologicalOrder(await _fetchPropsPage());
       if (!mounted || requestKey != _queryKey) return;
       if (props.isEmpty) {
         throw StateError('The live prop feed is temporarily empty.');
@@ -9709,7 +9766,10 @@ class _PropGridState extends State<PropGrid> {
                   prepared.normalizedSite == normalizedSite;
               final searchMatches =
                   search.isEmpty || prepared.searchText.contains(search);
-              return sportMatches && siteMatches && searchMatches;
+              return !prepared.prop.gameHasStarted &&
+                  sportMatches &&
+                  siteMatches &&
+                  searchMatches;
             }).toList();
 
             final props = filtered.map((prepared) => prepared.prop).toList();
@@ -9727,19 +9787,16 @@ class _PropGridState extends State<PropGrid> {
               }
             }
 
-            DateTime propStartTime(PropData prop) {
-              final raw = prop.startTimeUtc.isNotEmpty
-                  ? prop.startTimeUtc
-                  : prop.gameStartTime;
-              final parsed = DateTime.tryParse(raw);
-              return parsed ?? DateTime.fromMillisecondsSinceEpoch(0);
-            }
-
             var sortedProps = [...props]
               ..sort((left, right) {
                 switch (widget.sortBy) {
                   case 'source':
-                    return 0;
+                    final leftStart = propScheduledStart(left);
+                    final rightStart = propScheduledStart(right);
+                    if (leftStart == null && rightStart == null) return 0;
+                    if (leftStart == null) return 1;
+                    if (rightStart == null) return -1;
+                    return leftStart.compareTo(rightStart);
                   case 'edge':
                     return right.edge.compareTo(left.edge);
                   case 'premium':
@@ -9749,7 +9806,12 @@ class _PropGridState extends State<PropGrid> {
                     }
                     return right.confidence.compareTo(left.confidence);
                   case 'time':
-                    return propStartTime(left).compareTo(propStartTime(right));
+                    final leftStart = propScheduledStart(left);
+                    final rightStart = propScheduledStart(right);
+                    if (leftStart == null && rightStart == null) return 0;
+                    if (leftStart == null) return 1;
+                    if (rightStart == null) return -1;
+                    return leftStart.compareTo(rightStart);
                   case 'confidence':
                   default:
                     return right.confidence.compareTo(left.confidence);
