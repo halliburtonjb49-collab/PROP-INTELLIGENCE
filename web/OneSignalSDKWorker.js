@@ -15,6 +15,7 @@ const PI_APP_SHELL = [
   '/favicon.png',
   '/icons/Icon-192.png',
   '/icons/Icon-512.png',
+  '/icons/apple-touch-icon-180.png',
   '/icons/Icon-maskable-safe-192.png',
   '/icons/Icon-maskable-safe-512.png',
 ];
