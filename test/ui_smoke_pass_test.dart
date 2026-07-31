@@ -78,7 +78,7 @@ void main() {
     expect(find.byKey(const ValueKey('tier-badge-core')), findsWidgets);
     expect(find.byKey(const ValueKey('tier-badge-edge')), findsWidgets);
     expect(find.byKey(const ValueKey('global-sound-toggle')), findsOneWidget);
-    expect(find.byIcon(Icons.notifications_active_rounded), findsWidgets);
+    expect(find.byIcon(Icons.visibility_rounded), findsWidgets);
     expect(
       find.byKey(const ValueKey('prop-sites-scroll-left')),
       findsOneWidget,

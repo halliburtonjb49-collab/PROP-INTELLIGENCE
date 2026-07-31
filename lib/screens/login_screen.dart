@@ -1625,7 +1625,7 @@ class _HeroBrand extends StatelessWidget {
         GestureDetector(
           onLongPress: onLongPress,
           child: Image.asset(
-            'assets/branding/prop_intelligence_logo_transparent.png',
+            'assets/branding/Final Master Logo.png',
             width: compact ? (dense ? 180 : 290) : (dense ? 355 : 450),
             height: compact ? (dense ? 180 : 290) : (dense ? 355 : 450),
             fit: BoxFit.contain,

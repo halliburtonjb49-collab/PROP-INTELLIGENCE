@@ -4222,7 +4222,10 @@ class _MainDashboardState extends State<MainDashboard> {
     }
 
     void slideSites(double delta) {
-      if (!_bookHorizontalController.hasClients) return;
+      if (!_bookHorizontalController.hasClients) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => slideSites(delta));
+        return;
+      }
       final target = (_bookHorizontalController.offset + delta).clamp(
         0.0,
         _bookHorizontalController.position.maxScrollExtent,
@@ -4242,221 +4245,242 @@ class _MainDashboardState extends State<MainDashboard> {
           key: const ValueKey('prop-sites-scroll-left'),
           tooltip: 'Previous prop sites',
           onPressed: () => slideSites(-240),
-          visualDensity: VisualDensity.compact,
-          icon: const Icon(Icons.chevron_left_rounded, color: AppColors.gold),
+          style: IconButton.styleFrom(
+            backgroundColor: AppColors.gold.withValues(alpha: .12),
+            side: const BorderSide(color: AppColors.gold),
+            minimumSize: const Size(38, 42),
+          ),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppColors.gold,
+            size: 16,
+          ),
         ),
         Expanded(
           child: SizedBox(
             height: 48,
-            child: Listener(
-              onPointerSignal: (event) {
-                if (event is! PointerScrollEvent ||
-                    !_bookHorizontalController.hasClients) {
-                  return;
-                }
-                final delta =
-                    event.scrollDelta.dy.abs() >= event.scrollDelta.dx.abs()
-                    ? event.scrollDelta.dy
-                    : event.scrollDelta.dx;
-                if (delta == 0) return;
-                final target = (_bookHorizontalController.offset + delta).clamp(
-                  0.0,
-                  _bookHorizontalController.position.maxScrollExtent,
-                );
-                unawaited(
-                  _bookHorizontalController.animateTo(
-                    target,
-                    duration: const Duration(milliseconds: 140),
-                    curve: Curves.easeOutCubic,
-                  ),
-                );
-              },
-              child: Scrollbar(
-                controller: _bookHorizontalController,
-                thumbVisibility: true,
-                trackVisibility: true,
-                interactive: true,
-                scrollbarOrientation: ScrollbarOrientation.bottom,
-                thickness: 4,
-                radius: const Radius.circular(99),
-                child: ListView.separated(
-                  key: const ValueKey('prop-sites-scroll-list'),
-                  controller: _bookHorizontalController,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.only(bottom: 6),
-                  itemCount: books.length + 3,
-                  separatorBuilder: (_, _) => const SizedBox(width: 6),
-                  itemBuilder: (context, index) {
-                    if (index == 1) {
-                      return SizedBox(
-                        key: const ValueKey('board-player-search'),
-                        width: 230,
-                        child: TextField(
-                          controller: _searchController,
-                          textInputAction: TextInputAction.search,
-                          onChanged: (value) {
-                            _searchDebounce?.cancel();
-                            _searchDebounce = Timer(
-                              const Duration(milliseconds: 250),
-                              () {
-                                if (!mounted) return;
-                                setState(() {
-                                  _searchQuery = value.trim().toLowerCase();
-                                  _focusedProp = null;
-                                  _latestProps = const [];
-                                  _lastUpdated = null;
-                                });
-                              },
-                            );
-                          },
-                          decoration: InputDecoration(
-                            hintText: 'Search players',
-                            prefixIcon: const Icon(
-                              Icons.search_rounded,
-                              size: 18,
-                            ),
-                            suffixIcon: _searchQuery.isEmpty
-                                ? null
-                                : IconButton(
-                                    tooltip: 'Clear player search',
-                                    onPressed: () {
-                                      _searchDebounce?.cancel();
-                                      _searchController.clear();
-                                      setState(() {
-                                        _searchQuery = '';
-                                        _focusedProp = null;
-                                        _latestProps = const [];
-                                        _lastUpdated = null;
-                                      });
-                                    },
-                                    icon: const Icon(Icons.close, size: 17),
-                                  ),
-                            filled: true,
-                            fillColor: app_colors.AppColors.sidebar,
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 8,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(7),
-                              borderSide: const BorderSide(
-                                color: AppColors.gold,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(7),
-                              borderSide: const BorderSide(
-                                color: AppColors.gold,
-                                width: 1.4,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-                    if (index == 2) {
-                      return Tooltip(
-                        message: 'Open PROP CHAT and join the community.',
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            OutlinedButton.icon(
-                              key: const ValueKey('board-prop-chat-button'),
-                              onPressed: () =>
-                                  widget.onSelectPage?.call(AppPage.propChat),
-                              icon: const Icon(Icons.forum_rounded, size: 17),
-                              label: const Text('PROP CHAT'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.gold,
-                                backgroundColor: AppColors.gold.withValues(
-                                  alpha: .08,
-                                ),
-                                side: const BorderSide(color: AppColors.gold),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 13,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(7),
-                                ),
-                              ),
-                            ),
-                            const Positioned(
-                              right: -7,
-                              top: -7,
-                              child: _ChatUnreadBadge(),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                    if (index == 3) {
-                      return OutlinedButton.icon(
-                        onPressed: _showBoardFilterOptions,
-                        icon: const Icon(Icons.filter_alt_outlined, size: 14),
-                        label: const Text(
-                          'FILTERS',
-                          style: TextStyle(fontSize: 8),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          backgroundColor: app_colors.AppColors.sidebar,
-                          side: const BorderSide(color: AppColors.border),
-                          padding: const EdgeInsets.symmetric(horizontal: 11),
-                        ),
-                      );
-                    }
-                    final book = books[index > 3 ? index - 3 : index];
-                    final selected = _selectedSite == book;
-                    return OutlinedButton(
-                      onPressed: () => setState(() {
-                        _selectedSite = book;
-                        _selectedSiteSport = '';
-                        _selectedCategory = 'ALL';
-                        _siteInventoryProps = const [];
-                        _siteSportCounts = const {};
-                        _siteSportCategoryCounts = const {};
-                        _focusedProp = null;
-                        _latestProps = const [];
-                        _categoryCounts = const {};
-                        _lastUpdated = null;
-                      }),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: selected
-                            ? AppColors.gold
-                            : Colors.white,
-                        backgroundColor: selected
-                            ? AppColors.gold.withValues(alpha: .10)
-                            : app_colors.AppColors.sidebar,
-                        side: BorderSide(
-                          color: selected ? AppColors.gold : AppColors.border,
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 13),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(7),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (book != 'ALL') ...[
-                            bookMark(book),
-                            const SizedBox(width: 6),
-                          ],
-                          Text(
-                            book == 'ALL' ? 'All Prop Sites' : book,
-                            style: const TextStyle(
-                              fontSize: 8,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          if (book == 'ALL') ...[
-                            const SizedBox(width: 5),
-                            bookMark(book),
-                          ],
-                        ],
-                      ),
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onHorizontalDragUpdate: (details) {
+                if (!_bookHorizontalController.hasClients) return;
+                final target =
+                    (_bookHorizontalController.offset - details.delta.dx).clamp(
+                      0.0,
+                      _bookHorizontalController.position.maxScrollExtent,
                     );
-                  },
+                _bookHorizontalController.jumpTo(target);
+              },
+              child: Listener(
+                onPointerSignal: (event) {
+                  if (event is! PointerScrollEvent ||
+                      !_bookHorizontalController.hasClients) {
+                    return;
+                  }
+                  final delta =
+                      event.scrollDelta.dy.abs() >= event.scrollDelta.dx.abs()
+                      ? event.scrollDelta.dy
+                      : event.scrollDelta.dx;
+                  if (delta == 0) return;
+                  final target = (_bookHorizontalController.offset + delta)
+                      .clamp(
+                        0.0,
+                        _bookHorizontalController.position.maxScrollExtent,
+                      );
+                  unawaited(
+                    _bookHorizontalController.animateTo(
+                      target,
+                      duration: const Duration(milliseconds: 140),
+                      curve: Curves.easeOutCubic,
+                    ),
+                  );
+                },
+                child: Scrollbar(
+                  controller: _bookHorizontalController,
+                  thumbVisibility: true,
+                  trackVisibility: true,
+                  interactive: true,
+                  scrollbarOrientation: ScrollbarOrientation.bottom,
+                  thickness: 4,
+                  radius: const Radius.circular(99),
+                  child: ListView.separated(
+                    key: const ValueKey('prop-sites-scroll-list'),
+                    controller: _bookHorizontalController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.only(bottom: 6),
+                    itemCount: books.length + 3,
+                    separatorBuilder: (_, _) => const SizedBox(width: 6),
+                    itemBuilder: (context, index) {
+                      if (index == 1) {
+                        return SizedBox(
+                          key: const ValueKey('board-player-search'),
+                          width: 230,
+                          child: TextField(
+                            controller: _searchController,
+                            textInputAction: TextInputAction.search,
+                            onChanged: (value) {
+                              _searchDebounce?.cancel();
+                              _searchDebounce = Timer(
+                                const Duration(milliseconds: 250),
+                                () {
+                                  if (!mounted) return;
+                                  setState(() {
+                                    _searchQuery = value.trim().toLowerCase();
+                                    _focusedProp = null;
+                                    _latestProps = const [];
+                                    _lastUpdated = null;
+                                  });
+                                },
+                              );
+                            },
+                            decoration: InputDecoration(
+                              hintText: 'Search players',
+                              prefixIcon: const Icon(
+                                Icons.search_rounded,
+                                size: 18,
+                              ),
+                              suffixIcon: _searchQuery.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      tooltip: 'Clear player search',
+                                      onPressed: () {
+                                        _searchDebounce?.cancel();
+                                        _searchController.clear();
+                                        setState(() {
+                                          _searchQuery = '';
+                                          _focusedProp = null;
+                                          _latestProps = const [];
+                                          _lastUpdated = null;
+                                        });
+                                      },
+                                      icon: const Icon(Icons.close, size: 17),
+                                    ),
+                              filled: true,
+                              fillColor: app_colors.AppColors.sidebar,
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 8,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(7),
+                                borderSide: const BorderSide(
+                                  color: AppColors.gold,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(7),
+                                borderSide: const BorderSide(
+                                  color: AppColors.gold,
+                                  width: 1.4,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      if (index == 2) {
+                        return Tooltip(
+                          message: 'Open PROP CHAT and join the community.',
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              OutlinedButton.icon(
+                                key: const ValueKey('board-prop-chat-button'),
+                                onPressed: () =>
+                                    widget.onSelectPage?.call(AppPage.propChat),
+                                icon: const Icon(Icons.forum_rounded, size: 17),
+                                label: const Text('PROP CHAT'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.gold,
+                                  backgroundColor: AppColors.gold.withValues(
+                                    alpha: .08,
+                                  ),
+                                  side: const BorderSide(color: AppColors.gold),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 13,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(7),
+                                  ),
+                                ),
+                              ),
+                              const Positioned(
+                                right: -7,
+                                top: -7,
+                                child: _ChatUnreadBadge(),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      if (index == 3) {
+                        return OutlinedButton.icon(
+                          onPressed: _showBoardFilterOptions,
+                          icon: const Icon(Icons.filter_alt_outlined, size: 14),
+                          label: const Text(
+                            'FILTERS',
+                            style: TextStyle(fontSize: 8),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: app_colors.AppColors.sidebar,
+                            side: const BorderSide(color: AppColors.border),
+                            padding: const EdgeInsets.symmetric(horizontal: 11),
+                          ),
+                        );
+                      }
+                      final book = books[index > 3 ? index - 3 : index];
+                      final selected = _selectedSite == book;
+                      return OutlinedButton(
+                        onPressed: () => setState(() {
+                          _selectedSite = book;
+                          _selectedSiteSport = '';
+                          _selectedCategory = 'ALL';
+                          _siteInventoryProps = const [];
+                          _siteSportCounts = const {};
+                          _siteSportCategoryCounts = const {};
+                          _focusedProp = null;
+                          _latestProps = const [];
+                          _categoryCounts = const {};
+                          _lastUpdated = null;
+                        }),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: selected
+                              ? AppColors.gold
+                              : Colors.white,
+                          backgroundColor: selected
+                              ? AppColors.gold.withValues(alpha: .10)
+                              : app_colors.AppColors.sidebar,
+                          side: BorderSide(
+                            color: selected ? AppColors.gold : AppColors.border,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 13),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (book != 'ALL') ...[
+                              bookMark(book),
+                              const SizedBox(width: 6),
+                            ],
+                            Text(
+                              book == 'ALL' ? 'All Prop Sites' : book,
+                              style: const TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            if (book == 'ALL') ...[
+                              const SizedBox(width: 5),
+                              bookMark(book),
+                            ],
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -4466,8 +4490,16 @@ class _MainDashboardState extends State<MainDashboard> {
           key: const ValueKey('prop-sites-scroll-right'),
           tooltip: 'More prop sites',
           onPressed: () => slideSites(240),
-          visualDensity: VisualDensity.compact,
-          icon: const Icon(Icons.chevron_right_rounded, color: AppColors.gold),
+          style: IconButton.styleFrom(
+            backgroundColor: AppColors.gold.withValues(alpha: .12),
+            side: const BorderSide(color: AppColors.gold),
+            minimumSize: const Size(38, 42),
+          ),
+          icon: const Icon(
+            Icons.arrow_forward_ios_rounded,
+            color: AppColors.gold,
+            size: 16,
+          ),
         ),
       ],
     );
@@ -7131,7 +7163,7 @@ class TopNavigation extends StatelessWidget {
                     _buildNavItem(
                       label: 'SCORE WATCH',
                       page: AppPage.scoreboardWatchlist,
-                      icon: Icons.notifications_active_rounded,
+                      icon: Icons.visibility_rounded,
                       requiredTier: SubscriptionTier.edge,
                       hasProUpgrade: true,
                     ),
@@ -8794,7 +8826,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                       border: Border.all(color: AppColors.gold),
                     ),
                     child: const Text(
-                      'E+ PROPS',
+                      'VIEW ALL PROPS',
                       style: TextStyle(
                         color: AppColors.gold,
                         fontSize: 7,
