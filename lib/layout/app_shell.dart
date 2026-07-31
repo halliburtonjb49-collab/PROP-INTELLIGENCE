@@ -15,6 +15,7 @@ class AppShell extends StatelessWidget {
     this.activeSlipCount = 0,
     this.watchedSlipCount = 0,
     this.mobileSelectedIndex = 0,
+    this.mobileRouteKey,
     this.onMobileWatchSlip,
     this.onMobileChat,
     this.onMobileDismissOverlay,
@@ -28,6 +29,7 @@ class AppShell extends StatelessWidget {
   final int activeSlipCount;
   final int watchedSlipCount;
   final int mobileSelectedIndex;
+  final Object? mobileRouteKey;
   final VoidCallback? onMobileWatchSlip;
   final VoidCallback? onMobileChat;
   final VoidCallback? onMobileDismissOverlay;
@@ -80,6 +82,7 @@ class AppShell extends StatelessWidget {
             activeSlipCount: activeSlipCount,
             watchedSlipCount: watchedSlipCount,
             selectedIndex: mobileSelectedIndex,
+            routeKey: mobileRouteKey,
             onWatchSlip: onMobileWatchSlip,
             onChat: onMobileChat,
             onDismissOverlay: onMobileDismissOverlay,
@@ -157,6 +160,7 @@ class _MobileAppShell extends StatefulWidget {
     required this.activeSlipCount,
     required this.watchedSlipCount,
     required this.selectedIndex,
+    required this.routeKey,
     required this.onWatchSlip,
     required this.onChat,
     required this.onDismissOverlay,
@@ -170,6 +174,7 @@ class _MobileAppShell extends StatefulWidget {
   final int activeSlipCount;
   final int watchedSlipCount;
   final int selectedIndex;
+  final Object? routeKey;
   final VoidCallback? onWatchSlip;
   final VoidCallback? onChat;
   final VoidCallback? onDismissOverlay;
@@ -185,7 +190,12 @@ class _MobileAppShellState extends State<_MobileAppShell> {
   @override
   void didUpdateWidget(covariant _MobileAppShell oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.content.key != widget.content.key) {
+    // The main content widgets normally have no keys, so comparing their keys
+    // never closed an open drawer after mobile navigation. Close either drawer
+    // whenever the selected destination changes so its modal barrier cannot
+    // leave the user trapped on the previous screen.
+    if (oldWidget.routeKey != widget.routeKey ||
+        oldWidget.selectedIndex != widget.selectedIndex) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final scaffold = _scaffoldKey.currentState;
@@ -265,7 +275,10 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                       widget.onDismissOverlay?.call();
                       widget.onWatchSlip?.call();
                     },
-                    onChat: widget.onChat,
+                    onChat: () {
+                      widget.onDismissOverlay?.call();
+                      widget.onChat?.call();
+                    },
                     onTicket: () {
                       widget.onDismissOverlay?.call();
                       _scaffoldKey.currentState?.openEndDrawer();

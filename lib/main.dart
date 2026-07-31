@@ -1832,6 +1832,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                 AppPage.watchlist => 2,
                 _ => 3,
               },
+              mobileRouteKey: _selectedPage,
               onMobileWatchSlip: () =>
                   _switchToPage(AppPage.watchlist, source: 'mobile-bottom-nav'),
               onMobileChat: _floatChat,

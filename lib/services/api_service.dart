@@ -1880,10 +1880,9 @@ class ApiService {
     required String status,
   }) async {
     final uri = Uri.parse('$baseUrl/api/slips/$slipId/status?status=$status');
-    final response = await http.patch(
-      uri,
-      headers: await _authenticatedHeaders(),
-    );
+    final response = await http
+        .patch(uri, headers: await _authenticatedHeaders())
+        .timeout(const Duration(seconds: 12));
 
     if (response.statusCode != 200) {
       throw Exception('Unable to update slip: ${response.body}');
@@ -1892,10 +1891,9 @@ class ApiService {
 
   Future<void> deleteSlip(String slipId) async {
     final uri = Uri.parse('$baseUrl/api/slips/$slipId');
-    final response = await http.delete(
-      uri,
-      headers: await _authenticatedHeaders(),
-    );
+    final response = await http
+        .delete(uri, headers: await _authenticatedHeaders())
+        .timeout(const Duration(seconds: 12));
 
     if (response.statusCode != 200) {
       throw Exception('Unable to unlock slip: ${response.body}');

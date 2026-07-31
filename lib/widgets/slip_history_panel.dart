@@ -129,6 +129,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   Map<String, Map<String, dynamic>> _liveStats = const {};
   List<SavedSlip> _lastGoodSlips = const [];
   final Set<String> _earlyWinNotified = <String>{};
+  final Set<String> _updatingSlipIds = <String>{};
 
   bool get _isHistory => widget.mode == SlipHistoryMode.history;
   bool get _hasEnhancedLiveTracking => supportsEnhancedSlipWatcher(
@@ -376,28 +377,51 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   }
 
   Future<void> _changeStatus(SavedSlip slip, String status) async {
-    final previous = _lastGoodSlips;
-    final remaining = previous.where((item) => item.id != slip.id).toList();
-    widget.activeSlipController.removeLockedSlip(slip.id);
-    SlipManager.reserveActiveSlips(remaining);
-    setState(() {
-      _lastGoodSlips = remaining;
-      _slipsFuture = Future.value(remaining);
-    });
+    if (_updatingSlipIds.contains(slip.id)) return;
+    if (slip.id.startsWith('pending-')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This ticket is still syncing. Try again in a moment.'),
+        ),
+      );
+      return;
+    }
+    setState(() => _updatingSlipIds.add(slip.id));
     try {
       await _apiService.updateSlipStatus(slipId: slip.id, status: status);
       if (!mounted) return;
+      final remaining = _lastGoodSlips
+          .where((item) => item.id != slip.id)
+          .toList();
+      widget.activeSlipController.removeLockedSlip(slip.id);
+      SlipManager.reserveActiveSlips(remaining);
+      setState(() {
+        _updatingSlipIds.remove(slip.id);
+        _lastGoodSlips = remaining;
+        _slipsFuture = Future.value(remaining);
+        _refreshError = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: brand_colors.AppColors.gold,
+          content: Text(
+            status == 'won' ? 'Ticket marked won.' : 'Ticket marked lost.',
+            style: const TextStyle(
+              color: brand_colors.AppColors.bgBase,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      );
       unawaited(_reloadSlipsOnly());
       unawaited(_refreshLockedSlipCount());
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _lastGoodSlips = previous;
-        _slipsFuture = Future.value(previous);
+        _updatingSlipIds.remove(slip.id);
         _refreshError =
-            'That result could not be saved. The ticket was restored; tap refresh to retry.';
+            'That result could not be saved. Check your connection and try again.';
       });
-      SlipManager.reserveActiveSlips(previous);
     }
   }
 
@@ -717,7 +741,8 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
           child: FutureBuilder<List<SavedSlip>>(
             future: _slipsFuture,
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  _lastGoodSlips.isEmpty) {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError && _lastGoodSlips.isEmpty) {
@@ -726,7 +751,9 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                   onRetry: _refreshGameStatuses,
                 );
               }
-              final slips = snapshot.hasError
+              final slips =
+                  snapshot.connectionState == ConnectionState.waiting ||
+                      snapshot.hasError
                   ? _lastGoodSlips
                   : snapshot.data ?? const <SavedSlip>[];
               final totals = _buildTotals(slips);
@@ -772,6 +799,9 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                                     onWon: () => _changeStatus(slip, 'won'),
                                     onLost: () => _changeStatus(slip, 'lost'),
                                     onUnlock: () => _unlockSlip(slip),
+                                    isUpdating: _updatingSlipIds.contains(
+                                      slip.id,
+                                    ),
                                     showDetails: _showInsights,
                                   ),
                                 ),
@@ -1504,6 +1534,7 @@ class _SavedSlipCard extends StatelessWidget {
   final VoidCallback onWon;
   final VoidCallback onLost;
   final VoidCallback onUnlock;
+  final bool isUpdating;
   final bool showDetails;
 
   const _SavedSlipCard({
@@ -1512,6 +1543,7 @@ class _SavedSlipCard extends StatelessWidget {
     required this.onWon,
     required this.onLost,
     required this.onUnlock,
+    this.isUpdating = false,
     this.showDetails = false,
   });
 
@@ -1828,7 +1860,7 @@ class _SavedSlipCard extends StatelessWidget {
                         child: SizedBox(
                           height: 30,
                           child: OutlinedButton(
-                            onPressed: onWon,
+                            onPressed: isUpdating ? null : onWon,
                             style: OutlinedButton.styleFrom(
                               foregroundColor: brand_colors.AppColors.gold,
                               side: const BorderSide(
@@ -1841,7 +1873,15 @@ class _SavedSlipCard extends StatelessWidget {
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
-                            child: const Text('MARK WON'),
+                            child: isUpdating
+                                ? const SizedBox.square(
+                                    dimension: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: brand_colors.AppColors.gold,
+                                    ),
+                                  )
+                                : const Text('MARK WON'),
                           ),
                         ),
                       ),
@@ -1850,7 +1890,7 @@ class _SavedSlipCard extends StatelessWidget {
                         child: SizedBox(
                           height: 30,
                           child: OutlinedButton(
-                            onPressed: onLost,
+                            onPressed: isUpdating ? null : onLost,
                             style: OutlinedButton.styleFrom(
                               foregroundColor: brand_colors.AppColors.danger,
                               side: const BorderSide(
