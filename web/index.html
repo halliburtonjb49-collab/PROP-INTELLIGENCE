@@ -96,6 +96,15 @@
       background: transparent !important;
       font-size: 20px;
     }
+    #pwa-update-card {
+      position: fixed; z-index: 10001; left: 50%; bottom: max(88px, env(safe-area-inset-bottom));
+      transform: translateX(-50%); display: none; align-items: center; gap: 12px;
+      width: min(440px, calc(100vw - 32px)); box-sizing: border-box; padding: 12px 14px;
+      border: 1px solid #d6b45f; border-radius: 14px; background: #07131d; color: #f7f1df;
+      box-shadow: 0 12px 36px rgba(0,0,0,.42); font: 700 13px/1.35 Arial,sans-serif;
+    }
+    #pwa-update-card span { flex: 1; }
+    #pwa-update-card button { min-height: 42px; padding: 0 14px; border: 0; border-radius: 9px; background: #d6b45f; color: #07131d; font-weight: 900; }
   </style>
 </head>
 <body>
@@ -111,6 +120,10 @@
     <span id="pwa-install-message">Install PROP INTELLIGENCE on this device.</span>
     <button id="pwa-install-action" type="button">INSTALL</button>
     <button id="pwa-install-dismiss" type="button" aria-label="Dismiss install prompt">&times;</button>
+  </aside>
+  <aside id="pwa-update-card" role="status" aria-live="polite">
+    <span>A fresh PROP INTELLIGENCE release is ready.</span>
+    <button id="pwa-update-action" type="button">UPDATE NOW</button>
   </aside>
   <!--
     You can customize the "flutter_bootstrap.js" script.

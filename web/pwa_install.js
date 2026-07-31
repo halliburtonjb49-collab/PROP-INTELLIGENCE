@@ -11,6 +11,8 @@
   const action = document.getElementById('pwa-install-action');
   const dismiss = document.getElementById('pwa-install-dismiss');
   const message = document.getElementById('pwa-install-message');
+  const updateCard = document.getElementById('pwa-update-card');
+  const updateAction = document.getElementById('pwa-update-action');
 
   const dismissedKey = 'prop-intelligence-pwa-install-dismissed';
   const wasDismissed = window.localStorage.getItem(dismissedKey) === 'true';
@@ -52,6 +54,29 @@
   }
 
   window.addEventListener('appinstalled', hide);
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+      try {
+        const registration = await navigator.serviceWorker.register(
+          '/OneSignalSDKWorker.js',
+          {scope: '/'},
+        );
+        await registration.update();
+      } catch (error) {
+        console.warn('PWA service worker registration failed.', error);
+      }
+    });
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'PI_UPDATE_READY' && updateCard) {
+        updateCard.style.display = 'flex';
+      }
+    });
+  }
+
+  if (updateAction) {
+    updateAction.addEventListener('click', () => window.location.reload());
+  }
 
   // Bridge for the Flutter app: lets any in-app "install" button trigger the
   // same native prompt captured above, instead of only the floating card.

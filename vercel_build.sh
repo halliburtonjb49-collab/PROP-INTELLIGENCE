@@ -80,4 +80,8 @@ flutter build web --release \
   --dart-define="TURNSTILE_BASE_URL=${TURNSTILE_BASE_URL}" \
   --dart-define="REVENUECAT_PUBLIC_API_KEY=${REVENUECAT_PUBLIC_API_KEY}"
 
+# Give every release a distinct app-shell cache and force stale clients to
+# activate the current production bundle on their next visit.
+sed -i "s/__PI_BUILD_VERSION__/${APP_VERSION}/g" build/web/OneSignalSDKWorker.js
+
 echo "Build complete! Output in build/web"
