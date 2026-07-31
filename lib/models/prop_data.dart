@@ -250,6 +250,18 @@ class PropData {
       !proSuggestionUsesHistoricalStats &&
       (marketLeanSide == 'OVER' || marketLeanSide == 'UNDER');
 
+  /// Absolute model advantage over the current line, in the stat's units.
+  ///
+  /// Older/cached payloads can contain a zero `edge` even when a projection
+  /// is present. Recomputing from the live line keeps every card consistent
+  /// when a prop line changes without inventing an edge when no projection
+  /// exists.
+  double? get calculatedEdge {
+    final value = projection;
+    if (value == null) return null;
+    return (value - line).abs();
+  }
+
   factory PropData.fromJson(Map<String, dynamic> json) {
     return PropData(
       id:

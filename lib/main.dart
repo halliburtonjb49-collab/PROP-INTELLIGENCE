@@ -4502,10 +4502,17 @@ class _MainDashboardState extends State<MainDashboard> {
         .toList(growable: false);
     final top = modeledProps.isEmpty
         ? null
-        : ([...modeledProps]..sort((a, b) => b.edge.compareTo(a.edge))).first;
+        : ([...modeledProps]..sort(
+                (a, b) =>
+                    (b.calculatedEdge ?? 0).compareTo(a.calculatedEdge ?? 0),
+              ))
+              .first;
     final averageEdge = modeledProps.isEmpty
         ? null
-        : modeledProps.fold<double>(0, (sum, prop) => sum + prop.edge) /
+        : modeledProps.fold<double>(
+                0,
+                (sum, prop) => sum + (prop.calculatedEdge ?? 0),
+              ) /
               modeledProps.length;
     final confidenceProps = modeledProps
         .where(
@@ -8520,6 +8527,7 @@ class _PropGridState extends State<PropGrid> {
         : PickSide.over;
     final market = _marketCategory(prop);
     final confidence = prop.confidence.clamp(0, 100);
+    final calculatedEdge = prop.calculatedEdge;
 
     Widget intelligenceMetric(String label, String value) {
       return Expanded(
@@ -8701,8 +8709,8 @@ class _PropGridState extends State<PropGrid> {
               children: [
                 intelligenceMetric(
                   'EDGE',
-                  hasProAccess && prop.projection != null
-                      ? '${prop.edge >= 0 ? '+' : ''}${prop.edge.toStringAsFixed(2)}%'
+                  hasProAccess && calculatedEdge != null
+                      ? '+${calculatedEdge.toStringAsFixed(2)}'
                       : '--',
                 ),
                 intelligenceMetric(
@@ -8834,7 +8842,9 @@ class _PropGridState extends State<PropGrid> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    hasModelRecommendation ? '$confidence%' : '--',
+                    hasProAccess && calculatedEdge != null
+                        ? calculatedEdge.toStringAsFixed(2)
+                        : '--',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 15,

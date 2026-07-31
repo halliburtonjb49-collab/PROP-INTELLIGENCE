@@ -103,9 +103,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
     return 'MARKET LEAN';
   }
 
-  double _edge(PropData prop) => prop.projection == null
-      ? prop.edge.abs()
-      : (prop.projection! - prop.line).abs();
+  double _edge(PropData prop) => prop.calculatedEdge ?? prop.edge.abs();
 
   Future<void> _load() async {
     setState(() {
@@ -800,7 +798,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                 child: _datum(
                   'EDGE',
                   delta == null
-                      ? '${prop.edge.toStringAsFixed(1)}%'
+                      ? '--'
                       : '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(2)} K',
                 ),
               ),
