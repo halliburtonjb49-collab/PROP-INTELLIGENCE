@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
@@ -26,14 +28,25 @@ class _RefereeTrackerPageState extends State<RefereeTrackerPage> {
   bool _loading = true;
   String? _error;
   Map<String, dynamic>? _payload;
+  Timer? _refreshTimer;
+  bool _loadInFlight = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _refreshTimer = Timer.periodic(const Duration(minutes: 5), (_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
+    if (_loadInFlight) return;
+    _loadInFlight = true;
     setState(() {
       _loading = true;
       _error = null;
@@ -49,6 +62,7 @@ class _RefereeTrackerPageState extends State<RefereeTrackerPage> {
             'Referee data is temporarily unavailable. Try refreshing shortly.';
       });
     } finally {
+      _loadInFlight = false;
       if (mounted) setState(() => _loading = false);
     }
   }

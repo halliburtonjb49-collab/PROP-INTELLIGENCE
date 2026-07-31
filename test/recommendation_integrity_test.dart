@@ -80,4 +80,40 @@ void main() {
 
     expect(prop.calculatedEdge, 1.75);
   });
+
+  test('uses the provider line discrepancy when model fields are omitted', () {
+    final prop = PropData.fromJson({
+      'id': 'prop-5',
+      'player': 'Test Player',
+      'sport': 'MLB',
+      'matchup': 'Away @ Home',
+      'sportsbook': 'Book',
+      'market': 'Strikeouts',
+      'line': 6.5,
+      'lineDiscrepancy': -1.25,
+      'edge': 0,
+      'pick': 'UNDER',
+      'imagePath': '',
+    });
+
+    expect(prop.calculatedEdge, 1.25);
+  });
+
+  test('derives the discrepancy from market origin and live line', () {
+    final prop = PropData.fromJson({
+      'id': 'prop-6',
+      'player': 'Test Player',
+      'sport': 'NFL',
+      'matchup': 'Away @ Home',
+      'sportsbook': 'Book',
+      'market': 'Receiving Yards',
+      'line': 67.5,
+      'marketOriginLine': 70.0,
+      'edge': 0,
+      'pick': 'OVER',
+      'imagePath': '',
+    });
+
+    expect(prop.calculatedEdge, 2.5);
+  });
 }

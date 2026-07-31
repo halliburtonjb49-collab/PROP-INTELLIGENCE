@@ -31,33 +31,47 @@ class _GameMarketsScreenState extends State<GameMarketsScreen> {
   String _market = 'h2h';
   GameMarketFeed? _feed;
   bool _loading = true;
+  bool _loadInFlight = false;
   String? _error;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     unawaited(_load());
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => unawaited(_load(refresh: true)),
+    );
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _load({bool refresh = false}) async {
-    if (!refresh && _feed == null) {
-      final cached = await _api.loadCachedGameMarkets(_sport);
-      if (!mounted) return;
-      if (cached != null && cached.events.isNotEmpty) {
+    if (_loadInFlight) return;
+    _loadInFlight = true;
+    try {
+      if (!refresh && _feed == null) {
+        final cached = await _api.loadCachedGameMarkets(_sport);
+        if (!mounted) return;
+        if (cached != null && cached.events.isNotEmpty) {
+          setState(() {
+            _feed = cached;
+            _loading = false;
+            _error = null;
+          });
+        }
+      }
+      if (_feed == null || refresh) {
         setState(() {
-          _feed = cached;
-          _loading = false;
+          _loading = true;
           _error = null;
         });
       }
-    }
-    if (_feed == null || refresh) {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
-    }
-    try {
       final feed = await _api.fetchGameMarkets(sport: _sport, refresh: refresh);
       if (!mounted) return;
       setState(() => _feed = feed);
@@ -65,6 +79,7 @@ class _GameMarketsScreenState extends State<GameMarketsScreen> {
       if (!mounted) return;
       if (_feed == null) setState(() => _error = error.toString());
     } finally {
+      _loadInFlight = false;
       if (mounted) setState(() => _loading = false);
     }
   }

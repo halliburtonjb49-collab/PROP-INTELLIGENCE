@@ -1071,9 +1071,9 @@ class _TotalsBar extends StatelessWidget {
 
     return Row(
       children: [
-        pill('SLIPS', '${totals.totalSlips}', brand_colors.AppColors.gold),
+        pill('SLIPS', '${totals.totalSlips}', brand_colors.AppColors.silver),
         const SizedBox(width: 8),
-        pill('SLIP WINS', '${totals.wonSlips}', brand_colors.AppColors.gold),
+        pill('SLIP WINS', '${totals.wonSlips}', brand_colors.AppColors.success),
         const SizedBox(width: 8),
         pill(
           'SLIP LOSSES',
@@ -1081,7 +1081,11 @@ class _TotalsBar extends StatelessWidget {
           brand_colors.AppColors.danger,
         ),
         const SizedBox(width: 8),
-        pill('PENDING', '${totals.pendingLegs}', brand_colors.AppColors.gold),
+        pill(
+          'PENDING',
+          '${totals.pendingLegs}',
+          brand_colors.AppColors.warning,
+        ),
       ],
     );
   }

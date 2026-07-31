@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/prop_data.dart';
@@ -25,11 +27,22 @@ class AnalyticsPage extends StatefulWidget {
 class _AnalyticsPageState extends State<AnalyticsPage> {
   final ApiService _apiService = ApiService();
   late Future<List<PropData>> _propsFuture;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _propsFuture = _apiService.fetchProps();
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => _refresh(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -41,6 +54,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   }
 
   void _refresh() {
+    if (!mounted) return;
     setState(() {
       _propsFuture = _apiService.fetchProps();
     });
@@ -203,7 +217,10 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           final total = props.length;
           final avgEdge = total == 0
               ? 0
-              : props.map((p) => p.edge).reduce((a, b) => a + b) / total;
+              : props
+                        .map((p) => p.calculatedEdge ?? 0)
+                        .reduce((a, b) => a + b) /
+                    total;
 
           final bySport = <String, int>{};
           final byBook = <String, int>{};
@@ -223,12 +240,13 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           final rankedProps = [...props]
             ..sort(
               widget.hasProAccess
-                  ? (a, b) => b.edge.compareTo(a.edge)
+                  ? (a, b) =>
+                        (b.calculatedEdge ?? 0).compareTo(a.calculatedEdge ?? 0)
                   : (a, b) => a.player.compareTo(b.player),
             );
           final alerts = <String>[
             if (rankedProps.isNotEmpty)
-              'Top edge: ${rankedProps.first.player} (${rankedProps.first.edge}%)',
+              'Top edge: ${rankedProps.first.player} (${(rankedProps.first.calculatedEdge ?? 0).toStringAsFixed(2)})',
             if (topSport != null)
               'Most active sport: ${topSport.key} (${topSport.value})',
             if (topBook != null)

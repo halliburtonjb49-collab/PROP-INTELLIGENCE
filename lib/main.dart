@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1974,6 +1975,10 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     label: 'SCORE WATCH',
                     leadingIcons: const [Icons.notifications_active_rounded],
                     leadingIconColors: const [AppColors.gold],
+                    trailingIcon: Icons.visibility_rounded,
+                    trailingIconKey: const ValueKey(
+                      'score-watch-trailing-icon',
+                    ),
                     selected:
                         widget.selectedPage == AppPage.scoreboardWatchlist,
                     requiredTier: SubscriptionTier.edge,
@@ -2226,8 +2231,8 @@ class _SidebarHeader extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.asset(
-                  'assets/branding/prop_intelligence_icon.png',
-                  fit: BoxFit.cover,
+                  'assets/branding/prop_intelligence_logo.png',
+                  fit: BoxFit.contain,
                 ),
               ),
             ),
@@ -2386,6 +2391,8 @@ class SidebarButton extends StatelessWidget {
   final List<Color>? leadingIconColors;
   final List<String>? leadingEmojis;
   final List<Color>? leadingEmojiGradient;
+  final IconData? trailingIcon;
+  final Key? trailingIconKey;
   final VoidCallback? onTap;
 
   const SidebarButton({
@@ -2400,6 +2407,8 @@ class SidebarButton extends StatelessWidget {
     this.leadingIconColors,
     this.leadingEmojis,
     this.leadingEmojiGradient,
+    this.trailingIcon,
+    this.trailingIconKey,
     this.onTap,
   });
 
@@ -2535,6 +2544,15 @@ class SidebarButton extends StatelessWidget {
                       ),
                     ),
             ),
+            if (trailingIcon != null) ...[
+              Icon(
+                trailingIcon,
+                key: trailingIconKey,
+                size: 14,
+                color: app_colors.AppColors.gold,
+              ),
+              const SizedBox(width: 6),
+            ],
             if (badge != null)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -4230,188 +4248,216 @@ class _MainDashboardState extends State<MainDashboard> {
         Expanded(
           child: SizedBox(
             height: 48,
-            child: Scrollbar(
-              controller: _bookHorizontalController,
-              thumbVisibility: true,
-              trackVisibility: true,
-              interactive: true,
-              scrollbarOrientation: ScrollbarOrientation.bottom,
-              thickness: 4,
-              radius: const Radius.circular(99),
-              child: ListView.separated(
-                key: const ValueKey('prop-sites-scroll-list'),
+            child: Listener(
+              onPointerSignal: (event) {
+                if (event is! PointerScrollEvent ||
+                    !_bookHorizontalController.hasClients) {
+                  return;
+                }
+                final delta =
+                    event.scrollDelta.dy.abs() >= event.scrollDelta.dx.abs()
+                    ? event.scrollDelta.dy
+                    : event.scrollDelta.dx;
+                if (delta == 0) return;
+                final target = (_bookHorizontalController.offset + delta).clamp(
+                  0.0,
+                  _bookHorizontalController.position.maxScrollExtent,
+                );
+                unawaited(
+                  _bookHorizontalController.animateTo(
+                    target,
+                    duration: const Duration(milliseconds: 140),
+                    curve: Curves.easeOutCubic,
+                  ),
+                );
+              },
+              child: Scrollbar(
                 controller: _bookHorizontalController,
-                physics: const AlwaysScrollableScrollPhysics(),
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.only(bottom: 6),
-                itemCount: books.length + 3,
-                separatorBuilder: (_, _) => const SizedBox(width: 6),
-                itemBuilder: (context, index) {
-                  if (index == 1) {
-                    return SizedBox(
-                      key: const ValueKey('board-player-search'),
-                      width: 230,
-                      child: TextField(
-                        controller: _searchController,
-                        textInputAction: TextInputAction.search,
-                        onChanged: (value) {
-                          _searchDebounce?.cancel();
-                          _searchDebounce = Timer(
-                            const Duration(milliseconds: 250),
-                            () {
-                              if (!mounted) return;
-                              setState(() {
-                                _searchQuery = value.trim().toLowerCase();
-                                _focusedProp = null;
-                                _latestProps = const [];
-                                _lastUpdated = null;
-                              });
-                            },
-                          );
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Search players',
-                          prefixIcon: const Icon(
-                            Icons.search_rounded,
-                            size: 18,
+                thumbVisibility: true,
+                trackVisibility: true,
+                interactive: true,
+                scrollbarOrientation: ScrollbarOrientation.bottom,
+                thickness: 4,
+                radius: const Radius.circular(99),
+                child: ListView.separated(
+                  key: const ValueKey('prop-sites-scroll-list'),
+                  controller: _bookHorizontalController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.only(bottom: 6),
+                  itemCount: books.length + 3,
+                  separatorBuilder: (_, _) => const SizedBox(width: 6),
+                  itemBuilder: (context, index) {
+                    if (index == 1) {
+                      return SizedBox(
+                        key: const ValueKey('board-player-search'),
+                        width: 230,
+                        child: TextField(
+                          controller: _searchController,
+                          textInputAction: TextInputAction.search,
+                          onChanged: (value) {
+                            _searchDebounce?.cancel();
+                            _searchDebounce = Timer(
+                              const Duration(milliseconds: 250),
+                              () {
+                                if (!mounted) return;
+                                setState(() {
+                                  _searchQuery = value.trim().toLowerCase();
+                                  _focusedProp = null;
+                                  _latestProps = const [];
+                                  _lastUpdated = null;
+                                });
+                              },
+                            );
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'Search players',
+                            prefixIcon: const Icon(
+                              Icons.search_rounded,
+                              size: 18,
+                            ),
+                            suffixIcon: _searchQuery.isEmpty
+                                ? null
+                                : IconButton(
+                                    tooltip: 'Clear player search',
+                                    onPressed: () {
+                                      _searchDebounce?.cancel();
+                                      _searchController.clear();
+                                      setState(() {
+                                        _searchQuery = '';
+                                        _focusedProp = null;
+                                        _latestProps = const [];
+                                        _lastUpdated = null;
+                                      });
+                                    },
+                                    icon: const Icon(Icons.close, size: 17),
+                                  ),
+                            filled: true,
+                            fillColor: app_colors.AppColors.sidebar,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(7),
+                              borderSide: const BorderSide(
+                                color: AppColors.gold,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(7),
+                              borderSide: const BorderSide(
+                                color: AppColors.gold,
+                                width: 1.4,
+                              ),
+                            ),
                           ),
-                          suffixIcon: _searchQuery.isEmpty
-                              ? null
-                              : IconButton(
-                                  tooltip: 'Clear player search',
-                                  onPressed: () {
-                                    _searchDebounce?.cancel();
-                                    _searchController.clear();
-                                    setState(() {
-                                      _searchQuery = '';
-                                      _focusedProp = null;
-                                      _latestProps = const [];
-                                      _lastUpdated = null;
-                                    });
-                                  },
-                                  icon: const Icon(Icons.close, size: 17),
+                        ),
+                      );
+                    }
+                    if (index == 2) {
+                      return Tooltip(
+                        message: 'Open PROP CHAT and join the community.',
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            OutlinedButton.icon(
+                              key: const ValueKey('board-prop-chat-button'),
+                              onPressed: () =>
+                                  widget.onSelectPage?.call(AppPage.propChat),
+                              icon: const Icon(Icons.forum_rounded, size: 17),
+                              label: const Text('PROP CHAT'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.gold,
+                                backgroundColor: AppColors.gold.withValues(
+                                  alpha: .08,
                                 ),
-                          filled: true,
-                          fillColor: app_colors.AppColors.sidebar,
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 8,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(7),
-                            borderSide: const BorderSide(color: AppColors.gold),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(7),
-                            borderSide: const BorderSide(
-                              color: AppColors.gold,
-                              width: 1.4,
+                                side: const BorderSide(color: AppColors.gold),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 13,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(7),
+                                ),
+                              ),
                             ),
-                          ),
+                            const Positioned(
+                              right: -7,
+                              top: -7,
+                              child: _ChatUnreadBadge(),
+                            ),
+                          ],
                         ),
-                      ),
-                    );
-                  }
-                  if (index == 2) {
-                    return Tooltip(
-                      message: 'Open PROP CHAT and join the community.',
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          OutlinedButton.icon(
-                            key: const ValueKey('board-prop-chat-button'),
-                            onPressed: () =>
-                                widget.onSelectPage?.call(AppPage.propChat),
-                            icon: const Icon(Icons.forum_rounded, size: 17),
-                            label: const Text('PROP CHAT'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.gold,
-                              backgroundColor: AppColors.gold.withValues(
-                                alpha: .08,
-                              ),
-                              side: const BorderSide(color: AppColors.gold),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 13,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(7),
-                              ),
-                            ),
-                          ),
-                          const Positioned(
-                            right: -7,
-                            top: -7,
-                            child: _ChatUnreadBadge(),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                  if (index == 3) {
-                    return OutlinedButton.icon(
-                      onPressed: _showBoardFilterOptions,
-                      icon: const Icon(Icons.filter_alt_outlined, size: 14),
-                      label: const Text(
-                        'FILTERS',
-                        style: TextStyle(fontSize: 8),
-                      ),
+                      );
+                    }
+                    if (index == 3) {
+                      return OutlinedButton.icon(
+                        onPressed: _showBoardFilterOptions,
+                        icon: const Icon(Icons.filter_alt_outlined, size: 14),
+                        label: const Text(
+                          'FILTERS',
+                          style: TextStyle(fontSize: 8),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: app_colors.AppColors.sidebar,
+                          side: const BorderSide(color: AppColors.border),
+                          padding: const EdgeInsets.symmetric(horizontal: 11),
+                        ),
+                      );
+                    }
+                    final book = books[index > 3 ? index - 3 : index];
+                    final selected = _selectedSite == book;
+                    return OutlinedButton(
+                      onPressed: () => setState(() {
+                        _selectedSite = book;
+                        _selectedSiteSport = '';
+                        _selectedCategory = 'ALL';
+                        _siteInventoryProps = const [];
+                        _siteSportCounts = const {};
+                        _siteSportCategoryCounts = const {};
+                        _focusedProp = null;
+                        _latestProps = const [];
+                        _categoryCounts = const {};
+                        _lastUpdated = null;
+                      }),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        backgroundColor: app_colors.AppColors.sidebar,
-                        side: const BorderSide(color: AppColors.border),
-                        padding: const EdgeInsets.symmetric(horizontal: 11),
+                        foregroundColor: selected
+                            ? AppColors.gold
+                            : Colors.white,
+                        backgroundColor: selected
+                            ? AppColors.gold.withValues(alpha: .10)
+                            : app_colors.AppColors.sidebar,
+                        side: BorderSide(
+                          color: selected ? AppColors.gold : AppColors.border,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (book != 'ALL') ...[
+                            bookMark(book),
+                            const SizedBox(width: 6),
+                          ],
+                          Text(
+                            book == 'ALL' ? 'All Prop Sites' : book,
+                            style: const TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          if (book == 'ALL') ...[
+                            const SizedBox(width: 5),
+                            bookMark(book),
+                          ],
+                        ],
                       ),
                     );
-                  }
-                  final book = books[index > 3 ? index - 3 : index];
-                  final selected = _selectedSite == book;
-                  return OutlinedButton(
-                    onPressed: () => setState(() {
-                      _selectedSite = book;
-                      _selectedSiteSport = '';
-                      _selectedCategory = 'ALL';
-                      _siteInventoryProps = const [];
-                      _siteSportCounts = const {};
-                      _siteSportCategoryCounts = const {};
-                      _focusedProp = null;
-                      _latestProps = const [];
-                      _categoryCounts = const {};
-                      _lastUpdated = null;
-                    }),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: selected ? AppColors.gold : Colors.white,
-                      backgroundColor: selected
-                          ? AppColors.gold.withValues(alpha: .10)
-                          : app_colors.AppColors.sidebar,
-                      side: BorderSide(
-                        color: selected ? AppColors.gold : AppColors.border,
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 13),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(7),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (book != 'ALL') ...[
-                          bookMark(book),
-                          const SizedBox(width: 6),
-                        ],
-                        Text(
-                          book == 'ALL' ? 'All Prop Sites' : book,
-                          style: const TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        if (book == 'ALL') ...[
-                          const SizedBox(width: 5),
-                          bookMark(book),
-                        ],
-                      ],
-                    ),
-                  );
-                },
+                  },
+                ),
               ),
             ),
           ),
@@ -6717,7 +6763,7 @@ class PropIntelligenceBrandBadge extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: Image.asset(
-            'assets/branding/prop_intelligence_icon.png',
+            'assets/branding/prop_intelligence_logo.png',
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {
               return const Center(
@@ -8689,6 +8735,26 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         children: [
           Row(
             children: [
+              Container(
+                key: ValueKey('prop-sport-${prop.id}'),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: app_colors.AppColors.blue.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: app_colors.AppColors.blue),
+                ),
+                child: Text(
+                  prop.sport.trim().isEmpty
+                      ? 'SPORT'
+                      : prop.sport.toUpperCase(),
+                  style: const TextStyle(
+                    color: app_colors.AppColors.blue,
+                    fontSize: 7,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   market,
@@ -8701,20 +8767,31 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.gold.withValues(alpha: .16),
+              Tooltip(
+                message: 'Open every available prop for ${prop.player}',
+                child: InkWell(
+                  key: ValueKey('prop-all-player-props-${prop.id}'),
+                  onTap: () => widget.onPropFocused?.call(prop),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: AppColors.gold),
-                ),
-                child: const Text(
-                  'E+',
-                  style: TextStyle(
-                    color: AppColors.gold,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .5,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.gold.withValues(alpha: .16),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: AppColors.gold),
+                    ),
+                    child: const Text(
+                      'E+ PROPS',
+                      style: TextStyle(
+                        color: AppColors.gold,
+                        fontSize: 7,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .3,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -9244,7 +9321,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     Expanded(
                       child: _compactMetric(
                         'EDGE',
-                        '+${prop.edge.toStringAsFixed(2)}%',
+                        prop.calculatedEdge == null
+                            ? '--'
+                            : '+${prop.calculatedEdge!.toStringAsFixed(2)}',
                         const Color(0xFF61E34D),
                       ),
                     ),
@@ -10113,7 +10192,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     if (rightStart == null) return -1;
                     return leftStart.compareTo(rightStart);
                   case 'edge':
-                    return right.edge.compareTo(left.edge);
+                    return (right.calculatedEdge ?? 0).compareTo(
+                      left.calculatedEdge ?? 0,
+                    );
                   case 'premium':
                     final rankDiff = tierRank(right.tier) - tierRank(left.tier);
                     if (rankDiff != 0) {
@@ -10770,7 +10851,9 @@ class PropCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '${prop.edge.toStringAsFixed(2)} edge',
+                prop.calculatedEdge == null
+                    ? 'Edge pending'
+                    : '${prop.calculatedEdge!.toStringAsFixed(2)} edge',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 8.5,

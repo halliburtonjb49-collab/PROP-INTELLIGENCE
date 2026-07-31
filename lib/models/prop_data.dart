@@ -267,6 +267,13 @@ class PropData {
     // unavailable, so we never manufacture an edge for an ungraded prop.
     if (recommendationEdge.abs() > 0) return recommendationEdge.abs();
     if (edge.abs() > 0) return edge.abs();
+    if (lineDiscrepancy != null && lineDiscrepancy!.abs() > 0) {
+      return lineDiscrepancy!.abs();
+    }
+    final origin = marketOriginLine;
+    if (origin != null && line > 0 && (origin - line).abs() > 0) {
+      return (origin - line).abs();
+    }
     return null;
   }
 

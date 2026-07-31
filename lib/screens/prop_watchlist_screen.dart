@@ -40,11 +40,22 @@ class _PropWatchlistScreenState extends State<PropWatchlistScreen> {
   bool _isLoading = true;
   bool _isCheckingLines = false;
   String? _error;
+  Timer? _lineRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadWatchlist();
+    _lineRefreshTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => unawaited(_checkLines()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lineRefreshTimer?.cancel();
+    super.dispose();
   }
 
   String _propId(Map<String, dynamic> prop) {
