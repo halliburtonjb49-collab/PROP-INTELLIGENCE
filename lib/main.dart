@@ -36,6 +36,8 @@ import 'services/player_image_resolver.dart';
 import 'services/prop_chat_service.dart';
 import 'services/recommendation_access.dart';
 import 'services/slip_manager.dart';
+import 'services/scoreboard_service.dart';
+import 'services/scoreboard_watchlist_service.dart';
 import 'services/supabase_service.dart';
 import 'services/user_facing_error.dart';
 import 'theme/app_scroll_behavior.dart';
@@ -201,6 +203,7 @@ enum AppPage {
   evScanner,
   searchPlayers,
   scoreboard,
+  scoreboardWatchlist,
   propAlerts,
   analytics,
   lineMovement,
@@ -661,6 +664,14 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   void initState() {
     super.initState();
     PropChatService.latestNotification.addListener(_showChatNotification);
+    ScoreboardWatchlistService.instance.latestAlert.addListener(
+      _showScoreboardWatchAlert,
+    );
+    unawaited(
+      ScoreboardWatchlistService.instance.start(
+        ScoreboardService(baseUrl: ApiService.baseUrl),
+      ),
+    );
     _startupLog('active slip load start');
     unawaited(
       _activeSlipController.load().then(
@@ -714,6 +725,30 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     );
   }
 
+  void _showScoreboardWatchAlert() {
+    final alert = ScoreboardWatchlistService.instance.latestAlert.value;
+    if (!mounted || alert == null) return;
+    unawaited(
+      AppSoundService.instance.play(
+        alert.type == ScoreboardWatchAlertType.finalResult
+            ? AppSoundEvent.success
+            : AppSoundEvent.warning,
+      ),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(alert.message, maxLines: 2),
+        action: SnackBarAction(
+          label: 'WATCHLIST',
+          onPressed: () => _switchToPage(
+            AppPage.scoreboardWatchlist,
+            source: 'scoreboard-watch-alert',
+          ),
+        ),
+      ),
+    );
+  }
+
   /// So the SLIP WATCHER sidebar badge is correct immediately on load,
   /// not just after the user visits that page (which is what actually
   /// keeps it updated afterward, via SlipHistoryPanel).
@@ -731,6 +766,10 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   @override
   void dispose() {
     PropChatService.latestNotification.removeListener(_showChatNotification);
+    ScoreboardWatchlistService.instance.latestAlert.removeListener(
+      _showScoreboardWatchAlert,
+    );
+    ScoreboardWatchlistService.instance.stop();
     _activeSlipController.dispose();
     _chatOffset.dispose();
     _chatSize.dispose();
@@ -798,6 +837,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       case AppPage.evScanner:
       case AppPage.searchPlayers:
       case AppPage.scoreboard:
+      case AppPage.scoreboardWatchlist:
       case AppPage.propAlerts:
       case AppPage.analytics:
       case AppPage.lineMovement:
@@ -4970,6 +5010,8 @@ class _MainDashboardState extends State<MainDashboard> {
                 ? _buildEvScanner()
                 : widget.selectedPage == AppPage.scoreboard
                 ? const LiveScoreboardTickerGridWidget()
+                : widget.selectedPage == AppPage.scoreboardWatchlist
+                ? const LiveScoreboardTickerGridWidget(watchedOnly: true)
                 : widget.selectedPage == AppPage.propAlerts
                 ? PropAlertsPage(alerts: alertsForPage)
                 : widget.selectedPage == AppPage.analytics
@@ -6757,6 +6799,8 @@ class TopNavigation extends StatelessWidget {
       'Choose NBA or WNBA, search for an official and compare sample-adjusted whistle rates with the league average. Treat tendencies as context, not a guaranteed prediction.',
     AppPage.scoreboard =>
       'Choose a date or sport to follow upcoming, live and completed games. Use scores and game status to confirm context before evaluating or grading a prop.',
+    AppPage.scoreboardWatchlist =>
+      'Games selected with WATCH appear here for quick access. Score changes, final winners, overtime and other extended play trigger an in-app alert.',
     AppPage.searchPlayers =>
       'Search a player, open the active research view and compare every available market and site before choosing a prop.',
     AppPage.propAlerts =>
@@ -6821,6 +6865,8 @@ class TopNavigation extends StatelessWidget {
         AppPage.gameMarkets =>
           'Compare moneylines, spreads, and game totals across sportsbooks',
         AppPage.scoreboard => 'Follow live, upcoming, and final games',
+        AppPage.scoreboardWatchlist =>
+          'Quickly follow games selected from the scoreboard',
         AppPage.analytics =>
           'Review analytics and, for owners, manage platform data',
         AppPage.ownerOperations =>
@@ -6891,6 +6937,7 @@ class TopNavigation extends StatelessWidget {
     AppPage.board => 'MARKET BOARD',
     AppPage.gameMarkets => 'GAME MARKETS',
     AppPage.scoreboard => 'LIVE SCOREBOARD',
+    AppPage.scoreboardWatchlist => 'SCOREBOARD WATCHLIST',
     AppPage.analytics => 'PERFORMANCE ANALYTICS',
     AppPage.lineMovement => 'LINE MOVEMENT',
     AppPage.intelligenceLab => 'INTELLIGENCE LAB',
@@ -6913,6 +6960,8 @@ class TopNavigation extends StatelessWidget {
     AppPage.gameMarkets =>
       'Compare moneylines, spreads and totals across sportsbooks',
     AppPage.scoreboard => 'Follow live, upcoming and completed games',
+    AppPage.scoreboardWatchlist =>
+      'Quick-view watched games with live score and result alerts',
     AppPage.analytics => 'Analytics and owner data-management workspace',
     AppPage.lineMovement => 'Monitor number and price changes in real time',
     AppPage.intelligenceLab => 'Stress-test correlation, context and scenarios',
@@ -7054,6 +7103,12 @@ class TopNavigation extends StatelessWidget {
                       label: 'SCOREBOARD',
                       page: AppPage.scoreboard,
                       icon: Icons.sports_score_rounded,
+                    ),
+                    const SizedBox(width: 4),
+                    _buildNavItem(
+                      label: 'SCORE WATCH',
+                      page: AppPage.scoreboardWatchlist,
+                      icon: Icons.star_rounded,
                     ),
                     const SizedBox(width: 4),
                     ValueListenableBuilder<int>(

@@ -6,9 +6,12 @@ import '../controllers/scoreboard_controller.dart';
 import '../models/scoreboard_game.dart';
 import '../services/api_service.dart';
 import '../services/scoreboard_service.dart';
+import '../services/scoreboard_watchlist_service.dart';
 
 class LiveScoreboardTickerGridWidget extends StatefulWidget {
-  const LiveScoreboardTickerGridWidget({super.key});
+  const LiveScoreboardTickerGridWidget({super.key, this.watchedOnly = false});
+
+  final bool watchedOnly;
 
   @override
   State<LiveScoreboardTickerGridWidget> createState() =>
@@ -30,7 +33,8 @@ class _LiveScoreboardTickerGridWidgetState
 
   late final ScoreboardController _controller;
   final ScrollController _scrollController = ScrollController();
-  final Set<String> _watchedGameIds = <String>{};
+  final ScoreboardWatchlistService _watchlist =
+      ScoreboardWatchlistService.instance;
   String _selectedTab = 'ALL GAMES';
   String _selectedSport = 'ALL SPORTS';
   bool _autoRefresh = true;
@@ -42,25 +46,34 @@ class _LiveScoreboardTickerGridWidgetState
       service: ScoreboardService(baseUrl: ApiService.baseUrl),
     );
     _controller.addListener(_handleControllerUpdate);
+    _watchlist.watchedIds.addListener(_handleControllerUpdate);
+    unawaited(_watchlist.load());
     unawaited(_controller.load(silent: _controller.games.isNotEmpty));
     _controller.beginLiveRefresh();
   }
 
   void _handleControllerUpdate() {
+    _watchlist.processGames(_controller.games);
     if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _controller.removeListener(_handleControllerUpdate);
+    _watchlist.watchedIds.removeListener(_handleControllerUpdate);
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   List<ScoreboardGame> get _sportGames {
-    if (_selectedSport == 'ALL SPORTS') return _controller.games;
-    return _controller.games
+    final available = widget.watchedOnly
+        ? _controller.games
+              .where((game) => _watchlist.isWatching(game.id))
+              .toList(growable: false)
+        : _controller.games;
+    if (_selectedSport == 'ALL SPORTS') return available;
+    return available
         .where((game) {
           final sport = game.sport.toUpperCase();
           final league = game.league.toUpperCase();
@@ -156,11 +169,9 @@ class _LiveScoreboardTickerGridWidgetState
     }
   }
 
-  void _watchGame(ScoreboardGame game) {
-    setState(() {
-      if (!_watchedGameIds.add(game.id)) _watchedGameIds.remove(game.id);
-    });
-    final watched = _watchedGameIds.contains(game.id);
+  Future<void> _watchGame(ScoreboardGame game) async {
+    final watched = await _watchlist.toggle(game);
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
@@ -204,12 +215,14 @@ class _LiveScoreboardTickerGridWidgetState
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'SCOREBOARD',
+                      widget.watchedOnly
+                          ? 'SCOREBOARD WATCHLIST'
+                          : 'SCOREBOARD',
                       style: TextStyle(
                         color: _white,
                         fontSize: 20,
@@ -218,7 +231,9 @@ class _LiveScoreboardTickerGridWidgetState
                     ),
                     SizedBox(height: 3),
                     Text(
-                      'Real-time scores, stats & game status',
+                      widget.watchedOnly
+                          ? 'Quick view of watched games and live results'
+                          : 'Real-time scores, stats & game status',
                       style: TextStyle(color: _silver, fontSize: 10),
                     ),
                   ],
@@ -377,8 +392,12 @@ class _LiveScoreboardTickerGridWidgetState
               const SizedBox(height: 16),
               if (visible.isEmpty)
                 _messageState(
-                  Icons.sports_score,
-                  'No games match these filters.',
+                  widget.watchedOnly
+                      ? Icons.star_border_rounded
+                      : Icons.sports_score,
+                  widget.watchedOnly
+                      ? 'No watched games for this date. Open Scoreboard and select WATCH on a game.'
+                      : 'No games match these filters.',
                 )
               else ...[
                 if (live.isNotEmpty) _buildLiveSection(live),
@@ -768,18 +787,18 @@ class _LiveScoreboardTickerGridWidgetState
             width: 76,
             height: 27,
             child: OutlinedButton(
-              onPressed: () => _watchGame(game),
+              onPressed: () => unawaited(_watchGame(game)),
               style: OutlinedButton.styleFrom(
-                foregroundColor: _watchedGameIds.contains(game.id)
+                foregroundColor: _watchlist.isWatching(game.id)
                     ? _gold
                     : _white,
                 side: BorderSide(
-                  color: _watchedGameIds.contains(game.id) ? _gold : _border,
+                  color: _watchlist.isWatching(game.id) ? _gold : _border,
                 ),
                 padding: EdgeInsets.zero,
               ),
               child: Text(
-                _watchedGameIds.contains(game.id) ? 'WATCHING' : 'WATCH',
+                _watchlist.isWatching(game.id) ? 'WATCHING' : 'WATCH',
                 style: const TextStyle(
                   fontSize: 7,
                   fontWeight: FontWeight.w900,
@@ -849,6 +868,8 @@ class _LiveScoreboardTickerGridWidgetState
                 game.league,
                 style: const TextStyle(color: _muted, fontSize: 7),
               ),
+              const SizedBox(width: 6),
+              _watchIcon(game),
             ],
           ),
           const SizedBox(height: 9),
@@ -888,9 +909,9 @@ class _LiveScoreboardTickerGridWidgetState
   }
 
   Widget _watchIcon(ScoreboardGame game) {
-    final watched = _watchedGameIds.contains(game.id);
+    final watched = _watchlist.isWatching(game.id);
     return InkWell(
-      onTap: () => _watchGame(game),
+      onTap: () => unawaited(_watchGame(game)),
       child: Icon(
         watched ? Icons.star : Icons.star_border,
         color: _gold,
