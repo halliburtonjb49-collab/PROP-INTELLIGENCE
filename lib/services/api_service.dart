@@ -16,6 +16,8 @@ class _ParsedPropsPayload {
     required this.count,
     required this.facetCount,
     required this.categoryCounts,
+    required this.sportCounts,
+    required this.sportCategoryCounts,
     required this.rawMaps,
   });
 
@@ -23,6 +25,8 @@ class _ParsedPropsPayload {
   final int count;
   final int facetCount;
   final Map<String, int> categoryCounts;
+  final Map<String, int> sportCounts;
+  final Map<String, Map<String, int>> sportCategoryCounts;
   final List<Map<String, dynamic>> rawMaps;
 }
 
@@ -57,12 +61,39 @@ _ParsedPropsPayload _parsePropsPayload(String body) {
                 (entry.value as num?)?.toInt() ?? 0,
         }
       : const <String, int>{};
+  final rawSportCounts = decoded['sportCounts'];
+  final sportCounts = rawSportCounts is Map
+      ? {
+          for (final entry in rawSportCounts.entries)
+            entry.key.toString().trim().toUpperCase():
+                (entry.value as num?)?.toInt() ?? 0,
+        }
+      : const <String, int>{};
+  final rawSportCategoryCounts = decoded['sportCategoryCounts'];
+  final sportCategoryCounts = rawSportCategoryCounts is Map
+      ? {
+          for (final sportEntry in rawSportCategoryCounts.entries)
+            sportEntry.key
+                .toString()
+                .trim()
+                .toUpperCase(): sportEntry.value is Map
+                ? {
+                    for (final categoryEntry
+                        in (sportEntry.value as Map).entries)
+                      categoryEntry.key.toString().trim().toUpperCase():
+                          (categoryEntry.value as num?)?.toInt() ?? 0,
+                  }
+                : <String, int>{},
+        }
+      : const <String, Map<String, int>>{};
 
   return _ParsedPropsPayload(
     props: propsById.values.toList(growable: false),
     count: totalCount,
     facetCount: facetCount,
     categoryCounts: categoryCounts,
+    sportCounts: sportCounts,
+    sportCategoryCounts: sportCategoryCounts,
     rawMaps: rawMaps,
   );
 }
@@ -108,6 +139,8 @@ class ApiService {
   static List<PropData> _lastSuccessfulProps = const [];
   static int _lastFacetCount = 0;
   static Map<String, int> _lastCategoryCounts = const {};
+  static Map<String, int> _lastSportCounts = const {};
+  static Map<String, Map<String, int>> _lastSportCategoryCounts = const {};
   static final ValueNotifier<BackendRefreshStatus> refreshStatusNotifier =
       ValueNotifier<BackendRefreshStatus>(const BackendRefreshStatus.empty());
   int _lastPropsCount = 0;
@@ -117,6 +150,12 @@ class ApiService {
   int get lastFacetCount => _lastFacetCount;
   Map<String, int> get lastCategoryCounts =>
       Map.unmodifiable(_lastCategoryCounts);
+  Map<String, int> get lastSportCounts => Map.unmodifiable(_lastSportCounts);
+  Map<String, Map<String, int>> get lastSportCategoryCounts =>
+      Map<String, Map<String, int>>.unmodifiable({
+        for (final entry in _lastSportCategoryCounts.entries)
+          entry.key: Map<String, int>.unmodifiable(entry.value),
+      });
 
   Future<Map<String, String>> _authenticatedHeaders({
     bool json = false,
@@ -700,6 +739,11 @@ class ApiService {
         final totalCount = parsed.count;
         _lastFacetCount = parsed.facetCount;
         _lastCategoryCounts = parsed.categoryCounts;
+        if (selectedSport.trim().toUpperCase() == 'ALL' &&
+            selectedCategory.trim().toUpperCase() == 'ALL') {
+          _lastSportCounts = parsed.sportCounts;
+          _lastSportCategoryCounts = parsed.sportCategoryCounts;
+        }
         _resolvedBaseUrl = candidate;
         _lastPropsCount = totalCount > 0 ? totalCount : props.length;
         if (props.isNotEmpty) {
@@ -721,6 +765,8 @@ class ApiService {
             _lastPropsCount,
             _lastFacetCount,
             _lastCategoryCounts,
+            parsed.sportCounts,
+            parsed.sportCategoryCounts,
           );
           if (_isBroadPropsQuery(
             selectedSide: selectedSide,
@@ -737,6 +783,8 @@ class ApiService {
               _lastPropsCount,
               _lastFacetCount,
               _lastCategoryCounts,
+              parsed.sportCounts,
+              parsed.sportCategoryCounts,
             );
           }
         }
@@ -817,6 +865,8 @@ class ApiService {
     int total,
     int facetTotal,
     Map<String, int> categoryCounts,
+    Map<String, int> sportCounts,
+    Map<String, Map<String, int>> sportCategoryCounts,
   ) async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(
@@ -826,6 +876,8 @@ class ApiService {
         'total': total,
         'facetTotal': facetTotal,
         'categoryCounts': categoryCounts,
+        'sportCounts': sportCounts,
+        'sportCategoryCounts': sportCategoryCounts,
         'props': rawProps,
       }),
     );
@@ -888,6 +940,31 @@ class ApiService {
                 for (final entry in rawCategoryCounts.entries)
                   entry.key.toString().trim().toUpperCase():
                       (entry.value as num?)?.toInt() ?? 0,
+              }
+            : const {};
+        final rawSportCounts = decoded['sportCounts'];
+        _lastSportCounts = rawSportCounts is Map
+            ? {
+                for (final entry in rawSportCounts.entries)
+                  entry.key.toString().trim().toUpperCase():
+                      (entry.value as num?)?.toInt() ?? 0,
+              }
+            : const {};
+        final rawSportCategoryCounts = decoded['sportCategoryCounts'];
+        _lastSportCategoryCounts = rawSportCategoryCounts is Map
+            ? {
+                for (final sportEntry in rawSportCategoryCounts.entries)
+                  sportEntry.key
+                      .toString()
+                      .trim()
+                      .toUpperCase(): sportEntry.value is Map
+                      ? {
+                          for (final categoryEntry
+                              in (sportEntry.value as Map).entries)
+                            categoryEntry.key.toString().trim().toUpperCase():
+                                (categoryEntry.value as num?)?.toInt() ?? 0,
+                        }
+                      : <String, int>{},
               }
             : const {};
         refreshStatusNotifier.value = BackendRefreshStatus(

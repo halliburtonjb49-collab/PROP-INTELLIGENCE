@@ -2041,6 +2041,15 @@ def props(
 			str(prop.category or "other").strip().upper()
 			for prop in facet_props
 		)
+		sport_counts = Counter(
+			str(prop.sport or "other").strip().upper()
+			for prop in facet_props
+		)
+		sport_category_counts: dict[str, Counter[str]] = {}
+		for prop in facet_props:
+			sport_key = str(prop.sport or "other").strip().upper()
+			category_key = str(prop.category or "other").strip().upper()
+			sport_category_counts.setdefault(sport_key, Counter())[category_key] += 1
 		filtered_props = [
 			prop for prop in facet_props
 			if _matches_filters(prop, apply_category=True)
@@ -2139,6 +2148,11 @@ def props(
 			"count": total_count,
 			"facetCount": len(facet_props),
 			"categoryCounts": dict(sorted(category_counts.items())),
+			"sportCounts": dict(sorted(sport_counts.items())),
+			"sportCategoryCounts": {
+				sport_key: dict(sorted(counts.items()))
+				for sport_key, counts in sorted(sport_category_counts.items())
+			},
 			"returned": len(page),
 			"offset": offset,
 			"limit": limit,

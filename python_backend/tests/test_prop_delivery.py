@@ -243,6 +243,32 @@ def test_category_facets_are_not_reduced_by_selected_category(monkeypatch) -> No
     assert payload["count"] == 1
     assert payload["facetCount"] == 2
     assert payload["categoryCounts"] == {"HITS": 1, "STRIKEOUTS": 1}
+    assert payload["sportCounts"] == {"MLB": 2}
+    assert payload["sportCategoryCounts"] == {
+        "MLB": {"HITS": 1, "STRIKEOUTS": 1}
+    }
+
+
+def test_site_facets_report_full_sport_and_category_totals(monkeypatch) -> None:
+    rows = [
+        FakeProp("mlb-hits", "One", "MLB", "PRIZEPICKS", "HITS"),
+        FakeProp("mlb-ks", "Two", "MLB", "PRIZEPICKS", "STRIKEOUTS"),
+        FakeProp("nfl-rec", "Three", "NFL", "PRIZEPICKS", "RECEPTIONS"),
+        FakeProp("other-site", "Four", "NBA", "FANDUEL", "POINTS"),
+    ]
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: rows)
+
+    payload = TestClient(main.app).get(
+        "/api/props",
+        params={"sportsbook": "PRIZEPICKS", "limit": 1},
+    ).json()
+
+    assert payload["returned"] == 1
+    assert payload["sportCounts"] == {"MLB": 2, "NFL": 1}
+    assert payload["sportCategoryCounts"] == {
+        "MLB": {"HITS": 1, "STRIKEOUTS": 1},
+        "NFL": {"RECEPTIONS": 1},
+    }
 
 
 def test_started_props_are_hidden_from_the_actionable_feed(monkeypatch) -> None:

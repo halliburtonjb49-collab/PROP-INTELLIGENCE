@@ -2653,6 +2653,8 @@ class _MainDashboardState extends State<MainDashboard> {
   DateTime? _lastUpdated;
   List<PropData> _latestProps = const [];
   List<PropData> _siteInventoryProps = const [];
+  Map<String, int> _siteSportCounts = const {};
+  Map<String, Map<String, int>> _siteSportCategoryCounts = const {};
   Map<String, int> _categoryCounts = const {};
   List<PropData> _evScannerProps = const [];
   final TextEditingController _evSearchController = TextEditingController();
@@ -3008,6 +3010,29 @@ class _MainDashboardState extends State<MainDashboard> {
       _categoryCounts = categoryCounts;
       if (_selectedSite != 'ALL' && _selectedCategory == 'ALL') {
         _siteInventoryProps = props;
+        if (_selectedSiteSport.isEmpty) {
+          final normalizedSportCounts = <String, int>{};
+          for (final entry in _apiService.lastSportCounts.entries) {
+            final sport = _normalizeSport(entry.key);
+            normalizedSportCounts[sport] =
+                (normalizedSportCounts[sport] ?? 0) + entry.value;
+          }
+          final normalizedCategoryCounts = <String, Map<String, int>>{};
+          for (final sportEntry
+              in _apiService.lastSportCategoryCounts.entries) {
+            final sport = _normalizeSport(sportEntry.key);
+            final target = normalizedCategoryCounts.putIfAbsent(
+              sport,
+              () => <String, int>{},
+            );
+            for (final categoryEntry in sportEntry.value.entries) {
+              target[categoryEntry.key] =
+                  (target[categoryEntry.key] ?? 0) + categoryEntry.value;
+            }
+          }
+          _siteSportCounts = normalizedSportCounts;
+          _siteSportCategoryCounts = normalizedCategoryCounts;
+        }
         final sports = _availableSiteSports;
         if (sports.isNotEmpty && !sports.contains(_selectedSiteSport)) {
           _selectedSiteSport = sports.first;
@@ -3318,17 +3343,7 @@ class _MainDashboardState extends State<MainDashboard> {
 
   List<String> get _currentCategories {
     if (_selectedSite != 'ALL' && _selectedSiteSport.isNotEmpty) {
-      final counts = <String, int>{};
-      for (final prop in _siteInventoryProps) {
-        if (prop.gameHasStarted ||
-            _normalizeSport(prop.sport) != _selectedSiteSport) {
-          continue;
-        }
-        final category = _marketCategory(prop);
-        if (category.isNotEmpty) {
-          counts[category] = (counts[category] ?? 0) + 1;
-        }
-      }
+      final counts = _selectedSportCategoryCounts;
       final available = counts.entries.toList()
         ..sort((left, right) {
           final countOrder = right.value.compareTo(left.value);
@@ -3354,12 +3369,17 @@ class _MainDashboardState extends State<MainDashboard> {
 
   List<String> get _availableSiteSports {
     if (_selectedSite == 'ALL') return const [];
-    final sports = _siteInventoryProps
-        .where((prop) => !prop.gameHasStarted)
-        .map((prop) => _normalizeSport(prop.sport))
-        .where((sport) => sport.isNotEmpty && sport != 'ALL')
-        .toSet()
-        .toList();
+    final sports =
+        (_siteSportCounts.isNotEmpty
+                ? _siteSportCounts.entries
+                      .where((entry) => entry.value > 0)
+                      .map((entry) => _normalizeSport(entry.key))
+                : _siteInventoryProps
+                      .where((prop) => !prop.gameHasStarted)
+                      .map((prop) => _normalizeSport(prop.sport)))
+            .where((sport) => sport.isNotEmpty && sport != 'ALL')
+            .toSet()
+            .toList();
     const order = [
       'NFL',
       'NBA',
@@ -3385,6 +3405,10 @@ class _MainDashboardState extends State<MainDashboard> {
   Map<String, int> get _selectedSportCategoryCounts {
     if (_selectedSite == 'ALL' || _selectedSiteSport.isEmpty) {
       return _categoryCounts;
+    }
+    final backendCounts = _siteSportCategoryCounts[_selectedSiteSport];
+    if (backendCounts != null && backendCounts.isNotEmpty) {
+      return backendCounts;
     }
     final counts = <String, int>{};
     for (final prop in _siteInventoryProps) {
@@ -4335,6 +4359,8 @@ class _MainDashboardState extends State<MainDashboard> {
                     _selectedSiteSport = '';
                     _selectedCategory = 'ALL';
                     _siteInventoryProps = const [];
+                    _siteSportCounts = const {};
+                    _siteSportCategoryCounts = const {};
                     _focusedProp = null;
                     _latestProps = const [];
                     _categoryCounts = const {};
@@ -4832,12 +4858,14 @@ class _MainDashboardState extends State<MainDashboard> {
     if (sports.isEmpty) {
       return const SizedBox.shrink();
     }
-    int sportCount(String sport) => _siteInventoryProps
-        .where(
-          (prop) =>
-              !prop.gameHasStarted && _normalizeSport(prop.sport) == sport,
-        )
-        .length;
+    int sportCount(String sport) =>
+        _siteSportCounts[sport] ??
+        _siteInventoryProps
+            .where(
+              (prop) =>
+                  !prop.gameHasStarted && _normalizeSport(prop.sport) == sport,
+            )
+            .length;
     IconData sportIcon(String sport) => switch (sport) {
       'NFL' => Icons.sports_football,
       'NBA' || 'WNBA' => Icons.sports_basketball,
@@ -4999,7 +5027,9 @@ class _MainDashboardState extends State<MainDashboard> {
                             onPropFocused: _showPlayerPropsOverlay,
                             sportFilter: _selectedSite == 'ALL'
                                 ? widget.sportFilter
-                                : 'ALL',
+                                : _selectedSiteSport.isEmpty
+                                ? 'ALL'
+                                : _selectedSiteSport,
                             displaySportFilter: _selectedSite == 'ALL'
                                 ? widget.sportFilter
                                 : _selectedSiteSport,

@@ -114,6 +114,10 @@ void main() {
           'total': 1,
           'facetTotal': 1,
           'categoryCounts': {'POINTS': 1},
+          'sportCounts': {'NBA': 1},
+          'sportCategoryCounts': {
+            'NBA': {'POINTS': 1},
+          },
           'props': [_prop('cached-nba', 'NBA')],
         }),
       });
@@ -128,6 +132,10 @@ void main() {
       );
 
       expect(cached.map((prop) => prop.id), ['cached-nba']);
+      expect(ApiService().lastSportCounts, {'NBA': 1});
+      expect(ApiService().lastSportCategoryCounts, {
+        'NBA': {'POINTS': 1},
+      });
     },
   );
 }
