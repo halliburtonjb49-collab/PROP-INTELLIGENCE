@@ -2640,9 +2640,11 @@ class _MainDashboardState extends State<MainDashboard> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _boardVerticalController = ScrollController();
   final ScrollController _categoryHorizontalController = ScrollController();
+  final ScrollController _sportHorizontalController = ScrollController();
   Timer? _searchDebounce;
   String _searchQuery = '';
   String _selectedSite = 'ALL';
+  String _selectedSiteSport = '';
   String _selectedCategory = 'ALL';
   final String _selectedSide = 'All';
   final String _selectedTier = 'All';
@@ -2650,7 +2652,7 @@ class _MainDashboardState extends State<MainDashboard> {
   String _sortBy = 'time';
   DateTime? _lastUpdated;
   List<PropData> _latestProps = const [];
-  int _facetTotal = 0;
+  List<PropData> _siteInventoryProps = const [];
   Map<String, int> _categoryCounts = const {};
   List<PropData> _evScannerProps = const [];
   final TextEditingController _evSearchController = TextEditingController();
@@ -2676,6 +2678,7 @@ class _MainDashboardState extends State<MainDashboard> {
     _searchDebounce?.cancel();
     _boardVerticalController.dispose();
     _categoryHorizontalController.dispose();
+    _sportHorizontalController.dispose();
     _searchController.dispose();
     _evSearchController.dispose();
     super.dispose();
@@ -2689,7 +2692,6 @@ class _MainDashboardState extends State<MainDashboard> {
         _selectedCategory = 'ALL';
         _focusedProp = null;
         _latestProps = const [];
-        _facetTotal = 0;
         _categoryCounts = const {};
         _lastUpdated = null;
       });
@@ -3003,8 +3005,14 @@ class _MainDashboardState extends State<MainDashboard> {
     }
     setState(() {
       _latestProps = props;
-      _facetTotal = facetTotal;
       _categoryCounts = categoryCounts;
+      if (_selectedSite != 'ALL' && _selectedCategory == 'ALL') {
+        _siteInventoryProps = props;
+        final sports = _availableSiteSports;
+        if (sports.isNotEmpty && !sports.contains(_selectedSiteSport)) {
+          _selectedSiteSport = sports.first;
+        }
+      }
       _lastUpdated = DateTime.now();
     });
     boardPropCountNotifier.value = propCount;
@@ -3309,6 +3317,30 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   List<String> get _currentCategories {
+    if (_selectedSite != 'ALL' && _selectedSiteSport.isNotEmpty) {
+      final counts = <String, int>{};
+      for (final prop in _siteInventoryProps) {
+        if (prop.gameHasStarted ||
+            _normalizeSport(prop.sport) != _selectedSiteSport) {
+          continue;
+        }
+        final category = _marketCategory(prop);
+        if (category.isNotEmpty) {
+          counts[category] = (counts[category] ?? 0) + 1;
+        }
+      }
+      final available = counts.entries.toList()
+        ..sort((left, right) {
+          final countOrder = right.value.compareTo(left.value);
+          return countOrder != 0 ? countOrder : left.key.compareTo(right.key);
+        });
+      return [
+        'ALL',
+        ...available
+            .where((entry) => entry.value > 0)
+            .map((entry) => entry.key),
+      ];
+    }
     final available = _categoryCounts.entries.toList()
       ..sort((left, right) {
         final countOrder = right.value.compareTo(left.value);
@@ -3318,6 +3350,52 @@ class _MainDashboardState extends State<MainDashboard> {
       'ALL',
       ...available.where((entry) => entry.value > 0).map((entry) => entry.key),
     ];
+  }
+
+  List<String> get _availableSiteSports {
+    if (_selectedSite == 'ALL') return const [];
+    final sports = _siteInventoryProps
+        .where((prop) => !prop.gameHasStarted)
+        .map((prop) => _normalizeSport(prop.sport))
+        .where((sport) => sport.isNotEmpty && sport != 'ALL')
+        .toSet()
+        .toList();
+    const order = [
+      'NFL',
+      'NBA',
+      'WNBA',
+      'MLB',
+      'NHL',
+      'PGA',
+      'UFC',
+      'TENNIS',
+      'SOCCER',
+    ];
+    sports.sort((left, right) {
+      final leftRank = order.indexOf(left);
+      final rightRank = order.indexOf(right);
+      final normalizedLeft = leftRank < 0 ? order.length : leftRank;
+      final normalizedRight = rightRank < 0 ? order.length : rightRank;
+      final rank = normalizedLeft.compareTo(normalizedRight);
+      return rank != 0 ? rank : left.compareTo(right);
+    });
+    return sports;
+  }
+
+  Map<String, int> get _selectedSportCategoryCounts {
+    if (_selectedSite == 'ALL' || _selectedSiteSport.isEmpty) {
+      return _categoryCounts;
+    }
+    final counts = <String, int>{};
+    for (final prop in _siteInventoryProps) {
+      if (prop.gameHasStarted ||
+          _normalizeSport(prop.sport) != _selectedSiteSport) {
+        continue;
+      }
+      final category = _marketCategory(prop);
+      counts[category] = (counts[category] ?? 0) + 1;
+    }
+    return counts;
   }
 
   String get _effectiveSelectedCategory {
@@ -3697,7 +3775,10 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   List<PropData> get _propsBeforeCategoryFilter {
-    final selectedSport = _normalizeSport(widget.sportFilter);
+    final selectedSport =
+        _selectedSite != 'ALL' && _selectedSiteSport.isNotEmpty
+        ? _selectedSiteSport
+        : _normalizeSport(widget.sportFilter);
     final selectedSite = _normalizeSite(_selectedSite);
     final searchText = _searchQuery;
 
@@ -4251,10 +4332,11 @@ class _MainDashboardState extends State<MainDashboard> {
                 return OutlinedButton(
                   onPressed: () => setState(() {
                     _selectedSite = book;
+                    _selectedSiteSport = '';
                     _selectedCategory = 'ALL';
+                    _siteInventoryProps = const [];
                     _focusedProp = null;
                     _latestProps = const [];
-                    _facetTotal = 0;
                     _categoryCounts = const {};
                     _lastUpdated = null;
                   }),
@@ -4642,8 +4724,10 @@ class _MainDashboardState extends State<MainDashboard> {
       '3PT MADE' => Icons.adjust_rounded,
       _ => Icons.apps,
     };
-    int categoryCount(String category) =>
-        category == 'ALL' ? _facetTotal : _categoryCounts[category] ?? 0;
+    final localCounts = _selectedSportCategoryCounts;
+    int categoryCount(String category) => category == 'ALL'
+        ? localCounts.values.fold<int>(0, (sum, count) => sum + count)
+        : localCounts[category] ?? 0;
     return SizedBox(
       height: 49,
       child: Row(
@@ -4743,6 +4827,71 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
+  Widget _buildBoardSports() {
+    final sports = _availableSiteSports;
+    if (sports.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    int sportCount(String sport) => _siteInventoryProps
+        .where(
+          (prop) =>
+              !prop.gameHasStarted && _normalizeSport(prop.sport) == sport,
+        )
+        .length;
+    IconData sportIcon(String sport) => switch (sport) {
+      'NFL' => Icons.sports_football,
+      'NBA' || 'WNBA' => Icons.sports_basketball,
+      'MLB' => Icons.sports_baseball,
+      'NHL' => Icons.sports_hockey,
+      'PGA' => Icons.sports_golf,
+      'UFC' => Icons.sports_mma,
+      'TENNIS' => Icons.sports_tennis,
+      'SOCCER' => Icons.sports_soccer,
+      _ => Icons.emoji_events_outlined,
+    };
+    return SizedBox(
+      height: 45,
+      child: ListView.separated(
+        key: const ValueKey('prop-site-sport-tabs'),
+        controller: _sportHorizontalController,
+        scrollDirection: Axis.horizontal,
+        itemCount: sports.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 6),
+        itemBuilder: (context, index) {
+          final sport = sports[index];
+          final selected = sport == _selectedSiteSport;
+          return OutlinedButton.icon(
+            key: ValueKey('prop-site-sport-$sport'),
+            onPressed: () => setState(() {
+              _selectedSiteSport = sport;
+              _selectedCategory = 'ALL';
+              _focusedProp = null;
+            }),
+            icon: Icon(sportIcon(sport), size: 14),
+            label: Text('$sport  ${sportCount(sport)}'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: selected
+                  ? const Color(0xFF07131D)
+                  : Colors.white,
+              backgroundColor: selected
+                  ? AppColors.gold
+                  : const Color(0xFF07131D),
+              side: BorderSide(
+                color: selected ? AppColors.gold : AppColors.border,
+                width: selected ? 1.4 : 1,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 13),
+              textStyle: const TextStyle(
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final alertsForPage = _propAlerts.isNotEmpty
@@ -4828,6 +4977,8 @@ class _MainDashboardState extends State<MainDashboard> {
                           _buildBoardSearchAndBooks(),
                           const SizedBox(height: 12),
                           if (_selectedSite != 'ALL') ...[
+                            _buildBoardSports(),
+                            const SizedBox(height: 7),
                             _buildBoardCategories(),
                             const SizedBox(height: 10),
                           ],
@@ -4849,6 +5000,9 @@ class _MainDashboardState extends State<MainDashboard> {
                             sportFilter: _selectedSite == 'ALL'
                                 ? widget.sportFilter
                                 : 'ALL',
+                            displaySportFilter: _selectedSite == 'ALL'
+                                ? widget.sportFilter
+                                : _selectedSiteSport,
                             searchQuery: _searchQuery,
                             selectedSite: _selectedSite,
                             selectedCategory: _effectiveSelectedCategory,
@@ -7613,6 +7767,7 @@ class PropGrid extends StatefulWidget {
   final List<SlipSelection> selections;
   final void Function(PropData prop, PickSide side) onSelect;
   final String sportFilter;
+  final String displaySportFilter;
   final String selectedSite;
   final String selectedCategory;
   final String selectedSide;
@@ -7629,6 +7784,7 @@ class PropGrid extends StatefulWidget {
     required this.selections,
     required this.onSelect,
     required this.sportFilter,
+    required this.displaySportFilter,
     required this.selectedSite,
     required this.selectedCategory,
     required this.selectedSide,
@@ -9753,13 +9909,17 @@ class _PropGridState extends State<PropGrid> {
             final allPrepared = _preparedProps.isNotEmpty
                 ? _preparedProps
                 : _prepareProps(snapshot.data ?? []);
-            final normalizedSport = _normalizeSport(widget.sportFilter);
+            final normalizedSport = _normalizeSport(
+              widget.displaySportFilter.isEmpty
+                  ? widget.sportFilter
+                  : widget.displaySportFilter,
+            );
             final normalizedSite = _normalizeSite(widget.selectedSite);
             final search = widget.searchQuery;
 
             final filtered = allPrepared.where((prepared) {
               final sportMatches =
-                  widget.sportFilter == 'ALL' ||
+                  normalizedSport == 'ALL' ||
                   prepared.normalizedSport == normalizedSport;
               final siteMatches =
                   widget.selectedSite == 'ALL' ||
@@ -9819,7 +9979,9 @@ class _PropGridState extends State<PropGrid> {
               });
             sortedProps = deprioritizeSoccerForAllSports(
               sortedProps,
-              selectedSport: widget.sportFilter,
+              selectedSport: widget.displaySportFilter.isEmpty
+                  ? widget.sportFilter
+                  : widget.displaySportFilter,
             );
             if (props.isEmpty) {
               _scheduleAutomaticRetry();
