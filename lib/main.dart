@@ -42,7 +42,7 @@ import 'services/supabase_service.dart';
 import 'services/user_facing_error.dart';
 import 'theme/app_scroll_behavior.dart';
 import 'theme/app_colors.dart' as app_colors;
-import 'theme/prop_intelligence_colors.dart' as brand;
+import 'theme/app_theme.dart';
 import 'pages/intelligence_lab_page.dart';
 import 'widgets/active_slip_panel.dart';
 import 'widgets/auth_account_panel.dart';
@@ -278,147 +278,6 @@ class AppColors {
   static const muted = Color(0xFF8996A6);
 }
 
-ThemeData buildPropIntelligenceBrandedTheme() {
-  final baseTheme = ThemeData.dark();
-  return baseTheme.copyWith(
-    scaffoldBackgroundColor: brand.PropIntelligenceColors.darkCanvasBg,
-    cardColor: brand.PropIntelligenceColors.darkCardBg,
-    dividerColor: Colors.white10,
-    textTheme: baseTheme.textTheme
-        .apply(
-          bodyColor: brand.PropIntelligenceColors.metallicSilver,
-          displayColor: Colors.white,
-        )
-        .copyWith(
-          titleLarge: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-    dropdownMenuTheme: const DropdownMenuThemeData(
-      textStyle: TextStyle(color: app_colors.AppColors.white),
-      menuStyle: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(Color(0xFF10151C)),
-        surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
-      ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: const Color(0xFF08131D),
-      labelStyle: const TextStyle(color: app_colors.AppColors.textSecondary),
-      helperStyle: const TextStyle(color: app_colors.AppColors.textMuted),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: app_colors.AppColors.border),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: app_colors.AppColors.border),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(
-          color: app_colors.AppColors.gold,
-          width: 1.4,
-        ),
-      ),
-    ),
-    tooltipTheme: TooltipThemeData(
-      decoration: BoxDecoration(
-        color: const Color(0xFF152534),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: app_colors.AppColors.border),
-      ),
-      textStyle: const TextStyle(
-        color: app_colors.AppColors.white,
-        fontSize: 12,
-      ),
-      waitDuration: const Duration(milliseconds: 450),
-    ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        backgroundColor: app_colors.AppColors.gold,
-        foregroundColor: const Color(0xFF06111B),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        textStyle: const TextStyle(
-          fontWeight: FontWeight.w900,
-          letterSpacing: .3,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: app_colors.AppColors.gold,
-        foregroundColor: const Color(0xFF06111B),
-        elevation: 0,
-        minimumSize: const Size(44, 44),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-        textStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w900,
-          letterSpacing: .35,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        foregroundColor: app_colors.AppColors.white,
-        minimumSize: const Size(44, 44),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-        side: const BorderSide(color: app_colors.AppColors.border),
-        textStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-          letterSpacing: .3,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    ),
-    textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(
-        foregroundColor: app_colors.AppColors.textSecondary,
-        minimumSize: const Size(40, 40),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        textStyle: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: .25,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
-      ),
-    ),
-    iconButtonTheme: IconButtonThemeData(
-      style: IconButton.styleFrom(
-        foregroundColor: app_colors.AppColors.textSecondary,
-        minimumSize: const Size(40, 40),
-        padding: const EdgeInsets.all(10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    ),
-    scrollbarTheme: ScrollbarThemeData(
-      thumbColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.dragged)) {
-          return brand.PropIntelligenceColors.premiumGold;
-        }
-        if (states.contains(WidgetState.hovered)) {
-          return brand.PropIntelligenceColors.premiumGold.withValues(
-            alpha: 0.9,
-          );
-        }
-        return brand.PropIntelligenceColors.premiumGold.withValues(alpha: 0.82);
-      }),
-      trackColor: WidgetStateProperty.all(const Color(0xFF101D28)),
-      trackBorderColor: WidgetStateProperty.all(const Color(0xFF8B6813)),
-      radius: const Radius.circular(8),
-      thickness: WidgetStateProperty.all(9),
-      interactive: true,
-    ),
-  );
-}
-
 final GlobalKey<NavigatorState> _oneSignalNavigatorKey =
     GlobalKey<NavigatorState>();
 
@@ -505,7 +364,7 @@ class _PropIntelligenceAppState extends State<PropIntelligenceApp> {
       title: 'PROP INTELLIGENCE',
       debugShowCheckedModeBanner: false,
       scrollBehavior: const AppScrollBehavior(),
-      theme: buildPropIntelligenceBrandedTheme(),
+      theme: AppTheme.theme,
       home: const PropIntelligenceShell(),
     );
   }
