@@ -2231,7 +2231,7 @@ class _SidebarHeader extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.asset(
-                  'assets/branding/prop_intelligence_logo.png',
+                  'assets/branding/Final Master Logo.png',
                   fit: BoxFit.contain,
                 ),
               ),
@@ -6763,7 +6763,7 @@ class PropIntelligenceBrandBadge extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: Image.asset(
-            'assets/branding/prop_intelligence_logo.png',
+            'assets/branding/Final Master Logo.png',
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {
               return const Center(
@@ -8637,6 +8637,16 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final market = _marketCategory(prop);
     final confidence = prop.confidence.clamp(0, 100);
     final calculatedEdge = prop.calculatedEdge;
+    final marketLean = prop.marketLeanPercentage;
+    final marketEdge = calculatedEdge == null && marketLean != null
+        ? (marketLean - 50).abs()
+        : null;
+    final edgeLabel = calculatedEdge != null ? 'EDGE' : 'MARKET EDGE';
+    final edgeValue = calculatedEdge != null
+        ? '+${calculatedEdge.toStringAsFixed(2)}'
+        : marketEdge != null && marketEdge > 0
+        ? '+${marketEdge.toStringAsFixed(0)}%'
+        : '--';
 
     Widget intelligenceMetric(String label, String value) {
       return Expanded(
@@ -8872,12 +8882,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             ),
             child: Row(
               children: [
-                intelligenceMetric(
-                  'EDGE',
-                  hasProAccess && calculatedEdge != null
-                      ? '+${calculatedEdge.toStringAsFixed(2)}'
-                      : '--',
-                ),
+                intelligenceMetric(edgeLabel, hasProAccess ? edgeValue : '--'),
                 intelligenceMetric(
                   'PROJECTION',
                   hasProAccess && prop.projection != null
@@ -9007,18 +9012,16 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    hasProAccess && calculatedEdge != null
-                        ? calculatedEdge.toStringAsFixed(2)
-                        : '--',
+                    hasProAccess ? edgeValue : '--',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const Text(
-                    'EDGE',
-                    style: TextStyle(color: AppColors.muted, fontSize: 6),
+                  Text(
+                    edgeLabel,
+                    style: const TextStyle(color: AppColors.muted, fontSize: 6),
                   ),
                 ],
               ),

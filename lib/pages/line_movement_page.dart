@@ -616,192 +616,314 @@ class _LineMovementPageState extends State<LineMovementPage> {
       fontSize: 8,
       fontWeight: FontWeight.w800,
     );
-    return DashboardPanel(
-      padding: EdgeInsets.zero,
-      radius: 10,
-      child: Column(
-        children: [
-          SizedBox(
-            height: 37,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              children:
-                  [
-                    'ALL SPORTS',
-                    'MLB',
-                    'NBA',
-                    'NFL',
-                    'WNBA',
-                    'NHL',
-                    'UFC',
-                    'PGA',
-                    'TENNIS',
-                    'SOCCER',
-                  ].map((sport) {
-                    final selected = sport == _tableSport;
-                    return InkWell(
-                      onTap: () => setState(() {
-                        _tableSport = sport;
-                        _showAllMovements = false;
-                      }),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 11),
-                        child: Center(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final filtered = items
+            .where(
+              (item) =>
+                  _tableSport == 'ALL SPORTS' ||
+                  item.sport.toUpperCase() == _tableSport,
+            )
+            .take(_showAllMovements ? items.length : 5)
+            .toList();
+        return DashboardPanel(
+          padding: EdgeInsets.zero,
+          radius: 10,
+          child: Column(
+            children: [
+              SizedBox(
+                height: 37,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  children:
+                      [
+                        'ALL SPORTS',
+                        'MLB',
+                        'NBA',
+                        'NFL',
+                        'WNBA',
+                        'NHL',
+                        'UFC',
+                        'PGA',
+                        'TENNIS',
+                        'SOCCER',
+                      ].map((sport) {
+                        final selected = sport == _tableSport;
+                        return InkWell(
+                          onTap: () => setState(() {
+                            _tableSport = sport;
+                            _showAllMovements = false;
+                          }),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 11),
+                            child: Center(
+                              child: Text(
+                                sport,
+                                style: TextStyle(
+                                  color: selected
+                                      ? AppColors.gold
+                                      : AppColors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                ),
+              ),
+              Container(height: 1, color: AppColors.border),
+              if (constraints.maxWidth >= 680) ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  child: Row(
+                    children: [
+                      Expanded(flex: 3, child: Text('PLAYER', style: header)),
+                      Expanded(flex: 3, child: Text('MARKET', style: header)),
+                      Expanded(child: Text('SPORT', style: header)),
+                      Expanded(flex: 2, child: Text('BOOK', style: header)),
+                      Expanded(
+                        flex: 3,
+                        child: Text('LINE MOVEMENT', style: header),
+                      ),
+                      Expanded(flex: 2, child: Text('% CHANGE', style: header)),
+                      Expanded(child: Text('TIME', style: header)),
+                      SizedBox(width: 26),
+                    ],
+                  ),
+                ),
+                for (final p in filtered)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
+                    ),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        top: BorderSide(color: AppColors.border, width: .6),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Row(
+                            children: [
+                              _playerPhoto(p.player, p.imagePath),
+                              const SizedBox(width: 7),
+                              Expanded(
+                                child: Text(
+                                  p.player,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: AppColors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          flex: 3,
                           child: Text(
-                            sport,
+                            p.market,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 8,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            p.sport,
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontSize: 8,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Row(
+                            children: [
+                              _bookBadge(p.previousBook, AppColors.blue),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 3),
+                                child: Icon(
+                                  Icons.arrow_forward,
+                                  color: AppColors.white,
+                                  size: 11,
+                                ),
+                              ),
+                              _bookBadge(p.currentBook, AppColors.gold),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: Text(
+                            '${p.previousLine?.toStringAsFixed(1) ?? '--'}   →   ${p.currentLine?.toStringAsFixed(1) ?? '--'}',
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text(
+                            '${p.percentChange >= 0 ? '+' : ''}${p.percentChange.toStringAsFixed(2)}%',
                             style: TextStyle(
-                              color: selected
-                                  ? AppColors.gold
-                                  : AppColors.white,
+                              color:
+                                  canShowSystemRecommendation(
+                                    hasEdgeAccess: widget.hasProAccess,
+                                  )
+                                  ? _statusColor(p.status)
+                                  : AppColors.textSecondary,
                               fontSize: 9,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  }).toList(),
-            ),
-          ),
-          Container(height: 1, color: AppColors.border),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            child: Row(
-              children: [
-                Expanded(flex: 3, child: Text('PLAYER', style: header)),
-                Expanded(flex: 3, child: Text('MARKET', style: header)),
-                Expanded(child: Text('SPORT', style: header)),
-                Expanded(flex: 2, child: Text('BOOK', style: header)),
-                Expanded(flex: 3, child: Text('LINE MOVEMENT', style: header)),
-                Expanded(flex: 2, child: Text('% CHANGE', style: header)),
-                Expanded(child: Text('TIME', style: header)),
-                SizedBox(width: 26),
-              ],
-            ),
-          ),
-          for (final p
-              in items
-                  .where(
-                    (item) =>
-                        _tableSport == 'ALL SPORTS' ||
-                        item.sport.toUpperCase() == _tableSport,
-                  )
-                  .take(_showAllMovements ? items.length : 5))
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: const BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: AppColors.border, width: .6),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Row(
-                      children: [
-                        _playerPhoto(p.player, p.imagePath),
-                        const SizedBox(width: 7),
                         Expanded(
                           child: Text(
-                            p.player,
-                            overflow: TextOverflow.ellipsis,
+                            _relativeTime(p.movedAt),
                             style: const TextStyle(
-                              color: AppColors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
+                              color: AppColors.textSecondary,
+                              fontSize: 8,
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      p.market,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 8,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      p.sport,
-                      style: const TextStyle(
-                        color: AppColors.white,
-                        fontSize: 8,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Row(
-                      children: [
-                        _bookBadge(p.previousBook, AppColors.blue),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 3),
+                        const SizedBox(
+                          width: 26,
                           child: Icon(
-                            Icons.arrow_forward,
-                            color: AppColors.white,
-                            size: 11,
+                            Icons.show_chart,
+                            color: AppColors.gold,
+                            size: 15,
                           ),
                         ),
-                        _bookBadge(p.currentBook, AppColors.gold),
                       ],
                     ),
                   ),
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      '${p.previousLine?.toStringAsFixed(1) ?? '--'}   →   ${p.currentLine?.toStringAsFixed(1) ?? '--'}',
-                      style: const TextStyle(
-                        color: AppColors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                      ),
+              ] else if (filtered.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(18),
+                  child: Text(
+                    'No tracked movement for this sport yet.',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 10,
                     ),
                   ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      '${p.percentChange >= 0 ? '+' : ''}${p.percentChange.toStringAsFixed(2)}%',
-                      style: TextStyle(
-                        color:
-                            canShowSystemRecommendation(
-                              hasEdgeAccess: widget.hasProAccess,
-                            )
-                            ? _statusColor(p.status)
-                            : AppColors.textSecondary,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
+                )
+              else
+                for (final p in filtered) _mobileMovementCard(p),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _mobileMovementCard(_LineMovementItem item) {
+    final movement =
+        '${item.previousLine?.toStringAsFixed(1) ?? '--'}  â†’  ${item.currentLine?.toStringAsFixed(1) ?? '--'}';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: AppColors.border, width: .6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _playerPhoto(item.player, item.imagePath),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  item.player,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
                   ),
-                  Expanded(
-                    child: Text(
-                      _relativeTime(p.movedAt),
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 8,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(
-                    width: 26,
-                    child: Icon(
-                      Icons.show_chart,
-                      color: AppColors.gold,
-                      size: 15,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              Text(
+                item.sport.toUpperCase(),
+                style: const TextStyle(
+                  color: AppColors.gold,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          Text(
+            item.market,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 9),
+          ),
+          const SizedBox(height: 9),
+          Row(
+            children: [
+              _bookBadge(item.previousBook, AppColors.blue),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6),
+                child: Icon(
+                  Icons.arrow_forward,
+                  color: AppColors.white,
+                  size: 12,
+                ),
+              ),
+              _bookBadge(item.currentBook, AppColors.gold),
+              const Spacer(),
+              Text(
+                movement,
+                style: const TextStyle(
+                  color: AppColors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                '${item.percentChange >= 0 ? '+' : ''}${item.percentChange.toStringAsFixed(2)}%',
+                style: TextStyle(
+                  color:
+                      canShowSystemRecommendation(
+                        hasEdgeAccess: widget.hasProAccess,
+                      )
+                      ? _statusColor(item.status)
+                      : AppColors.textSecondary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _relativeTime(item.movedAt),
+                style: const TextStyle(color: AppColors.textMuted, fontSize: 8),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -844,156 +966,234 @@ class _LineMovementPageState extends State<LineMovementPage> {
         : movedItems.where((item) => item.status == 'BETTER').length /
               movedItems.length;
 
-    return Row(
-      children: [
-        Expanded(
-          child: DashboardPanel(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'MOVEMENT RATE BY SPORT',
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 9),
-                if (sportStats.isEmpty)
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cards = <Widget>[
+          Expanded(
+            child: DashboardPanel(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   const Text(
-                    'No tracked props yet',
+                    'MOVEMENT RATE BY SPORT',
                     style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 9,
+                      color: AppColors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
                     ),
-                  )
-                else
-                  for (final entry in sportStats.entries)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 46,
-                            child: Text(
-                              entry.key,
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 8,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(3),
-                              child: LinearProgressIndicator(
-                                value: entry.value.$1 / entry.value.$2,
-                                minHeight: 14,
-                                backgroundColor: const Color(0xFF19482B),
-                                valueColor: const AlwaysStoppedAnimation(
-                                  AppColors.gold,
+                  ),
+                  const SizedBox(height: 9),
+                  if (sportStats.isEmpty)
+                    const Text(
+                      'No tracked props yet',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 9,
+                      ),
+                    )
+                  else
+                    for (final entry in sportStats.entries)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 46,
+                              child: Text(
+                                entry.key,
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 8,
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                          SizedBox(
-                            width: 44,
-                            child: Text(
-                              '${entry.value.$1}/${entry.value.$2}',
-                              textAlign: TextAlign.right,
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 8,
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(3),
+                                child: LinearProgressIndicator(
+                                  value: entry.value.$1 / entry.value.$2,
+                                  minHeight: 14,
+                                  backgroundColor: const Color(0xFF19482B),
+                                  valueColor: const AlwaysStoppedAnimation(
+                                    AppColors.gold,
+                                  ),
+                                ),
                               ),
+                            ),
+                            const SizedBox(width: 6),
+                            SizedBox(
+                              width: 44,
+                              child: Text(
+                                '${entry.value.$1}/${entry.value.$2}',
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 8,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: DashboardPanel(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 78,
+                    height: 78,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          value: favorable ?? 0,
+                          strokeWidth: 10,
+                          color: AppColors.blue,
+                          backgroundColor: AppColors.border,
+                        ),
+                        Text(
+                          favorable == null
+                              ? '--'
+                              : '${(favorable * 100).round()}%',
+                          style: const TextStyle(
+                            color: AppColors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'MOVEMENT BREAKDOWN',
+                          style: TextStyle(
+                            color: AppColors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          '■  Sharp Moves          $sharpMoves (${pct(sharpMoves)})',
+                          style: const TextStyle(
+                            color: AppColors.white,
+                            fontSize: 9,
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Text(
+                          '■  Other Moves          $otherMoves (${pct(otherMoves)})',
+                          style: const TextStyle(
+                            color: AppColors.white,
+                            fontSize: 9,
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Text(
+                          '■  No Movement        $noMovement (${pct(noMovement)})',
+                          style: const TextStyle(
+                            color: AppColors.white,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ];
+        if (constraints.maxWidth < 680) {
+          return Column(
+            children: [
+              DashboardPanel(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'MOVEMENT RATE BY SPORT',
+                      style: TextStyle(
+                        color: AppColors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 9),
+                    Text(
+                      sportStats.isEmpty
+                          ? 'No tracked props yet'
+                          : '${sportStats.length} sports currently tracked',
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 9,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              DashboardPanel(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 64,
+                      height: 64,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            value: favorable ?? 0,
+                            strokeWidth: 8,
+                            color: AppColors.blue,
+                            backgroundColor: AppColors.border,
+                          ),
+                          Text(
+                            favorable == null
+                                ? '--'
+                                : '${(favorable * 100).round()}%',
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
                         ],
                       ),
                     ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: DashboardPanel(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 78,
-                  height: 78,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        value: favorable ?? 0,
-                        strokeWidth: 10,
-                        color: AppColors.blue,
-                        backgroundColor: AppColors.border,
-                      ),
-                      Text(
-                        favorable == null
-                            ? '--'
-                            : '${(favorable * 100).round()}%',
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        'Sharp $sharpMoves  â€¢  Other $otherMoves  â€¢  No movement $noMovement',
+                        maxLines: 3,
                         style: const TextStyle(
                           color: AppColors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
+                          fontSize: 9,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 18),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'MOVEMENT BREAKDOWN',
-                        style: TextStyle(
-                          color: AppColors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        '■  Sharp Moves          $sharpMoves (${pct(sharpMoves)})',
-                        style: const TextStyle(
-                          color: AppColors.white,
-                          fontSize: 9,
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                      Text(
-                        '■  Other Moves          $otherMoves (${pct(otherMoves)})',
-                        style: const TextStyle(
-                          color: AppColors.white,
-                          fontSize: 9,
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                      Text(
-                        '■  No Movement        $noMovement (${pct(noMovement)})',
-                        style: const TextStyle(
-                          color: AppColors.white,
-                          fontSize: 9,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+              ),
+            ],
+          );
+        }
+        return Row(children: cards);
+      },
     );
   }
 
@@ -1202,54 +1402,81 @@ class _MovementStatusFooter extends StatelessWidget {
       ),
       (Icons.history_rounded, 'LAST UPDATED', lastUpdated),
     ];
-    return Container(
-      height: 46,
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      child: Row(
-        children: [
-          for (var i = 0; i < items.length; i++) ...[
-            Expanded(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    items[i].$1,
-                    color: i == 2 ? AppColors.blue : AppColors.textMuted,
-                    size: 17,
-                  ),
-                  const SizedBox(width: 9),
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 680;
+        Widget item(int i) => Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 8 : 4,
+            vertical: compact ? 9 : 5,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                items[i].$1,
+                color: i == 2 ? AppColors.blue : AppColors.textMuted,
+                size: 17,
+              ),
+              const SizedBox(width: 9),
+              Flexible(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      items[i].$2,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 7,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      items[i].$3,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: i == 2 ? AppColors.blue : AppColors.white,
+                        fontSize: 8,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+        return Container(
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: AppColors.border)),
+          ),
+          child: compact
+              ? Wrap(
+                  children: [
+                    for (var i = 0; i < items.length; i++)
+                      SizedBox(width: constraints.maxWidth / 2, child: item(i)),
+                  ],
+                )
+              : SizedBox(
+                  height: 46,
+                  child: Row(
                     children: [
-                      Text(
-                        items[i].$2,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 7,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        items[i].$3,
-                        style: TextStyle(
-                          color: i == 2 ? AppColors.blue : AppColors.white,
-                          fontSize: 8,
-                        ),
-                      ),
+                      for (var i = 0; i < items.length; i++) ...[
+                        Expanded(child: item(i)),
+                        if (i < items.length - 1)
+                          Container(
+                            width: 1,
+                            height: 34,
+                            color: AppColors.border,
+                          ),
+                      ],
                     ],
                   ),
-                ],
-              ),
-            ),
-            if (i < items.length - 1)
-              Container(width: 1, height: 34, color: AppColors.border),
-          ],
-        ],
-      ),
+                ),
+        );
+      },
     );
   }
 }

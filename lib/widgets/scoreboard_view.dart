@@ -69,11 +69,32 @@ class _LiveScoreboardTickerGridWidgetState
   }
 
   List<ScoreboardGame> get _sportGames {
-    final available = widget.watchedOnly
+    final source = widget.watchedOnly
         ? _controller.games
               .where((game) => _watchlist.isWatching(game.id))
               .toList(growable: false)
         : _controller.games;
+    final seen = <String>{};
+    final available = source
+        .where((game) {
+          final away = _awayLabel(game).trim();
+          final home = _homeLabel(game).trim();
+          if (away.isEmpty || home.isEmpty) return false;
+          if (game.isUfc &&
+              away.toLowerCase() == 'fighter a' &&
+              home.toLowerCase() == 'fighter b') {
+            return false;
+          }
+          final start = game.startTime?.toUtc().toIso8601String() ?? '';
+          final key = [
+            game.league.trim().toUpperCase(),
+            away.toUpperCase(),
+            home.toUpperCase(),
+            start,
+          ].join('|');
+          return seen.add(key);
+        })
+        .toList(growable: false);
     if (_selectedSport == 'ALL SPORTS') return available;
     return available
         .where((game) {
@@ -207,127 +228,151 @@ class _LiveScoreboardTickerGridWidgetState
   Widget _buildHeader() {
     final liveCount = _sportGames.where((game) => game.isLive).length;
     final tabs = <String>['ALL GAMES', 'LIVE NOW', 'UPCOMING', 'FINAL'];
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 15, 20, 0),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: _borderSoft)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 700;
+        final title = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.watchedOnly ? 'SCOREBOARD WATCHLIST' : 'SCOREBOARD',
+              style: TextStyle(
+                color: _white,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            SizedBox(height: 3),
+            Text(
+              widget.watchedOnly
+                  ? 'Quick view of watched games and live results'
+                  : 'Real-time scores, stats & game status',
+              style: TextStyle(color: _silver, fontSize: 10),
+            ),
+          ],
+        );
+        final controls = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _outlineButton(
+              icon: Icons.chevron_left,
+              label: '',
+              onPressed: () => unawaited(_controller.previousDay()),
+              compact: true,
+            ),
+            const SizedBox(width: 5),
+            _outlineButton(
+              icon: Icons.calendar_month_outlined,
+              label: _formatDate(_controller.selectedDate),
+              onPressed: _pickDate,
+            ),
+            const SizedBox(width: 5),
+            _outlineButton(
+              icon: Icons.chevron_right,
+              label: '',
+              onPressed: () => unawaited(_controller.nextDay()),
+              compact: true,
+            ),
+            const SizedBox(width: 7),
+            _outlineButton(
+              icon: _controller.isRefreshing ? Icons.sync : Icons.refresh,
+              label: 'REFRESH',
+              onPressed: _controller.isRefreshing
+                  ? null
+                  : () => unawaited(_controller.load(silent: true)),
+            ),
+          ],
+        );
+        return Container(
+          padding: EdgeInsets.fromLTRB(
+            compact ? 12 : 20,
+            15,
+            compact ? 12 : 20,
+            0,
+          ),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: _borderSoft)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              if (compact) ...[
+                title,
+                const SizedBox(height: 10),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: controls,
+                ),
+              ] else
+                Row(
                   children: [
-                    Text(
-                      widget.watchedOnly
-                          ? 'SCOREBOARD WATCHLIST'
-                          : 'SCOREBOARD',
-                      style: TextStyle(
-                        color: _white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
+                    Expanded(child: title),
+                    controls,
+                  ],
+                ),
+              const SizedBox(height: 11),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final tab in tabs)
+                      InkWell(
+                        onTap: () => setState(() => _selectedTab = tab),
+                        child: Container(
+                          padding: const EdgeInsets.fromLTRB(13, 8, 13, 9),
+                          decoration: BoxDecoration(
+                            color: _selectedTab == tab
+                                ? _gold.withValues(alpha: .09)
+                                : Colors.transparent,
+                            border: Border(
+                              bottom: BorderSide(
+                                color: _selectedTab == tab
+                                    ? _gold
+                                    : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            tab == 'LIVE NOW' ? 'LIVE NOW  $liveCount' : tab,
+                            style: TextStyle(
+                              color: _selectedTab == tab ? _gold : _silver,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (!compact) const SizedBox(width: 20),
+                    const Text(
+                      'Auto Refresh',
+                      style: TextStyle(color: _silver, fontSize: 9),
+                    ),
+                    const SizedBox(width: 5),
+                    Transform.scale(
+                      scale: .72,
+                      child: Switch(
+                        value: _autoRefresh,
+                        activeThumbColor: _gold,
+                        activeTrackColor: const Color(0xFF1976D2),
+                        onChanged: _toggleAutoRefresh,
                       ),
                     ),
-                    SizedBox(height: 3),
-                    Text(
-                      widget.watchedOnly
-                          ? 'Quick view of watched games and live results'
-                          : 'Real-time scores, stats & game status',
-                      style: TextStyle(color: _silver, fontSize: 10),
+                    const Text(
+                      '● Live',
+                      style: TextStyle(
+                        color: _green,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ],
                 ),
               ),
-              _outlineButton(
-                icon: Icons.chevron_left,
-                label: '',
-                onPressed: () => unawaited(_controller.previousDay()),
-                compact: true,
-              ),
-              const SizedBox(width: 5),
-              _outlineButton(
-                icon: Icons.calendar_month_outlined,
-                label: _formatDate(_controller.selectedDate),
-                onPressed: _pickDate,
-              ),
-              const SizedBox(width: 5),
-              _outlineButton(
-                icon: Icons.chevron_right,
-                label: '',
-                onPressed: () => unawaited(_controller.nextDay()),
-                compact: true,
-              ),
-              const SizedBox(width: 7),
-              _outlineButton(
-                icon: _controller.isRefreshing ? Icons.sync : Icons.refresh,
-                label: 'REFRESH',
-                onPressed: _controller.isRefreshing
-                    ? null
-                    : () => unawaited(_controller.load(silent: true)),
-              ),
             ],
           ),
-          const SizedBox(height: 11),
-          Row(
-            children: [
-              for (final tab in tabs)
-                InkWell(
-                  onTap: () => setState(() => _selectedTab = tab),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(13, 8, 13, 9),
-                    decoration: BoxDecoration(
-                      color: _selectedTab == tab
-                          ? _gold.withValues(alpha: .09)
-                          : Colors.transparent,
-                      border: Border(
-                        bottom: BorderSide(
-                          color: _selectedTab == tab
-                              ? _gold
-                              : Colors.transparent,
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                    child: Text(
-                      tab == 'LIVE NOW' ? 'LIVE NOW  $liveCount' : tab,
-                      style: TextStyle(
-                        color: _selectedTab == tab ? _gold : _silver,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ),
-              const Spacer(),
-              const Text(
-                'Auto Refresh',
-                style: TextStyle(color: _silver, fontSize: 9),
-              ),
-              const SizedBox(width: 5),
-              Transform.scale(
-                scale: .72,
-                child: Switch(
-                  value: _autoRefresh,
-                  activeThumbColor: _gold,
-                  activeTrackColor: const Color(0xFF1976D2),
-                  onChanged: _toggleAutoRefresh,
-                ),
-              ),
-              const Text(
-                '● Live',
-                style: TextStyle(
-                  color: _green,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -528,7 +573,9 @@ class _LiveScoreboardTickerGridWidgetState
                   ? 4
                   : constraints.maxWidth >= 620
                   ? 3
-                  : 2;
+                  : constraints.maxWidth >= 420
+                  ? 2
+                  : 1;
               return GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),

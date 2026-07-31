@@ -713,10 +713,15 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              if (snapshot.hasError) {
-                return _SlipLoadError(onRetry: _refreshGameStatuses);
+              if (snapshot.hasError && _lastGoodSlips.isEmpty) {
+                return _SlipLoadError(
+                  isHistory: _isHistory,
+                  onRetry: _refreshGameStatuses,
+                );
               }
-              final slips = snapshot.data ?? [];
+              final slips = snapshot.hasError
+                  ? _lastGoodSlips
+                  : snapshot.data ?? const <SavedSlip>[];
               final totals = _buildTotals(slips);
               if (slips.isEmpty) {
                 return const Center(child: Text('No slips in this view.'));
@@ -863,7 +868,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     final selected = _selectedTab == value;
     return Expanded(
       child: SizedBox(
-        height: 36,
+        height: 44,
         child: OutlinedButton(
           onPressed: () => _selectTab(value),
           style: OutlinedButton.styleFrom(
@@ -878,6 +883,9 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                   ? brand_colors.AppColors.gold
                   : brand_colors.AppColors.chromeShadow,
             ),
+            minimumSize: const Size(0, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
           child: Text(
             label,
@@ -1178,8 +1186,9 @@ class _ProfitKeeper extends StatelessWidget {
 }
 
 class _SlipLoadError extends StatelessWidget {
-  const _SlipLoadError({required this.onRetry});
+  const _SlipLoadError({required this.isHistory, required this.onRetry});
 
+  final bool isHistory;
   final VoidCallback onRetry;
 
   @override
@@ -1197,13 +1206,15 @@ class _SlipLoadError extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const Text(
-              'SLIP WATCHER IS RECONNECTING',
+              'TICKET HISTORY IS TEMPORARILY OFFLINE',
               textAlign: TextAlign.center,
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Your tickets remain saved. Check your connection and try again.',
+            Text(
+              isHistory
+                  ? 'Your saved tickets are safe. History will sync automatically when the connection returns.'
+                  : 'Your tickets remain saved. Live grading will resume automatically when the connection returns.',
               textAlign: TextAlign.center,
               style: TextStyle(color: brand_colors.AppColors.textMuted),
             ),

@@ -81,6 +81,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/branding/google_g_logo.png
+    - assets/branding/Final Master Logo.png
     - assets/branding/prop_intelligence_icon.png
     - assets/branding/prop_intelligence_logo.png
     - assets/branding/prop_intelligence_logo_transparent.png
