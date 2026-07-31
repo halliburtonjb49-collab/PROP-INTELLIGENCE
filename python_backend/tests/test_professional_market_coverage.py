@@ -1,3 +1,4 @@
+from services import formatters
 from services.formatters import format_sport_label, market_to_category
 from services.market_config import markets_for_sport
 
@@ -25,3 +26,18 @@ def test_new_markets_have_professional_category_labels():
     assert market_to_category("player_to_receive_card") == "player card"
     assert format_sport_label("icehockey_nhl") == "NHL"
     assert format_sport_label("soccer_epl") == "SOCCER"
+
+
+def test_nfl_props_resolve_through_espn_headshot_provider(monkeypatch):
+    calls: list[tuple[str, str]] = []
+
+    def fake_espn_headshot(player_name: str, sport: str) -> str:
+        calls.append((player_name, sport))
+        return "https://a.espncdn.com/i/headshots/nfl/players/full/1.png"
+
+    monkeypatch.setattr(formatters, "espn_headshot_url", fake_espn_headshot)
+
+    assert formatters.resolve_player_image("Josh Allen", "NFL").endswith(
+        "/nfl/players/full/1.png"
+    )
+    assert calls == [("Josh Allen", "NFL")]

@@ -4207,7 +4207,8 @@ class _MainDashboardState extends State<MainDashboard> {
       'UNDERDOG',
       'FANDUEL',
       'SLEEPER',
-      'DRAFT PICKS',
+      'DRAFTKINGS',
+      'BETR',
     ];
     Widget bookMark(String book) {
       if (book == 'ALL') {
@@ -4218,6 +4219,7 @@ class _MainDashboardState extends State<MainDashboard> {
         'UNDERDOG' => ('U', const Color(0xFFFFC400)),
         'FANDUEL' => ('F', const Color(0xFF1685F8)),
         'SLEEPER' => ('S', const Color(0xFF65D8EF)),
+        'BETR' => ('B', const Color(0xFF34D399)),
         _ => ('D', const Color(0xFF8D4DFF)),
       };
       return Container(

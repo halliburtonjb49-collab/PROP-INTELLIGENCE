@@ -271,6 +271,47 @@ def test_site_facets_report_full_sport_and_category_totals(monkeypatch) -> None:
     }
 
 
+@pytest.mark.parametrize(
+    ("site", "expected_sports", "expected_categories"),
+    [
+        ("PRIZEPICKS", {"MLB", "NFL"}, {"MLB": {"HITS"}, "NFL": {"RECEPTIONS"}}),
+        ("UNDERDOG", {"NBA", "NHL"}, {"NBA": {"POINTS"}, "NHL": {"SHOTS"}}),
+        ("FANDUEL", {"WNBA"}, {"WNBA": {"ASSISTS"}}),
+        ("SLEEPER", {"NFL"}, {"NFL": {"PASSING YARDS"}}),
+        ("DRAFTKINGS", {"MLB"}, {"MLB": {"STRIKEOUTS"}}),
+        ("BETR", {"NBA"}, {"NBA": {"REBOUNDS"}}),
+    ],
+)
+def test_each_prop_site_reports_only_its_active_sports_and_categories(
+    monkeypatch,
+    site: str,
+    expected_sports: set[str],
+    expected_categories: dict[str, set[str]],
+) -> None:
+    rows = [
+        FakeProp("pp-mlb", "One", "MLB", "PRIZEPICKS", "HITS"),
+        FakeProp("pp-nfl", "Two", "NFL", "PRIZEPICKS", "RECEPTIONS"),
+        FakeProp("ud-nba", "Three", "NBA", "UNDERDOG", "POINTS"),
+        FakeProp("ud-nhl", "Four", "NHL", "UNDERDOG", "SHOTS"),
+        FakeProp("fd-wnba", "Five", "WNBA", "FANDUEL", "ASSISTS"),
+        FakeProp("sl-nfl", "Six", "NFL", "SLEEPER", "PASSING YARDS"),
+        FakeProp("dk-mlb", "Seven", "MLB", "DRAFTKINGS", "STRIKEOUTS"),
+        FakeProp("betr-nba", "Eight", "NBA", "BETR", "REBOUNDS"),
+    ]
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: rows)
+
+    payload = TestClient(main.app).get(
+        "/api/props",
+        params={"sportsbook": site, "limit": 75},
+    ).json()
+
+    assert set(payload["sportCounts"]) == expected_sports
+    assert {
+        sport: set(categories)
+        for sport, categories in payload["sportCategoryCounts"].items()
+    } == expected_categories
+
+
 def test_started_props_are_hidden_from_the_actionable_feed(monkeypatch) -> None:
     started = FakeProp("started", "One", "MLB", "FANDUEL", "HITS")
     started.startTimeUtc = "2020-07-20T20:00:00Z"

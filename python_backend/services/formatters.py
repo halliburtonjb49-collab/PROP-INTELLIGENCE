@@ -6,7 +6,7 @@ from services.mlb_headshot_service import mlb_headshot_url
 from services.espn_headshot_service import espn_headshot_url
 from services.sportmonks_headshot_service import sportmonks_headshot_url
 
-_ESPN_COVERED_SPORTS = {"NBA", "WNBA", "NHL", "PGA", "UFC"}
+_ESPN_COVERED_SPORTS = {"NFL", "NBA", "WNBA", "NHL", "PGA", "UFC"}
 
 MARKET_LABELS = {
     "POINTS": "Points",
