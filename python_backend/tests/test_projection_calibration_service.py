@@ -91,3 +91,28 @@ def test_prop_context_shrinks_uncertain_projection_to_multi_book_market() -> Non
     assert prop.projectionPreMarket == 30
     assert prop.projectionMarketWeight == .3
     assert prop.projection == 28.2
+
+
+def test_missing_sample_metadata_does_not_overwrite_verified_tier() -> None:
+    prop = SimpleNamespace(
+        projection=6.2,
+        line=5.5,
+        injuryStatus="healthy",
+        lineupStatus="confirmed",
+        projectionVolatility=1.45,
+        projectionSampleSize=0,
+        projectionCalibrated=False,
+        historicalHitRate=None,
+        sport="MLB",
+        market="Pitcher Strikeouts",
+        recommendationAvailable=True,
+        confidence=62,
+        tier="Strong",
+    )
+
+    apply_projection_context(prop)
+
+    assert prop.confidence == 62
+    assert prop.tier == "Strong"
+    assert prop.recommendationAvailable is True
+    assert prop.pick in {"OVER", "UNDER"}

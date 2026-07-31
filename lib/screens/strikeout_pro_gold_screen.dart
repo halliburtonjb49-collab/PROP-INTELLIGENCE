@@ -591,18 +591,18 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
 
   Widget _card(PropData prop) {
     final systemSide = _recommendedSide(prop);
-    final side = _selectedSides[prop.id] ?? systemSide;
+    final selectedSide = _selectedSides[prop.id];
     final projection = prop.projection;
     final delta = projection == null ? null : projection - prop.line;
     final isExpired = prop.gameHasStarted;
-    final sideText = side == null
+    final sideText = systemSide == null
         ? 'NO PICK'
-        : side == PickSide.over
+        : systemSide == PickSide.over
         ? 'OVER'
         : 'UNDER';
-    final signalColor = side == null
+    final signalColor = systemSide == null
         ? AppColors.textMuted
-        : side == PickSide.over
+        : systemSide == PickSide.over
         ? brand_colors.AppColors.success
         : const Color(0xFF6DB8FF);
     return Container(
@@ -675,7 +675,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      _signalLabel(prop, side),
+                      _signalLabel(prop, systemSide),
                       style: TextStyle(
                         color: signalColor,
                         fontSize: 7,
@@ -854,7 +854,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
             )
           else
             Text(
-              side == null
+              systemSide == null
                   ? 'No valid Over or Under signal is available for this line. The app will not manufacture a pick.'
                   : prop.proSuggestionUsesMarket
                   ? 'Informational market lean based on unequal Over and Under prices. This is not a model pick or claimed edge.'
@@ -877,7 +877,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   child: _sideButton(
                     prop: prop,
                     side: PickSide.over,
-                    selected: side == PickSide.over,
+                    selected: selectedSide == PickSide.over,
                     systemPick: systemSide == PickSide.over,
                   ),
                 ),
@@ -886,25 +886,19 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   child: _sideButton(
                     prop: prop,
                     side: PickSide.under,
-                    selected: side == PickSide.under,
+                    selected: selectedSide == PickSide.under,
                     systemPick: systemSide == PickSide.under,
                   ),
                 ),
               ],
             ),
           if (!isExpired) const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: side == null || isExpired
-                  ? null
-                  : () => widget.onSelect(prop, side),
-              icon: const Icon(Icons.add_rounded, size: 17),
-              label: Text(
-                isExpired ? 'GAME STARTED' : 'ADD $sideText TO ACTIVE SLIP',
-              ),
+          if (!isExpired)
+            const Text(
+              'Tap OVER or UNDER to add it to the active slip. Tap the selected side again to remove it.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textMuted, fontSize: 8),
             ),
-          ),
         ],
       ),
     );
@@ -919,7 +913,16 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
     final label = side == PickSide.over ? 'OVER' : 'UNDER';
     return OutlinedButton(
       key: ValueKey('strikeout-${side.name}-${prop.id}'),
-      onPressed: () => setState(() => _selectedSides[prop.id] = side),
+      onPressed: () {
+        setState(() {
+          if (_selectedSides[prop.id] == side) {
+            _selectedSides.remove(prop.id);
+          } else {
+            _selectedSides[prop.id] = side;
+          }
+        });
+        widget.onSelect(prop, side);
+      },
       style: OutlinedButton.styleFrom(
         foregroundColor: selected
             ? brand_colors.AppColors.sidebar

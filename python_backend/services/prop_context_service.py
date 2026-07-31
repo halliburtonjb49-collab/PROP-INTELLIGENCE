@@ -85,12 +85,15 @@ def apply_projection_context(prop: object) -> None:
         prop.pickText = "No Pick"
         return
     over_side = side == "OVER"
+    projection_sample_size = max(
+        0, int(getattr(prop, "projectionSampleSize", 0) or 0)
+    )
     evaluation = evaluate_market(
         projection=adjusted,
         line=line,
         volatility=float(getattr(prop, "projectionVolatility", None) or 1),
         side=side,
-        sample_size=max(1, int(getattr(prop, "projectionSampleSize", 0) or 0)),
+        sample_size=max(1, projection_sample_size),
         sport=str(getattr(prop, "sport", "")),
         market=str(getattr(prop, "market", "")),
         model_calibrated=bool(getattr(prop, "projectionCalibrated", False)),
@@ -126,19 +129,30 @@ def apply_projection_context(prop: object) -> None:
     prop.probabilityMarketWeight = evaluation.market_weight
     prop.probabilityUncertainty = evaluation.uncertainty
     prop.probabilityCalibrationAdjustment = evaluation.calibration_adjustment
-    prop.confidence = confidence_from_probability(probability)
+    calculated_confidence = confidence_from_probability(probability)
     prop.recommendedSide = side.title()
     prop.pick = side
     prop.pickText = f"{side.title()} {line:g}"
-    prop.tier = (
-        "Premium"
-        if prop.confidence >= 65
-        else "Strong"
-        if prop.confidence >= 60
-        else "Lean"
-        if prop.confidence >= 57
-        else "Pass"
-    )
+    # A missing sample count means the context layer has no new evidence with
+    # which to replace the recommendation already verified by prop_service.
+    # Treating the missing value as a one-game sample collapses every
+    # probability toward 50% and incorrectly turns the whole board into PASS.
+    existing_confidence = int(getattr(prop, "confidence", 0) or 0)
+    existing_tier = str(getattr(prop, "tier", "") or "").strip()
+    if projection_sample_size > 0 or existing_confidence <= 0:
+        prop.confidence = calculated_confidence
+        prop.tier = (
+            "Premium"
+            if prop.confidence >= 65
+            else "Strong"
+            if prop.confidence >= 60
+            else "Lean"
+            if prop.confidence >= 57
+            else "Pass"
+        )
+    else:
+        prop.confidence = existing_confidence
+        prop.tier = existing_tier or "No Pick"
     if prop.tier == "Pass":
         prop.recommendationAvailable = False
         prop.isPositiveEv = False
