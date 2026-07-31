@@ -8921,38 +8921,32 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         children: [
           Row(
             children: [
-              Container(
-                key: ValueKey('prop-sport-${prop.id}'),
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(
-                  color: app_colors.AppColors.blue.withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: app_colors.AppColors.blue),
-                ),
-                child: Text(
-                  prop.sport.trim().isEmpty
-                      ? 'SPORT'
-                      : prop.sport.toUpperCase(),
-                  style: const TextStyle(
-                    color: app_colors.AppColors.blue,
-                    fontSize: 7,
-                    fontWeight: FontWeight.w900,
+              Expanded(
+                child: Container(
+                  key: ValueKey('prop-sport-${prop.id}'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: app_colors.AppColors.blue.withValues(alpha: .12),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: app_colors.AppColors.blue),
+                  ),
+                  child: Text(
+                    '${prop.sport.trim().isEmpty ? 'SPORT' : prop.sport.toUpperCase()} • '
+                    '${prop.sportsbook.trim().isEmpty ? 'SITE UNKNOWN' : prop.sportsbook.toUpperCase()}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: app_colors.AppColors.blue,
+                      fontSize: 7,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  market,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
               Tooltip(
                 message: 'Open every available prop for ${prop.player}',
                 child: InkWell(
@@ -8997,6 +8991,17 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            market,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+            ),
           ),
           const SizedBox(height: 5),
           Row(

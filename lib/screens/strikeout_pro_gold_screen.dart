@@ -764,28 +764,20 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   size: 17,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'PROP SITE: ${prop.sportsbook.trim().isEmpty ? 'UNKNOWN' : prop.sportsbook.toUpperCase()}',
-                  style: const TextStyle(
-                    color: AppColors.gold,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .5,
-                  ),
-                ),
-                if (prop.sourceProvider.trim().isNotEmpty &&
-                    prop.sourceProvider.trim().toUpperCase() !=
-                        prop.sportsbook.trim().toUpperCase()) ...[
-                  const Spacer(),
-                  Text(
-                    'SOURCE: ${prop.sourceProvider.toUpperCase()}',
+                Expanded(
+                  child: Text(
+                    'SPORT: ${prop.sport.trim().isEmpty ? 'MLB' : prop.sport.toUpperCase()}  •  '
+                    'PROP SITE: ${prop.sportsbook.trim().isEmpty ? 'UNKNOWN' : prop.sportsbook.toUpperCase()}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w800,
+                      color: AppColors.gold,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .35,
                     ),
                   ),
-                ],
+                ),
               ],
             ),
           ),
