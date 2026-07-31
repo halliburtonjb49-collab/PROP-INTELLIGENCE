@@ -6,6 +6,7 @@ from services import espn_headshot_service
 
 def _use_map(monkeypatch, path):
     monkeypatch.setattr(espn_headshot_service, "HEADSHOT_MAP_PATH", path)
+    monkeypatch.setattr(espn_headshot_service, "_BUNDLED_MAP_PATH", path)
     espn_headshot_service._load_map.cache_clear()
 
 
@@ -89,6 +90,47 @@ def test_espn_cache_reads_shared_redis_payload(monkeypatch, tmp_path):
     assert health["status"] == "ok"
     assert health["mode"] == "redis"
     assert health["playerCount"] == 1
+
+
+def test_espn_cache_merges_bundled_nfl_with_older_redis(monkeypatch, tmp_path):
+    bundled = tmp_path / "bundled.json"
+    runtime = tmp_path / "runtime.json"
+    bundled.write_text(
+        json.dumps(
+            {
+                "leagues": {
+                    "NFL": {"josh allen": "https://cdn.example/allen.png"}
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    runtime.write_text(
+        json.dumps(
+            {
+                "leagues": {
+                    "NBA": {"a ja wilson": "https://cdn.example/wilson.png"}
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(espn_headshot_service, "_BUNDLED_MAP_PATH", bundled)
+    monkeypatch.setattr(espn_headshot_service, "HEADSHOT_MAP_PATH", runtime)
+    monkeypatch.setattr(
+        espn_headshot_service,
+        "get_distributed_json",
+        lambda _key: {
+            "leagues": {
+                "NHL": {"sidney crosby": "https://cdn.example/crosby.png"}
+            }
+        },
+    )
+    espn_headshot_service._load_map.cache_clear()
+
+    assert espn_headshot_service.espn_headshot_url("Josh Allen", "NFL")
+    assert espn_headshot_service.espn_headshot_url("A'ja Wilson", "NBA")
+    assert espn_headshot_service.espn_headshot_url("Sidney Crosby", "NHL")
 
 
 def test_espn_refresh_includes_team_and_event_leagues(monkeypatch, tmp_path):

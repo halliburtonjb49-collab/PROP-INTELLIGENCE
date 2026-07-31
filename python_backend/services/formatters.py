@@ -260,9 +260,11 @@ def player_image_path(player_name: str) -> str:
 
 def resolve_player_image(player_name: str, sport: str) -> str:
     """Picks the best available photo for a prop: an official league
-    headshot when we have one (currently MLB only), otherwise whatever
-    locally bundled asset exists. Returns "" when neither is available so
-    the frontend falls back to its initials placeholder.
+    headshot when we have one, otherwise whatever locally bundled asset
+    exists. NFL, NBA, WNBA, NHL, PGA and UFC use ESPN's roster/event cache;
+    MLB uses MLB's official player directory; soccer also checks Sportmonks.
+    Returns "" when no provider has a photo so the frontend can safely use
+    its initials placeholder.
     """
     if sport == "MLB":
         headshot = mlb_headshot_url(player_name)

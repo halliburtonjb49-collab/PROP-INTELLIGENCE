@@ -66,14 +66,29 @@ def _normalize_name(value: str) -> str:
 
 @lru_cache(maxsize=1)
 def _load_map() -> dict[str, dict[str, str]]:
-    payload, _source = _load_payload()
-    leagues = payload.get("leagues") if isinstance(payload, dict) else None
-    if isinstance(leagues, dict):
-        return {
-            str(sport): {str(name): str(url) for name, url in players.items()}
-            for sport, players in leagues.items()
-        }
-    return {}
+    # Merge every available layer instead of letting an older Redis payload
+    # hide leagues newly added to the bundled cache (NFL was the first case).
+    # Later layers win per player: bundled -> local/persistent -> Redis.
+    merged: dict[str, dict[str, str]] = {}
+    payloads: list[object] = []
+    for path in dict.fromkeys((_BUNDLED_MAP_PATH, HEADSHOT_MAP_PATH)):
+        if not path.exists():
+            continue
+        try:
+            payloads.append(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            continue
+    payloads.append(get_distributed_json(_DISTRIBUTED_CACHE_KEY))
+    for payload in payloads:
+        leagues = payload.get("leagues") if isinstance(payload, dict) else None
+        if not isinstance(leagues, dict):
+            continue
+        for sport, players in leagues.items():
+            if not isinstance(players, dict):
+                continue
+            target = merged.setdefault(str(sport), {})
+            target.update({str(name): str(url) for name, url in players.items()})
+    return merged
 
 
 def _load_payload() -> tuple[dict[str, object] | None, str]:
@@ -305,7 +320,11 @@ def refresh_espn_headshot_map() -> dict[str, int]:
     many real network calls (teams + one roster call per team, per league)
     and should never execute on the request path.
     """
-    leagues: dict[str, dict[str, str]] = {}
+    # Retain the last known-good league when one upstream roster call fails.
+    # A partial ESPN outage must not erase photos for an entire sport.
+    leagues: dict[str, dict[str, str]] = {
+        sport: dict(players) for sport, players in _load_map().items()
+    }
     counts: dict[str, int] = {}
     for sport_label, (espn_sport, espn_league) in LEAGUES.items():
         players: dict[str, str] = {}
@@ -314,24 +333,27 @@ def refresh_espn_headshot_map() -> dict[str, int]:
                 players.update(_fetch_team_roster(espn_sport, espn_league, team_id))
             except requests.RequestException:
                 continue
-        leagues[sport_label] = players
-        counts[sport_label] = len(players)
+        if players:
+            leagues[sport_label] = players
+        counts[sport_label] = len(leagues.get(sport_label, {}))
 
     for sport_label, (espn_sport, espn_league) in EVENT_LEAGUES.items():
         try:
             players = _fetch_event_athletes(espn_sport, espn_league)
         except requests.RequestException:
             players = {}
-        leagues[sport_label] = players
-        counts[sport_label] = len(players)
+        if players:
+            leagues[sport_label] = players
+        counts[sport_label] = len(leagues.get(sport_label, {}))
 
     for sport_label, (espn_sport, espn_league) in DETAIL_ROSTER_LEAGUES.items():
         try:
             players = _fetch_detail_roster_athletes(espn_sport, espn_league)
         except requests.RequestException:
             players = {}
-        leagues[sport_label] = players
-        counts[sport_label] = len(players)
+        if players:
+            leagues[sport_label] = players
+        counts[sport_label] = len(leagues.get(sport_label, {}))
 
     payload = {
         "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
