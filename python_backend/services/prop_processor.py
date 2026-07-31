@@ -17,6 +17,32 @@ BINARY_PLAYER_MARKETS = {
     "player_to_receive_red_card",
 }
 
+# Reject provider rows that cannot represent a real player prop. These broad
+# ceilings are intentionally well above normal outcomes; they catch team/game
+# totals accidentally attached to a player market without rejecting legitimate
+# alternate player lines.
+PLAYER_LINE_BOUNDS: dict[str, tuple[float, float]] = {
+    "player_points": (0.5, 79.5),
+    "player_rebounds": (0.5, 39.5),
+    "player_assists": (0.5, 29.5),
+    "player_points_rebounds_assists": (0.5, 129.5),
+    "player_points_rebounds": (0.5, 99.5),
+    "player_points_assists": (0.5, 99.5),
+    "player_rebounds_assists": (0.5, 69.5),
+    "player_blocks": (0.5, 19.5),
+    "player_steals": (0.5, 19.5),
+    "player_blocks_steals": (0.5, 29.5),
+    "player_threes": (0.5, 19.5),
+    "player_turnovers": (0.5, 19.5),
+    "player_field_goals": (0.5, 39.5),
+    "player_fantasy_points": (0.5, 149.5),
+}
+
+
+def _plausible_player_line(market_key: str, point: float) -> bool:
+    bounds = PLAYER_LINE_BOUNDS.get(market_key)
+    return bounds is None or bounds[0] <= point <= bounds[1]
+
 
 def _player_and_line(market_key: str, outcome: dict[str, Any]) -> tuple[str, float | None]:
     player = str(outcome.get("description") or outcome.get("player") or "").strip()
@@ -124,6 +150,7 @@ def process_and_cache_props(
     skipped_missing_player_or_line = 0
     skipped_duplicate_market = 0
     skipped_duplicate_event = 0
+    skipped_unpaired_or_invalid = 0
     seen_event_props: set[tuple[str, str, str, float]] = set()
 
     for bookmaker in odds_payload.get("bookmakers", []):
@@ -203,6 +230,15 @@ def process_and_cache_props(
                             over_odds = float(price)
                     if under_odds is None and over_odds is not None:
                         under_odds = _opposite_american_odds(over_odds)
+                elif (
+                    not _plausible_player_line(market_key, current_line)
+                    or over_odds is None
+                    or under_odds is None
+                ):
+                    # Never publish a standard player line assembled from one
+                    # side, a different line, or a team/game-total scale.
+                    skipped_unpaired_or_invalid += 1
+                    continue
                 prediction, confidence = calculate_prediction(
                     over_odds,
                     under_odds,
@@ -247,13 +283,14 @@ def process_and_cache_props(
         )
 
     logger.info(
-        "prop_processor event_id=%s sport=%s inserted=%s skipped_missing=%s skipped_dup_market=%s skipped_dup_event=%s",
+        "prop_processor event_id=%s sport=%s inserted=%s skipped_missing=%s skipped_dup_market=%s skipped_dup_event=%s skipped_unpaired_or_invalid=%s",
         event_id,
         sport_key,
         inserted,
         skipped_missing_player_or_line,
         skipped_duplicate_market,
         skipped_duplicate_event,
+        skipped_unpaired_or_invalid,
     )
 
     return inserted

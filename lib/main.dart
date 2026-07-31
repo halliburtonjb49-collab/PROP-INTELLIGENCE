@@ -10495,7 +10495,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                         crossAxisCount: columns,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
-                        mainAxisExtent: 410,
+                        mainAxisExtent: 520,
                       ),
                       itemBuilder: (context, index) {
                         final prop = visibleProps[index];

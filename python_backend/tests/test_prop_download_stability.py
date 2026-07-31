@@ -87,6 +87,53 @@ def test_event_props_are_replaced_in_one_cache_transaction(tmp_path) -> None:
     assert rows[0]["under_odds"] == -115
 
 
+def test_unpaired_player_line_is_not_published(tmp_path) -> None:
+    cache = PropCache(tmp_path / "unpaired.db")
+    payload = {"bookmakers": [{
+        "title": "PrizePicks",
+        "markets": [{
+            "key": "player_points",
+            "outcomes": [
+                {"name": "Over", "description": "Player One", "point": 20.5, "price": -110},
+            ],
+        }],
+    }]}
+
+    inserted = process_and_cache_props(
+        cache=cache,
+        sport_key="basketball_wnba",
+        event={"id": "wnba-1", "commence_time": "2099-07-18T23:00:00Z"},
+        odds_payload=payload,
+    )
+
+    assert inserted == 0
+    assert cache.load_props() == []
+
+
+def test_team_scale_total_is_not_published_as_wnba_player_points(tmp_path) -> None:
+    cache = PropCache(tmp_path / "team-total.db")
+    payload = {"bookmakers": [{
+        "title": "PrizePicks",
+        "markets": [{
+            "key": "player_points",
+            "outcomes": [
+                {"name": "Over", "description": "Player One", "point": 167.5, "price": -110},
+                {"name": "Under", "description": "Player One", "point": 167.5, "price": -110},
+            ],
+        }],
+    }]}
+
+    inserted = process_and_cache_props(
+        cache=cache,
+        sport_key="basketball_wnba",
+        event={"id": "wnba-2", "commence_time": "2099-07-18T23:00:00Z"},
+        odds_payload=payload,
+    )
+
+    assert inserted == 0
+    assert cache.load_props() == []
+
+
 def test_line_change_preserves_opening_line_and_updates_current_line(tmp_path) -> None:
     cache = PropCache(tmp_path / "line-move.db")
 
