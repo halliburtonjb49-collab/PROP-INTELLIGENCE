@@ -2105,7 +2105,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   const SizedBox(height: 6),
                   SidebarButton(
                     label: 'SCORE WATCH',
-                    leadingIcons: const [Icons.visibility_rounded],
+                    leadingIcons: const [Icons.notifications_active_rounded],
                     leadingIconColors: const [AppColors.gold],
                     selected:
                         widget.selectedPage == AppPage.scoreboardWatchlist,
@@ -7192,7 +7192,7 @@ class TopNavigation extends StatelessWidget {
                     _buildNavItem(
                       label: 'SCORE WATCH',
                       page: AppPage.scoreboardWatchlist,
-                      icon: Icons.visibility_rounded,
+                      icon: Icons.notifications_active_rounded,
                       requiredTier: SubscriptionTier.edge,
                       hasProUpgrade: true,
                     ),
