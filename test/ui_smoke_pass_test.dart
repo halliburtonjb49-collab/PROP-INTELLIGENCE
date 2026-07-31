@@ -78,6 +78,18 @@ void main() {
     expect(find.byKey(const ValueKey('tier-badge-core')), findsWidgets);
     expect(find.byKey(const ValueKey('tier-badge-edge')), findsWidgets);
     expect(find.byKey(const ValueKey('global-sound-toggle')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('prop-sites-scroll-left')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('prop-sites-scroll-right')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('prop-sites-scroll-list')),
+      findsOneWidget,
+    );
     expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('global-sound-toggle')));
     await tester.pump();

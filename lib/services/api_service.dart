@@ -162,7 +162,16 @@ class ApiService {
     bool forceRefresh = false,
   }) async {
     final client = SupabaseService.client;
-    final session = client?.auth.currentSession;
+    var session = client?.auth.currentSession;
+    // Immediately after login the dashboard can build one frame before the
+    // Supabase client publishes its restored session. Give that handoff a
+    // short window instead of failing the first prop request as signed out.
+    if (client != null && session == null) {
+      for (var attempt = 0; attempt < 12 && session == null; attempt++) {
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        session = client.auth.currentSession;
+      }
+    }
     var token = session?.accessToken;
     if (client != null &&
         session != null &&
@@ -552,20 +561,27 @@ class ApiService {
 
   Future<http.Response> _downloadPropsPage(Uri uri) async {
     Object? lastError;
-    for (var attempt = 1; attempt <= 3; attempt++) {
+    for (var attempt = 1; attempt <= 2; attempt++) {
       try {
-        final response = await http
+        var response = await http
             .get(uri, headers: await _authenticatedHeaders())
-            .timeout(const Duration(seconds: 35));
+            .timeout(const Duration(seconds: 12));
+        if (response.statusCode == 401) {
+          response = await http
+              .get(
+                uri,
+                headers: await _authenticatedHeaders(forceRefresh: true),
+              )
+              .timeout(const Duration(seconds: 12));
+        }
         if (response.statusCode == 200) return response;
         lastError = Exception('Unable to load props: ${response.statusCode}');
         if (response.statusCode < 500 && response.statusCode != 429) break;
       } catch (error) {
         lastError = error;
       }
-      if (attempt < 3) {
-        final backoffMs = attempt == 1 ? 400 : 800;
-        await Future<void>.delayed(Duration(milliseconds: backoffMs));
+      if (attempt < 2) {
+        await Future<void>.delayed(const Duration(milliseconds: 350));
       }
     }
     throw Exception(lastError ?? 'Unable to download the props page.');
