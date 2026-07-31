@@ -10,6 +10,13 @@ import '../models/saved_slip.dart';
 import '../models/slip_selection.dart';
 import 'supabase_service.dart';
 
+@visibleForTesting
+Map<String, dynamic> savedSlipPayload(Map<String, dynamic> response) {
+  final nested = response['slip'];
+  if (nested is Map) return Map<String, dynamic>.from(nested);
+  return response;
+}
+
 class _ParsedPropsPayload {
   const _ParsedPropsPayload({
     required this.props,
@@ -1323,7 +1330,7 @@ class ApiService {
       throw const FormatException('Invalid slip response.');
     }
 
-    return decoded;
+    return savedSlipPayload(decoded);
   }
 
   Future<Map<String, double>> previewSlip({

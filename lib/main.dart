@@ -1692,7 +1692,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Color(0xFF8CFFB2),
+            backgroundColor: app_colors.AppColors.gold,
             content: Text(
               'Slip locked and moved to Slip Watcher!',
               style: TextStyle(

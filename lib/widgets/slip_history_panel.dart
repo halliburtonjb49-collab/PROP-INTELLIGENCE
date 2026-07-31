@@ -223,7 +223,14 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     if (oldWidget.isActive != widget.isActive) {
       if (widget.isActive) {
         _liveUpdates.resume();
-        setState(() => _slipsFuture = _fetchForTab(_selectedTab));
+        final recent = widget.activeSlipController.recentLockedSlips;
+        if (!_isHistory && recent.isNotEmpty) {
+          _rememberSlips(recent);
+          setState(() => _slipsFuture = Future.value(recent));
+          unawaited(_reloadSlipsOnly());
+        } else {
+          setState(() => _slipsFuture = _fetchForTab(_selectedTab));
+        }
         unawaited(_refreshLockedSlipCount());
         _startPolling();
       } else {
