@@ -18,24 +18,25 @@ class PropIntelligenceBrandedLogo extends StatelessWidget {
         SizedBox(
           width: height,
           height: height,
-          child: ClipOval(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(height * .12),
             child: Image.asset(
               'assets/branding/prop_intelligence_logo.png',
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) {
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       Icons.warning_amber_rounded,
-                      color: const Color(0xFFF3C344),
+                      color: const Color(0xFFD8B25C),
                       size: height * 0.35,
                     ),
                     const SizedBox(height: 6),
                     const Text(
                       'LOGO UNAVAILABLE',
                       style: TextStyle(
-                        color: Color(0xFFF3C344),
+                        color: Color(0xFFD8B25C),
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.8,
@@ -52,7 +53,7 @@ class PropIntelligenceBrandedLogo extends StatelessWidget {
           const Text(
             'PROP INTELLIGENCE',
             style: TextStyle(
-              color: Color(0xFFF3C344),
+              color: Color(0xFFD8B25C),
               fontSize: 12,
               fontWeight: FontWeight.bold,
               letterSpacing: 2.5,

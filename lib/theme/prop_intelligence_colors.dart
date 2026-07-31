@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 class PropIntelligenceColors {
   // Brand palette sourced from the logo treatment.
-  static const Color darkCanvasBg = Color(0xFF060B11);
-  static const Color darkCardBg = Color(0xFF0F1622);
-  static const Color premiumGold = Color(0xFFFFC400);
-  static const Color electricBlue = Color(0xFF36B9FF);
-  static const Color gunmetal = Color(0xFF263746);
-  static const Color metallicSilver = Color(0xFFD7DEE5);
+  static const Color darkCanvasBg = Color(0xFF07121B);
+  static const Color darkCardBg = Color(0xFF10202C);
+  static const Color premiumGold = Color(0xFFD8B25C);
+  static const Color electricBlue = Color(0xFFA8E5F3);
+  static const Color gunmetal = Color(0xFF344754);
+  static const Color metallicSilver = Color(0xFFC9D2D8);
 }

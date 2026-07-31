@@ -267,13 +267,13 @@ List<PropData> boardIntelligenceScope({
 }
 
 class AppColors {
-  static const background = Color(0xFF050A0F);
-  static const leftSidebar = Color(0xFF09131D);
-  static const rightSidebar = Color(0xFF071019);
-  static const panel = Color(0xFF0C1824);
-  static const border = Color(0xFF283846);
-  static const gold = Color(0xFFFFC400);
-  static const goldBright = Color(0xFFFFC400);
+  static const background = Color(0xFF07121B);
+  static const leftSidebar = Color(0xFF0B1924);
+  static const rightSidebar = Color(0xFF091620);
+  static const panel = Color(0xFF10202C);
+  static const border = Color(0xFF344754);
+  static const gold = Color(0xFFD8B25C);
+  static const goldBright = Color(0xFFE4C474);
   static const text = Color(0xFFF3F1EC);
   static const muted = Color(0xFF8996A6);
 }
@@ -6822,10 +6822,11 @@ class PropIntelligenceBrandBadge extends StatelessWidget {
       height: double.infinity,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
-        child: ClipOval(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
           child: Image.asset(
-            'assets/branding/prop_intelligence_logo.png',
-            fit: BoxFit.cover,
+            'assets/branding/prop_intelligence_icon.png',
+            fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {
               return const Center(
                 child: Icon(
