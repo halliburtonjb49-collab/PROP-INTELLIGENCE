@@ -91,6 +91,19 @@ void main() {
       find.byKey(const ValueKey('prop-sites-scroll-list')),
       findsOneWidget,
     );
+    expect(find.byKey(const ValueKey('all-prop-sites-menu')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('all-prop-sites-menu')));
+    await tester.pumpAndSettle();
+    expect(find.text('SLEEPER'), findsWidgets);
+    await tester.tap(find.text('SLEEPER').last);
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('all-prop-sites-menu')),
+        matching: find.text('SLEEPER'),
+      ),
+      findsOneWidget,
+    );
     expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('global-sound-toggle')));
     await tester.pump();

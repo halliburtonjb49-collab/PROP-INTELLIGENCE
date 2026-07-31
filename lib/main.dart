@@ -4300,6 +4300,21 @@ class _MainDashboardState extends State<MainDashboard> {
       );
     }
 
+    void selectSite(String book) {
+      setState(() {
+        _selectedSite = book;
+        _selectedSiteSport = '';
+        _selectedCategory = 'ALL';
+        _siteInventoryProps = const [];
+        _siteSportCounts = const {};
+        _siteSportCategoryCounts = const {};
+        _focusedProp = null;
+        _latestProps = const [];
+        _categoryCounts = const {};
+        _lastUpdated = null;
+      });
+    }
+
     return Row(
       children: [
         IconButton(
@@ -4491,19 +4506,87 @@ class _MainDashboardState extends State<MainDashboard> {
                       }
                       final book = books[index > 3 ? index - 3 : index];
                       final selected = _selectedSite == book;
+                      if (book == 'ALL') {
+                        return PopupMenuButton<String>(
+                          key: const ValueKey('all-prop-sites-menu'),
+                          tooltip: 'Choose a prop site',
+                          onSelected: selectSite,
+                          color: app_colors.AppColors.sidebar,
+                          itemBuilder: (context) => [
+                            for (final option in books)
+                              PopupMenuItem<String>(
+                                value: option,
+                                child: Row(
+                                  children: [
+                                    bookMark(option),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      option == 'ALL'
+                                          ? 'All Prop Sites'
+                                          : option,
+                                      style: TextStyle(
+                                        color: _selectedSite == option
+                                            ? AppColors.gold
+                                            : Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                          child: IgnorePointer(
+                            child: OutlinedButton(
+                              onPressed: () {},
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: selected
+                                    ? AppColors.gold
+                                    : Colors.white,
+                                backgroundColor: selected
+                                    ? AppColors.gold.withValues(alpha: .10)
+                                    : app_colors.AppColors.sidebar,
+                                side: BorderSide(
+                                  color: selected
+                                      ? AppColors.gold
+                                      : AppColors.border,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 13,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(7),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_selectedSite != 'ALL') ...[
+                                    bookMark(_selectedSite),
+                                    const SizedBox(width: 6),
+                                  ],
+                                  Text(
+                                    _selectedSite == 'ALL'
+                                        ? 'All Prop Sites'
+                                        : _selectedSite,
+                                    style: const TextStyle(
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  const Icon(
+                                    Icons.keyboard_arrow_down,
+                                    size: 13,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }
                       return OutlinedButton(
-                        onPressed: () => setState(() {
-                          _selectedSite = book;
-                          _selectedSiteSport = '';
-                          _selectedCategory = 'ALL';
-                          _siteInventoryProps = const [];
-                          _siteSportCounts = const {};
-                          _siteSportCategoryCounts = const {};
-                          _focusedProp = null;
-                          _latestProps = const [];
-                          _categoryCounts = const {};
-                          _lastUpdated = null;
-                        }),
+                        onPressed: () => selectSite(book),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: selected
                               ? AppColors.gold
