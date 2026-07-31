@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from models.slip import LegResultUpdate, SlipCreate, SlipLeg
 from services import mlb_official_stats_service, result_reconciliation_service, slip_service
@@ -49,6 +49,7 @@ def test_official_mlb_result_resolves_final_game_and_pitcher_stat(monkeypatch) -
 
 def test_reconciliation_corrects_already_lost_slip(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(slip_service, "DATABASE_PATH", tmp_path / "slips.db")
+    selectable_game_time = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
     request = SlipCreate(
         legs=[
             SlipLeg(
@@ -60,7 +61,7 @@ def test_reconciliation_corrects_already_lost_slip(tmp_path, monkeypatch) -> Non
                 market="Pitcher Strikeouts",
                 line=4,
                 side="OVER",
-                game_start_time=datetime.now(timezone.utc).isoformat(),
+                game_start_time=selectable_game_time,
             ),
             SlipLeg(
                 prop_id="abbott",
@@ -71,7 +72,7 @@ def test_reconciliation_corrects_already_lost_slip(tmp_path, monkeypatch) -> Non
                 market="Pitcher Strikeouts",
                 line=4,
                 side="OVER",
-                game_start_time=datetime.now(timezone.utc).isoformat(),
+                game_start_time=selectable_game_time,
             ),
         ],
         stake=10,
