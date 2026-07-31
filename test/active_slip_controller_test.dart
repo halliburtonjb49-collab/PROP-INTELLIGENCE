@@ -101,9 +101,56 @@ void main() {
     ]);
 
     expect(controller.legs.single['current_line'], 6.5);
+    expect(controller.legs.single['line'], 5.5);
+    expect(controller.legs.single['original_line'], 5.5);
     expect(controller.legs.single['current_odds'], -105);
     expect(controller.legs.single['movement_status'], 'UPDATED');
   });
+
+  test(
+    'matches a legacy line-based id by event player market and site',
+    () async {
+      final controller = ActiveSlipController();
+      await controller.load();
+      await controller.addLegs([
+        {
+          'prop_id': 'game-1-pitcher-one-pitcher-strikeouts-5-5-fanduel',
+          'event_id': 'game-1',
+          'player': 'Pitcher One',
+          'market': 'Pitcher Strikeouts',
+          'prop_site': 'FanDuel',
+          'line': 5.5,
+          'current_line': 5.5,
+          'side': 'OVER',
+        },
+      ]);
+
+      await controller.refreshFromProps([
+        const PropData(
+          id: 'game-1-pitcher-one-pitcher-strikeouts-fanduel',
+          eventId: 'game-1',
+          apiSportsGameId: '',
+          playerId: 'pitcher-1',
+          player: 'Pitcher One',
+          sport: 'MLB',
+          matchup: 'A @ B',
+          sportsbook: 'FanDuel',
+          market: 'Pitcher Strikeouts',
+          line: 6.5,
+          pick: 'OVER',
+          edge: 4,
+          imagePath: '',
+        ),
+      ]);
+
+      expect(
+        controller.legs.single['prop_id'],
+        'game-1-pitcher-one-pitcher-strikeouts-fanduel',
+      );
+      expect(controller.legs.single['original_line'], 5.5);
+      expect(controller.legs.single['current_line'], 6.5);
+    },
+  );
 
   test('removes a prop', () async {
     final controller = ActiveSlipController();

@@ -841,6 +841,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             onAddGameMarket: _addGameMarketLeg,
             onRemoveLabSelection: _removeLabSelection,
             onClearLabSelections: _clearCurrentSlip,
+            onPropsRefreshed: _refreshActiveSlipProps,
             sportFilter: _selectedBoardSport,
             selectedPage: _selectedPage,
             onSelectPage: (page) =>
@@ -1430,10 +1431,29 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     await _activeSlipController.refreshFromProps(props);
     if (!mounted || _slipSelections.isEmpty) return;
     final latestById = {for (final prop in props) prop.id: prop};
+    PropData? semanticMatch(PropData selected) {
+      final player = selected.player.trim().toLowerCase();
+      final market = selected.market.trim().toLowerCase();
+      final site = _normalizedSite(selected.sportsbook);
+      final event = selected.eventId.trim().toLowerCase();
+      for (final prop in props) {
+        if (prop.player.trim().toLowerCase() != player ||
+            prop.market.trim().toLowerCase() != market ||
+            _normalizedSite(prop.sportsbook) != site) {
+          continue;
+        }
+        if (event.isEmpty || prop.eventId.trim().toLowerCase() == event) {
+          return prop;
+        }
+      }
+      return null;
+    }
+
     var changed = false;
     final refreshed = _slipSelections
         .map((selection) {
-          final latest = latestById[selection.prop.id];
+          final latest =
+              latestById[selection.prop.id] ?? semanticMatch(selection.prop);
           if (latest == null) return selection;
           changed = true;
           return SlipSelection(prop: latest, side: selection.side);
@@ -2609,6 +2629,7 @@ class MainDashboard extends StatefulWidget {
   final Future<int> Function(Map<String, dynamic> leg) onAddGameMarket;
   final Future<void> Function(String propId) onRemoveLabSelection;
   final Future<void> Function() onClearLabSelections;
+  final Future<void> Function(List<PropData> props) onPropsRefreshed;
   final String sportFilter;
   final AppPage selectedPage;
   final ValueChanged<AppPage>? onSelectPage;
@@ -2623,6 +2644,7 @@ class MainDashboard extends StatefulWidget {
     required this.onAddGameMarket,
     required this.onRemoveLabSelection,
     required this.onClearLabSelections,
+    required this.onPropsRefreshed,
     required this.sportFilter,
     required this.selectedPage,
     this.onSelectPage,
@@ -3041,6 +3063,7 @@ class _MainDashboardState extends State<MainDashboard> {
       _lastUpdated = DateTime.now();
     });
     boardPropCountNotifier.value = propCount;
+    unawaited(widget.onPropsRefreshed(props));
     unawaited(_loadPropAlerts(fallbackProps: props));
   }
 
@@ -7921,6 +7944,8 @@ class _PropGridState extends State<PropGrid> {
   bool _isLoadingMore = false;
   Timer? _autoRetryTimer;
   Timer? _expiryTimer;
+  Timer? _lineRefreshTimer;
+  bool _isLiveRefreshing = false;
   int _automaticRetryCount = 0;
   int _visiblePropLimit = _visiblePropStep;
   final Set<String> _favoritePropIds = <String>{};
@@ -9678,6 +9703,9 @@ class _PropGridState extends State<PropGrid> {
         _propsFuture = Future.value(active);
       });
     });
+    _lineRefreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      unawaited(_refreshLiveLines());
+    });
   }
 
   void _handleBoardRefreshRequest() {
@@ -9688,6 +9716,7 @@ class _PropGridState extends State<PropGrid> {
   void dispose() {
     _autoRetryTimer?.cancel();
     _expiryTimer?.cancel();
+    _lineRefreshTimer?.cancel();
     boardRefreshRequestNotifier.removeListener(_handleBoardRefreshRequest);
     super.dispose();
   }
@@ -9815,6 +9844,16 @@ class _PropGridState extends State<PropGrid> {
       // Keep the saved page visible while the connection recovers.
       _autoRetryTimer = null;
       _scheduleAutomaticRetry();
+    }
+  }
+
+  Future<void> _refreshLiveLines() async {
+    if (!mounted || _isRefreshing || _isLiveRefreshing) return;
+    _isLiveRefreshing = true;
+    try {
+      await _refreshFirstPageFromNetwork(_queryKey);
+    } finally {
+      _isLiveRefreshing = false;
     }
   }
 

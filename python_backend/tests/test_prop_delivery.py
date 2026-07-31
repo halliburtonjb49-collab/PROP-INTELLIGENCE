@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 import main
+from services.prop_service import _make_prop_id
 
 
 @pytest.fixture(autouse=True)
@@ -125,6 +126,32 @@ def test_prop_page_filters_server_side_and_exposes_version(monkeypatch) -> None:
     assert response.headers["x-content-type-options"] == "nosniff"
     assert response.headers["x-frame-options"] == "DENY"
     assert int(response.headers["x-ratelimit-limit"]) > 0
+
+
+def test_prop_id_stays_stable_when_site_line_changes() -> None:
+    before = _make_prop_id("event-1", "Player One", "points", 20.5, "FanDuel")
+    after = _make_prop_id("event-1", "Player One", "points", 21.5, "FanDuel")
+
+    assert before == after
+
+
+def test_prop_page_can_return_only_lines_that_moved(monkeypatch) -> None:
+    unchanged = FakeProp("unchanged", "One", "NBA", "FANDUEL", "POINTS")
+    unchanged.openingLine = 20.5
+    unchanged.currentLine = 20.5
+    moved = FakeProp("moved", "Two", "NBA", "FANDUEL", "POINTS")
+    moved.openingLine = 20.5
+    moved.currentLine = 21.5
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [unchanged, moved])
+
+    response = TestClient(main.app).get(
+        "/api/props",
+        params={"sport": "NBA", "onlyMoved": True},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["count"] == 1
+    assert [row["id"] for row in response.json()["props"]] == ["moved"]
 
 
 def test_all_sports_feed_places_soccer_after_other_sports(monkeypatch) -> None:

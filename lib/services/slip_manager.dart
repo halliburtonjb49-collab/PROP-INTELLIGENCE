@@ -101,17 +101,53 @@ class SlipManager {
       for (final prop in latestProps) prop.id: prop,
     };
 
+    String normalized(Object? value) =>
+        value?.toString().trim().toLowerCase().replaceAll(
+          RegExp(r'[^a-z0-9]+'),
+          '',
+        ) ??
+        '';
+
+    PropData? semanticMatch(Map<String, dynamic> entry) {
+      final player = normalized(entry['player_name'] ?? entry['player']);
+      final market = normalized(entry['market_type'] ?? entry['market']);
+      final eventId = normalized(entry['event_id'] ?? entry['eventId']);
+      final oddsData = entry['odds_data'];
+      final firstOdds = oddsData is List && oddsData.isNotEmpty
+          ? oddsData.first
+          : null;
+      final site = normalized(
+        entry['sportsbook'] ??
+            entry['site'] ??
+            (firstOdds is Map ? firstOdds['bookmaker'] : null),
+      );
+      for (final prop in latestProps) {
+        if (normalized(prop.player) != player ||
+            normalized(prop.market) != market ||
+            normalized(prop.sportsbook) != site) {
+          continue;
+        }
+        if (eventId.isEmpty || normalized(prop.eventId) == eventId) {
+          return prop;
+        }
+      }
+      return null;
+    }
+
     final refreshed = currentList
         .map((entry) {
           final id = _propId(entry);
-          final latest = byId[id];
+          final latest = byId[id] ?? semanticMatch(entry);
           if (latest == null) {
             return entry;
           }
 
           return {
             ...entry,
-            'line': latest.line,
+            'id': latest.id,
+            'prop_id': latest.id,
+            'original_line': entry['original_line'] ?? entry['line'],
+            'current_line': latest.line,
             'market_type': latest.market,
             'player_name': latest.player,
             'edge_percentage': latest.edge,

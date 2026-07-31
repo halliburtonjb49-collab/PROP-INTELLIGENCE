@@ -85,3 +85,43 @@ def test_event_props_are_replaced_in_one_cache_transaction(tmp_path) -> None:
     assert rows[0]["player_name"] == "Player One"
     assert rows[0]["over_odds"] == -105
     assert rows[0]["under_odds"] == -115
+
+
+def test_line_change_preserves_opening_line_and_updates_current_line(tmp_path) -> None:
+    cache = PropCache(tmp_path / "line-move.db")
+
+    def payload(line: float) -> dict[str, object]:
+        return {"bookmakers": [{
+            "title": "FanDuel",
+            "markets": [{
+                "key": "player_points",
+                "outcomes": [
+                    {"name": "Over", "description": "Player One", "point": line, "price": -105},
+                    {"name": "Under", "description": "Player One", "point": line, "price": -115},
+                ],
+            }],
+        }]}
+
+    event = {
+        "id": "event-1",
+        "home_team": "Home",
+        "away_team": "Away",
+        "commence_time": "2099-07-18T23:00:00Z",
+    }
+    process_and_cache_props(
+        cache=cache,
+        sport_key="basketball_nba",
+        event=event,
+        odds_payload=payload(20.5),
+    )
+    process_and_cache_props(
+        cache=cache,
+        sport_key="basketball_nba",
+        event=event,
+        odds_payload=payload(21.5),
+    )
+
+    row = cache.load_props()[0]
+    assert row["line"] == 21.5
+    assert row["opening_line"] == 20.5
+    assert row["current_line"] == 21.5

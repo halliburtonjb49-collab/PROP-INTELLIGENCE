@@ -818,6 +818,44 @@ class ApiService {
     );
   }
 
+  /// Loads the complete actionable set of props whose current site line has
+  /// moved from its recorded opening line. This bypasses the normal board
+  /// cache so Line Movement never displays a stale first-page snapshot.
+  Future<List<PropData>> fetchLineMovementProps({String sport = 'All'}) async {
+    Object? lastError;
+    for (final candidate in _candidateBaseUrls) {
+      try {
+        const pageSize = 500;
+        final propsById = <String, PropData>{};
+        var offset = 0;
+        while (true) {
+          final uri = Uri.parse('$candidate/api/props').replace(
+            queryParameters: {
+              'sport': sport,
+              'onlyMoved': 'true',
+              'sortBy': 'time',
+              'limit': '$pageSize',
+              'offset': '$offset',
+            },
+          );
+          final response = await _getPropsPage(uri);
+          final parsed = await compute(_parsePropsPayload, response.body);
+          for (final prop in parsed.props) {
+            propsById[prop.id] = prop;
+          }
+          offset += parsed.props.length;
+          if (parsed.props.isEmpty || offset >= parsed.count) break;
+        }
+        _resolvedBaseUrl = candidate;
+        return propsById.values.toList(growable: false);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    if (lastError is Exception) throw lastError;
+    throw Exception('Unable to load current line movement.');
+  }
+
   String _propsCacheKey(
     String side,
     String tier,

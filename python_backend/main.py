@@ -1945,6 +1945,7 @@ def props(
 	includePastDates: bool = Query(default=False),
 	includeStarted: bool = Query(default=False),
 	includeStale: bool = Query(default=False),
+	onlyMoved: bool = Query(default=False),
 	limit: int = Query(default=75, ge=1, le=500),
 	offset: int = Query(default=0, ge=0),
 	if_none_match: str | None = Header(default=None, alias="If-None-Match"),
@@ -1996,6 +1997,11 @@ def props(
 				)
 			):
 				return False
+			if onlyMoved:
+				opening = float(getattr(prop, "openingLine", 0) or 0)
+				current = float(getattr(prop, "currentLine", 0) or 0)
+				if opening == 0 or current == 0 or abs(current - opening) < 0.01:
+					return False
 			recommended_side = str(
 				prop.recommendedSide or ""
 			).strip().lower()
@@ -2186,13 +2192,14 @@ def props(
 				"sortBy": sort_by,
 				"includePastDates": includePastDates,
 				"includeStarted": includeStarted,
+				"onlyMoved": onlyMoved,
 			},
 			"version": APP_VERSION,
 		}
 		etag_source = (
 			f"{APP_VERSION}|{membership.subscription_tier}|{side}|{tier}|{sportsbook}|{sport}|{category}|"
 			f"{search}|{min_confidence}|{sort_by}|{includePastDates}|"
-			f"{includeStarted}|"
+			f"{includeStarted}|{onlyMoved}|"
 			f"{limit}|{offset}|{total_count}|"
 			f"{max((prop.lastUpdatedUtc for prop in page), default='')}"
 		)

@@ -107,8 +107,11 @@ def _make_prop_id(
 	line: float,
 	sportsbook: str,
 ) -> str:
+	# The line is intentionally excluded. A site's number can move while the
+	# underlying event/player/market/site prop remains the same selection.
+	# Stable ids let cards, watchlists, and active slips receive that update.
 	raw = (
-		f"{event_id}-{player}-{market}-{line}-{sportsbook}"
+		f"{event_id}-{player}-{market}-{sportsbook}"
 	).lower()
 	return re.sub(r"[^a-z0-9]+", "-", raw).strip("-")
 

@@ -137,13 +137,9 @@ class _LineMovementPageState extends State<LineMovementPage> {
     // from what fetchProps() already returns. A refresh just re-fetches;
     // there's no separate "check lines" round trip needed or a stale
     // same-moment comparison to worry about.
-    final allProps = await _apiService.fetchProps();
-    final props = allProps.where((prop) {
-      if (selectedSport.isEmpty || selectedSport == 'ALL') {
-        return true;
-      }
-      return prop.sport.trim().toUpperCase() == selectedSport;
-    }).toList();
+    final props = await _apiService.fetchLineMovementProps(
+      sport: selectedSport.isEmpty ? 'ALL' : selectedSport,
+    );
 
     final items = props.map(_LineMovementItem.fromProp).toList()
       ..sort((a, b) => b.movementMagnitude.compareTo(a.movementMagnitude));

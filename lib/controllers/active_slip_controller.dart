@@ -136,11 +136,36 @@ class ActiveSlipController extends ChangeNotifier {
     return '';
   }
 
+  String _normalizedText(Object? value) =>
+      value?.toString().trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ') ??
+      '';
+
+  PropData? _semanticMatch(Map<String, dynamic> leg, Iterable<PropData> props) {
+    final player = _normalizedText(leg['player'] ?? leg['player_name']);
+    final market = _normalizedText(leg['market'] ?? leg['market_type']);
+    final eventId = _normalizedText(leg['event_id'] ?? leg['eventId']);
+    final site = _siteForLeg(leg);
+    if (player.isEmpty || market.isEmpty || site.isEmpty) return null;
+    for (final prop in props) {
+      if (_normalizedText(prop.player) != player ||
+          _normalizedText(prop.market) != market ||
+          _normalizeSite(prop.sportsbook) != site) {
+        continue;
+      }
+      if (eventId.isEmpty || _normalizedText(prop.eventId) == eventId) {
+        return prop;
+      }
+    }
+    return null;
+  }
+
   Future<void> refreshFromProps(Iterable<PropData> props) async {
-    final latestById = {for (final prop in props) prop.id: prop};
+    final currentProps = props.toList(growable: false);
+    final latestById = {for (final prop in currentProps) prop.id: prop};
     var changed = false;
     for (final leg in _legs) {
-      final latest = latestById[_propId(leg)];
+      final latest =
+          latestById[_propId(leg)] ?? _semanticMatch(leg, currentProps);
       if (latest == null) continue;
       final selectedSide = (leg['side'] ?? leg['pick'])
           ?.toString()
@@ -149,9 +174,15 @@ class ActiveSlipController extends ChangeNotifier {
       final latestOdds = selectedSide == 'UNDER'
           ? latest.underOdds
           : latest.overOdds;
+      if (_propId(leg) != latest.id) {
+        leg['prop_id'] = latest.id;
+        if (leg.containsKey('id')) leg['id'] = latest.id;
+        changed = true;
+      }
       if (leg['current_line'] != latest.line ||
           (latestOdds != null && leg['current_odds'] != latestOdds)) {
-        leg['line'] = latest.line;
+        final priorLine = leg['current_line'] ?? leg['line'];
+        leg.putIfAbsent('original_line', () => leg['line'] ?? priorLine);
         leg['current_line'] = latest.line;
         leg['current_odds'] = latestOdds ?? leg['current_odds'];
         leg['over_odds'] = latest.overOdds;
