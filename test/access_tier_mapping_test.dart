@@ -52,6 +52,10 @@ void main() {
     expect(requiredTierForPage(AppPage.watchlist), SubscriptionTier.core);
     expect(requiredTierForPage(AppPage.analytics), SubscriptionTier.core);
     expect(requiredTierForPage(AppPage.lineMovement), SubscriptionTier.core);
+    expect(
+      requiredTierForPage(AppPage.scoreboardWatchlist),
+      SubscriptionTier.edge,
+    );
     expect(requiredTierForPage(AppPage.pastSlipHistory), SubscriptionTier.core);
   });
 

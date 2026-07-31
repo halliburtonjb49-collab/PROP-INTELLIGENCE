@@ -728,17 +728,20 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   ),
                 ),
               ),
-              if (prop.lastUpdatedLocalDisplay.isNotEmpty)
-                Text(
-                  'UPDATED ${prop.lastUpdatedLocalDisplay}',
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 7,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
             ],
           ),
+          if (prop.lastUpdatedLocalDisplay.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              'UPDATED ${prop.lastUpdatedLocalDisplay}',
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 7,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Container(
             width: double.infinity,

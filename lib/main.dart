@@ -226,6 +226,7 @@ SubscriptionTier? requiredTierForPage(AppPage page) => switch (page) {
   AppPage.builderPerformance ||
   AppPage.strikeoutProGold ||
   AppPage.evScanner ||
+  AppPage.scoreboardWatchlist ||
   AppPage.propAlerts ||
   AppPage.intelligenceLab ||
   AppPage.refereeTracker => SubscriptionTier.edge,
@@ -2103,6 +2104,18 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   ),
                   const SizedBox(height: 6),
                   SidebarButton(
+                    label: 'SCORE WATCH',
+                    leadingIcons: const [Icons.visibility_rounded],
+                    leadingIconColors: const [AppColors.gold],
+                    selected:
+                        widget.selectedPage == AppPage.scoreboardWatchlist,
+                    requiredTier: SubscriptionTier.edge,
+                    showGoldBar: true,
+                    onTap: () =>
+                        widget.onSelectPage?.call(AppPage.scoreboardWatchlist),
+                  ),
+                  const SizedBox(height: 6),
+                  SidebarButton(
                     label: 'THE LAB',
                     leadingIcons: const [Icons.science_outlined],
                     leadingIconColors: const [AppColors.gold],
@@ -2624,19 +2637,36 @@ class SidebarButton extends StatelessWidget {
               const SizedBox(width: 8),
             ],
             Expanded(
-              child: Text(
-                label,
-                maxLines: 2,
-                softWrap: true,
-                overflow: TextOverflow.visible,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 10.5,
-                  height: 1.15,
-                  fontWeight: textWeight,
-                  letterSpacing: 0.2,
-                ),
-              ),
+              child: label.contains('\n')
+                  ? FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        label,
+                        maxLines: 2,
+                        softWrap: false,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 10.5,
+                          height: 1.15,
+                          fontWeight: textWeight,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    )
+                  : Text(
+                      label,
+                      maxLines: 2,
+                      softWrap: true,
+                      overflow: TextOverflow.visible,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 10.5,
+                        height: 1.15,
+                        fontWeight: textWeight,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
             ),
             if (badge != null)
               Container(
@@ -7108,7 +7138,9 @@ class TopNavigation extends StatelessWidget {
                     _buildNavItem(
                       label: 'SCORE WATCH',
                       page: AppPage.scoreboardWatchlist,
-                      icon: Icons.star_rounded,
+                      icon: Icons.visibility_rounded,
+                      requiredTier: SubscriptionTier.edge,
+                      hasProUpgrade: true,
                     ),
                     const SizedBox(width: 4),
                     ValueListenableBuilder<int>(
@@ -8710,7 +8742,7 @@ class _PropGridState extends State<PropGrid> {
             children: [
               Expanded(
                 child: Text(
-                  '$market  •  ${_propDateTimeLabel(prop)}',
+                  market,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -8750,6 +8782,31 @@ class _PropGridState extends State<PropGrid> {
                       : Icons.star_border,
                   color: AppColors.gold,
                   size: 19,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              const Icon(
+                Icons.schedule_rounded,
+                color: AppColors.gold,
+                size: 12,
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  _propDateTimeLabel(prop),
+                  key: ValueKey('prop-game-date-time-${prop.id}'),
+                  maxLines: 2,
+                  softWrap: true,
+                  overflow: TextOverflow.visible,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
             ],
