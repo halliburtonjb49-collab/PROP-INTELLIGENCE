@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class DashboardPanel extends StatelessWidget {
   const DashboardPanel({
     super.key,
@@ -24,7 +26,7 @@ class DashboardPanel extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF081722), Color(0xFF06111B)],
+          colors: [Color(0xFF081722), brand_colors.AppColors.bgBase],
         ),
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(

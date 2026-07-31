@@ -1,6 +1,8 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class PlayerAnalyticsChart extends StatelessWidget {
   final double targetLine;
   final List<double> last10GameStats;
@@ -13,7 +15,7 @@ class PlayerAnalyticsChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primaryYellow = Color(0xFFFFD700);
+    const primaryYellow = brand_colors.AppColors.goldHighlight;
     final safeTarget = targetLine <= 0 ? 1.0 : targetLine;
     final highestStat = last10GameStats.isEmpty
         ? safeTarget
@@ -83,7 +85,7 @@ class PlayerAnalyticsChart extends StatelessWidget {
                   BarChartRodData(
                     toY: actualStat,
                     color: hitOver
-                        ? const Color(0xFF36B9FF)
+                        ? brand_colors.AppColors.blue
                         : const Color(0xFFFF5252),
                     width: 14,
                     borderRadius: const BorderRadius.vertical(

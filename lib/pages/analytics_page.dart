@@ -6,6 +6,8 @@ import '../theme/app_colors.dart';
 import '../widgets/dashboard_panel.dart';
 import '../widgets/context_help.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class AnalyticsPage extends StatefulWidget {
   const AnalyticsPage({
     super.key,
@@ -93,18 +95,18 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       height: 42,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF101D28),
+        color: brand_colors.AppColors.bgPanel,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF8B6813)),
+        border: Border.all(color: brand_colors.AppColors.goldShadow),
       ),
       child: Row(
         children: [
-          const Icon(Icons.feed, size: 18, color: Color(0xFFFFC400)),
+          const Icon(Icons.feed, size: 18, color: brand_colors.AppColors.gold),
           const SizedBox(width: 8),
           const Text(
             'SPORTS ALERTS',
             style: TextStyle(
-              color: Color(0xFFFFC400),
+              color: brand_colors.AppColors.gold,
               fontSize: 10,
               fontWeight: FontWeight.w900,
             ),
@@ -172,7 +174,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        color: Color(0xFF96A4B2),
+                        color: brand_colors.AppColors.textSecondary,
                         fontSize: 10,
                       ),
                     ),
@@ -310,7 +312,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                     ? 'Basic player and market coverage'
                     : '$selectedSport player and market coverage',
                 style: const TextStyle(
-                  color: Color(0xFF96A4B2),
+                  color: brand_colors.AppColors.textSecondary,
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                 ),
@@ -346,7 +348,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                               color: const Color(0xFF0D1F2E),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: const Color(0xFF294052),
+                                color: brand_colors.AppColors.chromeShadow,
                               ),
                             ),
                             child: Row(
@@ -366,8 +368,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                                       : p.sportsbook.toUpperCase(),
                                   style: TextStyle(
                                     color: widget.hasProAccess
-                                        ? const Color(0xFFFFC400)
-                                        : const Color(0xFFC8CED6),
+                                        ? brand_colors.AppColors.gold
+                                        : brand_colors.AppColors.silver,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w900,
                                   ),

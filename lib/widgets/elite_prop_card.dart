@@ -6,6 +6,8 @@ import 'player_analytics_chart.dart';
 import 'premium_gate.dart';
 import 'context_help.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class ElitePropCard extends StatefulWidget {
   final String playerName;
   final String propType;
@@ -301,7 +303,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
       decoration: BoxDecoration(
         color: const Color(0xFF09131D),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF344758)),
+        border: Border.all(color: brand_colors.AppColors.gunmetalLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -310,7 +312,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
             children: [
               Icon(
                 Icons.fact_check_outlined,
-                color: Color(0xFFFFD700),
+                color: brand_colors.AppColors.goldHighlight,
                 size: 18,
               ),
               SizedBox(width: 8),
@@ -336,7 +338,10 @@ class _ElitePropCardState extends State<ElitePropCard> {
           if (signals.isEmpty)
             const Text(
               'More verified context is needed before a decision summary can be generated.',
-              style: TextStyle(color: Color(0xFF98A6B8), fontSize: 11),
+              style: TextStyle(
+                color: brand_colors.AppColors.textSecondary,
+                fontSize: 11,
+              ),
             )
           else
             ...signals.map(
@@ -351,7 +356,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
                           : Icons.warning_amber_rounded,
                       size: 15,
                       color: signal.positive
-                          ? const Color(0xFF36B9FF)
+                          ? brand_colors.AppColors.blue
                           : const Color(0xFFFFB74D),
                     ),
                     const SizedBox(width: 7),
@@ -373,7 +378,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
           const Text(
             'Verify the live line, injury status, and lineup before placing a wager.',
             style: TextStyle(
-              color: Color(0xFF98A6B8),
+              color: brand_colors.AppColors.textSecondary,
               fontSize: 10,
               fontStyle: FontStyle.italic,
             ),
@@ -435,7 +440,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
       decoration: BoxDecoration(
         color: const Color(0xFF09131D),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF344758)),
+        border: Border.all(color: brand_colors.AppColors.gunmetalLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -444,7 +449,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
             children: [
               Icon(
                 Icons.compare_arrows_rounded,
-                color: Color(0xFFFFD700),
+                color: brand_colors.AppColors.goldHighlight,
                 size: 18,
               ),
               SizedBox(width: 8),
@@ -475,7 +480,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
                 _marketMetric(
                   'MARKET ORIGIN',
                   originLine.toStringAsFixed(1),
-                  const Color(0xFF36B9FF),
+                  brand_colors.AppColors.blue,
                 ),
                 _marketMetric(
                   'THIS LINE',
@@ -504,13 +509,13 @@ class _ElitePropCardState extends State<ElitePropCard> {
                   ),
                   decoration: BoxDecoration(
                     color: index == 0
-                        ? const Color(0xFF36B9FF).withValues(alpha: .10)
+                        ? brand_colors.AppColors.blue.withValues(alpha: .10)
                         : Colors.white.withValues(alpha: .03),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: index == 0
-                          ? const Color(0xFF36B9FF)
-                          : const Color(0xFF273445),
+                          ? brand_colors.AppColors.blue
+                          : brand_colors.AppColors.chromeShadow,
                     ),
                   ),
                   child: Column(
@@ -522,8 +527,8 @@ class _ElitePropCardState extends State<ElitePropCard> {
                             : offers[index].book,
                         style: TextStyle(
                           color: index == 0
-                              ? const Color(0xFF36B9FF)
-                              : const Color(0xFF98A6B8),
+                              ? brand_colors.AppColors.blue
+                              : brand_colors.AppColors.textSecondary,
                           fontSize: 9,
                           fontWeight: FontWeight.w800,
                         ),
@@ -545,15 +550,22 @@ class _ElitePropCardState extends State<ElitePropCard> {
           const SizedBox(height: 8),
           Text(
             '${offers.length} book${offers.length == 1 ? '' : 's'} compared • verify before placing',
-            style: const TextStyle(color: Color(0xFF98A6B8), fontSize: 10),
+            style: const TextStyle(
+              color: brand_colors.AppColors.textSecondary,
+              fontSize: 10,
+            ),
           ),
           if (publicBets != null || money != null) ...[
             const SizedBox(height: 12),
             if (publicBets != null)
-              _volumeBar('PUBLIC BETS', publicBets, const Color(0xFF36B9FF)),
+              _volumeBar(
+                'PUBLIC BETS',
+                publicBets,
+                brand_colors.AppColors.blue,
+              ),
             if (money != null) ...[
               const SizedBox(height: 7),
-              _volumeBar('MONEY', money, const Color(0xFFFFD700)),
+              _volumeBar('MONEY', money, brand_colors.AppColors.goldHighlight),
             ],
             if (volumeSource != null) ...[
               const SizedBox(height: 6),
@@ -583,7 +595,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
           Text(
             label,
             style: const TextStyle(
-              color: Color(0xFF98A6B8),
+              color: brand_colors.AppColors.textSecondary,
               fontSize: 8,
               fontWeight: FontWeight.w800,
             ),
@@ -611,7 +623,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
           child: Text(
             label,
             style: const TextStyle(
-              color: Color(0xFF98A6B8),
+              color: brand_colors.AppColors.textSecondary,
               fontSize: 9,
               fontWeight: FontWeight.w800,
             ),
@@ -678,7 +690,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryYellow = Color(0xFFFFD700);
+    const primaryYellow = brand_colors.AppColors.goldHighlight;
     final last10GameStats = _resolveLast10GameStats();
     final hitRate = last10GameStats.isEmpty
         ? 0
@@ -691,7 +703,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
 
     final bool edgePositive = widget.edgePercentage >= 0;
     final Color edgeColor = edgePositive
-        ? const Color(0xFF36B9FF)
+        ? brand_colors.AppColors.blue
         : const Color(0xFFF0616B);
 
     return AnimatedContainer(
@@ -704,7 +716,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
         border: Border.all(
           color: _isExpanded
               ? primaryYellow.withValues(alpha: 0.5)
-              : const Color(0xFF273445),
+              : brand_colors.AppColors.chromeShadow,
         ),
       ),
       child: Material(
@@ -783,7 +795,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
                     IconButton(
                       icon: Icon(
                         _isFavorited ? Icons.star : Icons.star_border,
-                        color: const Color(0xFFFFD700),
+                        color: brand_colors.AppColors.goldHighlight,
                         size: 20,
                       ),
                       onPressed: _toggleCloudFavorite,
@@ -793,7 +805,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
                       duration: const Duration(milliseconds: 180),
                       child: const Icon(
                         Icons.keyboard_arrow_down_rounded,
-                        color: Color(0xFF8EA0AD),
+                        color: brand_colors.AppColors.textMuted,
                         size: 21,
                       ),
                     ),
@@ -803,7 +815,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
                 Text(
                   widget.propType,
                   style: const TextStyle(
-                    color: Color(0xFF98A6B8),
+                    color: brand_colors.AppColors.textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -816,7 +828,9 @@ class _ElitePropCardState extends State<ElitePropCard> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF182633),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF34495A)),
+                    border: Border.all(
+                      color: brand_colors.AppColors.gunmetalLight,
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -825,13 +839,13 @@ class _ElitePropCardState extends State<ElitePropCard> {
                           label: 'LINE / ODDS',
                           value:
                               '${widget.sportsbookLine}  (${widget.americanOdds})',
-                          valueColor: const Color(0xFFD7DEE5),
+                          valueColor: brand_colors.AppColors.silver,
                         ),
                       ),
                       Container(
                         width: 1,
                         height: 30,
-                        color: const Color(0xFF34495A),
+                        color: brand_colors.AppColors.gunmetalLight,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -845,14 +859,14 @@ class _ElitePropCardState extends State<ElitePropCard> {
                           child: _StatColumn(
                             label: 'PROJECTION',
                             value: widget.aiProjection.toStringAsFixed(1),
-                            valueColor: const Color(0xFF36B9FF),
+                            valueColor: brand_colors.AppColors.blue,
                           ),
                         ),
                       ),
                       Container(
                         width: 1,
                         height: 30,
-                        color: const Color(0xFF34495A),
+                        color: brand_colors.AppColors.gunmetalLight,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -883,14 +897,16 @@ class _ElitePropCardState extends State<ElitePropCard> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF09131D),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF273445)),
+                    border: Border.all(
+                      color: brand_colors.AppColors.chromeShadow,
+                    ),
                   ),
                   child: Row(
                     children: [
                       const Icon(
                         Icons.verified_outlined,
                         size: 15,
-                        color: Color(0xFFFFD700),
+                        color: brand_colors.AppColors.goldHighlight,
                       ),
                       const SizedBox(width: 7),
                       Expanded(
@@ -899,7 +915,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: Color(0xFF98A6B8),
+                            color: brand_colors.AppColors.textSecondary,
                             fontSize: 10,
                           ),
                         ),
@@ -958,8 +974,8 @@ class _ElitePropCardState extends State<ElitePropCard> {
                         (((widget.propData['current_progress_value'] as num?) ??
                                     0) >=
                                 widget.sportsbookLine)
-                            ? const Color(0xFF36B9FF)
-                            : const Color(0xFFFFD700),
+                            ? brand_colors.AppColors.blue
+                            : brand_colors.AppColors.goldHighlight,
                       ),
                       minHeight: 6,
                     ),
@@ -983,13 +999,15 @@ class _ElitePropCardState extends State<ElitePropCard> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF09131D),
                         borderRadius: BorderRadius.circular(9),
-                        border: Border.all(color: const Color(0xFF344758)),
+                        border: Border.all(
+                          color: brand_colors.AppColors.gunmetalLight,
+                        ),
                       ),
                       child: const Row(
                         children: [
                           Icon(
                             Icons.lock_outline_rounded,
-                            color: Color(0xFFFFD700),
+                            color: brand_colors.AppColors.goldHighlight,
                             size: 17,
                           ),
                           SizedBox(width: 8),
@@ -1042,8 +1060,8 @@ class _ElitePropCardState extends State<ElitePropCard> {
                                   : '$hitRate% HIT RATE',
                               style: TextStyle(
                                 color: last10GameStats.isEmpty
-                                    ? const Color(0xFF98A6B8)
-                                    : const Color(0xFF36B9FF),
+                                    ? brand_colors.AppColors.textSecondary
+                                    : brand_colors.AppColors.blue,
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -1062,7 +1080,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
                             child: const Text(
                               'Verified recent-game history is not available for this market yet.',
                               style: TextStyle(
-                                color: Color(0xFF98A6B8),
+                                color: brand_colors.AppColors.textSecondary,
                                 fontSize: 11,
                               ),
                               textAlign: TextAlign.center,

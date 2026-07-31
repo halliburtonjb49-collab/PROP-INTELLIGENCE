@@ -13,6 +13,8 @@ import '../services/prop_watchlist_service.dart';
 import '../services/slip_manager.dart';
 import '../widgets/elite_prop_card.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class CentralPropsDisplayGridCanvas extends StatefulWidget {
   const CentralPropsDisplayGridCanvas({super.key});
 
@@ -125,9 +127,9 @@ class _CentralPropsDisplayGridCanvasState
 
   Color _statusColor(BackendRefreshStatus status) {
     if (status.lastRefreshAt == null || status.sourceUrl.isEmpty) {
-      return const Color(0xFFFFC72C);
+      return brand_colors.AppColors.gold;
     }
-    return const Color(0xFF36B9FF);
+    return brand_colors.AppColors.blue;
   }
 
   Future<void> triggerManualBackendRefresh() async {
@@ -142,7 +144,7 @@ class _CentralPropsDisplayGridCanvasState
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Props database updated successfully!'),
-            backgroundColor: Color(0xFF36B9FF),
+            backgroundColor: brand_colors.AppColors.blue,
             duration: Duration(seconds: 1),
           ),
         );
@@ -182,7 +184,7 @@ class _CentralPropsDisplayGridCanvasState
             const Text(
               'SPORTSBOOK',
               style: TextStyle(
-                color: Color(0xFF8EA0AD),
+                color: brand_colors.AppColors.textMuted,
                 fontSize: 9,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 1.2,
@@ -204,15 +206,15 @@ class _CentralPropsDisplayGridCanvasState
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size(0, 38),
                         backgroundColor: isSelected
-                            ? const Color(0xFF36B9FF).withValues(alpha: .14)
+                            ? brand_colors.AppColors.blue.withValues(alpha: .14)
                             : const Color(0xFF182633),
                         foregroundColor: isSelected
-                            ? const Color(0xFF36B9FF)
-                            : const Color(0xFFD7DEE5),
+                            ? brand_colors.AppColors.blue
+                            : brand_colors.AppColors.silver,
                         side: BorderSide(
                           color: isSelected
-                              ? const Color(0xFF36B9FF)
-                              : const Color(0xFF34495A),
+                              ? brand_colors.AppColors.blue
+                              : brand_colors.AppColors.gunmetalLight,
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(9),
@@ -325,7 +327,7 @@ class _CentralPropsDisplayGridCanvasState
                   margin: const EdgeInsets.fromLTRB(12, 10, 12, 8),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0C1824),
+                    color: brand_colors.AppColors.bgPanel,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFF263746)),
                   ),
@@ -335,14 +337,14 @@ class _CentralPropsDisplayGridCanvasState
                         children: [
                           const Icon(
                             Icons.radar_rounded,
-                            color: Color(0xFF36B9FF),
+                            color: brand_colors.AppColors.blue,
                             size: 18,
                           ),
                           const SizedBox(width: 8),
                           const Text(
                             'LIVE PROP BOARD',
                             style: TextStyle(
-                              color: Color(0xFFD7DEE5),
+                              color: brand_colors.AppColors.silver,
                               fontSize: 12,
                               fontWeight: FontWeight.w900,
                               letterSpacing: .65,
@@ -363,7 +365,7 @@ class _CentralPropsDisplayGridCanvasState
                             child: Text(
                               '${displayedProps.length} RESULTS',
                               style: const TextStyle(
-                                color: Color(0xFF36B9FF),
+                                color: brand_colors.AppColors.blue,
                                 fontSize: 8,
                                 fontWeight: FontWeight.w900,
                               ),

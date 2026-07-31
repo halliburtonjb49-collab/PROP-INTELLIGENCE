@@ -43,4 +43,8 @@ abstract final class AppColors {
   static const Color textMuted = chromeMid;
   static const Color blue = Color(0xFF9EDCE8);
   static const Color red = Color(0xFFD85A30);
+  static const Color success = Color(0xFF56D38A);
+  static const Color danger = Color(0xFFD85A30);
+  static const Color warning = Color(0xFFFFE89D);
+  static const Color goldSurface = Color(0xFF211C0B);
 }

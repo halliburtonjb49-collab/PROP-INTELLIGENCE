@@ -7,6 +7,8 @@ import '../services/api_service.dart';
 import '../services/user_facing_error.dart';
 import '../theme/app_colors.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class GameMarketsScreen extends StatefulWidget {
   final Future<int> Function(Map<String, dynamic> leg) onAddToSlip;
 
@@ -119,7 +121,7 @@ class _GameMarketsScreenState extends State<GameMarketsScreen> {
               ? '${outcome.name} added to Active Slip.'
               : 'This selection is already in the slip, or the slip uses another sportsbook.',
           style: TextStyle(
-            color: added == 1 ? const Color(0xFF06111B) : Colors.white,
+            color: added == 1 ? brand_colors.AppColors.bgBase : Colors.white,
             fontWeight: FontWeight.w800,
           ),
         ),

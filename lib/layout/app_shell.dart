@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../services/prop_chat_service.dart';
 import '../theme/app_colors.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class AppShell extends StatelessWidget {
   const AppShell({
     super.key,
@@ -439,7 +441,7 @@ class _MobileNavItem extends StatelessWidget {
                         child: Text(
                           badge > 99 ? '99+' : '$badge',
                           style: const TextStyle(
-                            color: Color(0xFF06111B),
+                            color: brand_colors.AppColors.bgBase,
                             fontSize: 8,
                             fontWeight: FontWeight.w900,
                           ),

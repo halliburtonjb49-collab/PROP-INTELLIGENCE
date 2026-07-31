@@ -5,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'auth_manager.dart';
 import 'supabase_service.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 enum PurchaseTier {
   core('core', 'core_tier'),
   edge('edge', 'edge_tier');
@@ -129,7 +131,7 @@ class RevenueCatBillingService {
               content: Text(
                 'Subscription active. Access will unlock after secure verification.',
               ),
-              backgroundColor: Color(0xFF36B9FF),
+              backgroundColor: brand_colors.AppColors.blue,
             ),
           );
         }
@@ -159,7 +161,7 @@ class RevenueCatBillingService {
             content: Text(
               'Purchases restored. Your access has been refreshed.',
             ),
-            backgroundColor: Color(0xFF36B9FF),
+            backgroundColor: brand_colors.AppColors.blue,
           ),
         );
       }

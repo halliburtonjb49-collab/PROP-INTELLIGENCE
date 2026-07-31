@@ -8,6 +8,8 @@ import '../services/api_service.dart';
 import '../services/live_update_service.dart';
 import 'context_help.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class PropIntelligenceColors {
   static const Color background = Color(0xFF080D15);
   static const Color deepBackground = Color(0xFF0C131D);
@@ -16,8 +18,8 @@ class PropIntelligenceColors {
   static const Color darkGold = Color(0xFF645529);
   static const Color divider = Color(0xFF29323E);
   static const Color secondaryText = Color(0xFFB7B4B4);
-  static const Color win = Color(0xFF59E769);
-  static const Color loss = Color(0xFFFF4D5A);
+  static const Color win = brand_colors.AppColors.success;
+  static const Color loss = brand_colors.AppColors.danger;
 }
 
 class ActiveSlipPanel extends StatefulWidget {
@@ -830,7 +832,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Color(0xFFFFC400),
+                          color: brand_colors.AppColors.gold,
                           fontSize: 9,
                           fontWeight: FontWeight.w800,
                         ),
@@ -868,7 +870,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               Text(
                 _formatOdds(odds),
                 style: const TextStyle(
-                  color: Color(0xFFFFC400),
+                  color: brand_colors.AppColors.gold,
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
                 ),
@@ -940,7 +942,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFF293946))),
+        border: Border(
+          bottom: BorderSide(color: brand_colors.AppColors.chromeShadow),
+        ),
       ),
       child: Column(
         children: [
@@ -951,7 +955,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 height: 32,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF201A06),
+                  color: brand_colors.AppColors.goldSurface,
                   borderRadius: BorderRadius.circular(9),
                   border: Border.all(color: PropIntelligenceColors.gold),
                 ),
@@ -974,7 +978,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                     const Text(
                       'Choose Power/Flex on Lock Slip',
                       style: TextStyle(
-                        color: Color(0xFFFFC400),
+                        color: brand_colors.AppColors.gold,
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                       ),
@@ -1004,7 +1008,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFF293946))),
+        border: Border(
+          bottom: BorderSide(color: brand_colors.AppColors.chromeShadow),
+        ),
       ),
       child: Row(
         children: [
@@ -1013,7 +1019,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             height: 32,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: const Color(0xFF201A06),
+              color: brand_colors.AppColors.goldSurface,
               borderRadius: BorderRadius.circular(9),
               border: Border.all(color: PropIntelligenceColors.gold),
             ),
@@ -1036,7 +1042,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 Text(
                   '${multiplier.toStringAsFixed(multiplier % 1 == 0 ? 0 : 2)}x MULTIPLIER',
                   style: const TextStyle(
-                    color: Color(0xFFFFC400),
+                    color: brand_colors.AppColors.gold,
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1049,12 +1055,15 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             children: [
               const Text(
                 'TO WIN',
-                style: TextStyle(color: Color(0xFF96A4B2), fontSize: 8),
+                style: TextStyle(
+                  color: brand_colors.AppColors.textSecondary,
+                  fontSize: 8,
+                ),
               ),
               Text(
                 '\$${payout.toStringAsFixed(2)}',
                 style: const TextStyle(
-                  color: Color(0xFFFFC400),
+                  color: brand_colors.AppColors.gold,
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                 ),
@@ -1081,7 +1090,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFF293946))),
+        border: Border(
+          bottom: BorderSide(color: brand_colors.AppColors.chromeShadow),
+        ),
       ),
       child: Row(
         children: [
@@ -1090,7 +1101,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             height: 32,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: const Color(0xFF201A06),
+              color: brand_colors.AppColors.goldSurface,
               borderRadius: BorderRadius.circular(9),
               border: Border.all(color: PropIntelligenceColors.gold),
             ),
@@ -1113,7 +1124,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 Text(
                   '${totalMultiplier.toStringAsFixed(2)}x TOTAL MULTIPLIER',
                   style: const TextStyle(
-                    color: Color(0xFFFFC400),
+                    color: brand_colors.AppColors.gold,
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1126,12 +1137,15 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             children: [
               const Text(
                 'PAYOUT',
-                style: TextStyle(color: Color(0xFF96A4B2), fontSize: 8),
+                style: TextStyle(
+                  color: brand_colors.AppColors.textSecondary,
+                  fontSize: 8,
+                ),
               ),
               Text(
                 '\$${payout.toStringAsFixed(2)}',
                 style: const TextStyle(
-                  color: Color(0xFFFFC400),
+                  color: brand_colors.AppColors.gold,
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                 ),
@@ -1253,20 +1267,22 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     Color progressColor;
     switch (resultStatus) {
       case 'won':
-        progressColor = const Color(0xFF59E769);
+        progressColor = brand_colors.AppColors.success;
         break;
       case 'lost':
-        progressColor = const Color(0xFFFF4D5A);
+        progressColor = brand_colors.AppColors.danger;
         break;
       default:
-        progressColor = const Color(0xFFFFC400);
+        progressColor = brand_colors.AppColors.gold;
     }
 
     return Container(
       key: ValueKey(_propId(leg).isEmpty ? 'leg-$index' : _propId(leg)),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFF293946))),
+        border: Border(
+          bottom: BorderSide(color: brand_colors.AppColors.chromeShadow),
+        ),
       ),
       child: Column(
         children: [
@@ -1279,7 +1295,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                   child: Icon(
                     Icons.drag_indicator,
                     size: 18,
-                    color: Color(0xFF8997A5),
+                    color: brand_colors.AppColors.textMuted,
                   ),
                 ),
               ),
@@ -1336,7 +1352,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                     Text(
                       '${_prizePicksSide(leg)} $lineValue',
                       style: const TextStyle(
-                        color: Color(0xFFFFC400),
+                        color: brand_colors.AppColors.gold,
                         fontSize: 12,
                         fontWeight: FontWeight.w900,
                       ),
@@ -1399,20 +1415,22 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     Color statusColor;
     switch (resultStatus) {
       case 'won':
-        statusColor = const Color(0xFF59E769);
+        statusColor = brand_colors.AppColors.success;
         break;
       case 'lost':
-        statusColor = const Color(0xFFFF4D5A);
+        statusColor = brand_colors.AppColors.danger;
         break;
       default:
-        statusColor = const Color(0xFFFFC400);
+        statusColor = brand_colors.AppColors.gold;
     }
 
     return Container(
       key: ValueKey(_propId(leg).isEmpty ? 'leg-$index' : _propId(leg)),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFF293946))),
+        border: Border(
+          bottom: BorderSide(color: brand_colors.AppColors.chromeShadow),
+        ),
       ),
       child: Column(
         children: [
@@ -1425,7 +1443,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                   child: Icon(
                     Icons.drag_indicator,
                     size: 18,
-                    color: Color(0xFF8997A5),
+                    color: brand_colors.AppColors.textMuted,
                   ),
                 ),
               ),
@@ -1451,7 +1469,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Color(0xFF96A4B2),
+                        color: brand_colors.AppColors.textSecondary,
                         fontSize: 8,
                       ),
                     ),
@@ -1459,7 +1477,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                     Text(
                       '${_underdogSide(leg)} $lineValue',
                       style: const TextStyle(
-                        color: Color(0xFFFFC400),
+                        color: brand_colors.AppColors.gold,
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
                       ),
@@ -1489,14 +1507,16 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF211C0B),
+                          color: brand_colors.AppColors.goldSurface,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF8B6813)),
+                          border: Border.all(
+                            color: brand_colors.AppColors.goldShadow,
+                          ),
                         ),
                         child: Text(
                           'RIVALS vs ${leg['rival_player'] ?? ''}',
                           style: const TextStyle(
-                            color: Color(0xFFFFC400),
+                            color: brand_colors.AppColors.gold,
                             fontSize: 8,
                             fontWeight: FontWeight.w800,
                           ),
@@ -1552,20 +1572,22 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     Color statusColor;
     switch (resultStatus) {
       case 'won':
-        statusColor = const Color(0xFF59E769);
+        statusColor = brand_colors.AppColors.success;
         break;
       case 'lost':
-        statusColor = const Color(0xFFFF4D5A);
+        statusColor = brand_colors.AppColors.danger;
         break;
       default:
-        statusColor = const Color(0xFFFFC400);
+        statusColor = brand_colors.AppColors.gold;
     }
 
     return Container(
       key: ValueKey(_propId(leg).isEmpty ? 'leg-$index' : _propId(leg)),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFF293946))),
+        border: Border(
+          bottom: BorderSide(color: brand_colors.AppColors.chromeShadow),
+        ),
       ),
       child: Column(
         children: [
@@ -1578,7 +1600,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                   child: Icon(
                     Icons.drag_indicator,
                     size: 18,
-                    color: Color(0xFF8997A5),
+                    color: brand_colors.AppColors.textMuted,
                   ),
                 ),
               ),
@@ -1604,7 +1626,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Color(0xFF96A4B2),
+                        color: brand_colors.AppColors.textSecondary,
                         fontSize: 8,
                       ),
                     ),
@@ -1612,7 +1634,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                     Text(
                       '${_sleeperSide(leg)} $lineValue',
                       style: const TextStyle(
-                        color: Color(0xFFFFC400),
+                        color: brand_colors.AppColors.gold,
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
                       ),
@@ -1640,23 +1662,26 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF211C0B),
+                  color: brand_colors.AppColors.goldSurface,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF8B6813)),
+                  border: Border.all(color: brand_colors.AppColors.goldShadow),
                 ),
                 child: Column(
                   children: [
                     Text(
                       '${multiplier.toStringAsFixed(2)}x',
                       style: const TextStyle(
-                        color: Color(0xFFFFC400),
+                        color: brand_colors.AppColors.gold,
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                     const Text(
                       'MULTIPLIER',
-                      style: TextStyle(color: Color(0xFF96A4B2), fontSize: 6.5),
+                      style: TextStyle(
+                        color: brand_colors.AppColors.textSecondary,
+                        fontSize: 6.5,
+                      ),
                     ),
                   ],
                 ),
@@ -1680,7 +1705,10 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               const Expanded(
                 child: Text(
                   'WIN PROBABILITY',
-                  style: TextStyle(color: Color(0xFF96A4B2), fontSize: 8),
+                  style: TextStyle(
+                    color: brand_colors.AppColors.textSecondary,
+                    fontSize: 8,
+                  ),
                 ),
               ),
               Text(
@@ -1740,7 +1768,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFF293946))),
+        border: Border(
+          bottom: BorderSide(color: brand_colors.AppColors.chromeShadow),
+        ),
       ),
       child: Row(
         children: [
@@ -1749,7 +1779,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             height: 32,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: const Color(0xFF201A06),
+              color: brand_colors.AppColors.goldSurface,
               borderRadius: BorderRadius.circular(9),
               border: Border.all(color: PropIntelligenceColors.gold),
             ),
@@ -1776,7 +1806,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 Text(
                   _formatAmericanOdds(combinedAmerican),
                   style: const TextStyle(
-                    color: Color(0xFFFFC400),
+                    color: brand_colors.AppColors.gold,
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1788,14 +1818,14 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFF211C0B),
+                color: brand_colors.AppColors.goldSurface,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFF8B6813)),
+                border: Border.all(color: brand_colors.AppColors.goldShadow),
               ),
               child: const Text(
                 'SGP',
                 style: TextStyle(
-                  color: Color(0xFFFFC400),
+                  color: brand_colors.AppColors.gold,
                   fontSize: 9,
                   fontWeight: FontWeight.w900,
                 ),
@@ -1832,22 +1862,24 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     Color statusColor;
     switch (resultStatus) {
       case 'won':
-        statusColor = const Color(0xFF59E769);
+        statusColor = brand_colors.AppColors.success;
         break;
       case 'lost':
-        statusColor = const Color(0xFFFF4D5A);
+        statusColor = brand_colors.AppColors.danger;
         break;
       case 'push':
-        statusColor = const Color(0xFFFFC400);
+        statusColor = brand_colors.AppColors.gold;
         break;
       default:
-        statusColor = const Color(0xFF96A4B2);
+        statusColor = brand_colors.AppColors.textSecondary;
     }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFF293946))),
+        border: Border(
+          bottom: BorderSide(color: brand_colors.AppColors.chromeShadow),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1859,7 +1891,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               child: Icon(
                 Icons.drag_indicator,
                 size: 18,
-                color: Color(0xFF8997A5),
+                color: brand_colors.AppColors.textMuted,
               ),
             ),
           ),
@@ -1884,13 +1916,16 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                   matchup,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Color(0xFF96A4B2), fontSize: 8),
+                  style: const TextStyle(
+                    color: brand_colors.AppColors.textSecondary,
+                    fontSize: 8,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '$side $line',
                   style: const TextStyle(
-                    color: Color(0xFFFFC400),
+                    color: brand_colors.AppColors.gold,
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
                   ),
@@ -1957,7 +1992,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               Text(
                 _formatAmericanOdds(odds),
                 style: const TextStyle(
-                  color: Color(0xFFFFC400),
+                  color: brand_colors.AppColors.gold,
                   fontSize: 15,
                   fontWeight: FontWeight.w900,
                 ),
@@ -2004,15 +2039,15 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     switch (status) {
       case 'WON':
         backgroundColor = const Color(0xFF3A2E0B);
-        textColor = const Color(0xFFF2BC35);
+        textColor = brand_colors.AppColors.gold;
         break;
       case 'LOST':
         backgroundColor = const Color(0xFF16263D);
         textColor = const Color(0xFF63A8FF);
         break;
       default:
-        backgroundColor = const Color(0xFF211C0B);
-        textColor = const Color(0xFFFFC400);
+        backgroundColor = brand_colors.AppColors.goldSurface;
+        textColor = brand_colors.AppColors.gold;
     }
 
     return Container(
@@ -2111,7 +2146,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 height: 32,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF211C0B),
+                  color: brand_colors.AppColors.goldSurface,
                   borderRadius: BorderRadius.circular(9),
                   border: Border.all(color: PropIntelligenceColors.gold),
                 ),
@@ -2519,7 +2554,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               : _viewOrLockSlip,
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFFE7A713),
-            foregroundColor: const Color(0xFF050A0F),
+            foregroundColor: brand_colors.AppColors.bgBase,
           ),
           child: widget.isSaving
               ? const SizedBox(
@@ -2545,9 +2580,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   Widget _buildFanDuelStyleSlip(List<Map<String, dynamic>> legs) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF09141D),
+        color: brand_colors.AppColors.sidebar,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF8B6813)),
+        border: Border.all(color: brand_colors.AppColors.goldShadow),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2634,7 +2669,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: widget.message!.contains('successfully')
-                    ? const Color(0xFFFFC400)
+                    ? brand_colors.AppColors.gold
                     : const Color(0xFFFF9EA6),
                 fontSize: 10,
               ),
@@ -2794,9 +2829,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     }
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF09141D),
+        color: brand_colors.AppColors.sidebar,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF8B6813)),
+        border: Border.all(color: brand_colors.AppColors.goldShadow),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2831,9 +2866,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     }
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF09141D),
+        color: brand_colors.AppColors.sidebar,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF8B6813)),
+        border: Border.all(color: brand_colors.AppColors.goldShadow),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2868,9 +2903,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     }
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF09141D),
+        color: brand_colors.AppColors.sidebar,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF8B6813)),
+        border: Border.all(color: brand_colors.AppColors.goldShadow),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2964,7 +2999,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
       decoration: BoxDecoration(
         color: const Color(0xFF011224),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF8B6813)),
+        border: Border.all(color: brand_colors.AppColors.goldShadow),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

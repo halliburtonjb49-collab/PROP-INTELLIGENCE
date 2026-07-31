@@ -4,6 +4,8 @@ import '../services/affiliate_router.dart';
 import '../services/api_service.dart';
 import '../services/slip_manager.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class CurrentSlipPanelContainer extends StatefulWidget {
   const CurrentSlipPanelContainer({super.key});
 
@@ -50,7 +52,7 @@ class _CurrentSlipPanelContainerState extends State<CurrentSlipPanelContainer> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryYellow = Color(0xFFFFC400);
+    const primaryYellow = brand_colors.AppColors.gold;
 
     return ValueListenableBuilder<List<Map<String, dynamic>>>(
       valueListenable: SlipManager.selectedProps,

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class OwnerOperationsPage extends StatefulWidget {
   const OwnerOperationsPage({super.key, this.apiService});
 
@@ -60,10 +62,9 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     final reviewItems = (_review?['items'] as List? ?? const [])
         .whereType<Map>()
         .toList(growable: false);
-    final failures =
-        (_map('pipelines')['activeFailures'] as List? ?? const [])
-            .whereType<Map>()
-            .toList(growable: false);
+    final failures = (_map('pipelines')['activeFailures'] as List? ?? const [])
+        .whereType<Map>()
+        .toList(growable: false);
     return ColoredBox(
       color: AppColors.background,
       child: RefreshIndicator(
@@ -82,7 +83,10 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
               ),
             ],
             const SizedBox(height: 16),
-            _sectionTitle('SYSTEM STATUS', 'Live production health and capacity'),
+            _sectionTitle(
+              'SYSTEM STATUS',
+              'Live production health and capacity',
+            ),
             const SizedBox(height: 10),
             _statusGrid(),
             const SizedBox(height: 22),
@@ -185,7 +189,10 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         ),
       ),
       const SizedBox(height: 3),
-      Text(subtitle, style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
+      Text(
+        subtitle,
+        style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+      ),
     ],
   );
 
@@ -205,27 +212,53 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       runSpacing: 10,
       children: [
         _status('API', api['status'] ?? 'Loading', api['status'] == 'ok'),
-        _status('Redis', redis['available'] == true ? 'Connected' : 'Unavailable',
-            redis['available'] == true),
-        _status('Workers', '${workers['workers'] ?? 0} online',
-            workers['available'] == true,
-            detail: '${workers['queued'] ?? 0} queued | ${workers['failed'] ?? 0} failed'),
-        _status('Provider quality', '${providers['qualityScore'] ?? '--'}',
-            (providers['qualityScore'] as num? ?? 0) >= .7,
-            detail: '${providers['errors'] ?? 0} errors | ${providers['remainingQuota'] ?? '--'} quota'),
-        _status('Prop freshness', '${freshness['ageMinutes'] ?? '--'} min',
-            freshness['healthy'] == true,
-            detail: '${freshness['total'] ?? 0} props'),
-        _status('Scoreboard', '${scoreboard['lastMs'] ?? '--'} ms',
-            scoreboard['status'] == 'ok',
-            detail: 'p95 ${scoreboard['p95Ms'] ?? '--'} ms'),
-        _status('Active users', '${users['count'] ?? '--'}',
-            users['instrumented'] == true),
-        _status('Failed payments', '${payments['count'] ?? '--'}',
-            (payments['count'] ?? 0) == 0),
+        _status(
+          'Redis',
+          redis['available'] == true ? 'Connected' : 'Unavailable',
+          redis['available'] == true,
+        ),
+        _status(
+          'Workers',
+          '${workers['workers'] ?? 0} online',
+          workers['available'] == true,
+          detail:
+              '${workers['queued'] ?? 0} queued | ${workers['failed'] ?? 0} failed',
+        ),
+        _status(
+          'Provider quality',
+          '${providers['qualityScore'] ?? '--'}',
+          (providers['qualityScore'] as num? ?? 0) >= .7,
+          detail:
+              '${providers['errors'] ?? 0} errors | ${providers['remainingQuota'] ?? '--'} quota',
+        ),
+        _status(
+          'Prop freshness',
+          '${freshness['ageMinutes'] ?? '--'} min',
+          freshness['healthy'] == true,
+          detail: '${freshness['total'] ?? 0} props',
+        ),
+        _status(
+          'Scoreboard',
+          '${scoreboard['lastMs'] ?? '--'} ms',
+          scoreboard['status'] == 'ok',
+          detail: 'p95 ${scoreboard['p95Ms'] ?? '--'} ms',
+        ),
+        _status(
+          'Active users',
+          '${users['count'] ?? '--'}',
+          users['instrumented'] == true,
+        ),
+        _status(
+          'Failed payments',
+          '${payments['count'] ?? '--'}',
+          (payments['count'] ?? 0) == 0,
+        ),
         _status('Unsettled slips', '${slips['count'] ?? '--'}', true),
-        _status('Questionable grades', '${review['questionableCount'] ?? '--'}',
-            (review['questionableCount'] ?? 0) == 0),
+        _status(
+          'Questionable grades',
+          '${review['questionableCount'] ?? '--'}',
+          (review['questionableCount'] ?? 0) == 0,
+        ),
         _status('Deployment', _shortVersion(api['version']), true),
       ],
     );
@@ -236,13 +269,10 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     return text.length > 10 ? text.substring(0, 10) : text;
   }
 
-  Widget _status(
-    String label,
-    String value,
-    bool healthy, {
-    String? detail,
-  }) {
-    final color = healthy ? const Color(0xFF8CFFB2) : const Color(0xFFFFD166);
+  Widget _status(String label, String value, bool healthy, {String? detail}) {
+    final color = healthy
+        ? const Color(0xFF8CFFB2)
+        : brand_colors.AppColors.goldHighlight;
     return Container(
       width: 205,
       padding: const EdgeInsets.all(13),
@@ -254,16 +284,31 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label.toUpperCase(),
-              style: const TextStyle(color: AppColors.textMuted, fontSize: 9, fontWeight: FontWeight.w800)),
+          Text(
+            label.toUpperCase(),
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
           const SizedBox(height: 7),
-          Text(value.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: color, fontSize: 15, fontWeight: FontWeight.w900)),
+          Text(
+            value.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
           if (detail != null) ...[
             const SizedBox(height: 4),
-            Text(detail, style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
+            Text(
+              detail,
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 9),
+            ),
           ],
         ],
       ),
@@ -278,7 +323,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         Icons.fact_check_outlined,
         '${item['player'] ?? 'Unknown player'} | ${item['market'] ?? 'Unknown market'}',
         '${item['side'] ?? ''} ${item['line'] ?? ''} | ${item['sport'] ?? ''} | $reasons',
-        const Color(0xFFFFD166),
+        brand_colors.AppColors.goldHighlight,
         trailing: 'Slip ${item['slipId'] ?? '--'}',
       ),
     );
@@ -288,8 +333,12 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     padding: const EdgeInsets.only(bottom: 8),
     child: _notice(
       Icons.warning_amber_rounded,
-      item['pipeline']?.toString() ?? item['name']?.toString() ?? 'Pipeline issue',
-      (item['errors'] as List? ?? [item['status'] ?? 'Review required']).join(' | '),
+      item['pipeline']?.toString() ??
+          item['name']?.toString() ??
+          'Pipeline issue',
+      (item['errors'] as List? ?? [item['status'] ?? 'Review required']).join(
+        ' | ',
+      ),
       const Color(0xFFFF7B7B),
     ),
   );
@@ -317,14 +366,29 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
               const SizedBox(height: 4),
-              Text(detail, style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
+              Text(
+                detail,
+                style: const TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 10,
+                ),
+              ),
             ],
           ),
         ),
         if (trailing != null)
-          Text(trailing, style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
+          Text(
+            trailing,
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 9),
+          ),
       ],
     ),
   );

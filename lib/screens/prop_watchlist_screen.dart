@@ -9,6 +9,8 @@ import '../services/prop_watchlist_service.dart';
 import '../widgets/slip_history_panel.dart';
 import '../widgets/context_help.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class PropWatchlistScreen extends StatefulWidget {
   const PropWatchlistScreen({super.key, required this.activeSlipController});
 
@@ -1001,7 +1003,9 @@ class _PropWatchlistScreenState extends State<PropWatchlistScreen> {
                           decoration: BoxDecoration(
                             color: const Color(0xFF081723),
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFF8B6813)),
+                            border: Border.all(
+                              color: brand_colors.AppColors.goldShadow,
+                            ),
                           ),
                           child: SlipHistoryPanel(
                             activeSlipController: widget.activeSlipController,

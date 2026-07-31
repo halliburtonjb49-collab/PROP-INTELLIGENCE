@@ -10,6 +10,8 @@ import '../models/slip_selection.dart';
 import '../theme/app_colors.dart';
 import '../widgets/context_help.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class IntelligenceLabPage extends StatefulWidget {
   const IntelligenceLabPage({
     super.key,
@@ -138,11 +140,11 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: calibrated
-            ? const Color(0xFF36B9FF).withValues(alpha: .08)
+            ? brand_colors.AppColors.blue.withValues(alpha: .08)
             : AppColors.gold.withValues(alpha: .08),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: calibrated ? const Color(0xFF36B9FF) : AppColors.gold,
+          color: calibrated ? brand_colors.AppColors.blue : AppColors.gold,
         ),
       ),
       child: Column(
@@ -152,7 +154,9 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
             children: [
               Icon(
                 calibrated ? Icons.verified_outlined : Icons.science_outlined,
-                color: calibrated ? const Color(0xFF36B9FF) : AppColors.gold,
+                color: calibrated
+                    ? brand_colors.AppColors.blue
+                    : AppColors.gold,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -160,7 +164,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
                   calibrated ? 'MODEL CALIBRATED' : 'MODEL WARMING UP',
                   style: TextStyle(
                     color: calibrated
-                        ? const Color(0xFF36B9FF)
+                        ? brand_colors.AppColors.blue
                         : AppColors.gold,
                     fontWeight: FontWeight.w900,
                   ),
@@ -182,7 +186,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
           const SizedBox(height: 12),
           LinearProgressIndicator(
             value: _calibrationLoading ? null : progress,
-            color: calibrated ? const Color(0xFF36B9FF) : AppColors.gold,
+            color: calibrated ? brand_colors.AppColors.blue : AppColors.gold,
             backgroundColor: Colors.white12,
           ),
           const SizedBox(height: 10),
@@ -565,7 +569,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF0C1824),
+        color: brand_colors.AppColors.bgPanel,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
       ),
@@ -910,7 +914,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
             'LIVE ALERT DELIVERY',
             Text(
               _alertDeliveryMessage!,
-              style: const TextStyle(color: Color(0xFF36B9FF)),
+              style: const TextStyle(color: brand_colors.AppColors.blue),
             ),
           ),
         if (_correlation != null)
@@ -935,7 +939,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
                 Text(
                   '${_simulation?['simulations']} simulations | portfolio hit '
                   '${_simulation?['portfolioHitProbability'] == null ? '--' : '${((_simulation?['portfolioHitProbability'] as num) * 100).toStringAsFixed(1)}%'}',
-                  style: const TextStyle(color: Color(0xFF36B9FF)),
+                  style: const TextStyle(color: brand_colors.AppColors.blue),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -993,7 +997,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
                       : 'Monitoring — conditions not yet met.',
                   style: TextStyle(
                     color: _alert?['triggered'] == true
-                        ? const Color(0xFF36B9FF)
+                        ? brand_colors.AppColors.blue
                         : Colors.white,
                   ),
                 ),

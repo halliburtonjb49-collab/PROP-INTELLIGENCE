@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class SelectedProp {
   final String id;
   final String playerName;
@@ -60,9 +62,9 @@ class _SelectedPropSlipState extends State<SelectedPropSlip> {
 
   static const pageBackground = Color(0xFF050D14);
   static const raisedBackground = Color(0xFF0C1C28);
-  static const borderColor = Color(0xFF273B49);
-  static const gold = Color(0xFFFFC400);
-  static const mutedText = Color(0xFF8EA0AD);
+  static const borderColor = brand_colors.AppColors.chromeShadow;
+  static const gold = brand_colors.AppColors.gold;
+  static const mutedText = brand_colors.AppColors.textMuted;
 
   @override
   void dispose() {
@@ -188,7 +190,7 @@ class _SelectedPropSlipState extends State<SelectedPropSlip> {
             child: Text(
               '${widget.props.length}',
               style: TextStyle(
-                color: Color(0xFF06111B),
+                color: brand_colors.AppColors.bgBase,
                 fontSize: 10,
                 fontWeight: FontWeight.w900,
               ),
@@ -320,10 +322,10 @@ class _SelectedPropCard extends StatelessWidget {
 
   static const cardBackground = Color(0xFF081722);
   static const raisedBackground = Color(0xFF0C1C28);
-  static const borderColor = Color(0xFF273B49);
-  static const gold = Color(0xFFFFC400);
-  static const blue = Color(0xFF36B9FF);
-  static const mutedText = Color(0xFF8EA0AD);
+  static const borderColor = brand_colors.AppColors.chromeShadow;
+  static const gold = brand_colors.AppColors.gold;
+  static const blue = brand_colors.AppColors.blue;
+  static const mutedText = brand_colors.AppColors.textMuted;
 
   bool get isOver => prop.selectedSide.toLowerCase() == 'over';
   String formatOdds(int odds) => odds > 0 ? '+$odds' : '$odds';
@@ -406,7 +408,9 @@ class _SelectedPropCard extends StatelessWidget {
                     height: 46,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFF34495A)),
+                      border: Border.all(
+                        color: brand_colors.AppColors.gunmetalLight,
+                      ),
                     ),
                     child: ClipOval(child: _playerImage()),
                   ),
@@ -456,7 +460,7 @@ class _SelectedPropCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: raisedBackground,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF34495A)),
+                border: Border.all(color: brand_colors.AppColors.gunmetalLight),
               ),
               child: Row(
                 children: [

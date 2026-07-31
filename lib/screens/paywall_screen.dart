@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../services/auth_manager.dart';
 import '../services/billing_service.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class SubscriptionRequiredScreen extends StatelessWidget {
   const SubscriptionRequiredScreen({super.key});
 
@@ -53,7 +55,7 @@ class BrandedPaywallModalSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primaryYellow = Color(0xFFFFD700);
+    const primaryYellow = brand_colors.AppColors.goldHighlight;
     final billingService = RevenueCatBillingService();
 
     return Container(
@@ -198,7 +200,7 @@ class BrandedPaywallModalSheet extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: const Color(0xFFFFD700), size: 20),
+          Icon(icon, color: brand_colors.AppColors.goldHighlight, size: 20),
           const SizedBox(width: 16),
           Expanded(
             child: Column(

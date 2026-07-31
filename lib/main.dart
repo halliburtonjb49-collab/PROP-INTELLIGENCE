@@ -95,7 +95,7 @@ Future<void> _configureDesktopWindow() async {
       minimumSize: Size(1024, 680),
       center: true,
       title: 'PROP INTELLIGENCE',
-      backgroundColor: Color(0xFF050A0F),
+      backgroundColor: app_colors.AppColors.bgBase,
       titleBarStyle: TitleBarStyle.normal,
     );
 
@@ -453,7 +453,7 @@ class _OwnerAccessPreviewBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFFFFC400),
+      color: app_colors.AppColors.gold,
       child: SafeArea(
         bottom: false,
         child: InkWell(
@@ -472,7 +472,7 @@ class _OwnerAccessPreviewBanner extends StatelessWidget {
                     'UI ACCESS ONLY, BILLING UNCHANGED',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: Color(0xFF050A0F),
+                      color: app_colors.AppColors.bgBase,
                       fontSize: 11,
                       fontWeight: FontWeight.w900,
                       letterSpacing: .4,
@@ -483,7 +483,7 @@ class _OwnerAccessPreviewBanner extends StatelessWidget {
                 const Text(
                   'EXIT',
                   style: TextStyle(
-                    color: Color(0xFF050A0F),
+                    color: app_colors.AppColors.bgBase,
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
                     decoration: TextDecoration.underline,
@@ -876,7 +876,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                         ),
                         child: Icon(
                           Icons.forum_rounded,
-                          color: Color(0xFF06111B),
+                          color: app_colors.AppColors.bgBase,
                           size: 27,
                         ),
                       ),
@@ -1068,7 +1068,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                     child: Center(
                       child: Icon(
                         Icons.forum_rounded,
-                        color: Color(0xFF06111B),
+                        color: app_colors.AppColors.bgBase,
                         size: 27,
                       ),
                     ),
@@ -1101,7 +1101,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFF0B1A28), Color(0xFF06111B)],
+              colors: [Color(0xFF0B1A28), app_colors.AppColors.bgBase],
             ),
           ),
           child: LeftSidebar(
@@ -1130,7 +1130,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       soundService: AppSoundService.instance,
       accentColor: hasProAccess
           ? app_colors.AppColors.gold
-          : const Color(0xFFC8CED6),
+          : app_colors.AppColors.silver,
       onTabSelected: (page) {
         _switchToPage(page, source: 'top-nav');
       },
@@ -1399,7 +1399,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         content: Text(
           'Not allowed: picks must be from the same prop site.',
           style: TextStyle(
-            color: Color(0xFF050A0F),
+            color: app_colors.AppColors.bgBase,
             fontSize: 12,
             fontWeight: FontWeight.w900,
             letterSpacing: 0.2,
@@ -1695,7 +1695,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             content: Text(
               'Slip locked and moved to Slip Watcher!',
               style: TextStyle(
-                color: Color(0xFF050A0F),
+                color: app_colors.AppColors.bgBase,
                 fontSize: 12,
                 fontWeight: FontWeight.w900,
               ),
@@ -1719,7 +1719,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           content: Text(
             'Failed to lock slip: $error',
             style: const TextStyle(
-              color: Color(0xFF050A0F),
+              color: app_colors.AppColors.bgBase,
               fontSize: 12,
               fontWeight: FontWeight.w900,
             ),
@@ -1752,7 +1752,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     final hasProAccess = AuthManager.instance.sessionState.value.hasEdgeAccess;
     final membershipAccent = hasProAccess
         ? app_colors.AppColors.gold
-        : const Color(0xFFC8CED6);
+        : app_colors.AppColors.silver;
     return LayoutBuilder(
       builder: (context, constraints) => Stack(
         children: [
@@ -1801,15 +1801,20 @@ class _ChatBubbleCloseButton extends StatelessWidget {
       height: 24,
       child: Material(
         elevation: 6,
-        color: const Color(0xFF101D28),
-        shape: const CircleBorder(side: BorderSide(color: Color(0xFFC8CED6))),
+        color: app_colors.AppColors.bgPanel,
+        shape: const CircleBorder(
+          side: BorderSide(color: app_colors.AppColors.silver),
+        ),
         child: IconButton(
           key: const ValueKey('close-prop-chat-bubble'),
           tooltip: 'Remove chat bubble',
           onPressed: onPressed,
           padding: EdgeInsets.zero,
           iconSize: 15,
-          icon: const Icon(Icons.close_rounded, color: Color(0xFFC8CED6)),
+          icon: const Icon(
+            Icons.close_rounded,
+            color: app_colors.AppColors.silver,
+          ),
         ),
       ),
     );
@@ -1835,7 +1840,10 @@ class _ChatUnreadBadge extends StatelessWidget {
             decoration: BoxDecoration(
               color: app_colors.AppColors.gold,
               borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: const Color(0xFF06111B), width: 1.4),
+              border: Border.all(
+                color: app_colors.AppColors.bgBase,
+                width: 1.4,
+              ),
               boxShadow: const [
                 BoxShadow(
                   color: Color(0x66000000),
@@ -1847,7 +1855,7 @@ class _ChatUnreadBadge extends StatelessWidget {
             child: Text(
               unread > 99 ? '99+' : '$unread',
               style: const TextStyle(
-                color: Color(0xFF06111B),
+                color: app_colors.AppColors.bgBase,
                 fontSize: 9,
                 fontWeight: FontWeight.w900,
               ),
@@ -2045,7 +2053,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     requiredTier: SubscriptionTier.edge,
                     showGoldBar: true,
                     leadingIcons: const [Icons.auto_graph],
-                    leadingIconColors: const [Color(0xFF36B9FF)],
+                    leadingIconColors: const [app_colors.AppColors.blue],
                     onTap: () => widget.onSelectPage?.call(AppPage.evScanner),
                   ),
                   if (MediaQuery.sizeOf(context).width < 700) ...[
@@ -2119,7 +2127,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
               builder: (context, count, _) => Container(
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF07131D),
+                  color: app_colors.AppColors.sidebar,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppColors.border),
                 ),
@@ -2150,7 +2158,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                         const Text(
                           'LIVE',
                           style: TextStyle(
-                            color: Color(0xFF36B9FF),
+                            color: app_colors.AppColors.blue,
                             fontSize: 8,
                             fontWeight: FontWeight.w800,
                           ),
@@ -2211,7 +2219,7 @@ class _SidebarHeader extends StatelessWidget {
               height: 42,
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
-                color: const Color(0xFF07131D),
+                color: app_colors.AppColors.sidebar,
                 borderRadius: BorderRadius.circular(11),
                 border: Border.all(color: app_colors.AppColors.borderGold),
               ),
@@ -2331,9 +2339,9 @@ class _TierBadge extends StatelessWidget {
     );
     final isCore = displayedTier == SubscriptionTier.core;
     final background = isCore
-        ? const Color(0xFFC8CED6)
+        ? app_colors.AppColors.silver
         : app_colors.AppColors.gold;
-    const foreground = Color(0xFF06111B);
+    const foreground = app_colors.AppColors.bgBase;
 
     return Container(
       key: ValueKey('tier-badge-${displayedTier.name}'),
@@ -2401,7 +2409,7 @@ class SidebarButton extends StatelessWidget {
     final watchlistHasActiveSlips =
         isActiveWatchlist && (int.tryParse((badge ?? '0').trim()) ?? 0) > 0;
     final textColor = selected || watchlistHasActiveSlips
-        ? const Color(0xFFFFC400)
+        ? app_colors.AppColors.gold
         : Colors.white;
     final textWeight = selected || watchlistHasActiveSlips
         ? FontWeight.w900
@@ -2531,7 +2539,7 @@ class SidebarButton extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFC400),
+                  color: app_colors.AppColors.gold,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -3209,15 +3217,15 @@ class _MainDashboardState extends State<MainDashboard> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected
-                ? const Color(0xFFFFC72C)
+                ? app_colors.AppColors.gold
                 : const Color(0xFF07111C),
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: const Color(0xFFFFC72C)),
+            border: Border.all(color: app_colors.AppColors.gold),
           ),
           child: Text(
             label,
             style: TextStyle(
-              color: isSelected ? const Color(0xFF06111C) : Colors.white,
+              color: isSelected ? app_colors.AppColors.bgBase : Colors.white,
               fontWeight: FontWeight.w900,
               fontSize: 12,
             ),
@@ -3243,15 +3251,15 @@ class _MainDashboardState extends State<MainDashboard> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected
-                ? const Color(0xFFFFC72C)
+                ? app_colors.AppColors.gold
                 : const Color(0xFF07111C),
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: const Color(0xFFFFC72C)),
+            border: Border.all(color: app_colors.AppColors.gold),
           ),
           child: Text(
             label,
             style: TextStyle(
-              color: isSelected ? const Color(0xFF06111C) : Colors.white,
+              color: isSelected ? app_colors.AppColors.bgBase : Colors.white,
               fontWeight: FontWeight.w900,
               fontSize: 12,
             ),
@@ -3277,15 +3285,15 @@ class _MainDashboardState extends State<MainDashboard> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected
-                ? const Color(0xFFFFC72C)
+                ? app_colors.AppColors.gold
                 : const Color(0xFF07111C),
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: const Color(0xFFFFC72C)),
+            border: Border.all(color: app_colors.AppColors.gold),
           ),
           child: Text(
             label,
             style: TextStyle(
-              color: isSelected ? const Color(0xFF06111C) : Colors.white,
+              color: isSelected ? app_colors.AppColors.bgBase : Colors.white,
               fontWeight: FontWeight.w900,
               fontSize: 12,
             ),
@@ -3941,7 +3949,7 @@ class _MainDashboardState extends State<MainDashboard> {
                                     Text(
                                       'Over ${prop.overOdds?.round() ?? '--'}  •  Under ${prop.underOdds?.round() ?? '--'}',
                                       style: const TextStyle(
-                                        color: Color(0xFFC8CED6),
+                                        color: app_colors.AppColors.silver,
                                         fontSize: 11,
                                       ),
                                     ),
@@ -4093,12 +4101,12 @@ class _MainDashboardState extends State<MainDashboard> {
             width: isMobile ? screenWidth * 0.94 : 950,
             height: isMobile ? 620 : 720,
             decoration: BoxDecoration(
-              color: const Color(0xFF06111C).withValues(alpha: 0.94),
+              color: app_colors.AppColors.bgBase.withValues(alpha: 0.94),
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFFFC72C), width: 1.2),
+              border: Border.all(color: app_colors.AppColors.gold, width: 1.2),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFFFC72C).withValues(alpha: 0.25),
+                  color: app_colors.AppColors.gold.withValues(alpha: 0.25),
                   blurRadius: 32,
                 ),
               ],
@@ -4111,14 +4119,14 @@ class _MainDashboardState extends State<MainDashboard> {
                     children: [
                       const Icon(
                         Icons.notifications_active,
-                        color: Color(0xFFFFC72C),
+                        color: app_colors.AppColors.gold,
                       ),
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
                           'Prop Alerts',
                           style: TextStyle(
-                            color: Color(0xFFFFC72C),
+                            color: app_colors.AppColors.gold,
                             fontSize: 22,
                             fontWeight: FontWeight.w900,
                           ),
@@ -4128,14 +4136,17 @@ class _MainDashboardState extends State<MainDashboard> {
                         onPressed: () {
                           Navigator.pop(dialogContext);
                         },
-                        icon: const Icon(Icons.close, color: Color(0xFFFFC72C)),
+                        icon: const Icon(
+                          Icons.close,
+                          color: app_colors.AppColors.gold,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 Container(
                   height: 1,
-                  color: const Color(0xFFFFC72C).withValues(alpha: 0.25),
+                  color: app_colors.AppColors.gold.withValues(alpha: 0.25),
                 ),
                 Expanded(
                   child: ListView.builder(
@@ -4170,7 +4181,7 @@ class _MainDashboardState extends State<MainDashboard> {
       }
       final (letter, color) = switch (book) {
         'PRIZEPICKS' => ('P', const Color(0xFF9B5CFF)),
-        'UNDERDOG' => ('U', const Color(0xFFFFC400)),
+        'UNDERDOG' => ('U', app_colors.AppColors.gold),
         'FANDUEL' => ('F', const Color(0xFF1685F8)),
         'SLEEPER' => ('S', const Color(0xFF65D8EF)),
         'BETR' => ('B', const Color(0xFF34D399)),
@@ -4184,7 +4195,7 @@ class _MainDashboardState extends State<MainDashboard> {
         child: Text(
           letter,
           style: const TextStyle(
-            color: Color(0xFF06111B),
+            color: app_colors.AppColors.bgBase,
             fontSize: 7,
             fontWeight: FontWeight.w900,
           ),
@@ -4281,7 +4292,7 @@ class _MainDashboardState extends State<MainDashboard> {
                                   icon: const Icon(Icons.close, size: 17),
                                 ),
                           filled: true,
-                          fillColor: const Color(0xFF07131D),
+                          fillColor: app_colors.AppColors.sidebar,
                           contentPadding: const EdgeInsets.symmetric(
                             vertical: 8,
                           ),
@@ -4345,7 +4356,7 @@ class _MainDashboardState extends State<MainDashboard> {
                       ),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white,
-                        backgroundColor: const Color(0xFF07131D),
+                        backgroundColor: app_colors.AppColors.sidebar,
                         side: const BorderSide(color: AppColors.border),
                         padding: const EdgeInsets.symmetric(horizontal: 11),
                       ),
@@ -4370,7 +4381,7 @@ class _MainDashboardState extends State<MainDashboard> {
                       foregroundColor: selected ? AppColors.gold : Colors.white,
                       backgroundColor: selected
                           ? AppColors.gold.withValues(alpha: .10)
-                          : const Color(0xFF07131D),
+                          : app_colors.AppColors.sidebar,
                       side: BorderSide(
                         color: selected ? AppColors.gold : AppColors.border,
                       ),
@@ -4428,15 +4439,15 @@ class _MainDashboardState extends State<MainDashboard> {
             height: 58,
             padding: const EdgeInsets.symmetric(horizontal: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFF07131D),
+              color: app_colors.AppColors.sidebar,
               borderRadius: BorderRadius.circular(9),
-              border: Border.all(color: const Color(0xFFC8CED6)),
+              border: Border.all(color: app_colors.AppColors.silver),
             ),
             child: Row(
               children: [
                 const Icon(
                   Icons.view_list_outlined,
-                  color: Color(0xFFC8CED6),
+                  color: app_colors.AppColors.silver,
                   size: 18,
                 ),
                 const SizedBox(width: 10),
@@ -4446,7 +4457,7 @@ class _MainDashboardState extends State<MainDashboard> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Color(0xFFC8CED6),
+                      color: app_colors.AppColors.silver,
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
                       letterSpacing: .4,
@@ -4609,7 +4620,7 @@ class _MainDashboardState extends State<MainDashboard> {
     return Container(
       height: 68,
       decoration: BoxDecoration(
-        color: const Color(0xFF07131D),
+        color: app_colors.AppColors.sidebar,
         borderRadius: BorderRadius.circular(9),
         border: Border.all(color: AppColors.border),
       ),
@@ -4701,7 +4712,7 @@ class _MainDashboardState extends State<MainDashboard> {
     final selected = await showDialog<String>(
       context: context,
       builder: (dialogContext) => SimpleDialog(
-        backgroundColor: const Color(0xFF07131D),
+        backgroundColor: app_colors.AppColors.sidebar,
         title: const Text(
           'Filter Options',
           style: TextStyle(
@@ -4791,7 +4802,7 @@ class _MainDashboardState extends State<MainDashboard> {
                   }),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: selected ? AppColors.gold : Colors.white,
-                    backgroundColor: const Color(0xFF07131D),
+                    backgroundColor: app_colors.AppColors.sidebar,
                     side: BorderSide(
                       color: selected ? AppColors.gold : AppColors.border,
                     ),
@@ -4914,11 +4925,11 @@ class _MainDashboardState extends State<MainDashboard> {
             label: Text('$sport  ${sportCount(sport)}'),
             style: OutlinedButton.styleFrom(
               foregroundColor: selected
-                  ? const Color(0xFF07131D)
+                  ? app_colors.AppColors.sidebar
                   : Colors.white,
               backgroundColor: selected
                   ? AppColors.gold
-                  : const Color(0xFF07131D),
+                  : app_colors.AppColors.sidebar,
               side: BorderSide(
                 color: selected ? AppColors.gold : AppColors.border,
                 width: selected ? 1.4 : 1,
@@ -5102,7 +5113,7 @@ class _AnalyticsAdminWorkspaceState extends State<AnalyticsAdminWorkspace> {
         foregroundColor: selected ? AppColors.gold : Colors.white,
         backgroundColor: selected
             ? AppColors.gold.withValues(alpha: .10)
-            : const Color(0xFF07131D),
+            : app_colors.AppColors.sidebar,
         side: BorderSide(color: selected ? AppColors.gold : AppColors.border),
       ),
     );
@@ -5121,7 +5132,7 @@ class _AnalyticsAdminWorkspaceState extends State<AnalyticsAdminWorkspace> {
             Container(
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
               decoration: const BoxDecoration(
-                color: Color(0xFF07131D),
+                color: app_colors.AppColors.sidebar,
                 border: Border(bottom: BorderSide(color: AppColors.border)),
               ),
               child: Row(
@@ -5150,13 +5161,13 @@ class _AnalyticsAdminWorkspaceState extends State<AnalyticsAdminWorkspace> {
                     decoration: BoxDecoration(
                       color: authState.hasEdgeAccess
                           ? AppColors.gold
-                          : const Color(0xFFC8CED6),
+                          : app_colors.AppColors.silver,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
                       authState.hasEdgeAccess ? 'PRO' : 'CORE',
                       style: const TextStyle(
-                        color: Color(0xFF06111B),
+                        color: app_colors.AppColors.bgBase,
                         fontSize: 8,
                         fontWeight: FontWeight.w900,
                       ),
@@ -5260,7 +5271,9 @@ class _DataAdminPageState extends State<DataAdminPage> {
       bool healthy = true,
       String? detail,
     }) {
-      final color = healthy ? const Color(0xFF8CFFB2) : const Color(0xFFFFD166);
+      final color = healthy
+          ? const Color(0xFF8CFFB2)
+          : app_colors.AppColors.goldHighlight;
       return Container(
         width: 210,
         constraints: const BoxConstraints(minHeight: 92),
@@ -5336,7 +5349,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
             children: [
               const Icon(
                 Icons.dashboard_customize_outlined,
-                color: Color(0xFFFFC400),
+                color: app_colors.AppColors.gold,
                 size: 20,
               ),
               const SizedBox(width: 8),
@@ -5472,7 +5485,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
             const Text(
               'Provider quota is below the configured reserve.',
               style: TextStyle(
-                color: Color(0xFFFFD166),
+                color: app_colors.AppColors.goldHighlight,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
@@ -5506,7 +5519,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
     final color = status == 'HEALTHY'
         ? const Color(0xFF8CFFB2)
         : status == 'WARNING'
-        ? const Color(0xFFFFD166)
+        ? app_colors.AppColors.goldHighlight
         : const Color(0xFFFF8A80);
     Widget metric(String label, String value, IconData icon) => Container(
       width: 180,
@@ -5517,7 +5530,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
       ),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFFFFC400), size: 18),
+          Icon(icon, color: app_colors.AppColors.gold, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -5634,7 +5647,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
                   style: TextStyle(
                     color: issue['severity'] == 'critical'
                         ? const Color(0xFFFF8A80)
-                        : const Color(0xFFFFD166),
+                        : app_colors.AppColors.goldHighlight,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -5678,7 +5691,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0A1520),
+        color: app_colors.AppColors.sidebar,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFF2A3D51)),
       ),
@@ -5686,7 +5699,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
         children: [
           const Icon(
             Icons.monitor_heart_outlined,
-            color: Color(0xFFFFC400),
+            color: app_colors.AppColors.gold,
             size: 18,
           ),
           const SizedBox(width: 8),
@@ -5703,17 +5716,26 @@ class _DataAdminPageState extends State<DataAdminPage> {
           const SizedBox(width: 18),
           Text(
             'Today: ${_operations?['snapshotsToday'] ?? 0} snapshots',
-            style: const TextStyle(color: Color(0xFF9EB1C4), fontSize: 11),
+            style: const TextStyle(
+              color: app_colors.AppColors.textSecondary,
+              fontSize: 11,
+            ),
           ),
           const SizedBox(width: 18),
           Text(
             'Pending: $pending',
-            style: const TextStyle(color: Color(0xFF9EB1C4), fontSize: 11),
+            style: const TextStyle(
+              color: app_colors.AppColors.textSecondary,
+              fontSize: 11,
+            ),
           ),
           const SizedBox(width: 18),
           Text(
             'Calibration: $valid / 100',
-            style: const TextStyle(color: Color(0xFF9EB1C4), fontSize: 11),
+            style: const TextStyle(
+              color: app_colors.AppColors.textSecondary,
+              fontSize: 11,
+            ),
           ),
           const Spacer(),
           IconButton(
@@ -5868,7 +5890,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
       constraints: const BoxConstraints(minHeight: 90, maxHeight: 140),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0A1520),
+        color: app_colors.AppColors.sidebar,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: const Color(0xFF2A3D51)),
       ),
@@ -5878,7 +5900,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
               child: Text(
                 'No upload audit entries yet.',
                 style: TextStyle(
-                  color: Color(0xFF9EB1C4),
+                  color: app_colors.AppColors.textSecondary,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -5892,7 +5914,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
                   child: Text(
                     _uploadAuditEntries[index],
                     style: const TextStyle(
-                      color: Color(0xFF9EB1C4),
+                      color: app_colors.AppColors.textSecondary,
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
                     ),
@@ -5946,14 +5968,14 @@ class _DataAdminPageState extends State<DataAdminPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF0A1520),
+          color: app_colors.AppColors.sidebar,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: const Color(0xFF2A3D51)),
         ),
         child: Text(
           text,
           style: const TextStyle(
-            color: Color(0xFF9EB1C4),
+            color: app_colors.AppColors.textSecondary,
             fontSize: 11,
             fontWeight: FontWeight.w600,
           ),
@@ -6185,7 +6207,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
         Text(
           label,
           style: const TextStyle(
-            color: Color(0xFF9EB1C4),
+            color: app_colors.AppColors.textSecondary,
             fontSize: 11,
             fontWeight: FontWeight.w700,
           ),
@@ -6193,9 +6215,12 @@ class _DataAdminPageState extends State<DataAdminPage> {
         const SizedBox(width: 8),
         DropdownButton<String>(
           value: value,
-          dropdownColor: const Color(0xFF0A1520),
+          dropdownColor: app_colors.AppColors.sidebar,
           style: const TextStyle(color: Colors.white),
-          underline: Container(height: 1, color: const Color(0xFF294052)),
+          underline: Container(
+            height: 1,
+            color: app_colors.AppColors.chromeShadow,
+          ),
           items: const [
             DropdownMenuItem(value: 'merge', child: Text('merge')),
             DropdownMenuItem(value: 'replace', child: Text('replace')),
@@ -6219,9 +6244,9 @@ class _DataAdminPageState extends State<DataAdminPage> {
     return Expanded(
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF0A1520),
+          color: app_colors.AppColors.sidebar,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFF294052)),
+          border: Border.all(color: app_colors.AppColors.chromeShadow),
         ),
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -6236,7 +6261,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
                       Text(
                         title,
                         style: const TextStyle(
-                          color: Color(0xFFFFC400),
+                          color: app_colors.AppColors.gold,
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
                         ),
@@ -6245,7 +6270,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
                       Text(
                         schemaHint,
                         style: const TextStyle(
-                          color: Color(0xFF9EB1C4),
+                          color: app_colors.AppColors.textSecondary,
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
                         ),
@@ -6275,15 +6300,21 @@ class _DataAdminPageState extends State<DataAdminPage> {
                   contentPadding: const EdgeInsets.all(10),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFF294052)),
+                    borderSide: const BorderSide(
+                      color: app_colors.AppColors.chromeShadow,
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFF294052)),
+                    borderSide: const BorderSide(
+                      color: app_colors.AppColors.chromeShadow,
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFFFC400)),
+                    borderSide: const BorderSide(
+                      color: app_colors.AppColors.gold,
+                    ),
                   ),
                 ),
               ),
@@ -6312,7 +6343,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
                 ElevatedButton(
                   onPressed: _isBusy ? null : onUpload,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFC400),
+                    backgroundColor: app_colors.AppColors.gold,
                     foregroundColor: const Color(0xFF07131F),
                   ),
                   child: const Text('Upload JSON'),
@@ -6337,7 +6368,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
               const Text(
                 'DATA ADMIN',
                 style: TextStyle(
-                  color: Color(0xFFFFC400),
+                  color: app_colors.AppColors.gold,
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                 ),
@@ -6393,7 +6424,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
           Text(
             _unresolvedSummary,
             style: const TextStyle(
-              color: Color(0xFF9EB1C4),
+              color: app_colors.AppColors.textSecondary,
               fontSize: 11,
               fontWeight: FontWeight.w600,
             ),
@@ -6421,7 +6452,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
           const Text(
             'Upload Audit Log',
             style: TextStyle(
-              color: Color(0xFFFFC400),
+              color: app_colors.AppColors.gold,
               fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
@@ -6546,7 +6577,7 @@ class SearchPlayersPage extends StatelessWidget {
                   const Text(
                     'Players Directory',
                     style: TextStyle(
-                      color: Color(0xFFFFC400),
+                      color: app_colors.AppColors.gold,
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
                     ),
@@ -6559,7 +6590,7 @@ class SearchPlayersPage extends StatelessWidget {
                         color: const Color(0xFF0B1927),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: const Color(0xFFFFC400),
+                          color: app_colors.AppColors.gold,
                           width: 1.1,
                         ),
                       ),
@@ -6580,7 +6611,7 @@ class SearchPlayersPage extends StatelessWidget {
                           ),
                           prefixIcon: const Icon(
                             Icons.search,
-                            color: Color(0xFFFFC400),
+                            color: app_colors.AppColors.gold,
                             size: 20,
                           ),
                           suffixIcon: query.isNotEmpty
@@ -6621,9 +6652,11 @@ class SearchPlayersPage extends StatelessWidget {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0A1520),
+                    color: app_colors.AppColors.sidebar,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF294052)),
+                    border: Border.all(
+                      color: app_colors.AppColors.chromeShadow,
+                    ),
                   ),
                   child: ListView.separated(
                     itemCount: filtered.length,
@@ -6653,7 +6686,7 @@ class SearchPlayersPage extends StatelessWidget {
                         trailing: Text(
                           '${prop.confidence}%',
                           style: const TextStyle(
-                            color: Color(0xFFFFC400),
+                            color: app_colors.AppColors.gold,
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
                           ),
@@ -7200,7 +7233,7 @@ class _BoardSparklinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF36B9FF)
+      ..color = app_colors.AppColors.blue
       ..strokeWidth = 1.3
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -7301,10 +7334,10 @@ class StatsPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF081723),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF8B6813), width: 1),
+        border: Border.all(color: app_colors.AppColors.goldShadow, width: 1),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFFC400).withValues(alpha: 0.08),
+            color: app_colors.AppColors.gold.withValues(alpha: 0.08),
             blurRadius: 8,
           ),
         ],
@@ -7316,16 +7349,16 @@ class StatsPanel extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: const Color(0xFF201A06),
+              color: app_colors.AppColors.goldSurface,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFF8B6813)),
+              border: Border.all(color: app_colors.AppColors.goldShadow),
             ),
             child: Text(
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: Color(0xFFFFC400),
+                color: app_colors.AppColors.gold,
                 fontSize: 8,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0.3,
@@ -7357,7 +7390,7 @@ class StatsPanel extends StatelessWidget {
                 Text(
                   trailing,
                   style: const TextStyle(
-                    color: Color(0xFFFFC400),
+                    color: app_colors.AppColors.gold,
                     fontWeight: FontWeight.w900,
                     fontSize: 10,
                   ),
@@ -7412,7 +7445,7 @@ class _PropAlertCard extends StatelessWidget {
         color: const Color(0xFF0A1C2B).withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: const Color(0xFFFFC72C).withValues(alpha: 0.28),
+          color: app_colors.AppColors.gold.withValues(alpha: 0.28),
         ),
       ),
       child: Column(
@@ -7426,13 +7459,13 @@ class _PropAlertCard extends StatelessWidget {
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFC72C),
+                  color: app_colors.AppColors.gold,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   alert.sport,
                   style: const TextStyle(
-                    color: Color(0xFF06111C),
+                    color: app_colors.AppColors.bgBase,
                     fontWeight: FontWeight.w900,
                     fontSize: 12,
                   ),
@@ -7471,14 +7504,14 @@ class _PropAlertCard extends StatelessWidget {
               Text(
                 'Edge: ${alert.edge}%',
                 style: const TextStyle(
-                  color: Color(0xFFFFC72C),
+                  color: app_colors.AppColors.gold,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               Text(
                 'Book: ${alert.book}',
                 style: const TextStyle(
-                  color: Color(0xFFFFC72C),
+                  color: app_colors.AppColors.gold,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -7506,14 +7539,14 @@ class PropAlertsPage extends StatelessWidget {
             children: [
               const Icon(
                 Icons.notifications_active,
-                color: Color(0xFFFFC72C),
+                color: app_colors.AppColors.gold,
                 size: 22,
               ),
               const SizedBox(width: 10),
               const Text(
                 'PROP ALERTS',
                 style: TextStyle(
-                  color: Color(0xFFFFC72C),
+                  color: app_colors.AppColors.gold,
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                 ),
@@ -7587,14 +7620,16 @@ class _FilterBarState extends State<FilterBar> {
           color: selected ? const Color(0xFF302A14) : const Color(0xFF0C1C2A),
           borderRadius: BorderRadius.circular(9),
           border: Border.all(
-            color: selected ? const Color(0xFFFFC400) : const Color(0xFF294052),
+            color: selected
+                ? app_colors.AppColors.gold
+                : app_colors.AppColors.chromeShadow,
             width: selected ? 1.4 : 1,
           ),
         ),
         child: Text(
           site,
           style: TextStyle(
-            color: selected ? const Color(0xFFFFC400) : Colors.white,
+            color: selected ? app_colors.AppColors.gold : Colors.white,
             fontSize: 10.5,
             fontWeight: FontWeight.w800,
           ),
@@ -7614,7 +7649,7 @@ class _FilterBarState extends State<FilterBar> {
         decoration: BoxDecoration(
           color: const Color(0xFF0C1C2A),
           borderRadius: BorderRadius.circular(9),
-          border: Border.all(color: const Color(0xFF294052)),
+          border: Border.all(color: app_colors.AppColors.chromeShadow),
         ),
         child: const Text(
           'RESET',
@@ -9177,7 +9212,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                         child: Text(
                           advisedSide == PickSide.over ? 'O' : 'U',
                           style: const TextStyle(
-                            color: Color(0xFF06111B),
+                            color: app_colors.AppColors.bgBase,
                             fontSize: 8,
                             fontWeight: FontWeight.w900,
                           ),
@@ -9289,7 +9324,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         : key.contains('PRIZE')
         ? const Color(0xFF9B5CFF)
         : key.contains('UNDERDOG')
-        ? const Color(0xFFFFC400)
+        ? app_colors.AppColors.gold
         : key.contains('SLEEPER')
         ? const Color(0xFF65D8EF)
         : const Color(0xFF8D4DFF);
@@ -9313,7 +9348,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           child: Text(
             label,
             style: const TextStyle(
-              color: Color(0xFF06111B),
+              color: app_colors.AppColors.bgBase,
               fontSize: 7,
               fontWeight: FontWeight.w900,
             ),
@@ -9375,10 +9410,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             decoration: BoxDecoration(
               color: const Color(0xFF081723),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF8B6813), width: 1),
+              border: Border.all(
+                color: app_colors.AppColors.goldShadow,
+                width: 1,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFFFC400).withValues(alpha: 0.08),
+                  color: app_colors.AppColors.gold.withValues(alpha: 0.08),
                   blurRadius: 8,
                 ),
               ],
@@ -9402,7 +9440,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     ),
                     const Icon(
                       Icons.star_border,
-                      color: Color(0xFFFFC400),
+                      color: app_colors.AppColors.gold,
                       size: 18,
                     ),
                   ],
@@ -9412,7 +9450,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   Text(
                     gameDayDate,
                     style: const TextStyle(
-                      color: Color(0xFFFFC400),
+                      color: app_colors.AppColors.gold,
                       fontSize: 8.5,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.4,
@@ -9445,7 +9483,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                         end: Alignment.bottomCenter,
                       ),
                       borderRadius: BorderRadius.circular(7),
-                      border: Border.all(color: const Color(0xFFFFC400)),
+                      border: Border.all(color: app_colors.AppColors.gold),
                     ),
                     child: Text(
                       '★ BEST PICK: $side',
@@ -9498,7 +9536,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   child: Text(
                     'Tier: ${prop.tier}',
                     style: const TextStyle(
-                      color: Color(0xFFFFC400),
+                      color: app_colors.AppColors.gold,
                       fontSize: 8.5,
                       fontWeight: FontWeight.w800,
                     ),
@@ -9538,7 +9576,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: const Color(0xFF8B6813),
+                            color: app_colors.AppColors.goldShadow,
                             width: 1.2,
                           ),
                         ),
@@ -9553,16 +9591,18 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF211C0B),
+                          color: app_colors.AppColors.goldSurface,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: const Color(0xFF8B6813)),
+                          border: Border.all(
+                            color: app_colors.AppColors.goldShadow,
+                          ),
                         ),
                         child: Text(
                           prop.sportsbook.toUpperCase(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: Color(0xFFFFC400),
+                            color: app_colors.AppColors.gold,
                             fontSize: 8.5,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.4,
@@ -9610,7 +9650,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                             style: TextStyle(
                               color: isUnderPick
                                   ? Colors.white
-                                  : const Color(0xFFFFC400),
+                                  : app_colors.AppColors.gold,
                               fontSize: 14,
                               fontWeight: FontWeight.w900,
                             ),
@@ -9638,7 +9678,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     value: (confidence / 100).clamp(0, 1),
                     minHeight: 7,
                     backgroundColor: const Color(0xFF263746),
-                    valueColor: const AlwaysStoppedAnimation(Color(0xFFFFC400)),
+                    valueColor: const AlwaysStoppedAnimation(
+                      app_colors.AppColors.gold,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -9656,12 +9698,12 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                               ? Colors.black
                               : const Color(0xFFE6EEF8),
                           backgroundColor: selectedSide == PickSide.over
-                              ? const Color(0xFFFFC400)
+                              ? app_colors.AppColors.gold
                               : const Color(0xFF0B1721),
                           side: BorderSide(
                             color: selectedSide == PickSide.over
-                                ? const Color(0xFFFFC400)
-                                : const Color(0xFF294052),
+                                ? app_colors.AppColors.gold
+                                : app_colors.AppColors.chromeShadow,
                           ),
                         ),
                         child: const Text(
@@ -9686,12 +9728,12 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                               ? Colors.black
                               : const Color(0xFFE6EEF8),
                           backgroundColor: selectedSide == PickSide.under
-                              ? const Color(0xFFFFC400)
+                              ? app_colors.AppColors.gold
                               : const Color(0xFF0B1721),
                           side: BorderSide(
                             color: selectedSide == PickSide.under
-                                ? const Color(0xFFFFC400)
-                                : const Color(0xFF294052),
+                                ? app_colors.AppColors.gold
+                                : app_colors.AppColors.chromeShadow,
                           ),
                         ),
                         child: const Text(
@@ -10282,9 +10324,9 @@ class _PropToolbar extends StatelessWidget {
 
   Color _statusColor(BackendRefreshStatus status) {
     if (status.lastRefreshAt == null || status.sourceUrl.isEmpty) {
-      return const Color(0xFFFFC72C);
+      return app_colors.AppColors.gold;
     }
-    return const Color(0xFF56D38A);
+    return app_colors.AppColors.success;
   }
 
   @override
@@ -10502,10 +10544,10 @@ Future<void> _showPropMetricInfoDialog(
           decoration: BoxDecoration(
             color: const Color(0xE60A1520),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFFFC400), width: 1.2),
+            border: Border.all(color: app_colors.AppColors.gold, width: 1.2),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFFFC400).withValues(alpha: 0.2),
+                color: app_colors.AppColors.gold.withValues(alpha: 0.2),
                 blurRadius: 22,
               ),
             ],
@@ -10516,13 +10558,13 @@ Future<void> _showPropMetricInfoDialog(
             children: [
               Row(
                 children: [
-                  Icon(icon, color: const Color(0xFFFFC400), size: 20),
+                  Icon(icon, color: app_colors.AppColors.gold, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       title,
                       style: const TextStyle(
-                        color: Color(0xFFFFC400),
+                        color: app_colors.AppColors.gold,
                         fontSize: 15,
                         fontWeight: FontWeight.w900,
                       ),
@@ -10590,7 +10632,11 @@ class PropCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const Icon(Icons.star_border, color: Color(0xFFFFC400), size: 17),
+              const Icon(
+                Icons.star_border,
+                color: app_colors.AppColors.gold,
+                size: 17,
+              ),
             ],
           ),
           const SizedBox(height: 2),
@@ -10624,7 +10670,10 @@ class PropCard extends StatelessWidget {
                 height: 36,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFFFC400), width: 1),
+                  border: Border.all(
+                    color: app_colors.AppColors.gold,
+                    width: 1,
+                  ),
                 ),
                 child: ClipOval(child: _buildPropCardImage(context, prop)),
               ),
@@ -10638,7 +10687,7 @@ class PropCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Color(0xFFFFC400),
+                        color: app_colors.AppColors.gold,
                         fontSize: 15,
                         fontWeight: FontWeight.w900,
                       ),
@@ -10698,7 +10747,7 @@ class PropCard extends StatelessWidget {
                 child: Text(
                   'Tier: ${prop.tier}',
                   style: const TextStyle(
-                    color: Color(0xFFFFC400),
+                    color: app_colors.AppColors.gold,
                     fontSize: 8.5,
                     fontWeight: FontWeight.w800,
                   ),
@@ -10882,7 +10931,7 @@ class StatItem extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       decoration: BoxDecoration(
         color: const Color(0xFF0D1C2A),
-        border: Border.all(color: const Color(0xFF294052)),
+        border: Border.all(color: app_colors.AppColors.chromeShadow),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -10921,7 +10970,7 @@ class StatItem extends StatelessWidget {
                 Text(
                   trailing!,
                   style: const TextStyle(
-                    color: Color(0xFFFFC400),
+                    color: app_colors.AppColors.gold,
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
                   ),

@@ -9,6 +9,8 @@ import '../services/player_image_resolver.dart';
 import '../theme/app_colors.dart';
 import '../widgets/player_image_widget.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 enum _StrikeoutView { all, over, under }
 
 class StrikeoutProGoldScreen extends StatefulWidget {
@@ -441,8 +443,12 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
     key: ValueKey('strikeout-site-$label'),
     onPressed: onTap,
     style: OutlinedButton.styleFrom(
-      foregroundColor: selected ? const Color(0xFF07131D) : AppColors.gold,
-      backgroundColor: selected ? AppColors.gold : const Color(0xFF07131D),
+      foregroundColor: selected
+          ? brand_colors.AppColors.sidebar
+          : AppColors.gold,
+      backgroundColor: selected
+          ? AppColors.gold
+          : brand_colors.AppColors.sidebar,
       side: BorderSide(
         color: selected ? AppColors.gold : AppColors.borderGold,
         width: selected ? 1.5 : 1,
@@ -458,7 +464,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
   Widget _methodology() => Padding(
     padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
     child: Material(
-      color: const Color(0xFF07131D),
+      color: brand_colors.AppColors.sidebar,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(13),
@@ -597,7 +603,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
     final signalColor = side == null
         ? AppColors.textMuted
         : side == PickSide.over
-        ? const Color(0xFF56D38A)
+        ? brand_colors.AppColors.success
         : const Color(0xFF6DB8FF);
     return Container(
       padding: const EdgeInsets.all(14),
@@ -915,7 +921,9 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
       key: ValueKey('strikeout-${side.name}-${prop.id}'),
       onPressed: () => setState(() => _selectedSides[prop.id] = side),
       style: OutlinedButton.styleFrom(
-        foregroundColor: selected ? const Color(0xFF07131D) : Colors.white,
+        foregroundColor: selected
+            ? brand_colors.AppColors.sidebar
+            : Colors.white,
         backgroundColor: selected ? AppColors.gold : Colors.transparent,
         side: BorderSide(color: selected ? AppColors.gold : AppColors.border),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),

@@ -8,6 +8,8 @@ import '../services/api_service.dart';
 import '../services/scoreboard_service.dart';
 import '../services/scoreboard_watchlist_service.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class LiveScoreboardTickerGridWidget extends StatefulWidget {
   const LiveScoreboardTickerGridWidget({super.key, this.watchedOnly = false});
 
@@ -25,11 +27,11 @@ class _LiveScoreboardTickerGridWidgetState
   static const _panelRaised = Color(0xFF091A26);
   static const _border = Color(0xFF263A48);
   static const _borderSoft = Color(0xFF172A36);
-  static const _gold = Color(0xFFFFC400);
+  static const _gold = brand_colors.AppColors.gold;
   static const _white = Color(0xFFF7F8FA);
   static const _silver = Color(0xFFA4B1BB);
   static const _muted = Color(0xFF71818D);
-  static const _green = Color(0xFF36B9FF);
+  static const _green = brand_colors.AppColors.blue;
 
   late final ScoreboardController _controller;
   final ScrollController _scrollController = ScrollController();

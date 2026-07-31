@@ -4,6 +4,8 @@ import '../theme/prop_intelligence_colors.dart';
 import 'prop_intelligence_branded_logo.dart';
 import 'context_help.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class PositiveEvScannerCard extends StatelessWidget {
   final String player;
   final String propType;
@@ -72,13 +74,15 @@ class PositiveEvScannerCard extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF36B9FF).withValues(alpha: 0.15),
+                      color: brand_colors.AppColors.blue.withValues(
+                        alpha: 0.15,
+                      ),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       '+$evPercentage% EV',
                       style: const TextStyle(
-                        color: Color(0xFF36B9FF),
+                        color: brand_colors.AppColors.blue,
                         fontWeight: FontWeight.w900,
                         fontSize: 10,
                       ),

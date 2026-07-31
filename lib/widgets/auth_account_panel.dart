@@ -7,6 +7,8 @@ import '../services/billing_service.dart';
 import '../services/prop_watchlist_service.dart';
 import 'official_identity_badge.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 @visibleForTesting
 bool shouldShowPlanSelector({
   required SubscriptionTier tier,
@@ -137,15 +139,15 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF0B151E),
+          backgroundColor: brand_colors.AppColors.sidebar,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFFFFC400)),
+            side: const BorderSide(color: brand_colors.AppColors.gold),
           ),
           title: const Text(
             'O  MANAGE USER ROLE',
             style: TextStyle(
-              color: Color(0xFFFFC400),
+              color: brand_colors.AppColors.gold,
               fontSize: 16,
               fontWeight: FontWeight.w900,
             ),
@@ -220,8 +222,8 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
                       }
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFC400),
-                foregroundColor: const Color(0xFF050A0F),
+                backgroundColor: brand_colors.AppColors.gold,
+                foregroundColor: brand_colors.AppColors.bgBase,
               ),
               child: Text(saving ? 'SAVING...' : 'ASSIGN ROLE'),
             ),
@@ -238,7 +240,7 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
     final submitted = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF0B151E),
+        backgroundColor: brand_colors.AppColors.sidebar,
         title: const Text(
           'A  REQUEST OWNER APPROVAL',
           style: TextStyle(
@@ -313,17 +315,20 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          backgroundColor: const Color(0xFF0B151E),
+          backgroundColor: brand_colors.AppColors.sidebar,
           title: Row(
             children: [
-              const Icon(Icons.approval_rounded, color: Color(0xFFFFC400)),
+              const Icon(
+                Icons.approval_rounded,
+                color: brand_colors.AppColors.gold,
+              ),
               const SizedBox(width: 9),
               Text(
                 AuthManager.instance.sessionState.value.isOwner
                     ? 'OWNER CHANGE APPROVALS'
                     : 'MY CHANGE REQUESTS',
                 style: const TextStyle(
-                  color: Color(0xFFFFC400),
+                  color: brand_colors.AppColors.gold,
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                 ),
@@ -386,11 +391,13 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF0B151E),
+        backgroundColor: brand_colors.AppColors.sidebar,
         title: Text(
           approved ? 'APPROVE CHANGE REQUEST' : 'DENY CHANGE REQUEST',
           style: TextStyle(
-            color: approved ? const Color(0xFF56D38A) : const Color(0xFFFF6B72),
+            color: approved
+                ? brand_colors.AppColors.success
+                : const Color(0xFFFF6B72),
             fontWeight: FontWeight.w900,
           ),
         ),
@@ -447,12 +454,12 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
           width: double.infinity,
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFF0B151E),
+            color: brand_colors.AppColors.sidebar,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: state.isOwner
-                  ? const Color(0xFFFFC400)
-                  : const Color(0xFF273445),
+                  ? brand_colors.AppColors.gold
+                  : brand_colors.AppColors.chromeShadow,
               width: state.isOwner ? 1.4 : 1,
             ),
           ),
@@ -525,8 +532,8 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
                           child: ElevatedButton(
                             onPressed: canSubmit ? _submit : null,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFFC72C),
-                              foregroundColor: const Color(0xFF050A0F),
+                              backgroundColor: brand_colors.AppColors.gold,
+                              foregroundColor: brand_colors.AppColors.bgBase,
                               minimumSize: const Size(0, 34),
                             ),
                             child: _submitting
@@ -586,15 +593,19 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
       fillColor: const Color(0xFF0F1620),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFF273445)),
+        borderSide: const BorderSide(
+          color: brand_colors.AppColors.chromeShadow,
+        ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFF273445)),
+        borderSide: const BorderSide(
+          color: brand_colors.AppColors.chromeShadow,
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFFFC72C)),
+        borderSide: const BorderSide(color: brand_colors.AppColors.gold),
       ),
     );
   }
@@ -637,10 +648,10 @@ class _SignedInView extends StatelessWidget {
       _ => 'U',
     };
     final roleColor = switch (normalizedRole) {
-      'owner' => const Color(0xFFFFC400),
+      'owner' => brand_colors.AppColors.gold,
       'admin' => const Color(0xFF6DB8FF),
       'tester' => const Color(0xFFE0E0E0),
-      _ => const Color(0xFF56D38A),
+      _ => brand_colors.AppColors.success,
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -748,12 +759,12 @@ class _SignedInView extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: accessPreviewTier == null
                         ? Colors.transparent
-                        : const Color(0xFFFFC400).withValues(alpha: .14),
+                        : brand_colors.AppColors.gold.withValues(alpha: .14),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: accessPreviewTier == null
-                          ? const Color(0xFF273445)
-                          : const Color(0xFFFFC400),
+                          ? brand_colors.AppColors.chromeShadow
+                          : brand_colors.AppColors.gold,
                     ),
                   ),
                   child: Row(
@@ -845,9 +856,9 @@ class _ChangeRequestCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusColor = switch (request.status) {
-      'approved' => const Color(0xFF56D38A),
+      'approved' => brand_colors.AppColors.success,
       'denied' => const Color(0xFFFF6B72),
-      _ => const Color(0xFFFFC400),
+      _ => brand_colors.AppColors.gold,
     };
     return Container(
       padding: const EdgeInsets.all(14),
@@ -912,7 +923,7 @@ class _ChangeRequestCard extends StatelessWidget {
             Text(
               'OWNER RESPONSE: ${request.ownerResponse}',
               style: const TextStyle(
-                color: Color(0xFFFFC400),
+                color: brand_colors.AppColors.gold,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),

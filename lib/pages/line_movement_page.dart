@@ -11,6 +11,8 @@ import '../theme/app_colors.dart';
 import '../widgets/dashboard_panel.dart';
 import '../widgets/context_help.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class LineMovementPage extends StatefulWidget {
   const LineMovementPage({
     super.key,
@@ -166,18 +168,18 @@ class _LineMovementPageState extends State<LineMovementPage> {
       height: 42,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF101D28),
+        color: brand_colors.AppColors.bgPanel,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF8B6813)),
+        border: Border.all(color: brand_colors.AppColors.goldShadow),
       ),
       child: Row(
         children: [
-          const Icon(Icons.feed, size: 18, color: Color(0xFFFFC400)),
+          const Icon(Icons.feed, size: 18, color: brand_colors.AppColors.gold),
           const SizedBox(width: 8),
           const Text(
             'LINE ALERTS',
             style: TextStyle(
-              color: Color(0xFFFFC400),
+              color: brand_colors.AppColors.gold,
               fontSize: 10,
               fontWeight: FontWeight.w900,
             ),
@@ -233,7 +235,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
       case 'WORSE':
         return const Color(0xFFE74C3C);
       case 'MOVED':
-        return const Color(0xFFFFC400);
+        return brand_colors.AppColors.gold;
       case 'UNAVAILABLE':
         return const Color(0xFF94A3B8);
       default:
@@ -407,7 +409,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
         Expanded(
           child: _summaryCard(
             icon: Icons.schedule_rounded,
-            iconColor: const Color(0xFFC8CED6),
+            iconColor: brand_colors.AppColors.silver,
             value: lastUpdateText,
             label: 'LAST CHANGE',
             detail: 'Opening vs. current',
@@ -573,7 +575,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
       'espnbet' || 'espn' => ('E', const Color(0xFFE21C2A)),
       'fanatics' || 'fanaticssportsbook' => ('F', const Color(0xFFE31837)),
       'prizepicks' || 'pp' => ('PP', const Color(0xFF7BEE4C)),
-      'underdog' || 'underdogfantasy' => ('UD', const Color(0xFFFFC400)),
+      'underdog' || 'underdogfantasy' => ('UD', brand_colors.AppColors.gold),
       _ => (
         cleaned
             .split(RegExp(r'\s+'))
@@ -1029,7 +1031,9 @@ class _LineMovementPageState extends State<LineMovementPage> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF111B26),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF8B6813)),
+                    border: Border.all(
+                      color: brand_colors.AppColors.goldShadow,
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1049,7 +1053,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
                         maxLines: 5,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Color(0xFF96A4B2),
+                          color: brand_colors.AppColors.textSecondary,
                           fontSize: 10,
                         ),
                       ),

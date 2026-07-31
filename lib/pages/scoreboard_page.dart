@@ -10,6 +10,8 @@ import '../services/scoreboard_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/context_help.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 enum ScoreboardFilter { all, live, upcoming, finalGames }
 
 class ScoreboardPage extends StatefulWidget {
@@ -58,7 +60,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         children: [
           _buildHeader(),
           _buildFilterRow(),
-          const Divider(height: 1, color: Color(0xFF293946)),
+          const Divider(height: 1, color: brand_colors.AppColors.chromeShadow),
           Expanded(child: _buildScoreboardBody()),
         ],
       ),
@@ -87,7 +89,10 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                 const SizedBox(height: 3),
                 Text(
                   sportLabel,
-                  style: TextStyle(color: Color(0xFF96A4B2), fontSize: 10),
+                  style: TextStyle(
+                    color: brand_colors.AppColors.textSecondary,
+                    fontSize: 10,
+                  ),
                 ),
               ],
             ),
@@ -104,14 +109,14 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
             decoration: BoxDecoration(
-              color: const Color(0xFF101D28),
+              color: brand_colors.AppColors.bgPanel,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF8B6813)),
+              border: Border.all(color: brand_colors.AppColors.goldShadow),
             ),
             child: Text(
               _formatDate(_controller.selectedDate),
               style: const TextStyle(
-                color: Color(0xFFFFC400),
+                color: brand_colors.AppColors.gold,
                 fontSize: 10,
                 fontWeight: FontWeight.w900,
               ),
@@ -131,10 +136,10 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                     height: 17,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Color(0xFFFFC400),
+                      color: brand_colors.AppColors.gold,
                     ),
                   )
-                : const Icon(Icons.refresh, color: Color(0xFFFFC400)),
+                : const Icon(Icons.refresh, color: brand_colors.AppColors.gold),
           ),
         ],
       ),
@@ -183,16 +188,20 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         duration: const Duration(milliseconds: 120),
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFFFC400) : const Color(0xFF101D28),
+          color: selected
+              ? brand_colors.AppColors.gold
+              : brand_colors.AppColors.bgPanel,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: selected ? const Color(0xFFFFC400) : const Color(0xFF293946),
+            color: selected
+                ? brand_colors.AppColors.gold
+                : brand_colors.AppColors.chromeShadow,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? const Color(0xFF050A0F) : Colors.white,
+            color: selected ? brand_colors.AppColors.bgBase : Colors.white,
             fontSize: 9,
             fontWeight: FontWeight.w900,
           ),
@@ -204,7 +213,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   Widget _buildScoreboardBody() {
     if (_controller.isLoading && _controller.games.isEmpty) {
       return const Center(
-        child: CircularProgressIndicator(color: Color(0xFFFFC400)),
+        child: CircularProgressIndicator(color: brand_colors.AppColors.gold),
       );
     }
 
@@ -218,7 +227,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
             children: [
               const Icon(
                 Icons.cloud_off_outlined,
-                color: Color(0xFFFF4D5A),
+                color: brand_colors.AppColors.danger,
                 size: 34,
               ),
               const SizedBox(height: 12),
@@ -233,7 +242,10 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
               Text(
                 _controller.errorMessage!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFF96A4B2), fontSize: 9),
+                style: const TextStyle(
+                  color: brand_colors.AppColors.textSecondary,
+                  fontSize: 9,
+                ),
               ),
               const SizedBox(height: 14),
               FilledButton.icon(
@@ -262,7 +274,11 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.event_busy_outlined, color: Color(0xFF96A4B2), size: 32),
+            Icon(
+              Icons.event_busy_outlined,
+              color: brand_colors.AppColors.textSecondary,
+              size: 32,
+            ),
             SizedBox(height: 10),
             Text(
               'NO GAMES FOUND',
@@ -285,7 +301,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     }
 
     return RefreshIndicator(
-      color: const Color(0xFFFFC400),
+      color: brand_colors.AppColors.gold,
       onRefresh: () {
         return _controller.load(silent: true);
       },
@@ -297,13 +313,17 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFF101D28),
+                color: brand_colors.AppColors.bgPanel,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF8B6813)),
+                border: Border.all(color: brand_colors.AppColors.goldShadow),
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.info_outline, color: Color(0xFFFFC400), size: 16),
+                  Icon(
+                    Icons.info_outline,
+                    color: brand_colors.AppColors.gold,
+                    size: 16,
+                  ),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -361,7 +381,10 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
               const SizedBox(width: 7),
               Text(
                 '${games.length} GAMES',
-                style: const TextStyle(color: Color(0xFF96A4B2), fontSize: 8),
+                style: const TextStyle(
+                  color: brand_colors.AppColors.textSecondary,
+                  fontSize: 8,
+                ),
               ),
             ],
           ),
@@ -392,31 +415,31 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       case 'WNBA':
         return const Icon(
           Icons.sports_basketball,
-          color: Color(0xFFFFC400),
+          color: brand_colors.AppColors.gold,
           size: 18,
         );
       case 'NFL':
         return const Icon(
           Icons.sports_football,
-          color: Color(0xFFFFC400),
+          color: brand_colors.AppColors.gold,
           size: 18,
         );
       case 'MLB':
         return const Icon(
           Icons.sports_baseball,
-          color: Color(0xFFFFC400),
+          color: brand_colors.AppColors.gold,
           size: 18,
         );
       case 'SOCCER':
         return const Icon(
           Icons.sports_soccer,
-          color: Color(0xFFFFC400),
+          color: brand_colors.AppColors.gold,
           size: 18,
         );
       case 'TENNIS':
         return const Icon(
           Icons.sports_tennis,
-          color: Color(0xFFFFC400),
+          color: brand_colors.AppColors.gold,
           size: 18,
         );
       case 'PGA':
@@ -429,7 +452,11 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       case 'MMA':
         return const Icon(Icons.sports_mma, color: Color(0xFF9A6338), size: 18);
       default:
-        return const Icon(Icons.sports, color: Color(0xFF96A4B2), size: 18);
+        return const Icon(
+          Icons.sports,
+          color: brand_colors.AppColors.textSecondary,
+          size: 18,
+        );
     }
   }
 
@@ -455,7 +482,9 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
           color: const Color(0xFF0A1721),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isLive ? const Color(0xFFFFC400) : const Color(0xFF293946),
+            color: isLive
+                ? brand_colors.AppColors.gold
+                : brand_colors.AppColors.chromeShadow,
           ),
         ),
         child: Column(
@@ -468,8 +497,8 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                   game.detail.isNotEmpty ? game.detail : _gameTimeLabel(game),
                   style: TextStyle(
                     color: isLive
-                        ? const Color(0xFFFFC400)
-                        : const Color(0xFF96A4B2),
+                        ? brand_colors.AppColors.gold
+                        : brand_colors.AppColors.textSecondary,
                     fontSize: 9,
                     fontWeight: FontWeight.w900,
                   ),
@@ -497,13 +526,16 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                       : isLive
                       ? 'LIVE UPDATES'
                       : 'GAME PREVIEW',
-                  style: const TextStyle(color: Color(0xFF96A4B2), fontSize: 8),
+                  style: const TextStyle(
+                    color: brand_colors.AppColors.textSecondary,
+                    fontSize: 8,
+                  ),
                 ),
                 const Spacer(),
                 const Text(
                   'VIEW GAME',
                   style: TextStyle(
-                    color: Color(0xFFFFC400),
+                    color: brand_colors.AppColors.gold,
                     fontSize: 8,
                     fontWeight: FontWeight.w900,
                   ),
@@ -530,7 +562,9 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
           color: const Color(0xFF0A1721),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isLive ? const Color(0xFFFFC400) : const Color(0xFF293946),
+            color: isLive
+                ? brand_colors.AppColors.gold
+                : brand_colors.AppColors.chromeShadow,
           ),
         ),
         child: Column(
@@ -543,7 +577,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                   Text(
                     fight.weightClass!.toUpperCase(),
                     style: const TextStyle(
-                      color: Color(0xFF96A4B2),
+                      color: brand_colors.AppColors.textSecondary,
                       fontSize: 8,
                       fontWeight: FontWeight.w800,
                     ),
@@ -565,7 +599,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                   child: Text(
                     'VS',
                     style: TextStyle(
-                      color: Color(0xFFFFC400),
+                      color: brand_colors.AppColors.gold,
                       fontSize: 12,
                       fontWeight: FontWeight.w900,
                     ),
@@ -591,7 +625,9 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF111E28),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF293946)),
+                  border: Border.all(
+                    color: brand_colors.AppColors.chromeShadow,
+                  ),
                 ),
                 child: Column(
                   children: [
@@ -600,7 +636,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                           ? 'RESULT FINAL'
                           : '${fight.winner} WINS',
                       style: const TextStyle(
-                        color: Color(0xFFFFC400),
+                        color: brand_colors.AppColors.gold,
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
                       ),
@@ -618,7 +654,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                           )
                           .join(' • '),
                       style: const TextStyle(
-                        color: Color(0xFF96A4B2),
+                        color: brand_colors.AppColors.textSecondary,
                         fontSize: 8,
                       ),
                     ),
@@ -630,13 +666,16 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                 children: [
                   const Text(
                     'FIGHT CARD',
-                    style: TextStyle(color: Color(0xFF96A4B2), fontSize: 8),
+                    style: TextStyle(
+                      color: brand_colors.AppColors.textSecondary,
+                      fontSize: 8,
+                    ),
                   ),
                   const Spacer(),
                   Text(
                     _gameTimeLabel(fight),
                     style: const TextStyle(
-                      color: Color(0xFFFFC400),
+                      color: brand_colors.AppColors.gold,
                       fontSize: 9,
                       fontWeight: FontWeight.w900,
                     ),
@@ -666,15 +705,15 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
             shape: BoxShape.circle,
             border: Border.all(
               color: isWinner
-                  ? const Color(0xFF59E769)
-                  : const Color(0xFFFFC400),
+                  ? brand_colors.AppColors.success
+                  : brand_colors.AppColors.gold,
               width: isWinner ? 2 : 1,
             ),
           ),
           child: ClipOval(
             child: imageUrl == null || imageUrl.trim().isEmpty
                 ? Container(
-                    color: const Color(0xFF111D27),
+                    color: brand_colors.AppColors.bgPanel,
                     alignment: Alignment.center,
                     child: const Icon(
                       Icons.sports_mma,
@@ -691,7 +730,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                     memCacheHeight: 104,
                     placeholder: (context, url) {
                       return Container(
-                        color: const Color(0xFF111D27),
+                        color: brand_colors.AppColors.bgPanel,
                         alignment: Alignment.center,
                         child: const Icon(
                           Icons.sports_mma,
@@ -701,7 +740,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                     },
                     errorWidget: (context, url, error) {
                       return Container(
-                        color: const Color(0xFF111D27),
+                        color: brand_colors.AppColors.bgPanel,
                         alignment: Alignment.center,
                         child: const Icon(
                           Icons.sports_mma,
@@ -719,14 +758,18 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
           textAlign: TextAlign.center,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: isWinner ? const Color(0xFF59E769) : Colors.white,
+            color: isWinner ? brand_colors.AppColors.success : Colors.white,
             fontSize: 10,
             fontWeight: FontWeight.w900,
           ),
         ),
         if (isWinner) ...[
           const SizedBox(height: 3),
-          const Icon(Icons.emoji_events, color: Color(0xFFFFC400), size: 13),
+          const Icon(
+            Icons.emoji_events,
+            color: brand_colors.AppColors.gold,
+            size: 13,
+          ),
         ],
       ],
     );
@@ -767,12 +810,12 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: const Color(0xFF142430),
-        border: Border.all(color: const Color(0xFF293946)),
+        border: Border.all(color: brand_colors.AppColors.chromeShadow),
       ),
       child: Text(
         initial,
         style: const TextStyle(
-          color: Color(0xFFFFC400),
+          color: brand_colors.AppColors.gold,
           fontWeight: FontWeight.w900,
         ),
       ),
@@ -816,13 +859,13 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     Color color;
     switch (status) {
       case 'LIVE':
-        color = const Color(0xFF59E769);
+        color = brand_colors.AppColors.success;
         break;
       case 'FINAL':
-        color = const Color(0xFF96A4B2);
+        color = brand_colors.AppColors.textSecondary;
         break;
       default:
-        color = const Color(0xFFFFC400);
+        color = brand_colors.AppColors.gold;
     }
 
     return Container(

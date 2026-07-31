@@ -4,6 +4,8 @@ import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/context_help.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class PropBuilderPerformanceScreen extends StatefulWidget {
   const PropBuilderPerformanceScreen({super.key});
 
@@ -426,7 +428,7 @@ class _PropBuilderPerformanceScreenState
   }
 
   Widget _howToUsePanel() => Card(
-    color: const Color(0xFF101D28),
+    color: brand_colors.AppColors.bgPanel,
     child: ExpansionTile(
       initiallyExpanded: true,
       leading: const Icon(Icons.menu_book_outlined, color: AppColors.gold),
@@ -450,7 +452,7 @@ class _PropBuilderPerformanceScreenState
   );
 
   Widget _metricKeyPanel() => Card(
-    color: const Color(0xFF0C1824),
+    color: brand_colors.AppColors.bgPanel,
     child: ExpansionTile(
       leading: const Icon(Icons.key_rounded, color: AppColors.gold),
       title: const Text(

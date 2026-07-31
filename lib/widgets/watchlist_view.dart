@@ -6,6 +6,8 @@ import '../theme/app_colors.dart';
 import 'dashboard_panel.dart';
 import 'elite_prop_card.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class CloudWatchlistDashboardCanvas extends StatefulWidget {
   final List<dynamic> globalLiveProps;
   final bool isUserPremium;
@@ -82,7 +84,9 @@ class _CloudWatchlistDashboardCanvasState
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation(Color(0xFFFFD700)),
+          valueColor: AlwaysStoppedAnimation(
+            brand_colors.AppColors.goldHighlight,
+          ),
         ),
       );
     }

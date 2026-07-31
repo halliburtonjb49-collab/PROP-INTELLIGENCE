@@ -19,6 +19,8 @@ import '../services/prop_watchlist_service.dart';
 import '../widgets/context_help.dart';
 import 'prop_watchlist_screen.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 enum SlipExportAction { copyText, saveImage, savePdf, printSlip }
 
 class PropBuilderScreen extends StatefulWidget {
@@ -1095,7 +1097,7 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               color: resultStatus == 'won'
-                                  ? const Color(0xFF36B9FF)
+                                  ? brand_colors.AppColors.blue
                                   : resultStatus == 'lost'
                                   ? Colors.redAccent
                                   : null,
@@ -1165,7 +1167,7 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
                                 color: movementStatus == 'BETTER'
-                                    ? const Color(0xFF36B9FF)
+                                    ? brand_colors.AppColors.blue
                                     : movementStatus == 'WORSE'
                                     ? Colors.redAccent
                                     : Theme.of(
@@ -1687,13 +1689,16 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF201A06),
+        color: brand_colors.AppColors.goldSurface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFF2BC35)),
+        border: Border.all(color: brand_colors.AppColors.gold),
       ),
       child: Row(
         children: [
-          const Icon(Icons.auto_graph_rounded, color: Color(0xFFF2BC35)),
+          const Icon(
+            Icons.auto_graph_rounded,
+            color: brand_colors.AppColors.gold,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1702,7 +1707,7 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
                 Text(
                   'RECOMMENDED PLAY: $legs-LEG',
                   style: const TextStyle(
-                    color: Color(0xFFF2BC35),
+                    color: brand_colors.AppColors.gold,
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
                   ),
@@ -2370,7 +2375,7 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF09111F),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFD6B35A), width: 2),
+        border: Border.all(color: brand_colors.AppColors.goldMid, width: 2),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2378,7 +2383,11 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
         children: [
           const Row(
             children: [
-              Icon(Icons.sports_score, color: Color(0xFFD6B35A), size: 30),
+              Icon(
+                Icons.sports_score,
+                color: brand_colors.AppColors.goldMid,
+                size: 30,
+              ),
               SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -2396,7 +2405,7 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
                     Text(
                       'PROP BUILDER SLIP',
                       style: TextStyle(
-                        color: Color(0xFFD6B35A),
+                        color: brand_colors.AppColors.goldMid,
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2,
@@ -2610,7 +2619,7 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
             alignment: Alignment.center,
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFFD6B35A),
+              color: brand_colors.AppColors.goldMid,
             ),
             child: Text(
               '${index + 1}',
@@ -2644,7 +2653,7 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFD6B35A),
+                          color: brand_colors.AppColors.goldMid,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -2662,7 +2671,7 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
                 Text(
                   '$side $line $market',
                   style: const TextStyle(
-                    color: Color(0xFFD6B35A),
+                    color: brand_colors.AppColors.goldMid,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -5201,14 +5210,14 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFC8CED6).withValues(alpha: .08),
+                  color: brand_colors.AppColors.silver.withValues(alpha: .08),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFC8CED6)),
+                  border: Border.all(color: brand_colors.AppColors.silver),
                 ),
                 child: const Text(
                   'PRO adds automated ranking, projections, confidence, edge filters, correlation analysis and build simulations.',
                   style: TextStyle(
-                    color: Color(0xFFC8CED6),
+                    color: brand_colors.AppColors.silver,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),

@@ -11,6 +11,8 @@ import '../services/player_image_resolver.dart';
 import '../services/slip_manager.dart';
 import 'context_help.dart';
 
+import '../theme/app_colors.dart' as brand_colors;
+
 class _LegPhoto extends StatelessWidget {
   final SavedSlipLeg leg;
   final double size;
@@ -22,12 +24,12 @@ class _LegPhoto extends StatelessWidget {
         ? '?'
         : leg.player.trim().substring(0, 1).toUpperCase();
     return Container(
-      color: const Color(0xFF0C1824),
+      color: brand_colors.AppColors.bgPanel,
       alignment: Alignment.center,
       child: Text(
         initial,
         style: TextStyle(
-          color: const Color(0xFFF2BC35),
+          color: brand_colors.AppColors.gold,
           fontSize: size * 0.36,
           fontWeight: FontWeight.w900,
         ),
@@ -272,7 +274,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
           content: Text(
             'WINNING TICKET — every pick has already cleared its line.',
             style: TextStyle(
-              color: Color(0xFF050A0F),
+              color: brand_colors.AppColors.bgBase,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -396,7 +398,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF0C1824),
+        backgroundColor: brand_colors.AppColors.bgPanel,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
           side: const BorderSide(color: Color(0xFF73500B)),
@@ -414,7 +416,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFFFF5D68),
+              foregroundColor: brand_colors.AppColors.danger,
             ),
             child: const Text('UNLOCK'),
           ),
@@ -554,7 +556,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                         ? 'Settled tickets and final results'
                         : 'Locked tickets with live grading',
                     style: const TextStyle(
-                      color: Color(0xFF8B98A8),
+                      color: brand_colors.AppColors.textMuted,
                       fontSize: 9,
                       fontWeight: FontWeight.w600,
                     ),
@@ -578,7 +580,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                           _showInsights
                               ? Icons.close_rounded
                               : Icons.insights_rounded,
-                          color: const Color(0xFFF2BC35),
+                          color: brand_colors.AppColors.gold,
                           size: 19,
                         ),
                       ),
@@ -593,11 +595,11 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                               height: 15,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Color(0xFFF2BC35),
+                                color: brand_colors.AppColors.gold,
                               ),
                             )
                           : const Icon(Icons.refresh, size: 19),
-                      color: const Color(0xFFF2BC35),
+                      color: brand_colors.AppColors.gold,
                     ),
                   ],
                 ),
@@ -605,7 +607,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                   Text(
                     'Updated ${TimeOfDay.fromDateTime(_lastUpdated!).format(context)}',
                     style: const TextStyle(
-                      color: Color(0xFF8B98A8),
+                      color: brand_colors.AppColors.textMuted,
                       fontSize: 8,
                     ),
                   ),
@@ -634,14 +636,14 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               decoration: BoxDecoration(
-                color: const Color(0xFFC8CED6).withValues(alpha: .10),
+                color: brand_colors.AppColors.silver.withValues(alpha: .10),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFC8CED6)),
+                border: Border.all(color: brand_colors.AppColors.silver),
               ),
               child: const Text(
                 'CORE HISTORY • LAST 14 DAYS • STANDARD WIN/LOSS GRADING',
                 style: TextStyle(
-                  color: Color(0xFFC8CED6),
+                  color: brand_colors.AppColors.silver,
                   fontSize: 9,
                   fontWeight: FontWeight.w900,
                   letterSpacing: .4,
@@ -656,16 +658,16 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF201A06),
+              color: brand_colors.AppColors.goldSurface,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF8B6813)),
+              border: Border.all(color: brand_colors.AppColors.goldShadow),
             ),
             child: Row(
               children: [
                 Icon(
                   _isRefreshingGames ? Icons.sync : Icons.track_changes,
                   size: 15,
-                  color: const Color(0xFFF2BC35),
+                  color: brand_colors.AppColors.gold,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -676,7 +678,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                         ? 'LIVE SLIP TRACKING READY'
                         : 'LIVE TOTALS UPDATED ${_formatRefreshTime(_lastUpdated!)}',
                     style: const TextStyle(
-                      color: Color(0xFFF2BC35),
+                      color: brand_colors.AppColors.gold,
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.3,
@@ -867,12 +869,14 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
           style: OutlinedButton.styleFrom(
             backgroundColor: selected
                 ? const Color(0xFF5A3B08)
-                : const Color(0xFF0C1824),
-            foregroundColor: selected ? const Color(0xFFF2BC35) : Colors.white,
+                : brand_colors.AppColors.bgPanel,
+            foregroundColor: selected
+                ? brand_colors.AppColors.gold
+                : Colors.white,
             side: BorderSide(
               color: selected
-                  ? const Color(0xFFF2BC35)
-                  : const Color(0xFF283846),
+                  ? brand_colors.AppColors.gold
+                  : brand_colors.AppColors.chromeShadow,
             ),
           ),
           child: Text(
@@ -893,8 +897,8 @@ class _SlipWatcherTierBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = hasProAccess
-        ? const Color(0xFFF2BC35)
-        : const Color(0xFFC8CED6);
+        ? brand_colors.AppColors.gold
+        : brand_colors.AppColors.silver;
     return Container(
       key: ValueKey(
         hasProAccess ? 'pro-slip-watcher-banner' : 'core-slip-watcher-banner',
@@ -935,7 +939,7 @@ class _SlipWatcherTierBanner extends StatelessWidget {
                   'Pro adds live leg progress, 20-second updates, Profit Keeper, and closing-line value.',
               child: Icon(
                 Icons.lock_outline_rounded,
-                color: Color(0xFFC8CED6),
+                color: brand_colors.AppColors.silver,
                 size: 15,
               ),
             ),
@@ -986,16 +990,18 @@ class _ClvSummary extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
       decoration: BoxDecoration(
-        color: const Color(0xFF101D28),
+        color: brand_colors.AppColors.bgPanel,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF344758)),
+        border: Border.all(color: brand_colors.AppColors.gunmetalLight),
       ),
       child: Row(
         children: [
           Icon(
             Icons.show_chart_rounded,
             size: 16,
-            color: positive ? const Color(0xFF36B9FF) : const Color(0xFFF2BC35),
+            color: positive
+                ? brand_colors.AppColors.blue
+                : brand_colors.AppColors.gold,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -1033,7 +1039,7 @@ class _TotalsBar extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           decoration: BoxDecoration(
-            color: const Color(0xFF101D28),
+            color: brand_colors.AppColors.bgPanel,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: color.withValues(alpha: 0.55)),
           ),
@@ -1043,7 +1049,7 @@ class _TotalsBar extends StatelessWidget {
               Text(
                 label,
                 style: const TextStyle(
-                  color: Color(0xFF8B98A8),
+                  color: brand_colors.AppColors.textMuted,
                   fontSize: 8,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1065,13 +1071,17 @@ class _TotalsBar extends StatelessWidget {
 
     return Row(
       children: [
-        pill('SLIPS', '${totals.totalSlips}', const Color(0xFFF2BC35)),
+        pill('SLIPS', '${totals.totalSlips}', brand_colors.AppColors.gold),
         const SizedBox(width: 8),
-        pill('SLIP WINS', '${totals.wonSlips}', const Color(0xFFF2BC35)),
+        pill('SLIP WINS', '${totals.wonSlips}', brand_colors.AppColors.gold),
         const SizedBox(width: 8),
-        pill('SLIP LOSSES', '${totals.lostSlips}', const Color(0xFFFF5D68)),
+        pill(
+          'SLIP LOSSES',
+          '${totals.lostSlips}',
+          brand_colors.AppColors.danger,
+        ),
         const SizedBox(width: 8),
-        pill('PENDING', '${totals.pendingLegs}', const Color(0xFFF2BC35)),
+        pill('PENDING', '${totals.pendingLegs}', brand_colors.AppColors.gold),
       ],
     );
   }
@@ -1094,9 +1104,9 @@ class _ProfitKeeper extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
-        color: const Color(0xFF101D28),
+        color: brand_colors.AppColors.bgPanel,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF344758)),
+        border: Border.all(color: brand_colors.AppColors.gunmetalLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1106,7 +1116,7 @@ class _ProfitKeeper extends StatelessWidget {
               const Icon(
                 Icons.account_balance_wallet_outlined,
                 size: 16,
-                color: Color(0xFFF2BC35),
+                color: brand_colors.AppColors.gold,
               ),
               const SizedBox(width: 7),
               const Text(
@@ -1118,8 +1128,8 @@ class _ProfitKeeper extends StatelessWidget {
                 money(net),
                 style: TextStyle(
                   color: net >= 0
-                      ? const Color(0xFFF2BC35)
-                      : const Color(0xFFFF5D68),
+                      ? brand_colors.AppColors.gold
+                      : brand_colors.AppColors.danger,
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
                 ),
@@ -1139,15 +1149,15 @@ class _ProfitKeeper extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF07131D),
+                        color: brand_colors.AppColors.sidebar,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         '${entry.key}: ${money(entry.value)}',
                         style: TextStyle(
                           color: entry.value >= 0
-                              ? const Color(0xFFF2BC35)
-                              : const Color(0xFFFF5D68),
+                              ? brand_colors.AppColors.gold
+                              : brand_colors.AppColors.danger,
                           fontSize: 9,
                           fontWeight: FontWeight.w800,
                         ),
@@ -1178,7 +1188,7 @@ class _SlipLoadError extends StatelessWidget {
           children: [
             const Icon(
               Icons.cloud_off_rounded,
-              color: Color(0xFFF2BC35),
+              color: brand_colors.AppColors.gold,
               size: 34,
             ),
             const SizedBox(height: 12),
@@ -1191,7 +1201,7 @@ class _SlipLoadError extends StatelessWidget {
             const Text(
               'Your tickets remain saved. Check your connection and try again.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF8B98A8)),
+              style: TextStyle(color: brand_colors.AppColors.textMuted),
             ),
             const SizedBox(height: 14),
             OutlinedButton.icon(
@@ -1299,8 +1309,8 @@ class _CompactSlipLegRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final isOver = leg.side.toUpperCase() == 'OVER';
     final pickColor = isOver
-        ? const Color(0xFFF2BC35)
-        : const Color(0xFFC8CED6);
+        ? brand_colors.AppColors.gold
+        : brand_colors.AppColors.silver;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(vertical: 7),
@@ -1349,7 +1359,7 @@ class _CompactSlipLegRow extends StatelessWidget {
                         child: const Icon(
                           Icons.verified_rounded,
                           size: 13,
-                          color: Color(0xFF59E769),
+                          color: brand_colors.AppColors.success,
                         ),
                       ),
                     ],
@@ -1381,7 +1391,7 @@ class _CompactSlipLegRow extends StatelessWidget {
                       live.current == null ? 'PENDING' : statusLabel,
                       style: TextStyle(
                         color: live.current == null
-                            ? const Color(0xFF8B98A8)
+                            ? brand_colors.AppColors.textMuted
                             : statusColor,
                         fontSize: 7,
                         fontWeight: FontWeight.w800,
@@ -1405,7 +1415,7 @@ class _CompactSlipLegRow extends StatelessWidget {
                   child: Text(
                     leg.line.toStringAsFixed(1),
                     style: const TextStyle(
-                      color: Color(0xFF8B98A8),
+                      color: brand_colors.AppColors.textMuted,
                       fontSize: 7,
                       fontWeight: FontWeight.w800,
                     ),
@@ -1420,7 +1430,7 @@ class _CompactSlipLegRow extends StatelessWidget {
             constraints: const BoxConstraints(minHeight: 84),
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF101D28),
+              color: brand_colors.AppColors.bgPanel,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: pickColor.withValues(alpha: .45)),
             ),
@@ -1451,7 +1461,7 @@ class _CompactSlipLegRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: Color(0xFFD7DEE5),
+                    color: brand_colors.AppColors.silver,
                     fontSize: 7,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1497,19 +1507,19 @@ class _SavedSlipCard extends StatelessWidget {
     final isLiveWinning = liveProjection == _SlipLiveProjection.winning;
     final isLiveLosing = liveProjection == _SlipLiveProjection.losing;
     final borderColor = isWon
-        ? const Color(0xFFF2BC35)
+        ? brand_colors.AppColors.gold
         : isLiveWinning
         ? const Color(0xFF4CAF50)
         : isLost || isLiveLosing
-        ? const Color(0xFFFF5D68)
-        : const Color(0xFFF2BC35);
+        ? brand_colors.AppColors.danger
+        : brand_colors.AppColors.gold;
     final statusColor = isWon
-        ? const Color(0xFFF2BC35)
+        ? brand_colors.AppColors.gold
         : isLiveWinning
         ? const Color(0xFF4CAF50)
         : isLost || isLiveLosing
-        ? const Color(0xFFFF5D68)
-        : const Color(0xFFF2BC35);
+        ? brand_colors.AppColors.danger
+        : brand_colors.AppColors.gold;
     final statusLabel = isWon
         ? 'WON'
         : isLost
@@ -1524,7 +1534,7 @@ class _SavedSlipCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0C1824),
+        color: brand_colors.AppColors.bgPanel,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: borderColor),
       ),
@@ -1579,7 +1589,7 @@ class _SavedSlipCard extends StatelessWidget {
                           icon: const Icon(
                             Icons.lock_open_rounded,
                             size: 13,
-                            color: Color(0xFF8B98A8),
+                            color: brand_colors.AppColors.textMuted,
                           ),
                           padding: const EdgeInsets.all(4),
                           constraints: const BoxConstraints(),
@@ -1609,15 +1619,15 @@ class _SavedSlipCard extends StatelessWidget {
                       break;
                     case 'lost':
                     case 'loss':
-                      statusColor = const Color(0xFFFF5D68);
+                      statusColor = brand_colors.AppColors.danger;
                       statusLabel = 'LOST';
                       break;
                     case 'push':
-                      statusColor = const Color(0xFF8B98A8);
+                      statusColor = brand_colors.AppColors.textMuted;
                       statusLabel = 'PUSH';
                       break;
                     default:
-                      statusColor = const Color(0xFFF2BC35);
+                      statusColor = brand_colors.AppColors.gold;
                       statusLabel = live.gameCompleted ? 'FINAL' : 'LIVE';
                   }
                   final progress = leg.line <= 0 || live.current == null
@@ -1654,7 +1664,7 @@ class _SavedSlipCard extends StatelessWidget {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: const Color(0xFFF2BC35),
+                                  color: brand_colors.AppColors.gold,
                                 ),
                               ),
                               child: ClipOval(
@@ -1700,7 +1710,7 @@ class _SavedSlipCard extends StatelessWidget {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0C1824),
+                            color: brand_colors.AppColors.bgPanel,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: pickColor.withValues(alpha: 0.5),
@@ -1751,7 +1761,7 @@ class _SavedSlipCard extends StatelessWidget {
                                 live.current == null ? 'PENDING' : statusLabel,
                                 style: TextStyle(
                                   color: live.current == null
-                                      ? const Color(0xFF8B98A8)
+                                      ? brand_colors.AppColors.textMuted
                                       : statusColor,
                                   fontSize: 8,
                                   fontWeight: FontWeight.w800,
@@ -1765,7 +1775,7 @@ class _SavedSlipCard extends StatelessWidget {
                           const Text(
                             'CLV: pending closing line',
                             style: TextStyle(
-                              color: Color(0xFF8B98A8),
+                              color: brand_colors.AppColors.textMuted,
                               fontSize: 9,
                             ),
                           )
@@ -1778,7 +1788,7 @@ class _SavedSlipCard extends StatelessWidget {
                                 : 'MISSED CLOSE'}  ${leg.lineClvPercent == null ? '' : '${leg.lineClvPercent! >= 0 ? '+' : ''}${leg.lineClvPercent!.toStringAsFixed(2)}%'}',
                             style: TextStyle(
                               color: leg.beatClosingLine == true
-                                  ? const Color(0xFF36B9FF)
+                                  ? brand_colors.AppColors.blue
                                   : const Color(0xFFFFB74D),
                               fontSize: 9,
                               fontWeight: FontWeight.w800,
@@ -1798,8 +1808,10 @@ class _SavedSlipCard extends StatelessWidget {
                           child: OutlinedButton(
                             onPressed: onWon,
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFFF2BC35),
-                              side: const BorderSide(color: Color(0xFFF2BC35)),
+                              foregroundColor: brand_colors.AppColors.gold,
+                              side: const BorderSide(
+                                color: brand_colors.AppColors.gold,
+                              ),
                               padding: EdgeInsets.zero,
                               visualDensity: VisualDensity.compact,
                               textStyle: const TextStyle(
@@ -1818,8 +1830,10 @@ class _SavedSlipCard extends StatelessWidget {
                           child: OutlinedButton(
                             onPressed: onLost,
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFFFF5D68),
-                              side: const BorderSide(color: Color(0xFFFF5D68)),
+                              foregroundColor: brand_colors.AppColors.danger,
+                              side: const BorderSide(
+                                color: brand_colors.AppColors.danger,
+                              ),
                               padding: EdgeInsets.zero,
                               visualDensity: VisualDensity.compact,
                               textStyle: const TextStyle(
@@ -1882,7 +1896,7 @@ class _GoldTicketConfetti extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    const Color(0xFFFFC400).withValues(alpha: 0.05),
+                    brand_colors.AppColors.gold.withValues(alpha: 0.05),
                     Colors.transparent,
                   ],
                 ),
@@ -1904,7 +1918,7 @@ class _GoldTicketConfetti extends StatelessWidget {
             6,
             6,
             0.0,
-            const Color(0xFFF2BC35),
+            brand_colors.AppColors.gold,
             BorderRadius.circular(999),
           ),
           piece(
@@ -1913,7 +1927,7 @@ class _GoldTicketConfetti extends StatelessWidget {
             12,
             4,
             -0.45,
-            const Color(0xFF8B6813),
+            brand_colors.AppColors.goldShadow,
             BorderRadius.circular(10),
           ),
           piece(
@@ -1922,7 +1936,7 @@ class _GoldTicketConfetti extends StatelessWidget {
             8,
             8,
             0.0,
-            const Color(0xFFFFC400),
+            brand_colors.AppColors.gold,
             BorderRadius.circular(999),
           ),
           piece(
@@ -1940,7 +1954,7 @@ class _GoldTicketConfetti extends StatelessWidget {
             7,
             7,
             0.0,
-            const Color(0xFFF2BC35),
+            brand_colors.AppColors.gold,
             BorderRadius.circular(999),
           ),
           piece(
@@ -1949,7 +1963,7 @@ class _GoldTicketConfetti extends StatelessWidget {
             11,
             4,
             -0.3,
-            const Color(0xFF8B6813),
+            brand_colors.AppColors.goldShadow,
             BorderRadius.circular(10),
           ),
           piece(
@@ -1967,7 +1981,7 @@ class _GoldTicketConfetti extends StatelessWidget {
             10,
             4,
             0.4,
-            const Color(0xFFFFC400),
+            brand_colors.AppColors.gold,
             BorderRadius.circular(10),
           ),
           piece(
@@ -1985,7 +1999,7 @@ class _GoldTicketConfetti extends StatelessWidget {
             8,
             8,
             0.0,
-            const Color(0xFFF2BC35),
+            brand_colors.AppColors.gold,
             BorderRadius.circular(999),
           ),
           piece(
@@ -2003,7 +2017,7 @@ class _GoldTicketConfetti extends StatelessWidget {
             8,
             8,
             0.0,
-            const Color(0xFFFFC400),
+            brand_colors.AppColors.gold,
             BorderRadius.circular(999),
           ),
           piece(
@@ -2012,7 +2026,7 @@ class _GoldTicketConfetti extends StatelessWidget {
             10,
             4,
             0.5,
-            const Color(0xFF8B6813),
+            brand_colors.AppColors.goldShadow,
             BorderRadius.circular(10),
           ),
           piece(
@@ -2021,7 +2035,7 @@ class _GoldTicketConfetti extends StatelessWidget {
             8,
             8,
             0.0,
-            const Color(0xFFF2BC35),
+            brand_colors.AppColors.gold,
             BorderRadius.circular(999),
           ),
         ],
@@ -2043,11 +2057,11 @@ class GameStatusBadge extends StatelessWidget {
 
     switch (normalized) {
       case 'live':
-        color = const Color(0xFFF2BC35);
+        color = brand_colors.AppColors.gold;
         label = '● LIVE';
         break;
       case 'completed':
-        color = const Color(0xFF8B98A8);
+        color = brand_colors.AppColors.textMuted;
         label = 'FINAL';
         break;
       default:

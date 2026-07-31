@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/launch_notification_service.dart';
 import '../theme/app_colors.dart' as app_colors;
 
+import '../theme/app_colors.dart' as brand_colors;
+
 /// A notification bell icon that allows users to subscribe for launch notifications
 class LaunchNotificationIcon extends StatefulWidget {
   const LaunchNotificationIcon({super.key});
@@ -72,13 +74,10 @@ class _LaunchNotificationIconState extends State<LaunchNotificationIcon> {
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF36B9FF),
+                    color: brand_colors.AppColors.blue,
                     shape: BoxShape.circle,
                     boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x8836B9FF),
-                        blurRadius: 6,
-                      ),
+                      BoxShadow(color: Color(0x8836B9FF), blurRadius: 6),
                     ],
                   ),
                 ),
@@ -332,11 +331,15 @@ class _LaunchNotificationDialogState extends State<_LaunchNotificationDialog> {
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: app_colors.AppColors.border),
+                  borderSide: const BorderSide(
+                    color: app_colors.AppColors.border,
+                  ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: app_colors.AppColors.border),
+                  borderSide: const BorderSide(
+                    color: app_colors.AppColors.border,
+                  ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -373,7 +376,9 @@ class _LaunchNotificationDialogState extends State<_LaunchNotificationDialog> {
                   child: Text(
                     'Your email is secure and will only be used for launch notifications.',
                     style: TextStyle(
-                      color: app_colors.AppColors.textMuted.withValues(alpha: 0.8),
+                      color: app_colors.AppColors.textMuted.withValues(
+                        alpha: 0.8,
+                      ),
                       fontSize: 10,
                       height: 1.4,
                     ),
@@ -397,14 +402,16 @@ class _LaunchNotificationDialogState extends State<_LaunchNotificationDialog> {
                   height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(Color(0xFF06111B)),
+                    valueColor: AlwaysStoppedAnimation(
+                      brand_colors.AppColors.bgBase,
+                    ),
                   ),
                 )
               : const Icon(Icons.notifications_active, size: 18),
           label: Text(_isSubmitting ? 'SUBSCRIBING...' : 'NOTIFY ME'),
           style: FilledButton.styleFrom(
             backgroundColor: app_colors.AppColors.gold,
-            foregroundColor: const Color(0xFF06111B),
+            foregroundColor: brand_colors.AppColors.bgBase,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           ),
         ),
