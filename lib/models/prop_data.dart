@@ -258,8 +258,16 @@ class PropData {
   /// exists.
   double? get calculatedEdge {
     final value = projection;
-    if (value == null) return null;
-    return (value - line).abs();
+    if (value != null) return (value - line).abs();
+
+    // Some provider/model payloads publish the verified edge without
+    // publishing the underlying projection. Do not hide that valid result on
+    // the cards. `recommendationEdge` is the preferred backend field; `edge`
+    // keeps older cached and provider payloads compatible. Zero still means
+    // unavailable, so we never manufacture an edge for an ungraded prop.
+    if (recommendationEdge.abs() > 0) return recommendationEdge.abs();
+    if (edge.abs() > 0) return edge.abs();
+    return null;
   }
 
   factory PropData.fromJson(Map<String, dynamic> json) {

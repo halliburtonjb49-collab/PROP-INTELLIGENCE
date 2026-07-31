@@ -45,4 +45,39 @@ void main() {
 
     expect(prop.calculatedEdge, closeTo(2.7, 0.0001));
   });
+
+  test('shows a verified recommendation edge when projection is omitted', () {
+    final prop = PropData.fromJson({
+      'id': 'prop-3',
+      'player': 'Test Player',
+      'sport': 'NFL',
+      'matchup': 'Away @ Home',
+      'sportsbook': 'Book',
+      'market': 'Passing Yards',
+      'line': 255.5,
+      'recommendationEdge': 6.25,
+      'edge': 0,
+      'pick': 'OVER',
+      'imagePath': '',
+    });
+
+    expect(prop.calculatedEdge, 6.25);
+  });
+
+  test('supports legacy backend edge when projection is omitted', () {
+    final prop = PropData.fromJson({
+      'id': 'prop-4',
+      'player': 'Test Player',
+      'sport': 'MLB',
+      'matchup': 'Away @ Home',
+      'sportsbook': 'Book',
+      'market': 'Strikeouts',
+      'line': 5.5,
+      'edge': 1.75,
+      'pick': 'UNDER',
+      'imagePath': '',
+    });
+
+    expect(prop.calculatedEdge, 1.75);
+  });
 }
