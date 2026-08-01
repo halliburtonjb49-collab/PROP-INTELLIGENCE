@@ -21,7 +21,7 @@ class PropIntelligenceBrandedLogo extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(height * .12),
             child: Image.asset(
-              'assets/branding/Final Master Logo.png',
+              'assets/branding/Final_Master_Logo_Modern_PI.png',
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) {
                 return Column(

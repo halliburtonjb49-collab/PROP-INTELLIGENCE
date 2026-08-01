@@ -1,4 +1,4 @@
-"""Generate every application brand asset from Final Master Logo.png."""
+"""Generate every application brand asset from the approved modern PI master."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from PIL import Image
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MASTER = ROOT / "assets" / "branding" / "Final Master Logo.png"
+MASTER = ROOT / "assets" / "branding" / "Final_Master_Logo_Modern_PI.png"
 NAVY = (8, 13, 21)
 
 
@@ -110,6 +110,10 @@ def main() -> None:
         "Icon-maskable-512.png": 512,
     }.items():
         save_optimized(fit(icon, size, size), f"web/icons/{name}")
+    # Safe-zone variants keep the full master visible after Android/PWA masks.
+    save_optimized(fit(icon, 192, 192, 0.78), "web/icons/Icon-maskable-safe-192.png")
+    save_optimized(fit(icon, 512, 512, 0.78), "web/icons/Icon-maskable-safe-512.png")
+    save_optimized(fit(icon, 180, 180), "web/icons/apple-touch-icon-180.png")
     save_optimized(fit(icon, 64, 64), "web/favicon.png")
 
     ico_path = ROOT / "windows/runner/resources/app_icon.ico"
