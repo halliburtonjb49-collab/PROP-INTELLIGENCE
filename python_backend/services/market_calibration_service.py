@@ -11,14 +11,20 @@ _CACHE_TTL = timedelta(minutes=10)
 _MINIMUM_SAMPLE = 30
 _lock = Lock()
 _loaded_at: datetime | None = None
-_adjustments: dict[tuple[str, str, str], tuple[float, int]] = {}
+_adjustments: dict[tuple[str, str, str, str], tuple[float, int]] = {}
 
 
-def _key(sport: str, market: str, model_version: str) -> tuple[str, str, str]:
+def _key(
+    sport: str,
+    market: str,
+    model_version: str,
+    side: str,
+) -> tuple[str, str, str, str]:
     return (
         sport.strip().upper(),
         " ".join(market.lower().replace("_", " ").split()),
         model_version.strip().lower(),
+        side.strip().upper(),
     )
 
 
@@ -33,22 +39,22 @@ def _refresh() -> None:
     with _lock:
         if _loaded_at is not None and now - _loaded_at < _CACHE_TTL:
             return
-        values: dict[tuple[str, str, str], tuple[float, int]] = {}
+        values: dict[tuple[str, str, str, str], tuple[float, int]] = {}
         try:
             with get_database_pool().connection() as connection, connection.cursor() as cursor:
                 cursor.execute(
-                    """select sport,market,model_version,count(*),
+                    """select sport,market,model_version,side,count(*),
                         avg(hit_probability),avg(case when hit then 1.0 else 0.0 end)
                     from prediction_snapshots
                     where graded_at is not null and actual_value <> line
-                    group by sport,market,model_version
+                    group by sport,market,model_version,side
                     having count(*) >= %s""",
                     (_MINIMUM_SAMPLE,),
                 )
-                for sport, market, version, count, predicted, actual in cursor.fetchall():
+                for sport, market, version, side, count, predicted, actual in cursor.fetchall():
                     reliability = min(1.0, int(count) / 200.0)
                     bias = (float(actual) - float(predicted)) * reliability
-                    values[_key(str(sport), str(market), str(version))] = (
+                    values[_key(str(sport), str(market), str(version), str(side))] = (
                         max(-0.08, min(0.08, bias)),
                         int(count),
                     )
@@ -62,6 +68,7 @@ def market_calibration_adjustment(
     sport: str,
     market: str,
     model_version: str,
+    side: str,
 ) -> tuple[float, int]:
     _refresh()
-    return _adjustments.get(_key(sport, market, model_version), (0.0, 0))
+    return _adjustments.get(_key(sport, market, model_version, side), (0.0, 0))

@@ -123,11 +123,62 @@ def grade_completed_predictions() -> dict[str, object]:
         return {"graded": 0, "reason": "DATABASE_URL is not configured"}
     graded, unsupported = 0, 0
     with get_database_pool().connection() as connection, connection.cursor() as cursor:
+        cursor.execute("""with latest_logs as (
+              select distinct on (sport,lower(player_name),game_date)
+                sport,lower(player_name) player_name,game_date,
+                coalesce(points,0)::double precision points,
+                coalesce(rebounds,0)::double precision rebounds,
+                coalesce(assists,0)::double precision assists,
+                coalesce(steals,0)::double precision steals,
+                coalesce(blocks,0)::double precision blocks,
+                coalesce(turnovers,0)::double precision turnovers,
+                coalesce(threes,0)::double precision threes
+              from historical_basketball_game_logs
+              order by sport,lower(player_name),game_date,updated_at desc
+            ), observed as (
+              select p.id,p.side,p.line,
+                case
+                  when lower(p.market) like '%fantasy%' then null
+                  when lower(p.market) like '%points%rebounds%assists%' or lower(p.market) like '%pra%'
+                    then l.points+l.rebounds+l.assists
+                  when lower(p.market) like '%points%rebounds%' then l.points+l.rebounds
+                  when lower(p.market) like '%points%assists%' then l.points+l.assists
+                  when lower(p.market) like '%rebounds%assists%' then l.rebounds+l.assists
+                  when lower(p.market) like '%blocks%steals%' or lower(p.market) like '%steals%blocks%'
+                    then l.blocks+l.steals
+                  when lower(p.market) like '%three%' then l.threes
+                  when lower(p.market) like '%rebound%' then l.rebounds
+                  when lower(p.market) like '%assist%' then l.assists
+                  when lower(p.market) like '%steal%' then l.steals
+                  when lower(p.market) like '%block%' then l.blocks
+                  when lower(p.market) like '%turnover%' then l.turnovers
+                  when lower(p.market) like '%point%' then l.points
+                end actual
+              from prediction_snapshots p join latest_logs l
+                on l.sport=p.sport and l.player_name=lower(p.inputs->>'playerName')
+                and l.game_date=(p.event_time at time zone 'America/New_York')::date
+              where p.graded_at is null and p.sport in ('NBA','WNBA')
+                and p.event_time < now()-interval '3 hours'
+                and p.event_time >= now()-interval '14 days'
+                and p.created_at < p.event_time-interval '5 minutes'
+            )
+            update prediction_snapshots p set actual_value=o.actual,
+              hit=case when p.side='OVER' then o.actual>p.line else o.actual<p.line end,
+              graded_at=now(),
+              inputs=jsonb_set(p.inputs,'{resultSource}',to_jsonb('historical-game-logs'::text),true)
+            from observed o where p.id=o.id and o.actual is not null""")
+        graded += cursor.rowcount
+        connection.commit()
         cursor.execute("""select id,sport,market,side,line,event_time,inputs->>'playerName',
             player_id,inputs->>'matchup'
             from prediction_snapshots where graded_at is null and event_time < now() - interval '3 hours'
             and created_at < event_time - interval '5 minutes'
-            order by event_time limit 5000""")
+            and event_time >= now() - interval '14 days'
+            and sport not in ('NBA','WNBA')
+            order by
+              case when sport in ('NBA','WNBA') then 0 when sport='MLB' then 1 else 2 end,
+              event_time desc
+            limit 100""")
         pending = cursor.fetchall()
         for identifier, sport, market, side, line, event_time, player_name, player_id, matchup in pending:
             if sport not in TRACKED_SPORTS or not player_name or event_time is None:
@@ -181,6 +232,8 @@ def grade_completed_predictions() -> dict[str, object]:
                     identifier,
                 ))
             graded += 1
+            if graded % 250 == 0:
+                connection.commit()
         connection.commit()
     return {"graded": graded, "pendingChecked": len(pending), "unsupported": unsupported,
             "gradedAt": datetime.now(timezone.utc).isoformat()}
@@ -316,10 +369,12 @@ def _mlb_market_value(cursor, market: str, player_id: str, game_date) -> float |
 def _market_value(market: str, row: tuple[object, ...]) -> float | None:
     text = market.lower().replace("_", " ")
     points, rebounds, assists, steals, blocks, turnovers, threes = [float(value or 0) for value in row]
+    if "fantasy" in text: return None
     if "points rebounds assists" in text or "pra" in text: return points + rebounds + assists
     if "points rebounds" in text: return points + rebounds
     if "points assists" in text: return points + assists
     if "rebounds assists" in text: return rebounds + assists
+    if "blocks steals" in text or "steals blocks" in text: return blocks + steals
     if "three" in text or "3 pointer" in text: return threes
     if "rebound" in text: return rebounds
     if "assist" in text: return assists

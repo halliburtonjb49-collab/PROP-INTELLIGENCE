@@ -399,13 +399,6 @@ def get_props() -> list[PropResponse]:
 				under_implied,
 			)
 		market_evaluation = None
-		calibration_adjustment, calibration_sample_size = (
-			market_calibration_adjustment(
-				sport_label,
-				raw_market,
-				projection_model_version,
-			)
-		)
 		evaluation_side = recommended_pick
 		if (
 			projection is not None
@@ -413,6 +406,14 @@ def get_props() -> list[PropResponse]:
 			and float(projection) != line
 		):
 			evaluation_side = "OVER" if float(projection) > line else "UNDER"
+		calibration_adjustment, calibration_sample_size = (
+			market_calibration_adjustment(
+				sport_label,
+				raw_market,
+				projection_model_version,
+				evaluation_side,
+			)
+		)
 		if projection is not None and evaluation_side in {"OVER", "UNDER"}:
 			selected_market_probability = (
 				no_vig_over if evaluation_side == "OVER" else no_vig_under
