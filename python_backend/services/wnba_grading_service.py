@@ -1,4 +1,3 @@
-import json
 import logging
 
 from calculations.slip_grader import grade_leg
@@ -16,6 +15,7 @@ from services.market_normalizer import normalize_market
 from services.team_normalizer import normalize_team_name
 from services.slip_service import (
     _connect,
+    _decoded_legs,
     initialize_slip_table,
 )
 
@@ -63,7 +63,7 @@ def _log_unmatched_wnba_legs(
         ).fetchall()
 
     for row in rows:
-        legs = json.loads(row["legs_json"])
+        legs = _decoded_legs(row["legs_json"])
         for leg in legs:
             if str(
                 leg.get("api_sports_game_id", "")
@@ -116,7 +116,7 @@ def grade_active_wnba_slips() -> dict[str, int]:
 
     game_ids: set[str] = set()
     for row in rows:
-        legs = json.loads(row["legs_json"])
+        legs = _decoded_legs(row["legs_json"])
         for leg in legs:
             if str(leg.get("sport", "")).upper() != "WNBA":
                 continue
@@ -193,7 +193,7 @@ def diagnose_wnba_game(
     legs_updated = 0
 
     for row in rows:
-        legs = json.loads(row["legs_json"])
+        legs = _decoded_legs(row["legs_json"])
         for leg in legs:
             if str(
                 leg.get("api_sports_game_id", "")

@@ -492,19 +492,36 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       _refreshError = null;
     });
     try {
+      String? backgroundSyncError;
       if (_isHistory) {
-        await _apiService.reconcileSlips();
+        try {
+          await _apiService.reconcileSlips();
+        } catch (_) {
+          backgroundSyncError =
+              'Official result verification is retrying; saved history is still available.';
+        }
         final refreshedSlips = await _fetchForTab(_selectedTab);
         if (!mounted) return;
         setState(() {
           _lastUpdated = DateTime.now();
           _slipsFuture = Future.value(refreshedSlips);
+          _refreshError = backgroundSyncError;
         });
         return;
       }
-      await _apiService.refreshSavedSlipGameStatuses();
-      // Grade every completed leg covered by an authoritative stat provider.
-      await _apiService.gradePendingSlips();
+      try {
+        await _apiService.refreshSavedSlipGameStatuses();
+      } catch (_) {
+        backgroundSyncError =
+            'Game-status sync is retrying; your saved ticket remains available.';
+      }
+      try {
+        // Grade every completed leg covered by an authoritative stat provider.
+        await _apiService.gradePendingSlips();
+      } catch (_) {
+        backgroundSyncError ??=
+            'Live grading is retrying; your saved ticket remains available.';
+      }
       final refreshedSlips = await _fetchForTab(_selectedTab);
       _rememberSlips(refreshedSlips);
       await _syncActiveSlipFromSavedSlips(refreshedSlips);
@@ -514,6 +531,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       setState(() {
         _lastUpdated = DateTime.now();
         _slipsFuture = Future.value(refreshedSlips);
+        _refreshError = backgroundSyncError;
       });
       unawaited(_refreshLockedSlipCount());
     } catch (error) {

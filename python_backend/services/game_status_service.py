@@ -1,9 +1,8 @@
 import json
-import sqlite3
 from typing import Any
 
 from services.score_service import fetch_scores
-from services.slip_service import DATABASE_PATH, initialize_slip_table
+from services.slip_service import _connect, _decoded_legs, initialize_slip_table
 
 # Map display labels from saved legs back to odds-api sport keys.
 SPORT_TO_KEY = {
@@ -12,12 +11,6 @@ SPORT_TO_KEY = {
     "NBA": "basketball_nba",
     "NFL": "americanfootball_nfl",
 }
-
-
-def _connect() -> sqlite3.Connection:
-    connection = sqlite3.connect(DATABASE_PATH)
-    connection.row_factory = sqlite3.Row
-    return connection
 
 
 def _sport_key_from_leg(leg_sport: str) -> str | None:
@@ -63,7 +56,7 @@ def refresh_saved_slip_game_statuses(days_from: int = 1) -> dict[str, int | list
 
     sport_keys: set[str] = set()
     for row in rows:
-        raw_legs = json.loads(row["legs_json"])
+        raw_legs = _decoded_legs(row["legs_json"])
         for leg in raw_legs:
             event_id = str(leg.get("event_id", "")).strip()
             if not event_id:
@@ -82,7 +75,7 @@ def refresh_saved_slip_game_statuses(days_from: int = 1) -> dict[str, int | list
 
     with _connect() as connection:
         for row in rows:
-            raw_legs = json.loads(row["legs_json"])
+            raw_legs = _decoded_legs(row["legs_json"])
             row_changed = False
 
             for leg in raw_legs:

@@ -394,13 +394,17 @@ def update_slip_status(
 
     initialize_slip_table()
     with _connect() as connection:
+        owner_clause = "" if user_id is None else " AND user_id = ?"
+        parameters: tuple[object, ...] = (status, slip_id)
+        if user_id is not None:
+            parameters += (user_id,)
         cursor = connection.execute(
-            """
+            f"""
             UPDATE slips
             SET status = ?
-            WHERE id = ? AND (? IS NULL OR user_id = ?)
+            WHERE id = ?{owner_clause}
             """,
-            (status, slip_id, user_id, user_id),
+            parameters,
         )
         return cursor.rowcount > 0
 
@@ -573,15 +577,17 @@ def update_slip_results(
     changed_slips = 0
 
     with _connect() as connection:
+        owner_clause = "" if user_id is None else " AND user_id = ?"
+        parameters: tuple[object, ...] = () if user_id is None else (user_id,)
         rows = connection.execute(
-            """
+            f"""
             SELECT
                 id,
                 legs_json
             FROM slips
-            WHERE status = 'active' AND (? IS NULL OR user_id = ?)
+            WHERE status = 'active'{owner_clause}
             """,
-            (user_id, user_id),
+            parameters,
         ).fetchall()
 
         for row in rows:
