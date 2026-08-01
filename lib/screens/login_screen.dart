@@ -899,7 +899,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                                       else
                                         Row(
                                           crossAxisAlignment:
-                                              CrossAxisAlignment.center,
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Expanded(
                                               child: _HeroBrand(
