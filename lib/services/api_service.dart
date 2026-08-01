@@ -1318,20 +1318,36 @@ class ApiService {
     final legs = _buildSlipLegs(selections);
 
     http.Response? response;
-    for (var attempt = 0; attempt < 2; attempt++) {
-      response = await http
-          .post(
-            uri,
-            headers: await _authenticatedHeaders(
-              json: true,
-              forceRefresh: attempt > 0,
-            ),
-            body: jsonEncode({'legs': legs, 'stake': stake}),
-          )
-          .timeout(const Duration(seconds: 20));
-      if (response.statusCode != 401) break;
+    Object? connectionError;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        response = await http
+            .post(
+              uri,
+              headers: await _authenticatedHeaders(
+                json: true,
+                forceRefresh: attempt > 0,
+              ),
+              body: jsonEncode({'legs': legs, 'stake': stake}),
+            )
+            .timeout(const Duration(seconds: 20));
+        if (response.statusCode != 401) break;
+      } catch (error) {
+        connectionError = error;
+        if (attempt < 2) {
+          await Future<void>.delayed(
+            Duration(milliseconds: 350 * (attempt + 1)),
+          );
+        }
+      }
     }
 
+    if (response == null && connectionError != null) {
+      throw Exception(
+        'The ticket server could not be reached after 3 attempts. '
+        'Your picks are still editable; please retry.',
+      );
+    }
     if (response == null ||
         response.statusCode < 200 ||
         response.statusCode >= 300) {

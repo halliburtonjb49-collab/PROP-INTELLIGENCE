@@ -232,7 +232,7 @@ def create_slip(request: SlipCreate, user_id: str | None = None) -> SlipResponse
             reserved_ids = {
                 str(leg.get("prop_id", ""))
                 for row in active_rows
-                for leg in json.loads(row["legs_json"])
+                for leg in _decoded_legs(row["legs_json"])
             }
             duplicates = sorted(requested_ids & reserved_ids)
             if duplicates:

@@ -3173,6 +3173,12 @@ def save_slip(request: SlipCreate, user_id: str = Depends(require_user_id)) -> d
 		slip = create_slip(request, user_id=user_id)
 	except ValueError as exc:
 		raise HTTPException(status_code=409, detail=str(exc)) from exc
+	except Exception as exc:
+		logging.exception("Ticket lock failed")
+		raise HTTPException(
+			status_code=503,
+			detail="Ticket storage is temporarily unavailable. Please retry.",
+		) from exc
 	realtime_hub.broadcast_user_from_thread(
 		{"type": "ticket.updated", "version": 1, "eventId": f"ticket-{slip.id}",
 		 "occurredAt": datetime.now(timezone.utc).isoformat(), "data": slip.model_dump(mode="json")},

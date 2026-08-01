@@ -33,6 +33,15 @@ def test_prop_cannot_be_reused_until_active_slip_is_resolved(
     slip_service.create_slip(_request("reserved-prop"), user_id="user-1")
 
 
+def test_postgres_jsonb_legs_are_decoded_without_json_loads() -> None:
+    legs = [{"prop_id": "postgres-jsonb-prop", "side": "OVER"}]
+
+    assert slip_service._decoded_legs(legs) == legs
+    assert slip_service._decoded_legs('[{"prop_id":"sqlite-text-prop"}]') == [
+        {"prop_id": "sqlite-text-prop"}
+    ]
+
+
 def test_started_or_imminent_games_cannot_be_locked(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(slip_service, "DATABASE_PATH", tmp_path / "slips.db")
     now = datetime.now(timezone.utc)
