@@ -8763,6 +8763,16 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final hasModelPick =
         hasProAccess && prop.proSuggestionUsesModel && advisedSide != null;
     final confidence = prop.confidence.clamp(0, 100);
+    final signalRating = hasModelPick
+        ? (confidence > 0 ? confidence : null)
+        : prop.proSuggestionUsesHistoricalStats
+        ? prop.historicalHitRate
+        : prop.proSuggestionUsesMarket
+        ? prop.marketLeanPercentage
+        : null;
+    final signalRatingLabel = signalRating == null
+        ? 'INFO ONLY'
+        : '$signalRating% ${hasModelPick ? 'MODEL' : prop.proSuggestionUsesHistoricalStats ? 'HIST.' : 'MARKET'}';
     final projection = prop.projection;
     final delta = projection == null ? null : projection - prop.line;
     final market = _marketCategory(prop);
@@ -8813,7 +8823,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
 
     Widget sideButton(PickSide side) {
       final selected = selectedSide == side;
-      final recommended = advisedSide == side;
       final label = side == PickSide.over ? 'OVER' : 'UNDER';
       return Expanded(
         child: OutlinedButton(
@@ -8825,9 +8834,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             foregroundColor: selected ? AppColors.background : Colors.white,
             backgroundColor: selected ? AppColors.gold : Colors.transparent,
             side: BorderSide(
-              color: selected || recommended
-                  ? AppColors.gold
-                  : AppColors.border,
+              color: selected ? AppColors.gold : AppColors.border,
             ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(9),
@@ -8835,9 +8842,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           ),
           child: FittedBox(
             child: Text(
-              recommended
-                  ? '$label • ${hasModelPick ? 'SYSTEM PICK' : 'INFO LEAN'}'
-                  : label,
+              label,
               style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
             ),
           ),
@@ -8907,17 +8912,26 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
                 decoration: BoxDecoration(
-                  color: app_colors.AppColors.blue.withValues(alpha: .10),
+                  color: (hasModelPick
+                          ? app_colors.AppColors.blue
+                          : AppColors.gold)
+                      .withValues(alpha: .10),
                   borderRadius: BorderRadius.circular(9),
-                  border: Border.all(color: app_colors.AppColors.blue),
+                  border: Border.all(
+                    color: hasModelPick
+                        ? app_colors.AppColors.blue
+                        : AppColors.gold,
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      hasModelPick ? 'MODEL PICK' : 'LIVE SIGNAL',
-                      style: const TextStyle(
-                        color: app_colors.AppColors.blue,
+                      hasModelPick ? 'MODEL PICK' : 'SYSTEM LEAN',
+                      style: TextStyle(
+                        color: hasModelPick
+                            ? app_colors.AppColors.blue
+                            : AppColors.gold,
                         fontSize: 7,
                         fontWeight: FontWeight.w900,
                       ),
@@ -8927,8 +8941,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                       advisedSide == null
                           ? prop.line.toStringAsFixed(1)
                           : '${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} ${prop.line.toStringAsFixed(1)}',
-                      style: const TextStyle(
-                        color: app_colors.AppColors.blue,
+                      style: TextStyle(
+                        color: hasModelPick
+                            ? app_colors.AppColors.blue
+                            : AppColors.gold,
                         fontSize: 11,
                         fontWeight: FontWeight.w900,
                       ),
@@ -8995,6 +9011,28 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               ),
             ),
           ),
+          const SizedBox(height: 7),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: AppColors.gold.withValues(alpha: .07),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.gold.withValues(alpha: .55),
+              ),
+            ),
+            child: Text(
+              'GOLD TIP: Keep every additional pick on this ticket on ${prop.sportsbook.trim().isEmpty ? 'THE SAME PROP SITE' : prop.sportsbook.toUpperCase()}. Start a new ticket to use another site.',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.gold,
+                fontSize: 7.5,
+                height: 1.25,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
           const SizedBox(height: 13),
           Row(
             children: [
@@ -9005,12 +9043,16 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     : '--',
               ),
               metric('LINE', prop.line.toStringAsFixed(1)),
-              metric('CONFIDENCE', hasProAccess ? '$confidence%' : '--'),
+              metric('CONFIDENCE', hasProAccess ? signalRatingLabel : '--'),
               metric(
-                'EDGE',
-                hasProAccess && delta != null
-                    ? '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(2)}'
-                    : '--',
+                'SIGNAL',
+                advisedSide == null
+                    ? 'NO PICK'
+                    : hasModelPick
+                    ? 'VERIFIED'
+                    : prop.proSuggestionUsesHistoricalStats
+                    ? 'STATS LEAN'
+                    : 'INFO LEAN',
               ),
             ],
           ),
@@ -9029,6 +9071,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           Text(
             hasModelPick && delta != null
                 ? 'Projection is ${delta.abs().toStringAsFixed(2)} $market ${delta >= 0 ? 'above' : 'below'} the posted line. Verify lineup and price before selecting.'
+                : advisedSide != null && prop.proSuggestionUsesMarket
+                ? 'System leans ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} from current sportsbook pricing${signalRating == null ? '' : ' ($signalRating% market signal)'}. Informational only — this is not a verified model pick.'
+                : advisedSide != null && prop.proSuggestionUsesHistoricalStats
+                ? 'System leans ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} from recent player results${signalRating == null ? '' : ' ($signalRating% historical hit rate)'}. Informational only — verify the live line.'
                 : prop.recommendationExplanation.isNotEmpty
                 ? prop.recommendationExplanation
                 : 'Review the live line, player status, and current market information before selecting.',
