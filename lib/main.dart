@@ -8974,6 +8974,39 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   ),
                 ),
               ),
+              Tooltip(
+                message:
+                    'Every prop for ${prop.player} on ${prop.sportsbook}',
+                child: Semantics(
+                  button: true,
+                  label:
+                      'Every prop for ${prop.player} on ${prop.sportsbook}',
+                  child: InkWell(
+                    key: ValueKey('prop-every-prop-${prop.id}'),
+                    onTap: () => widget.onPropFocused?.call(prop),
+                    customBorder: const CircleBorder(),
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.gold.withValues(alpha: .12),
+                        border: Border.all(color: AppColors.gold, width: 1.5),
+                      ),
+                      child: const Text(
+                        'EP',
+                        style: TextStyle(
+                          color: AppColors.gold,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 9),
               InkWell(
                 onTap: () => setState(() {
                   if (!_favoritePropIds.add(prop.id)) {
@@ -9008,28 +9041,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 color: AppColors.gold,
                 fontSize: 9,
                 fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          const SizedBox(height: 7),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            decoration: BoxDecoration(
-              color: AppColors.gold.withValues(alpha: .07),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: AppColors.gold.withValues(alpha: .55),
-              ),
-            ),
-            child: Text(
-              'GOLD TIP: Keep every additional pick on this ticket on ${prop.sportsbook.trim().isEmpty ? 'THE SAME PROP SITE' : prop.sportsbook.toUpperCase()}. Start a new ticket to use another site.',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.gold,
-                fontSize: 7.5,
-                height: 1.25,
-                fontWeight: FontWeight.w800,
               ),
             ),
           ),
