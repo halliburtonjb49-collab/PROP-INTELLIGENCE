@@ -67,6 +67,7 @@ class SlipLeg(BaseModel):
 class SlipCreate(BaseModel):
     legs: list[SlipLeg] = Field(min_length=1)
     stake: float = Field(default=0, ge=0)
+    client_request_id: str = Field(default="", max_length=128)
 
 
 class SlipPreview(BaseModel):

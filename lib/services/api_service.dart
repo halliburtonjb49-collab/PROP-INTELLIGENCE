@@ -1316,6 +1316,13 @@ class ApiService {
   }) async {
     final uri = Uri.parse('$baseUrl/api/slips');
     final legs = _buildSlipLegs(selections);
+    final requestId =
+        'ticket-${DateTime.now().microsecondsSinceEpoch}-${legs.hashCode.abs()}';
+    final requestBody = jsonEncode({
+      'legs': legs,
+      'stake': stake,
+      'client_request_id': requestId,
+    });
 
     http.Response? response;
     Object? connectionError;
@@ -1328,7 +1335,7 @@ class ApiService {
                 json: true,
                 forceRefresh: attempt > 0,
               ),
-              body: jsonEncode({'legs': legs, 'stake': stake}),
+              body: requestBody,
             )
             .timeout(const Duration(seconds: 20));
         if (response.statusCode != 401) break;
@@ -1336,7 +1343,7 @@ class ApiService {
         connectionError = error;
         if (attempt < 2) {
           await Future<void>.delayed(
-            Duration(milliseconds: 350 * (attempt + 1)),
+            Duration(milliseconds: 500 * (1 << attempt)),
           );
         }
       }

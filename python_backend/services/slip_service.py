@@ -149,14 +149,25 @@ def initialize_slip_table() -> None:
                         stake DOUBLE PRECISION NOT NULL,
                         potential_payout DOUBLE PRECISION NOT NULL,
                         created_at TIMESTAMPTZ NOT NULL,
-                        legs_json JSONB NOT NULL
+                        legs_json JSONB NOT NULL,
+                        client_request_id TEXT
                     )
                     """
+                )
+                connection.execute(
+                    "ALTER TABLE slips ADD COLUMN IF NOT EXISTS client_request_id TEXT"
                 )
                 connection.execute(
                     """
                     CREATE INDEX IF NOT EXISTS slips_user_status_idx
                     ON slips(user_id, status, created_at DESC)
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS slips_user_request_idx
+                    ON slips(user_id, client_request_id)
+                    WHERE client_request_id IS NOT NULL
                     """
                 )
             _postgres_initialized = True
@@ -171,14 +182,24 @@ def initialize_slip_table() -> None:
                 stake REAL NOT NULL,
                 potential_payout REAL NOT NULL,
                 created_at TEXT NOT NULL,
-                legs_json TEXT NOT NULL
+                legs_json TEXT NOT NULL,
+                client_request_id TEXT
             )
             """
         )
         columns = {row[1] for row in connection.execute("PRAGMA table_info(slips)").fetchall()}
         if "user_id" not in columns:
             connection.execute("ALTER TABLE slips ADD COLUMN user_id TEXT")
+        if "client_request_id" not in columns:
+            connection.execute("ALTER TABLE slips ADD COLUMN client_request_id TEXT")
         connection.execute("CREATE INDEX IF NOT EXISTS slips_user_status_idx ON slips(user_id, status, created_at DESC)")
+        connection.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS slips_user_request_idx
+            ON slips(user_id, client_request_id)
+            WHERE client_request_id IS NOT NULL
+            """
+        )
 
 
 def _american_decimal_multiplier(odds: float | None) -> float:
@@ -217,8 +238,36 @@ def calculate_payout_preview(
 
 
 def create_slip(request: SlipCreate, user_id: str | None = None) -> SlipResponse:
-    validate_slip_selection_times(request)
     initialize_slip_table()
+    request_id = request.client_request_id.strip() or None
+
+    # A mobile client may retry after the server committed but its response was
+    # lost. Return the original ticket before re-validating start times or prop
+    # reservations so the retry cannot create a duplicate or false conflict.
+    if user_id and request_id:
+        with _connect() as connection:
+            existing = connection.execute(
+                """
+                SELECT id, status, stake, potential_payout, created_at, legs_json
+                FROM slips
+                WHERE user_id = ? AND client_request_id = ?
+                """,
+                (user_id, request_id),
+            ).fetchone()
+        if existing is not None:
+            return SlipResponse(
+                id=existing["id"],
+                status=existing["status"],
+                stake=float(existing["stake"]),
+                potential_payout=float(existing["potential_payout"]),
+                created_at=_timestamp_text(existing["created_at"]),
+                legs=[
+                    SlipLeg.model_validate(leg)
+                    for leg in _decoded_legs(existing["legs_json"])
+                ],
+            )
+
+    validate_slip_selection_times(request)
     payout = _calculate_payout(request)
     slip = create_slip_response(request, payout)
 
@@ -248,9 +297,10 @@ def create_slip(request: SlipCreate, user_id: str | None = None) -> SlipResponse
                 stake,
                 potential_payout,
                 created_at,
-                legs_json
+                legs_json,
+                client_request_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 slip.id,
@@ -260,6 +310,7 @@ def create_slip(request: SlipCreate, user_id: str | None = None) -> SlipResponse
                 slip.potential_payout,
                 slip.created_at,
                 json.dumps([leg.model_dump() for leg in slip.legs]),
+                request_id,
             ),
         )
 

@@ -33,6 +33,33 @@ def test_prop_cannot_be_reused_until_active_slip_is_resolved(
     slip_service.create_slip(_request("reserved-prop"), user_id="user-1")
 
 
+def test_ticket_create_retry_is_idempotent(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(slip_service, "DATABASE_PATH", tmp_path / "slips.db")
+    request = _request("retry-safe-prop")
+    request.client_request_id = "mobile-lock-attempt-123"
+
+    first = slip_service.create_slip(request, user_id="user-1")
+    replay = slip_service.create_slip(request, user_id="user-1")
+
+    assert replay.id == first.id
+    assert len(slip_service.get_slips(user_id="user-1")) == 1
+
+
+def test_idempotency_key_is_scoped_to_owner(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(slip_service, "DATABASE_PATH", tmp_path / "slips.db")
+    first_request = _request("owner-one-prop")
+    first_request.client_request_id = "shared-device-request"
+    second_request = _request("owner-two-prop")
+    second_request.client_request_id = "shared-device-request"
+
+    first = slip_service.create_slip(first_request, user_id="user-1")
+    second = slip_service.create_slip(second_request, user_id="user-2")
+
+    assert first.id != second.id
+    assert len(slip_service.get_slips(user_id="user-1")) == 1
+    assert len(slip_service.get_slips(user_id="user-2")) == 1
+
+
 def test_postgres_jsonb_legs_are_decoded_without_json_loads() -> None:
     legs = [{"prop_id": "postgres-jsonb-prop", "side": "OVER"}]
 
