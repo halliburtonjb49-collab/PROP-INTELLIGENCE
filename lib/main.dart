@@ -1695,45 +1695,6 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       _isSavingSlip = true;
     });
 
-    final temporaryId =
-        'pending-${DateTime.now().microsecondsSinceEpoch.toString()}';
-    final optimisticSlip = SavedSlip(
-      id: temporaryId,
-      status: 'active',
-      stake: stake,
-      potentialPayout: stake,
-      createdAt: DateTime.now(),
-      legs: selections
-          .map(
-            (selection) => SavedSlipLeg(
-              propId: selection.prop.id,
-              eventId: selection.prop.eventId,
-              player: selection.prop.player,
-              imagePath: selection.prop.imagePath,
-              sport: selection.prop.sport,
-              matchup: selection.prop.matchup,
-              sportsbook: selection.prop.sportsbook,
-              market: selection.prop.market,
-              line: selection.prop.line,
-              entryLine: selection.prop.line,
-              side: selection.sideLabel,
-              odds: selection.odds,
-              customLabel: selection.prop.customLabel,
-              manualNote: selection.prop.manualNote,
-              gameStatus: selection.prop.gameStatus.isEmpty
-                  ? 'scheduled'
-                  : selection.prop.gameStatus,
-              gameStartTime: selection.prop.gameStartTime,
-            ),
-          )
-          .toList(),
-    );
-    _activeSlipController.addOptimisticLockedSlip(optimisticSlip);
-    await _activeSlipController.clear();
-    if (!mounted) return;
-    setState(() => _slipSelections.clear());
-    _switchToPage(AppPage.watchlist, source: 'slip-locked');
-
     try {
       final response = await _apiService.saveSlip(
         selections: selections,
@@ -1742,10 +1703,13 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       if (!mounted) {
         return;
       }
-      _activeSlipController.replaceOptimisticLockedSlip(
-        temporaryId,
-        SavedSlip.fromJson(response),
-      );
+      final savedSlip = SavedSlip.fromJson(response);
+      _activeSlipController.addOptimisticLockedSlip(savedSlip);
+      await _activeSlipController.clear();
+      if (!mounted) return;
+      setState(() => _slipSelections.clear());
+      SlipManager.reserveActiveSlips(_activeSlipController.recentLockedSlips);
+      _switchToPage(AppPage.watchlist, source: 'slip-locked');
 
       // Show success message
       if (mounted) {
@@ -1766,10 +1730,6 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         );
       }
     } catch (error) {
-      _activeSlipController.removeOptimisticLockedSlip(temporaryId);
-      await _activeSlipController.addLegs(
-        selections.map(_selectionToLeg).toList(),
-      );
       if (!mounted) {
         return;
       }
@@ -1778,7 +1738,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           behavior: SnackBarBehavior.floating,
           backgroundColor: const Color(0xFFFF8A80),
           content: Text(
-            'Failed to lock slip: $error',
+            'Slip was not locked. Your picks are still editable. $error',
             style: const TextStyle(
               color: app_colors.AppColors.bgBase,
               fontSize: 12,
@@ -8794,6 +8754,318 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final hasProAccess = canShowSystemRecommendation(
       hasEdgeAccess: AuthManager.instance.sessionState.value.hasEdgeAccess,
     );
+    final suggested = prop.proSuggestedSide;
+    final advisedSide = suggested == 'UNDER'
+        ? PickSide.under
+        : suggested == 'OVER'
+        ? PickSide.over
+        : null;
+    final hasModelPick =
+        hasProAccess && prop.proSuggestionUsesModel && advisedSide != null;
+    final confidence = prop.confidence.clamp(0, 100);
+    final projection = prop.projection;
+    final delta = projection == null ? null : projection - prop.line;
+    final market = _marketCategory(prop);
+
+    Widget metric(String label, String value) => Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.muted,
+              fontSize: 7,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Widget chip(String text) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.gold.withValues(alpha: .07),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: AppColors.muted,
+          fontSize: 7,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+
+    Widget sideButton(PickSide side) {
+      final selected = selectedSide == side;
+      final recommended = advisedSide == side;
+      final label = side == PickSide.over ? 'OVER' : 'UNDER';
+      return Expanded(
+        child: OutlinedButton(
+          onPressed: prop.isSelectable
+              ? () => _handleCardSelection(prop, side)
+              : null,
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 44),
+            foregroundColor: selected ? AppColors.background : Colors.white,
+            backgroundColor: selected ? AppColors.gold : Colors.transparent,
+            side: BorderSide(
+              color: selected || recommended
+                  ? AppColors.gold
+                  : AppColors.border,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(9),
+            ),
+          ),
+          child: FittedBox(
+            child: Text(
+              recommended
+                  ? '$label • ${hasModelPick ? 'SYSTEM PICK' : 'INFO LEAN'}'
+                  : label,
+              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 11),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF0A1823), Color(0xFF06111A)],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gold),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.gold),
+                ),
+                child: ClipOval(child: _fastPlayerPhoto(prop, size: 54)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 5),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        prop.player,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        prop.matchup,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 8,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+                decoration: BoxDecoration(
+                  color: app_colors.AppColors.blue.withValues(alpha: .10),
+                  borderRadius: BorderRadius.circular(9),
+                  border: Border.all(color: app_colors.AppColors.blue),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      hasModelPick ? 'MODEL PICK' : 'LIVE SIGNAL',
+                      style: const TextStyle(
+                        color: app_colors.AppColors.blue,
+                        fontSize: 7,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      advisedSide == null
+                          ? prop.line.toStringAsFixed(1)
+                          : '${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} ${prop.line.toStringAsFixed(1)}',
+                      style: const TextStyle(
+                        color: app_colors.AppColors.blue,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(
+                Icons.schedule_rounded,
+                color: AppColors.gold,
+                size: 14,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _propDateTimeLabel(prop),
+                  key: ValueKey('prop-game-date-time-${prop.id}'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              InkWell(
+                onTap: () => setState(() {
+                  if (!_favoritePropIds.add(prop.id)) {
+                    _favoritePropIds.remove(prop.id);
+                  }
+                }),
+                child: Icon(
+                  _favoritePropIds.contains(prop.id)
+                      ? Icons.star
+                      : Icons.star_border,
+                  color: AppColors.gold,
+                  size: 19,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            key: ValueKey('prop-sport-${prop.id}'),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            decoration: BoxDecoration(
+              color: AppColors.gold.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.gold),
+            ),
+            child: Text(
+              'SPORT: ${prop.sport.trim().isEmpty ? 'UNKNOWN' : prop.sport.toUpperCase()}  •  '
+              'PROP SITE: ${prop.sportsbook.trim().isEmpty ? 'UNKNOWN' : prop.sportsbook.toUpperCase()}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.gold,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(height: 13),
+          Row(
+            children: [
+              metric(
+                'MODEL',
+                hasProAccess && projection != null
+                    ? projection.toStringAsFixed(2)
+                    : '--',
+              ),
+              metric('LINE', prop.line.toStringAsFixed(1)),
+              metric('CONFIDENCE', hasProAccess ? '$confidence%' : '--'),
+              metric(
+                'EDGE',
+                hasProAccess && delta != null
+                    ? '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(2)}'
+                    : '--',
+              ),
+            ],
+          ),
+          const SizedBox(height: 11),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              chip('LINEUP ${prop.lineupStatus.toUpperCase()}'),
+              chip('INJURY ${prop.injuryStatus.toUpperCase()}'),
+              if (prop.openingLine != 0)
+                chip('OPEN ${prop.openingLine.toStringAsFixed(1)}'),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            hasModelPick && delta != null
+                ? 'Projection is ${delta.abs().toStringAsFixed(2)} $market ${delta >= 0 ? 'above' : 'below'} the posted line. Verify lineup and price before selecting.'
+                : prop.recommendationExplanation.isNotEmpty
+                ? prop.recommendationExplanation
+                : 'Review the live line, player status, and current market information before selecting.',
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.muted,
+              fontSize: 9,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 11),
+          Row(
+            children: [
+              sideButton(PickSide.over),
+              const SizedBox(width: 8),
+              sideButton(PickSide.under),
+            ],
+          ),
+          const SizedBox(height: 7),
+          const Text(
+            'Tap OVER or UNDER to add it to the active slip. Tap the selected side again to remove it.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.muted, fontSize: 7.5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Kept temporarily as a visual rollback reference while the unified card
+  // rolls out across every board.
+  // ignore: unused_element
+  Widget _buildPortraitPropCardLegacy(PropData prop, PickSide? selectedSide) {
+    final hasProAccess = canShowSystemRecommendation(
+      hasEdgeAccess: AuthManager.instance.sessionState.value.hasEdgeAccess,
+    );
     final suggestedSide = prop.proSuggestedSide;
     final hasModelRecommendation =
         hasProAccess && prop.proSuggestionUsesModel && suggestedSide != null;
@@ -11576,9 +11848,20 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
 
     return AlertDialog(
       backgroundColor: AppColors.panel,
-      title: const Text(
-        'LOCK SLIP',
-        style: TextStyle(fontWeight: FontWeight.w900),
+      title: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'LOCK SLIP',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Close',
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close_rounded),
+          ),
+        ],
       ),
       content: SizedBox(
         width: 430,

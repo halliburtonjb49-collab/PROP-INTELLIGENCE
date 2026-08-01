@@ -1317,14 +1317,29 @@ class ApiService {
     final uri = Uri.parse('$baseUrl/api/slips');
     final legs = _buildSlipLegs(selections);
 
-    final response = await http.post(
-      uri,
-      headers: await _authenticatedHeaders(json: true),
-      body: jsonEncode({'legs': legs, 'stake': stake}),
-    );
+    http.Response? response;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      response = await http
+          .post(
+            uri,
+            headers: await _authenticatedHeaders(
+              json: true,
+              forceRefresh: attempt > 0,
+            ),
+            body: jsonEncode({'legs': legs, 'stake': stake}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode != 401) break;
+    }
 
-    if (response.statusCode != 200) {
-      throw Exception('Unable to save slip: ${response.body}');
+    if (response == null ||
+        response.statusCode < 200 ||
+        response.statusCode >= 300) {
+      throw Exception(
+        response == null
+            ? 'Unable to save slip. Check your connection and try again.'
+            : 'Unable to save slip: ${response.body}',
+      );
     }
 
     final decoded = jsonDecode(response.body);
@@ -1411,10 +1426,23 @@ class ApiService {
         ? ''
         : '?season=${season.trim()}';
     final uri = Uri.parse('$baseUrl/api/active-ticket$query');
-    final response = await http.get(uri).timeout(const Duration(seconds: 20));
+    http.Response? response;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      response = await http
+          .get(
+            uri,
+            headers: await _authenticatedHeaders(forceRefresh: attempt > 0),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode != 401) break;
+    }
 
-    if (response.statusCode != 200) {
-      throw Exception('Unable to load active ticket: ${response.body}');
+    if (response == null || response.statusCode != 200) {
+      throw Exception(
+        response == null
+            ? 'Unable to load active ticket. Check your connection and retry.'
+            : 'Unable to load active ticket: ${response.body}',
+      );
     }
 
     final decoded = jsonDecode(response.body);
