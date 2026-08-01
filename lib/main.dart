@@ -10741,11 +10741,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             return LayoutBuilder(
               builder: (context, constraints) {
                 int columns;
-                if (constraints.maxWidth >= 760) {
+                if (constraints.maxWidth >= 1050) {
                   columns = 3;
-                } else if (constraints.maxWidth >= 560) {
-                  columns = 3;
-                } else if (constraints.maxWidth >= 480) {
+                } else if (constraints.maxWidth >= 650) {
                   columns = 2;
                 } else {
                   columns = 1;
@@ -10772,7 +10770,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                         crossAxisCount: columns,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
-                        mainAxisExtent: 520,
+                        mainAxisExtent: 410,
                       ),
                       itemBuilder: (context, index) {
                         final prop = visibleProps[index];
@@ -10935,9 +10933,9 @@ class _PropLoadingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 760
+        final columns = constraints.maxWidth >= 1050
             ? 3
-            : constraints.maxWidth >= 480
+            : constraints.maxWidth >= 650
             ? 2
             : 1;
         return GridView.builder(
