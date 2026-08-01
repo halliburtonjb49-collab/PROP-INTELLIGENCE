@@ -42,6 +42,12 @@ def test_postgres_jsonb_legs_are_decoded_without_json_loads() -> None:
     ]
 
 
+def test_postgres_timestamp_is_serialized_for_slip_response() -> None:
+    created_at = datetime(2026, 8, 1, 21, 0, tzinfo=timezone.utc)
+
+    assert slip_service._timestamp_text(created_at) == "2026-08-01T21:00:00+00:00"
+
+
 def test_started_or_imminent_games_cannot_be_locked(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(slip_service, "DATABASE_PATH", tmp_path / "slips.db")
     now = datetime.now(timezone.utc)

@@ -311,7 +311,7 @@ def get_slips(status: str | None = None, user_id: str | None = None) -> list[Sli
                 potential_payout=float(
                     row["potential_payout"]
                 ),
-                created_at=row["created_at"],
+                created_at=_timestamp_text(row["created_at"]),
                 legs=[
                     SlipLeg.model_validate(leg)
                     for leg in raw_legs
@@ -326,6 +326,12 @@ def _decoded_legs(value: object) -> list[dict[str, object]]:
     if isinstance(value, list):
         return value
     return json.loads(str(value))
+
+
+def _timestamp_text(value: object) -> str:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
 
 
 def migrate_legacy_sqlite_slips() -> dict[str, int | str]:
