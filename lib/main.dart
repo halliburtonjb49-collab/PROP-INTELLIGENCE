@@ -8950,12 +8950,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         : prop.proSuggestionUsesMarket
         ? prop.marketLeanPercentage
         : null;
+    // Keep the two visible metric values consistent on every card. Evidence
+    // provenance is shown separately below rather than appended to the value.
     final signalRatingLabel = signalRating == null
         ? 'INFO ONLY'
-        : hasModelPick
-        ? '$signalRating% MODEL'
-        : prop.proSuggestionUsesHistoricalStats
-        ? '$signalRating% HIST.'
         : '$signalRating%';
     final projection = prop.projection;
     final delta = projection == null ? null : projection - prop.line;
@@ -9275,10 +9273,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 'SUGGESTIVE PICK',
                 advisedSide == null
                     ? 'NO SUGGESTION'
-                    : hasModelPick
-                    ? '${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} · MODEL'
-                    : prop.proSuggestionUsesHistoricalStats
-                    ? '${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} · STATS'
                     : advisedSide == PickSide.over
                     ? 'OVER'
                     : 'UNDER',
@@ -9292,6 +9286,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             children: [
               chip('LINEUP ${prop.lineupStatus.toUpperCase()}'),
               chip('INJURY ${prop.injuryStatus.toUpperCase()}'),
+              if (hasModelPick) chip('EVIDENCE: VERIFIED MODEL'),
+              if (!hasModelPick && prop.proSuggestionUsesHistoricalStats)
+                chip('EVIDENCE: RECENT RESULTS'),
+              if (!hasModelPick && prop.proSuggestionUsesMarket)
+                chip('EVIDENCE: SPORTSBOOK PRICING'),
               if (prop.displayModelIsMarketBaseline) chip('MODEL: BASELINE'),
               if (prop.openingLine != 0)
                 chip('OPEN ${prop.openingLine.toStringAsFixed(1)}'),
