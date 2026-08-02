@@ -298,6 +298,11 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         .whereType<Map>()
         .take(6)
         .toList(growable: false);
+    final sideSegments = (performance['sideSegments'] as List? ?? const [])
+        .whereType<Map>()
+        .take(8)
+        .toList(growable: false);
+    final audit = performance['auditSummary'] as Map? ?? const {};
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -368,6 +373,38 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                     'confidence ${averageConfidence == null ? '--' : '${(averageConfidence * 100).toStringAsFixed(1)}%'} | '
                     'gap ${calibrationGap == null ? '--' : '${(calibrationGap * 100).toStringAsFixed(1)} pts'}',
                 AppColors.gold,
+              ),
+            );
+          }),
+        ],
+        if (sideSegments.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text(
+            'OVER / UNDER AUDIT',
+            style: TextStyle(
+              color: AppColors.gold,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${audit['healthy'] ?? 0} healthy  |  ${audit['monitor'] ?? 0} monitor  |  ${audit['recalibrate'] ?? 0} recalibrate  |  ${audit['collecting'] ?? 0} collecting',
+            style: const TextStyle(fontSize: 9, color: AppColors.textMuted),
+          ),
+          const SizedBox(height: 7),
+          ...sideSegments.map((segment) {
+            final status = '${segment['status'] ?? 'COLLECTING'}';
+            final segmentAccuracy = (segment['accuracy'] as num?)?.toDouble();
+            final gap = (segment['calibrationGap'] as num?)?.toDouble();
+            final healthy = status == 'HEALTHY';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: _notice(
+                healthy ? Icons.verified_outlined : Icons.rule_outlined,
+                '${segment['sport'] ?? '--'} | ${segment['side'] ?? '--'} | ${segment['confidenceTier'] ?? '--'} | $status',
+                '${segment['sampleSize'] ?? 0} picks | accuracy ${segmentAccuracy == null ? '--' : '${(segmentAccuracy * 100).toStringAsFixed(1)}%'} | gap ${gap == null ? '--' : '${(gap * 100).toStringAsFixed(1)} pts'} | ${segment['reason'] ?? ''}',
+                healthy ? const Color(0xFF8CFFB2) : AppColors.gold,
               ),
             );
           }),

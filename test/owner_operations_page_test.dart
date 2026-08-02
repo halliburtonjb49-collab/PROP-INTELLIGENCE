@@ -36,6 +36,25 @@ class _FakeOperationsApi extends ApiService {
           'provider': 'test-provider',
         },
       ],
+      'auditSummary': {
+        'healthy': 1,
+        'monitor': 0,
+        'recalibrate': 1,
+        'collecting': 0,
+      },
+      'sideSegments': [
+        {
+          'sampleSize': 45,
+          'accuracy': .62,
+          'averageConfidence': .64,
+          'calibrationGap': .02,
+          'sport': 'WNBA',
+          'side': 'OVER',
+          'confidenceTier': 'MEDIUM',
+          'status': 'HEALTHY',
+          'reason': 'Observed results are within the guarded calibration range',
+        },
+      ],
     },
     'predictionOperations': {
       'databaseConfigured': true,
@@ -86,6 +105,12 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('MODEL ACCOUNTABILITY'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('OVER / UNDER AUDIT'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('OVER / UNDER AUDIT'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.textContaining('Test Player'),
       400,

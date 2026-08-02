@@ -7,6 +7,40 @@ from services.pipeline_run_service import recent_pipeline_runs
 from services.baseline_projection_service import MODEL_VERSION
 
 
+MINIMUM_ACTION_SAMPLE = 30
+
+
+def _audit_recommendation(
+    sample_size: int,
+    accuracy: float | None,
+    average_confidence: float | None,
+) -> dict[str, object]:
+    """Return a conservative action label for an evaluated model segment."""
+    gap = (
+        average_confidence - accuracy
+        if accuracy is not None and average_confidence is not None
+        else None
+    )
+    if sample_size < MINIMUM_ACTION_SAMPLE:
+        status = "COLLECTING"
+        reason = f"Needs {MINIMUM_ACTION_SAMPLE - sample_size} more graded picks"
+    elif accuracy is not None and (accuracy < 0.50 or (gap is not None and gap > 0.08)):
+        status = "RECALIBRATE"
+        reason = "Verified results are below the release threshold"
+    elif gap is not None and abs(gap) > 0.05:
+        status = "MONITOR"
+        reason = "Predicted confidence and observed accuracy differ by more than 5 points"
+    else:
+        status = "HEALTHY"
+        reason = "Observed results are within the guarded calibration range"
+    return {
+        "status": status,
+        "reason": reason,
+        "calibrationGap": round(gap, 4) if gap is not None else None,
+        "actionable": sample_size >= MINIMUM_ACTION_SAMPLE,
+    }
+
+
 def _segment(row: tuple[object, ...]) -> dict[str, object]:
     count, hits, brier, log_loss, roi, sport, market, confidence = row
     return {"sampleSize": count, "hits": hits, "accuracy": round(float(hits or 0) / count, 4) if count else None,
@@ -67,6 +101,29 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
                 if row[0] and row[3] is not None else None
             ),
         } for row in cursor.fetchall()]
+        cursor.execute(f"""select count(*),count(*) filter(where hit),
+            avg(hit_probability),side,sport,
+            case when hit_probability>=.7 then 'HIGH'
+              when hit_probability>=.6 then 'MEDIUM' else 'BASELINE' end confidence_tier
+            {base}
+            group by side,sport,6 order by count(*) desc""", (model_version,))
+        side_segments = []
+        for count, hits, confidence, side, sport, tier in cursor.fetchall():
+            accuracy = float(hits or 0) / count if count else None
+            average_confidence = float(confidence) if confidence is not None else None
+            side_segments.append({
+                "sampleSize": count,
+                "hits": hits,
+                "accuracy": round(accuracy, 4) if accuracy is not None else None,
+                "averageConfidence": (
+                    round(average_confidence, 4)
+                    if average_confidence is not None else None
+                ),
+                "side": str(side or "UNKNOWN").upper(),
+                "sport": sport,
+                "confidenceTier": tier,
+                **_audit_recommendation(count, accuracy, average_confidence),
+            })
         cursor.execute(
             """select count(*),
                 avg(case when (inputs->>'beatClosingLine')::boolean then 1 else 0 end),
@@ -76,8 +133,17 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
             (model_version,),
         )
         clv_count, beat_close_rate, average_points = cursor.fetchone()
+    actionable = [segment for segment in side_segments if segment["actionable"]]
     return {"modelVersion": model_version, **overall, "segments": segments,
             "qualitySegments": quality_segments,
+            "sideSegments": side_segments,
+            "auditSummary": {
+                "minimumActionSample": MINIMUM_ACTION_SAMPLE,
+                "healthy": sum(item["status"] == "HEALTHY" for item in actionable),
+                "monitor": sum(item["status"] == "MONITOR" for item in actionable),
+                "recalibrate": sum(item["status"] == "RECALIBRATE" for item in actionable),
+                "collecting": sum(item["status"] == "COLLECTING" for item in side_segments),
+            },
             "minimumCalibrationSample": 100, "calibrated": overall["sampleSize"] >= 100,
             "clv": {
                 "available": bool(clv_count),
