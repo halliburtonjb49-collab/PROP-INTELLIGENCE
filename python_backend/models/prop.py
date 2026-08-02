@@ -43,6 +43,10 @@ class PropResponse(BaseModel):
     recommendationExplanation: str = ""
     dataQualityScore: float = Field(default=0.0, ge=0, le=1)
     dataQualityReasons: list[str] = Field(default_factory=list)
+    opportunityScore: float = Field(default=0.0, ge=0, le=1)
+    opportunityStatus: str = "SYSTEM_LEAN"
+    opportunityReasons: list[str] = Field(default_factory=list)
+    uncertaintyAdjustedEdge: float | None = None
     startTimeUtc: str = ""
     displayTime: str = ""
     gameStatus: str = ""

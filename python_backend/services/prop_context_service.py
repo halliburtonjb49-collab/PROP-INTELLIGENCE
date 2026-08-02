@@ -13,6 +13,7 @@ from services.projection_calibration_service import (
 )
 from services.prop_probability_service import evaluate_market
 from services.projection_formula_service import blend_projection_with_market
+from services.opportunity_gate_service import evaluate_opportunity_gate
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +159,33 @@ def apply_projection_context(prop: object) -> None:
         prop.isPositiveEv = False
         prop.pick = "N/A"
         prop.pickText = "No Pick"
+    gate = evaluate_opportunity_gate(
+        projection=float(getattr(prop, "projection", 0) or 0),
+        line=line,
+        volatility=getattr(prop, "projectionVolatility", None),
+        probability=getattr(prop, "fairProbability", None),
+        sample_size=projection_sample_size,
+        data_quality_score=float(getattr(prop, "dataQualityScore", 0) or 0),
+        injury_status=str(getattr(prop, "injuryStatus", "unknown")),
+        lineup_status=str(getattr(prop, "lineupStatus", "unknown")),
+        context_values=(
+            getattr(prop, "usageMultiplier", None),
+            getattr(prop, "opponentDefenseMultiplier", None),
+            getattr(prop, "paceMultiplier", None),
+            getattr(prop, "fatigueMultiplier", None),
+        ),
+    )
+    prop.opportunityScore = gate.score
+    prop.opportunityStatus = gate.status
+    prop.opportunityReasons = list(gate.reasons)
+    prop.uncertaintyAdjustedEdge = gate.normalized_edge
+    if not gate.actionable:
+        prop.recommendationAvailable = False
+        prop.recommendationUnavailableReason = gate.reasons[0]
+        prop.recommendedSide = "N/A"
+        prop.pick = "N/A"
+        prop.pickText = "No Pick"
+        prop.tier = "No Pick"
 
 
 def enrich_props(props: list[object]) -> None:

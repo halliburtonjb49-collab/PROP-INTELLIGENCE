@@ -47,6 +47,10 @@ class PropData {
   final String recommendationExplanation;
   final double dataQualityScore;
   final List<String> dataQualityReasons;
+  final double opportunityScore;
+  final String opportunityStatus;
+  final List<String> opportunityReasons;
+  final double? uncertaintyAdjustedEdge;
   final String gameTime;
   final String gameStartTime;
   final double line;
@@ -142,6 +146,10 @@ class PropData {
     this.recommendationExplanation = '',
     this.dataQualityScore = 0,
     this.dataQualityReasons = const [],
+    this.opportunityScore = 0,
+    this.opportunityStatus = 'SYSTEM_LEAN',
+    this.opportunityReasons = const [],
+    this.uncertaintyAdjustedEdge,
     this.gameTime = '',
     this.gameStartTime = '',
     required this.line,
@@ -445,6 +453,24 @@ class PropData {
                   const [])
               .map((value) => value.toString())
               .toList(growable: false),
+      opportunityScore:
+          _safeDoubleOrNull(
+            json['opportunityScore'] ?? json['opportunity_score'],
+          ) ??
+          0,
+      opportunityStatus:
+          json['opportunityStatus']?.toString() ??
+          json['opportunity_status']?.toString() ??
+          'SYSTEM_LEAN',
+      opportunityReasons:
+          (json['opportunityReasons'] as List? ??
+                  json['opportunity_reasons'] as List? ??
+                  const [])
+              .map((value) => value.toString())
+              .toList(growable: false),
+      uncertaintyAdjustedEdge: _safeDoubleOrNull(
+        json['uncertaintyAdjustedEdge'] ?? json['uncertainty_adjusted_edge'],
+      ),
       gameTime:
           json['game_time']?.toString() ?? json['gameTime']?.toString() ?? '',
       gameStartTime:

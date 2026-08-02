@@ -66,7 +66,9 @@ def test_prop_context_recalculates_projection_probability_and_side() -> None:
     apply_projection_context(prop)
     assert prop.projection != 5.5
     assert .5 <= prop.fairProbability <= .8
-    assert prop.recommendedSide in {"Over", "Under"}
+    assert prop.recommendedSide == "N/A"
+    assert prop.opportunityStatus == "SYSTEM_LEAN"
+    assert "injury_status_unresolved" in prop.opportunityReasons
 
 
 def test_prop_context_shrinks_uncertain_projection_to_multi_book_market() -> None:
@@ -113,6 +115,7 @@ def test_missing_sample_metadata_does_not_overwrite_verified_tier() -> None:
     apply_projection_context(prop)
 
     assert prop.confidence == 62
-    assert prop.tier == "Strong"
-    assert prop.recommendationAvailable is True
-    assert prop.pick in {"OVER", "UNDER"}
+    assert prop.tier == "No Pick"
+    assert prop.recommendationAvailable is False
+    assert "insufficient_projection_sample" in prop.opportunityReasons
+    assert prop.pick == "N/A"
