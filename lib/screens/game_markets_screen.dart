@@ -388,6 +388,17 @@ class _GameCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
+          if (market == 'totals' && event.dixonColes != null) ...[
+            Text(
+              'DIXON-COLES  •  OVER ${(((event.dixonColes!['overProbability'] as num?)?.toDouble() ?? 0) * 100).toStringAsFixed(1)}%  •  UNDER ${(((event.dixonColes!['underProbability'] as num?)?.toDouble() ?? 0) * 100).toStringAsFixed(1)}%',
+              style: const TextStyle(
+                color: AppColors.blue,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           if (available.isEmpty)
             const Text(
               'Market not posted yet.',
@@ -418,12 +429,26 @@ class _GameCard extends StatelessWidget {
                         ),
                         side: const BorderSide(color: AppColors.borderGold),
                       ),
-                      child: Text(
-                        '${outcome.name}${point(market, outcome)}  ${odds(outcome.price)}',
-                        style: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                        ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${outcome.name}${point(market, outcome)}  ${odds(outcome.price)}',
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          if (outcome.fairProbability != null)
+                            Text(
+                              'SHIN FAIR ${(outcome.fairProbability! * 100).toStringAsFixed(1)}%',
+                              style: const TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 7,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                 ],

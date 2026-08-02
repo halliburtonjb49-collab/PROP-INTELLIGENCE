@@ -58,6 +58,15 @@ class ContextResearchRequest(BaseModel):
     limit: int = Field(default=40, ge=5, le=100)
 
 
+class DixonColesRequest(BaseModel):
+    sport: Literal["SOCCER", "NHL"]
+    home_expected_goals: float = Field(gt=0, le=10)
+    away_expected_goals: float = Field(gt=0, le=10)
+    rho: float = Field(default=-0.05, ge=-0.5, le=0.5)
+    total_line: float = Field(default=2.5, ge=0, le=20)
+    max_goals: int = Field(default=8, ge=2, le=15)
+
+
 class PropLegInput(BaseModel):
     id: str = ""
     player: str

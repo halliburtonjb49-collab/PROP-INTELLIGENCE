@@ -2816,7 +2816,7 @@ class _MainDashboardState extends State<MainDashboard> {
             'Recommended side: ${side.name.toUpperCase()} ${prop.line.toStringAsFixed(1)}\n'
             'Available odds: ${(availableOdds ?? -110).round()}\n'
             'Model probability: ${((prop.modelProbability ?? probability) * 100).toStringAsFixed(1)}%\n'
-            'Sharp no-vig probability: ${prop.marketProbability == null ? '--' : '${(prop.marketProbability! * 100).toStringAsFixed(1)}%'}\n'
+            'Shin no-vig probability: ${prop.marketProbability == null ? '--' : '${(prop.marketProbability! * 100).toStringAsFixed(1)}%'}\n'
             'Blended fair probability: ${(probability * 100).toStringAsFixed(1)}%\n'
             'Push probability: ${(prop.pushProbability * 100).toStringAsFixed(1)}%\n'
             'Estimated fair decimal price: ${fairDecimal == 0 ? '--' : fairDecimal.toStringAsFixed(2)}\n'

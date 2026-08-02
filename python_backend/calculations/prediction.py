@@ -1,4 +1,4 @@
-from services.prop_probability_service import power_method_devig
+from services.prop_probability_service import shin_method_devig
 
 
 def american_to_implied_probability(odds: float) -> float:
@@ -24,7 +24,7 @@ def calculate_prediction(
     under_probability = american_to_implied_probability(
         float(safe_under)
     )
-    normalized_over, normalized_under = power_method_devig(
+    normalized_over, normalized_under = shin_method_devig(
         over_probability,
         under_probability,
     )

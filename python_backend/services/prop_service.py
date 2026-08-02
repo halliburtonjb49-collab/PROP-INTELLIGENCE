@@ -39,7 +39,7 @@ from services.projection_calibration_service import (
 	confidence_from_probability,
 	market_volatility_floor,
 )
-from services.prop_probability_service import evaluate_market, power_method_devig
+from services.prop_probability_service import evaluate_market, shin_method_devig
 from services.market_calibration_service import market_calibration_adjustment
 
 cache = PropCache(DB_PATH)
@@ -394,7 +394,7 @@ def get_props() -> list[PropResponse]:
 		no_vig_over = None
 		no_vig_under = None
 		if over_implied is not None and under_implied is not None:
-			no_vig_over, no_vig_under = power_method_devig(
+			no_vig_over, no_vig_under = shin_method_devig(
 				over_implied,
 				under_implied,
 			)

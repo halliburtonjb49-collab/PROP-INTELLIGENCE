@@ -11,6 +11,7 @@ from services.prop_probability_service import (
     outcome_from_quantile,
     power_method_devig,
     prop_probabilities,
+    shin_method_devig,
 )
 
 
@@ -121,6 +122,19 @@ def test_power_method_devig_handles_asymmetric_prices() -> None:
     over, under = power_method_devig(120 / 220, 100 / 210)
     assert over + under == pytest.approx(1)
     assert over > under
+
+
+def test_shin_method_devig_removes_margin_and_favorite_longshot_bias() -> None:
+    fair = shin_method_devig(0.60, 0.30, 0.15)
+    assert len(fair) == 3
+    assert sum(fair) == pytest.approx(1)
+    assert fair[0] > fair[1] > fair[2]
+    assert fair[2] < 0.15 / 1.05
+
+
+def test_shin_method_normalizes_market_without_positive_overround() -> None:
+    fair = shin_method_devig(0.48, 0.47)
+    assert sum(fair) == pytest.approx(1)
 
 
 def test_fractional_kelly_only_sizes_positive_expected_value() -> None:

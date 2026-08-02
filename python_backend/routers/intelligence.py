@@ -3,7 +3,7 @@ from uuid import UUID
 
 from models.intelligence import (
     AlertSnapshotRequest, CompoundAlertRequest, CorrelationRequest, DatabaseSimilarityRequest, FatigueRequest, GameScriptRequest,
-    ContextResearchRequest, HistoricalFeatureRequest, MatchupRequest, OfficiatingRequest, ScheduleFatigueRequest,
+    ContextResearchRequest, DixonColesRequest, HistoricalFeatureRequest, MatchupRequest, OfficiatingRequest, ScheduleFatigueRequest,
     ClosingLineValueRequest, PredictionGradeRequest, PredictionSnapshotRequest, SentimentBatchRequest, SentimentEvent, SimilarityRequest,
 )
 from services.intelligence_service import (
@@ -25,6 +25,7 @@ from services.officiating_profile_service import (
 )
 from services.matchup_profile_service import get_matchup_profile
 from services.context_research_service import context_research
+from services.score_probability_service import dixon_coles_totals
 from services.clv_service import closing_line_value
 from services.model_performance_service import model_performance, operations_summary
 from services.api_auth_service import require_admin
@@ -81,6 +82,21 @@ def calculate_matchup(request: MatchupRequest) -> dict[str, object]:
 @router.post("/context-research")
 def calculate_context_research(request: ContextResearchRequest) -> dict[str, object]:
     return context_research(request)
+
+
+@router.post("/dixon-coles")
+def calculate_dixon_coles(request: DixonColesRequest) -> dict[str, object]:
+    return {
+        "sport": request.sport,
+        **dixon_coles_totals(
+            request.home_expected_goals,
+            request.away_expected_goals,
+            request.rho,
+            request.total_line,
+            max_goals=request.max_goals,
+        ),
+        "disclosure": "Expected-goal inputs must come from a verified attack/defense model; they are not inferred from the sportsbook total.",
+    }
 
 
 @router.get("/matchup/{sport}/{team_id}")
@@ -223,5 +239,5 @@ def capabilities() -> dict[str, object]:
                          "gameScript", "similarity", "sentiment", "compoundAlerts",
                          "historicalFeatures", "predictionTracking", "calibration",
                          "closingLineValue", "contextResearch", "statSlam",
-                         "restSplits"],
-            "version": "1.4.0", "explainable": True}
+                         "restSplits", "shinDevig", "dixonColes"],
+            "version": "1.5.0", "explainable": True}

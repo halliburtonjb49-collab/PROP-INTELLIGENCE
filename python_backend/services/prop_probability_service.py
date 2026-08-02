@@ -72,6 +72,45 @@ def power_method_devig(
     return round(fair_over / total, 6), round(fair_under / total, 6)
 
 
+def shin_method_devig(*implied_probabilities: float) -> tuple[float, ...]:
+    """Remove market margin using Shin's informed-trader model.
+
+    The inputs must describe every mutually exclusive outcome in one market.
+    Bisection is used instead of a SciPy dependency. Markets without a
+    positive overround fall back to proportional normalization because Shin's
+    insider-share parameter has no admissible positive root there.
+    """
+    probabilities = tuple(float(value) for value in implied_probabilities)
+    if len(probabilities) < 2:
+        raise ValueError("Shin devigging requires at least two outcomes")
+    if any(not 0 < value < 1 for value in probabilities):
+        raise ValueError("Implied probabilities must be between zero and one")
+    overround = sum(probabilities)
+    if overround <= 1.0 + 1e-12:
+        return tuple(round(value / overround, 6) for value in probabilities)
+
+    def adjusted(z: float) -> tuple[float, ...]:
+        denominator = 2 * (1 - z)
+        return tuple(
+            (sqrt(z * z + 4 * (1 - z) * value * value / overround) - z)
+            / denominator
+            for value in probabilities
+        )
+
+    low, high = 0.0, 1.0 - 1e-12
+    if sum(adjusted(high)) > 1:
+        return tuple(round(value / overround, 6) for value in probabilities)
+    for _ in range(100):
+        midpoint = (low + high) / 2
+        if sum(adjusted(midpoint)) > 1:
+            low = midpoint
+        else:
+            high = midpoint
+    fair = adjusted((low + high) / 2)
+    total = sum(fair)
+    return tuple(round(value / total, 6) for value in fair)
+
+
 def fractional_kelly_stake(
     *,
     win_probability: float,

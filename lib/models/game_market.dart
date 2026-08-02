@@ -2,11 +2,17 @@ class GameMarketOutcome {
   final String name;
   final int price;
   final double? point;
+  final double? impliedProbability;
+  final double? fairProbability;
+  final String devigMethod;
 
   const GameMarketOutcome({
     required this.name,
     required this.price,
     required this.point,
+    this.impliedProbability,
+    this.fairProbability,
+    this.devigMethod = '',
   });
 
   factory GameMarketOutcome.fromJson(Map<String, dynamic> json) {
@@ -17,6 +23,13 @@ class GameMarketOutcome {
           ? rawPrice.round()
           : int.tryParse('$rawPrice') ?? 0,
       point: json['point'] is num ? (json['point'] as num).toDouble() : null,
+      impliedProbability: json['impliedProbability'] is num
+          ? (json['impliedProbability'] as num).toDouble()
+          : null,
+      fairProbability: json['fairProbability'] is num
+          ? (json['fairProbability'] as num).toDouble()
+          : null,
+      devigMethod: json['devigMethod']?.toString() ?? '',
     );
   }
 }
@@ -69,6 +82,7 @@ class GameMarketEvent {
   final String awayTeam;
   final DateTime? commenceTime;
   final List<SportsbookGameMarkets> bookmakers;
+  final Map<String, dynamic>? dixonColes;
 
   const GameMarketEvent({
     required this.id,
@@ -78,6 +92,7 @@ class GameMarketEvent {
     required this.awayTeam,
     required this.commenceTime,
     required this.bookmakers,
+    this.dixonColes,
   });
 
   factory GameMarketEvent.fromJson(Map<String, dynamic> json) {
@@ -96,6 +111,9 @@ class GameMarketEvent {
             ),
           )
           .toList(growable: false),
+      dixonColes: json['dixonColes'] is Map
+          ? Map<String, dynamic>.from(json['dixonColes'] as Map)
+          : null,
     );
   }
 }

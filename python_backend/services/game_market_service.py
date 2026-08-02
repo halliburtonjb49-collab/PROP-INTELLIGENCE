@@ -12,6 +12,8 @@ from services.odds_service import (
     fetch_game_odds,
     quota_allows,
 )
+from services.prop_probability_service import shin_method_devig
+from services.score_probability_service import dixon_coles_totals
 
 GAME_SPORTS: dict[str, str] = {
     "NBA": "basketball_nba",
@@ -48,6 +50,26 @@ def _as_number(value: object) -> float | int | None:
         return None
 
 
+def _american_implied(price: float | int) -> float:
+    value = float(price)
+    return 100 / (value + 100) if value > 0 else abs(value) / (abs(value) + 100)
+
+
+def _add_shin_probabilities(outcomes: list[dict[str, object]]) -> None:
+    try:
+        fair = shin_method_devig(
+            *[_american_implied(outcome["price"]) for outcome in outcomes]
+        )
+    except (KeyError, TypeError, ValueError):
+        return
+    for outcome, probability in zip(outcomes, fair):
+        outcome["impliedProbability"] = round(
+            _american_implied(outcome["price"]), 6
+        )
+        outcome["fairProbability"] = probability
+        outcome["devigMethod"] = "shin"
+
+
 def _normalize_event(event: dict[str, Any], sport: str) -> dict[str, object]:
     books: list[dict[str, object]] = []
     for raw_book in event.get("bookmakers", []):
@@ -74,6 +96,7 @@ def _normalize_event(event: dict[str, Any], sport: str) -> dict[str, object]:
                     "point": _as_number(raw_outcome.get("point")),
                 })
             if outcomes:
+                _add_shin_probabilities(outcomes)
                 normalized_markets[key] = outcomes
         if normalized_markets:
             books.append({
@@ -82,7 +105,7 @@ def _normalize_event(event: dict[str, Any], sport: str) -> dict[str, object]:
                 "lastUpdate": raw_book.get("last_update"),
                 "markets": normalized_markets,
             })
-    return {
+    normalized = {
         "id": str(event.get("id") or ""),
         "sport": sport,
         "sportKey": str(event.get("sport_key") or GAME_SPORTS.get(sport, "")),
@@ -92,6 +115,21 @@ def _normalize_event(event: dict[str, Any], sport: str) -> dict[str, object]:
         "awayTeam": str(event.get("away_team") or "Away"),
         "bookmakers": books,
     }
+    home_xg = _as_number(event.get("home_expected_goals"))
+    away_xg = _as_number(event.get("away_expected_goals"))
+    rho = _as_number(event.get("dixon_coles_rho"))
+    total_line = _as_number(event.get("total_line"))
+    if sport in {"EPL", "MLS", "NHL"} and home_xg and away_xg and rho is not None:
+        try:
+            normalized["dixonColes"] = dixon_coles_totals(
+                float(home_xg),
+                float(away_xg),
+                float(rho),
+                float(total_line if total_line is not None else 2.5),
+            )
+        except ValueError:
+            pass
+    return normalized
 
 
 def get_game_markets(

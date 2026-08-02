@@ -1,3 +1,5 @@
+import pytest
+
 from services import game_market_service
 
 
@@ -41,6 +43,22 @@ def test_game_markets_normalize_all_three_market_types():
     assert set(markets) == {"h2h", "spreads", "totals"}
     assert markets["spreads"][0]["point"] == -1.5
     assert markets["totals"][0]["point"] == 8.5
+    assert markets["totals"][0]["devigMethod"] == "shin"
+    assert sum(outcome["fairProbability"] for outcome in markets["totals"]) == pytest.approx(1)
+
+
+def test_game_markets_apply_dixon_coles_only_with_verified_xg_inputs():
+    payload = _provider_payload()[0]
+    payload.update({
+        "sport_key": "soccer_epl",
+        "home_expected_goals": 1.6,
+        "away_expected_goals": 1.0,
+        "dixon_coles_rho": -0.06,
+        "total_line": 2.5,
+    })
+    event = game_market_service._normalize_event(payload, "EPL")
+    assert event["dixonColes"]["method"] == "dixon-coles"
+    assert event["dixonColes"]["overProbability"] > 0
 
 
 def test_game_markets_reuse_cache_and_report_health():
