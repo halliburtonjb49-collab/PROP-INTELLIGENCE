@@ -1,8 +1,30 @@
 from services.live_stats_service import (
     SPORT_CONFIG,
+    _espn_snapshot_from_logs,
     _golf_round_value,
     find_player_match_in_boxscores,
 )
+
+
+def test_espn_completed_boxscore_grades_wnba_pra_by_matchup() -> None:
+    snapshot = _espn_snapshot_from_logs(
+        logs=[{
+            "PLAYER_NAME": "Aliyah Boston",
+            "GAME_ID": "401857107",
+            "MATCHUP": "Indiana Fever at Minnesota Lynx",
+            "PTS": 18,
+            "REB": 9,
+            "AST": 4,
+        }],
+        player_name="Aliyah Boston",
+        prop_type="points rebounds assists",
+        event_id="different-provider-id",
+        matchup="Indiana Fever @ Minnesota Lynx",
+    )
+
+    assert snapshot.value == 31
+    assert snapshot.completed is True
+    assert snapshot.status == "Final"
 
 
 def test_nfl_live_boxscores_are_configured() -> None:

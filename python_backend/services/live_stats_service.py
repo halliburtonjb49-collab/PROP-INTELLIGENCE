@@ -9,6 +9,7 @@ from typing import Any
 
 import requests
 from dotenv import load_dotenv
+from providers.espn_basketball_statistics import EspnBasketballStatisticsProvider
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -21,6 +22,7 @@ SPORTSDATAIO_KEY = (
 CACHE_SECONDS = 20
 HTTP_TIMEOUT_SECONDS = 12
 _live_cache: dict[str, dict[str, Any]] = {}
+_espn_logs_cache: dict[str, dict[str, Any]] = {}
 
 SPORT_CONFIG = {
     "NBA": {
@@ -138,9 +140,6 @@ def get_live_player_stat_snapshot(
     sport_key = str(sport or "").strip().upper()
     target_season = season or str(datetime.now().year)
 
-    if not SPORTSDATAIO_KEY:
-        return LiveStatSnapshot(None, False, "provider_unavailable")
-
     if sport_key in {"PGA", "GOLF"}:
         return _get_golf_snapshot(
             player_name=player_name,
@@ -152,31 +151,123 @@ def get_live_player_stat_snapshot(
     if sport_key not in SPORT_CONFIG:
         return LiveStatSnapshot(None, False, "unsupported_sport")
 
-    event_date = _sportsdata_date(game_start_time)
-    live_boxscores = get_live_boxscores(
-        sport=sport_key,
-        season=target_season,
-        event_date=event_date,
-    )
-    if not live_boxscores:
-        return LiveStatSnapshot(None, False, "no_boxscore")
+    if SPORTSDATAIO_KEY:
+        event_date = _sportsdata_date(game_start_time)
+        live_boxscores = get_live_boxscores(
+            sport=sport_key, season=target_season, event_date=event_date,
+        )
+        match = find_player_match_in_boxscores(
+            boxscores=live_boxscores,
+            player_name=player_name,
+            team=team,
+            matchup=matchup,
+            event_id=event_id,
+        ) if live_boxscores else None
+        if match:
+            player_row, game = match
+            value = extract_prop_value(player_row, prop_type)
+            if value is not None:
+                return LiveStatSnapshot(
+                    value, _game_completed(game), _game_status(game),
+                )
 
-    match = find_player_match_in_boxscores(
-        boxscores=live_boxscores,
+    if sport_key in {"NBA", "WNBA"}:
+        fallback = _espn_completed_basketball_snapshot(
+            sport=sport_key,
+            player_name=player_name,
+            prop_type=prop_type,
+            event_id=event_id,
+            matchup=matchup,
+            game_start_time=game_start_time,
+        )
+        if fallback.value is not None:
+            return fallback
+
+    return LiveStatSnapshot(None, False, "no_authoritative_boxscore")
+
+
+def _espn_completed_basketball_snapshot(
+    *, sport: str, player_name: str, prop_type: str, event_id: str,
+    matchup: str, game_start_time: str,
+) -> LiveStatSnapshot:
+    try:
+        target_date = datetime.fromisoformat(
+            str(game_start_time).replace("Z", "+00:00")
+        ).date()
+    except (TypeError, ValueError):
+        return LiveStatSnapshot(None, False, "invalid_game_date")
+
+    cache_key = f"{sport}:{target_date.isoformat()}"
+    cached = _espn_logs_cache.get(cache_key)
+    now = time.time()
+    if cached and now - float(cached.get("time", 0)) < 60:
+        logs = cached.get("data", [])
+    else:
+        try:
+            logs = EspnBasketballStatisticsProvider().daily_game_logs(
+                sport=sport, target_date=target_date,
+            )
+        except (requests.RequestException, KeyError, ValueError):
+            return LiveStatSnapshot(None, False, "espn_boxscore_unavailable")
+        _espn_logs_cache[cache_key] = {"time": now, "data": logs}
+
+    return _espn_snapshot_from_logs(
+        logs=logs if isinstance(logs, list) else [],
         player_name=player_name,
-        team=team,
-        matchup=matchup,
+        prop_type=prop_type,
         event_id=event_id,
+        matchup=matchup,
     )
-    if not match:
-        return LiveStatSnapshot(None, False, "player_not_found")
-    player_row, game = match
 
-    return LiveStatSnapshot(
-        extract_prop_value(player_row, prop_type),
-        _game_completed(game),
-        _game_status(game),
-    )
+
+def _espn_snapshot_from_logs(
+    *, logs: list[dict[str, object]], player_name: str, prop_type: str,
+    event_id: str = "", matchup: str = "",
+) -> LiveStatSnapshot:
+    wanted_player = normalize_name(player_name)
+    wanted_matchup = _normalize_matchup_identity(matchup)
+    candidates = [
+        row for row in logs
+        if normalize_name(row.get("PLAYER_NAME", "")) == wanted_player
+        and (
+            (event_id and str(row.get("GAME_ID", "")) == event_id)
+            or (
+                wanted_matchup
+                and _normalize_matchup_identity(row.get("MATCHUP", ""))
+                == wanted_matchup
+            )
+        )
+    ]
+    if len(candidates) != 1:
+        return LiveStatSnapshot(None, False, "espn_player_not_found")
+
+    row = candidates[0]
+    market = normalize_prop_type(prop_type)
+    keys = {
+        "points": ("PTS",),
+        "rebounds": ("REB",),
+        "assists": ("AST",),
+        "pra": ("PTS", "REB", "AST"),
+        "points rebounds assists": ("PTS", "REB", "AST"),
+        "steals": ("STL",),
+        "blocks": ("BLK",),
+        "three pointers made": ("FG3M",),
+        "3 pointers made": ("FG3M",),
+    }.get(market)
+    if keys is None:
+        return LiveStatSnapshot(None, False, "unsupported_market")
+    values: list[float] = []
+    for key in keys:
+        try:
+            values.append(float(row[key]))
+        except (KeyError, TypeError, ValueError):
+            return LiveStatSnapshot(None, False, "missing_final_stat")
+    return LiveStatSnapshot(sum(values), True, "Final")
+
+
+def _normalize_matchup_identity(value: object) -> str:
+    words = normalize_name(value).split()
+    return " ".join(word for word in words if word not in {"at", "vs", "v"})
 
 
 def get_live_boxscores(
