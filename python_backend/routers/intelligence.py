@@ -3,7 +3,7 @@ from uuid import UUID
 
 from models.intelligence import (
     AlertSnapshotRequest, CompoundAlertRequest, CorrelationRequest, DatabaseSimilarityRequest, FatigueRequest, GameScriptRequest,
-    ContextResearchRequest, DixonColesRequest, HistoricalFeatureRequest, MatchupRequest, OfficiatingRequest, ScheduleFatigueRequest,
+    ContextResearchRequest, DixonColesRequest, HistoricalFeatureRequest, MatchupRequest, OfficiatingRequest, ScheduleFatigueRequest, WowyUsageRequest,
     ClosingLineValueRequest, PredictionGradeRequest, PredictionSnapshotRequest, SentimentBatchRequest, SentimentEvent, SimilarityRequest,
 )
 from services.intelligence_service import (
@@ -27,6 +27,7 @@ from services.matchup_profile_service import get_matchup_profile
 from services.context_research_service import context_research
 from services.score_probability_service import dixon_coles_totals
 from services.clv_service import closing_line_value
+from services.wowy_usage_service import UsageTotals, analyze_wowy_usage
 from services.model_performance_service import model_performance, operations_summary
 from services.api_auth_service import require_admin
 
@@ -82,6 +83,24 @@ def calculate_matchup(request: MatchupRequest) -> dict[str, object]:
 @router.post("/context-research")
 def calculate_context_research(request: ContextResearchRequest) -> dict[str, object]:
     return context_research(request)
+
+
+@router.post("/wowy-usage")
+def calculate_wowy_usage(request: WowyUsageRequest) -> dict[str, object]:
+    def totals(value: object) -> UsageTotals:
+        return UsageTotals(**value.model_dump())
+
+    return {
+        "player": request.player,
+        "teammate": request.teammate,
+        "sport": request.sport,
+        **analyze_wowy_usage(
+            totals(request.on),
+            totals(request.off),
+            minimum_split_minutes=request.minimum_split_minutes,
+        ),
+        "disclosure": "WOWY is a bounded contextual input, not a standalone OVER/UNDER recommendation.",
+    }
 
 
 @router.post("/dixon-coles")

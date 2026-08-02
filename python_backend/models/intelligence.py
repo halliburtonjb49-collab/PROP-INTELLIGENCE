@@ -58,6 +58,26 @@ class ContextResearchRequest(BaseModel):
     limit: int = Field(default=40, ge=5, le=100)
 
 
+class UsageTotalsInput(BaseModel):
+    player_fga: float = Field(ge=0)
+    player_fta: float = Field(ge=0)
+    player_tov: float = Field(ge=0)
+    player_minutes: float = Field(gt=0)
+    team_fga: float = Field(ge=0)
+    team_fta: float = Field(ge=0)
+    team_tov: float = Field(ge=0)
+    team_minutes: float = Field(gt=0)
+
+
+class WowyUsageRequest(BaseModel):
+    sport: Literal["WNBA"] = "WNBA"
+    player: str = Field(min_length=2, max_length=120)
+    teammate: str = Field(min_length=2, max_length=120)
+    on: UsageTotalsInput
+    off: UsageTotalsInput
+    minimum_split_minutes: float = Field(default=100, ge=20, le=500)
+
+
 class DixonColesRequest(BaseModel):
     sport: Literal["SOCCER", "NHL"]
     home_expected_goals: float = Field(gt=0, le=10)
