@@ -9215,7 +9215,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               metric('LINE', prop.line.toStringAsFixed(1)),
               metric('CONFIDENCE', hasProAccess ? signalRatingLabel : '--'),
               metric(
-                'SIGNAL',
+                'SUGGESTIVE PICK',
                 advisedSide == null
                     ? 'NO PICK'
                     : hasModelPick
@@ -9535,7 +9535,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   ? 'MARKET LEAN: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
                   : hasProAccess
                   ? 'NO QUALIFIED LEAN'
-                  : 'PRO MODEL SIGNAL',
+                  : 'PRO SUGGESTIVE PICK',
               style: const TextStyle(
                 color: AppColors.gold,
                 fontSize: 8,
