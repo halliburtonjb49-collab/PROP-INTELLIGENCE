@@ -14,6 +14,7 @@ from services.live_stats_service import (
     get_live_player_stat_snapshot,
     normalize_prop_type,
 )
+from services.clv_service import odds_clv_expected_value, vig_free_probability
 
 TRACKED_SPORTS = {"NBA", "WNBA", "MLB", "NFL", "NHL", "PGA", "GOLF"}
 
@@ -49,10 +50,32 @@ def capture_prediction_closing_lines() -> dict[str, object]:
                 continue
             closing_line = float(prop.currentLine or prop.line)
             clv = prediction_clv(str(side), float(entry_line), closing_line)
+            side_upper = str(side).upper()
+            closing_side_odds = prop.overOdds if side_upper == "OVER" else prop.underOdds
+            closing_opposite_odds = prop.underOdds if side_upper == "OVER" else prop.overOdds
+            odds_clv: dict[str, object] = {}
+            cursor.execute("select inputs->>'entryOdds' from prediction_snapshots where id=%s", (identifier,))
+            entry_odds_raw = cursor.fetchone()[0]
+            if entry_odds_raw and closing_side_odds and closing_opposite_odds:
+                entry_odds = int(float(entry_odds_raw))
+                side_close = int(float(closing_side_odds))
+                opposite_close = int(float(closing_opposite_odds))
+                odds_clv = {
+                    "closingOdds": side_close,
+                    "closingOppositeOdds": opposite_close,
+                    "closingNoVigProbability": round(
+                        vig_free_probability(side_close, opposite_close), 6
+                    ),
+                    "oddsClvExpectedValuePercent": round(
+                        odds_clv_expected_value(entry_odds, side_close, opposite_close) * 100,
+                        4,
+                    ),
+                    "oddsClvMethod": "proportional-no-vig",
+                }
             cursor.execute(
                 """update prediction_snapshots set inputs=inputs || %s::jsonb
                 where id=%s""",
-                (json.dumps(clv), identifier),
+                (json.dumps({**clv, **odds_clv}), identifier),
             )
             updated += 1
         connection.commit()

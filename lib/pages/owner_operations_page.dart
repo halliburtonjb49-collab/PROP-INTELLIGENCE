@@ -294,6 +294,9 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     final brier = (performance['brierScore'] as num?)?.toDouble();
     final calibrated = performance['calibrated'] == true;
     final beatClose = (clv['beatClosingLineRate'] as num?)?.toDouble();
+    final oddsClv = (clv['averageOddsClvExpectedValuePercent'] as num?)
+        ?.toDouble();
+    final positiveOddsClv = (clv['positiveOddsClvRate'] as num?)?.toDouble();
     final segments = (performance['qualitySegments'] as List? ?? const [])
         .whereType<Map>()
         .take(6)
@@ -337,6 +340,14 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                   : '${(beatClose * 100).toStringAsFixed(1)}%',
               beatClose != null && beatClose >= .5,
               detail: '${clv['sampleSize'] ?? 0} captured closes',
+            ),
+            _status(
+              'Vig-free odds CLV',
+              oddsClv == null ? '--' : '${oddsClv.toStringAsFixed(2)}%',
+              oddsClv != null && oddsClv > 0,
+              detail: positiveOddsClv == null
+                  ? '${clv['oddsSampleSize'] ?? 0} paired closes'
+                  : '${(positiveOddsClv * 100).toStringAsFixed(1)}% positive • ${clv['oddsSampleSize'] ?? 0} paired closes',
             ),
             _status(
               'Snapshots today',

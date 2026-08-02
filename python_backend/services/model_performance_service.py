@@ -195,12 +195,17 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
         cursor.execute(
             """select count(*),
                 avg(case when (inputs->>'beatClosingLine')::boolean then 1 else 0 end),
-                avg((inputs->>'lineClvPoints')::double precision)
+                avg((inputs->>'lineClvPoints')::double precision),
+                avg((inputs->>'oddsClvExpectedValuePercent')::double precision),
+                avg(case when (inputs->>'oddsClvExpectedValuePercent')::double precision > 0 then 1 else 0 end)
+                    filter(where inputs ? 'oddsClvExpectedValuePercent'),
+                count(*) filter(where inputs ? 'oddsClvExpectedValuePercent')
             from prediction_snapshots
             where model_version=%s and inputs ? 'closingLine'""",
             (model_version,),
         )
-        clv_count, beat_close_rate, average_points = cursor.fetchone()
+        (clv_count, beat_close_rate, average_points, average_odds_ev,
+         positive_odds_rate, odds_sample_size) = cursor.fetchone()
         rolling_audit = _rolling_audit(cursor, model_version, base)
     actionable = [segment for segment in side_segments if segment["actionable"]]
     return {"modelVersion": model_version, **overall, "segments": segments,
@@ -225,6 +230,15 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
                 "averageLineClvPoints": (
                     round(float(average_points), 4)
                     if average_points is not None else None
+                ),
+                "oddsSampleSize": int(odds_sample_size or 0),
+                "averageOddsClvExpectedValuePercent": (
+                    round(float(average_odds_ev), 4)
+                    if average_odds_ev is not None else None
+                ),
+                "positiveOddsClvRate": (
+                    round(float(positive_odds_rate), 4)
+                    if positive_odds_rate is not None else None
                 ),
                 "reason": (
                     None if clv_count else

@@ -193,3 +193,4 @@ class ClosingLineValueRequest(BaseModel):
     closing_line: float = Field(gt=0)
     entry_odds: int | None = None
     closing_odds: int | None = None
+    closing_opposite_odds: int | None = None
