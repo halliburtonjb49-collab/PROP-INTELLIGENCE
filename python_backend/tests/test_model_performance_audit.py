@@ -1,4 +1,4 @@
-from services.model_performance_service import _audit_recommendation
+from services.model_performance_service import _audit_recommendation, _rolling_row
 
 
 def test_audit_waits_for_a_safe_sample() -> None:
@@ -17,3 +17,12 @@ def test_audit_accepts_calibrated_segment() -> None:
     result = _audit_recommendation(50, 0.61, 0.63)
     assert result["status"] == "HEALTHY"
     assert result["calibrationGap"] == 0.02
+
+
+def test_rolling_row_reports_accuracy_confidence_and_status() -> None:
+    result = _rolling_row("sport", ("WNBA", 100, 42, 0.61))
+    assert result["value"] == "WNBA"
+    assert result["accuracy"] == 0.42
+    assert result["averageConfidence"] == 0.61
+    assert result["calibrationGap"] == 0.19
+    assert result["status"] == "RECALIBRATE"

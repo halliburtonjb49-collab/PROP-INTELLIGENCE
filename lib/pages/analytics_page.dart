@@ -8,6 +8,7 @@ import '../theme/app_colors.dart';
 import '../widgets/dashboard_panel.dart';
 import '../widgets/context_help.dart';
 import '../widgets/evaluation_cohort_dashboard.dart';
+import '../widgets/model_results_audit_dashboard.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -30,6 +31,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   late Future<List<PropData>> _propsFuture;
   Timer? _refreshTimer;
   bool _showEvaluation = false;
+  bool _showModelAudit = false;
 
   @override
   void initState() {
@@ -157,6 +159,27 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_showModelAudit) {
+      return Container(
+        color: AppColors.background,
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => setState(() => _showModelAudit = false),
+                icon: const Icon(Icons.arrow_back, size: 16),
+                label: const Text('MARKET ANALYTICS'),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Expanded(child: ModelResultsAuditDashboard()),
+          ],
+        ),
+      );
+    }
     if (_showEvaluation) {
       return Container(
         color: AppColors.background,
@@ -314,10 +337,21 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerRight,
-                child: OutlinedButton.icon(
-                  onPressed: () => setState(() => _showEvaluation = true),
-                  icon: const Icon(Icons.fact_check_outlined, size: 15),
-                  label: const Text('EVALUATION COHORT'),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => setState(() => _showModelAudit = true),
+                      icon: const Icon(Icons.query_stats, size: 15),
+                      label: const Text('MODEL RESULTS AUDIT'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => setState(() => _showEvaluation = true),
+                      icon: const Icon(Icons.fact_check_outlined, size: 15),
+                      label: const Text('EVALUATION COHORT'),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 14),

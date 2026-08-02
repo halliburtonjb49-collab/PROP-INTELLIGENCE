@@ -9,6 +9,12 @@ from services.baseline_projection_service import MODEL_VERSION
 
 MINIMUM_ACTION_SAMPLE = 30
 
+ROLLING_WINDOWS = (
+    ("7d", "LAST 7 DAYS", "7 days"),
+    ("30d", "LAST 30 DAYS", "30 days"),
+    ("all", "ALL TIME", None),
+)
+
 
 def _audit_recommendation(
     sample_size: int,
@@ -48,6 +54,68 @@ def _segment(row: tuple[object, ...]) -> dict[str, object]:
             "logLoss": round(float(log_loss), 6) if log_loss is not None else None,
             "simulatedRoi": round(float(roi), 4) if roi is not None else None,
             "sport": sport, "market": market, "confidenceTier": confidence}
+
+
+def _rolling_row(dimension: str, row: tuple[object, ...]) -> dict[str, object]:
+    value, count, hits, confidence = row
+    accuracy = float(hits or 0) / count if count else None
+    average_confidence = float(confidence) if confidence is not None else None
+    return {
+        "dimension": dimension,
+        "value": str(value or "UNKNOWN").upper(),
+        "sampleSize": count,
+        "hits": hits,
+        "accuracy": round(accuracy, 4) if accuracy is not None else None,
+        "averageConfidence": (
+            round(average_confidence, 4)
+            if average_confidence is not None else None
+        ),
+        **_audit_recommendation(count, accuracy, average_confidence),
+    }
+
+
+def _rolling_audit(cursor, model_version: str, base: str) -> dict[str, object]:
+    dimensions = {
+        "sport": "coalesce(nullif(sport,''),'unknown')",
+        "propType": "coalesce(nullif(inputs->>'category',''),nullif(market,''),'unknown')",
+        "confidenceTier": "case when hit_probability>=.7 then 'HIGH' when hit_probability>=.6 then 'MEDIUM' else 'BASELINE' end",
+        "side": "coalesce(nullif(side,''),'unknown')",
+    }
+    windows = []
+    for key, label, interval in ROLLING_WINDOWS:
+        groups: dict[str, list[dict[str, object]]] = {}
+        for dimension, expression in dimensions.items():
+            window_clause = (
+                f" and created_at >= now() - interval '{interval}'" if interval else ""
+            )
+            cursor.execute(
+                f"""select {expression}, count(*), count(*) filter(where hit),
+                    avg(hit_probability) {base}{window_clause}
+                    group by 1 order by count(*) desc""",
+                (model_version,),
+            )
+            groups[dimension] = [
+                _rolling_row(dimension, row) for row in cursor.fetchall()
+            ]
+        all_rows = groups["side"]
+        sample_size = sum(int(row["sampleSize"]) for row in all_rows)
+        hits = sum(int(row["hits"] or 0) for row in all_rows)
+        actionable = [row for rows in groups.values() for row in rows if row["actionable"]]
+        windows.append({
+            "key": key,
+            "label": label,
+            "sampleSize": sample_size,
+            "hits": hits,
+            "accuracy": round(hits / sample_size, 4) if sample_size else None,
+            "healthy": sum(row["status"] == "HEALTHY" for row in actionable),
+            "monitor": sum(row["status"] == "MONITOR" for row in actionable),
+            "recalibrate": sum(row["status"] == "RECALIBRATE" for row in actionable),
+            "collecting": sum(
+                row["status"] == "COLLECTING" for rows in groups.values() for row in rows
+            ),
+            "dimensions": groups,
+        })
+    return {"windows": windows, "minimumActionSample": MINIMUM_ACTION_SAMPLE}
 
 
 def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
@@ -133,6 +201,7 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
             (model_version,),
         )
         clv_count, beat_close_rate, average_points = cursor.fetchone()
+        rolling_audit = _rolling_audit(cursor, model_version, base)
     actionable = [segment for segment in side_segments if segment["actionable"]]
     return {"modelVersion": model_version, **overall, "segments": segments,
             "qualitySegments": quality_segments,
@@ -144,6 +213,7 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
                 "recalibrate": sum(item["status"] == "RECALIBRATE" for item in actionable),
                 "collecting": sum(item["status"] == "COLLECTING" for item in side_segments),
             },
+            "rollingAudit": rolling_audit,
             "minimumCalibrationSample": 100, "calibrated": overall["sampleSize"] >= 100,
             "clv": {
                 "available": bool(clv_count),
