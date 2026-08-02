@@ -28,6 +28,7 @@ import 'screens/paywall_screen.dart';
 import 'screens/password_recovery_screen.dart';
 import 'models/slip_selection.dart';
 import 'services/api_service.dart';
+import 'services/prop_market_identity.dart';
 import 'services/app_sound_service.dart';
 import 'services/onesignal_service.dart';
 import 'services/auth_manager.dart';
@@ -3550,6 +3551,10 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   String _categoryFromApi(PropData prop) {
+    final canonical = canonicalCategoryFromMarketKey(prop);
+    if (canonical.isNotEmpty) {
+      return canonical;
+    }
     final normalized = prop.category.trim().toLowerCase();
     if (normalized.isEmpty) {
       return '';
@@ -8514,6 +8519,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   }
 
   String _categoryFromApi(PropData prop) {
+    final canonical = canonicalCategoryFromMarketKey(prop);
+    if (canonical.isNotEmpty) {
+      return canonical;
+    }
     final normalized = prop.category.trim().toLowerCase();
     if (normalized.isEmpty) {
       return '';
@@ -11088,7 +11097,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             _favoritePropIds.retainAll(props.map((prop) => prop.id).toSet());
             sortedProps = pinSelectedPropsFirst(sortedProps, _favoritePropIds);
             if (props.isEmpty) {
-              _scheduleAutomaticRetry();
               final hasFilters =
                   widget.sportFilter.toUpperCase() != 'ALL' ||
                   widget.selectedSite.toUpperCase() != 'ALL' ||
@@ -11097,6 +11105,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   widget.selectedTier.toUpperCase() != 'ALL' ||
                   widget.minConfidence > 0 ||
                   widget.searchQuery.isNotEmpty;
+              if (!hasFilters && _automaticRetryCount < 3) {
+                _scheduleAutomaticRetry();
+                return const _PropLoadingSkeleton();
+              }
               return Container(
                 margin: const EdgeInsets.only(top: 18),
                 padding: const EdgeInsets.symmetric(

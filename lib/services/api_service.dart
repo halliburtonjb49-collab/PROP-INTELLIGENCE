@@ -131,7 +131,8 @@ class BackendRefreshStatus {
 }
 
 class ApiService {
-  static const String _lastStablePropsCacheKey = 'prop-feed-v3-last-stable';
+  static const String _lastStablePropsCacheKey = 'prop-feed-v4-last-stable';
+  static const Duration _propsCacheMaxAge = Duration(minutes: 30);
   static const String appVersion = String.fromEnvironment(
     'APP_VERSION',
     defaultValue: 'development',
@@ -900,7 +901,7 @@ class ApiService {
               ),
             )
             .join('_');
-    return 'prop-feed-v3-$raw';
+    return 'prop-feed-v4-$raw';
   }
 
   bool _isBroadPropsQuery({
@@ -986,6 +987,12 @@ class ApiService {
       try {
         final decoded = jsonDecode(encoded);
         if (decoded is! Map<String, dynamic> || decoded['props'] is! List) {
+          continue;
+        }
+        final savedAt = DateTime.tryParse(decoded['savedAt']?.toString() ?? '');
+        if (savedAt == null ||
+            DateTime.now().toUtc().difference(savedAt.toUtc()) >
+                _propsCacheMaxAge) {
           continue;
         }
         final cached = (decoded['props'] as List)

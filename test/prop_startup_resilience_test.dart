@@ -112,14 +112,14 @@ void main() {
     'broad startup query falls back to the last stable device feed',
     () async {
       SharedPreferences.setMockInitialValues({
-        'prop-feed-v3-all_all_all_all_all__0_source': jsonEncode({
+        'prop-feed-v4-all_all_all_all_all__0_source': jsonEncode({
           'savedAt': DateTime.now().toUtc().toIso8601String(),
           'total': 0,
           'facetTotal': 0,
           'categoryCounts': <String, int>{},
           'props': <Map<String, dynamic>>[],
         }),
-        'prop-feed-v3-last-stable': jsonEncode({
+        'prop-feed-v4-last-stable': jsonEncode({
           'savedAt': DateTime.now().toUtc().toIso8601String(),
           'total': 1,
           'facetTotal': 1,
