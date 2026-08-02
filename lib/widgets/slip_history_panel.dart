@@ -101,12 +101,14 @@ class SlipHistoryPanel extends StatefulWidget {
     this.mode = SlipHistoryMode.active,
     this.hasProAccess = true,
     this.isActive = true,
+    this.onClose,
   });
 
   final ActiveSlipController activeSlipController;
   final SlipHistoryMode mode;
   final bool hasProAccess;
   final bool isActive;
+  final VoidCallback? onClose;
 
   @override
   State<SlipHistoryPanel> createState() => _SlipHistoryPanelState();
@@ -650,6 +652,19 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                           : const Icon(Icons.refresh, size: 19),
                       color: brand_colors.AppColors.gold,
                     ),
+                    if (widget.onClose != null)
+                      IconButton(
+                        key: const ValueKey('close-slip-watcher'),
+                        tooltip: _isHistory
+                            ? 'Close Past Slip History'
+                            : 'Close Slip Watcher',
+                        onPressed: widget.onClose,
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: brand_colors.AppColors.white,
+                          size: 21,
+                        ),
+                      ),
                   ],
                 ),
                 if (_lastUpdated != null)

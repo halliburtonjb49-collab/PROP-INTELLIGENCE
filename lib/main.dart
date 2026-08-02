@@ -800,6 +800,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             activeSlipController: _activeSlipController,
             hasProAccess: hasProAccess,
             isActive: _selectedPage == AppPage.watchlist,
+            onClose: () =>
+                _switchToPage(AppPage.board, source: 'slip-watcher-close'),
           ),
           const PropBuilderPerformanceScreen(),
           StrikeoutProGoldScreen(
@@ -812,6 +814,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             mode: SlipHistoryMode.history,
             hasProAccess: hasProAccess,
             isActive: _selectedPage == AppPage.pastSlipHistory,
+            onClose: () =>
+                _switchToPage(AppPage.board, source: 'slip-history-close'),
           ),
         ],
       ),

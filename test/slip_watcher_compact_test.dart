@@ -5,6 +5,28 @@ import 'package:prop_intelligence/models/saved_slip.dart';
 import 'package:prop_intelligence/widgets/slip_history_panel.dart';
 
 void main() {
+  testWidgets('Slip Watcher close button exits through its route callback', (
+    tester,
+  ) async {
+    final controller = ActiveSlipController();
+    var closed = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SlipHistoryPanel(
+            activeSlipController: controller,
+            onClose: () => closed = true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const ValueKey('close-slip-watcher')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('close-slip-watcher')));
+    expect(closed, isTrue);
+  });
+
   testWidgets('Slip Watcher opens directly to compact live prop cards', (
     tester,
   ) async {
