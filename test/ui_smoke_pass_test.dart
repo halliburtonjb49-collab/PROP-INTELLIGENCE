@@ -217,6 +217,16 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('close-floating-prop-chat')));
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byKey(const ValueKey('floating-prop-chat')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('restore-prop-chat-bubble')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('restore-prop-chat-bubble')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      find.byKey(const ValueKey('prop-chat-bubble-launcher')),
+      findsOneWidget,
+    );
     await openWorkspace('PROP BUILDER', 'PROP BUILDER');
     await openWorkspace('BUILD\nPERFORM', null);
     await openWorkspace('EV SCANNER', 'EV SCANNER');

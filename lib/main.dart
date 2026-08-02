@@ -1134,6 +1134,32 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     );
   }
 
+  Widget _buildChatRestoreButton() {
+    return Positioned(
+      right: 18,
+      bottom: 92,
+      child: SafeArea(
+        minimum: const EdgeInsets.all(4),
+        child: Material(
+          key: const ValueKey('restore-prop-chat-bubble'),
+          elevation: 14,
+          color: app_colors.AppColors.bgPanel,
+          shape: const CircleBorder(
+            side: BorderSide(color: app_colors.AppColors.gold, width: 1.5),
+          ),
+          child: IconButton(
+            tooltip: 'Bring back PROP CHAT bubble',
+            onPressed: _showChatBubble,
+            icon: const Icon(
+              Icons.add_comment_rounded,
+              color: app_colors.AppColors.gold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildLeftSidebar() {
     return AnimatedBuilder(
       animation: _activeSlipController,
@@ -1809,6 +1835,10 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
               !_chatFloating &&
               _selectedPage != AppPage.propChat)
             _buildChatBubble(constraints),
+          if (!_chatBubbleVisible &&
+              !_chatFloating &&
+              _selectedPage != AppPage.propChat)
+            _buildChatRestoreButton(),
         ],
       ),
     );
@@ -8195,6 +8225,19 @@ List<PropData> deprioritizeSoccerForAllSports(
   return [...otherSports, ...soccer];
 }
 
+List<PropData> pinSelectedPropsFirst(
+  List<PropData> props,
+  Set<String> pinnedPropIds,
+) {
+  if (props.isEmpty || pinnedPropIds.isEmpty) return props;
+  final pinned = <PropData>[];
+  final remaining = <PropData>[];
+  for (final prop in props) {
+    (pinnedPropIds.contains(prop.id) ? pinned : remaining).add(prop);
+  }
+  return [...pinned, ...remaining];
+}
+
 DateTime? propScheduledStart(PropData prop) {
   final raw = prop.startTimeUtc.isNotEmpty
       ? prop.startTimeUtc
@@ -9067,41 +9110,74 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   child: InkWell(
                     key: ValueKey('prop-every-prop-${prop.id}'),
                     onTap: () => widget.onPropFocused?.call(prop),
-                    customBorder: const CircleBorder(),
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.gold.withValues(alpha: .12),
-                        border: Border.all(color: AppColors.gold, width: 1.5),
-                      ),
-                      child: const Text(
-                        'EP',
-                        style: TextStyle(
-                          color: AppColors.gold,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w900,
+                    borderRadius: BorderRadius.circular(99),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 28,
+                          height: 28,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.gold.withValues(alpha: .12),
+                            border: Border.all(
+                              color: AppColors.gold,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: const Text(
+                            'EP',
+                            style: TextStyle(
+                              color: AppColors.gold,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 5),
+                        const Text(
+                          'EVERY PROP',
+                          style: TextStyle(
+                            color: AppColors.gold,
+                            fontSize: 7,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 9),
-              InkWell(
-                onTap: () => setState(() {
-                  if (!_favoritePropIds.add(prop.id)) {
-                    _favoritePropIds.remove(prop.id);
-                  }
-                }),
-                child: Icon(
-                  _favoritePropIds.contains(prop.id)
-                      ? Icons.star
-                      : Icons.star_border,
-                  color: AppColors.gold,
-                  size: 19,
+              const SizedBox(width: 7),
+              Tooltip(
+                message: _favoritePropIds.contains(prop.id)
+                    ? 'Unpin this prop'
+                    : 'Pin this prop to the top',
+                child: Semantics(
+                  button: true,
+                  label: _favoritePropIds.contains(prop.id)
+                      ? 'Unpin ${prop.player} prop from the top'
+                      : 'Pin ${prop.player} prop to the top',
+                  child: InkWell(
+                    key: ValueKey('pin-prop-${prop.id}'),
+                    onTap: () => setState(() {
+                      if (!_favoritePropIds.add(prop.id)) {
+                        _favoritePropIds.remove(prop.id);
+                      }
+                    }),
+                    customBorder: const CircleBorder(),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        _favoritePropIds.contains(prop.id)
+                            ? Icons.star
+                            : Icons.star_border,
+                        color: AppColors.gold,
+                        size: 19,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -10478,6 +10554,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(covariant PropGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedSite != widget.selectedSite) {
+      _favoritePropIds.clear();
+    }
     if (oldWidget.sportFilter != widget.sportFilter ||
         oldWidget.selectedSite != widget.selectedSite ||
         oldWidget.selectedCategory != widget.selectedCategory ||
@@ -10817,6 +10896,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   ? widget.sportFilter
                   : widget.displaySportFilter,
             );
+            _favoritePropIds.retainAll(props.map((prop) => prop.id).toSet());
+            sortedProps = pinSelectedPropsFirst(sortedProps, _favoritePropIds);
             if (props.isEmpty) {
               _scheduleAutomaticRetry();
               final hasFilters =

@@ -98,6 +98,16 @@ void main() {
     );
   });
 
+  test('a starred prop is pinned first without changing remaining order', () {
+    final first = PropData.fromJson(_prop('first', 'NBA'));
+    final pinned = PropData.fromJson(_prop('pinned', 'WNBA'));
+    final last = PropData.fromJson(_prop('last', 'NFL'));
+
+    final ordered = pinSelectedPropsFirst([first, pinned, last], {'pinned'});
+
+    expect(ordered.map((prop) => prop.id), ['pinned', 'first', 'last']);
+  });
+
   test(
     'broad startup query falls back to the last stable device feed',
     () async {
