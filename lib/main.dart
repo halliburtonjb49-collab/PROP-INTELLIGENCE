@@ -8958,6 +8958,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final projection = prop.projection;
     final delta = projection == null ? null : projection - prop.line;
     final market = _marketCategory(prop);
+    final badgeExplanation = hasModelPick
+        ? 'MODEL PICK: backed by a verified projection model with a calculated model value and confidence.'
+        : 'SYSTEM LEAN: an informational direction based on recent results or sportsbook pricing when a verified model projection is unavailable.';
 
     Widget metric(String label, String value) => Expanded(
       child: Column(
@@ -9061,78 +9064,119 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 5),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        prop.player,
-                        maxLines: 1,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 5),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              prop.player,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              prop.matchup,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        market,
+                        key: ValueKey('prop-market-label-${prop.id}'),
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 13,
+                          fontSize: 9,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Tooltip(
+                message: badgeExplanation,
+                triggerMode: TooltipTriggerMode.tap,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color:
+                        (hasModelPick
+                                ? app_colors.AppColors.blue
+                                : AppColors.gold)
+                            .withValues(alpha: .10),
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(
+                      color: hasModelPick
+                          ? app_colors.AppColors.blue
+                          : AppColors.gold,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            hasModelPick ? 'MODEL PICK' : 'SYSTEM LEAN',
+                            style: TextStyle(
+                              color: hasModelPick
+                                  ? app_colors.AppColors.blue
+                                  : AppColors.gold,
+                              fontSize: 7,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          Icon(
+                            Icons.info_outline_rounded,
+                            color: hasModelPick
+                                ? app_colors.AppColors.blue
+                                : AppColors.gold,
+                            size: 10,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
                       Text(
-                        prop.matchup,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.muted,
-                          fontSize: 8,
+                        advisedSide == null
+                            ? prop.line.toStringAsFixed(1)
+                            : '${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} ${prop.line.toStringAsFixed(1)}',
+                        style: TextStyle(
+                          color: hasModelPick
+                              ? app_colors.AppColors.blue
+                              : AppColors.gold,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-                decoration: BoxDecoration(
-                  color:
-                      (hasModelPick
-                              ? app_colors.AppColors.blue
-                              : AppColors.gold)
-                          .withValues(alpha: .10),
-                  borderRadius: BorderRadius.circular(9),
-                  border: Border.all(
-                    color: hasModelPick
-                        ? app_colors.AppColors.blue
-                        : AppColors.gold,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      hasModelPick ? 'MODEL PICK' : 'SYSTEM LEAN',
-                      style: TextStyle(
-                        color: hasModelPick
-                            ? app_colors.AppColors.blue
-                            : AppColors.gold,
-                        fontSize: 7,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      advisedSide == null
-                          ? prop.line.toStringAsFixed(1)
-                          : '${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} ${prop.line.toStringAsFixed(1)}',
-                      style: TextStyle(
-                        color: hasModelPick
-                            ? app_colors.AppColors.blue
-                            : AppColors.gold,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ],
