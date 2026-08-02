@@ -1460,6 +1460,25 @@ class _CompactSlipLegRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: Color(0xFF8996A6), fontSize: 8),
                 ),
+                if (leg.projection != null || leg.confidence != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    [
+                      if (leg.projection != null)
+                        'MODEL ${leg.projection!.toStringAsFixed(2)}',
+                      if (leg.confidence != null) 'CONF ${leg.confidence}%',
+                      if (leg.projectionSource.trim().isNotEmpty)
+                        leg.projectionSource.trim().toUpperCase(),
+                    ].join('  •  '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: brand_colors.AppColors.gold,
+                      fontSize: 7,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 7),
                 Row(
                   children: [
@@ -1858,6 +1877,29 @@ class _SavedSlipCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 6),
+                        if (leg.projection != null || leg.confidence != null)
+                          Text(
+                            [
+                              if (leg.projection != null)
+                                'ENTRY MODEL ${leg.projection!.toStringAsFixed(2)}',
+                              if (leg.confidence != null)
+                                'CONFIDENCE ${leg.confidence}%',
+                              if (leg.projectionSource.trim().isNotEmpty)
+                                leg.projectionSource.trim().toUpperCase(),
+                              if (leg.projectionModelVersion.trim().isNotEmpty)
+                                'V${leg.projectionModelVersion.trim()}',
+                              leg.projectionCalibrated
+                                  ? 'CALIBRATED'
+                                  : 'UNCALIBRATED',
+                            ].join('  •  '),
+                            style: const TextStyle(
+                              color: brand_colors.AppColors.gold,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        if (leg.projection != null || leg.confidence != null)
+                          const SizedBox(height: 6),
                         if (showDetails && leg.closingLine == null)
                           const Text(
                             'CLV: pending closing line',

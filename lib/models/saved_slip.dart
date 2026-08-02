@@ -16,6 +16,11 @@ class SavedSlipLeg {
   final bool? beatClosingLine;
   final String side;
   final double? odds;
+  final double? projection;
+  final int? confidence;
+  final String projectionSource;
+  final String projectionModelVersion;
+  final bool projectionCalibrated;
   final String customLabel;
   final String manualNote;
   final String gameStatus;
@@ -44,6 +49,11 @@ class SavedSlipLeg {
     this.beatClosingLine,
     required this.side,
     this.odds,
+    this.projection,
+    this.confidence,
+    this.projectionSource = '',
+    this.projectionModelVersion = '',
+    this.projectionCalibrated = false,
     this.customLabel = '',
     this.manualNote = '',
     this.gameStatus = 'scheduled',
@@ -77,6 +87,12 @@ class SavedSlipLeg {
       beatClosingLine: json['beat_closing_line'] as bool?,
       side: json['side']?.toString() ?? '',
       odds: (json['odds'] as num?)?.toDouble(),
+      projection: (json['projection'] as num?)?.toDouble(),
+      confidence: (json['confidence'] as num?)?.toInt(),
+      projectionSource: json['projection_source']?.toString() ?? '',
+      projectionModelVersion:
+          json['projection_model_version']?.toString() ?? '',
+      projectionCalibrated: json['projection_calibrated'] as bool? ?? false,
       customLabel: json['custom_label']?.toString() ?? '',
       manualNote: json['manual_note']?.toString() ?? '',
       gameStatus: json['game_status']?.toString() ?? 'scheduled',

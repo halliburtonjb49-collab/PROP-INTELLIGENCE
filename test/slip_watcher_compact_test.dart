@@ -50,6 +50,11 @@ void main() {
             line: 1.5,
             entryLine: 1.5,
             side: 'OVER',
+            projection: 1.92,
+            confidence: 64,
+            projectionSource: 'verified model',
+            projectionModelVersion: '2026.8',
+            projectionCalibrated: true,
           ),
           SavedSlipLeg(
             propId: 'prop-2',
@@ -98,6 +103,10 @@ void main() {
     expect(find.text('Test Player'), findsOneWidget);
     expect(find.text('Second Player'), findsOneWidget);
     expect(find.text('Third Player'), findsOneWidget);
+    expect(
+      find.text('MODEL 1.92  •  CONF 64%  •  VERIFIED MODEL'),
+      findsOneWidget,
+    );
     expect(find.byType(LinearProgressIndicator), findsNWidgets(3));
     expect(find.text('PROFIT KEEPER'), findsNothing);
     expect(find.textContaining('UPDATING SLIP RESULTS'), findsNothing);
