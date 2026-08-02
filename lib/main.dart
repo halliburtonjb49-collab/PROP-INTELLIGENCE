@@ -3523,22 +3523,26 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   String _propMarket(PropData prop) {
-    return (prop.market.isNotEmpty
-            ? prop.market
-            : prop.marketName.isNotEmpty
-            ? prop.marketName
-            : prop.statType.isNotEmpty
-            ? prop.statType
-            : prop.category.isNotEmpty
-            ? prop.category
-            : prop.propType.isNotEmpty
-            ? prop.propType
-            : prop.displayMarket.isNotEmpty
-            ? prop.displayMarket
-            : prop.marketKey.isNotEmpty
-            ? prop.marketKey
-            : '')
-        .toString();
+    final candidates = [
+      prop.market,
+      prop.marketName,
+      prop.statType,
+      prop.category,
+      prop.propType,
+      prop.displayMarket,
+      prop.marketKey,
+    ];
+    return candidates.firstWhere(
+      (value) =>
+          value.trim().isNotEmpty &&
+          !const {
+            'other',
+            'unknown',
+            'n/a',
+            'na',
+          }.contains(value.trim().toLowerCase()),
+      orElse: () => '',
+    );
   }
 
   bool _containsAny(String value, List<String> matches) {
@@ -3668,6 +3672,9 @@ class _MainDashboardState extends State<MainDashboard> {
         .trim();
 
     if (sport == 'NBA' || sport == 'WNBA') {
+      if (_containsAny(raw, ['DOUBLE DOUBLE', 'DOUBLEDOUBLE'])) {
+        return 'DOUBLE DOUBLE';
+      }
       if (_containsAny(raw, [
         'PRA',
         'PTS REB AST',
@@ -3675,6 +3682,42 @@ class _MainDashboardState extends State<MainDashboard> {
         'POINTS + REBOUNDS + ASSISTS',
       ])) {
         return 'PRA';
+      }
+      if (_containsAny(raw, [
+        'POINTS REBOUNDS',
+        'POINTS + REBOUNDS',
+        'PTS REB',
+      ])) {
+        return 'POINTS + REBOUNDS';
+      }
+      if (_containsAny(raw, [
+        'POINTS ASSISTS',
+        'POINTS + ASSISTS',
+        'PTS AST',
+      ])) {
+        return 'POINTS + ASSISTS';
+      }
+      if (_containsAny(raw, [
+        'REBOUNDS ASSISTS',
+        'REBOUNDS + ASSISTS',
+        'REB AST',
+      ])) {
+        return 'REBOUNDS + ASSISTS';
+      }
+      if (raw.contains('FANTASY SCORE')) {
+        return 'FANTASY SCORE';
+      }
+      if (_containsAny(raw, ['BLOCKS STEALS', 'BLOCKS + STEALS', 'STOCKS'])) {
+        return 'BLOCKS + STEALS';
+      }
+      if (raw.contains('TURNOVER')) {
+        return 'TURNOVERS';
+      }
+      if (_containsAny(raw, ['FREE THROWS MADE', 'FREE THROWS'])) {
+        return 'FREE THROWS MADE';
+      }
+      if (_containsAny(raw, ['FIELD GOALS MADE', 'FIELD GOALS'])) {
+        return 'FIELD GOALS MADE';
       }
       if (_containsAny(raw, [
         '3 POINTERS MADE',
@@ -3889,7 +3932,7 @@ class _MainDashboardState extends State<MainDashboard> {
         return 'METHOD OF VICTORY';
       }
     }
-    return 'OTHER';
+    return raw;
   }
 
   List<PropData> get _propsBeforeCategoryFilter {
@@ -8444,22 +8487,26 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   }
 
   String _propMarket(PropData prop) {
-    return (prop.market.isNotEmpty
-            ? prop.market
-            : prop.marketName.isNotEmpty
-            ? prop.marketName
-            : prop.statType.isNotEmpty
-            ? prop.statType
-            : prop.category.isNotEmpty
-            ? prop.category
-            : prop.propType.isNotEmpty
-            ? prop.propType
-            : prop.displayMarket.isNotEmpty
-            ? prop.displayMarket
-            : prop.marketKey.isNotEmpty
-            ? prop.marketKey
-            : '')
-        .toString();
+    final candidates = [
+      prop.market,
+      prop.marketName,
+      prop.statType,
+      prop.category,
+      prop.propType,
+      prop.displayMarket,
+      prop.marketKey,
+    ];
+    return candidates.firstWhere(
+      (value) =>
+          value.trim().isNotEmpty &&
+          !const {
+            'other',
+            'unknown',
+            'n/a',
+            'na',
+          }.contains(value.trim().toLowerCase()),
+      orElse: () => '',
+    );
   }
 
   bool _containsAny(String value, List<String> matches) {
@@ -8589,6 +8636,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         .trim();
 
     if (sport == 'NBA' || sport == 'WNBA') {
+      if (_containsAny(raw, ['DOUBLE DOUBLE', 'DOUBLEDOUBLE'])) {
+        return 'DOUBLE DOUBLE';
+      }
       if (_containsAny(raw, [
         'PRA',
         'PTS REB AST',
@@ -8596,6 +8646,42 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         'POINTS + REBOUNDS + ASSISTS',
       ])) {
         return 'PRA';
+      }
+      if (_containsAny(raw, [
+        'POINTS REBOUNDS',
+        'POINTS + REBOUNDS',
+        'PTS REB',
+      ])) {
+        return 'POINTS + REBOUNDS';
+      }
+      if (_containsAny(raw, [
+        'POINTS ASSISTS',
+        'POINTS + ASSISTS',
+        'PTS AST',
+      ])) {
+        return 'POINTS + ASSISTS';
+      }
+      if (_containsAny(raw, [
+        'REBOUNDS ASSISTS',
+        'REBOUNDS + ASSISTS',
+        'REB AST',
+      ])) {
+        return 'REBOUNDS + ASSISTS';
+      }
+      if (raw.contains('FANTASY SCORE')) {
+        return 'FANTASY SCORE';
+      }
+      if (_containsAny(raw, ['BLOCKS STEALS', 'BLOCKS + STEALS', 'STOCKS'])) {
+        return 'BLOCKS + STEALS';
+      }
+      if (raw.contains('TURNOVER')) {
+        return 'TURNOVERS';
+      }
+      if (_containsAny(raw, ['FREE THROWS MADE', 'FREE THROWS'])) {
+        return 'FREE THROWS MADE';
+      }
+      if (_containsAny(raw, ['FIELD GOALS MADE', 'FIELD GOALS'])) {
+        return 'FIELD GOALS MADE';
       }
       if (_containsAny(raw, [
         '3 POINTERS MADE',
@@ -8810,7 +8896,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         return 'METHOD OF VICTORY';
       }
     }
-    return 'OTHER';
+    return raw;
   }
 
   Widget _playerPlaceholder(String player, {required double size}) {
@@ -9096,21 +9182,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        market,
-                        key: ValueKey('prop-market-label-${prop.id}'),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -9201,6 +9272,23 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 150),
+                child: Text(
+                  market,
+                  key: ValueKey('prop-market-label-${prop.id}'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Tooltip(
                 message: 'Every prop for ${prop.player} on ${prop.sportsbook}',
                 child: Semantics(
