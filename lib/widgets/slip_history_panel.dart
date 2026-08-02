@@ -67,7 +67,7 @@ class _LegPhoto extends StatelessWidget {
 }
 
 /// [active] is the Slip Watcher page - unresolved slips only, with
-/// MARK WON/LOST/unlock actions. [history] is the Past Slip History page -
+/// result acknowledgement and unlock actions. [history] is the Past Slip History page -
 /// resolved (won/lost) slips only, read-only.
 enum SlipHistoryMode { active, history }
 
@@ -407,7 +407,9 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
         SnackBar(
           backgroundColor: brand_colors.AppColors.gold,
           content: Text(
-            status == 'won' ? 'Ticket marked won.' : 'Ticket marked lost.',
+            status == 'won'
+                ? 'Win acknowledged and moved to Past Tickets.'
+                : 'Ticket marked lost and moved to Past Tickets.',
             style: const TextStyle(
               color: brand_colors.AppColors.bgBase,
               fontWeight: FontWeight.w900,
@@ -1342,9 +1344,6 @@ _SlipLiveProjection? _slipLiveProjection(
   SavedSlip slip,
   Map<String, dynamic> legLiveStats,
 ) {
-  if (legLiveStats.isEmpty) {
-    return null;
-  }
   var hasLosingLeg = false;
   var allLegsDecided = true;
   for (final leg in slip.legs) {
@@ -1929,61 +1928,79 @@ class _SavedSlipCard extends StatelessWidget {
                 }),
                 if (slip.status == 'active') ...[
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 30,
-                          child: OutlinedButton(
-                            onPressed: isUpdating ? null : onWon,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: brand_colors.AppColors.gold,
-                              side: const BorderSide(
-                                color: brand_colors.AppColors.gold,
-                              ),
-                              padding: EdgeInsets.zero,
-                              visualDensity: VisualDensity.compact,
-                              textStyle: const TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            child: isUpdating
-                                ? const SizedBox.square(
-                                    dimension: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: brand_colors.AppColors.gold,
-                                    ),
-                                  )
-                                : const Text('MARK WON'),
-                          ),
+                  if (isLiveWinning)
+                    SizedBox(
+                      width: double.infinity,
+                      height: 32,
+                      child: FilledButton.icon(
+                        onPressed: isUpdating ? null : onWon,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: brand_colors.AppColors.gold,
+                          foregroundColor: brand_colors.AppColors.bgBase,
+                        ),
+                        icon: const Icon(Icons.verified_rounded, size: 16),
+                        label: const Text(
+                          'ACKNOWLEDGE WIN',
+                          style: TextStyle(fontWeight: FontWeight.w900),
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: SizedBox(
-                          height: 30,
-                          child: OutlinedButton(
-                            onPressed: isUpdating ? null : onLost,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: brand_colors.AppColors.danger,
-                              side: const BorderSide(
-                                color: brand_colors.AppColors.danger,
+                    )
+                  else
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 30,
+                            child: OutlinedButton(
+                              onPressed: isUpdating ? null : onWon,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: brand_colors.AppColors.gold,
+                                side: const BorderSide(
+                                  color: brand_colors.AppColors.gold,
+                                ),
+                                padding: EdgeInsets.zero,
+                                visualDensity: VisualDensity.compact,
+                                textStyle: const TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
-                              padding: EdgeInsets.zero,
-                              visualDensity: VisualDensity.compact,
-                              textStyle: const TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w800,
-                              ),
+                              child: isUpdating
+                                  ? const SizedBox.square(
+                                      dimension: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: brand_colors.AppColors.gold,
+                                      ),
+                                    )
+                                  : const Text('MARK WON'),
                             ),
-                            child: const Text('MARK LOST'),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: SizedBox(
+                            height: 30,
+                            child: OutlinedButton(
+                              onPressed: isUpdating ? null : onLost,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: brand_colors.AppColors.danger,
+                                side: const BorderSide(
+                                  color: brand_colors.AppColors.danger,
+                                ),
+                                padding: EdgeInsets.zero,
+                                visualDensity: VisualDensity.compact,
+                                textStyle: const TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              child: const Text('MARK LOST'),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ],
             ),

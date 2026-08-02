@@ -35,6 +35,17 @@ _postgres_init_lock = Lock()
 SELECTION_SAFETY_WINDOW = timedelta(minutes=2)
 
 
+def _status_until_winner_acknowledged(
+    graded_status: str,
+    *,
+    current_status: str = "active",
+) -> str:
+    """Keep a newly won ticket in Slip Watcher until its owner confirms it."""
+    if graded_status == "won" and current_status != "won":
+        return "active"
+    return graded_status
+
+
 def validate_slip_selection_times(
     request: SlipCreate,
     *,
@@ -672,8 +683,8 @@ def update_slip_results(
             if not changed:
                 continue
 
-            slip_status = grade_slip_status(
-                leg_statuses
+            slip_status = _status_until_winner_acknowledged(
+                grade_slip_status(leg_statuses)
             )
             connection.execute(
                 """
@@ -741,9 +752,14 @@ def reconcile_verified_slip_results(
                 statuses.append(str(leg.get("result_status", "pending")))
             if not changed:
                 continue
+            graded_status = grade_slip_status(statuses)
+            persisted_status = _status_until_winner_acknowledged(
+                graded_status,
+                current_status=str(row["status"]),
+            )
             connection.execute(
                 "UPDATE slips SET status = ?, legs_json = ? WHERE id = ?",
-                (grade_slip_status(statuses), json.dumps(legs), row["id"]),
+                (persisted_status, json.dumps(legs), row["id"]),
             )
             slips_changed += 1
     return {
@@ -896,7 +912,9 @@ def update_slip_with_stat_results(
                 str(leg.get("result_status", "pending"))
                 for leg in legs
             ]
-            slip_status = grade_slip_fn(statuses)
+            slip_status = _status_until_winner_acknowledged(
+                grade_slip_fn(statuses)
+            )
             connection.execute(
                 """
                 UPDATE slips

@@ -162,12 +162,12 @@ def test_result_updates_are_isolated_by_user(tmp_path, monkeypatch) -> None:
         [LegResultUpdate(prop_id="shared-prop", result_value=25)], user_id="user-1"
     )
     assert changed == 1
-    assert slip_service.get_slips(user_id="user-1")[0].status == "won"
+    assert slip_service.get_slips(user_id="user-1")[0].status == "active"
     assert slip_service.get_slips(user_id="user-2")[0].status == "active"
 
 
 def test_lock_watch_grade_history_lifecycle(tmp_path, monkeypatch) -> None:
-    """A locked ticket moves from active watching into settled history."""
+    """A winner remains watched until its owner acknowledges it."""
     monkeypatch.setattr(slip_service, "DATABASE_PATH", tmp_path / "slips.db")
     request = _request("lifecycle-prop")
     request.client_request_id = "lifecycle-lock-1"
@@ -182,7 +182,11 @@ def test_lock_watch_grade_history_lifecycle(tmp_path, monkeypatch) -> None:
         user_id="user-1",
     ) == 1
 
-    assert slip_service.get_slips(status="active", user_id="user-1") == []
+    still_watching = slip_service.get_slips(status="active", user_id="user-1")
+    assert [slip.id for slip in still_watching] == [locked.id]
+    assert still_watching[0].legs[0].result_status == "won"
+
+    assert slip_service.update_slip_status(locked.id, "won", user_id="user-1")
     settled = slip_service.get_slips(status="won", user_id="user-1")
     assert [slip.id for slip in settled] == [locked.id]
     assert settled[0].legs[0].result_status == "won"
