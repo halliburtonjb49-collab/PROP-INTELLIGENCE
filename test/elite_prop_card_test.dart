@@ -49,7 +49,7 @@ void main() {
     expect(find.text('BEST • Book B'), findsOneWidget);
     expect(find.text('24.5  +105'), findsOneWidget);
     expect(find.textContaining('3 books compared'), findsOneWidget);
-    expect(find.text('MARKET ORIGIN'), findsOneWidget);
+    expect(find.text('OPENING LINE'), findsOneWidget);
     expect(find.text('DISCREPANCY'), findsOneWidget);
     expect(find.text('+1.0'), findsOneWidget);
     expect(find.text('PUBLIC BETS'), findsOneWidget);

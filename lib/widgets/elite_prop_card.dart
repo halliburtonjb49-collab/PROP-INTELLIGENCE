@@ -478,7 +478,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
               runSpacing: 8,
               children: [
                 _marketMetric(
-                  'MARKET ORIGIN',
+                  'OPENING LINE',
                   originLine.toStringAsFixed(1),
                   brand_colors.AppColors.blue,
                 ),

@@ -102,7 +102,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
     if (side == null) return 'SIGNAL';
     if (prop.proSuggestionUsesModel) return 'MODEL PICK';
     if (prop.proSuggestionUsesHistoricalStats) return 'STATS LEAN';
-    return 'MARKET LEAN';
+    return 'SYSTEM LEAN';
   }
 
   double _edge(PropData prop) => prop.calculatedEdge ?? prop.edge.abs();
@@ -809,8 +809,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
             children: [
               _chip('LINEUP ${prop.lineupStatus.toUpperCase()}'),
               _chip('INJURY ${prop.injuryStatus.toUpperCase()}'),
-              if (prop.displayModelIsMarketBaseline)
-                _chip('MODEL: MARKET BASELINE'),
+              if (prop.displayModelIsMarketBaseline) _chip('MODEL: BASELINE'),
               if (prop.currentLine != 0 && prop.openingLine != 0)
                 _chip('OPEN ${prop.openingLine.toStringAsFixed(1)}'),
             ],

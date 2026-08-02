@@ -4881,7 +4881,7 @@ class _MainDashboardState extends State<MainDashboard> {
                   : 'Awaiting model projection',
             ),
             (
-              'MARKET',
+              'PROP',
               _marketCategory(focusedProp),
               '${focusedProp.line.toStringAsFixed(1)} • ${focusedProp.recommendedSide}',
             ),
@@ -8912,11 +8912,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         : null;
     final signalRatingLabel = signalRating == null
         ? 'INFO ONLY'
-        : '$signalRating% ${hasModelPick
-              ? 'MODEL'
-              : prop.proSuggestionUsesHistoricalStats
-              ? 'HIST.'
-              : 'MARKET'}';
+        : hasModelPick
+        ? '$signalRating% MODEL'
+        : prop.proSuggestionUsesHistoricalStats
+        ? '$signalRating% HIST.'
+        : '$signalRating%';
     final projection = prop.projection;
     final delta = projection == null ? null : projection - prop.line;
     final market = _marketCategory(prop);
@@ -9239,7 +9239,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     ? '${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} · MODEL'
                     : prop.proSuggestionUsesHistoricalStats
                     ? '${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} · STATS'
-                    : '${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} · MARKET',
+                    : advisedSide == PickSide.over
+                    ? 'OVER'
+                    : 'UNDER',
               ),
             ],
           ),
@@ -9250,8 +9252,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             children: [
               chip('LINEUP ${prop.lineupStatus.toUpperCase()}'),
               chip('INJURY ${prop.injuryStatus.toUpperCase()}'),
-              if (prop.displayModelIsMarketBaseline)
-                chip('MODEL: MARKET BASELINE'),
+              if (prop.displayModelIsMarketBaseline) chip('MODEL: BASELINE'),
               if (prop.openingLine != 0)
                 chip('OPEN ${prop.openingLine.toStringAsFixed(1)}'),
             ],
@@ -9261,12 +9262,12 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             hasModelPick && delta != null
                 ? 'Projection is ${delta.abs().toStringAsFixed(2)} $market ${delta >= 0 ? 'above' : 'below'} the posted line. Verify lineup and price before selecting.'
                 : advisedSide != null && prop.proSuggestionUsesMarket
-                ? 'System leans ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} from current sportsbook pricing${signalRating == null ? '' : ' ($signalRating% market signal)'}. Informational only — this is not a verified model pick.'
+                ? 'System leans ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} from current sportsbook pricing${signalRating == null ? '' : ' ($signalRating% signal)'}. Informational only — this is not a verified model pick.'
                 : advisedSide != null && prop.proSuggestionUsesHistoricalStats
                 ? 'System leans ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} from recent player results${signalRating == null ? '' : ' ($signalRating% historical hit rate)'}. Informational only — verify the live line.'
                 : prop.recommendationExplanation.isNotEmpty
                 ? prop.recommendationExplanation
-                : 'Review the live line, player status, and current market information before selecting.',
+                : 'Review the live line, player status, and current information before selecting.',
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -9324,7 +9325,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final marketEdge = calculatedEdge == null && marketLean != null
         ? (marketLean - 50).abs()
         : null;
-    final edgeLabel = calculatedEdge != null ? 'EDGE' : 'MARKET EDGE';
+    final edgeLabel = calculatedEdge != null ? 'EDGE' : 'PRICING EDGE';
     final edgeValue = calculatedEdge != null
         ? '+${calculatedEdge.toStringAsFixed(2)}'
         : marketEdge != null && marketEdge > 0
@@ -9549,7 +9550,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   : hasHistoricalLean
                   ? 'STATS LEAN: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
                   : hasMarketLean
-                  ? 'MARKET LEAN: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
+                  ? 'SYSTEM LEAN: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
                   : hasProAccess
                   ? 'NO QUALIFIED LEAN'
                   : 'PRO SUGGESTIVE PICK',
@@ -9597,7 +9598,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 : hasHistoricalLean
                 ? '${prop.projectionLabel.isEmpty ? 'Historical stats' : prop.projectionLabel} • ${prop.projectionSampleSize} games • informational only'
                 : hasMarketLean
-                ? 'Based on current market pricing (${prop.marketLeanPercentage ?? 50}%) • not an AI projection'
+                ? 'Based on current sportsbook pricing (${prop.marketLeanPercentage ?? 50}%) • not an AI projection'
                 : !hasProAccess
                 ? 'Upgrade to Pro for projections and edge metrics'
                 : prop.recommendationUnavailableReason ==
@@ -9624,7 +9625,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             hasProAccess && prop.projectionModelVersion == 'baseline-v2'
                 ? 'Experimental until 100 pregame predictions are graded'
                 : hasProAccess
-                ? 'Live market model'
+                ? 'Live pricing baseline'
                 : 'Pro intelligence is locked',
             style: const TextStyle(color: AppColors.muted, fontSize: 7),
           ),
@@ -10314,7 +10315,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 ),
                 const SizedBox(height: 5),
                 const Text(
-                  'Live market model',
+                  'Live pricing baseline',
                   style: TextStyle(color: Color(0xFF7E8B99), fontSize: 8),
                 ),
                 const SizedBox(height: 3),

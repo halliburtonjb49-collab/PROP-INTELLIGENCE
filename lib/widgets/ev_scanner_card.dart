@@ -105,7 +105,7 @@ class PositiveEvScannerCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'BET TARGET MARKET',
+                    'TARGET',
                     style: TextStyle(
                       color: Colors.grey,
                       fontSize: 10,
