@@ -8,6 +8,7 @@ from services.prop_probability_service import (
     evaluate_market,
     expected_value,
     fractional_kelly_stake,
+    choose_over_under,
     outcome_from_quantile,
     power_method_devig,
     prop_probabilities,
@@ -146,3 +147,44 @@ def test_fractional_kelly_only_sizes_positive_expected_value() -> None:
         win_probability=.50,
         decimal_odds=1.91,
     ) == 0
+
+
+def _evaluation(probability: float, *, uncertainty: float = .02, ev: float | None = 3):
+    from services.prop_probability_service import MarketEvaluation
+
+    return MarketEvaluation(
+        model_probability=probability,
+        fair_probability=probability,
+        market_probability=.5,
+        push_probability=0,
+        loss_probability=1 - probability,
+        ev_percentage=ev,
+        fair_decimal_odds=1 / probability,
+        is_positive_ev=ev is not None and ev > 0,
+        distribution="normal",
+        market_weight=.25,
+        uncertainty=uncertainty,
+        calibration_adjustment=0,
+        recommended_stake_fraction=0,
+    )
+
+
+def test_selector_compares_both_sides_and_can_choose_under() -> None:
+    decision = choose_over_under(_evaluation(.42), _evaluation(.58))
+    assert decision.side == "UNDER"
+    assert decision.confidence == 58
+
+
+def test_selector_abstains_when_signal_is_too_close_or_uncertain() -> None:
+    assert choose_over_under(_evaluation(.51), _evaluation(.49)).side == "N/A"
+    decision = choose_over_under(
+        _evaluation(.57, uncertainty=.08), _evaluation(.43)
+    )
+    assert decision.side == "N/A"
+    assert decision.reason == "uncertainty_overlaps_even_probability"
+
+
+def test_selector_requires_positive_actionable_value_when_odds_exist() -> None:
+    decision = choose_over_under(_evaluation(.58, ev=.4), _evaluation(.42, ev=-.4))
+    assert decision.side == "N/A"
+    assert decision.reason == "expected_value_below_threshold"

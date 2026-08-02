@@ -2818,6 +2818,8 @@ class _MainDashboardState extends State<MainDashboard> {
             'Model probability: ${((prop.modelProbability ?? probability) * 100).toStringAsFixed(1)}%\n'
             'Shin no-vig probability: ${prop.marketProbability == null ? '--' : '${(prop.marketProbability! * 100).toStringAsFixed(1)}%'}\n'
             'Blended fair probability: ${(probability * 100).toStringAsFixed(1)}%\n'
+            'Selection formula: ${prop.selectionMethod}\n'
+            'Uncertainty-adjusted probability: ${prop.uncertaintyAdjustedProbability == null ? '--' : '${(prop.uncertaintyAdjustedProbability! * 100).toStringAsFixed(1)}%'}\n'
             'Push probability: ${(prop.pushProbability * 100).toStringAsFixed(1)}%\n'
             'Estimated fair decimal price: ${fairDecimal == 0 ? '--' : fairDecimal.toStringAsFixed(2)}\n'
             'Expected value: ${(prop.evPercentage ?? 0) >= 0 ? '+' : ''}${(prop.evPercentage ?? 0).toStringAsFixed(1)}%\n'

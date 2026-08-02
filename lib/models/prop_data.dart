@@ -81,6 +81,9 @@ class PropData {
   final double? probabilityUncertainty;
   final double probabilityCalibrationAdjustment;
   final int probabilityCalibrationSampleSize;
+  final String selectionMethod;
+  final String selectionReason;
+  final double? uncertaintyAdjustedProbability;
   final double? fatigueMultiplier;
   final double? restDays;
   final double? paceMultiplier;
@@ -173,6 +176,9 @@ class PropData {
     this.probabilityUncertainty,
     this.probabilityCalibrationAdjustment = 0,
     this.probabilityCalibrationSampleSize = 0,
+    this.selectionMethod = 'calibrated-ensemble-v1',
+    this.selectionReason = '',
+    this.uncertaintyAdjustedProbability,
     this.fatigueMultiplier,
     this.restDays,
     this.paceMultiplier,
@@ -544,6 +550,12 @@ class PropData {
           (json['probabilityCalibrationSampleSize'] as num?)?.toInt() ??
           (json['probability_calibration_sample_size'] as num?)?.toInt() ??
           0,
+      selectionMethod:
+          json['selectionMethod']?.toString() ?? 'calibrated-ensemble-v1',
+      selectionReason: json['selectionReason']?.toString() ?? '',
+      uncertaintyAdjustedProbability: _safeDoubleOrNull(
+        json['uncertaintyAdjustedProbability'],
+      ),
       fatigueMultiplier: _safeDoubleOrNull(
         json['fatigueMultiplier'] ?? json['fatigue_multiplier'],
       ),

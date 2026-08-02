@@ -39,7 +39,7 @@ from services.projection_calibration_service import (
 	confidence_from_probability,
 	market_volatility_floor,
 )
-from services.prop_probability_service import evaluate_market, shin_method_devig
+from services.prop_probability_service import choose_over_under, evaluate_market, shin_method_devig
 from services.market_calibration_service import market_calibration_adjustment
 
 cache = PropCache(DB_PATH)
@@ -399,52 +399,87 @@ def get_props() -> list[PropResponse]:
 				under_implied,
 			)
 		market_evaluation = None
-		evaluation_side = recommended_pick
-		if (
-			projection is not None
-			and evaluation_side not in {"OVER", "UNDER"}
-			and float(projection) != line
-		):
-			evaluation_side = "OVER" if float(projection) > line else "UNDER"
-		calibration_adjustment, calibration_sample_size = (
-			market_calibration_adjustment(
-				sport_label,
-				raw_market,
-				projection_model_version,
-				evaluation_side,
-			)
+		calibration_adjustment = 0.0
+		calibration_sample_size = 0
+		selection_reason = str(
+			recommendation.get("recommendationUnavailableReason") or ""
 		)
-		if projection is not None and evaluation_side in {"OVER", "UNDER"}:
-			selected_market_probability = (
-				no_vig_over if evaluation_side == "OVER" else no_vig_under
-			)
-			selected_decimal_odds = (
-				_american_to_decimal(over_odds)
-				if evaluation_side == "OVER"
-				else _american_to_decimal(under_odds)
-			)
-			market_evaluation = evaluate_market(
-				projection=float(projection),
-				line=line,
-				volatility=float(
-					projection_volatility
-					or market_volatility_floor(sport_label, raw_market)
-				),
-				sport=sport_label,
-				market=raw_market,
-				side=evaluation_side,
-				sample_size=max(1, projection_sample_size),
-				model_calibrated=projection_calibrated,
-				empirical_hit_rate=(
-					historical_hit_rate / 100
-					if historical_hit_rate is not None
-					else None
-				),
-				sharp_probability=selected_market_probability,
-				decimal_odds=selected_decimal_odds,
-				calibration_adjustment=calibration_adjustment,
-			)
-			hit_probability = market_evaluation.fair_probability
+		selection_adjusted_probability = None
+		model_signal_allowed = bool(recommendation.get("recommendationAvailable"))
+		if projection is not None:
+			evaluations = {}
+			calibrations = {}
+			for side in ("OVER", "UNDER"):
+				adjustment, adjustment_sample = market_calibration_adjustment(
+					sport_label,
+					raw_market,
+					projection_model_version,
+					side,
+				)
+				calibrations[side] = (adjustment, adjustment_sample)
+				market_probability = no_vig_over if side == "OVER" else no_vig_under
+				decimal_odds = _american_to_decimal(
+					over_odds if side == "OVER" else under_odds
+				)
+				empirical = None
+				if historical_hit_rate is not None:
+					projection_side = "OVER" if float(projection) > line else "UNDER"
+					empirical = historical_hit_rate / 100
+					if side != projection_side:
+						empirical = 1 - empirical
+				evaluations[side] = evaluate_market(
+					projection=float(projection),
+					line=line,
+					volatility=float(
+						projection_volatility
+						or market_volatility_floor(sport_label, raw_market)
+					),
+					sport=sport_label,
+					market=raw_market,
+					side=side,
+					sample_size=max(1, projection_sample_size),
+					model_calibrated=projection_calibrated,
+					empirical_hit_rate=empirical,
+					sharp_probability=market_probability,
+					decimal_odds=decimal_odds,
+					calibration_adjustment=adjustment,
+				)
+			decision = choose_over_under(evaluations["OVER"], evaluations["UNDER"])
+			selection_reason = decision.reason
+			selection_adjusted_probability = decision.uncertainty_adjusted_probability
+			if model_signal_allowed and decision.side in {"OVER", "UNDER"}:
+				recommended_pick = decision.side
+				recommended_side = decision.side
+				market_evaluation = evaluations[decision.side]
+				calibration_adjustment, calibration_sample_size = calibrations[decision.side]
+				hit_probability = market_evaluation.fair_probability
+				adjusted_confidence = adjust_confidence_for_availability(
+					base_confidence=decision.confidence,
+					injury_status=injury_status,
+					lineup_status=lineup_status,
+				)
+				adjusted_tier = _tier_from_confidence(adjusted_confidence, decision.side)
+				recommendation.update({
+					"recommendedSide": decision.side,
+					"pickText": decision.side.title(),
+					"confidence": adjusted_confidence,
+					"tier": adjusted_tier,
+					"recommendationAvailable": True,
+					"recommendationUnavailableReason": "",
+				})
+			else:
+				recommended_pick = "N/A"
+				recommended_side = "N/A"
+				adjusted_confidence = 0
+				adjusted_tier = "No Pick"
+				recommendation.update({
+					"recommendedSide": "N/A",
+					"pickText": "No Pick",
+					"confidence": 0,
+					"tier": "No Pick",
+					"recommendationAvailable": False,
+					"recommendationUnavailableReason": selection_reason,
+				})
 
 		source_game_status = _normalize_game_status(
 			row["game_status"],
@@ -665,6 +700,9 @@ def get_props() -> list[PropResponse]:
 					else 0
 				),
 				probabilityCalibrationSampleSize=calibration_sample_size,
+				selectionMethod="calibrated-ensemble-v1",
+				selectionReason=selection_reason,
+				uncertaintyAdjustedProbability=selection_adjusted_probability,
 				recommendedStakeFraction=(
 					market_evaluation.recommended_stake_fraction
 					if market_evaluation is not None

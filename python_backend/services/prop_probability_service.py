@@ -47,6 +47,15 @@ class MarketEvaluation:
     recommended_stake_fraction: float
 
 
+@dataclass(frozen=True)
+class SelectionDecision:
+    side: str
+    confidence: int
+    reason: str
+    fair_probability: float | None
+    uncertainty_adjusted_probability: float | None
+
+
 def power_method_devig(
     over_probability: float,
     under_probability: float,
@@ -385,6 +394,50 @@ def evaluate_market(
             if decimal_odds is not None
             else 0.0
         ),
+    )
+
+
+def choose_over_under(
+    over: MarketEvaluation,
+    under: MarketEvaluation,
+    *,
+    minimum_probability: float = 0.55,
+    minimum_separation: float = 0.03,
+    minimum_expected_value_percent: float = 1.0,
+) -> SelectionDecision:
+    """Select the stronger side only when its uncertainty-adjusted edge clears gates."""
+    winner, runner_up, side = (
+        (over, under, "OVER")
+        if over.fair_probability >= under.fair_probability
+        else (under, over, "UNDER")
+    )
+    adjusted = winner.fair_probability - winner.uncertainty
+    separation = winner.fair_probability - runner_up.fair_probability
+    if winner.fair_probability < minimum_probability:
+        reason = "probability_below_threshold"
+    elif adjusted <= 0.50:
+        reason = "uncertainty_overlaps_even_probability"
+    elif separation < minimum_separation:
+        reason = "sides_too_close"
+    elif (
+        winner.ev_percentage is not None
+        and winner.ev_percentage < minimum_expected_value_percent
+    ):
+        reason = "expected_value_below_threshold"
+    else:
+        return SelectionDecision(
+            side=side,
+            confidence=round(winner.fair_probability * 100),
+            reason="ensemble_probability_and_value_clear_thresholds",
+            fair_probability=winner.fair_probability,
+            uncertainty_adjusted_probability=round(adjusted, 6),
+        )
+    return SelectionDecision(
+        side="N/A",
+        confidence=0,
+        reason=reason,
+        fair_probability=winner.fair_probability,
+        uncertainty_adjusted_probability=round(adjusted, 6),
     )
 
 
