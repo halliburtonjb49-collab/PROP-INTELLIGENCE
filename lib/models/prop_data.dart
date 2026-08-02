@@ -152,7 +152,7 @@ class PropData {
     this.opportunityStatus = 'SYSTEM_LEAN',
     this.opportunityReasons = const [],
     this.uncertaintyAdjustedEdge,
-    this.pickGrade = 'PENDING',
+    this.pickGrade = 'D',
     this.pickGradeExplanation = '',
     this.gameTime = '',
     this.gameStartTime = '',
@@ -478,7 +478,7 @@ class PropData {
       pickGrade:
           json['pickGrade']?.toString() ??
           json['pick_grade']?.toString() ??
-          'PENDING',
+          'D',
       pickGradeExplanation:
           json['pickGradeExplanation']?.toString() ??
           json['pick_grade_explanation']?.toString() ??

@@ -91,7 +91,7 @@ def evaluate_opportunity_gate(
             else "C"
         )
     else:
-        grade = "C" if score >= .65 else "D" if score >= .50 else "F"
+        grade = "C" if score >= .65 else "D"
     labels = {
         "player_unavailable": "player is unavailable",
         "lineup_not_confirmed": "lineup is not confirmed",

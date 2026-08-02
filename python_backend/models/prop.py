@@ -47,7 +47,7 @@ class PropResponse(BaseModel):
     opportunityStatus: str = "SYSTEM_LEAN"
     opportunityReasons: list[str] = Field(default_factory=list)
     uncertaintyAdjustedEdge: float | None = None
-    pickGrade: str = "PENDING"
+    pickGrade: str = "D"
     pickGradeExplanation: str = "Awaiting sufficient projection evidence."
     startTimeUtc: str = ""
     displayTime: str = ""
