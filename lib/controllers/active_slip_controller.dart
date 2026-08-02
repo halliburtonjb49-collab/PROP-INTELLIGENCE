@@ -7,11 +7,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/saved_slip.dart';
 import '../models/prop_data.dart';
 
+enum TicketSyncPhase { localDraft, syncing, synced, error }
+
 class ActiveSlipController extends ChangeNotifier {
   static const String _storageKey = 'prop_intelligence_active_slip_v1';
 
   final List<Map<String, dynamic>> _legs = [];
   bool _isLoaded = false;
+  TicketSyncPhase _syncPhase = TicketSyncPhase.localDraft;
+  DateTime? _lastSyncAt;
+  String? _lastSyncError;
+  int _syncAttempts = 0;
 
   List<Map<String, dynamic>> get legs =>
       List<Map<String, dynamic>>.unmodifiable(_legs);
@@ -19,6 +25,36 @@ class ActiveSlipController extends ChangeNotifier {
   bool get isLoaded => _isLoaded;
   bool get isEmpty => _legs.isEmpty;
   int get legCount => _legs.length;
+  TicketSyncPhase get syncPhase => _syncPhase;
+  DateTime? get lastSyncAt => _lastSyncAt;
+  String? get lastSyncError => _lastSyncError;
+  int get syncAttempts => _syncAttempts;
+
+  void markSyncing() {
+    _syncPhase = TicketSyncPhase.syncing;
+    _lastSyncError = null;
+    _syncAttempts += 1;
+    notifyListeners();
+  }
+
+  void markSynced() {
+    _syncPhase = TicketSyncPhase.synced;
+    _lastSyncAt = DateTime.now();
+    _lastSyncError = null;
+    notifyListeners();
+  }
+
+  void markSyncFailed(Object error) {
+    _syncPhase = TicketSyncPhase.error;
+    _lastSyncError = error.toString();
+    notifyListeners();
+  }
+
+  void _markLocalDraft() {
+    if (_syncPhase == TicketSyncPhase.syncing) return;
+    _syncPhase = TicketSyncPhase.localDraft;
+    _lastSyncError = null;
+  }
 
   int _lockedSlipCount = 0;
   final List<SavedSlip> _recentLockedSlips = [];
@@ -278,6 +314,7 @@ class ActiveSlipController extends ChangeNotifier {
     }
 
     if (changed) {
+      _markLocalDraft();
       _normalizePositions();
       notifyListeners();
       unawaited(_save());
@@ -292,6 +329,7 @@ class ActiveSlipController extends ChangeNotifier {
     changed = true;
     _normalizePositions();
     if (changed) {
+      _markLocalDraft();
       notifyListeners();
       unawaited(_save());
     }
@@ -302,6 +340,7 @@ class ActiveSlipController extends ChangeNotifier {
       return;
     }
     _legs.clear();
+    _markLocalDraft();
     notifyListeners();
     unawaited(_save());
   }
@@ -309,6 +348,7 @@ class ActiveSlipController extends ChangeNotifier {
   Future<void> reorder(int oldIndex, int newIndex) async {
     final leg = _legs.removeAt(oldIndex);
     _legs.insert(newIndex, leg);
+    _markLocalDraft();
     _normalizePositions();
     notifyListeners();
     unawaited(_save());
@@ -328,6 +368,7 @@ class ActiveSlipController extends ChangeNotifier {
     final oldPosition = _legs[index]['slip_position'];
     _legs[index] = Map<String, dynamic>.from(updatedLeg);
     _legs[index]['slip_position'] = oldPosition;
+    _markLocalDraft();
 
     notifyListeners();
     unawaited(_save());
@@ -371,6 +412,7 @@ class ActiveSlipController extends ChangeNotifier {
     }
 
     if (changed) {
+      _markLocalDraft();
       notifyListeners();
       unawaited(_save());
     }

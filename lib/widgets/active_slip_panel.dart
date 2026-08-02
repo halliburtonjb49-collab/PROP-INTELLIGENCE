@@ -137,12 +137,91 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [_buildSlipBody(legs)],
+                children: [
+                  _buildSyncStatus(),
+                  const SizedBox(height: 8),
+                  _buildSlipBody(legs),
+                ],
               ),
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSyncStatus() {
+    final phase = widget.controller.syncPhase;
+    final (icon, title, detail, color) = switch (phase) {
+      TicketSyncPhase.localDraft => (
+        Icons.phone_android_rounded,
+        'DRAFT SAVED ON THIS DEVICE',
+        'Lock the ticket to sync it with Slip Watcher.',
+        PropIntelligenceColors.secondaryText,
+      ),
+      TicketSyncPhase.syncing => (
+        Icons.sync_rounded,
+        'SYNCING TICKET',
+        'Keep this screen open while the lock is confirmed.',
+        PropIntelligenceColors.gold,
+      ),
+      TicketSyncPhase.synced => (
+        Icons.cloud_done_outlined,
+        'TICKET SYNCED',
+        widget.controller.lastSyncAt == null
+            ? 'The ticket is backed up.'
+            : 'Last confirmed ${TimeOfDay.fromDateTime(widget.controller.lastSyncAt!).format(context)}.',
+        PropIntelligenceColors.win,
+      ),
+      TicketSyncPhase.error => (
+        Icons.cloud_off_outlined,
+        'SYNC PAUSED — DRAFT IS SAFE',
+        'Check your connection and press lock again. Attempt ${widget.controller.syncAttempts}.',
+        PropIntelligenceColors.loss,
+      ),
+    };
+    return Semantics(
+      liveRegion: true,
+      label: '$title. $detail',
+      child: Container(
+        key: const ValueKey('ticket-sync-status'),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .08),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: color.withValues(alpha: .4)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 17),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    detail,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: PropIntelligenceColors.secondaryText,
+                      fontSize: 8,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

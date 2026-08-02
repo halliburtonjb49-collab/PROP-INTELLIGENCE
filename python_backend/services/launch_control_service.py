@@ -14,6 +14,7 @@ from services.pipeline_run_service import recent_pipeline_runs, summarize_pipeli
 from services.scoreboard_metrics_service import scoreboard_latency_snapshot
 from services.grading_review_service import grading_review_queue
 from services.provider_quality_service import provider_quality_score
+from services.model_performance_service import model_performance, operations_summary
 
 FAILED_PAYMENT_EVENTS = ("BILLING_ISSUE", "SUBSCRIPTION_PAUSED")
 
@@ -102,6 +103,19 @@ def launch_control_snapshot() -> dict[str, object]:
             "questionableCount": None,
             "error": type(exc).__name__,
         }
+    try:
+        performance = model_performance()
+        prediction_operations = operations_summary()
+    except Exception as exc:
+        performance = {
+            "sampleSize": 0,
+            "segments": [],
+            "error": type(exc).__name__,
+        }
+        prediction_operations = {
+            "databaseConfigured": database_is_configured(),
+            "error": type(exc).__name__,
+        }
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "api": {
@@ -127,5 +141,7 @@ def launch_control_snapshot() -> dict[str, object]:
         "propFreshness": acceptance["propFeed"],
         "scoreboardLatency": scoreboard_latency_snapshot(),
         "gradingReview": grading_review,
+        "modelPerformance": performance,
+        "predictionOperations": prediction_operations,
         **database_counts,
     }

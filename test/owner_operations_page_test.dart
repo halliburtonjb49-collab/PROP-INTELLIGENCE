@@ -18,6 +18,30 @@ class _FakeOperationsApi extends ApiService {
     'unsettledSlips': {'count': 1},
     'gradingReview': {'questionableCount': 1},
     'pipelines': {'activeFailures': <Map<String, dynamic>>[]},
+    'modelPerformance': {
+      'sampleSize': 120,
+      'accuracy': .61,
+      'brierScore': .22,
+      'calibrated': true,
+      'minimumCalibrationSample': 100,
+      'clv': {'sampleSize': 80, 'beatClosingLineRate': .56},
+      'qualitySegments': [
+        {
+          'sampleSize': 40,
+          'accuracy': .625,
+          'averageConfidence': .61,
+          'calibrationGap': -.015,
+          'sport': 'WNBA',
+          'category': 'POINTS',
+          'provider': 'test-provider',
+        },
+      ],
+    },
+    'predictionOperations': {
+      'databaseConfigured': true,
+      'snapshotsToday': 18,
+      'pendingPredictions': 5,
+    },
   };
 
   @override
@@ -61,6 +85,7 @@ void main() {
       find.byKey(const ValueKey('owner-operations-refresh')),
       findsOneWidget,
     );
+    expect(find.text('MODEL ACCOUNTABILITY'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.textContaining('Test Player'),
       400,

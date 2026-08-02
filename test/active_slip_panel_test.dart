@@ -52,10 +52,46 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('1-PICK ENTRY'), findsOneWidget);
+    expect(find.text('DRAFT SAVED ON THIS DEVICE'), findsOneWidget);
     expect(find.text('A Player'), findsOneWidget);
     expect(find.text('MORE 22.0'), findsOneWidget);
     expect(find.text('24 / 22 POINTS'), findsOneWidget);
     expect(find.byKey(const ValueKey('live-progress-p1')), findsOneWidget);
     expect(find.text('VIEW / LOCK ENTRY'), findsOneWidget);
+  });
+
+  testWidgets('shows actionable sync failure without removing the draft', (
+    tester,
+  ) async {
+    final controller = ActiveSlipController();
+    await controller.load();
+    await controller.addLegs([
+      {
+        'prop_id': 'p1',
+        'player': 'A Player',
+        'sport': 'NBA',
+        'market': 'points',
+        'side': 'OVER',
+        'line': 20.5,
+        'prop_site': 'FANDUEL',
+      },
+    ]);
+    controller.markSyncing();
+    controller.markSyncFailed('offline');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 700,
+            child: ActiveSlipPanel(controller: controller),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('SYNC PAUSED — DRAFT IS SAFE'), findsOneWidget);
+    expect(controller.legCount, 1);
   });
 }

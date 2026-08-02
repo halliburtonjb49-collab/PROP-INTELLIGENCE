@@ -56,6 +56,16 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
             "unsettledSlips": {"count": 6},
         },
     )
+    monkeypatch.setattr(
+        launch_control_service,
+        "model_performance",
+        lambda: {"sampleSize": 120, "accuracy": 0.6, "segments": []},
+    )
+    monkeypatch.setattr(
+        launch_control_service,
+        "operations_summary",
+        lambda: {"databaseConfigured": True, "snapshotsToday": 24},
+    )
 
     result = launch_control_service.launch_control_snapshot()
 
@@ -70,6 +80,8 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
     assert result["failedPayments"]["count"] == 0
     assert result["unsettledSlips"]["count"] == 6
     assert result["pipelines"]["healthy"] is True
+    assert result["modelPerformance"]["sampleSize"] == 120
+    assert result["predictionOperations"]["snapshotsToday"] == 24
 
 
 def test_scoreboard_latency_snapshot_records_request() -> None:

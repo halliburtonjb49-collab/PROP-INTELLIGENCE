@@ -1724,6 +1724,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     setState(() {
       _isSavingSlip = true;
     });
+    _activeSlipController.markSyncing();
 
     try {
       final response = await _apiService.saveSlip(
@@ -1736,6 +1737,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       final savedSlip = SavedSlip.fromJson(response);
       _activeSlipController.addOptimisticLockedSlip(savedSlip);
       await _activeSlipController.clear();
+      _activeSlipController.markSynced();
       if (!mounted) return;
       setState(() => _slipSelections.clear());
       SlipManager.reserveActiveSlips(_activeSlipController.recentLockedSlips);
@@ -1760,6 +1762,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         );
       }
     } catch (error) {
+      _activeSlipController.markSyncFailed(error);
       if (!mounted) {
         return;
       }
@@ -9217,12 +9220,12 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               metric(
                 'SUGGESTIVE PICK',
                 advisedSide == null
-                    ? 'NO PICK'
+                    ? 'NO SUGGESTION'
                     : hasModelPick
-                    ? 'VERIFIED'
+                    ? '${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} · MODEL'
                     : prop.proSuggestionUsesHistoricalStats
-                    ? 'STATS LEAN'
-                    : 'INFO LEAN',
+                    ? '${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} · STATS'
+                    : '${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} · MARKET',
               ),
             ],
           ),

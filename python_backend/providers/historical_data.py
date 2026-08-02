@@ -87,6 +87,32 @@ class NbaHistoricalProvider:
                 ]
         return []
 
+    def game_play_by_play(
+        self, *, game_id: str, timeout: int = 60
+    ) -> list[dict[str, object]]:
+        """Return substitution-aware events for an NBA or WNBA game.
+
+        The game id identifies the league, so these game-scoped endpoints do not
+        accept a league id. WNBA discovery must still use league_id="10".
+        """
+        endpoint = self._endpoints().PlayByPlayV2(
+            game_id=game_id,
+            timeout=timeout,
+        )
+        frames = endpoint.get_data_frames()
+        return _records(frames[0] if frames else None)
+
+    def game_box_score_players(
+        self, *, game_id: str, timeout: int = 60
+    ) -> list[dict[str, object]]:
+        """Return player rows used to establish verified starting lineups."""
+        endpoint = self._endpoints().BoxScoreTraditionalV2(
+            game_id=game_id,
+            timeout=timeout,
+        )
+        frames = endpoint.get_data_frames()
+        return _records(frames[0] if frames else None)
+
     def defensive_synergy(self, *, season: str, league_id: str, play_type: str,
                           timeout: int = 60) -> list[dict[str, object]]:
         endpoint = self._endpoints().SynergyPlayTypes(

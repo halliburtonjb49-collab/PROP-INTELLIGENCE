@@ -91,6 +91,13 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             _statusGrid(),
             const SizedBox(height: 22),
             _sectionTitle(
+              'MODEL ACCOUNTABILITY',
+              'Out-of-sample accuracy, calibration, closing-line value, and prediction coverage',
+            ),
+            const SizedBox(height: 10),
+            _modelAccountability(),
+            const SizedBox(height: 22),
+            _sectionTitle(
               'ISSUES REQUIRING REVIEW',
               'Unsettled legs and grades that need owner attention',
             ),
@@ -260,6 +267,97 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
           (review['questionableCount'] ?? 0) == 0,
         ),
         _status('Deployment', _shortVersion(api['version']), true),
+      ],
+    );
+  }
+
+  Widget _modelAccountability() {
+    final performance = _map('modelPerformance');
+    final operations = _map('predictionOperations');
+    final clv = performance['clv'] as Map? ?? const {};
+    final sample = (performance['sampleSize'] as num?)?.toInt() ?? 0;
+    final accuracy = (performance['accuracy'] as num?)?.toDouble();
+    final brier = (performance['brierScore'] as num?)?.toDouble();
+    final calibrated = performance['calibrated'] == true;
+    final beatClose = (clv['beatClosingLineRate'] as num?)?.toDouble();
+    final segments = (performance['qualitySegments'] as List? ?? const [])
+        .whereType<Map>()
+        .take(6)
+        .toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _status(
+              'Graded sample',
+              '$sample / ${performance['minimumCalibrationSample'] ?? 100}',
+              calibrated,
+              detail: calibrated ? 'Calibration active' : 'Still warming',
+            ),
+            _status(
+              'Accuracy',
+              accuracy == null
+                  ? '--'
+                  : '${(accuracy * 100).toStringAsFixed(1)}%',
+              sample > 0,
+              detail: 'Out-of-sample only',
+            ),
+            _status(
+              'Brier score',
+              brier?.toStringAsFixed(3) ?? '--',
+              brier != null,
+              detail: 'Lower is better',
+            ),
+            _status(
+              'Beat closing line',
+              beatClose == null
+                  ? '--'
+                  : '${(beatClose * 100).toStringAsFixed(1)}%',
+              beatClose != null && beatClose >= .5,
+              detail: '${clv['sampleSize'] ?? 0} captured closes',
+            ),
+            _status(
+              'Snapshots today',
+              '${operations['snapshotsToday'] ?? 0}',
+              operations['databaseConfigured'] == true,
+              detail: '${operations['pendingPredictions'] ?? 0} pending grades',
+            ),
+          ],
+        ),
+        if (segments.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text(
+            'TOP VERIFIED SEGMENTS',
+            style: TextStyle(
+              color: AppColors.gold,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 7),
+          ...segments.map((segment) {
+            final segmentAccuracy = (segment['accuracy'] as num?)?.toDouble();
+            final averageConfidence = (segment['averageConfidence'] as num?)
+                ?.toDouble();
+            final calibrationGap = (segment['calibrationGap'] as num?)
+                ?.toDouble();
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: _notice(
+                Icons.analytics_outlined,
+                '${segment['sport'] ?? '--'} | ${segment['category'] ?? '--'} | ${segment['provider'] ?? '--'}',
+                '${segment['sampleSize'] ?? 0} picks | '
+                    'accuracy ${segmentAccuracy == null ? '--' : '${(segmentAccuracy * 100).toStringAsFixed(1)}%'} | '
+                    'confidence ${averageConfidence == null ? '--' : '${(averageConfidence * 100).toStringAsFixed(1)}%'} | '
+                    'gap ${calibrationGap == null ? '--' : '${(calibrationGap * 100).toStringAsFixed(1)} pts'}',
+                AppColors.gold,
+              ),
+            );
+          }),
+        ],
       ],
     );
   }

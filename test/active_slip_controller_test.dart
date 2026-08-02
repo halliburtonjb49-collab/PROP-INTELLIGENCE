@@ -238,4 +238,22 @@ void main() {
 
     expect(controller.recentLockedSlips, isEmpty);
   });
+
+  test('ticket sync state preserves an editable draft after failure', () async {
+    final controller = ActiveSlipController();
+    await controller.load();
+    await controller.addLegs([
+      {'prop_id': 'sync-prop', 'sportsbook': 'FANDUEL'},
+    ]);
+
+    expect(controller.syncPhase, TicketSyncPhase.localDraft);
+    controller.markSyncing();
+    expect(controller.syncPhase, TicketSyncPhase.syncing);
+    expect(controller.syncAttempts, 1);
+    controller.markSyncFailed('network unavailable');
+
+    expect(controller.syncPhase, TicketSyncPhase.error);
+    expect(controller.lastSyncError, contains('network unavailable'));
+    expect(controller.legCount, 1);
+  });
 }
