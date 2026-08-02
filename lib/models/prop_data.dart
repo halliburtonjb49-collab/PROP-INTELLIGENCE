@@ -225,6 +225,20 @@ class PropData {
     return ((over > under ? over : under) / (over + under) * 100).round();
   }
 
+  /// Numeric value shown in the MODEL slot on every prop card.
+  ///
+  /// A verified/live projection is preferred, followed by the model's
+  /// pre-market projection. When neither exists, the posted line is retained
+  /// as an explicitly labelled market-anchored baseline. This keeps the card
+  /// complete without turning missing model output into a recommendation.
+  double get displayModelValue => projection ?? projectionPreMarket ?? line;
+
+  bool get displayModelIsMarketBaseline =>
+      projection == null && projectionPreMarket == null;
+
+  String get displayModelQualifier =>
+      displayModelIsMarketBaseline ? 'MARKET BASELINE' : 'MODEL OUTPUT';
+
   /// The strongest honest directional suggestion available to Pro members.
   ///
   /// Verified model output takes precedence. When a verified projection is not

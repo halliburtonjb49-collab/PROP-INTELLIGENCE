@@ -787,9 +787,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
               Expanded(
                 child: _datum(
                   'MODEL',
-                  projection == null
-                      ? 'UNAVAILABLE'
-                      : projection.toStringAsFixed(2),
+                  prop.displayModelValue.toStringAsFixed(2),
                 ),
               ),
               Expanded(child: _datum('LINE', prop.line.toStringAsFixed(1))),
@@ -811,6 +809,8 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
             children: [
               _chip('LINEUP ${prop.lineupStatus.toUpperCase()}'),
               _chip('INJURY ${prop.injuryStatus.toUpperCase()}'),
+              if (prop.displayModelIsMarketBaseline)
+                _chip('MODEL: MARKET BASELINE'),
               if (prop.currentLine != 0 && prop.openingLine != 0)
                 _chip('OPEN ${prop.openingLine.toStringAsFixed(1)}'),
             ],

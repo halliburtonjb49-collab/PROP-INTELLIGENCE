@@ -25,6 +25,31 @@ void main() {
     expect(prop.recommendedSide, 'N/A');
     expect(prop.confidence, 0);
     expect(prop.calculatedEdge, isNull);
+    expect(prop.displayModelValue, 24.5);
+    expect(prop.displayModelIsMarketBaseline, isTrue);
+    expect(prop.displayModelQualifier, 'MARKET BASELINE');
+  });
+
+  test('prefers a real pre-market model value over the line baseline', () {
+    final prop = PropData.fromJson({
+      'id': 'prop-pre-market',
+      'player': 'Test Player',
+      'sport': 'NBA',
+      'matchup': 'Away @ Home',
+      'sportsbook': 'Book',
+      'market': 'Points',
+      'line': 24.5,
+      'projectionPreMarket': 25.8,
+      'pick': 'N/A',
+      'edge': 0,
+      'imagePath': '',
+      'recommendationAvailable': false,
+    });
+
+    expect(prop.displayModelValue, 25.8);
+    expect(prop.displayModelIsMarketBaseline, isFalse);
+    expect(prop.displayModelQualifier, 'MODEL OUTPUT');
+    expect(prop.recommendationAvailable, isFalse);
   });
 
   test('recalculates card edge from projection and current line', () {

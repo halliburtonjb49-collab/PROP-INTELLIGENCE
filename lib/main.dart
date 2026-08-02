@@ -3883,240 +3883,314 @@ class _MainDashboardState extends State<MainDashboard> {
       return time != 0 ? time : _propMarket(a).compareTo(_propMarket(b));
     });
 
-    await showDialog<void>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: .66),
-      builder: (dialogContext) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: Container(
-          key: const ValueKey('same-player-props-overlay'),
-          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 680),
-          decoration: BoxDecoration(
-            color: const Color(0xFF071520).withValues(alpha: .94),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.gold, width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.gold.withValues(alpha: .18),
-                blurRadius: 28,
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 16, 8, 12),
-                child: Row(
+    final overlayScrollController = ScrollController();
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierColor: Colors.black.withValues(alpha: .66),
+        builder: (dialogContext) {
+          final mobile = MediaQuery.sizeOf(dialogContext).width < 600;
+          return SafeArea(
+            minimum: EdgeInsets.all(mobile ? 6 : 0),
+            child: Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: mobile
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: Container(
+                key: const ValueKey('same-player-props-overlay'),
+                constraints: const BoxConstraints(
+                  maxWidth: 720,
+                  maxHeight: 680,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF071520).withValues(alpha: .94),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppColors.gold, width: 1.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.gold.withValues(alpha: .18),
+                      blurRadius: 28,
+                    ),
+                  ],
+                ),
+                child: Column(
                   children: [
-                    const Icon(Icons.person_search, color: AppColors.gold),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 16, 8, 12),
+                      child: Row(
                         children: [
-                          Text(
-                            focused.player,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
+                          const Icon(
+                            Icons.person_search,
+                            color: AppColors.gold,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  focused.player,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                Text(
+                                  '${focused.sportsbook.toUpperCase()} • ${playerProps.length} available props',
+                                  style: const TextStyle(
+                                    color: AppColors.muted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Text(
-                            '${focused.sportsbook.toUpperCase()} • ${playerProps.length} available props',
-                            style: const TextStyle(
-                              color: AppColors.muted,
-                              fontSize: 11,
+                          IconButton(
+                            tooltip: 'Close',
+                            onPressed: () => Navigator.pop(dialogContext),
+                            icon: const Icon(
+                              Icons.close,
+                              color: AppColors.gold,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    IconButton(
-                      tooltip: 'Close',
-                      onPressed: () => Navigator.pop(dialogContext),
-                      icon: const Icon(Icons.close, color: AppColors.gold),
+                    const Divider(height: 1, color: AppColors.border),
+                    Expanded(
+                      child: ListView.separated(
+                        key: const ValueKey('same-player-props-scroll'),
+                        controller: overlayScrollController,
+                        primary: false,
+                        physics: const BouncingScrollPhysics(
+                          parent: AlwaysScrollableScrollPhysics(),
+                        ),
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: const EdgeInsets.all(14),
+                        itemCount: playerProps.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final prop = playerProps[index];
+                          final start = DateTime.tryParse(
+                            prop.startTimeUtc.isNotEmpty
+                                ? prop.startTimeUtc
+                                : prop.gameStartTime,
+                          )?.toLocal();
+                          final time = start == null
+                              ? prop.displayTime
+                              : '${start.month}/${start.day}/${start.year} '
+                                    '${start.hour % 12 == 0 ? 12 : start.hour % 12}:'
+                                    '${start.minute.toString().padLeft(2, '0')} '
+                                    '${start.hour >= 12 ? 'PM' : 'AM'}';
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                0xFF0B1B27,
+                              ).withValues(alpha: .78),
+                              borderRadius: BorderRadius.circular(11),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            _propMarket(prop).toUpperCase(),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${prop.matchup} • ${time.isEmpty ? 'Time pending' : time}',
+                                            style: const TextStyle(
+                                              color: AppColors.muted,
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 5),
+                                          Text(
+                                            'Over ${prop.overOdds?.round() ?? '--'}  •  Under ${prop.underOdds?.round() ?? '--'}',
+                                            style: const TextStyle(
+                                              color:
+                                                  app_colors.AppColors.silver,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.gold.withValues(
+                                          alpha: .1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(9),
+                                        border: Border.all(
+                                          color: AppColors.gold,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          _overlayModelLineMetric(
+                                            'MODEL',
+                                            prop.displayModelValue
+                                                .toStringAsFixed(2),
+                                            baseline: prop
+                                                .displayModelIsMarketBaseline,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          _overlayModelLineMetric(
+                                            'LINE',
+                                            prop.line.toStringAsFixed(1),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        key: ValueKey(
+                                          'player-overlay-over-${prop.id}',
+                                        ),
+                                        onPressed: prop.dataStale
+                                            ? null
+                                            : () {
+                                                Navigator.pop(dialogContext);
+                                                widget.onSelect(
+                                                  prop,
+                                                  PickSide.over,
+                                                );
+                                              },
+                                        icon: const Icon(
+                                          Icons.arrow_upward_rounded,
+                                          size: 16,
+                                        ),
+                                        label: Text(
+                                          'SELECT OVER ${prop.line.toStringAsFixed(1)}',
+                                        ),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: const Color(
+                                            0xFF7EE787,
+                                          ),
+                                          side: const BorderSide(
+                                            color: Color(0xFF4CAF50),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 10,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        key: ValueKey(
+                                          'player-overlay-under-${prop.id}',
+                                        ),
+                                        onPressed: prop.dataStale
+                                            ? null
+                                            : () {
+                                                Navigator.pop(dialogContext);
+                                                widget.onSelect(
+                                                  prop,
+                                                  PickSide.under,
+                                                );
+                                              },
+                                        icon: const Icon(
+                                          Icons.arrow_downward_rounded,
+                                          size: 16,
+                                        ),
+                                        label: Text(
+                                          'SELECT UNDER ${prop.line.toStringAsFixed(1)}',
+                                        ),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: const Color(
+                                            0xFFFF8A93,
+                                          ),
+                                          side: const BorderSide(
+                                            color: Color(0xFFEF5350),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 10,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(16, 8, 16, 14),
+                      child: Text(
+                        'Live lines and prices can move. Confirm the current number on the listed prop site before completing a ticket.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.muted, fontSize: 9),
+                      ),
                     ),
                   ],
                 ),
               ),
-              const Divider(height: 1, color: AppColors.border),
-              Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(14),
-                  itemCount: playerProps.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final prop = playerProps[index];
-                    final start = DateTime.tryParse(
-                      prop.startTimeUtc.isNotEmpty
-                          ? prop.startTimeUtc
-                          : prop.gameStartTime,
-                    )?.toLocal();
-                    final time = start == null
-                        ? prop.displayTime
-                        : '${start.month}/${start.day}/${start.year} '
-                              '${start.hour % 12 == 0 ? 12 : start.hour % 12}:'
-                              '${start.minute.toString().padLeft(2, '0')} '
-                              '${start.hour >= 12 ? 'PM' : 'AM'}';
-                    return Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0B1B27).withValues(alpha: .78),
-                        borderRadius: BorderRadius.circular(11),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _propMarket(prop).toUpperCase(),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${prop.matchup} • ${time.isEmpty ? 'Time pending' : time}',
-                                      style: const TextStyle(
-                                        color: AppColors.muted,
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 5),
-                                    Text(
-                                      'Over ${prop.overOdds?.round() ?? '--'}  •  Under ${prop.underOdds?.round() ?? '--'}',
-                                      style: const TextStyle(
-                                        color: app_colors.AppColors.silver,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.gold.withValues(alpha: .1),
-                                  borderRadius: BorderRadius.circular(9),
-                                  border: Border.all(color: AppColors.gold),
-                                ),
-                                child: Column(
-                                  children: [
-                                    const Text(
-                                      'LINE',
-                                      style: TextStyle(
-                                        color: AppColors.muted,
-                                        fontSize: 8,
-                                      ),
-                                    ),
-                                    Text(
-                                      prop.line.toStringAsFixed(1),
-                                      style: const TextStyle(
-                                        color: AppColors.gold,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  key: ValueKey(
-                                    'player-overlay-over-${prop.id}',
-                                  ),
-                                  onPressed: prop.dataStale
-                                      ? null
-                                      : () {
-                                          Navigator.pop(dialogContext);
-                                          widget.onSelect(prop, PickSide.over);
-                                        },
-                                  icon: const Icon(
-                                    Icons.arrow_upward_rounded,
-                                    size: 16,
-                                  ),
-                                  label: Text(
-                                    'SELECT OVER ${prop.line.toStringAsFixed(1)}',
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFF7EE787),
-                                    side: const BorderSide(
-                                      color: Color(0xFF4CAF50),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 10,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  key: ValueKey(
-                                    'player-overlay-under-${prop.id}',
-                                  ),
-                                  onPressed: prop.dataStale
-                                      ? null
-                                      : () {
-                                          Navigator.pop(dialogContext);
-                                          widget.onSelect(prop, PickSide.under);
-                                        },
-                                  icon: const Icon(
-                                    Icons.arrow_downward_rounded,
-                                    size: 16,
-                                  ),
-                                  label: Text(
-                                    'SELECT UNDER ${prop.line.toStringAsFixed(1)}',
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFFFF8A93),
-                                    side: const BorderSide(
-                                      color: Color(0xFFEF5350),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 10,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, 14),
-                child: Text(
-                  'Live lines and prices can move. Confirm the current number on the listed prop site before completing a ticket.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.muted, fontSize: 9),
-                ),
-              ),
-            ],
+            ),
+          );
+        },
+      );
+    } finally {
+      overlayScrollController.dispose();
+    }
+  }
+
+  Widget _overlayModelLineMetric(
+    String label,
+    String value, {
+    bool baseline = false,
+  }) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: AppColors.muted, fontSize: 8),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            color: AppColors.gold,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
           ),
         ),
-      ),
+        if (baseline)
+          const Text(
+            'BASELINE',
+            style: TextStyle(color: AppColors.muted, fontSize: 6),
+          ),
+      ],
     );
   }
 
@@ -8778,7 +8852,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         : null;
     final signalRatingLabel = signalRating == null
         ? 'INFO ONLY'
-        : '$signalRating% ${hasModelPick ? 'MODEL' : prop.proSuggestionUsesHistoricalStats ? 'HIST.' : 'MARKET'}';
+        : '$signalRating% ${hasModelPick
+              ? 'MODEL'
+              : prop.proSuggestionUsesHistoricalStats
+              ? 'HIST.'
+              : 'MARKET'}';
     final projection = prop.projection;
     final delta = projection == null ? null : projection - prop.line;
     final market = _marketCategory(prop);
@@ -8918,10 +8996,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
                 decoration: BoxDecoration(
-                  color: (hasModelPick
-                          ? app_colors.AppColors.blue
-                          : AppColors.gold)
-                      .withValues(alpha: .10),
+                  color:
+                      (hasModelPick
+                              ? app_colors.AppColors.blue
+                              : AppColors.gold)
+                          .withValues(alpha: .10),
                   borderRadius: BorderRadius.circular(9),
                   border: Border.all(
                     color: hasModelPick
@@ -8981,12 +9060,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 ),
               ),
               Tooltip(
-                message:
-                    'Every prop for ${prop.player} on ${prop.sportsbook}',
+                message: 'Every prop for ${prop.player} on ${prop.sportsbook}',
                 child: Semantics(
                   button: true,
-                  label:
-                      'Every prop for ${prop.player} on ${prop.sportsbook}',
+                  label: 'Every prop for ${prop.player} on ${prop.sportsbook}',
                   child: InkWell(
                     key: ValueKey('prop-every-prop-${prop.id}'),
                     onTap: () => widget.onPropFocused?.call(prop),
@@ -9055,9 +9132,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             children: [
               metric(
                 'MODEL',
-                hasProAccess && projection != null
-                    ? projection.toStringAsFixed(2)
-                    : '--',
+                hasProAccess
+                    ? prop.displayModelValue.toStringAsFixed(2)
+                    : prop.line.toStringAsFixed(2),
               ),
               metric('LINE', prop.line.toStringAsFixed(1)),
               metric('CONFIDENCE', hasProAccess ? signalRatingLabel : '--'),
@@ -9080,6 +9157,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             children: [
               chip('LINEUP ${prop.lineupStatus.toUpperCase()}'),
               chip('INJURY ${prop.injuryStatus.toUpperCase()}'),
+              if (prop.displayModelIsMarketBaseline)
+                chip('MODEL: MARKET BASELINE'),
               if (prop.openingLine != 0)
                 chip('OPEN ${prop.openingLine.toStringAsFixed(1)}'),
             ],
