@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_panel.dart';
 import '../widgets/context_help.dart';
+import '../widgets/evaluation_cohort_dashboard.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -28,6 +29,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   final ApiService _apiService = ApiService();
   late Future<List<PropData>> _propsFuture;
   Timer? _refreshTimer;
+  bool _showEvaluation = false;
 
   @override
   void initState() {
@@ -155,6 +157,27 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_showEvaluation) {
+      return Container(
+        color: AppColors.background,
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => setState(() => _showEvaluation = false),
+                icon: const Icon(Icons.arrow_back, size: 16),
+                label: const Text('MARKET ANALYTICS'),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Expanded(child: EvaluationCohortDashboard()),
+          ],
+        ),
+      );
+    }
     return Container(
       color: AppColors.background,
       padding: const EdgeInsets.all(14),
@@ -256,9 +279,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Expanded(
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -287,6 +310,15 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                         'Core shows player, sport, market, and sportsbook coverage. Pro adds projections, confidence, and edge metrics.',
                   ),
                 ],
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: () => setState(() => _showEvaluation = true),
+                  icon: const Icon(Icons.fact_check_outlined, size: 15),
+                  label: const Text('EVALUATION COHORT'),
+                ),
               ),
               const SizedBox(height: 14),
               if (widget.hasProAccess) ...[
