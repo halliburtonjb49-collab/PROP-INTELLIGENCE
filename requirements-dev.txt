@@ -1,3 +1,4 @@
 -r requirements.txt
 httpx2>=2.7,<3
 pytest>=8,<10
+Pillow>=11,<13
