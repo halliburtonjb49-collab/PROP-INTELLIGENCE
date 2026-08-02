@@ -256,4 +256,27 @@ void main() {
     expect(controller.lastSyncError, contains('network unavailable'));
     expect(controller.legCount, 1);
   });
+
+  test(
+    'failed lock can resume with the same idempotency key after restart',
+    () async {
+      final controller = ActiveSlipController();
+      await controller.load();
+      await controller.addLegs([
+        {'prop_id': 'persistent-sync', 'sportsbook': 'FANDUEL'},
+      ]);
+      final requestId = await controller.prepareSync(25);
+      controller.markSyncing();
+      controller.markSyncFailed('connection lost');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      final restored = ActiveSlipController();
+      await restored.load();
+
+      expect(restored.canRetrySync, isTrue);
+      expect(restored.pendingRequestId, requestId);
+      expect(restored.pendingStake, 25);
+      expect(restored.syncPhase, TicketSyncPhase.error);
+    },
+  );
 }

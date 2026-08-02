@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/widgets/selected_prop_slip.dart';
+import 'package:prop_intelligence/controllers/active_slip_controller.dart';
 
 void main() {
   testWidgets('active slip presents a simple review and build workflow', (
@@ -60,5 +61,35 @@ void main() {
     await tester.pump();
     expect(built, isTrue);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('failed ticket exposes an actionable sync now control', (
+    tester,
+  ) async {
+    var retried = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 340,
+            height: 760,
+            child: SelectedPropSlip(
+              props: const [],
+              syncPhase: TicketSyncPhase.error,
+              syncAttempts: 3,
+              onRetrySync: () async => retried = true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.text('SYNC PAUSED — DRAFT IS SAFE · ATTEMPT 3'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('SYNC NOW'));
+    await tester.pump();
+    expect(retried, isTrue);
   });
 }

@@ -1225,6 +1225,11 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                   onClear: _clearCurrentSlip,
                   onBuildTicket: _openLockSlipDialog,
                   isBuilding: _isSavingSlip,
+                  syncPhase: _activeSlipController.syncPhase,
+                  syncAttempts: _activeSlipController.syncAttempts,
+                  onRetrySync: _activeSlipController.canRetrySync
+                      ? _retrySlipSync
+                      : null,
                 ),
               ),
             ],
@@ -1721,6 +1726,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       return;
     }
 
+    final requestId = await _activeSlipController.prepareSync(stake);
     setState(() {
       _isSavingSlip = true;
     });
@@ -1730,6 +1736,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       final response = await _apiService.saveSlip(
         selections: selections,
         stake: stake,
+        clientRequestId: requestId,
       );
       if (!mounted) {
         return;
@@ -1788,6 +1795,13 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         });
       }
     }
+  }
+
+  Future<void> _retrySlipSync() async {
+    final stake = _activeSlipController.pendingStake;
+    final selections = _activeSlipSelections();
+    if (stake == null || selections.isEmpty) return;
+    await _saveSlip(stake, selections);
   }
 
   Future<void> _clearCurrentSlip() async {

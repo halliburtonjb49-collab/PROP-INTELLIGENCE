@@ -11,6 +11,7 @@ enum TicketSyncPhase { localDraft, syncing, synced, error }
 
 class ActiveSlipController extends ChangeNotifier {
   static const String _storageKey = 'prop_intelligence_active_slip_v1';
+  static const String _syncStorageKey = 'prop_intelligence_ticket_sync_v1';
 
   final List<Map<String, dynamic>> _legs = [];
   bool _isLoaded = false;
@@ -18,6 +19,8 @@ class ActiveSlipController extends ChangeNotifier {
   DateTime? _lastSyncAt;
   String? _lastSyncError;
   int _syncAttempts = 0;
+  String? _pendingRequestId;
+  double? _pendingStake;
 
   List<Map<String, dynamic>> get legs =>
       List<Map<String, dynamic>>.unmodifiable(_legs);
@@ -29,25 +32,45 @@ class ActiveSlipController extends ChangeNotifier {
   DateTime? get lastSyncAt => _lastSyncAt;
   String? get lastSyncError => _lastSyncError;
   int get syncAttempts => _syncAttempts;
+  String? get pendingRequestId => _pendingRequestId;
+  double? get pendingStake => _pendingStake;
+  bool get canRetrySync =>
+      _syncPhase == TicketSyncPhase.error &&
+      _legs.isNotEmpty &&
+      _pendingRequestId != null &&
+      _pendingStake != null;
+
+  Future<String> prepareSync(double stake) async {
+    _pendingRequestId ??=
+        'ticket-${DateTime.now().microsecondsSinceEpoch}-${_legs.length}';
+    _pendingStake = stake;
+    await _saveSyncState();
+    return _pendingRequestId!;
+  }
 
   void markSyncing() {
     _syncPhase = TicketSyncPhase.syncing;
     _lastSyncError = null;
     _syncAttempts += 1;
     notifyListeners();
+    unawaited(_saveSyncState());
   }
 
   void markSynced() {
     _syncPhase = TicketSyncPhase.synced;
     _lastSyncAt = DateTime.now();
     _lastSyncError = null;
+    _pendingRequestId = null;
+    _pendingStake = null;
     notifyListeners();
+    unawaited(_saveSyncState());
   }
 
   void markSyncFailed(Object error) {
     _syncPhase = TicketSyncPhase.error;
     _lastSyncError = error.toString();
     notifyListeners();
+    unawaited(_saveSyncState());
   }
 
   void _markLocalDraft() {
@@ -254,6 +277,26 @@ class ActiveSlipController extends ChangeNotifier {
       }
     }
 
+    final storedSync = preferences.getString(_syncStorageKey);
+    if (storedSync != null && storedSync.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(storedSync);
+        if (decoded is Map) {
+          _pendingRequestId = decoded['request_id']?.toString();
+          _pendingStake = (decoded['stake'] as num?)?.toDouble();
+          _syncAttempts = (decoded['attempts'] as num?)?.toInt() ?? 0;
+          if (_pendingRequestId != null &&
+              _pendingStake != null &&
+              _legs.isNotEmpty) {
+            _syncPhase = TicketSyncPhase.error;
+            _lastSyncError = 'A previous ticket lock still needs confirmation.';
+          }
+        }
+      } catch (_) {
+        await preferences.remove(_syncStorageKey);
+      }
+    }
+
     _normalizePositions();
     _isLoaded = true;
     notifyListeners();
@@ -262,6 +305,22 @@ class ActiveSlipController extends ChangeNotifier {
   Future<void> _save() async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(_storageKey, jsonEncode(_legs));
+  }
+
+  Future<void> _saveSyncState() async {
+    final preferences = await SharedPreferences.getInstance();
+    if (_pendingRequestId == null || _pendingStake == null) {
+      await preferences.remove(_syncStorageKey);
+      return;
+    }
+    await preferences.setString(
+      _syncStorageKey,
+      jsonEncode({
+        'request_id': _pendingRequestId,
+        'stake': _pendingStake,
+        'attempts': _syncAttempts,
+      }),
+    );
   }
 
   void _normalizePositions() {
@@ -340,6 +399,11 @@ class ActiveSlipController extends ChangeNotifier {
       return;
     }
     _legs.clear();
+    if (_syncPhase != TicketSyncPhase.syncing) {
+      _pendingRequestId = null;
+      _pendingStake = null;
+      unawaited(_saveSyncState());
+    }
     _markLocalDraft();
     notifyListeners();
     unawaited(_save());

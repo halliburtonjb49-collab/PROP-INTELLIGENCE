@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../controllers/active_slip_controller.dart';
 import '../theme/app_colors.dart' as brand_colors;
 
 class SelectedProp {
@@ -43,6 +44,9 @@ class SelectedPropSlip extends StatefulWidget {
   final Future<void> Function()? onClear;
   final Future<void> Function()? onBuildTicket;
   final bool isBuilding;
+  final TicketSyncPhase syncPhase;
+  final int syncAttempts;
+  final Future<void> Function()? onRetrySync;
 
   const SelectedPropSlip({
     super.key,
@@ -51,6 +55,9 @@ class SelectedPropSlip extends StatefulWidget {
     this.onClear,
     this.onBuildTicket,
     this.isBuilding = false,
+    this.syncPhase = TicketSyncPhase.localDraft,
+    this.syncAttempts = 0,
+    this.onRetrySync,
   });
 
   @override
@@ -99,6 +106,8 @@ class _SelectedPropSlipState extends State<SelectedPropSlip> {
       child: Column(
         children: [
           _buildHeader(),
+          if (widget.syncPhase != TicketSyncPhase.localDraft)
+            _buildSyncStatus(),
           Expanded(
             child: widget.props.isEmpty
                 ? _buildEmptyState()
@@ -128,6 +137,59 @@ class _SelectedPropSlipState extends State<SelectedPropSlip> {
           ),
           _buildFooter(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSyncStatus() {
+    final failed = widget.syncPhase == TicketSyncPhase.error;
+    final synced = widget.syncPhase == TicketSyncPhase.synced;
+    final color = failed
+        ? brand_colors.AppColors.danger
+        : synced
+        ? brand_colors.AppColors.success
+        : gold;
+    final title = failed
+        ? 'SYNC PAUSED — DRAFT IS SAFE'
+        : synced
+        ? 'TICKET SYNCED'
+        : 'SYNCING TICKET';
+    return Semantics(
+      liveRegion: true,
+      label: title,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .09),
+          border: Border(
+            bottom: BorderSide(color: color.withValues(alpha: .4)),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              failed ? Icons.cloud_off_outlined : Icons.sync,
+              color: color,
+              size: 16,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                failed ? '$title · ATTEMPT ${widget.syncAttempts}' : title,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            if (failed && widget.onRetrySync != null)
+              TextButton(
+                onPressed: widget.isBuilding ? null : widget.onRetrySync,
+                child: const Text('SYNC NOW'),
+              ),
+          ],
+        ),
       ),
     );
   }

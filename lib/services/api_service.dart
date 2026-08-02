@@ -1313,10 +1313,12 @@ class ApiService {
   Future<Map<String, dynamic>> saveSlip({
     required List<SlipSelection> selections,
     double stake = 0,
+    String? clientRequestId,
   }) async {
     final uri = Uri.parse('$baseUrl/api/slips');
     final legs = _buildSlipLegs(selections);
     final requestId =
+        clientRequestId ??
         'ticket-${DateTime.now().microsecondsSinceEpoch}-${legs.hashCode.abs()}';
     final requestBody = jsonEncode({
       'legs': legs,
