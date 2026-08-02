@@ -3,7 +3,7 @@ from uuid import UUID
 
 from models.intelligence import (
     AlertSnapshotRequest, CompoundAlertRequest, CorrelationRequest, DatabaseSimilarityRequest, FatigueRequest, GameScriptRequest,
-    HistoricalFeatureRequest, MatchupRequest, OfficiatingRequest, ScheduleFatigueRequest,
+    ContextResearchRequest, HistoricalFeatureRequest, MatchupRequest, OfficiatingRequest, ScheduleFatigueRequest,
     ClosingLineValueRequest, PredictionGradeRequest, PredictionSnapshotRequest, SentimentBatchRequest, SentimentEvent, SimilarityRequest,
 )
 from services.intelligence_service import (
@@ -24,6 +24,7 @@ from services.officiating_profile_service import (
     list_officiating_tracker,
 )
 from services.matchup_profile_service import get_matchup_profile
+from services.context_research_service import context_research
 from services.clv_service import closing_line_value
 from services.model_performance_service import model_performance, operations_summary
 from services.api_auth_service import require_admin
@@ -75,6 +76,11 @@ def get_officiating_tracker(sport: str = "WNBA", limit: int = 100) -> dict[str, 
 @router.post("/matchup")
 def calculate_matchup(request: MatchupRequest) -> dict[str, object]:
     return matchup_adjustment(request)
+
+
+@router.post("/context-research")
+def calculate_context_research(request: ContextResearchRequest) -> dict[str, object]:
+    return context_research(request)
 
 
 @router.get("/matchup/{sport}/{team_id}")
@@ -216,5 +222,6 @@ def capabilities() -> dict[str, object]:
     return {"features": ["fatigue", "officiating", "matchup", "correlations",
                          "gameScript", "similarity", "sentiment", "compoundAlerts",
                          "historicalFeatures", "predictionTracking", "calibration",
-                         "closingLineValue"],
-            "version": "1.3.0", "explainable": True}
+                         "closingLineValue", "contextResearch", "statSlam",
+                         "restSplits"],
+            "version": "1.4.0", "explainable": True}

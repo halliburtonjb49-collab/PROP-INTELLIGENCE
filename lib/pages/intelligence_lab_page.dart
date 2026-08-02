@@ -9,6 +9,7 @@ import '../services/live_update_service.dart';
 import '../models/slip_selection.dart';
 import '../theme/app_colors.dart';
 import '../widgets/context_help.dart';
+import '../widgets/context_research_panel.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -808,6 +809,8 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
           help:
               'Correlation estimates how two outcomes tend to move together. Positive correlation means they are more likely to hit together; negative correlation means one may work against the other.',
         ),
+        ContextResearchPanel(selection: _selectionA, sport: _analysisSport),
+        const SizedBox(height: 12),
         ElevatedButton.icon(
           onPressed: _busy ? null : () => unawaited(_run()),
           icon: const Icon(Icons.science_outlined),

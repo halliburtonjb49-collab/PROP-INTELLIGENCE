@@ -48,6 +48,16 @@ class MatchupRequest(BaseModel):
     defender_difficulty: float = Field(default=0, ge=-1, le=1)
 
 
+class ContextResearchRequest(BaseModel):
+    player: str = Field(min_length=2, max_length=120)
+    sport: Literal["NBA", "WNBA"] = "NBA"
+    metrics: list[Literal[
+        "points", "rebounds", "assists", "steals", "blocks", "threes"
+    ]] = Field(default_factory=lambda: ["points", "rebounds", "assists"], min_length=1, max_length=6)
+    threshold: float = Field(default=20, ge=0, le=250)
+    limit: int = Field(default=40, ge=5, le=100)
+
+
 class PropLegInput(BaseModel):
     id: str = ""
     player: str
