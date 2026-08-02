@@ -74,16 +74,16 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
             avg({profit}) filter(where nullif(inputs->>'entryOdds','') is not null),
             sport,market,case when hit_probability>=.7 then 'HIGH'
               when hit_probability>=.6 then 'MEDIUM' else 'BASELINE' end {base}
-            group by sport,market,7 order by count(*) desc""", (model_version,))
+            group by sport,market,8 order by count(*) desc""", (model_version,))
         segments = [_segment(row) for row in cursor.fetchall()]
         cursor.execute(f"""select count(*), count(*) filter(where hit),
             avg(power(hit_probability-case when hit then 1 else 0 end,2)),
             avg(hit_probability), sport,
             coalesce(nullif(inputs->>'category',''), market) category,
             coalesce(nullif(inputs->>'sourceProvider',''), 'unknown') provider,
-            case when hit_probability>=.8 then '80-100%'
-              when hit_probability>=.7 then '70-79%'
-              when hit_probability>=.6 then '60-69%' else 'below-60%' end confidence_range
+            case when hit_probability>=.8 then '80-100%%'
+              when hit_probability>=.7 then '70-79%%'
+              when hit_probability>=.6 then '60-69%%' else 'below-60%%' end confidence_range
             {base}
             group by sport,6,7,8 order by count(*) desc""", (model_version,))
         quality_segments = [{

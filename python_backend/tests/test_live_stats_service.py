@@ -27,6 +27,35 @@ def test_espn_completed_boxscore_grades_wnba_pra_by_matchup() -> None:
     assert snapshot.status == "Final"
 
 
+def test_espn_completed_boxscore_grades_combination_and_double_double() -> None:
+    logs = [{
+        "PLAYER_NAME": "Aliyah Boston",
+        "GAME_ID": "401857107",
+        "MATCHUP": "Indiana Fever at Minnesota Lynx",
+        "PTS": 15,
+        "REB": 11,
+        "AST": 4,
+        "STL": 1,
+        "BLK": 2,
+    }]
+    points_rebounds = _espn_snapshot_from_logs(
+        logs=logs,
+        player_name="Aliyah Boston",
+        prop_type="Player Points Rebounds",
+        event_id="401857107",
+    )
+    double_double = _espn_snapshot_from_logs(
+        logs=logs,
+        player_name="Aliyah Boston",
+        prop_type="Player Double Double",
+        event_id="401857107",
+    )
+
+    assert points_rebounds.value == 26
+    assert double_double.value == 1
+    assert double_double.completed is True
+
+
 def test_nfl_live_boxscores_are_configured() -> None:
     assert SPORT_CONFIG["NFL"]["live_boxscores_path"] == "/BoxScores/{date}"
 

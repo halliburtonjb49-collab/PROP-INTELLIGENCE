@@ -243,17 +243,36 @@ def _espn_snapshot_from_logs(
 
     row = candidates[0]
     market = normalize_prop_type(prop_type)
+    if market.startswith("player "):
+        market = market.removeprefix("player ").strip()
     keys = {
         "points": ("PTS",),
         "rebounds": ("REB",),
         "assists": ("AST",),
+        "points rebounds": ("PTS", "REB"),
+        "points assists": ("PTS", "AST"),
+        "rebounds assists": ("REB", "AST"),
         "pra": ("PTS", "REB", "AST"),
         "points rebounds assists": ("PTS", "REB", "AST"),
         "steals": ("STL",),
         "blocks": ("BLK",),
+        "blocks steals": ("BLK", "STL"),
         "three pointers made": ("FG3M",),
         "3 pointers made": ("FG3M",),
+        "threes": ("FG3M",),
     }.get(market)
+    if market == "double double":
+        counting_stats = []
+        for key in ("PTS", "REB", "AST", "STL", "BLK"):
+            try:
+                counting_stats.append(float(row.get(key) or 0))
+            except (TypeError, ValueError):
+                return LiveStatSnapshot(None, False, "missing_final_stat")
+        return LiveStatSnapshot(
+            1.0 if sum(value >= 10 for value in counting_stats) >= 2 else 0.0,
+            True,
+            "Final",
+        )
     if keys is None:
         return LiveStatSnapshot(None, False, "unsupported_market")
     values: list[float] = []

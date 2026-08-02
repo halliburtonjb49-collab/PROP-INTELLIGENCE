@@ -14,6 +14,21 @@ _loaded_at: datetime | None = None
 _adjustments: dict[tuple[str, str, str, str], tuple[float, int]] = {}
 
 
+def _eligible_adjustment(
+    *, predicted: float, actual: float, sample_size: int,
+) -> float:
+    """Correct only audit segments labeled MONITOR or RECALIBRATE."""
+    if sample_size < _MINIMUM_SAMPLE:
+        return 0.0
+    gap = predicted - actual
+    should_recalibrate = actual < 0.50 or gap > 0.08
+    should_monitor = abs(gap) > 0.05
+    if not (should_recalibrate or should_monitor):
+        return 0.0
+    reliability = min(1.0, sample_size / 200.0)
+    return max(-0.08, min(0.08, (actual - predicted) * reliability))
+
+
 def _key(
     sport: str,
     market: str,
@@ -52,10 +67,15 @@ def _refresh() -> None:
                     (_MINIMUM_SAMPLE,),
                 )
                 for sport, market, version, side, count, predicted, actual in cursor.fetchall():
-                    reliability = min(1.0, int(count) / 200.0)
-                    bias = (float(actual) - float(predicted)) * reliability
+                    adjustment = _eligible_adjustment(
+                        predicted=float(predicted),
+                        actual=float(actual),
+                        sample_size=int(count),
+                    )
+                    if adjustment == 0.0:
+                        continue
                     values[_key(str(sport), str(market), str(version), str(side))] = (
-                        max(-0.08, min(0.08, bias)),
+                        adjustment,
                         int(count),
                     )
         except Exception:
