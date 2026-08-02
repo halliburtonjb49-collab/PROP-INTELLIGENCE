@@ -15,6 +15,7 @@ from services.scoreboard_metrics_service import scoreboard_latency_snapshot
 from services.grading_review_service import grading_review_queue
 from services.provider_quality_service import provider_quality_score
 from services.model_performance_service import model_performance, operations_summary
+from services.sync_diagnostic_service import ticket_sync_diagnostic_summary
 
 FAILED_PAYMENT_EVENTS = ("BILLING_ISSUE", "SUBSCRIPTION_PAUSED")
 
@@ -143,5 +144,6 @@ def launch_control_snapshot() -> dict[str, object]:
         "gradingReview": grading_review,
         "modelPerformance": performance,
         "predictionOperations": prediction_operations,
+        "syncDiagnostics": ticket_sync_diagnostic_summary(),
         **database_counts,
     }

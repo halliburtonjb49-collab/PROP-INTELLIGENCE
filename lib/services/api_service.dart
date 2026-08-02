@@ -1375,6 +1375,24 @@ class ApiService {
     return savedSlipPayload(decoded);
   }
 
+  Future<String> sendTicketSyncDiagnostic(Map<String, Object> payload) async {
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/api/support/ticket-sync-diagnostic'),
+          headers: await _authenticatedHeaders(json: true),
+          body: jsonEncode(payload),
+        )
+        .timeout(const Duration(seconds: 20));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Diagnostic report could not be sent.');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Invalid diagnostic response.');
+    }
+    return decoded['diagnosticId']?.toString() ?? 'SYNC-RECEIVED';
+  }
+
   Future<Map<String, double>> previewSlip({
     required List<SlipSelection> selections,
     required double stake,

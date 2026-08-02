@@ -67,6 +67,8 @@ void main() {
     tester,
   ) async {
     var retried = false;
+    var reported = false;
+    var rebuilt = false;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -78,6 +80,8 @@ void main() {
               syncPhase: TicketSyncPhase.error,
               syncAttempts: 3,
               onRetrySync: () async => retried = true,
+              onSendDiagnostic: () async => reported = true,
+              onRebuildSyncState: () async => rebuilt = true,
             ),
           ),
         ),
@@ -91,5 +95,10 @@ void main() {
     await tester.tap(find.text('SYNC NOW'));
     await tester.pump();
     expect(retried, isTrue);
+    await tester.tap(find.text('SEND DIAGNOSTIC REPORT'));
+    await tester.tap(find.text('REBUILD SYNC STATE'));
+    await tester.pump();
+    expect(reported, isTrue);
+    expect(rebuilt, isTrue);
   });
 }

@@ -47,6 +47,8 @@ class SelectedPropSlip extends StatefulWidget {
   final TicketSyncPhase syncPhase;
   final int syncAttempts;
   final Future<void> Function()? onRetrySync;
+  final Future<void> Function()? onSendDiagnostic;
+  final Future<void> Function()? onRebuildSyncState;
 
   const SelectedPropSlip({
     super.key,
@@ -58,6 +60,8 @@ class SelectedPropSlip extends StatefulWidget {
     this.syncPhase = TicketSyncPhase.localDraft,
     this.syncAttempts = 0,
     this.onRetrySync,
+    this.onSendDiagnostic,
+    this.onRebuildSyncState,
   });
 
   @override
@@ -165,28 +169,53 @@ class _SelectedPropSlipState extends State<SelectedPropSlip> {
             bottom: BorderSide(color: color.withValues(alpha: .4)),
           ),
         ),
-        child: Row(
+        child: Column(
           children: [
-            Icon(
-              failed ? Icons.cloud_off_outlined : Icons.sync,
-              color: color,
-              size: 16,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                failed ? '$title · ATTEMPT ${widget.syncAttempts}' : title,
-                style: TextStyle(
+            Row(
+              children: [
+                Icon(
+                  failed ? Icons.cloud_off_outlined : Icons.sync,
                   color: color,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
+                  size: 16,
                 ),
-              ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    failed ? '$title · ATTEMPT ${widget.syncAttempts}' : title,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                if (failed && widget.onRetrySync != null)
+                  TextButton(
+                    onPressed: widget.isBuilding ? null : widget.onRetrySync,
+                    child: const Text('SYNC NOW'),
+                  ),
+              ],
             ),
-            if (failed && widget.onRetrySync != null)
-              TextButton(
-                onPressed: widget.isBuilding ? null : widget.onRetrySync,
-                child: const Text('SYNC NOW'),
+            if (failed &&
+                (widget.onSendDiagnostic != null ||
+                    widget.onRebuildSyncState != null))
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  spacing: 4,
+                  children: [
+                    if (widget.onSendDiagnostic != null)
+                      TextButton(
+                        onPressed: widget.onSendDiagnostic,
+                        child: const Text('SEND DIAGNOSTIC REPORT'),
+                      ),
+                    if (widget.onRebuildSyncState != null)
+                      TextButton(
+                        onPressed: widget.onRebuildSyncState,
+                        child: const Text('REBUILD SYNC STATE'),
+                      ),
+                  ],
+                ),
               ),
           ],
         ),

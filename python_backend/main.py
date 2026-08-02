@@ -147,6 +147,8 @@ from services.slip_service import (
 )
 from services.live_stats_service import get_live_player_stat_snapshot
 from services.multi_sport_grading_service import grade_active_slips
+from models.sync_diagnostic import TicketSyncDiagnostic
+from services.sync_diagnostic_service import record_ticket_sync_diagnostic
 from services.result_reconciliation_service import reconcile_user_slips
 from services.prediction_automation_service import prediction_calibration_report
 from services.runtime_readiness_service import runtime_readiness
@@ -3150,6 +3152,14 @@ def preview_slip(
 			2,
 		),
 	}
+
+
+@app.post("/api/support/ticket-sync-diagnostic")
+def submit_ticket_sync_diagnostic(
+	request: TicketSyncDiagnostic,
+	user_id: str = Depends(require_user_id),
+) -> dict[str, object]:
+	return record_ticket_sync_diagnostic(request, user_id=user_id)
 
 
 @app.post("/api/slips")

@@ -279,4 +279,26 @@ void main() {
       expect(restored.syncPhase, TicketSyncPhase.error);
     },
   );
+
+  test('diagnostic is categorized and rebuild preserves draft picks', () async {
+    final controller = ActiveSlipController();
+    await controller.load();
+    await controller.addLegs([
+      {'prop_id': 'safe-draft', 'sportsbook': 'FANDUEL'},
+    ]);
+    await controller.prepareSync(20);
+    controller.markSyncing();
+    controller.markSyncFailed('Failed to fetch because the connection dropped');
+
+    final diagnostic = controller.syncDiagnosticPayload(platform: 'web');
+    expect(diagnostic['error_category'], 'network');
+    expect(diagnostic.containsKey('stake'), isFalse);
+    expect(diagnostic.containsKey('legs'), isFalse);
+
+    await controller.rebuildSyncState();
+    expect(controller.syncPhase, TicketSyncPhase.localDraft);
+    expect(controller.legCount, 1);
+    expect(controller.pendingRequestId, isNull);
+    expect(controller.pendingStake, isNull);
+  });
 }

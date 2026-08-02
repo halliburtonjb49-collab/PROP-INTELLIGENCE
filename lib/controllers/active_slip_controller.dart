@@ -40,6 +40,53 @@ class ActiveSlipController extends ChangeNotifier {
       _pendingRequestId != null &&
       _pendingStake != null;
 
+  Map<String, Object> syncDiagnosticPayload({required String platform}) => {
+    'phase': _syncPhase.name,
+    'error_category': _syncErrorCategory(),
+    'attempts': _syncAttempts,
+    'client_request_id': _pendingRequestId ?? '',
+    'platform': platform,
+  };
+
+  String _syncErrorCategory() {
+    final error = (_lastSyncError ?? '').toLowerCase();
+    if (error.contains('401') ||
+        error.contains('auth') ||
+        error.contains('session')) {
+      return 'authentication';
+    }
+    if (error.contains('409') ||
+        error.contains('conflict') ||
+        error.contains('already locked')) {
+      return 'conflict';
+    }
+    if (error.contains('timeout') || error.contains('timed out')) {
+      return 'timeout';
+    }
+    if (error.contains('network') ||
+        error.contains('connection') ||
+        error.contains('fetch')) {
+      return 'network';
+    }
+    if (error.contains('500') ||
+        error.contains('502') ||
+        error.contains('503') ||
+        error.contains('server')) {
+      return 'server';
+    }
+    return 'unknown';
+  }
+
+  Future<void> rebuildSyncState() async {
+    _syncPhase = TicketSyncPhase.localDraft;
+    _lastSyncError = null;
+    _pendingRequestId = null;
+    _pendingStake = null;
+    _syncAttempts = 0;
+    await _saveSyncState();
+    notifyListeners();
+  }
+
   Future<String> prepareSync(double stake) async {
     _pendingRequestId ??=
         'ticket-${DateTime.now().microsecondsSinceEpoch}-${_legs.length}';

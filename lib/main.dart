@@ -1230,6 +1230,14 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                   onRetrySync: _activeSlipController.canRetrySync
                       ? _retrySlipSync
                       : null,
+                  onSendDiagnostic:
+                      _activeSlipController.syncPhase == TicketSyncPhase.error
+                      ? _sendTicketSyncDiagnostic
+                      : null,
+                  onRebuildSyncState:
+                      _activeSlipController.syncPhase == TicketSyncPhase.error
+                      ? _rebuildTicketSyncState
+                      : null,
                 ),
               ),
             ],
@@ -1802,6 +1810,38 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     final selections = _activeSlipSelections();
     if (stake == null || selections.isEmpty) return;
     await _saveSlip(stake, selections);
+  }
+
+  Future<void> _sendTicketSyncDiagnostic() async {
+    try {
+      final platform = kIsWeb ? 'web' : defaultTargetPlatform.name;
+      final id = await _apiService.sendTicketSyncDiagnostic(
+        _activeSlipController.syncDiagnosticPayload(platform: platform),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Diagnostic report sent. Reference: $id')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Diagnostic report could not be sent. Your draft is still safe.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _rebuildTicketSyncState() async {
+    await _activeSlipController.rebuildSyncState();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Sync state rebuilt. Your draft picks were preserved.'),
+      ),
+    );
   }
 
   Future<void> _clearCurrentSlip() async {

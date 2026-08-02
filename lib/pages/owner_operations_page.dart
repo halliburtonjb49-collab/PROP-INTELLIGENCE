@@ -214,6 +214,12 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     final payments = _map('failedPayments');
     final slips = _map('unsettledSlips');
     final review = _map('gradingReview');
+    final syncDiagnostics = _map('syncDiagnostics');
+    final syncCategories = (syncDiagnostics['categories'] as List? ?? const [])
+        .whereType<Map>()
+        .take(3)
+        .map((item) => '${item['category']}: ${item['count']}')
+        .join(' | ');
     return Wrap(
       spacing: 10,
       runSpacing: 10,
@@ -265,6 +271,14 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
           'Questionable grades',
           '${review['questionableCount'] ?? '--'}',
           (review['questionableCount'] ?? 0) == 0,
+        ),
+        _status(
+          'Ticket sync reports',
+          '${syncDiagnostics['last24Hours'] ?? 0} today',
+          (syncDiagnostics['last24Hours'] ?? 0) == 0,
+          detail: syncCategories.isEmpty
+              ? 'No reports in 7 days'
+              : syncCategories,
         ),
         _status('Deployment', _shortVersion(api['version']), true),
       ],
