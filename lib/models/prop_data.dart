@@ -51,6 +51,8 @@ class PropData {
   final String opportunityStatus;
   final List<String> opportunityReasons;
   final double? uncertaintyAdjustedEdge;
+  final String pickGrade;
+  final String pickGradeExplanation;
   final String gameTime;
   final String gameStartTime;
   final double line;
@@ -150,6 +152,8 @@ class PropData {
     this.opportunityStatus = 'SYSTEM_LEAN',
     this.opportunityReasons = const [],
     this.uncertaintyAdjustedEdge,
+    this.pickGrade = 'PENDING',
+    this.pickGradeExplanation = '',
     this.gameTime = '',
     this.gameStartTime = '',
     required this.line,
@@ -471,6 +475,14 @@ class PropData {
       uncertaintyAdjustedEdge: _safeDoubleOrNull(
         json['uncertaintyAdjustedEdge'] ?? json['uncertainty_adjusted_edge'],
       ),
+      pickGrade:
+          json['pickGrade']?.toString() ??
+          json['pick_grade']?.toString() ??
+          'PENDING',
+      pickGradeExplanation:
+          json['pickGradeExplanation']?.toString() ??
+          json['pick_grade_explanation']?.toString() ??
+          '',
       gameTime:
           json['game_time']?.toString() ?? json['gameTime']?.toString() ?? '',
       gameStartTime:

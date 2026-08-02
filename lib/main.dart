@@ -9433,6 +9433,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               if (!hasModelPick && prop.proSuggestionUsesMarket)
                 chip('EVIDENCE: SPORTSBOOK PRICING'),
               if (prop.displayModelIsMarketBaseline) chip('MODEL: BASELINE'),
+              if (hasProAccess) chip('PICK GRADE ${prop.pickGrade}'),
               if (prop.openingLine != 0)
                 chip('OPEN ${prop.openingLine.toStringAsFixed(1)}'),
             ],
@@ -9445,6 +9446,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 ? 'System leans ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} from current sportsbook pricing${signalRating == null ? '' : ' ($signalRating% signal)'}. Informational only — this is not a verified model pick.'
                 : advisedSide != null && prop.proSuggestionUsesHistoricalStats
                 ? 'System leans ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} from recent player results${signalRating == null ? '' : ' ($signalRating% historical hit rate)'}. Informational only — verify the live line.'
+                : prop.pickGradeExplanation.isNotEmpty
+                ? prop.pickGradeExplanation
                 : prop.recommendationExplanation.isNotEmpty
                 ? prop.recommendationExplanation
                 : 'Review the live line, player status, and current information before selecting.',
@@ -9763,8 +9766,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   hasProAccess && confidence > 0 ? '$confidence%' : '--',
                 ),
                 intelligenceMetric(
-                  'TIER',
-                  hasProAccess ? prop.tier.toUpperCase() : '--',
+                  'PICK GRADE',
+                  hasProAccess ? prop.pickGrade.toUpperCase() : '--',
                 ),
               ],
             ),
@@ -9787,6 +9790,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 : prop.recommendationUnavailableReason ==
                       'model_signal_below_threshold'
                 ? 'Baseline projection available • no qualified edge'
+                : prop.pickGradeExplanation.isNotEmpty
+                ? 'GRADE ${prop.pickGrade} • ${prop.pickGradeExplanation}'
                 : 'Projection data pending',
             style: const TextStyle(color: AppColors.muted, fontSize: 7.5),
           ),

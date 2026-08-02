@@ -170,21 +170,38 @@ def _evaluation(probability: float, *, uncertainty: float = .02, ev: float | Non
 
 
 def test_selector_compares_both_sides_and_can_choose_under() -> None:
-    decision = choose_over_under(_evaluation(.42), _evaluation(.58))
+    decision = choose_over_under(
+        _evaluation(.40, uncertainty=.01),
+        _evaluation(.60, uncertainty=.01),
+    )
     assert decision.side == "UNDER"
-    assert decision.confidence == 58
+    assert decision.confidence == 59
+
+
+def test_selector_displays_uncertainty_adjusted_not_raw_confidence() -> None:
+    decision = choose_over_under(
+        _evaluation(.38, uncertainty=.02),
+        _evaluation(.62, uncertainty=.03),
+    )
+    assert decision.side == "UNDER"
+    assert decision.fair_probability == .62
+    assert decision.uncertainty_adjusted_probability == .59
+    assert decision.confidence == 59
 
 
 def test_selector_abstains_when_signal_is_too_close_or_uncertain() -> None:
     assert choose_over_under(_evaluation(.51), _evaluation(.49)).side == "N/A"
     decision = choose_over_under(
-        _evaluation(.57, uncertainty=.08), _evaluation(.43)
+        _evaluation(.60, uncertainty=.08), _evaluation(.40)
     )
     assert decision.side == "N/A"
     assert decision.reason == "uncertainty_overlaps_even_probability"
 
 
 def test_selector_requires_positive_actionable_value_when_odds_exist() -> None:
-    decision = choose_over_under(_evaluation(.58, ev=.4), _evaluation(.42, ev=-.4))
+    decision = choose_over_under(
+        _evaluation(.62, uncertainty=.02, ev=.4),
+        _evaluation(.38, uncertainty=.02, ev=-.4),
+    )
     assert decision.side == "N/A"
     assert decision.reason == "expected_value_below_threshold"

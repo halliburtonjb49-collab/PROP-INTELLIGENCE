@@ -109,6 +109,9 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
                 signed = prop.edgeSigned or (prop.recommendationEdge if side == "OVER" else -prop.recommendationEdge)
                 projection = prop.line + signed
             probability = (
+                float(prop.uncertaintyAdjustedProbability)
+                if prop.uncertaintyAdjustedProbability is not None
+                else
                 float(prop.fairProbability)
                 if prop.fairProbability is not None
                 else max(.5, min(.95, prop.confidence / 100))

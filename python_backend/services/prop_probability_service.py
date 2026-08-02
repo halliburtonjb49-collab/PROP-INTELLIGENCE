@@ -401,8 +401,9 @@ def choose_over_under(
     over: MarketEvaluation,
     under: MarketEvaluation,
     *,
-    minimum_probability: float = 0.55,
-    minimum_separation: float = 0.03,
+    minimum_probability: float = 0.58,
+    minimum_uncertainty_adjusted_probability: float = 0.58,
+    minimum_separation: float = 0.04,
     minimum_expected_value_percent: float = 1.0,
 ) -> SelectionDecision:
     """Select the stronger side only when its uncertainty-adjusted edge clears gates."""
@@ -415,7 +416,7 @@ def choose_over_under(
     separation = winner.fair_probability - runner_up.fair_probability
     if winner.fair_probability < minimum_probability:
         reason = "probability_below_threshold"
-    elif adjusted <= 0.50:
+    elif adjusted < minimum_uncertainty_adjusted_probability:
         reason = "uncertainty_overlaps_even_probability"
     elif separation < minimum_separation:
         reason = "sides_too_close"
@@ -427,7 +428,7 @@ def choose_over_under(
     else:
         return SelectionDecision(
             side=side,
-            confidence=round(winner.fair_probability * 100),
+            confidence=round(adjusted * 100),
             reason="ensemble_probability_and_value_clear_thresholds",
             fair_probability=winner.fair_probability,
             uncertainty_adjusted_probability=round(adjusted, 6),

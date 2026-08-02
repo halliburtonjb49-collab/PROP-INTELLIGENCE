@@ -114,7 +114,7 @@ def test_missing_sample_metadata_does_not_overwrite_verified_tier() -> None:
 
     apply_projection_context(prop)
 
-    assert prop.confidence == 62
+    assert prop.confidence == 0
     assert prop.tier == "No Pick"
     assert prop.recommendationAvailable is False
     assert "insufficient_projection_sample" in prop.opportunityReasons

@@ -18,6 +18,8 @@ def test_opportunity_gate_blocks_today_style_weak_point_signal() -> None:
     assert gate.normalized_edge == .1109
     assert "probability_below_action_threshold" in gate.reasons
     assert "opportunity_context_incomplete" in gate.reasons
+    assert gate.grade == "F"
+    assert "Pick remains visible" in gate.explanation
 
 
 def test_opportunity_gate_allows_complete_strong_signal() -> None:
@@ -35,3 +37,24 @@ def test_opportunity_gate_allows_complete_strong_signal() -> None:
     assert gate.actionable is True
     assert gate.status == "MODEL_PICK"
     assert gate.reasons == ()
+    assert gate.adjusted_probability == .64
+    assert gate.grade == "B"
+
+
+def test_missing_context_penalizes_but_does_not_erase_exceptional_signal() -> None:
+    gate = evaluate_opportunity_gate(
+        projection=28,
+        line=24.5,
+        volatility=5,
+        probability=.72,
+        sample_size=20,
+        data_quality_score=.9,
+        injury_status="unknown",
+        lineup_status="unknown",
+        context_values=(None, None, None, None),
+    )
+    assert gate.actionable is True
+    assert gate.adjusted_probability == .63
+    assert "lineup_not_confirmed" in gate.reasons
+    assert "opportunity_context_incomplete" in gate.reasons
+    assert gate.grade == "B"

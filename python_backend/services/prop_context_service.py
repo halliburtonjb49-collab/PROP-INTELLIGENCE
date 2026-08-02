@@ -58,6 +58,10 @@ def apply_projection_context(prop: object) -> None:
         prop.pick = "N/A"
         prop.pickText = "No Pick"
         prop.confidence = 0
+        prop.pickGrade = "D"
+        prop.pickGradeExplanation = (
+            "Pick remains visible, but the player is currently unavailable."
+        )
         return
     context = ProjectionContext(
         workload_multiplier=(
@@ -84,6 +88,10 @@ def apply_projection_context(prop: object) -> None:
         prop.recommendedSide = "N/A"
         prop.pick = "N/A"
         prop.pickText = "No Pick"
+        prop.pickGrade = "D"
+        prop.pickGradeExplanation = (
+            "Pick remains visible, but the projection does not separate from the line."
+        )
         return
     over_side = side == "OVER"
     projection_sample_size = max(
@@ -129,8 +137,12 @@ def apply_projection_context(prop: object) -> None:
     prop.probabilityMethod = evaluation.distribution
     prop.probabilityMarketWeight = evaluation.market_weight
     prop.probabilityUncertainty = evaluation.uncertainty
+    conservative_probability = max(
+        0.0, min(1.0, probability - evaluation.uncertainty)
+    )
+    prop.uncertaintyAdjustedProbability = round(conservative_probability, 6)
     prop.probabilityCalibrationAdjustment = evaluation.calibration_adjustment
-    calculated_confidence = confidence_from_probability(probability)
+    calculated_confidence = confidence_from_probability(conservative_probability)
     prop.recommendedSide = side.title()
     prop.pick = side
     prop.pickText = f"{side.title()} {line:g}"
@@ -163,7 +175,7 @@ def apply_projection_context(prop: object) -> None:
         projection=float(getattr(prop, "projection", 0) or 0),
         line=line,
         volatility=getattr(prop, "projectionVolatility", None),
-        probability=getattr(prop, "fairProbability", None),
+        probability=getattr(prop, "uncertaintyAdjustedProbability", None),
         sample_size=projection_sample_size,
         data_quality_score=float(getattr(prop, "dataQualityScore", 0) or 0),
         injury_status=str(getattr(prop, "injuryStatus", "unknown")),
@@ -173,12 +185,24 @@ def apply_projection_context(prop: object) -> None:
             getattr(prop, "opponentDefenseMultiplier", None),
             getattr(prop, "paceMultiplier", None),
             getattr(prop, "fatigueMultiplier", None),
+            getattr(prop, "matchupMultiplier", None),
         ),
     )
     prop.opportunityScore = gate.score
     prop.opportunityStatus = gate.status
     prop.opportunityReasons = list(gate.reasons)
     prop.uncertaintyAdjustedEdge = gate.normalized_edge
+    prop.pickGrade = gate.grade
+    prop.pickGradeExplanation = gate.explanation
+    if gate.adjusted_probability is not None:
+        prop.uncertaintyAdjustedProbability = gate.adjusted_probability
+        prop.confidence = confidence_from_probability(gate.adjusted_probability)
+        if gate.actionable:
+            prop.tier = (
+                "Premium" if prop.confidence >= 65
+                else "Strong" if prop.confidence >= 60
+                else "Lean"
+            )
     if not gate.actionable:
         prop.recommendationAvailable = False
         prop.recommendationUnavailableReason = gate.reasons[0]
@@ -186,6 +210,7 @@ def apply_projection_context(prop: object) -> None:
         prop.pick = "N/A"
         prop.pickText = "No Pick"
         prop.tier = "No Pick"
+        prop.confidence = 0
 
 
 def enrich_props(props: list[object]) -> None:
