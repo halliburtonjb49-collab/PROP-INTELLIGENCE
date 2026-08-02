@@ -14,6 +14,7 @@ from services.projection_calibration_service import (
 from services.prop_probability_service import evaluate_market
 from services.projection_formula_service import blend_projection_with_market
 from services.opportunity_gate_service import evaluate_opportunity_gate
+from services.opportunity_projection_service import basketball_opportunities
 
 logger = logging.getLogger(__name__)
 
@@ -67,11 +68,14 @@ def apply_projection_context(prop: object) -> None:
         workload_multiplier=(
             float(getattr(prop, "fatigueMultiplier", None) or 1)
             * float(getattr(prop, "usageMultiplier", None) or 1)
+            * float(getattr(prop, "wowyMultiplier", None) or 1)
+            * float(getattr(prop, "opportunityMultiplier", None) or 1)
         ),
         opponent_multiplier=(
             float(getattr(prop, "matchupMultiplier", None) or 1)
             * float(getattr(prop, "opponentDefenseMultiplier", None) or 1)
             * float(getattr(prop, "paceMultiplier", None) or 1)
+            * float(getattr(prop, "gameScriptMultiplier", None) or 1)
         ),
         availability_multiplier=availability,
         venue_multiplier=float(getattr(prop, "homeAwayMultiplier", None) or 1),
@@ -186,6 +190,9 @@ def apply_projection_context(prop: object) -> None:
             getattr(prop, "paceMultiplier", None),
             getattr(prop, "fatigueMultiplier", None),
             getattr(prop, "matchupMultiplier", None),
+            getattr(prop, "opportunityMultiplier", None),
+            getattr(prop, "wowyMultiplier", None),
+            getattr(prop, "gameScriptMultiplier", None),
         ),
     )
     prop.opportunityScore = gate.score
@@ -224,6 +231,13 @@ def enrich_props(props: list[object]) -> None:
     prop_ids = sorted({str(getattr(prop, "id", "")) for prop in props if getattr(prop, "id", "")})
     fatigue: dict[str, list[tuple[datetime, tuple[object, ...]]]] = {}
     sentiment: dict[str, tuple[object, ...]] = {}
+    opportunities: dict[tuple[str, str], object] = {}
+    for sport in {str(getattr(prop, "sport", "")).upper() for prop in props}:
+        if sport not in {"NBA", "WNBA"}:
+            continue
+        names = sorted({str(getattr(prop, "player", "")) for prop in props if str(getattr(prop, "sport", "")).upper() == sport})
+        for name, opportunity in basketball_opportunities(names, sport).items():
+            opportunities[(sport, name)] = opportunity
     try:
         with get_database_pool().connection() as connection, connection.cursor() as cursor:
             if player_ids:
@@ -248,6 +262,20 @@ def enrich_props(props: list[object]) -> None:
         return
 
     for prop in props:
+        opportunity = opportunities.get((
+            str(getattr(prop, "sport", "")).upper(),
+            str(getattr(prop, "player", "")).lower(),
+        ))
+        if opportunity is not None:
+            prop.projectedOpportunity = opportunity.projected_volume
+            prop.opportunityUnit = opportunity.unit
+            prop.opportunitySampleSize = opportunity.sample_size
+            prop.opportunityVolatility = opportunity.volatility
+            prop.opportunityMultiplier = opportunity.multiplier
+            prop.opportunityConfidence = opportunity.confidence
+            prop.opportunitySource = opportunity.source
+            prop.roleStatus = opportunity.role
+            prop.roleChange = opportunity.role_change
         start_raw = str(getattr(prop, "startTimeUtc", ""))
         try:
             start = datetime.fromisoformat(start_raw.replace("Z", "+00:00"))

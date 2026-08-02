@@ -95,6 +95,17 @@ class PropData {
   final double? paceMultiplier;
   final double? opponentDefenseMultiplier;
   final double? usageMultiplier;
+  final double? projectedOpportunity;
+  final String opportunityUnit;
+  final int opportunitySampleSize;
+  final double? opportunityVolatility;
+  final double? opportunityMultiplier;
+  final double? opportunityConfidence;
+  final String opportunitySource;
+  final String roleStatus;
+  final String roleChange;
+  final double? wowyMultiplier;
+  final double? gameScriptMultiplier;
   final double? homeAwayMultiplier;
   final double? matchupMultiplier;
   final String matchupContext;
@@ -196,6 +207,17 @@ class PropData {
     this.paceMultiplier,
     this.opponentDefenseMultiplier,
     this.usageMultiplier,
+    this.projectedOpportunity,
+    this.opportunityUnit = '',
+    this.opportunitySampleSize = 0,
+    this.opportunityVolatility,
+    this.opportunityMultiplier,
+    this.opportunityConfidence,
+    this.opportunitySource = '',
+    this.roleStatus = 'UNKNOWN',
+    this.roleChange = 'UNKNOWN',
+    this.wowyMultiplier,
+    this.gameScriptMultiplier,
     this.homeAwayMultiplier,
     this.matchupMultiplier,
     this.matchupContext = '',
@@ -621,6 +643,44 @@ class PropData {
       ),
       usageMultiplier: _safeDoubleOrNull(
         json['usageMultiplier'] ?? json['usage_multiplier'],
+      ),
+      projectedOpportunity: _safeDoubleOrNull(
+        json['projectedOpportunity'] ?? json['projected_opportunity'],
+      ),
+      opportunityUnit:
+          json['opportunityUnit']?.toString() ??
+          json['opportunity_unit']?.toString() ??
+          '',
+      opportunitySampleSize:
+          (json['opportunitySampleSize'] as num?)?.toInt() ??
+          int.tryParse('${json['opportunity_sample_size']}') ??
+          0,
+      opportunityVolatility: _safeDoubleOrNull(
+        json['opportunityVolatility'] ?? json['opportunity_volatility'],
+      ),
+      opportunityMultiplier: _safeDoubleOrNull(
+        json['opportunityMultiplier'] ?? json['opportunity_multiplier'],
+      ),
+      opportunityConfidence: _safeDoubleOrNull(
+        json['opportunityConfidence'] ?? json['opportunity_confidence'],
+      ),
+      opportunitySource:
+          json['opportunitySource']?.toString() ??
+          json['opportunity_source']?.toString() ??
+          '',
+      roleStatus:
+          json['roleStatus']?.toString() ??
+          json['role_status']?.toString() ??
+          'UNKNOWN',
+      roleChange:
+          json['roleChange']?.toString() ??
+          json['role_change']?.toString() ??
+          'UNKNOWN',
+      wowyMultiplier: _safeDoubleOrNull(
+        json['wowyMultiplier'] ?? json['wowy_multiplier'],
+      ),
+      gameScriptMultiplier: _safeDoubleOrNull(
+        json['gameScriptMultiplier'] ?? json['game_script_multiplier'],
       ),
       homeAwayMultiplier: _safeDoubleOrNull(
         json['homeAwayMultiplier'] ?? json['home_away_multiplier'],

@@ -9434,6 +9434,14 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 chip('EVIDENCE: SPORTSBOOK PRICING'),
               if (prop.displayModelIsMarketBaseline) chip('MODEL: BASELINE'),
               if (hasProAccess) chip('PICK GRADE ${prop.pickGrade}'),
+              if (hasProAccess && prop.projectedOpportunity != null)
+                chip(
+                  'PROJECTED ${prop.projectedOpportunity!.toStringAsFixed(1)} ${prop.opportunityUnit}',
+                ),
+              if (hasProAccess && prop.roleStatus != 'UNKNOWN')
+                chip('ROLE ${prop.roleStatus.replaceAll('_', ' ')}'),
+              if (hasProAccess && prop.roleChange != 'UNKNOWN')
+                chip('ROLE TREND ${prop.roleChange.replaceAll('_', ' ')}'),
               if (prop.openingLine != 0)
                 chip('OPEN ${prop.openingLine.toStringAsFixed(1)}'),
             ],

@@ -119,6 +119,7 @@ class _ModelResultsAuditDashboardState
                           'propType': 'PROP TYPE',
                           'confidenceTier': 'CONFIDENCE',
                           'side': 'OVER / UNDER',
+                          'opportunityRole': 'OPPORTUNITY ROLE',
                         }.entries
                         .map((item) => _dimensionChoice(item.key, item.value))
                         .toList(),

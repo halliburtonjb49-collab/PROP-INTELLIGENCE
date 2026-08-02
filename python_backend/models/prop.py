@@ -111,6 +111,17 @@ class PropResponse(BaseModel):
     paceMultiplier: float | None = None
     opponentDefenseMultiplier: float | None = None
     usageMultiplier: float | None = None
+    projectedOpportunity: float | None = None
+    opportunityUnit: str = ""
+    opportunitySampleSize: int = 0
+    opportunityVolatility: float | None = None
+    opportunityMultiplier: float | None = None
+    opportunityConfidence: float | None = None
+    opportunitySource: str = ""
+    roleStatus: str = "UNKNOWN"
+    roleChange: str = "UNKNOWN"
+    wowyMultiplier: float | None = None
+    gameScriptMultiplier: float | None = None
     homeAwayMultiplier: float | None = None
     travelMiles: float | None = None
     timezoneChangeHours: float | None = None
