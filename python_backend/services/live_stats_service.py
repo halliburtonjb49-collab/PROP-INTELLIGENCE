@@ -96,6 +96,7 @@ class LiveStatSnapshot:
     value: float | None
     completed: bool
     status: str = ""
+    source: str = ""
 
 
 def get_live_player_stat(
@@ -168,7 +169,10 @@ def get_live_player_stat_snapshot(
             value = extract_prop_value(player_row, prop_type)
             if value is not None:
                 return LiveStatSnapshot(
-                    value, _game_completed(game), _game_status(game),
+                    value,
+                    _game_completed(game),
+                    _game_status(game),
+                    "sportsdata.io",
                 )
 
     if sport_key in {"NBA", "WNBA"}:
@@ -272,6 +276,7 @@ def _espn_snapshot_from_logs(
             1.0 if sum(value >= 10 for value in counting_stats) >= 2 else 0.0,
             True,
             "Final",
+            "espn",
         )
     if keys is None:
         return LiveStatSnapshot(None, False, "unsupported_market")
@@ -281,7 +286,7 @@ def _espn_snapshot_from_logs(
             values.append(float(row[key]))
         except (KeyError, TypeError, ValueError):
             return LiveStatSnapshot(None, False, "missing_final_stat")
-    return LiveStatSnapshot(sum(values), True, "Final")
+    return LiveStatSnapshot(sum(values), True, "Final", "espn")
 
 
 def _normalize_matchup_identity(value: object) -> str:

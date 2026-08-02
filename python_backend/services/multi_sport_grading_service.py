@@ -1,7 +1,7 @@
 """Automatic grading for sports with an authoritative live-stat provider."""
 
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 
 from models.slip import LegResultUpdate
 from services.live_stats_service import get_live_player_stat_snapshot
@@ -46,6 +46,9 @@ def grade_active_slips(*, user_id: str) -> dict[str, object]:
             updates[leg.prop_id] = LegResultUpdate(
                 prop_id=leg.prop_id,
                 result_value=snapshot.value,
+                result_verified=True,
+                result_source=snapshot.source or "authoritative-final-boxscore",
+                result_verified_at=datetime.now(timezone.utc).isoformat(),
             )
             graded[sport] += 1
 

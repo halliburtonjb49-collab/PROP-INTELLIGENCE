@@ -78,6 +78,9 @@ class SlipPreview(BaseModel):
 class LegResultUpdate(BaseModel):
     prop_id: str
     result_value: float
+    result_verified: bool = False
+    result_source: str = ""
+    result_verified_at: str = ""
 
 
 class ClosingLineUpdate(BaseModel):

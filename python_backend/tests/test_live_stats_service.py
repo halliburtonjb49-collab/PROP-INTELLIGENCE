@@ -25,6 +25,7 @@ def test_espn_completed_boxscore_grades_wnba_pra_by_matchup() -> None:
     assert snapshot.value == 31
     assert snapshot.completed is True
     assert snapshot.status == "Final"
+    assert snapshot.source == "espn"
 
 
 def test_espn_completed_boxscore_grades_combination_and_double_double() -> None:

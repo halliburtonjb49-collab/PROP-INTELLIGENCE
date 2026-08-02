@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from services.mlb_official_stats_service import official_mlb_result
+from services.live_stats_service import get_live_player_stat_snapshot
 from services.slip_service import get_slips, reconcile_verified_slip_results
 
 
@@ -23,11 +24,29 @@ def reconcile_user_slips(*, user_id: str, days: int = 14) -> dict[str, object]:
     checked = 0
     for slip in get_slips(user_id=user_id):
         for leg in slip.legs:
-            if leg.sport.strip().upper() != "MLB":
-                continue
             if not _recent_enough(leg.game_start_time, days=days):
                 continue
+            sport = leg.sport.strip().upper()
+            if sport not in {"MLB", "NBA", "WNBA"}:
+                continue
             checked += 1
+            if sport in {"NBA", "WNBA"}:
+                snapshot = get_live_player_stat_snapshot(
+                    player_name=leg.player,
+                    team="",
+                    prop_type=leg.market,
+                    sport=sport,
+                    event_id=leg.event_id,
+                    matchup=leg.matchup,
+                    game_start_time=leg.game_start_time,
+                )
+                if snapshot.value is not None and snapshot.completed:
+                    verified[leg.prop_id] = (
+                        snapshot.value,
+                        snapshot.source or "authoritative-final-boxscore",
+                        datetime.now(timezone.utc).isoformat(),
+                    )
+                continue
             result = official_mlb_result(
                 player_name=leg.player,
                 market=leg.market,
@@ -44,7 +63,7 @@ def reconcile_user_slips(*, user_id: str, days: int = 14) -> dict[str, object]:
             )
     summary = reconcile_verified_slip_results(verified, user_id=user_id)
     return {
-        "authoritative_source": "mlb-stats-api",
+        "authoritative_source": "official-final-stat-providers",
         "legs_checked": checked,
         **summary,
     }

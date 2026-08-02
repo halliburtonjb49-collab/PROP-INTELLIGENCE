@@ -633,7 +633,7 @@ def update_slip_results(
 ) -> int:
     initialize_slip_table()
     result_map = {
-        update.prop_id: update.result_value
+        update.prop_id: update
         for update in updates
     }
     changed_slips = 0
@@ -660,7 +660,8 @@ def update_slip_results(
             for leg in raw_legs:
                 prop_id = str(leg.get("prop_id", ""))
                 if prop_id in result_map:
-                    result_value = result_map[prop_id]
+                    result_update = result_map[prop_id]
+                    result_value = result_update.result_value
                     leg["result_value"] = result_value
                     leg["game_completed"] = True
                     leg["game_status"] = "completed"
@@ -669,6 +670,9 @@ def update_slip_results(
                         line=float(leg.get("line", 0)),
                         result_value=result_value,
                     )
+                    leg["result_verified"] = result_update.result_verified
+                    leg["result_source"] = result_update.result_source
+                    leg["result_verified_at"] = result_update.result_verified_at
                     changed = True
 
                 leg_statuses.append(
