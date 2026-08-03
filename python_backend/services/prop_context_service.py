@@ -17,6 +17,7 @@ from services.opportunity_gate_service import evaluate_opportunity_gate
 from services.opportunity_projection_service import basketball_opportunities
 from services.basketball_matchup_ingestion_service import enrich_basketball_matchups
 from services.context_quality_service import evaluate_context_quality
+from services.pregame_context_ingestion_service import apply_latest_pregame_context
 
 logger = logging.getLogger(__name__)
 
@@ -235,6 +236,7 @@ def enrich_props(props: list[object]) -> None:
         for prop in props:
             apply_projection_context(prop)
         return
+    apply_latest_pregame_context(props)
     enrich_basketball_matchups(props)
     player_ids = sorted({str(getattr(prop, "playerId", "")) for prop in props if getattr(prop, "playerId", "")})
     prop_ids = sorted({str(getattr(prop, "id", "")) for prop in props if getattr(prop, "id", "")})

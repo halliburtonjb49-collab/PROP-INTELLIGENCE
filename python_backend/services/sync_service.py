@@ -19,6 +19,7 @@ from services.prediction_automation_service import (
 )
 from services.compound_alert_service import evaluate_all_alerts
 from services.prop_service import get_props
+from services.pregame_context_ingestion_service import sync_pregame_context
 from config import SPORTSGAMEODDS_API_KEY
 from providers.sportsgameodds import (
     LEAGUE_TO_SPORT,
@@ -327,6 +328,7 @@ def run_global_sync_pipeline(
             "skipped": "coverage cooldown",
         } for sport_key in coverage_sports)
     results.append(sync_sportsgameodds())
+    results.extend(sync_pregame_context())
     snapshot = snapshot_live_predictions()
     results.append({"sport": "prediction_snapshots", "events": 0,
                     "props": int(snapshot.get("created", 0))})
