@@ -1407,6 +1407,9 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     if (normalized.contains('UNDERDOG')) {
       return 'UNDERDOG';
     }
+    if (normalized.contains('BETR')) {
+      return 'BETR';
+    }
     if (normalized.contains('SLEEPER')) {
       return 'SLEEPER';
     }
@@ -3295,6 +3298,9 @@ class _MainDashboardState extends State<MainDashboard> {
     if (normalized.contains('UNDERDOG')) {
       return 'UNDERDOG';
     }
+    if (normalized.contains('BETR')) {
+      return 'BETR';
+    }
     return normalized;
   }
 
@@ -3436,30 +3442,145 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
-  List<String> get _currentCategories {
+  static const Map<String, List<String>> _categoryCatalogBySport = {
+    'NBA': [
+      'POINTS',
+      'REBOUNDS',
+      'ASSISTS',
+      'PRA',
+      'POINTS + REBOUNDS',
+      'POINTS + ASSISTS',
+      'REBOUNDS + ASSISTS',
+      '3-POINTERS MADE',
+      'BLOCKS',
+      'STEALS',
+      'BLOCKS + STEALS',
+      'TURNOVERS',
+      'DOUBLE DOUBLE',
+      'FANTASY SCORE',
+    ],
+    'WNBA': [
+      'POINTS',
+      'REBOUNDS',
+      'ASSISTS',
+      'PRA',
+      'POINTS + REBOUNDS',
+      'POINTS + ASSISTS',
+      'REBOUNDS + ASSISTS',
+      '3-POINTERS MADE',
+      'BLOCKS',
+      'STEALS',
+      'BLOCKS + STEALS',
+      'TURNOVERS',
+      'DOUBLE DOUBLE',
+      'FANTASY SCORE',
+    ],
+    'NFL': [
+      'PASSING YARDS',
+      'PASSING TOUCHDOWNS',
+      'PASS ATTEMPTS',
+      'COMPLETIONS',
+      'RUSHING YARDS',
+      'RUSH ATTEMPTS',
+      'RECEIVING YARDS',
+      'RECEPTIONS',
+      'TOTAL TOUCHDOWNS',
+      'INTERCEPTIONS',
+      'TACKLES',
+      'SACKS',
+    ],
+    'MLB': [
+      'PITCHER STRIKEOUTS',
+      'PITCHER OUTS',
+      'HITS ALLOWED',
+      'EARNED RUNS',
+      'WALKS',
+      'HITS',
+      'TOTAL BASES',
+      'HOME RUNS',
+      'RBIS',
+      'RUNS',
+      'SINGLES',
+      'DOUBLES',
+      'STOLEN BASES',
+    ],
+    'NHL': [
+      'SHOTS ON GOAL',
+      'GOALS',
+      'ASSISTS',
+      'POINTS',
+      'SAVES',
+      'BLOCKED SHOTS',
+    ],
+    'SOCCER': [
+      'SHOTS',
+      'SHOTS ON TARGET',
+      'GOALS',
+      'ASSISTS',
+      'PASSES ATTEMPTED',
+      'SAVES',
+      'TACKLES',
+    ],
+    'TENNIS': [
+      'ACES',
+      'TOTAL GAMES WON',
+      'SETS WON',
+      'BREAK POINTS WON',
+      'DOUBLE FAULTS',
+      'FANTASY SCORE',
+      'MATCH WINNER',
+    ],
+    'PGA': [
+      'BIRDIES OR BETTER',
+      'ROUND SCORE',
+      'FAIRWAYS HIT',
+      'GREENS IN REGULATION',
+      'PARS',
+      'BOGEYS',
+      'HOLES PLAYED',
+      'MAKE CUT',
+    ],
+    'UFC': [
+      'SIGNIFICANT STRIKES',
+      'TOTAL STRIKES',
+      'TAKEDOWNS',
+      'TAKEDOWN ATTEMPTS',
+      'KNOCKDOWNS',
+      'SUBMISSION ATTEMPTS',
+      'CONTROL TIME',
+      'FIGHT TIME',
+    ],
+  };
+
+  String get _activeCategorySport {
     if (_selectedSite != 'ALL' && _selectedSiteSport.isNotEmpty) {
-      final counts = _selectedSportCategoryCounts;
-      final available = counts.entries.toList()
-        ..sort((left, right) {
-          final countOrder = right.value.compareTo(left.value);
-          return countOrder != 0 ? countOrder : left.key.compareTo(right.key);
-        });
-      return [
-        'ALL',
-        ...available
-            .where((entry) => entry.value > 0)
-            .map((entry) => entry.key),
-      ];
+      return _selectedSiteSport;
     }
-    final available = _categoryCounts.entries.toList()
+    return _normalizeSport(widget.sportFilter);
+  }
+
+  List<String> get _currentCategories {
+    final dynamicCounts =
+        _selectedSite != 'ALL' && _selectedSiteSport.isNotEmpty
+        ? _selectedSportCategoryCounts
+        : _categoryCounts;
+    final available = dynamicCounts.entries.toList()
       ..sort((left, right) {
         final countOrder = right.value.compareTo(left.value);
         return countOrder != 0 ? countOrder : left.key.compareTo(right.key);
       });
-    return [
-      'ALL',
+    final categories = <String>{
       ...available.where((entry) => entry.value > 0).map((entry) => entry.key),
+    };
+    final activeSport = _activeCategorySport;
+    if (activeSport.isNotEmpty && activeSport != 'ALL') {
+      categories.addAll(_categoryCatalogBySport[activeSport] ?? const []);
+    }
+    final ordered = <String>[
+      ...available.where((entry) => entry.value > 0).map((entry) => entry.key),
+      ...(_categoryCatalogBySport[activeSport] ?? const <String>[]),
     ];
+    return ['ALL', ...ordered.where(categories.remove)];
   }
 
   List<String> get _availableSiteSports {
@@ -8448,6 +8569,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     if (normalized.contains('UNDERDOG')) {
       return 'UNDERDOG';
     }
+    if (normalized.contains('BETR')) {
+      return 'BETR';
+    }
     return normalized;
   }
 
@@ -11110,6 +11234,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             _favoritePropIds.retainAll(props.map((prop) => prop.id).toSet());
             sortedProps = pinSelectedPropsFirst(sortedProps, _favoritePropIds);
             if (props.isEmpty) {
+              const specialtySports = {'PGA', 'TENNIS', 'SOCCER', 'UFC'};
+              final specialtyFeedEmpty = specialtySports.contains(
+                normalizedSport,
+              );
               final hasFilters =
                   widget.sportFilter.toUpperCase() != 'ALL' ||
                   widget.selectedSite.toUpperCase() != 'ALL' ||
@@ -11142,7 +11270,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      hasFilters
+                      specialtyFeedEmpty
+                          ? 'NO LICENSED $normalizedSport PROPS AVAILABLE'
+                          : hasFilters
                           ? 'NO LIVE PROPS MATCH THESE FILTERS'
                           : 'NO LIVE PROPS AVAILABLE',
                       textAlign: TextAlign.center,
@@ -11154,7 +11284,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      hasFilters
+                      specialtyFeedEmpty
+                          ? 'The selected prop sites returned no current $normalizedSport player props. Categories remain available above and props will appear automatically when an authorized feed posts them.'
+                          : hasFilters
                           ? 'Try ALL sports, ALL sites and ALL categories. A sport may also be between games or out of season.'
                           : 'The live provider has no current or upcoming props. Refresh again when new games are posted.',
                       textAlign: TextAlign.center,

@@ -323,7 +323,7 @@ def test_each_prop_site_reports_only_its_active_sports_and_categories(
         FakeProp("fd-wnba", "Five", "WNBA", "FANDUEL", "ASSISTS"),
         FakeProp("sl-nfl", "Six", "NFL", "SLEEPER", "PASSING YARDS"),
         FakeProp("dk-mlb", "Seven", "MLB", "DRAFTKINGS", "STRIKEOUTS"),
-        FakeProp("betr-nba", "Eight", "NBA", "BETR", "REBOUNDS"),
+        FakeProp("betr-nba", "Eight", "NBA", "BETR_US_DFS", "REBOUNDS"),
     ]
     monkeypatch.setattr(main, "_cached_prop_catalog", lambda: rows)
 

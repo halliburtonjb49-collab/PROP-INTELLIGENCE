@@ -1956,6 +1956,8 @@ def props(
 		side_filter = side.strip().lower() if is_pro else "all"
 		tier_filter = tier.strip().lower() if is_pro else "all"
 		sportsbook_filter = sportsbook.strip().lower().replace(" ", "")
+		if sportsbook_filter in {"betr", "betr_us_dfs", "betrusdfs"}:
+			sportsbook_filter = "betr"
 		sport_filter = sport.strip().lower().replace(" ", "")
 		category_filter = category.strip().lower()
 		search_filter = search.strip().lower()
@@ -2009,6 +2011,8 @@ def props(
 			).strip().lower()
 			confidence = int(prop.confidence or 0)
 			prop_sportsbook = str(prop.sportsbook or "").strip().lower().replace(" ", "")
+			if prop_sportsbook in {"betr", "betr_us_dfs", "betrusdfs"}:
+				prop_sportsbook = "betr"
 			prop_sport = str(prop.sport or "").strip().lower().replace(" ", "")
 			prop_category = str(prop.category or "").strip().lower()
 			searchable = " ".join((

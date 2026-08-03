@@ -9,6 +9,9 @@ PROP_SITE_ALIASES = {
     "draft picks": "Draft Picks",
     "draftpicks": "Draft Picks",
     "draft pick": "Draft Picks",
+    "betr": "Betr",
+    "betr picks": "Betr",
+    "betr_us_dfs": "Betr",
 }
 
 SUPPORTED_PROP_SITES = [
@@ -17,6 +20,7 @@ SUPPORTED_PROP_SITES = [
     "FanDuel",
     "Sleeper",
     "Draft Picks",
+    "Betr",
 ]
 
 DEFAULT_PROP_SITES = [
@@ -25,6 +29,7 @@ DEFAULT_PROP_SITES = [
     "FanDuel",
     "Sleeper",
     "Draft Picks",
+    "Betr",
 ]
 
 

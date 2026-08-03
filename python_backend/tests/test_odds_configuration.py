@@ -7,6 +7,8 @@ def test_default_odds_scope_targets_configured_books() -> None:
     assert regions <= {"us", "us2", "us_dfs", "eu", "uk", "au"}
     assert "draftkings" in PREFERRED_BOOKMAKERS
     assert "fanduel" in PREFERRED_BOOKMAKERS
+    assert "betr_us_dfs" in PREFERRED_BOOKMAKERS
+    assert "betr" not in PREFERRED_BOOKMAKERS
 
 
 def test_live_line_base_refresh_is_never_slower_than_two_minutes() -> None:

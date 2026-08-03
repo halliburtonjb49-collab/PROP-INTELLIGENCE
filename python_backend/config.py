@@ -60,7 +60,7 @@ PREFERRED_BOOKMAKERS = [
     bookmaker.strip().lower()
     for bookmaker in os.getenv(
         "PREFERRED_BOOKMAKERS",
-        "prizepicks,underdog,draftkings,sleeper,fanduel,betr",
+        "prizepicks,underdog,draftkings,sleeper,fanduel,betr_us_dfs",
     ).split(",")
     if bookmaker.strip()
 ]

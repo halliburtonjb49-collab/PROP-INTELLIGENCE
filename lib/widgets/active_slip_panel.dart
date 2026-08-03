@@ -3026,6 +3026,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     if (normalized.contains('UNDERDOG')) {
       return 'UNDERDOG';
     }
+    if (normalized.contains('BETR')) {
+      return 'BETR';
+    }
     if (normalized.contains('SLEEPER')) {
       return 'SLEEPER';
     }
