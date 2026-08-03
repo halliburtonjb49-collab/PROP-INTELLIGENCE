@@ -134,6 +134,8 @@ class PropResponse(BaseModel):
     directMatchupAverage: float | None = None
     directMatchupSampleSize: int = 0
     expectedPrimaryDefender: str = ""
+    expectedPrimaryDefenderConfidence: float | None = None
+    expectedPrimaryDefenderSampleSize: float | None = None
     mlbProjectedLineupMatchup: dict[str, object] | None = None
     isHome: bool | None = None
     contextDataQualityScore: float = Field(default=0.0, ge=0, le=1)

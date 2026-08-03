@@ -21,6 +21,7 @@ from database.postgres import database_is_configured, get_database_pool
 logger = logging.getLogger(__name__)
 SPORTSDATAIO_MLB = "https://api.sportsdata.io/v3/mlb/projections/json"
 SPORTRADAR_WNBA = f"https://api.sportradar.com/wnba/{SPORTRADAR_ACCESS_LEVEL}/v8/en"
+MLB_STATS_API = "https://statsapi.mlb.com/api"
 
 
 def _text(row: dict[str, object], *keys: str) -> str:
@@ -32,7 +33,7 @@ def _text(row: dict[str, object], *keys: str) -> str:
 
 
 def _name(row: dict[str, object]) -> str:
-    direct = _text(row, "Name", "PlayerName", "full_name", "FullName")
+    direct = _text(row, "Name", "PlayerName", "full_name", "FullName", "fullName")
     return direct or " ".join(filter(None, (
         _text(row, "FirstName", "first_name"),
         _text(row, "LastName", "last_name"),
@@ -89,6 +90,68 @@ def normalize_sportsdataio_mlb_lineups(payload: object) -> list[dict[str, object
                 confirmed=_bool(game, "Confirmed", "BattingOrderConfirmed"),
             ))
     return [item for item in observations if item["event_id"] and item["player_name"]]
+
+
+def normalize_official_mlb_schedule(payload: object) -> list[dict[str, object]]:
+    root = payload if isinstance(payload, dict) else {}
+    observations = []
+    for day in root.get("dates", []) if isinstance(root.get("dates"), list) else []:
+        for game in day.get("games", []) if isinstance(day, dict) else []:
+            if not isinstance(game, dict):
+                continue
+            event_id, event_time = str(game.get("gamePk") or ""), _text(game, "gameDate")
+            teams = game.get("teams") if isinstance(game.get("teams"), dict) else {}
+            for side in ("home", "away"):
+                entry = teams.get(side) if isinstance(teams.get(side), dict) else {}
+                opponent_entry = teams.get("away" if side == "home" else "home")
+                opponent_entry = opponent_entry if isinstance(opponent_entry, dict) else {}
+                pitcher = entry.get("probablePitcher")
+                team = entry.get("team") if isinstance(entry.get("team"), dict) else {}
+                opponent = opponent_entry.get("team") if isinstance(opponent_entry.get("team"), dict) else {}
+                if not isinstance(pitcher, dict):
+                    continue
+                observations.append({
+                    "sport": "MLB", "event_id": event_id, "entity_type": "LINEUP",
+                    "provider_player_id": _text(pitcher, "id"), "player_name": _name(pitcher),
+                    "team": _text(team, "abbreviation", "name"),
+                    "opponent": _text(opponent, "abbreviation", "name"), "event_time": event_time or None,
+                    "status": "PROJECTED_STARTER", "confirmed": False,
+                    "payload": {"role": "PROBABLE_PITCHER", "starting": True, "raw": pitcher},
+                })
+    return [item for item in observations if item["event_id"] and item["player_name"]]
+
+
+def normalize_official_mlb_boxscore(
+    payload: object, *, event_id: str, event_time: str,
+) -> list[dict[str, object]]:
+    root = payload if isinstance(payload, dict) else {}
+    teams = root.get("teams") if isinstance(root.get("teams"), dict) else {}
+    observations = []
+    for side in ("home", "away"):
+        team_row = teams.get(side) if isinstance(teams.get(side), dict) else {}
+        opponent_row = teams.get("away" if side == "home" else "home")
+        opponent_row = opponent_row if isinstance(opponent_row, dict) else {}
+        team = team_row.get("team") if isinstance(team_row.get("team"), dict) else {}
+        opponent = opponent_row.get("team") if isinstance(opponent_row.get("team"), dict) else {}
+        players = team_row.get("players") if isinstance(team_row.get("players"), dict) else {}
+        for row in players.values():
+            if not isinstance(row, dict) or not row.get("battingOrder"):
+                continue
+            person = row.get("person") if isinstance(row.get("person"), dict) else {}
+            order_text = str(row.get("battingOrder") or "")
+            order = int(order_text) // 100 if order_text.isdigit() else None
+            observations.append({
+                "sport": "MLB", "event_id": event_id, "entity_type": "LINEUP",
+                "provider_player_id": _text(person, "id"), "player_name": _name(person),
+                "team": _text(team, "abbreviation", "name"),
+                "opponent": _text(opponent, "abbreviation", "name"), "event_time": event_time or None,
+                "status": "CONFIRMED_STARTER", "confirmed": True,
+                "payload": {"battingOrder": order,
+                            "position": _text((row.get("position") or {}), "abbreviation", "name")
+                            if isinstance(row.get("position"), dict) else "",
+                            "starting": True, "raw": row},
+            })
+    return [item for item in observations if item["player_name"]]
 
 
 def _mlb_player_observation(
@@ -172,6 +235,17 @@ def _inside_starter_window(scheduled: object, now: datetime | None = None) -> bo
     return -1800 <= seconds <= 7200
 
 
+def _inside_mlb_lineup_window(scheduled: object, now: datetime | None = None) -> bool:
+    try:
+        event_time = datetime.fromisoformat(str(scheduled).replace("Z", "+00:00"))
+        if event_time.tzinfo is None:
+            event_time = event_time.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return False
+    seconds = (event_time - (now or datetime.now(timezone.utc))).total_seconds()
+    return -1800 <= seconds <= 21600
+
+
 def normalize_sportradar_wnba_starters(
     payload: object, event_id: str, event_time: str,
 ) -> list[dict[str, object]]:
@@ -246,6 +320,39 @@ def sync_sportsdataio_mlb_lineups(day: date | None = None) -> dict[str, object]:
         return {"provider": "sportsdataio-mlb", "created": 0, "error": str(exc)}
 
 
+def sync_official_mlb_context(day: date | None = None) -> dict[str, object]:
+    target = day or datetime.now(timezone.utc).date()
+    try:
+        schedule = requests.get(
+            f"{MLB_STATS_API}/v1/schedule",
+            params={"sportId": 1, "date": target.isoformat(), "hydrate": "probablePitcher,team"},
+            timeout=20,
+        )
+        schedule.raise_for_status()
+        payload = schedule.json()
+        observations = normalize_official_mlb_schedule(payload)
+        games = [game for day_row in payload.get("dates", [])
+                 for game in day_row.get("games", []) if isinstance(game, dict)]
+        for game in games:
+            game_pk = str(game.get("gamePk") or "")
+            if not game_pk:
+                continue
+            if not _inside_mlb_lineup_window(game.get("gameDate")):
+                continue
+            boxscore = requests.get(f"{MLB_STATS_API}/v1/game/{game_pk}/boxscore", timeout=15)
+            if boxscore.status_code in {404, 503}:
+                continue
+            boxscore.raise_for_status()
+            observations.extend(normalize_official_mlb_boxscore(
+                boxscore.json(), event_id=game_pk, event_time=_text(game, "gameDate"),
+            ))
+        return {"provider": "mlb-stats-api", "observations": len(observations),
+                "created": persist_pregame_observations("MLB_STATS_API", observations)}
+    except Exception as exc:
+        logger.warning("Official MLB pregame sync failed: %s", exc)
+        return {"provider": "mlb-stats-api", "created": 0, "error": str(exc)}
+
+
 def sync_sportradar_wnba_injuries(day: date | None = None) -> dict[str, object]:
     target = day or datetime.now(timezone.utc).date()
     if not SPORTRADAR_WNBA_API_KEY:
@@ -299,7 +406,7 @@ def sync_sportradar_wnba_starters(day: date | None = None) -> dict[str, object]:
 
 
 def sync_pregame_context() -> list[dict[str, object]]:
-    return [sync_sportsdataio_mlb_lineups(), sync_sportradar_wnba_injuries(),
+    return [sync_official_mlb_context(), sync_sportsdataio_mlb_lineups(), sync_sportradar_wnba_injuries(),
             sync_sportradar_wnba_starters()]
 
 
@@ -339,7 +446,14 @@ def apply_latest_pregame_context(props: list[object]) -> None:
             continue
         injury_matches = [item for item in matches if item["entityType"] == "INJURY"]
         lineup_matches = [item for item in matches if item["entityType"] == "LINEUP"]
-        latest = max(lineup_matches or matches, key=lambda item: item["observedAt"])
+        latest = max(
+            lineup_matches or matches,
+            key=lambda item: (
+                bool(item["confirmed"]),
+                item["provider"] == "MLB_STATS_API",
+                item["observedAt"],
+            ),
+        )
         status = str(latest["status"] or "").upper()
         if sport == "WNBA" and injury_matches:
             injury = max(injury_matches, key=lambda item: item["observedAt"])

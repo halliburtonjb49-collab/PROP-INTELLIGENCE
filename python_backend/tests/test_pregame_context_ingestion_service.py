@@ -2,6 +2,9 @@ from datetime import date
 
 from services.pregame_context_ingestion_service import (
     _inside_starter_window,
+    _inside_mlb_lineup_window,
+    normalize_official_mlb_boxscore,
+    normalize_official_mlb_schedule,
     normalize_sportsdataio_mlb_lineups,
     normalize_sportradar_wnba_injuries,
     normalize_sportradar_wnba_starters,
@@ -63,3 +66,30 @@ def test_starter_summary_calls_are_limited_to_pregame_window() -> None:
     now = datetime(2026, 8, 2, 12, tzinfo=timezone.utc)
     assert _inside_starter_window("2026-08-02T13:30:00Z", now)
     assert not _inside_starter_window("2026-08-02T18:00:00Z", now)
+    assert _inside_mlb_lineup_window("2026-08-02T17:00:00Z", now)
+
+
+def test_official_mlb_schedule_normalizes_probable_pitcher() -> None:
+    rows = normalize_official_mlb_schedule({"dates": [{"games": [{
+        "gamePk": 77, "gameDate": "2026-08-02T19:00:00Z", "teams": {
+            "home": {"team": {"name": "Cubs"},
+                     "probablePitcher": {"id": 1, "fullName": "Home Pitcher"}},
+            "away": {"team": {"name": "Reds"},
+                     "probablePitcher": {"id": 2, "fullName": "Away Pitcher"}},
+        },
+    }]}]})
+    assert len(rows) == 2
+    assert rows[0]["status"] == "PROJECTED_STARTER"
+    assert rows[0]["payload"]["role"] == "PROBABLE_PITCHER"
+
+
+def test_official_mlb_boxscore_marks_submitted_batting_order_confirmed() -> None:
+    rows = normalize_official_mlb_boxscore({"teams": {
+        "home": {"team": {"name": "Cubs"}, "players": {"ID1": {
+            "person": {"id": 1, "fullName": "Leadoff Batter"},
+            "battingOrder": "100", "position": {"abbreviation": "CF"},
+        }}},
+        "away": {"team": {"name": "Reds"}, "players": {}},
+    }}, event_id="77", event_time="2026-08-02T19:00:00Z")
+    assert rows[0]["confirmed"] is True
+    assert rows[0]["payload"]["battingOrder"] == 1

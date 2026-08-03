@@ -180,6 +180,8 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
                 "directMatchupAverage": getattr(prop, "directMatchupAverage", None),
                 "directMatchupSampleSize": getattr(prop, "directMatchupSampleSize", 0),
                 "expectedPrimaryDefender": getattr(prop, "expectedPrimaryDefender", ""),
+                "expectedPrimaryDefenderConfidence": getattr(prop, "expectedPrimaryDefenderConfidence", None),
+                "expectedPrimaryDefenderSampleSize": getattr(prop, "expectedPrimaryDefenderSampleSize", None),
                 "mlbProjectedLineupMatchup": getattr(prop, "mlbProjectedLineupMatchup", None),
                 "isHome": getattr(prop, "isHome", None),
                 "restDays": prop.restDays,

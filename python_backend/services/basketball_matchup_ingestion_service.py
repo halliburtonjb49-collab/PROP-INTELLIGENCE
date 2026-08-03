@@ -65,6 +65,15 @@ def _scheme_label(pressure: float | None, switch: float | None) -> str:
     return "STANDARD COVERAGE PROXY"
 
 
+def _primary_defender(candidates: list[tuple[object, ...]]) -> tuple[str, float, float] | None:
+    total = sum(float(row[2] or 0) for row in candidates)
+    if not candidates or total <= 0:
+        return None
+    primary = max(candidates, key=lambda row: float(row[2] or 0))
+    sample = float(primary[2] or 0)
+    return str(primary[1]), sample / total, sample
+
+
 def enrich_basketball_matchups(props: list[object]) -> None:
     """Use only observations stored before the upcoming event starts."""
     basketball = [p for p in props if str(getattr(p, "sport", "")).upper() in {"NBA", "WNBA"}]
@@ -87,6 +96,13 @@ def enrich_basketball_matchups(props: list[object]) -> None:
                   concat(extract(year from current_date-interval '1 year')::int,'-',
                          right(extract(year from current_date)::text,2)))""")
             profiles = cursor.fetchall()
+            cursor.execute("""select sport,lower(offensive_player_name),defensive_player_id,
+                defensive_player_name,partial_possessions,matchup_minutes,games
+                from basketball_defender_matchups
+                where season in (extract(year from current_date)::text,
+                  concat(extract(year from current_date-interval '1 year')::int,'-',
+                         right(extract(year from current_date)::text,2)))""")
+            defender_rows = cursor.fetchall()
     except Exception as exc:
         logger.warning("basketball matchup enrichment unavailable: %s", exc)
         return
@@ -94,6 +110,7 @@ def enrich_basketball_matchups(props: list[object]) -> None:
     games: dict[tuple[str, str], set[str]] = defaultdict(set)
     history: list[dict[str, object]] = []
     latest_player: dict[tuple[str, str], tuple[str, str]] = {}
+    latest_team_by_player_id: dict[tuple[str, str], str] = {}
     team_possessions: dict[tuple[str, str], float] = defaultdict(float)
     for sport, game_id, name, player_id, team_id, game_date, minutes, points, rebounds, assists, raw in rows:
         raw = raw if isinstance(raw, dict) else {}
@@ -104,6 +121,7 @@ def enrich_basketball_matchups(props: list[object]) -> None:
         history.append(item)
         games[(str(sport), str(game_id))].add(str(team_id))
         latest_player[(str(sport), str(name))] = (str(team_id), item["position"])
+        latest_team_by_player_id[(str(sport), str(player_id))] = str(team_id)
         possessions = (_number(raw.get("FGA")) or 0) + .44 * (_number(raw.get("FTA")) or 0)
         possessions += (_number(raw.get("TOV")) or 0) - (_number(raw.get("OREB")) or 0)
         team_possessions[(str(sport), f"{game_id}:{team_id}")] += possessions
@@ -111,6 +129,9 @@ def enrich_basketball_matchups(props: list[object]) -> None:
     for sport, team_id, opponent_id, starts_at, is_home in schedules:
         schedules_by_team[(str(sport), str(team_id))].append((starts_at, str(opponent_id), bool(is_home)))
     profile_by_team = {(str(row[0]), str(row[1])): row[2:] for row in profiles}
+    defenders_by_player: dict[tuple[str, str], list[tuple[object, ...]]] = defaultdict(list)
+    for row in defender_rows:
+        defenders_by_player[(str(row[0]), str(row[1]))].append(row[2:])
     pace_by_team: dict[tuple[str, str], list[float]] = defaultdict(list)
     all_paces: dict[str, list[float]] = defaultdict(list)
     for (sport, game_id), teams in games.items():
@@ -186,6 +207,13 @@ def enrich_basketball_matchups(props: list[object]) -> None:
         prop.paceMultiplier = round(pace, 4) if pace is not None else None
         prop.opponentDefenseMultiplier = round(allowance_multiplier, 4) if allowance_multiplier is not None else None
         prop.matchupMultiplier = matchup_multiplier
+        defender_candidates = [row for row in defenders_by_player.get((sport, name), [])
+                               if latest_team_by_player_id.get((sport, str(row[0]))) == opponent_id]
+        primary = _primary_defender(defender_candidates)
+        if primary is not None:
+            prop.expectedPrimaryDefender = primary[0]
+            prop.expectedPrimaryDefenderConfidence = round(primary[1], 4)
+            prop.expectedPrimaryDefenderSampleSize = round(primary[2], 2)
         prop.matchupContext = (
             f"{position or 'POSITION'} allowance based on {len(allowed)} pregame observations; "
             f"{len(direct)} direct matchups"

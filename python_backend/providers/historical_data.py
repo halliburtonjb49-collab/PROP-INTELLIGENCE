@@ -123,6 +123,19 @@ class NbaHistoricalProvider:
         )
         return _records(endpoint.get_data_frames()[0])
 
+    def league_defender_matchups(
+        self, *, season: str, league_id: str, timeout: int = 60,
+    ) -> list[dict[str, object]]:
+        endpoint = self._endpoints().LeagueSeasonMatchups(
+            league_id=league_id,
+            season=season,
+            season_type_playoffs="Regular Season",
+            per_mode_simple="Totals",
+            timeout=timeout,
+        )
+        frames = endpoint.get_data_frames()
+        return _records(frames[0] if frames else None)
+
 
 class MlbHistoricalProvider:
     """Pitch-level Statcast collector from Baseball Savant via pybaseball."""

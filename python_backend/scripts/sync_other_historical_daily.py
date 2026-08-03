@@ -16,6 +16,7 @@ from services.historical_ingestion_service import (
 from services.pipeline_run_service import finish_pipeline_run, start_pipeline_run
 from services.prediction_automation_service import grade_completed_predictions
 from services.schedule_fatigue_service import sync_schedule_and_fatigue
+from services.defender_matchup_service import sync_defender_matchups
 
 
 def _run_stage(name: str, operation):
@@ -57,6 +58,10 @@ def main() -> int:
             or f"{nba_start}-{str(nba_start + 1)[-2:]}",
             wnba_season=str(target.year),
         ),
+    )
+    result["wnbaDefenderMatchups"] = _run_stage(
+        "wnbaDefenderMatchups",
+        lambda: sync_defender_matchups(sport="WNBA", season=str(target.year)),
     )
     result["wnbaOfficiatingBackfill"] = _run_stage(
         "wnbaOfficiatingBackfill",

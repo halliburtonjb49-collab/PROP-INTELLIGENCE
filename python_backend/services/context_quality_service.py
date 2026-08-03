@@ -30,6 +30,7 @@ def evaluate_context_quality(prop: object) -> ContextQuality:
             ("pace", getattr(prop, "paceMultiplier", None) is not None, .08),
             ("direct_matchup", getattr(prop, "directMatchupSampleSize", 0) > 0, .04),
             ("defensive_scheme", bool(getattr(prop, "defensiveScheme", "")), .08),
+            ("primary_defender", bool(getattr(prop, "expectedPrimaryDefender", "")), .05),
         ])
     elif sport == "MLB":
         checks.extend([
