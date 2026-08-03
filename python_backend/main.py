@@ -25,6 +25,8 @@ from config import (
 	HTTP_TIMEOUT_SECONDS,
 	LIVE_ODDS_SYNC_MIN_SECONDS,
 	PLAYER_IMAGE_DIR,
+	SPORTRADAR_API_KEY,
+	SPORTRADAR_WNBA_API_KEY,
 	WNBA_LEAGUE_ID,
 )
 from database.postgres import (
@@ -1692,6 +1694,10 @@ def health() -> dict[str, object]:
 		"status": "ok",
 		"service": "prop-intelligence-api",
 		"version": APP_VERSION,
+		"providers": {
+			"sportradarMultiSportConfigured": bool(SPORTRADAR_API_KEY),
+			"sportradarWnbaConfigured": bool(SPORTRADAR_WNBA_API_KEY),
+		},
 	}
 
 
