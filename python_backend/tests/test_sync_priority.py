@@ -124,6 +124,7 @@ def test_empty_supplemental_response_preserves_last_healthy_cache(monkeypatch) -
     result = sync_service.sync_sportsgameodds()
 
     assert result["attemptedLeagues"] == ["ATP"]
+    assert result["leagueResults"] == [{"league": "ATP", "events": 0, "props": 0}]
     assert fake_cache.prune_calls == 0
 
 

@@ -301,13 +301,42 @@ def sync_sportsgameodds() -> dict[str, object]:
             "providerUsage": sgo_usage_snapshot(), "accountUsage": account_usage,
         }
     selected_leagues = next_sgo_leagues()
-    for league_id, sport_key in selected_leagues:
+    def fetch_league(item: tuple[str, str]):
+        league_id, sport_key = item
         try:
             raw_events = _with_retries(
                 lambda league_id=league_id: fetch_sgo_events(league_id),
                 label=f"sportsgameodds events {league_id}",
                 attempts=2,
             )
+            return league_id, sport_key, raw_events, None
+        except Exception as exc:
+            return league_id, sport_key, [], exc
+
+    # Provider reads are independent and safe to overlap. Cache mutation stays
+    # serialized below so SQLite/Postgres writes remain deterministic.
+    league_workers = min(
+        max(1, int(os.getenv("SPORTSGAMEODDS_LEAGUE_WORKERS", "4"))),
+        max(1, len(selected_leagues)),
+    )
+    with ThreadPoolExecutor(max_workers=league_workers) as executor:
+        fetched_leagues = list(executor.map(fetch_league, selected_leagues))
+
+    league_results: list[dict[str, object]] = []
+    for league_id, sport_key, raw_events, fetch_error in fetched_leagues:
+        if fetch_error is not None:
+            logger.warning(
+                "sportsgameodds sync failed league=%s error=%s",
+                league_id,
+                fetch_error,
+            )
+            failures.append({"league": league_id, "error": str(fetch_error)})
+            league_results.append({
+                "league": league_id, "events": 0, "props": 0,
+                "error": str(fetch_error),
+            })
+            continue
+        try:
             normalized = [
                 normalize_sgo_event(raw, sport_key=sport_key)
                 for raw in raw_events
@@ -331,14 +360,21 @@ def sync_sportsgameodds() -> dict[str, object]:
                     "sportsgameodds preserved cache league=%s reason=no_active_events",
                     league_id,
                 )
+            league_props = 0
             for event, odds_payload in normalized:
-                total_props += process_and_cache_props(
+                league_props += process_and_cache_props(
                     cache=cache,
                     sport_key=sport_key,
                     event=event,
                     odds_payload=odds_payload,
                 )
+            total_props += league_props
             total_events += len(normalized)
+            league_results.append({
+                "league": league_id,
+                "events": len(normalized),
+                "props": league_props,
+            })
         except Exception as exc:
             logger.warning(
                 "sportsgameodds sync failed league=%s error=%s",
@@ -346,6 +382,10 @@ def sync_sportsgameodds() -> dict[str, object]:
                 exc,
             )
             failures.append({"league": league_id, "error": str(exc)})
+            league_results.append({
+                "league": league_id, "events": len(raw_events), "props": 0,
+                "error": str(exc),
+            })
     return {
         "sport": "sportsgameodds",
         "events": total_events,
@@ -353,6 +393,7 @@ def sync_sportsgameodds() -> dict[str, object]:
         "failedLeagues": failures,
         "providerUsage": sgo_usage_snapshot(),
         "accountUsage": account_usage,
+        "leagueResults": league_results,
         "attemptedLeagues": [league for league, _ in selected_leagues],
         "disabledLeagues": sorted({
             value.strip().upper()
