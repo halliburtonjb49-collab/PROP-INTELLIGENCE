@@ -44,6 +44,7 @@ MIGRATIONS = (
     "supabase_defender_matchup_history.sql",
     "supabase_historical_odds_backfill.sql",
     "supabase_smartstake_backtest.sql",
+    "supabase_mlb_player_game_features.sql",
 )
 
 
