@@ -341,14 +341,32 @@ class PropData {
   /// fallbacks use their own clearly identified evidence source instead of
   /// displaying a misleading 0% model confidence.
   int? get displayConfidenceRating {
+    int? probabilityPercent(double? value) {
+      if (value == null || !value.isFinite || value <= 0) return null;
+      final percent = value <= 1 ? value * 100 : value;
+      if (percent > 100) return null;
+      return percent.round().clamp(0, 100);
+    }
+
+    // The backend's conservative probability is the preferred display value.
+    // It already combines model output, calibration, uncertainty, and any
+    // available no-vig market anchor for the selected side.
+    final calibratedProbability =
+        probabilityPercent(uncertaintyAdjustedProbability) ??
+        probabilityPercent(fairProbability) ??
+        probabilityPercent(modelProbability) ??
+        probabilityPercent(winProbability);
+
     if (proSuggestionUsesModel) {
-      return confidence > 0 ? confidence.clamp(0, 100) : null;
+      return calibratedProbability ??
+          (confidence > 0 ? confidence.clamp(0, 100) : null);
     }
     if (proSuggestionUsesHistoricalStats) {
-      return historicalHitRate?.clamp(0, 100);
+      return calibratedProbability ?? historicalHitRate?.clamp(0, 100);
     }
     if (proSuggestionUsesMarket) {
-      return marketLeanPercentage?.clamp(0, 100);
+      return probabilityPercent(marketProbability) ??
+          marketLeanPercentage?.clamp(0, 100);
     }
     return null;
   }

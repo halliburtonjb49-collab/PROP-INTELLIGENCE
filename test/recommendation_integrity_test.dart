@@ -178,4 +178,23 @@ void main() {
     expect(prop.displayConfidenceRating, 57);
     expect(prop.displayConfidenceLabel, '57%');
   });
+
+  test('uses calibrated probability when a stats lean has no hit rate', () {
+    final prop = PropData.fromJson({
+      'id': 'strikeout-stats',
+      'player': 'Test Pitcher',
+      'sport': 'MLB',
+      'sportsbook': 'Book',
+      'market': 'Pitcher Strikeouts',
+      'line': 5.0,
+      'projection': 5.7,
+      'uncertaintyAdjustedProbability': 0.64,
+      'recommendationAvailable': false,
+      'confidence': 0,
+    });
+
+    expect(prop.proSuggestionUsesHistoricalStats, isTrue);
+    expect(prop.displayConfidenceRating, 64);
+    expect(prop.displayConfidenceLabel, '64%');
+  });
 }
