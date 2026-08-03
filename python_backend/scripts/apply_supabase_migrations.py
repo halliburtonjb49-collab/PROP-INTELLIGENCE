@@ -42,6 +42,7 @@ MIGRATIONS = (
     "supabase_model_research_pipeline.sql",
     "supabase_pregame_context_observations.sql",
     "supabase_defender_matchup_history.sql",
+    "supabase_historical_odds_backfill.sql",
 )
 
 
@@ -135,7 +136,8 @@ def main() -> int:
                 'paper_trade_results',
                 'model_challenger_evaluations',
                 'pregame_context_observations',
-                'basketball_defender_matchups'
+                'basketball_defender_matchups',
+                'historical_odds_backfill_jobs'
               )
             """
         ).fetchall()
