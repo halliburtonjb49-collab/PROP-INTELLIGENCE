@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from datetime import datetime, timezone
 
 from database.postgres import database_is_configured, get_database_pool
@@ -279,6 +280,9 @@ def grade_completed_predictions() -> dict[str, object]:
     if not database_is_configured():
         return {"graded": 0, "reason": "DATABASE_URL is not configured"}
     graded, unsupported = 0, 0
+    pending_reasons: Counter[str] = Counter()
+    pending_sports: Counter[str] = Counter()
+    pending_markets: Counter[str] = Counter()
     with get_database_pool().connection() as connection, connection.cursor() as cursor:
         cursor.execute("""with latest_logs as (
               select distinct on (sport,lower(player_name),game_date)
@@ -340,6 +344,9 @@ def grade_completed_predictions() -> dict[str, object]:
         for identifier, sport, market, side, line, event_time, player_name, player_id, matchup in pending:
             if sport not in TRACKED_SPORTS or not player_name or event_time is None:
                 unsupported += 1
+                pending_reasons["invalid_or_untracked_prediction"] += 1
+                pending_sports[str(sport or "UNKNOWN")] += 1
+                pending_markets[f"{sport or 'UNKNOWN'}|{market or 'UNKNOWN'}"] += 1
                 continue
             if sport == "MLB":
                 official = official_mlb_result(
@@ -349,6 +356,8 @@ def grade_completed_predictions() -> dict[str, object]:
                     game_start_time=event_time.isoformat(),
                 )
                 actual = official.value if official is not None else None
+                if actual is None:
+                    pending_reasons["official_mlb_result_not_found"] += 1
             elif sport in {"NBA", "WNBA"}:
                 cursor.execute("""select points,rebounds,assists,steals,blocks,turnovers,threes
                     from historical_basketball_game_logs where sport=%s and lower(player_name)=lower(%s)
@@ -370,6 +379,10 @@ def grade_completed_predictions() -> dict[str, object]:
                     _specialty_market_value(str(sport), str(market), row[0])
                     if row is not None else None
                 )
+                if row is None:
+                    pending_reasons["specialty_player_result_not_found"] += 1
+                elif actual is None:
+                    pending_reasons["specialty_market_not_mapped"] += 1
             else:
                 snapshot = get_live_player_stat_snapshot(
                     player_name=str(player_name),
@@ -382,8 +395,12 @@ def grade_completed_predictions() -> dict[str, object]:
                     game_start_time=event_time.isoformat(),
                 )
                 actual = snapshot.value if snapshot.completed else None
+                if actual is None:
+                    pending_reasons[f"live_result_{snapshot.status or 'not_available'}"] += 1
             if actual is None:
                 unsupported += 1
+                pending_sports[str(sport)] += 1
+                pending_markets[f"{sport}|{market}"] += 1
                 continue
             hit = actual > float(line) if side == "OVER" else actual < float(line)
             cursor.execute("""update prediction_snapshots set actual_value=%s,hit=%s,graded_at=now(),
@@ -422,6 +439,9 @@ def grade_completed_predictions() -> dict[str, object]:
         )
         connection.commit()
     return {"graded": graded, "pendingChecked": len(pending), "unsupported": unsupported,
+            "pendingReasons": dict(pending_reasons.most_common()),
+            "pendingBySport": dict(pending_sports.most_common()),
+            "pendingByMarket": dict(pending_markets.most_common(25)),
             "gradedAt": datetime.now(timezone.utc).isoformat()}
 
 
