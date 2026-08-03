@@ -15,6 +15,8 @@ from services.prop_probability_service import evaluate_market
 from services.projection_formula_service import blend_projection_with_market
 from services.opportunity_gate_service import evaluate_opportunity_gate
 from services.opportunity_projection_service import basketball_opportunities
+from services.basketball_matchup_ingestion_service import enrich_basketball_matchups
+from services.context_quality_service import evaluate_context_quality
 
 logger = logging.getLogger(__name__)
 
@@ -175,13 +177,19 @@ def apply_projection_context(prop: object) -> None:
         prop.isPositiveEv = False
         prop.pick = "N/A"
         prop.pickText = "No Pick"
+    context_quality = evaluate_context_quality(prop)
+    prop.contextDataQualityScore = context_quality.score
+    prop.contextPresentFields = list(context_quality.present)
+    prop.contextMissingFields = list(context_quality.missing)
+    provider_quality = float(getattr(prop, "dataQualityScore", 0) or 0)
+    combined_quality = provider_quality * .60 + context_quality.score * .40
     gate = evaluate_opportunity_gate(
         projection=float(getattr(prop, "projection", 0) or 0),
         line=line,
         volatility=getattr(prop, "projectionVolatility", None),
         probability=getattr(prop, "uncertaintyAdjustedProbability", None),
         sample_size=projection_sample_size,
-        data_quality_score=float(getattr(prop, "dataQualityScore", 0) or 0),
+        data_quality_score=combined_quality,
         injury_status=str(getattr(prop, "injuryStatus", "unknown")),
         lineup_status=str(getattr(prop, "lineupStatus", "unknown")),
         context_values=(
@@ -227,6 +235,7 @@ def enrich_props(props: list[object]) -> None:
         for prop in props:
             apply_projection_context(prop)
         return
+    enrich_basketball_matchups(props)
     player_ids = sorted({str(getattr(prop, "playerId", "")) for prop in props if getattr(prop, "playerId", "")})
     prop_ids = sorted({str(getattr(prop, "id", "")) for prop in props if getattr(prop, "id", "")})
     fatigue: dict[str, list[tuple[datetime, tuple[object, ...]]]] = {}

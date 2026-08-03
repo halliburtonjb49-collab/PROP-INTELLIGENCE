@@ -127,6 +127,18 @@ class PropResponse(BaseModel):
     timezoneChangeHours: float | None = None
     matchupContext: str = ""
     matchupMultiplier: float | None = None
+    opponentAllowanceByPosition: float | None = None
+    opponentAllowanceLeagueAverage: float | None = None
+    opponentPosition: str = ""
+    defensiveScheme: str = ""
+    directMatchupAverage: float | None = None
+    directMatchupSampleSize: int = 0
+    expectedPrimaryDefender: str = ""
+    mlbProjectedLineupMatchup: dict[str, object] | None = None
+    isHome: bool | None = None
+    contextDataQualityScore: float = Field(default=0.0, ge=0, le=1)
+    contextPresentFields: list[str] = Field(default_factory=list)
+    contextMissingFields: list[str] = Field(default_factory=list)
     officiatingContext: str = ""
     officiatingAdjustment: float | None = None
     sentimentLabel: str = ""

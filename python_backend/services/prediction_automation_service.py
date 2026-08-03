@@ -173,6 +173,8 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
             snapshot_id = cursor.fetchone()[0]
             feature_payload = {
                 "opponentAllowanceByPosition": getattr(prop, "opponentAllowanceByPosition", None),
+                "opponentAllowanceLeagueAverage": getattr(prop, "opponentAllowanceLeagueAverage", None),
+                "opponentPosition": getattr(prop, "opponentPosition", ""),
                 "defensiveScheme": getattr(prop, "defensiveScheme", ""),
                 "paceMultiplier": prop.paceMultiplier,
                 "directMatchupAverage": getattr(prop, "directMatchupAverage", None),
@@ -190,6 +192,9 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
                 "roleChange": prop.roleChange,
                 "wowyMultiplier": prop.wowyMultiplier,
                 "gameScriptMultiplier": prop.gameScriptMultiplier,
+                "contextDataQualityScore": prop.contextDataQualityScore,
+                "contextPresentFields": prop.contextPresentFields,
+                "contextMissingFields": prop.contextMissingFields,
             }
             cursor.execute(
                 """insert into matchup_feature_snapshots
