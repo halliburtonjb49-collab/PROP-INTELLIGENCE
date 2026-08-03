@@ -41,6 +41,8 @@ services:
         sync: false
       - key: SPORTRADAR_WNBA_API_KEY
         sync: false
+      - key: SPORTRADAR_API_KEY
+        sync: false
       - key: SPORTRADAR_ACCESS_LEVEL
         value: trial
       - key: SPORTSGAMEODDS_API_KEY
@@ -154,6 +156,8 @@ services:
         sync: false
       - key: SPORTRADAR_WNBA_API_KEY
         sync: false
+      - key: SPORTRADAR_API_KEY
+        sync: false
       - key: SPORTRADAR_ACCESS_LEVEL
         value: trial
       - key: SPORTSGAMEODDS_API_KEY
@@ -198,6 +202,10 @@ services:
         sync: false
       - key: SPORTMONKS_API_KEY
         sync: false
+      - key: SPORTRADAR_API_KEY
+        sync: false
+      - key: SPORTRADAR_ACCESS_LEVEL
+        value: trial
       - key: PIPELINE_ALERT_WEBHOOK_URL
         sync: false
       - key: HISTORICAL_MLB_LOOKBACK_DAYS
@@ -225,6 +233,8 @@ services:
       - key: SPORTSDATAIO_API_KEY
         sync: false
       - key: SPORTRADAR_WNBA_API_KEY
+        sync: false
+      - key: SPORTRADAR_API_KEY
         sync: false
       - key: SPORTRADAR_ACCESS_LEVEL
         value: trial

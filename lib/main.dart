@@ -9550,7 +9550,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             runSpacing: 6,
             children: [
               chip('LINEUP ${prop.lineupStatus.toUpperCase()}'),
-              chip('INJURY ${prop.injuryStatus.toUpperCase()}'),
+              chip(
+                prop.injuryStatus.trim().toLowerCase() == 'unknown'
+                    ? 'INJURY REPORT UNAVAILABLE'
+                    : 'INJURY ${prop.injuryStatus.toUpperCase()}',
+              ),
               if (hasModelPick) chip('EVIDENCE: VERIFIED MODEL'),
               if (!hasModelPick && prop.proSuggestionUsesHistoricalStats)
                 chip('EVIDENCE: RECENT RESULTS'),

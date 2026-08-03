@@ -22,6 +22,14 @@ logger = logging.getLogger(__name__)
 SPORTSDATAIO_MLB = "https://api.sportsdata.io/v3/mlb/projections/json"
 SPORTRADAR_WNBA = f"https://api.sportradar.com/wnba/{SPORTRADAR_ACCESS_LEVEL}/v8/en"
 MLB_STATS_API = "https://statsapi.mlb.com/api"
+ESPN_SITE_API = "https://site.api.espn.com/apis/site/v2/sports"
+ESPN_INJURY_LEAGUES = {
+    "WNBA": ("basketball", "wnba"),
+    "NBA": ("basketball", "nba"),
+    "MLB": ("baseball", "mlb"),
+    "NFL": ("football", "nfl"),
+    "NHL": ("hockey", "nhl"),
+}
 
 
 def _text(row: dict[str, object], *keys: str) -> str:
@@ -200,6 +208,68 @@ def normalize_sportradar_wnba_injuries(payload: object, day: date) -> list[dict[
     return [item for item in observations if item["player_name"]]
 
 
+def normalize_espn_injuries(
+    payload: object, *, sport: str, observed_day: date,
+) -> list[dict[str, object]]:
+    """Normalize ESPN's current league injury report and its freshness marker."""
+    root = payload if isinstance(payload, dict) else {}
+    generated_at = _text(root, "timestamp")
+    observations: list[dict[str, object]] = [{
+        "sport": sport,
+        "event_id": observed_day.isoformat(),
+        "entity_type": "INJURY_FEED",
+        "provider_player_id": "",
+        "player_name": "ESPN Injury Report",
+        "team": "",
+        "opponent": "",
+        "event_time": generated_at or None,
+        "status": "REPORT_CURRENT",
+        "confirmed": True,
+        "payload": {"generatedAt": generated_at, "source": "ESPN"},
+    }]
+    teams = root.get("injuries") if isinstance(root.get("injuries"), list) else []
+    for team_row in teams:
+        if not isinstance(team_row, dict):
+            continue
+        team_name = _text(team_row, "displayName", "name")
+        injuries = team_row.get("injuries")
+        for injury in injuries if isinstance(injuries, list) else []:
+            if not isinstance(injury, dict):
+                continue
+            athlete = injury.get("athlete") if isinstance(injury.get("athlete"), dict) else {}
+            athlete_team = athlete.get("team") if isinstance(athlete.get("team"), dict) else {}
+            details = injury.get("details") if isinstance(injury.get("details"), dict) else {}
+            status = _text(injury, "status")
+            if not status:
+                injury_type = injury.get("type") if isinstance(injury.get("type"), dict) else {}
+                status = _text(injury_type, "description", "name", "abbreviation")
+            player_name = _text(athlete, "displayName", "fullName") or _name(athlete)
+            if not player_name:
+                continue
+            observations.append({
+                "sport": sport,
+                "event_id": observed_day.isoformat(),
+                "entity_type": "INJURY",
+                "provider_player_id": _text(athlete, "id", "uid"),
+                "player_name": player_name,
+                "team": _text(athlete_team, "abbreviation", "displayName") or team_name,
+                "opponent": "",
+                "event_time": _text(injury, "date") or generated_at or None,
+                "status": status.upper() or "INJURY_REPORTED",
+                "confirmed": True,
+                "payload": {
+                    "shortComment": _text(injury, "shortComment"),
+                    "longComment": _text(injury, "longComment"),
+                    "injuryType": _text(details, "type"),
+                    "injurySide": _text(details, "side"),
+                    "returnDate": _text(details, "returnDate"),
+                    "source": "ESPN",
+                    "raw": injury,
+                },
+            })
+    return observations
+
+
 def _walk_injuries(value: object, team: str = ""):
     if isinstance(value, list):
         for item in value:
@@ -371,6 +441,37 @@ def sync_sportradar_wnba_injuries(day: date | None = None) -> dict[str, object]:
         return {"provider": "sportradar-wnba", "created": 0, "error": str(exc)}
 
 
+def sync_espn_injuries(day: date | None = None) -> dict[str, object]:
+    """Persist current ESPN injury reports for every supported major league."""
+    target = day or datetime.now(timezone.utc).date()
+    total_observations = 0
+    total_created = 0
+    errors: dict[str, str] = {}
+    for sport, (category, league) in ESPN_INJURY_LEAGUES.items():
+        try:
+            response = requests.get(
+                f"{ESPN_SITE_API}/{category}/{league}/injuries",
+                timeout=20,
+            )
+            response.raise_for_status()
+            observations = normalize_espn_injuries(
+                response.json(), sport=sport, observed_day=target,
+            )
+            total_observations += len(observations)
+            total_created += persist_pregame_observations("ESPN", observations)
+        except Exception as exc:
+            logger.warning("ESPN %s injury sync failed: %s", sport, exc)
+            errors[sport] = str(exc)
+    result: dict[str, object] = {
+        "provider": "espn-injuries",
+        "observations": total_observations,
+        "created": total_created,
+    }
+    if errors:
+        result["errors"] = errors
+    return result
+
+
 def sync_sportradar_wnba_starters(day: date | None = None) -> dict[str, object]:
     target = day or datetime.now(timezone.utc).date()
     if not SPORTRADAR_WNBA_API_KEY:
@@ -406,7 +507,7 @@ def sync_sportradar_wnba_starters(day: date | None = None) -> dict[str, object]:
 
 
 def sync_pregame_context() -> list[dict[str, object]]:
-    return [sync_official_mlb_context(), sync_sportsdataio_mlb_lineups(), sync_sportradar_wnba_injuries(),
+    return [sync_official_mlb_context(), sync_sportsdataio_mlb_lineups(), sync_espn_injuries(), sync_sportradar_wnba_injuries(),
             sync_sportradar_wnba_starters()]
 
 
@@ -431,6 +532,7 @@ def apply_latest_pregame_context(props: list[object]) -> None:
         return
     by_player: dict[tuple[str, str], list[dict[str, object]]] = {}
     by_event: dict[tuple[str, str], list[dict[str, object]]] = {}
+    current_espn_injury_reports: set[str] = set()
     for row in rows:
         item = {"sport": row[0], "eventId": row[1], "provider": row[2],
                 "entityType": row[3], "playerName": row[4], "team": row[5],
@@ -439,13 +541,30 @@ def apply_latest_pregame_context(props: list[object]) -> None:
                 "observedAt": row[11]}
         by_player.setdefault((str(row[0]), _identity(row[4])), []).append(item)
         by_event.setdefault((str(row[0]), str(row[1])), []).append(item)
+        if row[2] == "ESPN" and row[3] == "INJURY_FEED":
+            current_espn_injury_reports.add(str(row[0]).upper())
     for prop in props:
         sport = str(getattr(prop, "sport", "")).upper()
         matches = by_player.get((sport, _identity(getattr(prop, "player", ""))), [])
-        if not matches:
-            continue
         injury_matches = [item for item in matches if item["entityType"] == "INJURY"]
         lineup_matches = [item for item in matches if item["entityType"] == "LINEUP"]
+        if injury_matches:
+            injury = max(injury_matches, key=lambda item: item["observedAt"])
+            injury_status = str(injury["status"] or "").upper()
+            prop.injuryStatus = (
+                "out" if "OUT" in injury_status or "INACTIVE" in injury_status
+                else "doubtful" if "DOUBTFUL" in injury_status
+                else "questionable" if "QUESTIONABLE" in injury_status
+                else "day-to-day" if "DAY-TO-DAY" in injury_status or "DAY TO DAY" in injury_status
+                else "probable" if "PROBABLE" in injury_status
+                else "injury reported"
+            )
+        elif sport in current_espn_injury_reports:
+            # Absence from a freshly retrieved report is not a medical claim of
+            # perfect health; it means the league report lists no current injury.
+            prop.injuryStatus = "no injury reported"
+        if not matches:
+            continue
         latest = max(
             lineup_matches or matches,
             key=lambda item: (
@@ -455,16 +574,6 @@ def apply_latest_pregame_context(props: list[object]) -> None:
             ),
         )
         status = str(latest["status"] or "").upper()
-        if sport == "WNBA" and injury_matches:
-            injury = max(injury_matches, key=lambda item: item["observedAt"])
-            injury_status = str(injury["status"] or "").upper()
-            prop.injuryStatus = (
-                "out" if "OUT" in injury_status or "INACTIVE" in injury_status
-                else "doubtful" if "DOUBTFUL" in injury_status
-                else "questionable" if "QUESTIONABLE" in injury_status
-                else "probable" if "PROBABLE" in injury_status
-                else "reported"
-            )
         if sport == "WNBA" and lineup_matches:
             prop.lineupStatus = "confirmed"
         if sport != "MLB" or latest["entityType"] != "LINEUP":

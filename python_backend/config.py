@@ -25,6 +25,9 @@ WNBA_LEAGUE_ID = os.getenv("WNBA_LEAGUE_ID", "").strip()
 SPORTMONKS_API_KEY = os.getenv("SPORTMONKS_API_KEY", "").strip()
 SPORTSDATAIO_API_KEY = os.getenv("SPORTSDATAIO_API_KEY", "").strip()
 SPORTRADAR_WNBA_API_KEY = os.getenv("SPORTRADAR_WNBA_API_KEY", "").strip()
+SPORTRADAR_API_KEY = os.getenv(
+    "SPORTRADAR_API_KEY", SPORTRADAR_WNBA_API_KEY,
+).strip()
 SPORTRADAR_ACCESS_LEVEL = os.getenv("SPORTRADAR_ACCESS_LEVEL", "trial").strip() or "trial"
 SPORTSGAMEODDS_API_KEY = os.getenv("SPORTSGAMEODDS_API_KEY", "").strip()
 DATABASE_URL = (os.getenv("DATABASE_URL") or "").strip()

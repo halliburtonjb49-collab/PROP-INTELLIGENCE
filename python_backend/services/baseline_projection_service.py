@@ -317,11 +317,17 @@ class _HistoricalProjectionIndex:
                 "TENNIS": {
                     "player sets won": "sets_won", "sets won": "sets_won",
                     "player games won": "games_won", "games won": "games_won",
+                    "player aces": "aces", "aces": "aces",
+                    "player double faults": "double_faults",
+                    "double faults": "double_faults",
+                    "player breakpoints won": "breakpoints_won",
+                    "breakpoints won": "breakpoints_won",
                 },
                 "PGA": {
                     "player birdies": "birdies", "birdies": "birdies",
                     "player bogeys": "bogeys", "bogeys": "bogeys",
                     "player pars": "pars", "pars": "pars",
+                    "player eagles": "eagles", "eagles": "eagles",
                     "player strokes": "round_score", "strokes": "round_score",
                     "round score": "round_score",
                 },

@@ -14,6 +14,12 @@ from services.historical_ingestion_service import (
     run_daily_historical_sync,
 )
 from providers.espn_specialty_statistics import golf_logs, tennis_logs, ufc_logs
+from providers.sportradar_specialty_statistics import (
+    configured as sportradar_configured,
+    golf_logs as sportradar_golf_logs,
+    tennis_logs as sportradar_tennis_logs,
+    ufc_logs as sportradar_ufc_logs,
+)
 from services.pipeline_run_service import finish_pipeline_run, start_pipeline_run
 from services.prediction_automation_service import grade_completed_predictions
 from services.schedule_fatigue_service import sync_schedule_and_fatigue
@@ -30,16 +36,31 @@ def _run_stage(name: str, operation):
 
 
 def _sync_specialty_history(target: date) -> dict[str, object]:
-    rows = (
-        tennis_logs(tour="ATP", target_date=target)
-        + tennis_logs(tour="WTA", target_date=target)
-        + golf_logs(target_date=target)
-        + ufc_logs(target_date=target)
+    espn_tennis = tennis_logs(tour="ATP", target_date=target) + tennis_logs(
+        tour="WTA", target_date=target,
     )
+    espn_golf = golf_logs(target_date=target)
+    espn_ufc = ufc_logs(target_date=target)
+    sources = {"TENNIS": "ESPN", "PGA": "ESPN", "UFC": "ESPN"}
+    if sportradar_configured() and not espn_tennis:
+        espn_tennis = sportradar_tennis_logs(target_date=target)
+        sources["TENNIS"] = "SPORTRADAR"
+    if sportradar_configured() and not espn_ufc:
+        espn_ufc = sportradar_ufc_logs(target_date=target)
+        sources["UFC"] = "SPORTRADAR"
+    if sportradar_configured() and not espn_golf:
+        espn_golf = sportradar_golf_logs(target_date=target)
+        sources["PGA"] = "SPORTRADAR"
+    rows = espn_tennis + espn_golf + espn_ufc
     return {
         "fetched": len(rows),
         "upserted": HistoricalRepository().upsert_player_game_logs(rows),
-        "source": "ESPN",
+        "sources": sources,
+        "bySport": {
+            "TENNIS": len(espn_tennis),
+            "PGA": len(espn_golf),
+            "UFC": len(espn_ufc),
+        },
     }
 
 

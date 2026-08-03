@@ -49,7 +49,7 @@ def evaluate_opportunity_gate(
     if lineup not in {"confirmed", "starter", "starting", "active"}:
         reasons.append("lineup_not_confirmed")
         probability_penalty += 0.03
-    if injury in {"unknown", "questionable", "doubtful", "day-to-day"}:
+    if injury in {"unknown", "questionable", "doubtful", "day-to-day", "injury reported"}:
         reasons.append("injury_status_unresolved")
         probability_penalty += 0.02
     if sample_size < MINIMUM_SAMPLE_SIZE:

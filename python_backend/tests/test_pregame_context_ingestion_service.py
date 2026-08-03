@@ -5,6 +5,7 @@ from services.pregame_context_ingestion_service import (
     _inside_mlb_lineup_window,
     normalize_official_mlb_boxscore,
     normalize_official_mlb_schedule,
+    normalize_espn_injuries,
     normalize_sportsdataio_mlb_lineups,
     normalize_sportradar_wnba_injuries,
     normalize_sportradar_wnba_starters,
@@ -46,6 +47,31 @@ def test_normalizes_nested_sportradar_injury_response() -> None:
     assert len(rows) == 1
     assert rows[0]["team"] == "IND"
     assert rows[0]["status"] == "QUESTIONABLE"
+
+
+def test_normalizes_espn_injury_report_and_freshness_marker() -> None:
+    rows = normalize_espn_injuries({
+        "timestamp": "2026-08-03T12:00:00Z",
+        "injuries": [{
+            "displayName": "Indiana Fever",
+            "injuries": [{
+                "status": "Day-To-Day",
+                "date": "2026-08-03T11:00:00Z",
+                "shortComment": "Player is being evaluated.",
+                "athlete": {
+                    "id": "1", "displayName": "Test Player",
+                    "team": {"abbreviation": "IND"},
+                },
+                "details": {"type": "Ankle", "side": "Left"},
+            }],
+        }],
+    }, sport="WNBA", observed_day=date(2026, 8, 3))
+    assert rows[0]["entity_type"] == "INJURY_FEED"
+    assert rows[0]["status"] == "REPORT_CURRENT"
+    assert rows[1]["player_name"] == "Test Player"
+    assert rows[1]["team"] == "IND"
+    assert rows[1]["status"] == "DAY-TO-DAY"
+    assert rows[1]["payload"]["injuryType"] == "Ankle"
 
 
 def test_normalizes_confirmed_wnba_starters() -> None:
