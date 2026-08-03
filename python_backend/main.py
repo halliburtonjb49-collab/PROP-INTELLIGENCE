@@ -642,6 +642,7 @@ def _mark_sync_running() -> None:
 			status="running", startedAt=datetime.now(timezone.utc).isoformat(),
 			finishedAt=None, results=[], error=None, nextAllowedAt=None,
 			fastLaneCompletedAt=None, fastLaneResults=[],
+			coverageStatus="pending", coverageError=None,
 		)
 
 
@@ -650,9 +651,19 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 		def mark_fast_lane_complete(results: list[dict[str, object]]) -> None:
 			_invalidate_prop_catalog()
 			with _sync_state_lock:
+				finished = datetime.now(timezone.utc)
+				cooldown = _effective_sync_cooldown_seconds()
 				_sync_state.update(
-					fastLaneCompletedAt=datetime.now(timezone.utc).isoformat(),
+					status="complete",
+					finishedAt=finished.isoformat(),
+					cooldownSeconds=cooldown,
+					nextAllowedAt=(
+						finished + timedelta(seconds=cooldown)
+					).isoformat(),
+					fastLaneCompletedAt=finished.isoformat(),
 					fastLaneResults=results,
+					results=results,
+					coverageStatus="running",
 				)
 
 		results = run_global_sync_pipeline(mark_fast_lane_complete)
@@ -670,15 +681,24 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 				results=results,
 				clvCapture=clv_capture,
 				providerQuota=quota,
+				coverageStatus="complete",
+				coverageError=None,
 				error=None,
 			)
 	except Exception as exc:
 		logging.exception("Background prop sync failed")
 		with _sync_state_lock:
+			primary_complete = bool(_sync_state.get("fastLaneCompletedAt"))
 			_sync_state.update(
-				status="failed",
-				finishedAt=datetime.now(timezone.utc).isoformat(),
-				error=str(exc),
+				status="complete" if primary_complete else "failed",
+				finishedAt=(
+					_sync_state.get("finishedAt")
+					if primary_complete
+					else datetime.now(timezone.utc).isoformat()
+				),
+				coverageStatus="failed" if primary_complete else "not_started",
+				coverageError=str(exc) if primary_complete else None,
+				error=None if primary_complete else str(exc),
 			)
 	finally:
 		if release_local_lock and _sync_run_lock.locked():

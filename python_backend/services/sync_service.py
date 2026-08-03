@@ -93,7 +93,15 @@ def _mark_coverage_synced(now: float | None = None) -> None:
 def next_sgo_leagues(limit: int | None = None) -> list[tuple[str, str]]:
     """Rotate limited provider calls so low rate limits cannot starve leagues."""
     global _sgo_league_cursor
-    leagues = list(LEAGUE_TO_SPORT.items())
+    disabled = {
+        value.strip().upper()
+        for value in os.getenv("SPORTSGAMEODDS_DISABLED_LEAGUES", "").split(",")
+        if value.strip()
+    }
+    leagues = [
+        item for item in LEAGUE_TO_SPORT.items()
+        if item[0].upper() not in disabled
+    ]
     if not leagues:
         return []
     configured_limit = limit or int(os.getenv("SPORTSGAMEODDS_LEAGUES_PER_SYNC", "4"))
@@ -331,6 +339,13 @@ def sync_sportsgameodds() -> dict[str, object]:
         "providerUsage": sgo_usage_snapshot(),
         "accountUsage": account_usage,
         "attemptedLeagues": [league for league, _ in selected_leagues],
+        "disabledLeagues": sorted({
+            value.strip().upper()
+            for value in os.getenv(
+                "SPORTSGAMEODDS_DISABLED_LEAGUES", ""
+            ).split(",")
+            if value.strip()
+        }),
         "rotationSize": len(LEAGUE_TO_SPORT),
     }
 

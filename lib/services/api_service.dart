@@ -990,11 +990,12 @@ class ApiService {
           continue;
         }
         final savedAt = DateTime.tryParse(decoded['savedAt']?.toString() ?? '');
-        if (savedAt == null ||
-            DateTime.now().toUtc().difference(savedAt.toUtc()) >
-                _propsCacheMaxAge) {
+        if (savedAt == null) {
           continue;
         }
+        final cacheIsStale =
+            DateTime.now().toUtc().difference(savedAt.toUtc()) >
+            _propsCacheMaxAge;
         final cached = (decoded['props'] as List)
             .whereType<Map>()
             .map((raw) => Map<String, dynamic>.from(raw))
@@ -1042,7 +1043,9 @@ class ApiService {
             decoded['savedAt']?.toString() ?? '',
           ),
           sourceUrl: 'device cache',
-          message: 'Showing saved props while refreshing',
+          message: cacheIsStale
+              ? 'Showing the last saved board while refreshing live props'
+              : 'Showing saved props while refreshing',
         );
         return cached;
       } catch (_) {

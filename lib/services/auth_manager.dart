@@ -213,6 +213,7 @@ class AuthManager {
   );
 
   StreamSubscription<AuthState>? _authSubscription;
+  int _profileRefreshGeneration = 0;
 
   SupabaseClient? get _client => SupabaseService.client;
 
@@ -274,12 +275,13 @@ class AuthManager {
       data: profileMetadata,
     );
 
-    await saveProfileTrackingState({
-      'last_auth_event': 'signup',
-      'email': email.trim(),
-    });
-
     await _setSession(client.auth.currentSession);
+    unawaited(
+      saveProfileTrackingState({
+        'last_auth_event': 'signup',
+        'email': email.trim(),
+      }).catchError((_) {}),
+    );
   }
 
   Future<void> signIn({required String email, required String password}) async {
@@ -290,16 +292,18 @@ class AuthManager {
       password: password,
     );
 
-    await saveProfileTrackingState({
-      'last_auth_event': 'signin',
-      'email': email.trim(),
-    });
-
     await _setSession(client.auth.currentSession);
+    unawaited(
+      saveProfileTrackingState({
+        'last_auth_event': 'signin',
+        'email': email.trim(),
+      }).catchError((_) {}),
+    );
   }
 
   Future<void> signOut() async {
     final client = _requireClient();
+    _profileRefreshGeneration++;
     await client.auth.signOut();
     passwordRecoveryRequested.value = false;
     sessionState.value = const AuthSessionState.signedOut();
@@ -524,15 +528,50 @@ class AuthManager {
       return;
     }
 
+    final metadataTier = SubscriptionTier.fromDatabase(
+      user.appMetadata['subscription_tier'] ??
+          user.userMetadata?['subscription_tier'],
+    );
+    // Render the authenticated shell immediately. The API still performs the
+    // authoritative membership check on every protected request; this
+    // provisional UI state only prevents profile I/O from blocking sign-in.
+    final provisionalTier = metadataTier == SubscriptionTier.free
+        ? SubscriptionTier.core
+        : metadataTier;
+    sessionState.value = AuthSessionState(
+      ready: true,
+      authenticated: true,
+      isPremium: provisionalTier != SubscriptionTier.free,
+      subscriptionTier: provisionalTier,
+      accessPreviewTier: null,
+      role: role,
+      userId: user.id,
+      email: user.email,
+      username: metadataUsername,
+      message: 'Authenticated; refreshing membership',
+    );
+    final generation = ++_profileRefreshGeneration;
+    unawaited(
+      _refreshProfileSession(user: user, role: role, generation: generation),
+    );
+  }
+
+  Future<void> _refreshProfileSession({
+    required User user,
+    required String role,
+    required int generation,
+  }) async {
     var isPremium = false;
     var subscriptionTier = SubscriptionTier.free;
     String? profileDisplayName;
+    var profileLoaded = false;
     try {
       final row = await _client
           ?.from('user_profiles')
           .select('is_premium, subscription_tier, display_name')
           .eq('id', user.id)
           .maybeSingle();
+      profileLoaded = true;
       if (row is Map<String, dynamic>) {
         profileDisplayName = row['display_name']?.toString();
         final raw = row['is_premium'];
@@ -548,10 +587,17 @@ class AuthManager {
         }
       }
     } catch (_) {
-      isPremium = false;
-      subscriptionTier = SubscriptionTier.free;
+      // Keep the signed token's provisional access visible while an
+      // intermittent profile request recovers. Protected APIs remain the
+      // authority for actual access.
+      return;
     }
 
+    if (!profileLoaded ||
+        generation != _profileRefreshGeneration ||
+        _client?.auth.currentUser?.id != user.id) {
+      return;
+    }
     sessionState.value = AuthSessionState(
       ready: true,
       authenticated: true,

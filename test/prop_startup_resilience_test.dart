@@ -148,4 +148,41 @@ void main() {
       });
     },
   );
+
+  test(
+    'stale device props render immediately while live data refreshes',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'prop-feed-v4-last-stable': jsonEncode({
+          'savedAt': DateTime.now()
+              .toUtc()
+              .subtract(const Duration(days: 2))
+              .toIso8601String(),
+          'total': 1,
+          'facetTotal': 1,
+          'categoryCounts': {'POINTS': 1},
+          'sportCounts': {'NBA': 1},
+          'sportCategoryCounts': {
+            'NBA': {'POINTS': 1},
+          },
+          'props': [_prop('stale-cached-nba', 'NBA')],
+        }),
+      });
+
+      final cached = await ApiService().loadCachedProps(
+        selectedSide: 'All',
+        selectedTier: 'All',
+        selectedSportsbook: 'All',
+        selectedSport: 'All',
+        selectedCategory: 'All',
+        sortBy: 'source',
+      );
+
+      expect(cached.map((prop) => prop.id), ['stale-cached-nba']);
+      expect(
+        ApiService.refreshStatusNotifier.value.message,
+        contains('last saved board'),
+      );
+    },
+  );
 }

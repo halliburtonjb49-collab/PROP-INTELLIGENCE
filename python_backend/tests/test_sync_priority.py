@@ -75,6 +75,7 @@ def test_coverage_lane_uses_independent_cooldown(monkeypatch) -> None:
 
 
 def test_supplemental_leagues_rotate_without_starvation(monkeypatch) -> None:
+    monkeypatch.delenv("SPORTSGAMEODDS_DISABLED_LEAGUES", raising=False)
     monkeypatch.setattr(sync_service, "_sgo_league_cursor", 0)
     first = next_sgo_leagues(limit=1)
     second = next_sgo_leagues(limit=1)
@@ -83,6 +84,15 @@ def test_supplemental_leagues_rotate_without_starvation(monkeypatch) -> None:
     assert [first[0][0], second[0][0], third[0][0], fourth[0][0]] == [
         "ATP", "WTA", "PGA_MEN", "UFC",
     ]
+
+
+def test_unavailable_supplemental_leagues_are_not_retried(monkeypatch) -> None:
+    monkeypatch.setenv("SPORTSGAMEODDS_DISABLED_LEAGUES", "ATP,WTA,PGA_MEN")
+    monkeypatch.setattr(sync_service, "_sgo_league_cursor", 0)
+
+    selected = next_sgo_leagues(limit=4)
+
+    assert [league for league, _ in selected] == ["UFC", "MLB", "NBA", "WNBA"]
 
 
 def test_supplemental_entity_quota_is_detected() -> None:
