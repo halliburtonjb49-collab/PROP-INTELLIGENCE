@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 import re
 import unicodedata
@@ -43,6 +43,40 @@ def _event_date(value: str) -> str:
     return parsed.astimezone(ZoneInfo("America/New_York")).date().isoformat()
 
 
+def _event_datetime(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        parsed = datetime.now(timezone.utc)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _schedule_window(value: str) -> tuple[str, str]:
+    """Cover every North-American scheduling day around an absolute start time."""
+    event_day = _event_datetime(value).date()
+    return (
+        (event_day - timedelta(days=1)).isoformat(),
+        (event_day + timedelta(days=1)).isoformat(),
+    )
+
+
+def _team_aliases(team: object) -> set[str]:
+    if not isinstance(team, dict):
+        return set()
+    aliases = {
+        _normalized(team.get(field, ""))
+        for field in ("name", "teamName", "clubName", "shortName", "abbreviation")
+    }
+    return {alias for alias in aliases if alias}
+
+
+def _matchup_contains_team(matchup: str, team: object) -> bool:
+    wanted = _normalized(matchup)
+    return any(alias in wanted for alias in _team_aliases(team))
+
+
 def _get_json(path: str, params: dict[str, object] | None = None) -> Any:
     cache_key = f"{path}|{sorted((params or {}).items())}"
     if cache_key in _response_cache:
@@ -66,35 +100,36 @@ def _final_game_pk(
 ) -> str | None:
     if str(api_sports_game_id).isdigit():
         return str(api_sports_game_id)
+    start_date, end_date = _schedule_window(game_start_time)
     payload = _get_json(
         "/v1/schedule",
         {
             "sportId": 1,
-            "date": _event_date(game_start_time),
+            "startDate": start_date,
+            "endDate": end_date,
             "hydrate": "team",
         },
     )
-    wanted = _normalized(matchup)
     matches: list[tuple[str, datetime | None]] = []
     for date_row in payload.get("dates", []) if isinstance(payload, dict) else []:
         for game in date_row.get("games", []) if isinstance(date_row, dict) else []:
             teams = game.get("teams", {})
             away = (
-                teams.get("away", {}).get("team", {}).get("name", "")
+                teams.get("away", {}).get("team", {})
                 if isinstance(teams, dict)
-                else ""
+                else {}
             )
             home = (
-                teams.get("home", {}).get("team", {}).get("name", "")
+                teams.get("home", {}).get("team", {})
                 if isinstance(teams, dict)
-                else ""
+                else {}
             )
             status = game.get("status", {})
             final = str(status.get("abstractGameState", "")).lower() == "final"
             if (
                 final
-                and _normalized(away) in wanted
-                and _normalized(home) in wanted
+                and _matchup_contains_team(matchup, away)
+                and _matchup_contains_team(matchup, home)
                 and game.get("gamePk") is not None
             ):
                 try:
@@ -214,7 +249,7 @@ def official_mlb_result(
 
 def historical_mlb_result(
     *, player_name: str, market: str, game_start_time: str,
-    player_id: str = "",
+    player_id: str = "", matchup: str = "", api_sports_game_id: str = "",
 ) -> OfficialMlbResult | None:
     """Resolve a completed prop from ingested Statcast when boxscore matching fails.
 
@@ -238,13 +273,27 @@ def historical_mlb_result(
     ):
         return None
     identifier_column = "pitcher_id" if is_pitcher else "batter_id"
+    exact_game_pk = _final_game_pk(
+        game_start_time=game_start_time,
+        matchup=matchup,
+        api_sports_game_id=api_sports_game_id,
+    ) if matchup or api_sports_game_id else None
+    start_date, end_date = _schedule_window(game_start_time)
     with get_database_pool().connection() as connection, connection.cursor() as cursor:
-        cursor.execute(
-            f"""select game_pk,events from historical_mlb_pitches
-                where {identifier_column}=%s and game_date=%s
-                order by game_pk""",
-            (official_id, _event_date(game_start_time)),
-        )
+        if exact_game_pk:
+            cursor.execute(
+                f"""select game_pk,events from historical_mlb_pitches
+                    where {identifier_column}=%s and game_pk=%s
+                    order by game_pk""",
+                (official_id, exact_game_pk),
+            )
+        else:
+            cursor.execute(
+                f"""select game_pk,events from historical_mlb_pitches
+                    where {identifier_column}=%s and game_date between %s and %s
+                    order by game_pk""",
+                (official_id, start_date, end_date),
+            )
         rows = cursor.fetchall()
     by_game: dict[str, list[str]] = {}
     for game_pk, event in rows:

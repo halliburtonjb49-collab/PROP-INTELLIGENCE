@@ -28,13 +28,17 @@ def sync_defender_matchups(*, sport: str, season: str) -> dict[str, object]:
         logger.warning("Defender matchup provider unavailable; retaining cached data: %s", exc)
         with get_database_pool().connection() as connection, connection.cursor() as cursor:
             cursor.execute(
-                "select count(*) from basketball_defender_matchups where sport=%s and season=%s",
+                """select count(*),max(updated_at) from basketball_defender_matchups
+                    where sport=%s and season=%s""",
                 (sport.upper(), season),
             )
-            cached = int(cursor.fetchone()[0])
+            cached, last_updated = cursor.fetchone()
         return {
-            "sport": sport.upper(), "season": season, "matchups": cached,
-            "source": "cached", "providerError": str(exc),
+            "sport": sport.upper(), "season": season, "matchups": int(cached),
+            "source": "cached" if cached else "position-history-fallback",
+            "lastVerifiedAt": last_updated.isoformat() if last_updated else None,
+            "positionHistoryFallbackActive": True,
+            "providerError": str(exc),
         }
     values = []
     for row in rows:
@@ -63,4 +67,7 @@ def sync_defender_matchups(*, sport: str, season: str) -> dict[str, object]:
           matchup_fg_pct=excluded.matchup_fg_pct,games=excluded.games,
           source=excluded.source,updated_at=now()""", values)
         connection.commit()
-    return {"sport": sport.upper(), "season": season, "matchups": len(values)}
+    return {
+        "sport": sport.upper(), "season": season, "matchups": len(values),
+        "source": "stats.nba.com", "positionHistoryFallbackActive": False,
+    }

@@ -3,6 +3,7 @@
 import argparse
 import json
 import logging
+import os
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -70,6 +71,29 @@ def _sync_specialty_history(target: date) -> dict[str, object]:
     }
 
 
+def _sync_specialty_history_window(target: date) -> dict[str, object]:
+    """Revisit recent event days so late finals and weekend events are not missed."""
+    try:
+        lookback = max(1, min(30, int(os.getenv("SPECIALTY_HISTORY_LOOKBACK_DAYS", "7"))))
+    except ValueError:
+        lookback = 7
+    daily = []
+    totals = {"fetched": 0, "upserted": 0}
+    by_sport = {"TENNIS": 0, "PGA": 0, "UFC": 0}
+    for offset in range(lookback):
+        day = target - timedelta(days=offset)
+        result = _run_stage(
+            f"specialtyHistory:{day.isoformat()}",
+            lambda day=day: _sync_specialty_history(day),
+        )
+        daily.append({"date": day.isoformat(), **result})
+        totals["fetched"] += int(result.get("fetched", 0))
+        totals["upserted"] += int(result.get("upserted", 0))
+        for sport in by_sport:
+            by_sport[sport] += int((result.get("bySport") or {}).get(sport, 0))
+    return {**totals, "lookbackDays": lookback, "bySport": by_sport, "daily": daily}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--date", type=date.fromisoformat)
@@ -88,7 +112,9 @@ def main() -> int:
     )
     result["specialtyHistory"] = _run_stage(
         "specialtyHistory",
-        lambda: _sync_specialty_history(args.date or (date.today() - timedelta(days=1))),
+        lambda: _sync_specialty_history_window(
+            args.date or (date.today() - timedelta(days=1))
+        ),
     )
     if not isinstance(result, dict):
         result = {

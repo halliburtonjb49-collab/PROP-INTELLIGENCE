@@ -9,9 +9,17 @@ def test_mlb_event_date_uses_eastern_scheduling_day() -> None:
     assert mlb_official_stats_service._event_date("2026-08-03T01:10:00Z") == "2026-08-02"
 
 
+def test_schedule_window_is_independent_of_user_timezone() -> None:
+    assert mlb_official_stats_service._schedule_window("2026-08-03T02:10:00Z") == (
+        "2026-08-02", "2026-08-04",
+    )
+
+
 def test_official_mlb_result_resolves_final_game_and_pitcher_stat(monkeypatch) -> None:
     def fake_get(path, params=None):
         if path == "/v1/schedule":
+            assert params["startDate"] == "2026-07-25"
+            assert params["endDate"] == "2026-07-27"
             return {
                 "dates": [{
                     "games": [{
@@ -51,12 +59,41 @@ def test_official_mlb_result_resolves_final_game_and_pitcher_stat(monkeypatch) -
     assert result.source == "mlb-stats-api"
 
 
+def test_game_resolution_accepts_team_abbreviations_and_chooses_closest(monkeypatch) -> None:
+    monkeypatch.setattr(
+        mlb_official_stats_service,
+        "_get_json",
+        lambda _path, _params=None: {"dates": [{"games": [
+            {
+                "gamePk": 40, "gameDate": "2026-08-02T17:00:00Z",
+                "status": {"abstractGameState": "Final"},
+                "teams": {
+                    "away": {"team": {"name": "Toronto Blue Jays", "abbreviation": "TOR"}},
+                    "home": {"team": {"name": "Boston Red Sox", "abbreviation": "BOS"}},
+                },
+            },
+            {
+                "gamePk": 42, "gameDate": "2026-08-02T23:00:00Z",
+                "status": {"abstractGameState": "Final"},
+                "teams": {
+                    "away": {"team": {"name": "Toronto Blue Jays", "abbreviation": "TOR"}},
+                    "home": {"team": {"name": "Boston Red Sox", "abbreviation": "BOS"}},
+                },
+            },
+        ]}]},
+    )
+    assert mlb_official_stats_service._final_game_pk(
+        game_start_time="2026-08-02T22:55:00Z", matchup="TOR @ BOS",
+        api_sports_game_id="",
+    ) == "42"
+
+
 def test_statcast_fallback_grades_single_game_total_bases(monkeypatch) -> None:
     class Cursor:
         def __enter__(self): return self
         def __exit__(self, *_args): return False
         def execute(self, _query, params):
-            assert params == ("123", "2026-08-02")
+            assert params == ("123", "2026-08-02", "2026-08-04")
         def fetchall(self):
             return [(42, "single"), (42, "double"), (42, "field_out")]
 

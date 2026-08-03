@@ -361,6 +361,7 @@ def grade_completed_predictions() -> dict[str, object]:
                         player_name=str(player_name), market=str(market),
                         game_start_time=event_time.isoformat(),
                         player_id=str(player_id or ""),
+                        matchup=str(matchup or ""),
                     )
                 actual = official.value if official is not None else None
                 result_source = official.source if official is not None else ""
