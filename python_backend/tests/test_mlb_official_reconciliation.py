@@ -5,6 +5,10 @@ from services import mlb_official_stats_service, result_reconciliation_service, 
 from services.mlb_official_stats_service import OfficialMlbResult
 
 
+def test_mlb_event_date_uses_eastern_scheduling_day() -> None:
+    assert mlb_official_stats_service._event_date("2026-08-03T01:10:00Z") == "2026-08-02"
+
+
 def test_official_mlb_result_resolves_final_game_and_pitcher_stat(monkeypatch) -> None:
     def fake_get(path, params=None):
         if path == "/v1/schedule":
@@ -45,6 +49,54 @@ def test_official_mlb_result_resolves_final_game_and_pitcher_stat(monkeypatch) -
     assert result is not None
     assert result.value == 6
     assert result.source == "mlb-stats-api"
+
+
+def test_statcast_fallback_grades_single_game_total_bases(monkeypatch) -> None:
+    class Cursor:
+        def __enter__(self): return self
+        def __exit__(self, *_args): return False
+        def execute(self, _query, params):
+            assert params == ("123", "2026-08-02")
+        def fetchall(self):
+            return [(42, "single"), (42, "double"), (42, "field_out")]
+
+    class Connection:
+        def __enter__(self): return self
+        def __exit__(self, *_args): return False
+        def cursor(self): return Cursor()
+
+    class Pool:
+        def connection(self): return Connection()
+
+    monkeypatch.setattr(mlb_official_stats_service, "database_is_configured", lambda: True)
+    monkeypatch.setattr(mlb_official_stats_service, "get_database_pool", lambda: Pool())
+    monkeypatch.setattr(mlb_official_stats_service, "mlb_player_id", lambda _name: 123)
+    result = mlb_official_stats_service.historical_mlb_result(
+        player_name="Test Batter", market="Total Bases",
+        game_start_time="2026-08-03T01:10:00Z",
+    )
+    assert result == OfficialMlbResult(3.0, "42", "statcast-history")
+
+
+def test_statcast_fallback_refuses_ambiguous_doubleheader(monkeypatch) -> None:
+    class Cursor:
+        def __enter__(self): return self
+        def __exit__(self, *_args): return False
+        def execute(self, _query, _params): pass
+        def fetchall(self): return [(41, "single"), (42, "double")]
+    class Connection:
+        def __enter__(self): return self
+        def __exit__(self, *_args): return False
+        def cursor(self): return Cursor()
+    class Pool:
+        def connection(self): return Connection()
+    monkeypatch.setattr(mlb_official_stats_service, "database_is_configured", lambda: True)
+    monkeypatch.setattr(mlb_official_stats_service, "get_database_pool", lambda: Pool())
+    monkeypatch.setattr(mlb_official_stats_service, "mlb_player_id", lambda _name: 123)
+    assert mlb_official_stats_service.historical_mlb_result(
+        player_name="Test Batter", market="Hits",
+        game_start_time="2026-08-02T20:00:00Z",
+    ) is None
 
 
 def test_reconciliation_corrects_already_lost_slip(tmp_path, monkeypatch) -> None:

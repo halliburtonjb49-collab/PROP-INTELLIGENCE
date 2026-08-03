@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from database.postgres import database_is_configured, get_database_pool
 from services.prop_service import get_props
 from services.baseline_projection_service import MODEL_VERSION
-from services.mlb_official_stats_service import official_mlb_result
+from services.mlb_official_stats_service import historical_mlb_result, official_mlb_result
 from services.live_stats_service import (
     STAT_MAP,
     get_live_player_stat_snapshot,
@@ -342,6 +342,7 @@ def grade_completed_predictions() -> dict[str, object]:
             limit 100""")
         pending = cursor.fetchall()
         for identifier, sport, market, side, line, event_time, player_name, player_id, matchup in pending:
+            result_source = ""
             if sport not in TRACKED_SPORTS or not player_name or event_time is None:
                 unsupported += 1
                 pending_reasons["invalid_or_untracked_prediction"] += 1
@@ -355,7 +356,14 @@ def grade_completed_predictions() -> dict[str, object]:
                     matchup=str(matchup or ""),
                     game_start_time=event_time.isoformat(),
                 )
+                if official is None:
+                    official = historical_mlb_result(
+                        player_name=str(player_name), market=str(market),
+                        game_start_time=event_time.isoformat(),
+                        player_id=str(player_id or ""),
+                    )
                 actual = official.value if official is not None else None
+                result_source = official.source if official is not None else ""
                 if actual is None:
                     pending_reasons["official_mlb_result_not_found"] += 1
             elif sport in {"NBA", "WNBA"}:
@@ -367,6 +375,7 @@ def grade_completed_predictions() -> dict[str, object]:
                 if row is None:
                     continue
                 actual = _market_value(str(market), row)
+                result_source = "historical-game-logs"
             elif sport in {"TENNIS", "PGA", "GOLF", "UFC", "MMA", "SOCCER"}:
                 history_sport = "PGA" if sport == "GOLF" else "UFC" if sport == "MMA" else sport
                 cursor.execute("""select stats from historical_player_game_logs
@@ -379,6 +388,7 @@ def grade_completed_predictions() -> dict[str, object]:
                     _specialty_market_value(str(sport), str(market), row[0])
                     if row is not None else None
                 )
+                result_source = "historical-specialty-logs"
                 if row is None:
                     pending_reasons["specialty_player_result_not_found"] += 1
                 elif actual is None:
@@ -395,6 +405,7 @@ def grade_completed_predictions() -> dict[str, object]:
                     game_start_time=event_time.isoformat(),
                 )
                 actual = snapshot.value if snapshot.completed else None
+                result_source = snapshot.source or "sportsdataio"
                 if actual is None:
                     pending_reasons[f"live_result_{snapshot.status or 'not_available'}"] += 1
             if actual is None:
@@ -408,15 +419,7 @@ def grade_completed_predictions() -> dict[str, object]:
                 where id=%s""", (
                     actual,
                     hit,
-                    (
-                        "mlb-stats-api"
-                        if sport == "MLB"
-                        else "historical-game-logs"
-                        if sport in {"NBA", "WNBA"}
-                        else "historical-specialty-logs"
-                        if sport in {"TENNIS", "PGA", "GOLF", "UFC", "MMA", "SOCCER"}
-                        else "sportsdataio"
-                    ),
+                    result_source,
                     identifier,
                 ))
             graded += 1

@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import re
 import unicodedata
 from typing import Any
 
 import requests
+
+from database.postgres import database_is_configured, get_database_pool
+from services.mlb_headshot_service import mlb_player_id
 
 
 BASE_URL = "https://statsapi.mlb.com/api"
@@ -34,7 +38,9 @@ def _event_date(value: str) -> str:
         parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except (TypeError, ValueError):
         parsed = datetime.now(timezone.utc)
-    return parsed.date().isoformat()
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(ZoneInfo("America/New_York")).date().isoformat()
 
 
 def _get_json(path: str, params: dict[str, object] | None = None) -> Any:
@@ -204,3 +210,57 @@ def official_mlb_result(
         return OfficialMlbResult(value=value, game_pk=game_pk)
     except (requests.RequestException, TypeError, ValueError):
         return None
+
+
+def historical_mlb_result(
+    *, player_name: str, market: str, game_start_time: str,
+    player_id: str = "",
+) -> OfficialMlbResult | None:
+    """Resolve a completed prop from ingested Statcast when boxscore matching fails.
+
+    A player/date may contain two games during a doubleheader. We intentionally
+    refuse to combine them; the exact game must be resolved by the official API.
+    """
+    if not database_is_configured():
+        return None
+    official_id = str(player_id or "").strip()
+    if not official_id.isdigit():
+        resolved = mlb_player_id(player_name)
+        official_id = str(resolved or "")
+    if not official_id.isdigit():
+        return None
+    text = str(market).lower().replace("_", " ")
+    is_pitcher = "pitcher" in text or "strikeout" in text
+    if is_pitcher and "strikeout" not in text:
+        return None
+    if not is_pitcher and not any(
+        token in text for token in ("hit", "total base", "home run")
+    ):
+        return None
+    identifier_column = "pitcher_id" if is_pitcher else "batter_id"
+    with get_database_pool().connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            f"""select game_pk,events from historical_mlb_pitches
+                where {identifier_column}=%s and game_date=%s
+                order by game_pk""",
+            (official_id, _event_date(game_start_time)),
+        )
+        rows = cursor.fetchall()
+    by_game: dict[str, list[str]] = {}
+    for game_pk, event in rows:
+        by_game.setdefault(str(game_pk), []).append(str(event or ""))
+    if len(by_game) != 1:
+        return None
+    game_pk, events = next(iter(by_game.items()))
+    if is_pitcher:
+        value = sum(event in {"strikeout", "strikeout_double_play"} for event in events)
+    elif "total base" in text:
+        weights = {"single": 1, "double": 2, "triple": 3, "home_run": 4}
+        value = sum(weights.get(event, 0) for event in events)
+    elif "home run" in text:
+        value = sum(event == "home_run" for event in events)
+    else:
+        value = sum(event in {"single", "double", "triple", "home_run"} for event in events)
+    return OfficialMlbResult(
+        value=float(value), game_pk=game_pk, source="statcast-history",
+    )
