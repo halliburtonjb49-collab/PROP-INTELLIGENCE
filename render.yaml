@@ -100,7 +100,7 @@ services:
       - key: EMPTY_PROP_SYNC_RETRY_SECONDS
         value: 300
       - key: PROP_FEED_STALE_MINUTES
-        value: 15
+        value: 180
       - key: PROP_FEED_WATCHDOG_SECONDS
         value: 300
       - key: ODDS_API_LOW_QUOTA_THRESHOLD

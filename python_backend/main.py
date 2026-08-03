@@ -526,12 +526,12 @@ def _cached_prop_catalog() -> list[PropResponse]:
 		set_distributed_json(
 			_PROP_CATALOG_KEY,
 			[prop.model_dump(mode="json") for prop in props],
-			ttl_seconds=900,
+			ttl_seconds=86400,
 		)
 		set_distributed_json(
 			_PROP_CATALOG_VERSION_KEY,
 			catalog_version,
-			ttl_seconds=900,
+			ttl_seconds=86400,
 		)
 		_publish_prop_catalog_summary(props)
 		with _prop_catalog_lock:
@@ -578,7 +578,7 @@ def _publish_prop_catalog_summary(props: list[PropResponse]) -> None:
 	set_distributed_json(
 		_PROP_CATALOG_SUMMARY_KEY,
 		_prop_catalog_summary(props),
-		ttl_seconds=900,
+		ttl_seconds=86400,
 	)
 
 
@@ -720,6 +720,17 @@ async def _ensure_props_available() -> None:
 		logging.info("Startup prop check ready props=%s", len(props))
 		return
 	queued = _enqueue_prop_refresh()
+	queue_state = await asyncio.to_thread(job_queue_health)
+	if int(queue_state.get("workers") or 0) < 1:
+		logging.error(
+			"No RQ worker is active; running one startup recovery in the API "
+			"process so the customer board is not empty"
+		)
+		if _sync_run_lock.acquire(blocking=False):
+			_mark_sync_running()
+			await asyncio.to_thread(_run_sync_background)
+			await asyncio.to_thread(_cached_prop_catalog)
+		return
 	if queued is None:
 		logging.warning(
 			"Startup prop cache is empty or stale; worker refresh is already "

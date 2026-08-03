@@ -29,6 +29,7 @@ def test_startup_recovery_queues_empty_cache_without_running_sync(monkeypatch):
         "_enqueue_prop_refresh",
         lambda: queued.append("worker") or {"id": "refresh-1"},
     )
+    monkeypatch.setattr(main, "job_queue_health", lambda: {"workers": 1})
 
     asyncio.run(main._ensure_props_available())
 
@@ -49,10 +50,31 @@ def test_startup_recovery_queues_stale_cache_without_blocking(monkeypatch):
         "_enqueue_prop_refresh",
         lambda: queued.append("worker") or {"id": "refresh-1"},
     )
+    monkeypatch.setattr(main, "job_queue_health", lambda: {"workers": 1})
 
     asyncio.run(main._ensure_props_available())
 
     assert queued == ["worker"]
+
+
+def test_startup_recovery_falls_back_once_without_an_active_worker(monkeypatch):
+    props = []
+    monkeypatch.setattr(main, "get_props", lambda: props)
+    monkeypatch.setattr(main, "_enqueue_prop_refresh", lambda: {"id": "queued"})
+    monkeypatch.setattr(main, "job_queue_health", lambda: {"workers": 0})
+
+    def recover():
+        props.append(
+            SimpleNamespace(lastUpdatedUtc=datetime.now(timezone.utc).isoformat())
+        )
+        main._sync_run_lock.release()
+
+    monkeypatch.setattr(main, "_run_sync_background", recover)
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: props)
+
+    asyncio.run(main._ensure_props_available())
+
+    assert len(props) == 1
 
 
 def test_prop_cache_without_update_timestamp_requires_refresh():
