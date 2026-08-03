@@ -52,7 +52,10 @@ if not API_SPORTS_KEY:
     )
 
 BASE_URL = "https://api.the-odds-api.com/v4"
-ODDS_REGIONS = os.getenv("ODDS_REGIONS", "us,us2").strip() or "us,us2"
+ODDS_REGIONS = (
+    os.getenv("ODDS_REGIONS", "us,us2,us_dfs").strip()
+    or "us,us2,us_dfs"
+)
 PREFERRED_BOOKMAKERS = [
     bookmaker.strip().lower()
     for bookmaker in os.getenv(

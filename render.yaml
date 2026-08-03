@@ -98,7 +98,7 @@ services:
       - key: ODDS_API_QUOTA_RESERVE
         value: 25
       - key: ODDS_REGIONS
-        value: us,us2
+        value: us,us2,us_dfs
       - key: PREFERRED_BOOKMAKERS
         value: prizepicks,underdog,draftkings,sleeper,fanduel,betr
       - key: PROP_SYNC_SPORTS
@@ -170,6 +170,8 @@ services:
         value: 5000
       - key: PREFERRED_BOOKMAKERS
         value: prizepicks,underdog,draftkings,sleeper,fanduel,betr
+      - key: ODDS_REGIONS
+        value: us,us2,us_dfs
       - key: PROP_SYNC_SPORTS
         value: baseball_mlb,basketball_wnba,basketball_nba,americanfootball_nfl,icehockey_nhl,soccer_epl,soccer_usa_mls,soccer_france_ligue_one,soccer_germany_bundesliga,soccer_italy_serie_a,soccer_spain_la_liga
 
