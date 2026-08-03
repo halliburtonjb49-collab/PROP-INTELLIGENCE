@@ -2,14 +2,13 @@
 
 
 def run_prop_sync() -> None:
+    """Run and publish recovery entirely on the dedicated RQ worker."""
     import main
-    from services.raw_ingestion_service import queue_scheduled_ingestion_pipeline
 
-    result = queue_scheduled_ingestion_pipeline()
-    if result["brokerAvailable"] is not True:
-        # Preserve service continuity when Redis is not configured.
-        main.run_queued_prop_sync()
-        main._cached_prop_catalog()
+    main.run_queued_prop_sync()
+    # The worker and API have separate ephemeral disks. Publish the worker's
+    # completed local catalog to Redis so API instances and devices can read it.
+    main._cached_prop_catalog()
 
 
 def fetch_sport_raw(sport: str) -> dict[str, object]:
