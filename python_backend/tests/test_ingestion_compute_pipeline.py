@@ -102,6 +102,49 @@ def test_pipeline_queues_fetch_jobs_before_any_normalization(monkeypatch) -> Non
     ]
 
 
+def test_scheduled_pipeline_refreshes_fast_lane_without_broad_coverage(
+    monkeypatch,
+) -> None:
+    from services import sync_service
+
+    monkeypatch.setattr(
+        sync_service,
+        "configured_sync_sports",
+        lambda: ["baseball_mlb", "golf_pga"],
+    )
+    monkeypatch.setattr(
+        sync_service,
+        "partition_sync_sports",
+        lambda _sports: (["baseball_mlb"], ["golf_pga"]),
+    )
+    monkeypatch.setattr(
+        raw_ingestion_service,
+        "_claim_refresh_lane",
+        lambda name, _ttl: name == "fast",
+    )
+    queued: list[tuple[str, bool]] = []
+
+    def fake_pipeline(sports, *, include_supplemental=True):
+        queued.extend((sport, include_supplemental) for sport in sports)
+        return {
+            "mode": "redis-stream",
+            "queuedSports": list(sports),
+            "supplementalQueued": include_supplemental,
+        }
+
+    monkeypatch.setattr(
+        raw_ingestion_service,
+        "queue_ingestion_pipeline",
+        fake_pipeline,
+    )
+
+    result = raw_ingestion_service.queue_scheduled_ingestion_pipeline()
+
+    assert queued == [("baseball_mlb", False)]
+    assert result["lanes"] == ["fast"]
+    assert result["queuedSports"] == ["baseball_mlb"]
+
+
 def test_market_intelligence_endpoint_exposes_computed_rows(monkeypatch) -> None:
     monkeypatch.setattr(
         main,

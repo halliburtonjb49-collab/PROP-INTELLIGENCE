@@ -75,6 +75,12 @@ services:
         value: 120
       - key: PROP_SYNC_EVENT_WORKERS
         value: 6
+      - key: ODDS_FAST_REFRESH_SECONDS
+        value: 120
+      - key: ODDS_SUPPLEMENTAL_REFRESH_SECONDS
+        value: 300
+      - key: ODDS_COVERAGE_REFRESH_SECONDS
+        value: 1800
       - key: SPORTSGAMEODDS_LEAGUES_PER_SYNC
         value: 11
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES
@@ -96,7 +102,7 @@ services:
       - key: PROP_FEED_STALE_MINUTES
         value: 15
       - key: PROP_FEED_WATCHDOG_SECONDS
-        value: 300
+        value: 60
       - key: ODDS_API_LOW_QUOTA_THRESHOLD
         value: 100
       - key: ODDS_API_QUOTA_RESERVE
@@ -168,6 +174,12 @@ services:
         value: /tmp/prop_intelligence_cache.db
       - key: PROP_SYNC_EVENT_WORKERS
         value: 6
+      - key: ODDS_FAST_REFRESH_SECONDS
+        value: 120
+      - key: ODDS_SUPPLEMENTAL_REFRESH_SECONDS
+        value: 300
+      - key: ODDS_COVERAGE_REFRESH_SECONDS
+        value: 1800
       - key: SPORTSGAMEODDS_LEAGUES_PER_SYNC
         value: 11
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES

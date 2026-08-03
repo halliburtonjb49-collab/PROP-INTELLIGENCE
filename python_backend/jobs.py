@@ -3,11 +3,10 @@
 
 def run_prop_sync() -> None:
     import main
-    from services.raw_ingestion_service import queue_ingestion_pipeline
-    from services.sync_service import configured_sync_sports
+    from services.raw_ingestion_service import queue_scheduled_ingestion_pipeline
 
-    result = queue_ingestion_pipeline(configured_sync_sports())
-    if not result["queuedSports"] and result["supplementalQueued"] is not True:
+    result = queue_scheduled_ingestion_pipeline()
+    if result["brokerAvailable"] is not True:
         # Preserve service continuity when Redis is not configured.
         main.run_queued_prop_sync()
         main._cached_prop_catalog()

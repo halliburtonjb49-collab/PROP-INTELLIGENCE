@@ -83,7 +83,7 @@ from services.distributed_cache_service import (
 	health as distributed_cache_health,
 	set_json as set_distributed_json,
 )
-from services.job_queue_service import health as job_queue_health
+from services.job_queue_service import enqueue as enqueue_background_job, health as job_queue_health
 from services.raw_ingestion_service import health as ingestion_pipeline_health
 from services.rate_limit_service import allow_request
 from services.security_event_service import record_security_event
@@ -779,7 +779,7 @@ def _prop_cache_needs_refresh(
 
 
 async def _maintain_prop_freshness() -> None:
-	"""Self-heal missed cron runs while respecting the global sync lock."""
+	"""Queue provider refreshes without making the web process perform I/O."""
 	check_seconds = max(
 		60,
 		int(os.getenv("PROP_FEED_WATCHDOG_SECONDS", "300")),
@@ -788,17 +788,21 @@ async def _maintain_prop_freshness() -> None:
 		await asyncio.sleep(check_seconds)
 		try:
 			props = await asyncio.to_thread(get_props)
-			if not _prop_cache_needs_refresh(props):
-				continue
-			if not _sync_run_lock.acquire(blocking=False):
-				logging.info("Prop freshness watchdog found an existing sync")
-				continue
-			logging.warning(
-				"Prop freshness watchdog starting recovery sync props=%s",
-				len(props),
+			bucket = int(time.time() // 60)
+			queued = enqueue_background_job(
+				"jobs.run_prop_sync",
+				job_id=f"prop-freshness:{bucket}",
 			)
-			_mark_sync_running()
-			await asyncio.to_thread(_run_sync_background)
+			if queued is None:
+				logging.warning(
+					"Prop freshness refresh was not queued; preserving cached props"
+				)
+			else:
+				logging.info(
+					"Prop freshness refresh queued job=%s props=%s",
+					queued.get("id"),
+					len(props),
+				)
 		except asyncio.CancelledError:
 			raise
 		except Exception:

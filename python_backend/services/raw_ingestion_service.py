@@ -148,7 +148,9 @@ def normalize_stream_message(message_id: str) -> dict[str, object]:
     }
 
 
-def queue_ingestion_pipeline(sports: list[str]) -> dict[str, object]:
+def queue_ingestion_pipeline(
+    sports: list[str], *, include_supplemental: bool = True,
+) -> dict[str, object]:
     """Fan fetching out into lightweight jobs; normalization is queued later."""
     bucket = int(datetime.now(timezone.utc).timestamp() // 60)
     queued: list[str] = []
@@ -160,14 +162,88 @@ def queue_ingestion_pipeline(sports: list[str]) -> dict[str, object]:
         )
         if result is not None:
             queued.append(sport)
-    supplemental = enqueue(
-        "jobs.fetch_sportsgameodds_raw",
-        job_id=f"fetch:sportsgameodds:{bucket}",
+    supplemental = (
+        enqueue(
+            "jobs.fetch_sportsgameodds_raw",
+            job_id=f"fetch:sportsgameodds:{bucket}",
+        )
+        if include_supplemental
+        else None
     )
     return {
         "mode": "redis-stream",
         "queuedSports": queued,
         "supplementalQueued": supplemental is not None,
+    }
+
+
+def _claim_refresh_lane(name: str, ttl_seconds: int) -> bool:
+    """Claim a distributed refresh window so deploys cannot duplicate polls."""
+    client = _redis()
+    if client is None:
+        return True
+    try:
+        return bool(client.set(
+            f"prop-intelligence:odds-refresh:{name}",
+            datetime.now(timezone.utc).isoformat(),
+            nx=True,
+            ex=max(30, ttl_seconds),
+        ))
+    except Exception:
+        LOGGER.exception("Unable to claim odds refresh lane=%s", name)
+        return False
+
+
+def queue_scheduled_ingestion_pipeline() -> dict[str, object]:
+    """Queue fast markets often and broad coverage on a slower cadence.
+
+    Every API request reads the last valid catalog. Provider polling happens
+    only in RQ and a failed refresh therefore never erases the served feed.
+    """
+    from services.sync_service import (
+        configured_sync_sports,
+        partition_sync_sports,
+    )
+
+    fast_sports, coverage_sports = partition_sync_sports(
+        configured_sync_sports(),
+    )
+    fast_seconds = max(60, int(os.getenv("ODDS_FAST_REFRESH_SECONDS", "120")))
+    coverage_seconds = max(
+        300,
+        int(os.getenv("ODDS_COVERAGE_REFRESH_SECONDS", "1800")),
+    )
+    supplemental_seconds = max(
+        120,
+        int(os.getenv("ODDS_SUPPLEMENTAL_REFRESH_SECONDS", "300")),
+    )
+
+    selected: list[str] = []
+    lanes: list[str] = []
+    if _claim_refresh_lane("fast", fast_seconds):
+        selected.extend(fast_sports)
+        lanes.append("fast")
+    if _claim_refresh_lane("coverage", coverage_seconds):
+        selected.extend(coverage_sports)
+        lanes.append("coverage")
+    include_supplemental = _claim_refresh_lane(
+        "supplemental",
+        supplemental_seconds,
+    )
+    if include_supplemental:
+        lanes.append("supplemental")
+
+    result = queue_ingestion_pipeline(
+        list(dict.fromkeys(selected)),
+        include_supplemental=include_supplemental,
+    )
+    return {
+        **result,
+        "brokerAvailable": _redis() is not None,
+        "lanes": lanes,
+        "fastRefreshSeconds": fast_seconds,
+        "coverageRefreshSeconds": coverage_seconds,
+        "supplementalRefreshSeconds": supplemental_seconds,
     }
 
 
