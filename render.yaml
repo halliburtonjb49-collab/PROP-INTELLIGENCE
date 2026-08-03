@@ -78,7 +78,7 @@ services:
       - key: SPORTSGAMEODDS_LEAGUES_PER_SYNC
         value: 4
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES
-        value: ATP,WTA,PGA_MEN
+        value: ""
       - key: RAW_PROP_STREAM
         value: prop-intelligence:raw-feeds
       - key: RAW_PROP_STREAM_MAXLEN
@@ -171,7 +171,7 @@ services:
       - key: SPORTSGAMEODDS_LEAGUES_PER_SYNC
         value: 4
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES
-        value: ATP,WTA,PGA_MEN
+        value: ""
       - key: RAW_PROP_STREAM
         value: prop-intelligence:raw-feeds
       - key: RAW_PROP_STREAM_MAXLEN

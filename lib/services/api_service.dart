@@ -571,18 +571,32 @@ class ApiService {
 
   Future<http.Response> _downloadPropsPage(Uri uri) async {
     Object? lastError;
-    for (var attempt = 1; attempt <= 2; attempt++) {
+    final sport = (uri.queryParameters['sport'] ?? '').trim().toUpperCase();
+    final isSpecialtySport = const {
+      'PGA',
+      'TENNIS',
+      'UFC',
+      'SOCCER',
+    }.contains(sport);
+    // Specialty feeds can legitimately be empty between events. Avoid making
+    // navigation wait through two full network attempts before the board can
+    // render its available/empty state.
+    final maxAttempts = isSpecialtySport ? 1 : 2;
+    final requestTimeout = isSpecialtySport
+        ? const Duration(seconds: 6)
+        : const Duration(seconds: 12);
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         var response = await http
             .get(uri, headers: await _authenticatedHeaders())
-            .timeout(const Duration(seconds: 12));
+            .timeout(requestTimeout);
         if (response.statusCode == 401) {
           response = await http
               .get(
                 uri,
                 headers: await _authenticatedHeaders(forceRefresh: true),
               )
-              .timeout(const Duration(seconds: 12));
+              .timeout(requestTimeout);
         }
         if (response.statusCode == 200) return response;
         lastError = Exception('Unable to load props: ${response.statusCode}');
@@ -590,7 +604,7 @@ class ApiService {
       } catch (error) {
         lastError = error;
       }
-      if (attempt < 2) {
+      if (attempt < maxAttempts) {
         await Future<void>.delayed(const Duration(milliseconds: 350));
       }
     }

@@ -86,6 +86,15 @@ def test_supplemental_leagues_rotate_without_starvation(monkeypatch) -> None:
     ]
 
 
+def test_specialty_leagues_are_enabled_by_default(monkeypatch) -> None:
+    monkeypatch.delenv("SPORTSGAMEODDS_DISABLED_LEAGUES", raising=False)
+    monkeypatch.setattr(sync_service, "_sgo_league_cursor", 0)
+
+    selected = next_sgo_leagues(limit=4)
+
+    assert [league for league, _ in selected] == ["ATP", "WTA", "PGA_MEN", "UFC"]
+
+
 def test_unavailable_supplemental_leagues_are_not_retried(monkeypatch) -> None:
     monkeypatch.setenv("SPORTSGAMEODDS_DISABLED_LEAGUES", "ATP,WTA,PGA_MEN")
     monkeypatch.setattr(sync_service, "_sgo_league_cursor", 0)

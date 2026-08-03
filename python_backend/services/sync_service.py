@@ -96,7 +96,7 @@ def next_sgo_leagues(limit: int | None = None) -> list[tuple[str, str]]:
     disabled = {
         value.strip().upper()
         for value in os.getenv(
-            "SPORTSGAMEODDS_DISABLED_LEAGUES", "ATP,WTA,PGA_MEN"
+            "SPORTSGAMEODDS_DISABLED_LEAGUES", ""
         ).split(",")
         if value.strip()
     }
@@ -344,7 +344,7 @@ def sync_sportsgameodds() -> dict[str, object]:
         "disabledLeagues": sorted({
             value.strip().upper()
             for value in os.getenv(
-                "SPORTSGAMEODDS_DISABLED_LEAGUES", "ATP,WTA,PGA_MEN"
+                "SPORTSGAMEODDS_DISABLED_LEAGUES", ""
             ).split(",")
             if value.strip()
         }),

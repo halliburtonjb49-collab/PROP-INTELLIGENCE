@@ -11142,11 +11142,27 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             }
 
             if (snapshot.hasError) {
-              _scheduleAutomaticRetry();
+              final normalizedSport = _normalizeSport(
+                widget.displaySportFilter.isEmpty
+                    ? widget.sportFilter
+                    : widget.displaySportFilter,
+              );
+              const specialtySports = {'PGA', 'TENNIS', 'SOCCER', 'UFC'};
+              final specialtyFeedUnavailable = specialtySports.contains(
+                normalizedSport,
+              );
+              if (!specialtyFeedUnavailable) {
+                _scheduleAutomaticRetry();
+              }
               return Padding(
                 padding: const EdgeInsets.only(top: 24),
                 child: _LoadError(
-                  message: snapshot.error.toString(),
+                  title: specialtyFeedUnavailable
+                      ? 'NO CURRENT $normalizedSport PROPS'
+                      : 'Unable to load props',
+                  message: specialtyFeedUnavailable
+                      ? 'The selected providers have not returned current $normalizedSport props. The board will refresh automatically when an authorized feed posts them.'
+                      : snapshot.error.toString(),
                   onRetry: _retryLoad,
                 ),
               );
@@ -11558,10 +11574,15 @@ class _PropLoadingSkeleton extends StatelessWidget {
 }
 
 class _LoadError extends StatelessWidget {
+  final String title;
   final String message;
   final VoidCallback onRetry;
 
-  const _LoadError({required this.message, required this.onRetry});
+  const _LoadError({
+    this.title = 'Unable to load props',
+    required this.message,
+    required this.onRetry,
+  });
 
   String _friendlyMessage() {
     return userFacingLoadError(message, noun: 'live prop feed');
@@ -11587,9 +11608,10 @@ class _LoadError extends StatelessWidget {
               size: 38,
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Unable to load props',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             Text(
