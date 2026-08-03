@@ -75,7 +75,7 @@ def test_coverage_lane_uses_independent_cooldown(monkeypatch) -> None:
 
 
 def test_supplemental_leagues_rotate_without_starvation(monkeypatch) -> None:
-    monkeypatch.delenv("SPORTSGAMEODDS_DISABLED_LEAGUES", raising=False)
+    monkeypatch.setenv("SPORTSGAMEODDS_DISABLED_LEAGUES", "")
     monkeypatch.setattr(sync_service, "_sgo_league_cursor", 0)
     first = next_sgo_leagues(limit=1)
     second = next_sgo_leagues(limit=1)
