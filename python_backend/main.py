@@ -84,6 +84,10 @@ from services.distributed_cache_service import (
 	set_json as set_distributed_json,
 )
 from services.job_queue_service import enqueue as enqueue_background_job, health as job_queue_health
+from services.prop_catalog_snapshot_service import (
+	load_catalog_snapshot,
+	save_catalog_snapshot,
+)
 from services.raw_ingestion_service import health as ingestion_pipeline_health
 from services.rate_limit_service import allow_request
 from services.security_event_service import record_security_event
@@ -498,6 +502,9 @@ def _cached_prop_catalog() -> list[PropResponse]:
 	if isinstance(shared, list) and shared:
 		try:
 			props = [PropResponse.model_validate(row) for row in shared]
+			save_catalog_snapshot(
+				[prop.model_dump(mode="json") for prop in props]
+			)
 			_publish_prop_catalog_summary(props)
 			with _prop_catalog_lock:
 				_prop_catalog.update(
@@ -509,6 +516,20 @@ def _cached_prop_catalog() -> list[PropResponse]:
 			return props
 		except Exception:
 			delete_distributed_cache(_PROP_CATALOG_KEY)
+	durable = load_catalog_snapshot()
+	if durable:
+		try:
+			props = [PropResponse.model_validate(row) for row in durable]
+			with _prop_catalog_lock:
+				_prop_catalog.update(
+					loadedAt=now,
+					versionCheckedAt=now,
+					version="postgres-snapshot",
+					props=props,
+				)
+			return props
+		except Exception:
+			logging.exception("Durable prop catalog snapshot was invalid")
 	props = get_props()
 	with _prop_catalog_lock:
 		_prop_catalog.update(
@@ -729,7 +750,11 @@ async def _ensure_props_available() -> None:
 		if _sync_run_lock.acquire(blocking=False):
 			_mark_sync_running()
 			await asyncio.to_thread(_run_sync_background)
-			await asyncio.to_thread(_cached_prop_catalog)
+			recovered = await asyncio.to_thread(_cached_prop_catalog)
+			await asyncio.to_thread(
+				save_catalog_snapshot,
+				[prop.model_dump(mode="json") for prop in recovered],
+			)
 		return
 	if queued is None:
 		logging.warning(

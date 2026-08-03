@@ -65,12 +65,16 @@ def test_startup_recovery_falls_back_once_without_an_active_worker(monkeypatch):
 
     def recover():
         props.append(
-            SimpleNamespace(lastUpdatedUtc=datetime.now(timezone.utc).isoformat())
+            SimpleNamespace(
+                lastUpdatedUtc=datetime.now(timezone.utc).isoformat(),
+                model_dump=lambda **_: {"id": "recovered"},
+            )
         )
         main._sync_run_lock.release()
 
     monkeypatch.setattr(main, "_run_sync_background", recover)
     monkeypatch.setattr(main, "_cached_prop_catalog", lambda: props)
+    monkeypatch.setattr(main, "save_catalog_snapshot", lambda _rows: True)
 
     asyncio.run(main._ensure_props_available())
 

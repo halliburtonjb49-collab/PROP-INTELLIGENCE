@@ -8,7 +8,10 @@ def run_prop_sync() -> None:
     main.run_queued_prop_sync()
     # The worker and API have separate ephemeral disks. Publish the worker's
     # completed local catalog to Redis so API instances and devices can read it.
-    main._cached_prop_catalog()
+    props = main._cached_prop_catalog()
+    main.save_catalog_snapshot(
+        [prop.model_dump(mode="json") for prop in props]
+    )
 
 
 def fetch_sport_raw(sport: str) -> dict[str, object]:
