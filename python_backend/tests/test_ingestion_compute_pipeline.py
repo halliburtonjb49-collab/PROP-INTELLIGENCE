@@ -11,7 +11,7 @@ from services.market_intelligence_service import (
 )
 from services.raw_ingestion_service import RawFeedEnvelope
 from services import raw_ingestion_service
-from providers.sportsgameodds import _market_key
+from providers.sportsgameodds import _market_key, _period_supported
 
 
 def _payload() -> dict[str, object]:
@@ -162,6 +162,13 @@ def test_specialty_market_names_are_safe_fallbacks_for_unknown_stat_ids() -> Non
         stat_id="customMmaMetric", sport_key="mma_mixed_martial_arts",
         bet_type="ou", market_name="Fighter Significant Strikes Over/Under",
     ) == "fighter_significant_strikes"
+
+
+def test_specialty_periods_are_accepted_without_opening_team_periods() -> None:
+    assert _period_supported("tennis_atp", "match") is True
+    assert _period_supported("golf_pga", "round") is True
+    assert _period_supported("mma_mixed_martial_arts", "fight") is True
+    assert _period_supported("basketball_nba", "match") is False
 
 
 def test_ingestion_reuses_one_redis_connection_pool(monkeypatch) -> None:

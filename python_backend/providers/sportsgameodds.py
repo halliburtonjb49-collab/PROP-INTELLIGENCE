@@ -254,6 +254,7 @@ def fetch_upcoming_events(
     limit: int = 25,
 ) -> list[dict[str, Any]]:
     now = datetime.now(timezone.utc)
+    specialty_horizon_days = 10 if league_id in {"PGA_MEN", "UFC"} else 4
     params: dict[str, object] = {
         "leagueID": league_id,
         "oddsAvailable": "true",
@@ -262,7 +263,7 @@ def fetch_upcoming_events(
         "includeAltLines": "false",
         "includeOpenCloseOdds": "true",
         "startsAfter": now.isoformat().replace("+00:00", "Z"),
-        "startsBefore": (now + timedelta(days=4)).isoformat().replace("+00:00", "Z"),
+        "startsBefore": (now + timedelta(days=specialty_horizon_days)).isoformat().replace("+00:00", "Z"),
         "limit": max(1, min(100, limit)),
     }
     events: list[dict[str, Any]] = []
@@ -281,10 +282,7 @@ def fetch_upcoming_events(
             minimal_params = {
                 key: value
                 for key, value in request_params.items()
-                if key in {
-                    "leagueID", "oddsAvailable", "started", "startsAfter",
-                    "startsBefore", "limit", "cursor",
-                }
+                if key in {"leagueID", "oddsAvailable", "started", "limit", "cursor"}
             }
             page = _get("events", minimal_params)
         data = page.get("data")
@@ -401,6 +399,18 @@ def _number(value: object) -> float | None:
         return None
 
 
+def _period_supported(sport_key: str, period: str) -> bool:
+    if period in {"game", "reg", ""}:
+        return True
+    if sport_key.startswith("tennis_"):
+        return period in {"match", "set"}
+    if sport_key.startswith("golf_"):
+        return period in {"round", "tournament"}
+    if sport_key == "mma_mixed_martial_arts":
+        return period in {"fight", "bout"}
+    return False
+
+
 def _team_name(event: dict[str, Any], side: str) -> str:
     teams = event.get("teams")
     candidate: object = None
@@ -472,7 +482,7 @@ def normalize_event(
         if (
             bet_type not in {"ou", "yn"}
             or side not in {"over", "under", "yes", "no"}
-            or period not in {"game", "reg", ""}
+            or not _period_supported(sport_key, period)
             or entity_id in {"", "all", "home", "away"}
         ):
             continue
