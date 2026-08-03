@@ -96,7 +96,7 @@ def next_sgo_leagues(limit: int | None = None) -> list[tuple[str, str]]:
     leagues = list(LEAGUE_TO_SPORT.items())
     if not leagues:
         return []
-    configured_limit = limit or int(os.getenv("SPORTSGAMEODDS_LEAGUES_PER_SYNC", "1"))
+    configured_limit = limit or int(os.getenv("SPORTSGAMEODDS_LEAGUES_PER_SYNC", "4"))
     count = max(1, min(configured_limit, len(leagues)))
     with _sgo_cursor_lock:
         selected = [

@@ -73,6 +73,8 @@ services:
         value: 120
       - key: PROP_SYNC_EVENT_WORKERS
         value: 6
+      - key: SPORTSGAMEODDS_LEAGUES_PER_SYNC
+        value: 4
       - key: RAW_PROP_STREAM
         value: prop-intelligence:raw-feeds
       - key: RAW_PROP_STREAM_MAXLEN
@@ -160,6 +162,8 @@ services:
         value: /tmp/prop_intelligence_cache.db
       - key: PROP_SYNC_EVENT_WORKERS
         value: 6
+      - key: SPORTSGAMEODDS_LEAGUES_PER_SYNC
+        value: 4
       - key: RAW_PROP_STREAM
         value: prop-intelligence:raw-feeds
       - key: RAW_PROP_STREAM_MAXLEN
