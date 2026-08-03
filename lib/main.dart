@@ -1549,7 +1549,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       'multiplier': prop.multiplier,
       'win_probability': prop.winProbability,
       'edge': prop.edge,
-      'confidence': prop.confidence,
+      'confidence': prop.displayConfidenceRating,
       'projection': prop.projection,
       'projection_source': prop.projectionSource,
       'projection_model_version': prop.projectionModelVersion,
@@ -3173,8 +3173,13 @@ class _MainDashboardState extends State<MainDashboard> {
     }
 
     final sortedByEdge = [...props]
-      ..sort((a, b) => b.confidence.compareTo(a.confidence));
+      ..sort(
+        (a, b) => (b.displayConfidenceRating ?? -1).compareTo(
+          a.displayConfidenceRating ?? -1,
+        ),
+      );
     final top = sortedByEdge.first;
+    final topConfidence = top.displayConfidenceRating;
     final bySport = <String, int>{};
     for (final prop in props) {
       final sport = _normalizeSport(prop.sport);
@@ -3182,15 +3187,18 @@ class _MainDashboardState extends State<MainDashboard> {
     }
     final topSport =
         (bySport.entries.toList()..sort((a, b) => b.value - a.value)).first;
-    final hot = props.where((p) => p.confidence >= 90).length;
+    final hot = props
+        .where((p) => (p.displayConfidenceRating ?? 0) >= 90)
+        .length;
 
     return [
       PropAlertData(
         sport: _normalizeSport(top.sport),
         title: 'Best Edge Alert',
-        message:
-            '${top.player} has ${top.confidence}% confidence on ${_propMarket(top)}.',
-        edge: top.confidence,
+        message: topConfidence == null
+            ? '${top.player} has the strongest currently rated ${_propMarket(top)} prop.'
+            : '${top.player} has $topConfidence% confidence on ${_propMarket(top)}.',
+        edge: topConfidence ?? 0,
         book: top.sportsbook,
         time: 'now',
       ),
@@ -3199,7 +3207,7 @@ class _MainDashboardState extends State<MainDashboard> {
         title: 'Most Active Sport',
         message:
             '${topSport.key} has ${topSport.value} props visible right now.',
-        edge: top.confidence,
+        edge: topConfidence ?? 0,
         book: 'All Books',
         time: 'now',
       ),
@@ -5025,7 +5033,8 @@ class _MainDashboardState extends State<MainDashboard> {
     // for virtually every prop, so it shouldn't be hidden just because edge
     // happens to be unavailable - matches the unfocused "HIGHEST HIT RATE"
     // tile below, which already shows confidence unconditionally.
-    final focusedConfidenceAvailable = (focusedProp?.confidence ?? 0) > 0;
+    final focusedConfidenceAvailable =
+        focusedProp?.displayConfidenceRating != null;
     final metricScope = selectedProps.isNotEmpty
         ? 'Across ${selectedProps.length} selected'
         : 'Across visible props';
@@ -5052,17 +5061,13 @@ class _MainDashboardState extends State<MainDashboard> {
               ) /
               modeledProps.length;
     final confidenceProps = modeledProps
-        .where(
-          (prop) =>
-              (prop.historicalHitRate ?? 0) > 0 ||
-              (prop.projectionCalibrated && prop.confidence > 0),
-        )
+        .where((prop) => prop.displayConfidenceRating != null)
         .toList(growable: false);
     final hitLeader = confidenceProps.isEmpty
         ? null
         : ([...confidenceProps]..sort(
-                (a, b) => (b.historicalHitRate ?? b.confidence).compareTo(
-                  a.historicalHitRate ?? a.confidence,
+                (a, b) => (b.displayConfidenceRating ?? -1).compareTo(
+                  a.displayConfidenceRating ?? -1,
                 ),
               ))
               .first;
@@ -5084,7 +5089,9 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
             (
               'HIT RATE',
-              focusedConfidenceAvailable ? '${focusedProp.confidence}%' : '--',
+              focusedConfidenceAvailable
+                  ? focusedProp.displayConfidenceLabel
+                  : '--',
               focusedConfidenceAvailable
                   ? 'Current model confidence'
                   : 'Awaiting model projection',
@@ -5118,9 +5125,7 @@ class _MainDashboardState extends State<MainDashboard> {
             (
               'HIGHEST HIT RATE',
               hitLeader?.player ?? '--',
-              hitLeader == null
-                  ? '--'
-                  : '${hitLeader.historicalHitRate ?? hitLeader.confidence}%',
+              hitLeader == null ? '--' : hitLeader.displayConfidenceLabel,
             ),
             (
               'PROPS WITH EDGE',
@@ -7202,7 +7207,7 @@ class SearchPlayersPage extends StatelessWidget {
                           ),
                         ),
                         trailing: Text(
-                          '${prop.confidence}%',
+                          prop.displayConfidenceLabel,
                           style: const TextStyle(
                             color: app_colors.AppColors.gold,
                             fontSize: 11,
@@ -9627,7 +9632,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         ? PickSide.under
         : PickSide.over;
     final market = _marketCategory(prop);
-    final confidence = prop.confidence.clamp(0, 100);
+    final confidence = prop.displayConfidenceRating ?? 0;
     final calculatedEdge = prop.calculatedEdge;
     final marketLean = prop.marketLeanPercentage;
     final marketEdge = calculatedEdge == null && marketLean != null
@@ -9888,7 +9893,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 ),
                 intelligenceMetric(
                   'HIT RATE',
-                  hasProAccess && confidence > 0 ? '$confidence%' : '--',
+                  hasProAccess ? prop.displayConfidenceLabel : '--',
                 ),
                 intelligenceMetric(
                   'PICK GRADE',
@@ -10339,8 +10344,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     Expanded(
                       child: _compactMetric(
                         'HIT RATE',
-                        '${prop.confidence}%',
-                        prop.confidence >= 75
+                        prop.displayConfidenceLabel,
+                        (prop.displayConfidenceRating ?? 0) >= 75
                             ? const Color(0xFF61E34D)
                             : Colors.white,
                       ),
@@ -10465,7 +10470,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         ? Colors.white
         : const Color(0xFFFFD76A);
     final gameDayDate = _propGameDayDate(prop);
-    final confidence = prop.confidence.clamp(0, 100).toDouble();
+    final confidence = (prop.displayConfidenceRating ?? 0).toDouble();
     final lineDisplay = prop.line == prop.line.roundToDouble()
         ? prop.line.toInt().toString()
         : prop.line.toStringAsFixed(1);
@@ -10594,7 +10599,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     );
                   },
                   child: Text(
-                    'Confidence: ${prop.confidence}%',
+                    'Confidence: ${prop.displayConfidenceLabel}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 8.5,
@@ -11221,7 +11226,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     if (rankDiff != 0) {
                       return rankDiff;
                     }
-                    return right.confidence.compareTo(left.confidence);
+                    return (right.displayConfidenceRating ?? -1).compareTo(
+                      left.displayConfidenceRating ?? -1,
+                    );
                   case 'time':
                     final leftStart = propScheduledStart(left);
                     final rightStart = propScheduledStart(right);
@@ -11231,7 +11238,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     return leftStart.compareTo(rightStart);
                   case 'confidence':
                   default:
-                    return right.confidence.compareTo(left.confidence);
+                    return (right.displayConfidenceRating ?? -1).compareTo(
+                      left.displayConfidenceRating ?? -1,
+                    );
                 }
               });
             sortedProps = deprioritizeSoccerForAllSports(
@@ -11843,7 +11852,7 @@ class PropCard extends StatelessWidget {
                   );
                 },
                 child: Text(
-                  'Confidence: ${prop.confidence}%',
+                  'Confidence: ${prop.displayConfidenceLabel}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 8.5,

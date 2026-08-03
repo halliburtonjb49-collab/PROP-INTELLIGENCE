@@ -489,7 +489,7 @@ class ApiService {
             : prop.winProbability! > 1
             ? prop.winProbability! / 100
             : prop.winProbability,
-        'confidence': prop.confidence,
+        'confidence': prop.displayConfidenceRating,
         'recommendation_edge': prop.recommendationEdge,
         'projection_source': prop.projectionSource,
         'projection_model_version': prop.projectionModelVersion,
