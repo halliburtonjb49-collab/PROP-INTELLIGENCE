@@ -14,50 +14,45 @@ def test_startup_recovery_skips_sync_when_props_exist(monkeypatch):
         nonlocal called
         called = True
 
-    monkeypatch.setattr(main, "_run_sync_background", unexpected_sync)
+    monkeypatch.setattr(main, "_enqueue_prop_refresh", unexpected_sync)
 
     asyncio.run(main._ensure_props_available())
 
     assert called is False
 
 
-def test_startup_recovery_populates_empty_cache(monkeypatch):
-    props = []
-    monkeypatch.setattr(main, "get_props", lambda: props)
-    monkeypatch.setenv("EMPTY_PROP_SYNC_ATTEMPTS", "1")
-
-    def successful_sync():
-        props.append(object())
-        main._sync_run_lock.release()
-
-    monkeypatch.setattr(main, "_run_sync_background", successful_sync)
+def test_startup_recovery_queues_empty_cache_without_running_sync(monkeypatch):
+    monkeypatch.setattr(main, "get_props", lambda: [])
+    queued = []
+    monkeypatch.setattr(
+        main,
+        "_enqueue_prop_refresh",
+        lambda: queued.append("worker") or {"id": "refresh-1"},
+    )
 
     asyncio.run(main._ensure_props_available())
 
-    assert props
+    assert queued == ["worker"]
 
 
-def test_startup_recovery_refreshes_stale_cache(monkeypatch):
+def test_startup_recovery_queues_stale_cache_without_blocking(monkeypatch):
     stale = SimpleNamespace(
         lastUpdatedUtc=(
             datetime.now(timezone.utc) - timedelta(hours=2)
         ).isoformat()
     )
-    fresh = SimpleNamespace(lastUpdatedUtc=datetime.now(timezone.utc).isoformat())
-    props = [stale]
-    monkeypatch.setattr(main, "get_props", lambda: props)
-    monkeypatch.setenv("EMPTY_PROP_SYNC_ATTEMPTS", "1")
+    monkeypatch.setattr(main, "get_props", lambda: [stale])
     monkeypatch.setenv("PROP_FEED_STALE_MINUTES", "45")
-
-    def successful_sync():
-        props[:] = [fresh]
-        main._sync_run_lock.release()
-
-    monkeypatch.setattr(main, "_run_sync_background", successful_sync)
+    queued = []
+    monkeypatch.setattr(
+        main,
+        "_enqueue_prop_refresh",
+        lambda: queued.append("worker") or {"id": "refresh-1"},
+    )
 
     asyncio.run(main._ensure_props_available())
 
-    assert props == [fresh]
+    assert queued == ["worker"]
 
 
 def test_prop_cache_without_update_timestamp_requires_refresh():

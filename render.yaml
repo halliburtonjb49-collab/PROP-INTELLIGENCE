@@ -102,7 +102,7 @@ services:
       - key: PROP_FEED_STALE_MINUTES
         value: 15
       - key: PROP_FEED_WATCHDOG_SECONDS
-        value: 60
+        value: 300
       - key: ODDS_API_LOW_QUOTA_THRESHOLD
         value: 100
       - key: ODDS_API_QUOTA_RESERVE

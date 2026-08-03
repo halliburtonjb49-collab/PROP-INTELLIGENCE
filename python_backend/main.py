@@ -714,47 +714,25 @@ def run_queued_prop_sync() -> None:
 
 
 async def _ensure_props_available() -> None:
-	"""Restore an empty or stale cache without waiting for the external cron."""
-	attempts = max(1, int(os.getenv("EMPTY_PROP_SYNC_ATTEMPTS", "3")))
-	retry_seconds = max(30, int(os.getenv("EMPTY_PROP_SYNC_RETRY_SECONDS", "300")))
-	for attempt in range(1, attempts + 1):
-		props = get_props()
-		if not _prop_cache_needs_refresh(props):
-			logging.info(
-				"Startup prop check ready attempt=%s props=%s",
-				attempt,
-				len(props),
-			)
-			return
-		if _sync_run_lock.acquire(blocking=False):
-			logging.warning(
-				"Prop cache empty or stale; starting recovery sync attempt=%s/%s props=%s",
-				attempt,
-				attempts,
-				len(props),
-			)
-			_mark_sync_running()
-			await asyncio.to_thread(_run_sync_background)
-		else:
-			logging.info("Prop recovery sync already running attempt=%s/%s", attempt, attempts)
-		refreshed_props = get_props()
-		if not _prop_cache_needs_refresh(refreshed_props):
-			logging.info(
-				"Prop recovery sync restored fresh feed attempt=%s props=%s",
-				attempt,
-				len(refreshed_props),
-			)
-			return
-		if attempt < attempts:
-			logging.warning(
-				"Prop feed still empty or stale; retrying in %s seconds",
-				retry_seconds,
-			)
-			await asyncio.sleep(retry_seconds)
-	logging.error(
-		"Prop feed remained empty or stale after %s recovery attempts",
-		attempts,
-	)
+	"""Check startup freshness without running provider work in the API."""
+	props = await asyncio.to_thread(get_props)
+	if not _prop_cache_needs_refresh(props):
+		logging.info("Startup prop check ready props=%s", len(props))
+		return
+	queued = _enqueue_prop_refresh()
+	if queued is None:
+		logging.warning(
+			"Startup prop cache is empty or stale; worker refresh is already "
+			"queued or unavailable props=%s",
+			len(props),
+		)
+	else:
+		logging.warning(
+			"Startup prop cache is empty or stale; queued worker refresh "
+			"job=%s props=%s",
+			queued.get("id"),
+			len(props),
+		)
 
 
 def _prop_cache_needs_refresh(
@@ -788,11 +766,9 @@ async def _maintain_prop_freshness() -> None:
 		await asyncio.sleep(check_seconds)
 		try:
 			props = await asyncio.to_thread(get_props)
-			bucket = int(time.time() // 60)
-			queued = enqueue_background_job(
-				"jobs.run_prop_sync",
-				job_id=f"prop-freshness:{bucket}",
-			)
+			if not _prop_cache_needs_refresh(props):
+				continue
+			queued = _enqueue_prop_refresh()
 			if queued is None:
 				logging.warning(
 					"Prop freshness refresh was not queued; preserving cached props"
@@ -807,6 +783,17 @@ async def _maintain_prop_freshness() -> None:
 			raise
 		except Exception:
 			logging.exception("Prop freshness watchdog check failed")
+
+
+def _enqueue_prop_refresh() -> dict[str, object] | None:
+	"""Deduplicate recovery work across API restarts and watchdog checks."""
+	# One recovery job per 15-minute window is enough. RQ handles retries and
+	# the worker owns all provider/network work; the web service stays responsive.
+	bucket = int(time.time() // 900)
+	return enqueue_background_job(
+		"jobs.run_prop_sync",
+		job_id=f"prop-freshness:{bucket}",
+	)
 
 
 SCOREBOARD_SPORT_KEYS: list[tuple[str, str]] = [
