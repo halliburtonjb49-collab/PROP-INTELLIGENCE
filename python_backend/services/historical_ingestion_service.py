@@ -114,6 +114,45 @@ def normalize_basketball_logs(rows: Iterable[dict[str, object]], sport: str) -> 
     return normalized
 
 
+def reconcile_basketball_logs(
+    primary: list[dict[str, object]],
+    espn: list[dict[str, object]],
+) -> tuple[list[dict[str, object]], dict[str, int]]:
+    """Fill partial official-stat gaps with ESPN without duplicating games."""
+    merged = [dict(row) for row in primary]
+    by_player_date = {
+        (_as_date(row.get("game_date")), _normalized_name(row.get("player_name"))): index
+        for index, row in enumerate(merged)
+    }
+    added = filled = matched = 0
+    stat_fields = (
+        "minutes", "points", "rebounds", "assists", "steals", "blocks",
+        "turnovers", "threes", "personal_fouls", "free_throw_attempts",
+    )
+    for fallback in espn:
+        key = (_as_date(fallback.get("game_date")), _normalized_name(fallback.get("player_name")))
+        index = by_player_date.get(key)
+        if index is None:
+            by_player_date[key] = len(merged)
+            merged.append(dict(fallback))
+            added += 1
+            continue
+        matched += 1
+        target = merged[index]
+        for field in stat_fields:
+            if target.get(field) is None and fallback.get(field) is not None:
+                target[field] = fallback[field]
+                filled += 1
+        raw = target.get("raw") if isinstance(target.get("raw"), dict) else {}
+        target["raw"] = {**raw, "espnReconciled": True,
+                         "espnSourceGameId": fallback.get("league_game_id")}
+    return merged, {"matched": matched, "added": added, "fieldsFilled": filled}
+
+
+def _normalized_name(value: object) -> str:
+    return "".join(character for character in str(value or "").casefold() if character.isalnum())
+
+
 def normalize_statcast(rows: Iterable[dict[str, object]]) -> list[dict[str, object]]:
     normalized = []
     for row in rows:
@@ -543,6 +582,16 @@ def run_daily_historical_sync(
                 nba.league_game_logs(season=league_season, league_id=league_id),
                 sport,
             )
+            espn_logs: list[dict[str, object]] = []
+            espn_reconciliation = {"matched": 0, "added": 0, "fieldsFilled": 0}
+            try:
+                espn_logs = normalize_basketball_logs(
+                    espn_basketball.daily_game_logs(sport=sport, target_date=target),
+                    sport,
+                )
+                logs, espn_reconciliation = reconcile_basketball_logs(logs, espn_logs)
+            except Exception:
+                logger.warning("ESPN reconciliation failed for %s", sport, exc_info=True)
             target_game_ids = sorted({str(row["league_game_id"]) for row in logs if _as_date(row.get("game_date")) == target})
             officials_by_game = {}
             for game_id in target_game_ids:
@@ -562,6 +611,8 @@ def run_daily_historical_sync(
             except Exception:
                 logger.warning("Defensive Synergy lookup failed for %s", sport, exc_info=True)
             results[sport] = {"fetched": len(logs), "upserted": repository.upsert_basketball_logs(logs),
+                              "espnFetched": len(espn_logs),
+                              "espnReconciliation": espn_reconciliation,
                               "stretchesUpserted": upsert_basketball_stretches(logs, sport),
                               "officialAssignmentsUpserted": persist_basketball_assignments(assignments),
                               "officiatingProfilesUpserted": refresh_basketball_profiles(sport),
