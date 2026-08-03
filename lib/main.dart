@@ -806,7 +806,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           ),
           const PropBuilderPerformanceScreen(),
           StrikeoutProGoldScreen(
-            onSelect: _toggleSelection,
+            onSelect: _toggleStrikeoutSelection,
             onPropsRefreshed: _refreshActiveSlipProps,
             onPropsExpired: _removeExpiredStrikeoutProps,
           ),
@@ -1300,6 +1300,20 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   }
 
   void _toggleSelection(PropData prop, PickSide side) {
+    _applySelection(prop, side, rebuildDashboard: true);
+  }
+
+  void _toggleStrikeoutSelection(PropData prop, PickSide side) {
+    // Strikeout Pro Gold owns its button state. Avoid rebuilding the complete
+    // IndexedStack (including every hidden dashboard page) for each leg.
+    _applySelection(prop, side, rebuildDashboard: false);
+  }
+
+  void _applySelection(
+    PropData prop,
+    PickSide side, {
+    required bool rebuildDashboard,
+  }) {
     final existingIndex = _slipSelections.indexWhere(
       (item) => item.prop.id == prop.id,
     );
@@ -1334,31 +1348,49 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     }
     unawaited(AppSoundService.instance.play(AppSoundEvent.selection));
     final selection = SlipSelection(prop: prop, side: side);
+    if (existingIndex < 0 && _isMixedSiteAttempt(selection)) {
+      _showMixedSiteNotAllowedMessage();
+      return;
+    }
 
-    setState(() {
+    SlipSelection? removed;
+    Map<String, dynamic>? upsertedLeg;
+    var shouldAdd = false;
+
+    void updateSelectionState() {
       if (existingIndex >= 0) {
         final existing = _slipSelections[existingIndex];
         if (existing.side == side) {
+          removed = existing;
           _slipSelections.removeAt(existingIndex);
-          unawaited(_activeSlipController.removeLeg(existing.prop.id));
-          SlipManager.removePropById(existing.prop.id);
         } else {
           _slipSelections[existingIndex] = selection;
-          unawaited(
-            _activeSlipController.updateLeg(_selectionToLeg(selection)),
-          );
-          SlipManager.upsertProp(_selectionToLeg(selection));
+          upsertedLeg = _selectionToLeg(selection);
         }
       } else {
-        if (_isMixedSiteAttempt(selection)) {
-          _showMixedSiteNotAllowedMessage();
-          return;
-        }
         _slipSelections.add(selection);
-        unawaited(_activeSlipController.addLegs([_selectionToLeg(selection)]));
-        SlipManager.upsertProp(_selectionToLeg(selection));
+        upsertedLeg = _selectionToLeg(selection);
+        shouldAdd = true;
       }
-    });
+    }
+
+    if (rebuildDashboard) {
+      setState(updateSelectionState);
+    } else {
+      updateSelectionState();
+    }
+
+    if (removed != null) {
+      unawaited(_activeSlipController.removeLeg(removed!.prop.id));
+      SlipManager.removePropById(removed!.prop.id);
+    } else if (upsertedLeg != null) {
+      if (shouldAdd) {
+        unawaited(_activeSlipController.addLegs([upsertedLeg!]));
+      } else {
+        unawaited(_activeSlipController.updateLeg(upsertedLeg!));
+      }
+      SlipManager.upsertProp(upsertedLeg!);
+    }
   }
 
   Future<int> _addGameMarketLeg(Map<String, dynamic> leg) async {
