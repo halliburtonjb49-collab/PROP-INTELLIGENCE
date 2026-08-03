@@ -803,7 +803,7 @@ def _enqueue_prop_refresh() -> dict[str, object] | None:
 	bucket = int(time.time() // 900)
 	return enqueue_background_job(
 		"jobs.run_prop_sync",
-		job_id=f"prop-freshness:{bucket}",
+		job_id=f"prop-freshness:{APP_VERSION[:12]}:{bucket}",
 	)
 
 
