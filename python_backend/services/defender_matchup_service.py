@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from database.postgres import database_is_configured, get_database_pool
 from providers.historical_data import NbaHistoricalProvider
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def _number(row: dict[str, object], key: str) -> float:
@@ -17,9 +20,22 @@ def sync_defender_matchups(*, sport: str, season: str) -> dict[str, object]:
     if not database_is_configured():
         return {"sport": sport, "created": 0, "reason": "DATABASE_URL is not configured"}
     league_id = "10" if sport.upper() == "WNBA" else "00"
-    rows = NbaHistoricalProvider().league_defender_matchups(
-        season=season, league_id=league_id, timeout=90,
-    )
+    try:
+        rows = NbaHistoricalProvider().league_defender_matchups(
+            season=season, league_id=league_id, timeout=20,
+        )
+    except Exception as exc:
+        logger.warning("Defender matchup provider unavailable; retaining cached data: %s", exc)
+        with get_database_pool().connection() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "select count(*) from basketball_defender_matchups where sport=%s and season=%s",
+                (sport.upper(), season),
+            )
+            cached = int(cursor.fetchone()[0])
+        return {
+            "sport": sport.upper(), "season": season, "matchups": cached,
+            "source": "cached", "providerError": str(exc),
+        }
     values = []
     for row in rows:
         offensive_id = str(row.get("OFF_PLAYER_ID") or "")

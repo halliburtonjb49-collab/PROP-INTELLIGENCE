@@ -44,13 +44,19 @@ def _sync_specialty_history(target: date) -> dict[str, object]:
     sources = {"TENNIS": "ESPN", "PGA": "ESPN", "UFC": "ESPN"}
     if sportradar_configured() and not espn_tennis:
         espn_tennis = sportradar_tennis_logs(target_date=target)
-        sources["TENNIS"] = "SPORTRADAR"
+        sources["TENNIS"] = (
+            "SPORTRADAR" if espn_tennis else "SPORTRADAR_NO_COMPLETED_EVENTS"
+        )
     if sportradar_configured() and not espn_ufc:
         espn_ufc = sportradar_ufc_logs(target_date=target)
-        sources["UFC"] = "SPORTRADAR"
+        sources["UFC"] = (
+            "SPORTRADAR" if espn_ufc else "SPORTRADAR_NO_COMPLETED_EVENTS"
+        )
     if sportradar_configured() and not espn_golf:
         espn_golf = sportradar_golf_logs(target_date=target)
-        sources["PGA"] = "SPORTRADAR"
+        sources["PGA"] = (
+            "SPORTRADAR" if espn_golf else "SPORTRADAR_NO_COMPLETED_EVENTS"
+        )
     rows = espn_tennis + espn_golf + espn_ufc
     return {
         "fetched": len(rows),

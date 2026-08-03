@@ -579,7 +579,7 @@ def run_daily_historical_sync(
     ):
         try:
             logs = normalize_basketball_logs(
-                nba.league_game_logs(season=league_season, league_id=league_id),
+                nba.league_game_logs(season=league_season, league_id=league_id, timeout=20),
                 sport,
             )
             espn_logs: list[dict[str, object]] = []
@@ -621,7 +621,7 @@ def run_daily_historical_sync(
             logger.warning(
                 "NBA Stats historical %s sync failed; trying ESPN",
                 sport,
-                exc_info=True,
+                exc_info=False,
             )
             try:
                 fallback_logs = normalize_basketball_logs(
@@ -691,7 +691,7 @@ def backfill_basketball_officiating(*, sport: str, season: str,
     primary_provider_error = None
     espn_assignments: list[dict[str, object]] = []
     try:
-        schedule = provider.league_schedule(season=season, league_id=league_id)
+        schedule = provider.league_schedule(season=season, league_id=league_id, timeout=20)
         game_ids = []
         for row in schedule:
             game_date = _as_date(row.get("gameDate") or row.get("gameDateUTC"))
@@ -702,7 +702,7 @@ def backfill_basketball_officiating(*, sport: str, season: str,
         logger.warning(
             "NBA Stats officiating schedule failed sport=%s; using ESPN fallback",
             sport,
-            exc_info=True,
+            exc_info=False,
         )
         source = "ESPN"
         espn_assignments = EspnBasketballStatisticsProvider().officiating_assignments(

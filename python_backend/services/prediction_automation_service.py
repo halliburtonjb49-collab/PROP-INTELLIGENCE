@@ -18,8 +18,49 @@ from services.clv_service import odds_clv_expected_value, vig_free_probability
 
 TRACKED_SPORTS = {
     "NBA", "WNBA", "MLB", "NFL", "NHL", "PGA", "GOLF",
-    "TENNIS", "UFC", "MMA",
+    "TENNIS", "UFC", "MMA", "SOCCER",
 }
+
+
+def _specialty_market_value(sport: str, market: str, stats: object) -> float | None:
+    if not isinstance(stats, dict):
+        return None
+    text = normalize_prop_type(market).lower().replace("_", " ")
+    canonical_sport = "PGA" if sport == "GOLF" else "UFC" if sport == "MMA" else sport
+    mappings = {
+        "TENNIS": (
+            (("double fault",), "double_faults"),
+            (("breakpoint",), "breakpoints_won"),
+            (("ace",), "aces"),
+            (("set",), "sets_won"),
+            (("game",), "games_won"),
+        ),
+        "PGA": (
+            (("birdie",), "birdies"), (("bogey",), "bogeys"),
+            (("par",), "pars"), (("eagle",), "eagles"),
+            (("stroke", "round score"), "round_score"),
+        ),
+        "UFC": (
+            (("significant strike",), "significant_strikes"),
+            (("total strike",), "total_strikes"),
+            (("takedown",), "takedowns"), (("knockdown",), "knockdowns"),
+            (("submission",), "submission_attempts"),
+            (("fight time",), "fight_time_seconds"),
+        ),
+        "SOCCER": (
+            (("shot on target", "shots on target"), "shots_on_target"),
+            (("shot",), "shots"), (("assist",), "assists"),
+            (("goal",), "goals"), (("red card",), "received_red_card"),
+            (("card",), "received_card"),
+        ),
+    }
+    for tokens, stat_name in mappings.get(canonical_sport, ()):
+        if any(token in text for token in tokens):
+            try:
+                return float(stats.get(stat_name))
+            except (TypeError, ValueError):
+                return None
+    return None
 
 
 def _snapshot_side(
@@ -317,6 +358,18 @@ def grade_completed_predictions() -> dict[str, object]:
                 if row is None:
                     continue
                 actual = _market_value(str(market), row)
+            elif sport in {"TENNIS", "PGA", "GOLF", "UFC", "MMA", "SOCCER"}:
+                history_sport = "PGA" if sport == "GOLF" else "UFC" if sport == "MMA" else sport
+                cursor.execute("""select stats from historical_player_game_logs
+                    where sport=%s and lower(player_name)=lower(%s)
+                    and game_date=(%s at time zone 'America/New_York')::date
+                    order by updated_at desc limit 1""",
+                    (history_sport, player_name, event_time))
+                row = cursor.fetchone()
+                actual = (
+                    _specialty_market_value(str(sport), str(market), row[0])
+                    if row is not None else None
+                )
             else:
                 snapshot = get_live_player_stat_snapshot(
                     player_name=str(player_name),
@@ -343,6 +396,8 @@ def grade_completed_predictions() -> dict[str, object]:
                         if sport == "MLB"
                         else "historical-game-logs"
                         if sport in {"NBA", "WNBA"}
+                        else "historical-specialty-logs"
+                        if sport in {"TENNIS", "PGA", "GOLF", "UFC", "MMA", "SOCCER"}
                         else "sportsdataio"
                     ),
                     identifier,
