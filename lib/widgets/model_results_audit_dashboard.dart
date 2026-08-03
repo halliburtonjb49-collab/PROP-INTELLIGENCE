@@ -118,6 +118,7 @@ class _ModelResultsAuditDashboardState
                           'sport': 'SPORT',
                           'propType': 'PROP TYPE',
                           'confidenceTier': 'CONFIDENCE',
+                          'pickGrade': 'PICK GRADE',
                           'side': 'OVER / UNDER',
                           'opportunityRole': 'OPPORTUNITY ROLE',
                         }.entries

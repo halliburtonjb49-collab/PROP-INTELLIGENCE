@@ -19,6 +19,23 @@ from services.clv_service import odds_clv_expected_value, vig_free_probability
 TRACKED_SPORTS = {"NBA", "WNBA", "MLB", "NFL", "NHL", "PGA", "GOLF"}
 
 
+def _snapshot_side(
+    recommended_side: str,
+    projection: float | None,
+    line: float,
+) -> str:
+    side = recommended_side.upper()
+    if side in {"OVER", "UNDER"}:
+        return side
+    if projection is None or projection == line:
+        return ""
+    return "OVER" if projection > line else "UNDER"
+
+
+def _paper_trade_eligible(grade: str) -> bool:
+    return grade.upper() in {"A", "B"}
+
+
 def prediction_clv(side: str, entry_line: float, closing_line: float) -> dict[str, object]:
     movement = (
         closing_line - entry_line
@@ -91,7 +108,7 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
             if prop.dataStale:
                 continue
             snapshot_model_version = prop.projectionModelVersion or model_version
-            side = prop.recommendedSide.upper()
+            side = _snapshot_side(prop.recommendedSide, prop.projection, prop.line)
             if prop.sport.upper() not in TRACKED_SPORTS:
                 continue
             if side not in {"OVER", "UNDER"} or not prop.startTimeUtc:
@@ -122,7 +139,8 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
                 continue
             cursor.execute("""insert into prediction_snapshots
                 (prop_id,player_id,sport,market,side,line,projection,hit_probability,
-                 model_version,inputs,event_time) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s)""",
+                 model_version,inputs,event_time) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s)
+                 returning id""",
                 (prop.id, prop.canonicalPlayerId or prop.playerId, prop.sport.upper(), prop.market,
                  side, prop.line, projection, probability, snapshot_model_version,
                  json.dumps({"playerName": prop.player, "sportsbook": prop.sportsbook,
@@ -146,10 +164,58 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
                              "roleChange": prop.roleChange,
                              "wowyMultiplier": prop.wowyMultiplier,
                              "gameScriptMultiplier": prop.gameScriptMultiplier,
+                             "pickGrade": prop.pickGrade,
+                             "pickGradeExplanation": prop.pickGradeExplanation,
                              "expectedValuePercentage": prop.evPercentage,
                              "entryOdds": prop.overOdds if side == "OVER" else prop.underOdds,
                              "openingLine": prop.openingLine,
                              "currentLine": prop.currentLine}), event_time))
+            snapshot_id = cursor.fetchone()[0]
+            feature_payload = {
+                "opponentAllowanceByPosition": getattr(prop, "opponentAllowanceByPosition", None),
+                "defensiveScheme": getattr(prop, "defensiveScheme", ""),
+                "paceMultiplier": prop.paceMultiplier,
+                "directMatchupAverage": getattr(prop, "directMatchupAverage", None),
+                "directMatchupSampleSize": getattr(prop, "directMatchupSampleSize", 0),
+                "expectedPrimaryDefender": getattr(prop, "expectedPrimaryDefender", ""),
+                "mlbProjectedLineupMatchup": getattr(prop, "mlbProjectedLineupMatchup", None),
+                "isHome": getattr(prop, "isHome", None),
+                "restDays": prop.restDays,
+                "travelMiles": prop.travelMiles,
+                "timezoneChangeHours": prop.timezoneChangeHours,
+                "fatigueMultiplier": prop.fatigueMultiplier,
+                "projectedOpportunity": prop.projectedOpportunity,
+                "opportunityUnit": prop.opportunityUnit,
+                "roleStatus": prop.roleStatus,
+                "roleChange": prop.roleChange,
+                "wowyMultiplier": prop.wowyMultiplier,
+                "gameScriptMultiplier": prop.gameScriptMultiplier,
+            }
+            cursor.execute(
+                """insert into matchup_feature_snapshots
+                    (prediction_snapshot_id,prop_id,player_id,sport,market,event_time,features,source_versions)
+                    values(%s,%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb)
+                    on conflict(prediction_snapshot_id) do nothing""",
+                (snapshot_id, prop.id, prop.canonicalPlayerId or prop.playerId,
+                 prop.sport.upper(), prop.market, event_time,
+                 json.dumps(feature_payload), json.dumps({
+                     "projection": snapshot_model_version,
+                     "opportunity": prop.opportunitySource,
+                     "selection": prop.selectionMethod,
+                 })),
+            )
+            if _paper_trade_eligible(prop.pickGrade):
+                cursor.execute(
+                    """insert into paper_trade_entries
+                        (prediction_snapshot_id,prop_id,player_id,sport,market,side,grade,line,
+                         projection,confidence,model_version,sportsbook,event_time,decision_inputs)
+                        values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
+                        on conflict(prediction_snapshot_id) do nothing""",
+                    (snapshot_id, prop.id, prop.canonicalPlayerId or prop.playerId,
+                     prop.sport.upper(), prop.market, side, prop.pickGrade, prop.line,
+                     projection, prop.confidence, snapshot_model_version, prop.sportsbook,
+                     event_time, json.dumps(feature_payload)),
+                )
             created += 1
         connection.commit()
     return {"created": created, "modelVersion": model_version}
@@ -271,6 +337,21 @@ def grade_completed_predictions() -> dict[str, object]:
             graded += 1
             if graded % 250 == 0:
                 connection.commit()
+        connection.commit()
+        cursor.execute(
+            """insert into paper_trade_results
+                (paper_trade_id,actual_value,hit,closing_line,closing_no_vig_probability,
+                 odds_clv_expected_value_percent,graded_at,result_source)
+                select e.id,p.actual_value,p.hit,
+                    nullif(p.inputs->>'closingLine','')::double precision,
+                    nullif(p.inputs->>'closingNoVigProbability','')::double precision,
+                    nullif(p.inputs->>'oddsClvExpectedValuePercent','')::double precision,
+                    p.graded_at,coalesce(p.inputs->>'resultSource','')
+                from paper_trade_entries e join prediction_snapshots p
+                  on p.id=e.prediction_snapshot_id
+                where p.graded_at is not null and p.actual_value is not null and p.hit is not null
+                on conflict(paper_trade_id) do nothing"""
+        )
         connection.commit()
     return {"graded": graded, "pendingChecked": len(pending), "unsupported": unsupported,
             "gradedAt": datetime.now(timezone.utc).isoformat()}
