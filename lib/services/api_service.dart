@@ -144,7 +144,8 @@ class ApiService {
   static String? _resolvedBaseUrl;
   static Future<String?>? _sessionRefresh;
   static final Map<String, Future<http.Response>> _inFlightPropsPages = {};
-  static List<PropData> _lastSuccessfulProps = const [];
+  static final Map<String, List<PropData>> _lastSuccessfulPropsByQuery =
+      <String, List<PropData>>{};
   static int _lastFacetCount = 0;
   static Map<String, int> _lastCategoryCounts = const {};
   static Map<String, int> _lastSportCounts = const {};
@@ -754,6 +755,16 @@ class ApiService {
     int offset = 0,
   }) async {
     Object? lastError;
+    final cacheKey = _propsCacheKey(
+      selectedSide,
+      selectedTier,
+      selectedSportsbook,
+      selectedSport,
+      selectedCategory,
+      search,
+      minConfidence,
+      sortBy,
+    );
 
     for (final candidate in _candidateBaseUrls) {
       try {
@@ -787,7 +798,9 @@ class ApiService {
         _resolvedBaseUrl = candidate;
         _lastPropsCount = totalCount > 0 ? totalCount : props.length;
         if (props.isNotEmpty) {
-          _lastSuccessfulProps = props;
+          _lastSuccessfulPropsByQuery[cacheKey] = List<PropData>.unmodifiable(
+            props,
+          );
         }
         if (offset == 0 && props.isNotEmpty) {
           await _savePropsCache(
@@ -840,14 +853,15 @@ class ApiService {
       }
     }
 
-    if (_lastSuccessfulProps.isNotEmpty) {
+    final lastSuccessfulProps = _lastSuccessfulPropsByQuery[cacheKey];
+    if (lastSuccessfulProps != null && lastSuccessfulProps.isNotEmpty) {
       refreshStatusNotifier.value = BackendRefreshStatus(
         lastRefreshAt: refreshStatusNotifier.value.lastRefreshAt,
         sourceUrl: refreshStatusNotifier.value.sourceUrl,
         message: 'Showing the last stable prop download while reconnecting',
       );
-      _lastPropsCount = _lastSuccessfulProps.length;
-      return List<PropData>.unmodifiable(_lastSuccessfulProps);
+      _lastPropsCount = lastSuccessfulProps.length;
+      return lastSuccessfulProps;
     }
 
     if (lastError is Exception) {

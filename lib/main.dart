@@ -8509,6 +8509,8 @@ bool shouldRenderCachedPropsOnLaunch(
 
 class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   static const int _visiblePropStep = 24;
+  static final Map<String, List<PropData>> _sessionViewCache =
+      <String, List<PropData>>{};
   final ApiService _apiService = ApiService();
   late Future<List<PropData>> _propsFuture;
   List<_PreparedProp> _preparedProps = const [];
@@ -10858,7 +10860,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _propsFuture = _loadProps();
+    _startQueryLoad();
     boardRefreshRequestNotifier.addListener(_handleBoardRefreshRequest);
     _expiryTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted) return;
@@ -10912,9 +10914,34 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         oldWidget.sortBy != widget.sortBy ||
         oldWidget.searchQuery != widget.searchQuery) {
       _visiblePropLimit = _visiblePropStep;
+      _autoRetryTimer?.cancel();
+      _automaticRetryCount = 0;
+      _startQueryLoad();
+    }
+  }
+
+  /// Shows any page already downloaded during this app session immediately.
+  /// Navigation must never blank the board while the same view is refreshed.
+  void _startQueryLoad() {
+    final requestKey = _queryKey;
+    final cached = _sessionViewCache[requestKey];
+    if (cached == null) {
       _preparedProps = const [];
       _propsFuture = _loadProps();
+      return;
     }
+
+    final activeCached = activePropsInChronologicalOrder(cached);
+    _preparedProps = _prepareProps(activeCached);
+    _propsFuture = Future<List<PropData>>.value(activeCached);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || requestKey != _queryKey) return;
+      unawaited(_refreshLiveLines());
+    });
+  }
+
+  void _rememberCurrentView(String requestKey, List<PropData> props) {
+    _sessionViewCache[requestKey] = List<PropData>.unmodifiable(props);
   }
 
   List<_PreparedProp> _prepareProps(List<PropData> props) {
@@ -10952,6 +10979,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     )) {
       _automaticRetryCount = 0;
       final activeCached = activePropsInChronologicalOrder(cached);
+      _rememberCurrentView(requestKey, activeCached);
       _preparedProps = _prepareProps(activeCached);
       widget.onPropsLoaded?.call(
         activeCached,
@@ -10968,6 +10996,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     }
     if (!mounted || requestKey != _queryKey) return const [];
     final props = activePropsInChronologicalOrder(liveProps);
+    _rememberCurrentView(requestKey, props);
     _startupLog(
       'fetchProps() complete in ${fetchTimer.elapsedMilliseconds}ms (${props.length} props)',
     );
@@ -11009,6 +11038,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         _scheduleAutomaticRetry();
         return;
       }
+      _rememberCurrentView(requestKey, fresh);
       setState(() {
         _preparedProps = _prepareProps(fresh);
         _propsFuture = Future.value(fresh);
@@ -11057,6 +11087,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         _visiblePropLimit = _preparedProps.length;
         _propsFuture = Future.value(merged);
       });
+      _rememberCurrentView(requestKey, merged);
       widget.onPropsLoaded?.call(
         merged,
         _apiService.lastPropsCount,
@@ -11125,6 +11156,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         _preparedProps = _prepareProps(props);
         _propsFuture = Future.value(props);
       });
+      _rememberCurrentView(requestKey, props);
       widget.onPropsLoaded?.call(
         props,
         _apiService.lastPropsCount,
