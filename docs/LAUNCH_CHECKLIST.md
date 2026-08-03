@@ -30,7 +30,10 @@
 - [ ] Failed-login telemetry is connected from Supabase without exposing credentials or user identifiers.
 - [ ] `PIPELINE_ALERT_WEBHOOK_URL` is configured for API and both cron services.
 - [ ] `/health` returns `status: ok` and `/api/operations/pipelines` reports healthy runs.
-- [ ] `python python_backend/scripts/production_smoke_check.py` exits successfully.
+- [ ] `python python_backend/scripts/production_smoke_check.py` exits successfully
+  using the protected-feed readiness endpoint (the full prop feed must return
+  `401` without a real user session).
+- [ ] `python tools/harden_release.py` passes Bandit, dependency, and debug checks.
 - [ ] Flutter analysis and tests pass; Python tests pass.
 - [ ] Privacy policy, terms, responsible-play language, support email, and subscription disclosures are published.
 - [ ] Release commit is deployed to the API, static app, historical sync, and pregame sync services.

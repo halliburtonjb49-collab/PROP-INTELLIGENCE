@@ -28,6 +28,8 @@ jobs:
         run: pip install -r requirements.txt -r requirements-dev.txt
       - name: Run backend tests
         run: python -m pytest python_backend/tests -q
+      - name: Run release hardening checks
+        run: python tools/harden_release.py
 
   flutter:
     name: Flutter analysis, tests, and web build

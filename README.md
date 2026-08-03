@@ -93,11 +93,11 @@ Render and use the Supabase direct database connection string for migrations.
 The command exits successfully only when required tables exist, minimum data
 coverage is present, and at least 100 prediction snapshots have been graded.
 
-Saved tickets and closing-line snapshots use `SLIP_DATABASE_PATH`. The Render
-blueprint mounts `/var/data` as persistent storage so deployments do not erase
-ticket history. In production, verify `/health/storage` reports
-`persistent-disk`. Disk-backed SQLite assumes one API instance; migrate ticket
-storage to PostgreSQL before horizontally scaling the API.
+Saved tickets and closing-line snapshots use PostgreSQL in production. Local
+development may fall back to `SLIP_DATABASE_PATH`, but a release is accepted
+only when `/ready` reports `checks.ticketStorage.mode` as `postgresql`. This
+keeps ticket history durable across deployments and supports horizontal API
+scaling without SQLite split-brain behavior.
 
 Live odds default to `ODDS_REGIONS=us,us2` because provider quota cost scales
 with both markets and regions. Configure `ODDS_REGIONS` and
