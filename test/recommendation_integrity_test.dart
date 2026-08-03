@@ -141,4 +141,41 @@ void main() {
 
     expect(prop.calculatedEdge, 2.5);
   });
+
+  test('uses model confidence for a verified Strikeout Pro Gold pick', () {
+    final prop = PropData.fromJson({
+      'id': 'strikeout-model',
+      'player': 'Test Pitcher',
+      'sport': 'MLB',
+      'sportsbook': 'Book',
+      'market': 'Pitcher Strikeouts',
+      'line': 6.5,
+      'projection': 7.4,
+      'recommendedSide': 'OVER',
+      'recommendationAvailable': true,
+      'confidence': 72,
+    });
+
+    expect(prop.displayConfidenceRating, 72);
+    expect(prop.displayConfidenceLabel, '72%');
+  });
+
+  test('uses the sportsbook rating instead of a false zero percent', () {
+    final prop = PropData.fromJson({
+      'id': 'strikeout-market',
+      'player': 'Test Pitcher',
+      'sport': 'MLB',
+      'sportsbook': 'Book',
+      'market': 'Pitcher Strikeouts',
+      'line': 6.5,
+      'overOdds': -150,
+      'underOdds': 120,
+      'recommendationAvailable': false,
+      'confidence': 0,
+    });
+
+    expect(prop.proSuggestionUsesMarket, isTrue);
+    expect(prop.displayConfidenceRating, 57);
+    expect(prop.displayConfidenceLabel, '57%');
+  });
 }

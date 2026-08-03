@@ -335,6 +335,28 @@ class PropData {
       !proSuggestionUsesHistoricalStats &&
       (marketLeanSide == 'OVER' || marketLeanSide == 'UNDER');
 
+  /// The evidence-backed percentage displayed as the pick's confidence.
+  ///
+  /// A verified model pick uses calibrated model confidence. Informational
+  /// fallbacks use their own clearly identified evidence source instead of
+  /// displaying a misleading 0% model confidence.
+  int? get displayConfidenceRating {
+    if (proSuggestionUsesModel) {
+      return confidence > 0 ? confidence.clamp(0, 100) : null;
+    }
+    if (proSuggestionUsesHistoricalStats) {
+      return historicalHitRate?.clamp(0, 100);
+    }
+    if (proSuggestionUsesMarket) {
+      return marketLeanPercentage?.clamp(0, 100);
+    }
+    return null;
+  }
+
+  String get displayConfidenceLabel => displayConfidenceRating == null
+      ? 'NOT RATED'
+      : '${displayConfidenceRating!}%';
+
   /// Absolute model advantage over the current line, in the stat's units.
   ///
   /// Older/cached payloads can contain a zero `edge` even when a projection

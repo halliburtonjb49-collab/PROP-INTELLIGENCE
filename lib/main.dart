@@ -9161,14 +9161,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         : null;
     final hasModelPick =
         hasProAccess && prop.proSuggestionUsesModel && advisedSide != null;
-    final confidence = prop.confidence.clamp(0, 100);
-    final signalRating = hasModelPick
-        ? (confidence > 0 ? confidence : null)
-        : prop.proSuggestionUsesHistoricalStats
-        ? prop.historicalHitRate
-        : prop.proSuggestionUsesMarket
-        ? prop.marketLeanPercentage
-        : null;
+    final signalRating = prop.displayConfidenceRating;
     // Keep the two visible metric values consistent on every card. Evidence
     // provenance is shown separately below rather than appended to the value.
     final signalRatingLabel = signalRating == null
