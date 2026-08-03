@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -582,10 +583,13 @@ class ApiService {
     // Specialty feeds can legitimately be empty between events. Avoid making
     // navigation wait through two full network attempts before the board can
     // render its available/empty state.
-    final maxAttempts = isSpecialtySport ? 1 : 2;
+    // The board owns background recovery and already keeps its last stable
+    // page visible. A long second HTTP attempt here only traps first-time
+    // mobile visitors behind skeleton cards for up to 25 seconds.
+    const maxAttempts = 1;
     final requestTimeout = isSpecialtySport
-        ? const Duration(seconds: 6)
-        : const Duration(seconds: 12);
+        ? const Duration(seconds: 4)
+        : const Duration(seconds: 6);
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         var response = await http
@@ -803,25 +807,7 @@ class ApiService {
           );
         }
         if (offset == 0 && props.isNotEmpty) {
-          await _savePropsCache(
-            _propsCacheKey(
-              selectedSide,
-              selectedTier,
-              selectedSportsbook,
-              selectedSport,
-              selectedCategory,
-              search,
-              minConfidence,
-              sortBy,
-            ),
-            parsed.rawMaps,
-            _lastPropsCount,
-            _lastFacetCount,
-            _lastCategoryCounts,
-            parsed.sportCounts,
-            parsed.sportCategoryCounts,
-          );
-          if (_isBroadPropsQuery(
+          final isBroadQuery = _isBroadPropsQuery(
             selectedSide: selectedSide,
             selectedTier: selectedTier,
             selectedSportsbook: selectedSportsbook,
@@ -829,17 +815,35 @@ class ApiService {
             selectedCategory: selectedCategory,
             search: search,
             minConfidence: minConfidence,
-          )) {
-            await _savePropsCache(
-              _lastStablePropsCacheKey,
+          );
+          // Rendering must never wait on browser/local device storage. Broad
+          // queries use the stable key directly, avoiding two identical JSON
+          // encodes and writes on slower phones.
+          unawaited(
+            _savePropsCache(
+              isBroadQuery
+                  ? _lastStablePropsCacheKey
+                  : _propsCacheKey(
+                      selectedSide,
+                      selectedTier,
+                      selectedSportsbook,
+                      selectedSport,
+                      selectedCategory,
+                      search,
+                      minConfidence,
+                      sortBy,
+                    ),
               parsed.rawMaps,
               _lastPropsCount,
               _lastFacetCount,
               _lastCategoryCounts,
               parsed.sportCounts,
               parsed.sportCategoryCounts,
-            );
-          }
+            ).catchError((_) {
+              // A storage quota or private-browsing restriction must not turn
+              // a successful live response into a failed board load.
+            }),
+          );
         }
         refreshStatusNotifier.value = BackendRefreshStatus(
           lastRefreshAt: DateTime.now(),
