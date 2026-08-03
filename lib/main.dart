@@ -511,7 +511,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   final ApiService _apiService = ApiService();
   final ActiveSlipController _activeSlipController = ActiveSlipController();
   final List<SlipSelection> _slipSelections = [];
-  bool _isSavingSlip = false;
+  final ValueNotifier<bool> _isSavingSlipNotifier = ValueNotifier(false);
+  bool get _isSavingSlip => _isSavingSlipNotifier.value;
   Timer? _selectionExpiryTimer;
   AppPage _selectedPage = AppPage.board;
   String _selectedBoardSport = 'ALL';
@@ -663,6 +664,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 
   @override
   void dispose() {
+    _isSavingSlipNotifier.dispose();
     _selectionExpiryTimer?.cancel();
     PropChatService.latestNotification.removeListener(_showChatNotification);
     ScoreboardWatchlistService.instance.latestAlert.removeListener(
@@ -1208,7 +1210,10 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 
   Widget _buildRightPanel() {
     return AnimatedBuilder(
-      animation: _activeSlipController,
+      animation: Listenable.merge([
+        _activeSlipController,
+        _isSavingSlipNotifier,
+      ]),
       builder: (context, _) {
         return Container(
           color: app_colors.AppColors.sidebar,
@@ -1771,9 +1776,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     }
 
     final requestId = await _activeSlipController.prepareSync(stake);
-    setState(() {
-      _isSavingSlip = true;
-    });
+    _isSavingSlipNotifier.value = true;
     _activeSlipController.markSyncing();
 
     try {
@@ -1834,9 +1837,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       );
     } finally {
       if (mounted) {
-        setState(() {
-          _isSavingSlip = false;
-        });
+        _isSavingSlipNotifier.value = false;
       }
     }
   }

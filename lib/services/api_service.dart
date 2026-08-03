@@ -1377,15 +1377,27 @@ class ApiService {
               ),
               body: requestBody,
             )
-            .timeout(const Duration(seconds: 20));
-        if (response.statusCode != 401) break;
+            .timeout(const Duration(seconds: 8));
+        final retryable =
+            response.statusCode == 401 ||
+            response.statusCode == 408 ||
+            response.statusCode == 425 ||
+            response.statusCode == 429 ||
+            response.statusCode >= 500;
+        if (!retryable || attempt == 2) break;
+        connectionError = Exception(
+          'Temporary ticket response ${response.statusCode}',
+        );
       } catch (error) {
         connectionError = error;
-        if (attempt < 2) {
-          await Future<void>.delayed(
-            Duration(milliseconds: 500 * (1 << attempt)),
-          );
-        }
+      }
+      if (attempt < 2) {
+        final retryAfter = int.tryParse(response?.headers['retry-after'] ?? '');
+        await Future<void>.delayed(
+          retryAfter == null
+              ? Duration(milliseconds: 350 * (1 << attempt))
+              : Duration(seconds: retryAfter.clamp(1, 3)),
+        );
       }
     }
 
@@ -1398,10 +1410,19 @@ class ApiService {
     if (response == null ||
         response.statusCode < 200 ||
         response.statusCode >= 300) {
+      var detail = response?.body ?? '';
+      try {
+        final errorBody = jsonDecode(detail);
+        if (errorBody is Map && errorBody['detail'] != null) {
+          detail = errorBody['detail'].toString();
+        }
+      } catch (_) {
+        // Preserve the server response when it is not JSON.
+      }
       throw Exception(
         response == null
             ? 'Unable to save slip. Check your connection and try again.'
-            : 'Unable to save slip: ${response.body}',
+            : 'Ticket lock failed (${response.statusCode}): $detail',
       );
     }
 
