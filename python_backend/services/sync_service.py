@@ -106,7 +106,7 @@ def next_sgo_leagues(limit: int | None = None) -> list[tuple[str, str]]:
     ]
     if not leagues:
         return []
-    configured_limit = limit or int(os.getenv("SPORTSGAMEODDS_LEAGUES_PER_SYNC", "4"))
+    configured_limit = limit or int(os.getenv("SPORTSGAMEODDS_LEAGUES_PER_SYNC", "11"))
     count = max(1, min(configured_limit, len(leagues)))
     with _sgo_cursor_lock:
         selected = [
@@ -313,11 +313,20 @@ def sync_sportsgameodds() -> dict[str, object]:
                 for event, _ in normalized
                 if event.get("id")
             ]
-            cache.prune_provider_events(
-                sport=sport_key,
-                event_prefix="sgo:",
-                active_event_ids=valid_ids,
-            )
+            if valid_ids:
+                cache.prune_provider_events(
+                    sport=sport_key,
+                    event_prefix="sgo:",
+                    active_event_ids=valid_ids,
+                )
+            else:
+                # A temporary empty specialty response must not erase the
+                # last healthy PGA/Tennis/UFC slate. Normal board expiry rules
+                # still hide events after they start or finish.
+                logger.warning(
+                    "sportsgameodds preserved cache league=%s reason=no_active_events",
+                    league_id,
+                )
             for event, odds_payload in normalized:
                 total_props += process_and_cache_props(
                     cache=cache,

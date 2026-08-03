@@ -130,6 +130,12 @@ def test_tennis_uses_documented_sportsgameodds_stat_ids() -> None:
         bet_type="ou",
         market_name="Break Points Won",
     ) == "player_break_points_won"
+    assert _market_key(
+        stat_id="doubleFaults",
+        sport_key="tennis_wta",
+        bet_type="ou",
+        market_name="Double Faults",
+    ) == "player_double_faults"
 
 
 def test_golf_and_ufc_stat_ids_map_to_player_props() -> None:

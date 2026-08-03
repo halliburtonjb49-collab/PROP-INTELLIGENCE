@@ -95,6 +95,38 @@ def test_specialty_leagues_are_enabled_by_default(monkeypatch) -> None:
     assert [league for league, _ in selected] == ["ATP", "WTA", "PGA_MEN", "UFC"]
 
 
+def test_default_supplemental_sync_attempts_every_enabled_league(monkeypatch) -> None:
+    monkeypatch.delenv("SPORTSGAMEODDS_DISABLED_LEAGUES", raising=False)
+    monkeypatch.delenv("SPORTSGAMEODDS_LEAGUES_PER_SYNC", raising=False)
+    monkeypatch.setattr(sync_service, "_sgo_league_cursor", 0)
+
+    selected = next_sgo_leagues()
+
+    assert [league for league, _ in selected] == list(
+        sync_service.LEAGUE_TO_SPORT
+    )
+
+
+def test_empty_supplemental_response_preserves_last_healthy_cache(monkeypatch) -> None:
+    class Cache:
+        prune_calls = 0
+
+        def prune_provider_events(self, **_kwargs):
+            self.prune_calls += 1
+
+    fake_cache = Cache()
+    monkeypatch.setattr(sync_service, "SPORTSGAMEODDS_API_KEY", "test-key")
+    monkeypatch.setattr(sync_service, "cache", fake_cache)
+    monkeypatch.setattr(sync_service, "fetch_sgo_account_usage", lambda: {})
+    monkeypatch.setattr(sync_service, "next_sgo_leagues", lambda: [("ATP", "tennis_atp")])
+    monkeypatch.setattr(sync_service, "fetch_sgo_events", lambda _league: [])
+
+    result = sync_service.sync_sportsgameodds()
+
+    assert result["attemptedLeagues"] == ["ATP"]
+    assert fake_cache.prune_calls == 0
+
+
 def test_unavailable_supplemental_leagues_are_not_retried(monkeypatch) -> None:
     monkeypatch.setenv("SPORTSGAMEODDS_DISABLED_LEAGUES", "ATP,WTA,PGA_MEN")
     monkeypatch.setattr(sync_service, "_sgo_league_cursor", 0)

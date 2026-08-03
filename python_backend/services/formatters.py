@@ -136,6 +136,8 @@ CATEGORY_LABELS = {
     "double_faults": "double faults",
     "player_games_won": "games won",
     "player_sets_won": "sets won",
+    "player_break_points_won": "break points won",
+    "player_tennis_points_won": "tennis points won",
 
     # PGA
     "player_birdies": "birdies",
@@ -144,6 +146,7 @@ CATEGORY_LABELS = {
     "player_pars": "pars",
     "player_fairways_hit": "fairways",
     "player_greens_in_regulation": "greens",
+    "player_strokes": "strokes",
     "strokes": "strokes",
 
     # Soccer

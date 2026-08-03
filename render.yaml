@@ -76,7 +76,7 @@ services:
       - key: PROP_SYNC_EVENT_WORKERS
         value: 6
       - key: SPORTSGAMEODDS_LEAGUES_PER_SYNC
-        value: 4
+        value: 11
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES
         value: ""
       - key: RAW_PROP_STREAM
@@ -169,7 +169,7 @@ services:
       - key: PROP_SYNC_EVENT_WORKERS
         value: 6
       - key: SPORTSGAMEODDS_LEAGUES_PER_SYNC
-        value: 4
+        value: 11
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES
         value: ""
       - key: RAW_PROP_STREAM

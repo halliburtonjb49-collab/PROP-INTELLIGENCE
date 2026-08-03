@@ -322,6 +322,8 @@ class _HistoricalProjectionIndex:
                     "double faults": "double_faults",
                     "player breakpoints won": "breakpoints_won",
                     "breakpoints won": "breakpoints_won",
+                    "player break points won": "breakpoints_won",
+                    "break points won": "breakpoints_won",
                 },
                 "PGA": {
                     "player birdies": "birdies", "birdies": "birdies",

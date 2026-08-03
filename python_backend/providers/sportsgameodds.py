@@ -296,8 +296,12 @@ def _market_key(
             "points": "player_sets_won",
             "truepoints": "player_tennis_points_won",
             "breakpoints": "player_break_points_won",
+            "breakpointswon": "player_break_points_won",
             "games": "player_games_won",
+            "gameswon": "player_games_won",
             "servingaces": "player_aces",
+            "aces": "player_aces",
+            "doublefaults": "player_double_faults",
             "fantasyscore": "player_fantasy_points",
         }.get(normalized)
     if sport_key.startswith("golf_"):
