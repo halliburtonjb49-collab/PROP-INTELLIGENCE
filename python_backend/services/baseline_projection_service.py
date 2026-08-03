@@ -330,7 +330,7 @@ class _HistoricalProjectionIndex:
                     "fighter takedowns": "takedowns",
                     "fighter knockdowns": "knockdowns",
                     "fighter submission attempts": "submission_attempts",
-                    "fighter fight time": "fight_time",
+                    "fighter fight time": "fight_time_seconds",
                 },
             }
             canonical = "PGA" if normalized_sport == "GOLF" else "UFC" if normalized_sport == "MMA" else normalized_sport
@@ -339,7 +339,11 @@ class _HistoricalProjectionIndex:
                 return None
             values = self.multi_sport.get((canonical, _normalized(player), stat), [])
             return compute_baseline_projection(
-                values, line=line, sport=canonical, market=market
+                values, line=line, sport=canonical, market=market,
+                # UFC athletes compete far less often than team-sport athletes.
+                # Three completed fights enables a visibly limited baseline;
+                # downstream quality/calibration gates still prevent an A/B grade.
+                minimum_sample_size=3 if canonical == "UFC" else MINIMUM_SAMPLE_SIZE,
             )
 
         if normalized_sport != "MLB" or not player_id:

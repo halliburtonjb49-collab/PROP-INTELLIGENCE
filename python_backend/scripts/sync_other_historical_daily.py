@@ -13,7 +13,7 @@ from services.historical_ingestion_service import (
     HistoricalRepository, backfill_basketball_officiating,
     run_daily_historical_sync,
 )
-from providers.espn_specialty_statistics import golf_logs, tennis_logs
+from providers.espn_specialty_statistics import golf_logs, tennis_logs, ufc_logs
 from services.pipeline_run_service import finish_pipeline_run, start_pipeline_run
 from services.prediction_automation_service import grade_completed_predictions
 from services.schedule_fatigue_service import sync_schedule_and_fatigue
@@ -34,6 +34,7 @@ def _sync_specialty_history(target: date) -> dict[str, object]:
         tennis_logs(tour="ATP", target_date=target)
         + tennis_logs(tour="WTA", target_date=target)
         + golf_logs(target_date=target)
+        + ufc_logs(target_date=target)
     )
     return {
         "fetched": len(rows),

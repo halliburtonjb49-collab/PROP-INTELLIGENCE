@@ -128,3 +128,24 @@ def test_baseline_requires_both_model_strength_and_historical_support() -> None:
     assert result.historical_hit_rate >= 55
     assert baseline_is_actionable(result, recommendation_tier="Strong") is True
     assert baseline_is_actionable(result, recommendation_tier="Pass") is False
+
+
+def test_ufc_uses_sparse_sport_floor_without_relaxing_other_sports() -> None:
+    from datetime import datetime, timezone
+    from services.baseline_projection_service import _HistoricalProjectionIndex
+
+    index = _HistoricalProjectionIndex()
+    index.loaded_at = datetime.now(timezone.utc)
+    index.multi_sport[("UFC", "fighter", "significant_strikes")] = [42, 55, 61]
+    ufc = index.project(
+        sport="UFC", player="Fighter", player_id="10",
+        market="fighter significant strikes", line=50.5,
+    )
+    assert ufc is not None
+    assert ufc.sample_size == 3
+
+    index.multi_sport[("TENNIS", "player", "sets_won")] = [2, 0, 2]
+    assert index.project(
+        sport="TENNIS", player="Player", player_id="11",
+        market="sets won", line=1.5,
+    ) is None

@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from providers.espn_specialty_statistics import golf_logs, tennis_logs  # noqa: E402
+from providers.espn_specialty_statistics import golf_logs, tennis_logs, ufc_logs  # noqa: E402
 from services.historical_ingestion_service import HistoricalRepository  # noqa: E402
 
 
@@ -31,11 +31,12 @@ def main() -> int:
         batches = list(executor.map(
             lambda target: tennis_logs(tour="ATP", target_date=target)
             + tennis_logs(tour="WTA", target_date=target)
-            + golf_logs(target_date=target), dates,
+            + golf_logs(target_date=target)
+            + ufc_logs(target_date=target), dates,
         ))
     rows = [row for batch in batches for row in batch]
     persisted = HistoricalRepository().upsert_player_game_logs(rows)
-    by_sport = {sport: sum(row["sport"] == sport for row in rows) for sport in ("TENNIS", "PGA")}
+    by_sport = {sport: sum(row["sport"] == sport for row in rows) for sport in ("TENNIS", "PGA", "UFC")}
     print(json.dumps({"fetched": len(rows), "persisted": persisted,
                       "bySport": by_sport}, indent=2))
     return 0
@@ -43,4 +44,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

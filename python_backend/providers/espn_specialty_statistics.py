@@ -1,4 +1,4 @@
-"""Completed ESPN tennis match and PGA scorecard history."""
+"""Completed ESPN tennis, PGA, and UFC statistical history."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import requests
 from config import HTTP_TIMEOUT_SECONDS
 
 BASE = "https://site.api.espn.com/apis/site/v2/sports"
+CORE = "https://sports.core.api.espn.com/v2/sports"
 
 
 def _id(sport: str, event: object, player: object) -> str:
@@ -107,3 +108,74 @@ def golf_logs(*, target_date: date) -> list[dict[str, object]]:
                         "source": "ESPN", "raw": round_row,
                     })
     return [row for row in rows if row["player_id"] and row["player_name"]]
+
+
+def _ufc_statistics(*, event_id: str, competition_id: str,
+                    player_id: str) -> dict[str, float]:
+    response = requests.get(
+        f"{CORE}/mma/leagues/ufc/events/{event_id}/competitions/"
+        f"{competition_id}/competitors/{player_id}/statistics",
+        params={"lang": "en", "region": "us"},
+        headers={"User-Agent": "PropsIntell/1.0 (+https://propsintell.com)"},
+        timeout=HTTP_TIMEOUT_SECONDS,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    values: dict[str, float] = {}
+    for category in (payload.get("splits") or {}).get("categories", []):
+        for stat in category.get("stats", []):
+            try:
+                values[str(stat.get("name") or "")] = float(stat.get("value"))
+            except (TypeError, ValueError):
+                continue
+    return values
+
+
+def ufc_logs(*, target_date: date) -> list[dict[str, object]]:
+    """Return completed UFC fighter totals; never use an upcoming event."""
+    rows: list[dict[str, object]] = []
+    for event in _get("mma", "ufc", target_date):
+        event_id = str(event.get("id") or "")
+        for competition in event.get("competitions", []):
+            status = competition.get("status", {})
+            try:
+                played = datetime.fromisoformat(
+                    str(competition.get("date", "")).replace("Z", "+00:00")
+                ).date()
+            except ValueError:
+                continue
+            if status.get("type", {}).get("completed") is not True or played != target_date:
+                continue
+            competition_id = str(competition.get("id") or "")
+            period = max(1, int(status.get("period") or 1))
+            elapsed = max(0.0, min(300.0, float(status.get("clock") or 0)))
+            fight_time_seconds = float((period - 1) * 300) + elapsed
+            for competitor in competition.get("competitors", []):
+                athlete = competitor.get("athlete", {})
+                player_id = str(competitor.get("id") or athlete.get("id") or "")
+                if not event_id or not competition_id or not player_id:
+                    continue
+                stats = _ufc_statistics(
+                    event_id=event_id, competition_id=competition_id,
+                    player_id=player_id,
+                )
+                rows.append({
+                    "id": _id("UFC", competition_id, player_id),
+                    "sport": "UFC", "league": "UFC",
+                    "event_id": competition_id, "player_id": player_id,
+                    "player_name": str(athlete.get("displayName") or ""),
+                    "team_id": "", "game_date": played,
+                    "stats": {
+                        "significant_strikes": stats.get("sigStrikesLanded", 0.0),
+                        "total_strikes": stats.get("totalStrikesLanded", 0.0),
+                        "takedowns": stats.get("takedownsLanded", 0.0),
+                        "knockdowns": stats.get("knockDowns", 0.0),
+                        "submission_attempts": stats.get("submissions", 0.0),
+                        "fight_time_seconds": fight_time_seconds,
+                        "fight_win": float(bool(competitor.get("winner"))),
+                    },
+                    "source": "ESPN", "raw": {
+                        "competition": competition, "statistics": stats,
+                    },
+                })
+    return [row for row in rows if row["player_name"]]
