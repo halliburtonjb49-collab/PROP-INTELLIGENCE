@@ -4,15 +4,16 @@ import argparse
 import json
 import logging
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from services.historical_ingestion_service import (
-    backfill_basketball_officiating,
+    HistoricalRepository, backfill_basketball_officiating,
     run_daily_historical_sync,
 )
+from providers.espn_specialty_statistics import golf_logs, tennis_logs
 from services.pipeline_run_service import finish_pipeline_run, start_pipeline_run
 from services.prediction_automation_service import grade_completed_predictions
 from services.schedule_fatigue_service import sync_schedule_and_fatigue
@@ -26,6 +27,19 @@ def _run_stage(name: str, operation):
     except Exception as exc:
         logging.exception("Daily sync stage %s failed", name)
         return {"error": str(exc), "stage": name}
+
+
+def _sync_specialty_history(target: date) -> dict[str, object]:
+    rows = (
+        tennis_logs(tour="ATP", target_date=target)
+        + tennis_logs(tour="WTA", target_date=target)
+        + golf_logs(target_date=target)
+    )
+    return {
+        "fetched": len(rows),
+        "upserted": HistoricalRepository().upsert_player_game_logs(rows),
+        "source": "ESPN",
+    }
 
 
 def main() -> int:
@@ -43,6 +57,10 @@ def main() -> int:
             season=args.season,
             include_mlb=False,
         ),
+    )
+    result["specialtyHistory"] = _run_stage(
+        "specialtyHistory",
+        lambda: _sync_specialty_history(args.date or (date.today() - timedelta(days=1))),
     )
     if not isinstance(result, dict):
         result = {

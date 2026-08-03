@@ -311,6 +311,37 @@ class _HistoricalProjectionIndex:
                 values, line=line, sport=normalized_sport, market=market
             )
 
+        if normalized_sport in {"TENNIS", "PGA", "GOLF", "UFC", "MMA"}:
+            text = _market_text(market)
+            specialty_markets = {
+                "TENNIS": {
+                    "player sets won": "sets_won", "sets won": "sets_won",
+                    "player games won": "games_won", "games won": "games_won",
+                },
+                "PGA": {
+                    "player birdies": "birdies", "birdies": "birdies",
+                    "player bogeys": "bogeys", "bogeys": "bogeys",
+                    "player pars": "pars", "pars": "pars",
+                    "player strokes": "round_score", "strokes": "round_score",
+                    "round score": "round_score",
+                },
+                "UFC": {
+                    "fighter significant strikes": "significant_strikes",
+                    "fighter takedowns": "takedowns",
+                    "fighter knockdowns": "knockdowns",
+                    "fighter submission attempts": "submission_attempts",
+                    "fighter fight time": "fight_time",
+                },
+            }
+            canonical = "PGA" if normalized_sport == "GOLF" else "UFC" if normalized_sport == "MMA" else normalized_sport
+            stat = specialty_markets[canonical].get(text)
+            if stat is None:
+                return None
+            values = self.multi_sport.get((canonical, _normalized(player), stat), [])
+            return compute_baseline_projection(
+                values, line=line, sport=canonical, market=market
+            )
+
         if normalized_sport != "MLB" or not player_id:
             return None
         text = _market_text(market)
