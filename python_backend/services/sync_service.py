@@ -106,7 +106,11 @@ def next_sgo_leagues(limit: int | None = None) -> list[tuple[str, str]]:
     ]
     if not leagues:
         return []
-    configured_limit = limit or int(os.getenv("SPORTSGAMEODDS_LEAGUES_PER_SYNC", "11"))
+    # The product promises coverage across every enabled league. A stale
+    # Render environment value previously limited each process to four and
+    # repeatedly starved specialty sports after deploys. Explicit test/admin
+    # limits still work, but normal production syncs always cover the catalog.
+    configured_limit = limit if limit is not None else len(leagues)
     count = max(1, min(configured_limit, len(leagues)))
     with _sgo_cursor_lock:
         selected = [

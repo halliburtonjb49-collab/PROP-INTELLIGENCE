@@ -149,6 +149,21 @@ def test_golf_and_ufc_stat_ids_map_to_player_props() -> None:
     ) == "fighter_significant_strikes"
 
 
+def test_specialty_market_names_are_safe_fallbacks_for_unknown_stat_ids() -> None:
+    assert _market_key(
+        stat_id="customAceCount", sport_key="tennis_atp", bet_type="ou",
+        market_name="Carlos Alcaraz Aces Over/Under",
+    ) == "player_aces"
+    assert _market_key(
+        stat_id="customRoundMetric", sport_key="golf_pga", bet_type="ou",
+        market_name="Rory McIlroy Round Score Over/Under",
+    ) == "player_strokes"
+    assert _market_key(
+        stat_id="customMmaMetric", sport_key="mma_mixed_martial_arts",
+        bet_type="ou", market_name="Fighter Significant Strikes Over/Under",
+    ) == "fighter_significant_strikes"
+
+
 def test_ingestion_reuses_one_redis_connection_pool(monkeypatch) -> None:
     clients: list[object] = []
     sentinel = object()

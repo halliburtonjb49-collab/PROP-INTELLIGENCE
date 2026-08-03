@@ -268,7 +268,25 @@ def fetch_upcoming_events(
     events: list[dict[str, Any]] = []
     cursor: str | None = None
     for _ in range(max(1, max_pages)):
-        page = _get("events", {**params, **({"cursor": cursor} if cursor else {})})
+        request_params = {**params, **({"cursor": cursor} if cursor else {})}
+        try:
+            page = _get("events", request_params)
+        except requests.HTTPError as exc:
+            # Some specialty leagues reject optional expansion flags even
+            # though the common events endpoint accepts them elsewhere.
+            # Retry once with the documented minimum query before declaring
+            # the league unavailable.
+            if exc.response is None or exc.response.status_code != 400:
+                raise
+            minimal_params = {
+                key: value
+                for key, value in request_params.items()
+                if key in {
+                    "leagueID", "oddsAvailable", "started", "startsAfter",
+                    "startsBefore", "limit", "cursor",
+                }
+            }
+            page = _get("events", minimal_params)
         data = page.get("data")
         if isinstance(data, list):
             events.extend(item for item in data if isinstance(item, dict))
@@ -292,7 +310,7 @@ def _market_key(
     normalized = _normalized_stat(stat_id)
     text = market_name.lower()
     if sport_key.startswith("tennis_"):
-        return {
+        mapped = {
             "points": "player_sets_won",
             "truepoints": "player_tennis_points_won",
             "breakpoints": "player_break_points_won",
@@ -304,8 +322,21 @@ def _market_key(
             "doublefaults": "player_double_faults",
             "fantasyscore": "player_fantasy_points",
         }.get(normalized)
+        if mapped is not None:
+            return mapped
+        if "double fault" in text:
+            return "player_double_faults"
+        if "break point" in text:
+            return "player_break_points_won"
+        if "ace" in text:
+            return "player_aces"
+        if "games won" in text:
+            return "player_games_won"
+        if "sets won" in text:
+            return "player_sets_won"
+        return None
     if sport_key.startswith("golf_"):
-        return {
+        mapped = {
             "birdies": "player_birdies",
             "bogeys": "player_bogeys",
             "pars": "player_pars",
@@ -315,8 +346,22 @@ def _market_key(
             "roundscore": "player_strokes",
             "fantasyscore": "player_fantasy_points",
         }.get(normalized)
+        if mapped is not None:
+            return mapped
+        for token, key in {
+            "birdie": "player_birdies",
+            "bogey": "player_bogeys",
+            "par": "player_pars",
+            "fairway": "player_fairways_hit",
+            "green in regulation": "player_greens_in_regulation",
+            "round score": "player_strokes",
+            "stroke": "player_strokes",
+        }.items():
+            if token in text:
+                return key
+        return None
     if sport_key == "mma_mixed_martial_arts":
-        return {
+        mapped = {
             "significantstrikes": "fighter_significant_strikes",
             "takedowns": "fighter_takedowns",
             "knockdowns": "fighter_knockdowns",
@@ -324,6 +369,18 @@ def _market_key(
             "fighttime": "fighter_fight_time",
             "fantasyscore": "player_fantasy_points",
         }.get(normalized)
+        if mapped is not None:
+            return mapped
+        for token, key in {
+            "significant strike": "fighter_significant_strikes",
+            "takedown": "fighter_takedowns",
+            "knockdown": "fighter_knockdowns",
+            "submission attempt": "fighter_submission_attempts",
+            "fight time": "fighter_fight_time",
+        }.items():
+            if token in text:
+                return key
+        return None
     if normalized == "goals" and sport_key.startswith("soccer_"):
         return (
             "player_goal_scorer_anytime"
