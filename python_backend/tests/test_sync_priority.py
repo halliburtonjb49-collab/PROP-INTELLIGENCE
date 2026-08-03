@@ -3,7 +3,8 @@ import time
 
 from services import sync_service
 from services.sync_service import (
-    configured_sync_sports, partition_sync_sports, prioritize_events,
+    configured_sync_sports, next_sgo_leagues, partition_sync_sports,
+    prioritize_events,
 )
 
 
@@ -70,6 +71,17 @@ def test_coverage_lane_uses_independent_cooldown(monkeypatch) -> None:
     sync_service._mark_coverage_synced(now=1000)
     assert sync_service._coverage_sync_due(now=1200) is False
     assert sync_service._coverage_sync_due(now=2801) is True
+
+
+def test_supplemental_leagues_rotate_without_starvation(monkeypatch) -> None:
+    monkeypatch.setattr(sync_service, "_sgo_league_cursor", 0)
+    first = next_sgo_leagues(limit=1)
+    second = next_sgo_leagues(limit=1)
+    third = next_sgo_leagues(limit=1)
+    fourth = next_sgo_leagues(limit=1)
+    assert [first[0][0], second[0][0], third[0][0], fourth[0][0]] == [
+        "ATP", "WTA", "PGA_MEN", "UFC",
+    ]
 
 
 def test_event_odds_fetches_overlap_but_cache_processing_is_serial(monkeypatch) -> None:

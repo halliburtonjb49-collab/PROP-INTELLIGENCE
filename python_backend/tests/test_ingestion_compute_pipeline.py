@@ -132,6 +132,17 @@ def test_tennis_uses_documented_sportsgameodds_stat_ids() -> None:
     ) == "player_break_points_won"
 
 
+def test_golf_and_ufc_stat_ids_map_to_player_props() -> None:
+    assert _market_key(
+        stat_id="birdies", sport_key="golf_pga", bet_type="ou",
+        market_name="Rory McIlroy Birdies",
+    ) == "player_birdies"
+    assert _market_key(
+        stat_id="significantStrikes", sport_key="mma_mixed_martial_arts",
+        bet_type="ou", market_name="Fighter Significant Strikes",
+    ) == "fighter_significant_strikes"
+
+
 def test_ingestion_reuses_one_redis_connection_pool(monkeypatch) -> None:
     clients: list[object] = []
     sentinel = object()

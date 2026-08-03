@@ -54,6 +54,8 @@ DEFAULT_FAST_SYNC_SPORTS = (
 )
 _coverage_lock = Lock()
 _last_coverage_sync_monotonic: float | None = None
+_sgo_cursor_lock = Lock()
+_sgo_league_cursor = 0
 
 
 def configured_sync_sports() -> list[str]:
@@ -86,6 +88,23 @@ def _mark_coverage_synced(now: float | None = None) -> None:
     global _last_coverage_sync_monotonic
     with _coverage_lock:
         _last_coverage_sync_monotonic = time.monotonic() if now is None else now
+
+
+def next_sgo_leagues(limit: int | None = None) -> list[tuple[str, str]]:
+    """Rotate limited provider calls so low rate limits cannot starve leagues."""
+    global _sgo_league_cursor
+    leagues = list(LEAGUE_TO_SPORT.items())
+    if not leagues:
+        return []
+    configured_limit = limit or int(os.getenv("SPORTSGAMEODDS_LEAGUES_PER_SYNC", "1"))
+    count = max(1, min(configured_limit, len(leagues)))
+    with _sgo_cursor_lock:
+        selected = [
+            leagues[(_sgo_league_cursor + offset) % len(leagues)]
+            for offset in range(count)
+        ]
+        _sgo_league_cursor = (_sgo_league_cursor + count) % len(leagues)
+    return selected
 
 
 def _with_retries(operation, *, attempts: int = 3, label: str = "provider call"):
@@ -248,7 +267,8 @@ def sync_sportsgameodds() -> dict[str, object]:
         account_usage = fetch_sgo_account_usage()
     except Exception as exc:
         logger.info("sportsgameodds usage unavailable error=%s", exc)
-    for league_id, sport_key in LEAGUE_TO_SPORT.items():
+    selected_leagues = next_sgo_leagues()
+    for league_id, sport_key in selected_leagues:
         try:
             raw_events = _with_retries(
                 lambda league_id=league_id: fetch_sgo_events(league_id),
@@ -291,6 +311,8 @@ def sync_sportsgameodds() -> dict[str, object]:
         "failedLeagues": failures,
         "providerUsage": sgo_usage_snapshot(),
         "accountUsage": account_usage,
+        "attemptedLeagues": [league for league, _ in selected_leagues],
+        "rotationSize": len(LEAGUE_TO_SPORT),
     }
 
 

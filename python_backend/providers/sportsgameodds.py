@@ -15,6 +15,10 @@ from config import HTTP_TIMEOUT_SECONDS, SPORTSGAMEODDS_API_KEY
 
 BASE_URL = "https://api.sportsgameodds.com/v2"
 LEAGUE_TO_SPORT = {
+    "ATP": "tennis_atp",
+    "WTA": "tennis_wta",
+    "PGA_MEN": "golf_pga",
+    "UFC": "mma_mixed_martial_arts",
     "MLB": "baseball_mlb",
     "NBA": "basketball_nba",
     "WNBA": "basketball_wnba",
@@ -22,8 +26,6 @@ LEAGUE_TO_SPORT = {
     "NHL": "icehockey_nhl",
     "EPL": "soccer_epl",
     "MLS": "soccer_usa_mls",
-    "ATP": "tennis_atp",
-    "WTA": "tennis_wta",
 }
 
 _STAT_MARKETS = {
@@ -78,6 +80,17 @@ _STAT_MARKETS = {
     "goals": "player_goals",
     "saves": "player_total_saves",
     "blockedshots": "player_blocked_shots",
+    "birdies": "player_birdies",
+    "bogeys": "player_bogeys",
+    "pars": "player_pars",
+    "fairwayshit": "player_fairways_hit",
+    "greensinregulation": "player_greens_in_regulation",
+    "strokes": "player_strokes",
+    "significantstrikes": "fighter_significant_strikes",
+    "takedowns": "fighter_takedowns",
+    "knockdowns": "fighter_knockdowns",
+    "submissionattempts": "fighter_submission_attempts",
+    "fighttime": "fighter_fight_time",
     "shots": "player_shots",
     "shotsontarget": "player_shots_on_target",
 }
@@ -285,6 +298,26 @@ def _market_key(
             "breakpoints": "player_break_points_won",
             "games": "player_games_won",
             "servingaces": "player_aces",
+            "fantasyscore": "player_fantasy_points",
+        }.get(normalized)
+    if sport_key.startswith("golf_"):
+        return {
+            "birdies": "player_birdies",
+            "bogeys": "player_bogeys",
+            "pars": "player_pars",
+            "fairwayshit": "player_fairways_hit",
+            "greensinregulation": "player_greens_in_regulation",
+            "strokes": "player_strokes",
+            "roundscore": "player_strokes",
+            "fantasyscore": "player_fantasy_points",
+        }.get(normalized)
+    if sport_key == "mma_mixed_martial_arts":
+        return {
+            "significantstrikes": "fighter_significant_strikes",
+            "takedowns": "fighter_takedowns",
+            "knockdowns": "fighter_knockdowns",
+            "submissionattempts": "fighter_submission_attempts",
+            "fighttime": "fighter_fight_time",
             "fantasyscore": "player_fantasy_points",
         }.get(normalized)
     if normalized == "goals" and sport_key.startswith("soccer_"):
