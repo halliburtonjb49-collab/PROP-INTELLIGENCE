@@ -91,7 +91,10 @@ def evaluate_opportunity_gate(
             else "C"
         )
     else:
-        grade = "C" if score >= .65 else "D"
+        # All incomplete/non-actionable picks remain visible as Grade C. The
+        # explanation carries the missing-evidence detail without introducing
+        # a punitive D/F tier in the client-facing scale.
+        grade = "C"
     labels = {
         "player_unavailable": "player is unavailable",
         "lineup_not_confirmed": "lineup is not confirmed",

@@ -1,3 +1,8 @@
+String _clientPickGrade(String? value) {
+  final grade = value?.trim().toUpperCase();
+  return grade == 'A' || grade == 'B' ? grade! : 'C';
+}
+
 class PropData {
   static const Duration selectionSafetyWindow = Duration(minutes: 2);
   final String id;
@@ -111,6 +116,31 @@ class PropData {
   final String matchupContext;
   final double? officiatingAdjustment;
 
+  String get injuryDisplayLabel {
+    final status = injuryStatus.trim().toLowerCase().replaceAll('_', ' ');
+    if (status.isEmpty ||
+        status == 'unknown' ||
+        status == 'unavailable' ||
+        status == 'injury report unavailable' ||
+        status == 'no injury reported' ||
+        status == 'no report') {
+      return 'NO INJURY REPORTED';
+    }
+    if (status == 'healthy' ||
+        status == 'active' ||
+        status == 'not injured' ||
+        status == 'no injury') {
+      return 'NOT INJURED';
+    }
+    if (status == 'day-to-day' ||
+        status == 'day to day' ||
+        status == 'questionable' ||
+        status == 'probable') {
+      return 'DAY TO DAY';
+    }
+    return 'INJURED';
+  }
+
   const PropData({
     required this.id,
     required this.eventId,
@@ -137,7 +167,7 @@ class PropData {
     this.sourcePlayerId = '',
     this.canonicalPlayerId = '',
     this.playerIdentityConfidence = 0,
-    this.injuryStatus = 'unknown',
+    this.injuryStatus = 'no injury reported',
     this.lineupStatus = 'unknown',
     this.projection,
     this.projectionSource = '',
@@ -163,7 +193,7 @@ class PropData {
     this.opportunityStatus = 'SYSTEM_LEAN',
     this.opportunityReasons = const [],
     this.uncertaintyAdjustedEdge,
-    this.pickGrade = 'D',
+    this.pickGrade = 'C',
     this.pickGradeExplanation = '',
     this.gameTime = '',
     this.gameStartTime = '',
@@ -497,10 +527,9 @@ class PropData {
       uncertaintyAdjustedEdge: _safeDoubleOrNull(
         json['uncertaintyAdjustedEdge'] ?? json['uncertainty_adjusted_edge'],
       ),
-      pickGrade:
-          json['pickGrade']?.toString() ??
-          json['pick_grade']?.toString() ??
-          'D',
+      pickGrade: _clientPickGrade(
+        json['pickGrade']?.toString() ?? json['pick_grade']?.toString(),
+      ),
       pickGradeExplanation:
           json['pickGradeExplanation']?.toString() ??
           json['pick_grade_explanation']?.toString() ??

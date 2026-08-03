@@ -808,11 +808,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
             runSpacing: 6,
             children: [
               _chip('LINEUP ${prop.lineupStatus.toUpperCase()}'),
-              _chip(
-                prop.injuryStatus.trim().toLowerCase() == 'unknown'
-                    ? 'INJURY REPORT UNAVAILABLE'
-                    : 'INJURY ${prop.injuryStatus.toUpperCase()}',
-              ),
+              _chip(prop.injuryDisplayLabel),
               if (prop.displayModelIsMarketBaseline) _chip('MODEL: BASELINE'),
               if (prop.currentLine != 0 && prop.openingLine != 0)
                 _chip('OPEN ${prop.openingLine.toStringAsFixed(1)}'),

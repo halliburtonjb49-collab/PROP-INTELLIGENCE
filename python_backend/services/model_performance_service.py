@@ -80,7 +80,8 @@ def _rolling_audit(cursor, model_version: str, base: str) -> dict[str, object]:
         "propType": "coalesce(nullif(inputs->>'category',''),nullif(market,''),'unknown')",
         "confidenceTier": "case when hit_probability>=.7 then 'HIGH' when hit_probability>=.6 then 'MEDIUM' else 'BASELINE' end",
         "side": "coalesce(nullif(side,''),'unknown')",
-        "pickGrade": "coalesce(nullif(inputs->>'pickGrade',''),'UNKNOWN')",
+        "pickGrade": "case when upper(coalesce(inputs->>'pickGrade','')) in ('A','B') "
+        "then upper(inputs->>'pickGrade') else 'C' end",
         "opportunityRole": "coalesce(nullif(inputs->>'roleStatus',''),'unknown')",
     }
     windows = []

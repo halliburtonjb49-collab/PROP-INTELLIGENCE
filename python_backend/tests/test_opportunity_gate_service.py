@@ -18,7 +18,7 @@ def test_opportunity_gate_blocks_today_style_weak_point_signal() -> None:
     assert gate.normalized_edge == .1109
     assert "probability_below_action_threshold" in gate.reasons
     assert "opportunity_context_incomplete" in gate.reasons
-    assert gate.grade == "D"
+    assert gate.grade == "C"
     assert "Pick remains visible" in gate.explanation
 
 

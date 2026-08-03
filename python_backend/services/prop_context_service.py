@@ -62,7 +62,7 @@ def apply_projection_context(prop: object) -> None:
         prop.pick = "N/A"
         prop.pickText = "No Pick"
         prop.confidence = 0
-        prop.pickGrade = "D"
+        prop.pickGrade = "C"
         prop.pickGradeExplanation = (
             "Pick remains visible, but the player is currently unavailable."
         )
@@ -95,7 +95,7 @@ def apply_projection_context(prop: object) -> None:
         prop.recommendedSide = "N/A"
         prop.pick = "N/A"
         prop.pickText = "No Pick"
-        prop.pickGrade = "D"
+        prop.pickGrade = "C"
         prop.pickGradeExplanation = (
             "Pick remains visible, but the projection does not separate from the line."
         )
