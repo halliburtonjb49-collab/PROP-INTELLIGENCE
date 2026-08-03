@@ -122,8 +122,17 @@ class ActiveSlipController extends ChangeNotifier {
 
   void _markLocalDraft() {
     if (_syncPhase == TicketSyncPhase.syncing) return;
+    final invalidatePendingLock = _syncPhase == TicketSyncPhase.error;
     _syncPhase = TicketSyncPhase.localDraft;
     _lastSyncError = null;
+    if (invalidatePendingLock) {
+      // The idempotency key describes the exact failed lock payload. Once the
+      // user edits that payload it must never be reused for the new draft.
+      _pendingRequestId = null;
+      _pendingStake = null;
+      _syncAttempts = 0;
+      unawaited(_saveSyncState());
+    }
   }
 
   int _lockedSlipCount = 0;

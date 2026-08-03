@@ -514,6 +514,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   final ValueNotifier<bool> _isSavingSlipNotifier = ValueNotifier(false);
   bool get _isSavingSlip => _isSavingSlipNotifier.value;
   Timer? _selectionExpiryTimer;
+  Timer? _ticketSyncRetryTimer;
   AppPage _selectedPage = AppPage.board;
   String _selectedBoardSport = 'ALL';
   bool _chatFloating = false;
@@ -541,14 +542,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       _activeSlipController.load().then(
         (_) async {
           final loadedCount = _activeSlipController.legCount;
-          if (loadedCount > 0) {
-            await _activeSlipController.clear();
-            _startupLog(
-              'active slip startup reset cleared $loadedCount persisted legs',
-            );
-          }
           _startupLog(
-            'active slip load complete (${_activeSlipController.legCount} legs)',
+            'active slip load complete ($loadedCount persisted legs restored)',
           );
         },
         onError: (Object error, StackTrace stackTrace) {
@@ -666,6 +661,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   void dispose() {
     _isSavingSlipNotifier.dispose();
     _selectionExpiryTimer?.cancel();
+    _ticketSyncRetryTimer?.cancel();
     PropChatService.latestNotification.removeListener(_showChatNotification);
     ScoreboardWatchlistService.instance.latestAlert.removeListener(
       _showScoreboardWatchAlert,
@@ -1766,7 +1762,11 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     await _saveSlip(stake, selections);
   }
 
-  Future<void> _saveSlip(double stake, List<SlipSelection> selections) async {
+  Future<void> _saveSlip(
+    double stake,
+    List<SlipSelection> selections, {
+    bool automaticRetry = false,
+  }) async {
     if (selections.isEmpty || _isSavingSlip) {
       return;
     }
@@ -1789,6 +1789,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         return;
       }
       final savedSlip = SavedSlip.fromJson(response);
+      _ticketSyncRetryTimer?.cancel();
       _activeSlipController.addOptimisticLockedSlip(savedSlip);
       await _activeSlipController.clear();
       _activeSlipController.markSynced();
@@ -1817,24 +1818,27 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       }
     } catch (error) {
       _activeSlipController.markSyncFailed(error);
+      _scheduleTicketSyncRecovery();
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFFFF8A80),
-          content: Text(
-            'Slip was not locked. Your picks are still editable. $error',
-            style: const TextStyle(
-              color: app_colors.AppColors.bgBase,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
+      if (!automaticRetry) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFFFF8A80),
+            content: Text(
+              'Slip was not locked. Your draft is safe and will retry automatically. $error',
+              style: const TextStyle(
+                color: app_colors.AppColors.bgBase,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
             ),
+            duration: const Duration(seconds: 4),
           ),
-          duration: const Duration(seconds: 4),
-        ),
-      );
+        );
+      }
     } finally {
       if (mounted) {
         _isSavingSlipNotifier.value = false;
@@ -1847,6 +1851,29 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     final selections = _activeSlipSelections();
     if (stake == null || selections.isEmpty) return;
     await _saveSlip(stake, selections);
+  }
+
+  void _scheduleTicketSyncRecovery() {
+    _ticketSyncRetryTimer?.cancel();
+    if (!_activeSlipController.canRetrySync ||
+        _activeSlipController.syncAttempts >= 6) {
+      return;
+    }
+    final requestId = _activeSlipController.pendingRequestId;
+    final delaySeconds = (5 * (1 << (_activeSlipController.syncAttempts - 1)))
+        .clamp(5, 30);
+    _ticketSyncRetryTimer = Timer(Duration(seconds: delaySeconds), () {
+      if (!mounted ||
+          _isSavingSlip ||
+          !_activeSlipController.canRetrySync ||
+          _activeSlipController.pendingRequestId != requestId) {
+        return;
+      }
+      final stake = _activeSlipController.pendingStake;
+      final selections = _activeSlipSelections();
+      if (stake == null || selections.isEmpty) return;
+      unawaited(_saveSlip(stake, selections, automaticRetry: true));
+    });
   }
 
   Future<void> _sendTicketSyncDiagnostic() async {

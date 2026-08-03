@@ -301,4 +301,25 @@ void main() {
     expect(controller.pendingRequestId, isNull);
     expect(controller.pendingStake, isNull);
   });
+
+  test('editing a failed lock invalidates its old idempotency key', () async {
+    final controller = ActiveSlipController();
+    await controller.load();
+    await controller.addLegs([
+      {'prop_id': 'old-pick', 'sportsbook': 'FANDUEL'},
+    ]);
+    await controller.prepareSync(20);
+    controller.markSyncing();
+    controller.markSyncFailed('temporary 502');
+
+    await controller.addLegs([
+      {'prop_id': 'new-pick', 'sportsbook': 'FANDUEL'},
+    ]);
+
+    expect(controller.syncPhase, TicketSyncPhase.localDraft);
+    expect(controller.pendingRequestId, isNull);
+    expect(controller.pendingStake, isNull);
+    expect(controller.syncAttempts, 0);
+    expect(controller.legCount, 2);
+  });
 }
