@@ -5,6 +5,7 @@ from services import sync_service
 from services.sync_service import (
     configured_sync_sports, next_sgo_leagues, partition_sync_sports,
     prioritize_events,
+    sgo_entity_quota_exhausted,
 )
 
 
@@ -82,6 +83,15 @@ def test_supplemental_leagues_rotate_without_starvation(monkeypatch) -> None:
     assert [first[0][0], second[0][0], third[0][0], fourth[0][0]] == [
         "ATP", "WTA", "PGA_MEN", "UFC",
     ]
+
+
+def test_supplemental_entity_quota_is_detected() -> None:
+    assert sgo_entity_quota_exhausted({
+        "rateLimits": {"per-month": {"max-entities": 2500, "current-entities": 2536}}
+    }) is True
+    assert sgo_entity_quota_exhausted({
+        "rateLimits": {"per-month": {"max-entities": 2500, "current-entities": 2499}}
+    }) is False
 
 
 def test_event_odds_fetches_overlap_but_cache_processing_is_serial(monkeypatch) -> None:

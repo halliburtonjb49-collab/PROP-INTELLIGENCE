@@ -250,8 +250,8 @@ def fetch_account_usage() -> dict[str, object]:
 def fetch_upcoming_events(
     league_id: str,
     *,
-    max_pages: int = 2,
-    limit: int = 50,
+    max_pages: int = 1,
+    limit: int = 25,
 ) -> list[dict[str, Any]]:
     now = datetime.now(timezone.utc)
     params: dict[str, object] = {

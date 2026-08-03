@@ -107,6 +107,18 @@ def next_sgo_leagues(limit: int | None = None) -> list[tuple[str, str]]:
     return selected
 
 
+def sgo_entity_quota_exhausted(usage: object) -> bool:
+    if not isinstance(usage, dict):
+        return False
+    limits = usage.get("rateLimits")
+    monthly = limits.get("per-month") if isinstance(limits, dict) else None
+    if not isinstance(monthly, dict):
+        return False
+    maximum = monthly.get("max-entities")
+    current = monthly.get("current-entities")
+    return isinstance(maximum, int) and isinstance(current, int) and current >= maximum
+
+
 def _with_retries(operation, *, attempts: int = 3, label: str = "provider call"):
     last_error: Exception | None = None
     for attempt in range(1, attempts + 1):
@@ -267,6 +279,13 @@ def sync_sportsgameodds() -> dict[str, object]:
         account_usage = fetch_sgo_account_usage()
     except Exception as exc:
         logger.info("sportsgameodds usage unavailable error=%s", exc)
+    if sgo_entity_quota_exhausted(account_usage):
+        return {
+            "sport": "sportsgameodds", "events": 0, "props": 0,
+            "skipped": "monthly entity quota exhausted",
+            "attemptedLeagues": [], "rotationSize": len(LEAGUE_TO_SPORT),
+            "providerUsage": sgo_usage_snapshot(), "accountUsage": account_usage,
+        }
     selected_leagues = next_sgo_leagues()
     for league_id, sport_key in selected_leagues:
         try:
