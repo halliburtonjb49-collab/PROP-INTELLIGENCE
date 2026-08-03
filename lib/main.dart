@@ -9158,7 +9158,12 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final hasProAccess = canShowSystemRecommendation(
       hasEdgeAccess: AuthManager.instance.sessionState.value.hasEdgeAccess,
     );
-    final suggested = prop.proSuggestedSide;
+    // Never reconstruct or expose a system direction for Core/Free members,
+    // even when an older device cache still contains model fields.
+    final suggested = gatedSystemRecommendationSide(
+      hasEdgeAccess: hasProAccess,
+      recommendation: prop.proSuggestedSide,
+    );
     final advisedSide = suggested == 'UNDER'
         ? PickSide.under
         : suggested == 'OVER'
@@ -9175,7 +9180,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final projection = prop.projection;
     final delta = projection == null ? null : projection - prop.line;
     final market = _marketCategory(prop);
-    final badgeExplanation = hasModelPick
+    final badgeExplanation = !hasProAccess
+        ? 'PROP TYPE: the statistic and posted line available for manual research and selection.'
+        : hasModelPick
         ? 'MODEL PICK: backed by a verified projection model with a calculated model value and confidence.'
         : 'SYSTEM LEAN: an informational direction based on recent results or sportsbook pricing when a verified model projection is unavailable.';
 
@@ -9345,7 +9352,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            hasModelPick ? 'MODEL PICK' : 'SYSTEM LEAN',
+                            !hasProAccess
+                                ? 'PROP TYPE'
+                                : hasModelPick
+                                ? 'MODEL PICK'
+                                : 'SYSTEM LEAN',
                             style: TextStyle(
                               color: hasModelPick
                                   ? app_colors.AppColors.blue
@@ -9366,7 +9377,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        advisedSide == null
+                        !hasProAccess
+                            ? market.toUpperCase()
+                            : advisedSide == null
                             ? prop.line.toStringAsFixed(1)
                             : '${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} ${prop.line.toStringAsFixed(1)}',
                         style: TextStyle(

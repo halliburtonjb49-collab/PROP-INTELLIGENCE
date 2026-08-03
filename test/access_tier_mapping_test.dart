@@ -9,6 +9,20 @@ void main() {
   test('system OVER/UNDER direction is available only with Edge access', () {
     expect(canShowSystemRecommendation(hasEdgeAccess: false), isFalse);
     expect(canShowSystemRecommendation(hasEdgeAccess: true), isTrue);
+    expect(
+      gatedSystemRecommendationSide(
+        hasEdgeAccess: false,
+        recommendation: 'OVER',
+      ),
+      isNull,
+    );
+    expect(
+      gatedSystemRecommendationSide(
+        hasEdgeAccess: true,
+        recommendation: 'under',
+      ),
+      'UNDER',
+    );
   });
   test('feature badges reflect the minimum tier required by the feature', () {
     expect(
