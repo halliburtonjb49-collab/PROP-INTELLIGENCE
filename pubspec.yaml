@@ -85,6 +85,7 @@ flutter:
     - assets/branding/prop_intelligence_icon.png
     - assets/branding/prop_intelligence_logo.png
     - assets/branding/prop_intelligence_logo_transparent.png
+    - assets/branding/sport_icons/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -2071,22 +2071,33 @@ class _LeftSidebarState extends State<LeftSidebar> {
     switch (sport) {
       case 'MLB':
         return '⚾';
-      case 'NFL':
-        return '🏈';
       case 'NBA':
         return '🏀';
       case 'WNBA':
         return '🏀';
-      case 'PGA':
-        return '⛳';
-      case 'TENNIS':
-        return '🎾';
       case 'SOCCER':
         return '⚽';
-      case 'UFC':
-        return '🥊';
+      case 'NRL':
+        return '🏉';
       default:
         return '•';
+    }
+  }
+
+  // Branded gold icons for sports with custom artwork; sports without an
+  // entry here fall back to _sportEmoji.
+  String? _sportImagePath(String sport) {
+    switch (sport) {
+      case 'NFL':
+        return 'assets/branding/sport_icons/nfl.png';
+      case 'NHL':
+        return 'assets/branding/sport_icons/nhl.png';
+      case 'CRICKET':
+        return 'assets/branding/sport_icons/cricket.png';
+      case 'AFL':
+        return 'assets/branding/sport_icons/afl.png';
+      default:
+        return null;
     }
   }
 
@@ -2103,10 +2114,11 @@ class _LeftSidebarState extends State<LeftSidebar> {
       'NFL',
       'NBA',
       'WNBA',
-      'PGA',
-      'TENNIS',
+      'NHL',
       'SOCCER',
-      'UFC',
+      'CRICKET',
+      'AFL',
+      'NRL',
     ];
 
     return Container(
@@ -2257,19 +2269,23 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   const SizedBox(height: 18),
                   const _SidebarSectionLabel('SPORTS'),
                   const SizedBox(height: 7),
-                  ...sports.map(
-                    (sport) => Padding(
+                  ...sports.map((sport) {
+                    final imagePath = _sportImagePath(sport);
+                    return Padding(
                       padding: const EdgeInsets.only(bottom: 3),
                       child: SidebarButton(
                         label: sport,
-                        leadingEmojis: [_sportEmoji(sport)],
+                        leadingImagePath: imagePath,
+                        leadingEmojis: imagePath == null
+                            ? [_sportEmoji(sport)]
+                            : null,
                         selected:
                             widget.selectedPage == AppPage.board &&
                             widget.selectedSport == sport,
                         onTap: () => widget.onSelectSport?.call(sport),
                       ),
-                    ),
-                  ),
+                    );
+                  }),
                   const SizedBox(height: 12),
                   const _SidebarSectionLabel('SPECIALTY'),
                   const SizedBox(height: 7),
@@ -2567,6 +2583,7 @@ class SidebarButton extends StatelessWidget {
   final List<Color>? leadingIconColors;
   final List<String>? leadingEmojis;
   final List<Color>? leadingEmojiGradient;
+  final String? leadingImagePath;
   final IconData? trailingIcon;
   final Key? trailingIconKey;
   final VoidCallback? onTap;
@@ -2583,6 +2600,7 @@ class SidebarButton extends StatelessWidget {
     this.leadingIconColors,
     this.leadingEmojis,
     this.leadingEmojiGradient,
+    this.leadingImagePath,
     this.trailingIcon,
     this.trailingIconKey,
     this.onTap,
@@ -2638,7 +2656,36 @@ class SidebarButton extends StatelessWidget {
               ),
               const SizedBox(width: 8),
             ],
-            if (leadingEmojis != null) ...[
+            if (leadingImagePath != null) ...[
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors:
+                          leadingEmojiGradient ??
+                          const [Color(0xFF203246), Color(0xFF314A60)],
+                    ),
+                    border: Border.all(color: const Color(0x73FFC72C)),
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      leadingImagePath!,
+                      width: 16,
+                      height: 16,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ] else if (leadingEmojis != null) ...[
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: leadingEmojis!
