@@ -628,6 +628,19 @@ def _invalidate_prop_catalog() -> None:
 	delete_distributed_cache(_PROP_CATALOG_VERSION_KEY)
 	delete_distributed_cache(_PROP_CATALOG_SUMMARY_KEY)
 
+
+def _refresh_prop_catalog_now() -> None:
+	"""Invalidate and immediately rebuild+republish the shared catalog.
+
+	Render runs multiple API instances with separate local disks. Deleting
+	the shared cache alone leaves a window where a *different* instance's
+	next request falls back to its own (unsynced) local data instead of the
+	fresh result this instance just produced. Rebuilding here republishes to
+	Redis right away so every instance's next request sees fresh data.
+	"""
+	_invalidate_prop_catalog()
+	_cached_prop_catalog()
+
 _sync_run_lock = Lock()
 _sync_state_lock = Lock()
 _sync_state: dict[str, object] = {
@@ -685,7 +698,7 @@ def _mark_sync_running() -> None:
 def _run_sync_background(*, release_local_lock: bool = True) -> None:
 	try:
 		def mark_fast_lane_complete(results: list[dict[str, object]]) -> None:
-			_invalidate_prop_catalog()
+			_refresh_prop_catalog_now()
 			with _sync_state_lock:
 				finished = datetime.now(timezone.utc)
 				cooldown = _effective_sync_cooldown_seconds()
@@ -703,7 +716,7 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 				)
 
 		results = run_global_sync_pipeline(mark_fast_lane_complete)
-		_invalidate_prop_catalog()
+		_refresh_prop_catalog_now()
 		clv_capture = capture_closing_lines_from_props(get_props())
 		quota = quota_snapshot()
 		with _sync_state_lock:
