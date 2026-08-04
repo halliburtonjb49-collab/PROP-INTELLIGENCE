@@ -455,23 +455,38 @@ def sync_balldontlie_soccer() -> dict[str, object]:
             league_results.append({"league": league, "events": 0, "props": 0, "error": str(fetch_error)})
             continue
         upcoming = [m for m in raw_matches if str(m.get("status") or "").lower() not in {"final", "finished", "ft", "completed"}]
-        league_props = 0
-        valid_ids: list[str] = []
-        for raw_match in upcoming:
+
+        def fetch_match_props(raw_match: dict[str, object]):
             match_id = raw_match.get("id")
             if match_id is None:
-                continue
+                return raw_match, None, None
             try:
                 raw_props = _with_retries(
                     lambda league=league, match_id=match_id: fetch_bdl_player_props(league, match_id),
                     label=f"balldontlie player_props {league}:{match_id}",
                     attempts=2,
                 )
+                return raw_match, raw_props, None
             except Exception as exc:
+                return raw_match, None, exc
+
+        # Player-prop fetches are per-match HTTP calls; a league can easily
+        # have 15-20 upcoming matches, so this must overlap or a single
+        # sync cycle becomes the same kind of slow request the app was
+        # already hurting from. Cache writes below stay serialized.
+        with ThreadPoolExecutor(max_workers=min(8, max(1, len(upcoming)))) as match_executor:
+            fetched_matches = list(match_executor.map(fetch_match_props, upcoming))
+
+        league_props = 0
+        valid_ids: list[str] = []
+        for raw_match, raw_props, fetch_error in fetched_matches:
+            if fetch_error is not None:
                 logger.warning(
                     "balldontlie player_props failed league=%s match=%s error=%s",
-                    league, match_id, exc,
+                    league, raw_match.get("id"), fetch_error,
                 )
+                continue
+            if raw_props is None:
                 continue
             event, odds_payload = normalize_bdl_match(raw_match, raw_props, sport_key=sport_key)
             valid_ids.append(event["id"])

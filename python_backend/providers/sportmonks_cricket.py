@@ -72,16 +72,39 @@ def probe_cricket_odds_shape() -> dict[str, object]:
         return {"status": "no_fixtures", "topLevelKeys": sorted(fixtures_payload.keys())}
 
     first = fixtures_list[0]
-    odds = first.get("odds") if isinstance(first, dict) else None
+    included_odds = first.get("odds") if isinstance(first, dict) else None
+    fixture_id = first.get("id") if isinstance(first, dict) else None
     LOGGER.warning(
-        "sportmonks cricket probe odds type=%s sample=%r",
-        type(odds).__name__,
-        odds,
+        "sportmonks cricket probe include=odds type=%s sample=%r",
+        type(included_odds).__name__,
+        included_odds,
+    )
+
+    # The `include=odds` shortcut came back empty for this fixture. That
+    # could mean no odds exist for it, or that cricket needs the dedicated
+    # odds-by-fixture endpoint instead of the include shortcut (that's how
+    # SportMonks' shared v2.0 platform works for football). Try it
+    # directly rather than conclude from one ambiguous signal.
+    dedicated_odds: object = None
+    dedicated_error: str | None = None
+    if fixture_id is not None:
+        try:
+            odds_payload = _get(f"odds/fixture/{fixture_id}", {})
+            dedicated_odds = odds_payload.get("data")
+        except Exception as exc:
+            dedicated_error = str(exc)
+    LOGGER.warning(
+        "sportmonks cricket probe dedicated odds endpoint fixtureID=%r result=%r error=%s",
+        fixture_id,
+        dedicated_odds,
+        dedicated_error,
     )
     return {
         "status": "ok",
         "fixtureCount": len(fixtures_list),
-        "hasOdds": bool(odds),
+        "hasIncludedOdds": bool(included_odds),
+        "hasDedicatedOdds": bool(dedicated_odds),
+        "dedicatedOddsError": dedicated_error,
     }
 
 

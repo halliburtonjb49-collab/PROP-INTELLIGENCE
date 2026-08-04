@@ -22,7 +22,7 @@ from config import BALLDONTLIE_API_KEY, HTTP_TIMEOUT_SECONDS
 LOGGER = logging.getLogger(__name__)
 BASE_URL = "https://api.balldontlie.io"
 
-# league key -> (API path segment, sport_key used throughout the app)
+# league key -> sport_key used throughout the app
 LEAGUE_TO_SPORT = {
     "epl": "soccer_epl",
     "mls": "soccer_usa_mls",
@@ -30,6 +30,19 @@ LEAGUE_TO_SPORT = {
     "bundesliga": "soccer_germany_bundesliga",
     "seriea": "soccer_italy_serie_a",
     "laliga": "soccer_spain_la_liga",
+}
+
+# Each league is versioned independently on balldontlie; only EPL is v2,
+# the rest are v1. Confirmed against the live API on 2026-08-04: hardcoding
+# v2 for every league produced 401s (wrong version, not an auth problem)
+# and a 404 for La Liga.
+_LEAGUE_API_VERSION = {
+    "epl": "v2",
+    "mls": "v1",
+    "ligue1": "v1",
+    "bundesliga": "v1",
+    "seriea": "v1",
+    "laliga": "v1",
 }
 
 # Only prop_type values that are genuine Over/Under markets with a real
@@ -81,13 +94,15 @@ def fetch_upcoming_matches(league: str, *, lookahead_days: int = 5) -> list[dict
         (now + timedelta(days=offset)).date().isoformat()
         for offset in range(lookahead_days + 1)
     ]
-    payload = _get(f"{league}/v2/matches", {"dates": dates, "per_page": 100})
+    version = _LEAGUE_API_VERSION.get(league, "v1")
+    payload = _get(f"{league}/{version}/matches", {"dates": dates, "per_page": 100})
     data = payload.get("data")
     return [row for row in data if isinstance(row, dict)] if isinstance(data, list) else []
 
 
 def fetch_player_props(league: str, match_id: object) -> list[dict[str, object]]:
-    payload = _get(f"{league}/v2/odds/player_props", {"match_id": match_id})
+    version = _LEAGUE_API_VERSION.get(league, "v1")
+    payload = _get(f"{league}/{version}/odds/player_props", {"match_id": match_id})
     data = payload.get("data")
     return [row for row in data if isinstance(row, dict)] if isinstance(data, list) else []
 
