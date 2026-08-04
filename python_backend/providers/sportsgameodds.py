@@ -485,6 +485,15 @@ def normalize_event(
         sport_key.startswith("tennis_")
         or sport_key == "mma_mixed_martial_arts"
     )
+    if is_specialty_diagnostic and not odds_map:
+        LOGGER.warning(
+            "sportsgameodds event has no odds payload sport=%s eventID=%r "
+            "rawOddsType=%s rawKeys=%s",
+            sport_key,
+            raw_event.get("eventID") or raw_event.get("id"),
+            type(odds).__name__,
+            sorted(raw_event.keys()),
+        )
     _logged_skips: set[tuple[object, ...]] = set()
     for raw_odd in odds_map.values():
         if not isinstance(raw_odd, dict):
