@@ -34,6 +34,10 @@ from providers.balldontlie_soccer import (
     fetch_upcoming_matches as fetch_bdl_matches,
     normalize_match as normalize_bdl_match,
 )
+from providers.sportmonks_cricket import (
+    cricketdata_health_check,
+    probe_cricket_odds_shape,
+)
 
 cache = PropCache(DB_PATH)
 logger = logging.getLogger(__name__)
@@ -50,6 +54,8 @@ DEFAULT_SYNC_SPORTS = (
     "soccer_germany_bundesliga",
     "soccer_italy_serie_a",
     "soccer_spain_la_liga",
+    "aussierules_afl",
+    "rugbyleague_nrl",
 )
 
 DEFAULT_FAST_SYNC_SPORTS = (
@@ -534,6 +540,24 @@ def run_global_sync_pipeline(
         } for sport_key in coverage_sports)
     results.append(sync_sportsgameodds())
     results.append(sync_balldontlie_soccer())
+    try:
+        cricket_probe = probe_cricket_odds_shape()
+    except Exception as exc:
+        logger.warning("sportmonks cricket probe crashed error=%s", exc)
+        cricket_probe = {"status": "error", "error": str(exc)}
+    results.append({
+        "sport": "sportmonks_cricket_probe", "events": 0, "props": 0,
+        **cricket_probe,
+    })
+    try:
+        cricketdata_probe = cricketdata_health_check()
+    except Exception as exc:
+        logger.warning("cricketdata.org health check crashed error=%s", exc)
+        cricketdata_probe = {"status": "error", "error": str(exc)}
+    results.append({
+        "sport": "cricketdata_probe", "events": 0, "props": 0,
+        **cricketdata_probe,
+    })
     results.extend(sync_pregame_context())
     snapshot = snapshot_live_predictions()
     results.append({"sport": "prediction_snapshots", "events": 0,

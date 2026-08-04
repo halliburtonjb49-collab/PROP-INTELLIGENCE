@@ -43,6 +43,8 @@ def test_default_sync_covers_every_configured_prop_sport(monkeypatch) -> None:
         "soccer_germany_bundesliga",
         "soccer_italy_serie_a",
         "soccer_spain_la_liga",
+        "aussierules_afl",
+        "rugbyleague_nrl",
     ]
 
 

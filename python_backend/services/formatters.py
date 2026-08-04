@@ -163,6 +163,22 @@ CATEGORY_LABELS = {
     "player_goalkeeper_saves": "goalkeeper saves",
     "player_tackles": "tackles",
 
+    # AFL
+    "player_disposals_over": "disposals",
+    "player_goals_scored_over": "goals",
+    "player_marks_over": "marks",
+    "player_tackles_over": "tackles",
+    "player_afl_fantasy_points_over": "AFL fantasy points",
+    "player_clearances_over": "clearances",
+    "player_kicks_over": "kicks",
+    "player_handballs_over": "handballs",
+
+    # NRL
+    "player_try_scorer_anytime": "anytime try scorer",
+    "player_try_scorer_first": "first try scorer",
+    "player_try_scorer_last": "last try scorer",
+    "player_try_scorer_over": "tries",
+
     # UFC
     "fighter_significant_strikes": "significant strikes",
     "fighter_takedowns": "takedowns",
@@ -204,6 +220,8 @@ def format_sport_label(sport_key: str) -> str:
         "baseball_mlb": "MLB",
         "icehockey_nhl": "NHL",
         "mma_mixed_martial_arts": "UFC",
+        "aussierules_afl": "AFL",
+        "rugbyleague_nrl": "NRL",
     }
 
     if sport_key in mappings:
