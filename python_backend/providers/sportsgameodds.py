@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
+import logging
 import re
 from threading import Lock, local
 from typing import Any
@@ -13,6 +14,7 @@ from requests.adapters import HTTPAdapter
 
 from config import HTTP_TIMEOUT_SECONDS, SPORTSGAMEODDS_API_KEY
 
+LOGGER = logging.getLogger(__name__)
 BASE_URL = "https://api.sportsgameodds.com/v2"
 LEAGUE_TO_SPORT = {
     "ATP": "tennis_atp",
@@ -225,7 +227,12 @@ def _get(path: str, params: dict[str, object]) -> dict[str, Any]:
                 cooldown_until=cooldown_until,
             )
             raise ProviderCooldownError(error)
-        response.raise_for_status()
+        if response.status_code >= 400:
+            body = response.text.strip()[:500]
+            raise requests.HTTPError(
+                f"{response.status_code} error for url: {response.url} body: {body or '<empty>'}",
+                response=response,
+            )
         payload = response.json()
         if not isinstance(payload, dict) or payload.get("success") is False:
             raise RuntimeError(str(payload.get("error") or "invalid response"))
@@ -470,6 +477,15 @@ def normalize_event(
     odds_map = odds if isinstance(odds, dict) else {}
 
     books: dict[str, dict[str, dict[tuple[str, float], list[dict[str, Any]]]]] = {}
+    # Temporary: ATP/WTA/UFC fetch events successfully but yield zero props in
+    # production, meaning every odd is being dropped by one of the filters
+    # below. Sample the first few drops per event so the next sync's logs
+    # reveal the real periodID/statID/betTypeID values instead of guessing.
+    is_specialty_diagnostic = (
+        sport_key.startswith("tennis_")
+        or sport_key == "mma_mixed_martial_arts"
+    )
+    _logged_skips: set[tuple[object, ...]] = set()
     for raw_odd in odds_map.values():
         if not isinstance(raw_odd, dict):
             continue
@@ -485,6 +501,21 @@ def normalize_event(
             or not _period_supported(sport_key, period)
             or entity_id in {"", "all", "home", "away"}
         ):
+            if is_specialty_diagnostic and len(_logged_skips) < 5:
+                key = (bet_type, side, period, entity_id)
+                if key not in _logged_skips:
+                    _logged_skips.add(key)
+                    LOGGER.warning(
+                        "sportsgameodds dropped odd (filter) sport=%s betTypeID=%r "
+                        "sideID=%r periodID=%r entityID=%r statID=%r marketName=%r",
+                        sport_key,
+                        raw_odd.get("betTypeID"),
+                        raw_odd.get("sideID"),
+                        raw_odd.get("periodID"),
+                        entity_id,
+                        raw_odd.get("statID"),
+                        raw_odd.get("marketName"),
+                    )
             continue
         player = player_map.get(entity_id)
         player_name = (
@@ -502,6 +533,18 @@ def normalize_event(
             market_name=str(raw_odd.get("marketName") or ""),
         )
         if not player_name or not market_key:
+            if is_specialty_diagnostic and len(_logged_skips) < 5:
+                key = ("market", raw_odd.get("statID"), raw_odd.get("marketName"))
+                if key not in _logged_skips:
+                    _logged_skips.add(key)
+                    LOGGER.warning(
+                        "sportsgameodds dropped odd (no market_key) sport=%s "
+                        "statID=%r marketName=%r playerName=%r",
+                        sport_key,
+                        raw_odd.get("statID"),
+                        raw_odd.get("marketName"),
+                        player_name,
+                    )
             continue
         by_bookmaker = raw_odd.get("byBookmaker")
         if not isinstance(by_bookmaker, dict):
