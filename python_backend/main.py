@@ -18,7 +18,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from brotli_asgi import BrotliMiddleware
 import requests
-from threading import Lock
+from threading import Lock, Thread
 
 from config import (
 	CORS_ALLOWED_ORIGINS,
@@ -474,6 +474,13 @@ def player_image_proxy(url: str = Query(..., max_length=2048)) -> Response:
 	)
 
 
+def _persist_catalog_snapshot_background(props: list[PropResponse]) -> None:
+	try:
+		save_catalog_snapshot([prop.model_dump(mode="json") for prop in props])
+	except Exception:
+		logging.exception("Background prop catalog snapshot persist failed")
+
+
 def _cached_prop_catalog() -> list[PropResponse]:
 	now = time.monotonic()
 	with _prop_catalog_lock:
@@ -502,9 +509,15 @@ def _cached_prop_catalog() -> list[PropResponse]:
 	if isinstance(shared, list) and shared:
 		try:
 			props = [PropResponse.model_validate(row) for row in shared]
-			save_catalog_snapshot(
-				[prop.model_dump(mode="json") for prop in props]
-			)
+			# A live request must never block on a Postgres write. Persist the
+			# durable recovery snapshot off the request thread; it is
+			# best-effort already (save_catalog_snapshot swallows its own
+			# errors) so losing the return value here changes nothing.
+			Thread(
+				target=_persist_catalog_snapshot_background,
+				args=(props,),
+				daemon=True,
+			).start()
 			_publish_prop_catalog_summary(props)
 			with _prop_catalog_lock:
 				_prop_catalog.update(
