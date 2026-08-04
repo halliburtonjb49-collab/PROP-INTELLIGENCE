@@ -543,12 +543,25 @@ def _cached_prop_catalog() -> list[PropResponse]:
 			return props
 		except Exception:
 			logging.exception("Durable prop catalog snapshot was invalid")
+	return _rebuild_prop_catalog_from_local(fallback_version=shared_version)
+
+
+def _rebuild_prop_catalog_from_local(
+	*, fallback_version: object = None,
+) -> list[PropResponse]:
+	"""Recompute props from this instance's local cache and republish.
+
+	This is the only path that reflects data this instance just synced --
+	the Redis/durable-snapshot layers can otherwise mask a fresh sync with
+	an older cached value written by a different instance or an earlier run.
+	"""
+	now = time.monotonic()
 	props = get_props()
 	with _prop_catalog_lock:
 		_prop_catalog.update(
 			loadedAt=now,
 			versionCheckedAt=now,
-			version=shared_version,
+			version=fallback_version,
 			props=props,
 		)
 	if props:
@@ -635,11 +648,14 @@ def _refresh_prop_catalog_now() -> None:
 	Render runs multiple API instances with separate local disks. Deleting
 	the shared cache alone leaves a window where a *different* instance's
 	next request falls back to its own (unsynced) local data instead of the
-	fresh result this instance just produced. Rebuilding here republishes to
-	Redis right away so every instance's next request sees fresh data.
+	fresh result this instance just produced. Rebuilding directly from local
+	data (rather than through _cached_prop_catalog's normal fallback chain)
+	matters here specifically: that chain checks the durable Postgres
+	snapshot before ever recomputing, which would just hand back whatever
+	stale snapshot was last written instead of the sync that just completed.
 	"""
 	_invalidate_prop_catalog()
-	_cached_prop_catalog()
+	_rebuild_prop_catalog_from_local()
 
 _sync_run_lock = Lock()
 _sync_state_lock = Lock()
