@@ -39,6 +39,10 @@ services:
         value: /tmp/espn_headshot_map.json
       - key: SPORTSDATAIO_API_KEY
         sync: false
+      - key: CRICKETDATA_API_KEY
+        sync: false
+      - key: SPORTMONKS_CRICKET_API_KEY
+        sync: false
       - key: SPORTRADAR_WNBA_API_KEY
         sync: false
       - key: SPORTRADAR_API_KEY
@@ -160,6 +164,10 @@ services:
         sync: false
       - key: SPORTSDATAIO_API_KEY
         sync: false
+      - key: CRICKETDATA_API_KEY
+        sync: false
+      - key: SPORTMONKS_CRICKET_API_KEY
+        sync: false
       - key: SPORTRADAR_WNBA_API_KEY
         sync: false
       - key: SPORTRADAR_API_KEY
@@ -243,6 +251,10 @@ services:
       - key: API_SPORTS_BASEBALL_KEY
         sync: false
       - key: SPORTSDATAIO_API_KEY
+        sync: false
+      - key: CRICKETDATA_API_KEY
+        sync: false
+      - key: SPORTMONKS_CRICKET_API_KEY
         sync: false
       - key: SPORTRADAR_WNBA_API_KEY
         sync: false
