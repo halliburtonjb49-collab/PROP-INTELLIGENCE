@@ -160,6 +160,8 @@ CATEGORY_LABELS = {
     "player_last_goal_scorer": "last goalscorer",
     "player_to_receive_card": "player card",
     "player_to_receive_red_card": "player red card",
+    "player_goalkeeper_saves": "goalkeeper saves",
+    "player_tackles": "tackles",
 
     # UFC
     "fighter_significant_strikes": "significant strikes",

@@ -20,13 +20,19 @@ from services.prediction_automation_service import (
 from services.compound_alert_service import evaluate_all_alerts
 from services.prop_service import get_props
 from services.pregame_context_ingestion_service import sync_pregame_context
-from config import SPORTSGAMEODDS_API_KEY
+from config import BALLDONTLIE_API_KEY, SPORTSGAMEODDS_API_KEY
 from providers.sportsgameodds import (
     LEAGUE_TO_SPORT,
     fetch_account_usage as fetch_sgo_account_usage,
     fetch_upcoming_events as fetch_sgo_events,
     normalize_event as normalize_sgo_event,
     usage_snapshot as sgo_usage_snapshot,
+)
+from providers.balldontlie_soccer import (
+    LEAGUE_TO_SPORT as BDL_SOCCER_LEAGUE_TO_SPORT,
+    fetch_player_props as fetch_bdl_player_props,
+    fetch_upcoming_matches as fetch_bdl_matches,
+    normalize_match as normalize_bdl_match,
 )
 
 cache = PropCache(DB_PATH)
@@ -406,6 +412,93 @@ def sync_sportsgameodds() -> dict[str, object]:
     }
 
 
+def sync_balldontlie_soccer() -> dict[str, object]:
+    """Sync real player-prop lines for soccer leagues that the Odds API
+    coverage lane has not been returning events for."""
+    if not BALLDONTLIE_API_KEY:
+        return {
+            "sport": "balldontlie_soccer",
+            "events": 0,
+            "props": 0,
+            "skipped": "not configured",
+        }
+    total_events = 0
+    total_props = 0
+    failures: list[dict[str, str]] = []
+    league_results: list[dict[str, object]] = []
+
+    def fetch_league(item: tuple[str, str]):
+        league, sport_key = item
+        try:
+            raw_matches = _with_retries(
+                lambda league=league: fetch_bdl_matches(league),
+                label=f"balldontlie matches {league}",
+                attempts=2,
+            )
+            return league, sport_key, raw_matches, None
+        except Exception as exc:
+            return league, sport_key, [], exc
+
+    with ThreadPoolExecutor(max_workers=min(4, len(BDL_SOCCER_LEAGUE_TO_SPORT))) as executor:
+        fetched_leagues = list(executor.map(fetch_league, BDL_SOCCER_LEAGUE_TO_SPORT.items()))
+
+    for league, sport_key, raw_matches, fetch_error in fetched_leagues:
+        if fetch_error is not None:
+            logger.warning("balldontlie soccer sync failed league=%s error=%s", league, fetch_error)
+            failures.append({"league": league, "error": str(fetch_error)})
+            league_results.append({"league": league, "events": 0, "props": 0, "error": str(fetch_error)})
+            continue
+        upcoming = [m for m in raw_matches if str(m.get("status") or "").lower() not in {"final", "finished", "ft", "completed"}]
+        league_props = 0
+        valid_ids: list[str] = []
+        for raw_match in upcoming:
+            match_id = raw_match.get("id")
+            if match_id is None:
+                continue
+            try:
+                raw_props = _with_retries(
+                    lambda league=league, match_id=match_id: fetch_bdl_player_props(league, match_id),
+                    label=f"balldontlie player_props {league}:{match_id}",
+                    attempts=2,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "balldontlie player_props failed league=%s match=%s error=%s",
+                    league, match_id, exc,
+                )
+                continue
+            event, odds_payload = normalize_bdl_match(raw_match, raw_props, sport_key=sport_key)
+            valid_ids.append(event["id"])
+            league_props += process_and_cache_props(
+                cache=cache,
+                sport_key=sport_key,
+                event=event,
+                odds_payload=odds_payload,
+            )
+        if valid_ids:
+            cache.prune_provider_events(
+                sport=sport_key,
+                event_prefix="bdl:",
+                active_event_ids=valid_ids,
+            )
+        else:
+            logger.warning(
+                "balldontlie soccer preserved cache league=%s reason=no_upcoming_matches",
+                league,
+            )
+        total_props += league_props
+        total_events += len(upcoming)
+        league_results.append({"league": league, "events": len(upcoming), "props": league_props})
+
+    return {
+        "sport": "balldontlie_soccer",
+        "events": total_events,
+        "props": total_props,
+        "failedLeagues": failures,
+        "leagueResults": league_results,
+    }
+
+
 def run_global_sync_pipeline(
     on_fast_lane_complete: Callable[[list[dict[str, object]]], None] | None = None,
 ) -> list[dict[str, object]]:
@@ -440,6 +533,7 @@ def run_global_sync_pipeline(
             "skipped": "coverage cooldown",
         } for sport_key in coverage_sports)
     results.append(sync_sportsgameodds())
+    results.append(sync_balldontlie_soccer())
     results.extend(sync_pregame_context())
     snapshot = snapshot_live_predictions()
     results.append({"sport": "prediction_snapshots", "events": 0,
