@@ -21,10 +21,13 @@ import requests
 from threading import Lock, Thread
 
 from config import (
+	BALLDONTLIE_API_KEY,
 	CORS_ALLOWED_ORIGINS,
+	CRICKETDATA_API_KEY,
 	HTTP_TIMEOUT_SECONDS,
 	LIVE_ODDS_SYNC_MIN_SECONDS,
 	PLAYER_IMAGE_DIR,
+	SPORTMONKS_CRICKET_API_KEY,
 	SPORTRADAR_API_KEY,
 	SPORTRADAR_WNBA_API_KEY,
 	WNBA_LEAGUE_ID,
@@ -1766,6 +1769,9 @@ def health() -> dict[str, object]:
 		"providers": {
 			"sportradarMultiSportConfigured": bool(SPORTRADAR_API_KEY),
 			"sportradarWnbaConfigured": bool(SPORTRADAR_WNBA_API_KEY),
+			"sportmonksCricketConfigured": bool(SPORTMONKS_CRICKET_API_KEY),
+			"cricketDataConfigured": bool(CRICKETDATA_API_KEY),
+			"ballDontLieConfigured": bool(BALLDONTLIE_API_KEY),
 		},
 	}
 
