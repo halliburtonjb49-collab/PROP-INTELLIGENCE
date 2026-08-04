@@ -40,15 +40,6 @@ def save_catalog_snapshot(rows: list[dict[str, object]]) -> bool:
         with get_database_pool().connection(timeout=10) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
-                    """create table if not exists prop_catalog_snapshots (
-                    snapshot_key text primary key,
-                    payload bytea not null,
-                    prop_count integer not null,
-                    data_updated_at text,
-                    updated_at timestamptz not null default now()
-                    )"""
-                )
-                cursor.execute(
                     """insert into prop_catalog_snapshots
                     (snapshot_key,payload,prop_count,data_updated_at,updated_at)
                     values (%s,%s,%s,%s,%s)
