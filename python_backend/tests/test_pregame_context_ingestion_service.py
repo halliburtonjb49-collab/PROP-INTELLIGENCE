@@ -18,14 +18,16 @@ def test_normalizes_projected_and_confirmed_mlb_lineups() -> None:
         "GameID": 99, "DateTime": "2026-08-02T19:00:00Z",
         "HomeTeam": "CHC", "AwayTeam": "CIN", "Confirmed": True,
         "HomeLineup": [{"PlayerID": 1, "Name": "Home Batter", "BattingOrder": 1,
-                         "Position": "CF", "Starting": True}],
+                         "Position": "CF", "Starting": True, "BatHand": "L"}],
         "AwayLineup": [{"PlayerID": 2, "Name": "Away Batter", "BattingOrder": 2,
                          "Position": "SS", "Starting": True}],
     }])
     assert len(rows) == 2
     assert rows[0]["confirmed"] is True
     assert rows[0]["status"] == "CONFIRMED_STARTER"
+    assert rows[0]["provider_player_id"] == "1"
     assert rows[0]["payload"]["battingOrder"] == 1
+    assert rows[0]["payload"]["bats"] == "L"
     assert rows[0]["opponent"] == "CIN"
 
 
@@ -99,7 +101,7 @@ def test_official_mlb_schedule_normalizes_probable_pitcher() -> None:
     rows = normalize_official_mlb_schedule({"dates": [{"games": [{
         "gamePk": 77, "gameDate": "2026-08-02T19:00:00Z", "teams": {
             "home": {"team": {"name": "Cubs"},
-                     "probablePitcher": {"id": 1, "fullName": "Home Pitcher"}},
+                     "probablePitcher": {"id": 1, "fullName": "Home Pitcher", "pitchHand": {"code": "L"}}},
             "away": {"team": {"name": "Reds"},
                      "probablePitcher": {"id": 2, "fullName": "Away Pitcher"}},
         },
@@ -107,6 +109,7 @@ def test_official_mlb_schedule_normalizes_probable_pitcher() -> None:
     assert len(rows) == 2
     assert rows[0]["status"] == "PROJECTED_STARTER"
     assert rows[0]["payload"]["role"] == "PROBABLE_PITCHER"
+    assert rows[0]["payload"]["throws"] == "L"
 
 
 def test_official_mlb_boxscore_marks_submitted_batting_order_confirmed() -> None:
@@ -114,8 +117,10 @@ def test_official_mlb_boxscore_marks_submitted_batting_order_confirmed() -> None
         "home": {"team": {"name": "Cubs"}, "players": {"ID1": {
             "person": {"id": 1, "fullName": "Leadoff Batter"},
             "battingOrder": "100", "position": {"abbreviation": "CF"},
+            "batSide": {"code": "R"},
         }}},
         "away": {"team": {"name": "Reds"}, "players": {}},
     }}, event_id="77", event_time="2026-08-02T19:00:00Z")
     assert rows[0]["confirmed"] is True
     assert rows[0]["payload"]["battingOrder"] == 1
+    assert rows[0]["payload"]["bats"] == "R"

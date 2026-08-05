@@ -57,3 +57,30 @@ def test_enrich_mlb_strikeout_props_populates_pitcher_lineup_and_umpire_inputs(m
     assert prop.lineupKPercent == 0.247
     assert prop.umpireKBoost == 0.012
     assert prop.parkKFactor is not None
+
+
+def test_lineup_k_rate_prefers_exact_provider_player_ids(monkeypatch) -> None:
+    calls: list[str] = []
+
+    def fake_latest_player_features(*, role: str, player_id: str, before_date: object):
+        calls.append(player_id)
+        return {
+            "features": {
+                "pregame_plate_appearances_avg_10d": 4.0,
+                "pregame_strikeouts_avg_10d": 1.0,
+            },
+        }
+
+    monkeypatch.setattr(
+        mlb_strikeout_enrichment_service,
+        "latest_player_features",
+        fake_latest_player_features,
+    )
+
+    rate = mlb_strikeout_enrichment_service._lineup_k_rate(
+        [{"player": "Ignored Name", "providerPlayerId": "12345", "battingOrder": 1}],
+        object(),
+    )
+
+    assert rate == 0.25
+    assert calls == ["12345"]

@@ -53,6 +53,23 @@ def _bool(row: dict[str, object], *keys: str) -> bool:
     return value is True or str(value).strip().lower() in {"true", "1", "yes"}
 
 
+def _handedness(row: dict[str, object], *keys: str) -> str:
+    for key in keys:
+        value = row.get(key)
+        if isinstance(value, dict):
+            text = _text(value, "code", "description")
+        else:
+            text = str(value or "").strip()
+        upper = text.upper()
+        if upper.startswith("L"):
+            return "L"
+        if upper.startswith("R"):
+            return "R"
+        if upper.startswith("S"):
+            return "S"
+    return ""
+
+
 def _fingerprint(item: dict[str, object]) -> str:
     stable = json.dumps(item, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(stable.encode()).hexdigest()
@@ -90,7 +107,11 @@ def normalize_sportsdataio_mlb_lineups(payload: object) -> list[dict[str, object
                     confirmed=_bool(game, "Confirmed", "LineupsConfirmed") or _bool(pitcher, "Confirmed"),
                 )
                 item["status"] = "CONFIRMED_STARTER" if item["confirmed"] else "PROJECTED_STARTER"
-                item["payload"] = {**item["payload"], "role": "STARTING_PITCHER"}
+                item["payload"] = {
+                    **item["payload"],
+                    "role": "STARTING_PITCHER",
+                    "throws": _handedness(pitcher, "pitchHand", "throws"),
+                }
                 observations.append(item)
         if not nested_found and _name(game):
             observations.append(_mlb_player_observation(
@@ -124,7 +145,9 @@ def normalize_official_mlb_schedule(payload: object) -> list[dict[str, object]]:
                     "team": _text(team, "abbreviation", "name"),
                     "opponent": _text(opponent, "abbreviation", "name"), "event_time": event_time or None,
                     "status": "PROJECTED_STARTER", "confirmed": False,
-                    "payload": {"role": "PROBABLE_PITCHER", "starting": True, "raw": pitcher},
+                    "payload": {"role": "PROBABLE_PITCHER", "starting": True,
+                                "throws": _handedness(pitcher, "pitchHand", "throws"),
+                                "raw": pitcher},
                 })
     return [item for item in observations if item["event_id"] and item["player_name"]]
 
@@ -157,6 +180,7 @@ def normalize_official_mlb_boxscore(
                 "payload": {"battingOrder": order,
                             "position": _text((row.get("position") or {}), "abbreviation", "name")
                             if isinstance(row.get("position"), dict) else "",
+                            "bats": _handedness(row, "batSide", "batHand"),
                             "starting": True, "raw": row},
             })
     return [item for item in observations if item["player_name"]]
@@ -182,7 +206,10 @@ def _mlb_player_observation(
         "opponent": opponent or _text(row, "Opponent"), "event_time": event_time or None,
         "status": status, "confirmed": confirmed, "payload": {
             "battingOrder": int(order) if order.isdigit() else None,
-            "position": _text(row, "Position"), "starting": starting,
+            "position": _text(row, "Position"),
+            "bats": _handedness(row, "BatHand", "Bats", "batSide", "batHand"),
+            "throws": _handedness(row, "PitchHand", "Throws", "pitchHand", "throws"),
+            "starting": starting,
             "raw": row,
         },
     }
@@ -521,8 +548,8 @@ def apply_latest_pregame_context(props: list[object]) -> None:
     try:
         with get_database_pool().connection() as connection, connection.cursor() as cursor:
             cursor.execute("""select distinct on(provider,entity_type,event_id,lower(player_name))
-                sport,event_id,provider,entity_type,player_name,team,opponent,event_time,
-                status,confirmed,payload,observed_at
+                sport,event_id,provider,entity_type,provider_player_id,player_name,team,opponent,event_time,
+                status,confirmed,fingerprint,payload,observed_at
                 from pregame_context_observations
                 where observed_at>=now()-interval '3 days'
                 order by provider,entity_type,event_id,lower(player_name),observed_at desc""")
@@ -535,11 +562,12 @@ def apply_latest_pregame_context(props: list[object]) -> None:
     current_espn_injury_reports: set[str] = set()
     for row in rows:
         item = {"sport": row[0], "eventId": row[1], "provider": row[2],
-                "entityType": row[3], "playerName": row[4], "team": row[5],
-                "opponent": row[6], "eventTime": row[7], "status": row[8],
-                "confirmed": bool(row[9]), "payload": row[10] if isinstance(row[10], dict) else {},
-                "observedAt": row[11]}
-        by_player.setdefault((str(row[0]), _identity(row[4])), []).append(item)
+            "entityType": row[3], "providerPlayerId": row[4],
+            "playerName": row[5], "team": row[6],
+            "opponent": row[7], "eventTime": row[8], "status": row[9],
+            "confirmed": bool(row[10]), "payload": row[12] if isinstance(row[12], dict) else {},
+            "observedAt": row[13]}
+        by_player.setdefault((str(row[0]), _identity(row[5])), []).append(item)
         by_event.setdefault((str(row[0]), str(row[1])), []).append(item)
         if row[2] == "ESPN" and row[3] == "INJURY_FEED":
             current_espn_injury_reports.add(str(row[0]).upper())
@@ -593,11 +621,16 @@ def apply_latest_pregame_context(props: list[object]) -> None:
             "provider": latest["provider"], "eventId": latest["eventId"],
             "playerStatus": status, "confirmed": bool(latest["confirmed"]),
             "team": latest["team"], "opponent": opponent_team,
+            "providerPlayerId": latest.get("providerPlayerId") or latest["payload"].get("providerPlayerId"),
             "battingOrder": latest["payload"].get("battingOrder"),
             "position": latest["payload"].get("position"),
+            "bats": latest["payload"].get("bats"),
+            "throws": latest["payload"].get("throws"),
             "opposingLineup": [{"player": row["playerName"],
+                                  "providerPlayerId": row.get("providerPlayerId"),
                                   "battingOrder": row["payload"].get("battingOrder"),
                                   "position": row["payload"].get("position"),
+                                  "bats": row["payload"].get("bats"),
                                   "confirmed": row["confirmed"]} for row in ordered],
             "observedAt": latest["observedAt"].isoformat(),
         }

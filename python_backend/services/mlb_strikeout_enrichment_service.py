@@ -86,10 +86,14 @@ def _lineup_k_rate(opposing_lineup: Iterable[object], event_date: object) -> flo
     for entry in opposing_lineup:
         if not isinstance(entry, dict):
             continue
-        player_name = str(entry.get("player") or "").strip()
-        if not player_name:
-            continue
-        batter_id = mlb_player_id(player_name)
+        batter_id_raw = str(entry.get("providerPlayerId") or "").strip()
+        if batter_id_raw.isdigit():
+            batter_id = int(batter_id_raw)
+        else:
+            player_name = str(entry.get("player") or "").strip()
+            if not player_name:
+                continue
+            batter_id = mlb_player_id(player_name)
         if batter_id is None:
             continue
         latest = latest_player_features(role="BATTER", player_id=str(batter_id), before_date=event_date)
