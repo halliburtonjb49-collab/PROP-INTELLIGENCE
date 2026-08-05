@@ -972,7 +972,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
               style: TextStyle(
                 color: selected
                     ? brand_colors.AppColors.sidebar
-                    : AppColors.text,
+                    : Colors.white,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
                 height: 1,
@@ -1015,7 +1015,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
               style: TextStyle(
                 color: selected
                     ? brand_colors.AppColors.sidebar
-                    : AppColors.text,
+                    : Colors.white,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
                 height: 1,
