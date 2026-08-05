@@ -3,6 +3,7 @@ from services.model_performance_service import (
     _dominant_model_version,
     _is_quarantined_market,
     _rolling_row,
+    _summarize_roi_clv_segments,
 )
 
 
@@ -65,3 +66,48 @@ def test_quarantines_wnba_and_nba_fantasy_markets_from_reporting() -> None:
     assert _is_quarantined_market("NBA", "player_fantasy_points") is True
     assert _is_quarantined_market("NBA", "player_points") is False
     assert _is_quarantined_market("MLB", "batter_hits") is False
+
+
+def test_summarizes_roi_and_clv_by_side_and_market() -> None:
+    rows = [
+        {
+            "sport": "NBA",
+            "market": "player_points",
+            "side": "OVER",
+            "sampleSize": 10,
+            "hits": 6,
+            "averageConfidence": 0.61,
+            "simulatedRoi": 0.12,
+            "beatClosingLineRate": 0.6,
+            "averageLineClvPoints": 1.5,
+            "averageOddsClvExpectedValuePercent": 4.2,
+            "positiveOddsClvRate": 0.7,
+            "oddsSampleSize": 8,
+        },
+        {
+            "sport": "NBA",
+            "market": "player_points",
+            "side": "UNDER",
+            "sampleSize": 10,
+            "hits": 4,
+            "averageConfidence": 0.39,
+            "simulatedRoi": -0.08,
+            "beatClosingLineRate": 0.4,
+            "averageLineClvPoints": -0.8,
+            "averageOddsClvExpectedValuePercent": -1.3,
+            "positiveOddsClvRate": 0.3,
+            "oddsSampleSize": 8,
+        },
+    ]
+
+    result = _summarize_roi_clv_segments(rows)
+
+    assert len(result) == 2
+    assert result[0]["sport"] == "NBA"
+    assert result[0]["market"] == "player_points"
+    assert result[0]["side"] == "OVER"
+    assert result[0]["accuracy"] == 0.6
+    assert result[0]["simulatedRoi"] == 0.12
+    assert result[0]["beatClosingLineRate"] == 0.6
+    assert result[1]["side"] == "UNDER"
+    assert result[1]["positiveOddsClvRate"] == 0.3

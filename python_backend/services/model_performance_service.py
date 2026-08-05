@@ -94,6 +94,36 @@ def _rolling_row(dimension: str, row: tuple[object, ...]) -> dict[str, object]:
     }
 
 
+def _summarize_roi_clv_segments(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    summarized: list[dict[str, object]] = []
+    for row in rows:
+        count = int(row.get("sampleSize") or 0)
+        hits = int(row.get("hits") or 0)
+        accuracy = round(float(hits) / count, 4) if count else None
+        average_confidence = (
+            round(float(row.get("averageConfidence", 0) or 0), 4)
+            if row.get("averageConfidence") is not None
+            else None
+        )
+        summarized.append({
+            "sport": row.get("sport"),
+            "market": row.get("market"),
+            "side": str(row.get("side") or "UNKNOWN").upper(),
+            "sampleSize": count,
+            "hits": hits,
+            "accuracy": accuracy,
+            "averageConfidence": average_confidence,
+            "simulatedRoi": round(float(row.get("simulatedRoi") or 0), 4),
+            "beatClosingLineRate": round(float(row.get("beatClosingLineRate") or 0), 4),
+            "averageLineClvPoints": round(float(row.get("averageLineClvPoints") or 0), 4),
+            "averageOddsClvExpectedValuePercent": round(float(row.get("averageOddsClvExpectedValuePercent") or 0), 4),
+            "positiveOddsClvRate": round(float(row.get("positiveOddsClvRate") or 0), 4),
+            "oddsSampleSize": int(row.get("oddsSampleSize") or 0),
+            **_audit_recommendation(count, accuracy, average_confidence),
+        })
+    return summarized
+
+
 def _rolling_audit(cursor, model_version: str, base: str) -> dict[str, object]:
     dimensions = {
         "sport": "coalesce(nullif(sport,''),'unknown')",
@@ -257,6 +287,37 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
             where model_version=%s and inputs ? 'closingLine'""",
             (model_version,),
         )
+        cursor.execute(f"""select sport,market,side,count(*),count(*) filter(where hit),
+            avg(hit_probability),
+            avg({profit}) filter(where nullif(inputs->>'entryOdds','') is not null),
+            avg(case when (inputs->>'beatClosingLine')::boolean then 1 else 0 end)
+                filter(where inputs ? 'beatClosingLine'),
+            avg((inputs->>'lineClvPoints')::double precision)
+                filter(where inputs ? 'lineClvPoints'),
+            avg((inputs->>'oddsClvExpectedValuePercent')::double precision)
+                filter(where inputs ? 'oddsClvExpectedValuePercent'),
+            avg(case when (inputs->>'oddsClvExpectedValuePercent')::double precision > 0 then 1 else 0 end)
+                filter(where inputs ? 'oddsClvExpectedValuePercent'),
+            count(*) filter(where inputs ? 'oddsClvExpectedValuePercent')
+            {base}
+            group by sport,market,side order by count(*) desc""", (model_version,))
+        roi_clv_segments = _summarize_roi_clv_segments([
+            {
+                "sport": row[0],
+                "market": row[1],
+                "side": row[2],
+                "sampleSize": row[3],
+                "hits": row[4],
+                "averageConfidence": row[5],
+                "simulatedRoi": row[6],
+                "beatClosingLineRate": row[7],
+                "averageLineClvPoints": row[8],
+                "averageOddsClvExpectedValuePercent": row[9],
+                "positiveOddsClvRate": row[10],
+                "oddsSampleSize": row[11],
+            }
+            for row in cursor.fetchall()
+        ])
         (clv_count, beat_close_rate, average_points, average_odds_ev,
          positive_odds_rate, odds_sample_size) = cursor.fetchone()
         rolling_audit = _rolling_audit(cursor, model_version, base)
@@ -273,6 +334,7 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
                 "collecting": sum(item["status"] == "COLLECTING" for item in side_segments),
             },
             "rollingAudit": rolling_audit,
+            "roiClvSegments": roi_clv_segments,
             "minimumCalibrationSample": 100, "calibrated": overall["sampleSize"] >= 100,
             "clv": {
                 "available": bool(clv_count),

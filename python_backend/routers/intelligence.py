@@ -3,8 +3,9 @@ from uuid import UUID
 
 from models.intelligence import (
     AlertSnapshotRequest, CompoundAlertRequest, CorrelationRequest, DatabaseSimilarityRequest, FatigueRequest, GameScriptRequest,
-    ContextResearchRequest, DixonColesRequest, HistoricalFeatureRequest, MatchupRequest, OfficiatingRequest, ScheduleFatigueRequest, WowyUsageRequest,
-    ClosingLineValueRequest, PredictionGradeRequest, PredictionSnapshotRequest, SentimentBatchRequest, SentimentEvent, SimilarityRequest,
+    ContextResearchRequest, DixonColesRequest, HistoricalFeatureRequest, MatchupRequest, OfficiatingRequest, PropIntelligenceRequest,
+    ScheduleFatigueRequest, WowyUsageRequest, ClosingLineValueRequest, PredictionGradeRequest, PredictionSnapshotRequest,
+    SentimentBatchRequest, SentimentEvent, SimilarityRequest,
 )
 from services.intelligence_service import (
     correlation_matrix, derive_schedule_fatigue, evaluate_alert, fatigue_index, matchup_adjustment,
@@ -29,6 +30,7 @@ from services.score_probability_service import dixon_coles_totals
 from services.clv_service import closing_line_value
 from services.wowy_usage_service import UsageTotals, analyze_wowy_usage
 from services.model_performance_service import model_performance, operations_summary
+from services.prop_intelligence_service import analyze_prop
 from services.api_auth_service import require_admin
 
 router = APIRouter(
@@ -250,6 +252,26 @@ def get_operations_summary(_admin: str = Depends(require_admin)) -> dict[str, ob
 @router.post("/closing-line-value")
 def calculate_closing_line_value(request: ClosingLineValueRequest) -> dict[str, object]:
     return closing_line_value(request)
+
+
+@router.post("/prop-analysis")
+def analyze_prop_intelligence(request: PropIntelligenceRequest) -> dict[str, object]:
+    return analyze_prop(
+        player=request.player,
+        sport=request.sport,
+        market=request.market,
+        line=request.line,
+        projected_mean=request.projected_mean,
+        projected_std_dev=request.projected_std_dev,
+        sharp_over_odds=request.sharp_over_odds,
+        sharp_under_odds=request.sharp_under_odds,
+        retail_over_odds=request.retail_over_odds,
+        retail_under_odds=request.retail_under_odds,
+        bankroll=request.bankroll,
+        kelly_fraction=request.kelly_fraction,
+        simulations=request.simulations,
+        seed=request.seed,
+    )
 
 
 @router.get("/capabilities")

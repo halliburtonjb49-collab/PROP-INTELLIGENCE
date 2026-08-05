@@ -53,7 +53,6 @@ RESTRICTED_FIELDS = {
     "recommendedSide",
     "pick",
     "pickText",
-    "confidence",
     "edge",
     "edgeSigned",
     "recommendationEdge",
@@ -111,6 +110,7 @@ def test_core_props_contain_facts_and_no_proprietary_fields(monkeypatch) -> None
     assert row["player"] == "Secure Player"
     assert row["line"] == 24.5
     assert row["sportsbook"] == "PRIZEPICKS"
+    assert row["confidence"] == 86
     assert RESTRICTED_FIELDS.isdisjoint(row)
     assert payload["recommendationCoverage"] == {"total": 1}
     assert response.headers["cache-control"].startswith("private")

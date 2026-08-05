@@ -46,6 +46,7 @@ class CorePropResponse(BaseModel):
     injuryStatus: str = "unknown"
     lineupStatus: str = "unknown"
     imagePath: str = ""
+    confidence: int = 0
     overOdds: float | None = None
     underOdds: float | None = None
     overDecimalOdds: float | None = None

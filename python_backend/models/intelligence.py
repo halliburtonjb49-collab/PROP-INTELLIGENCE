@@ -194,3 +194,20 @@ class ClosingLineValueRequest(BaseModel):
     entry_odds: int | None = None
     closing_odds: int | None = None
     closing_opposite_odds: int | None = None
+
+
+class PropIntelligenceRequest(BaseModel):
+    player: str = Field(min_length=1, max_length=120)
+    sport: str = Field(min_length=1, max_length=20)
+    market: str = Field(min_length=1, max_length=40)
+    line: float = Field(gt=0)
+    projected_mean: float = Field(ge=0)
+    projected_std_dev: float = Field(ge=0)
+    sharp_over_odds: float | None = Field(default=None, gt=0)
+    sharp_under_odds: float | None = Field(default=None, gt=0)
+    retail_over_odds: float | None = Field(default=None, gt=0)
+    retail_under_odds: float | None = Field(default=None, gt=0)
+    bankroll: float = Field(default=1000, gt=0)
+    kelly_fraction: float = Field(default=0.25, ge=0, le=1)
+    simulations: int = Field(default=2000, ge=100, le=100000)
+    seed: int = Field(default=42, ge=0, le=2_147_483_647)

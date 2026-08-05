@@ -41,6 +41,7 @@ from services.projection_calibration_service import (
 )
 from services.prop_probability_service import choose_over_under, evaluate_market, shin_method_devig
 from services.market_calibration_service import market_calibration_adjustment
+from services.prop_intelligence_service import analyze_prop
 
 cache = PropCache(DB_PATH)
 
@@ -173,6 +174,66 @@ def _tier_from_confidence(confidence: int, side: str) -> str:
 	if confidence >= 57:
 		return "Lean"
 	return "Pass"
+
+
+def apply_prop_intelligence_recommendation(
+	recommendation: dict[str, object],
+	*,
+	projection: object,
+	line: object,
+	projected_volatility: object,
+	over_odds: object,
+	under_odds: object,
+	sport: str,
+	market: str,
+	bankroll: float = 1000.0,
+	kelly_fraction: float = 0.25,
+	simulations: int = 2000,
+	seed: int = 42,
+) -> dict[str, object]:
+	analysis = analyze_prop(
+		player="",
+		sport=sport,
+		market=market,
+		line=line,
+		projected_mean=projection,
+		projected_std_dev=projected_volatility,
+		sharp_over_odds=over_odds,
+		sharp_under_odds=under_odds,
+		retail_over_odds=over_odds,
+		retail_under_odds=under_odds,
+		bankroll=bankroll,
+		kelly_fraction=kelly_fraction,
+		simulations=simulations,
+		seed=seed,
+	)
+	if analysis["recommendation"] == "PASS":
+		return {
+			**recommendation,
+			"recommendedSide": "N/A",
+			"pickText": "No Pick",
+			"recommendationAvailable": False,
+			"recommendationUnavailableReason": "prop_intelligence_pass",
+			"recommendationEdge": 0.0,
+			"confidence": 0,
+			"tier": "No Pick",
+		}
+
+	confidence = max(50, min(99, int(analysis["confidence"])))
+	return {
+		**recommendation,
+		"recommendedSide": analysis["recommendation"],
+		"pickText": analysis["recommendation"].title(),
+		"recommendationAvailable": True,
+		"recommendationUnavailableReason": "",
+		"recommendationEdge": float(analysis.get("edgePercent", 0.0) or 0.0),
+		"confidence": confidence,
+		"tier": _tier_from_confidence(confidence, analysis["recommendation"]),
+		"recommendationExplanation": (
+			f"Prop-intelligence model estimated a {analysis['recommendation'].lower()} edge with "
+			f"{analysis['expectedValuePercent']:.2f}% EV."
+		),
+	}
 
 
 def get_props() -> list[PropResponse]:
@@ -344,6 +405,19 @@ def get_props() -> list[PropResponse]:
 				if baseline is None or projection_sample_size >= 5
 				else ["limited_historical_sample"]
 			),
+		)
+		recommendation = apply_prop_intelligence_recommendation(
+			recommendation,
+			projection=projection,
+			line=line,
+			projected_volatility=(
+				projection_volatility
+				or market_volatility_floor(sport_label, raw_market)
+			),
+			over_odds=over_odds,
+			under_odds=under_odds,
+			sport=sport_label,
+			market=raw_market,
 		)
 		if baseline is not None and not baseline_is_actionable(
 			baseline,
