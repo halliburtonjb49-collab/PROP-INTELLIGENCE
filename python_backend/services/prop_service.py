@@ -75,6 +75,15 @@ def _row_optional_value(row: object, key: str) -> object:
 	return None
 
 
+def _safe_float(value: object, default: float | None = None) -> float | None:
+	try:
+		if value is None:
+			return default
+		return float(value)
+	except (TypeError, ValueError):
+		return default
+
+
 def market_snapshot(rows: list[object], fallback_line: float) -> dict[str, object]:
 	"""Build an honest cross-book snapshot without inventing unavailable volume."""
 	lines = [float(row["line"]) for row in rows]
@@ -190,7 +199,28 @@ def apply_prop_intelligence_recommendation(
 	kelly_fraction: float = 0.25,
 	simulations: int = 2000,
 	seed: int = 42,
+	pitcher_k_pct: float | None = None,
+	lineup_k_pct: float | None = None,
+	pitches_per_start: float | None = None,
+	pitches_per_batter: float | None = None,
+	pitcher_csw: float | None = None,
+	lineup_csw_against: float | None = None,
+	temp_f: float = 70.0,
+	umpire_k_boost: float = 0.0,
+	park_k_factor: float = 1.0,
 ) -> dict[str, object]:
+	def _decimalize(odds: object) -> float | None:
+		if not isinstance(odds, (int, float)):
+			return None
+		value = float(odds)
+		if value <= 0:
+			return None
+		if value >= 20 or value <= -20:
+			return _american_to_decimal(value)
+		return value
+
+	decimal_over_odds = _decimalize(over_odds)
+	decimal_under_odds = _decimalize(under_odds)
 	analysis = analyze_prop(
 		player="",
 		sport=sport,
@@ -198,14 +228,23 @@ def apply_prop_intelligence_recommendation(
 		line=line,
 		projected_mean=projection,
 		projected_std_dev=projected_volatility,
-		sharp_over_odds=over_odds,
-		sharp_under_odds=under_odds,
-		retail_over_odds=over_odds,
-		retail_under_odds=under_odds,
+		sharp_over_odds=decimal_over_odds,
+		sharp_under_odds=decimal_under_odds,
+		retail_over_odds=decimal_over_odds,
+		retail_under_odds=decimal_under_odds,
 		bankroll=bankroll,
 		kelly_fraction=kelly_fraction,
 		simulations=simulations,
 		seed=seed,
+		pitcher_k_pct=pitcher_k_pct,
+		lineup_k_pct=lineup_k_pct,
+		pitches_per_start=pitches_per_start,
+		pitches_per_batter=pitches_per_batter,
+		pitcher_csw=pitcher_csw,
+		lineup_csw_against=lineup_csw_against,
+		temp_f=temp_f,
+		umpire_k_boost=umpire_k_boost,
+		park_k_factor=park_k_factor,
 	)
 	if analysis["recommendation"] == "PASS":
 		return {
@@ -406,6 +445,17 @@ def get_props() -> list[PropResponse]:
 				else ["limited_historical_sample"]
 			),
 		)
+		over_odds = row["over_odds"]
+		under_odds = row["under_odds"]
+		pitcher_k_pct = _safe_float(_row_optional_value(row, "pitcher_k_pct"))
+		lineup_k_pct = _safe_float(_row_optional_value(row, "lineup_k_pct"))
+		pitches_per_start = _safe_float(_row_optional_value(row, "pitches_per_start"))
+		pitches_per_batter = _safe_float(_row_optional_value(row, "pitches_per_batter"))
+		pitcher_csw = _safe_float(_row_optional_value(row, "pitcher_csw"))
+		lineup_csw_against = _safe_float(_row_optional_value(row, "lineup_csw_against"))
+		temp_f = _safe_float(_row_optional_value(row, "temperature_f"), 70.0) or 70.0
+		umpire_k_boost = _safe_float(_row_optional_value(row, "umpire_k_boost"), 0.0) or 0.0
+		park_k_factor = _safe_float(_row_optional_value(row, "park_k_factor"), 1.0) or 1.0
 		recommendation = apply_prop_intelligence_recommendation(
 			recommendation,
 			projection=projection,
@@ -418,6 +468,15 @@ def get_props() -> list[PropResponse]:
 			under_odds=under_odds,
 			sport=sport_label,
 			market=raw_market,
+			pitcher_k_pct=pitcher_k_pct,
+			lineup_k_pct=lineup_k_pct,
+			pitches_per_start=pitches_per_start,
+			pitches_per_batter=pitches_per_batter,
+			pitcher_csw=pitcher_csw,
+			lineup_csw_against=lineup_csw_against,
+			temp_f=temp_f,
+			umpire_k_boost=umpire_k_boost,
+			park_k_factor=park_k_factor,
 		)
 		if baseline is not None and not baseline_is_actionable(
 			baseline,
@@ -458,8 +517,6 @@ def get_props() -> list[PropResponse]:
 			except Exception:
 				edge_signed = 0.0
 
-		over_odds = row["over_odds"]
-		under_odds = row["under_odds"]
 		opening_line = row["opening_line"]
 		current_line = row["current_line"]
 		line_moved_at = str(row["line_updated_at"] or "")

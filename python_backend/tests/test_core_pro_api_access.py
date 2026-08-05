@@ -23,6 +23,7 @@ class SensitiveProp:
     sportsbook: str = "PRIZEPICKS"
     category: str = "POINTS"
     market: str = "Points"
+    marketKey: str = "player_points"
     line: float = 24.5
     startTimeUtc: str = "2099-07-20T20:00:00Z"
     lastUpdatedUtc: str = "2026-07-29T16:00:00Z"
@@ -48,6 +49,7 @@ class SensitiveProp:
 
 CORE = Membership("core-user", AccessLevel.CORE, "core", "user")
 PRO = Membership("pro-user", AccessLevel.PRO, "pro", "user")
+PRO_GOLD = Membership("gold-user", AccessLevel.PRO, "gold", "user")
 
 RESTRICTED_FIELDS = {
     "recommendedSide",
@@ -128,6 +130,47 @@ def test_pro_props_retain_proprietary_fields(monkeypatch) -> None:
     assert row["edge"] == 7.4
     assert row["evPercentage"] == 9.2
     assert row["projection"] == 27.1
+
+
+def test_regular_pro_hides_strikeout_suggestive_pick_but_keeps_confidence(monkeypatch) -> None:
+    strikeout_row = SensitiveProp(
+        sport="MLB",
+        market="Pitcher Strikeouts",
+        category="STRIKEOUTS",
+        marketKey="pitcher_strikeouts",
+        confidence=78,
+        recommendedSide="OVER",
+        recommendationAvailable=True,
+    )
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [strikeout_row])
+    main.app.dependency_overrides[require_core] = lambda: PRO
+    row = TestClient(main.app).get(
+        "/api/props?includeStale=true"
+    ).json()["props"][0]
+    assert row["confidence"] == 78
+    assert row["recommendedSide"] == "N/A"
+    assert row["pickText"] == "No Pick"
+    assert row["recommendationAvailable"] is False
+
+
+def test_pro_gold_retains_strikeout_suggestive_pick(monkeypatch) -> None:
+    strikeout_row = SensitiveProp(
+        sport="MLB",
+        market="Pitcher Strikeouts",
+        category="STRIKEOUTS",
+        marketKey="pitcher_strikeouts",
+        confidence=78,
+        recommendedSide="OVER",
+        recommendationAvailable=True,
+    )
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [strikeout_row])
+    main.app.dependency_overrides[require_core] = lambda: PRO_GOLD
+    row = TestClient(main.app).get(
+        "/api/props?includeStale=true"
+    ).json()["props"][0]
+    assert row["confidence"] == 78
+    assert row["recommendedSide"] == "OVER"
+    assert row["recommendationAvailable"] is True
 
 
 @pytest.mark.parametrize(

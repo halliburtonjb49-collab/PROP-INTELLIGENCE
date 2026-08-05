@@ -159,8 +159,8 @@ def resolve_membership(authorization: str = Header(default="")) -> Membership:
             detail="Membership service unavailable",
         ) from exc
     raw_tier = str(profile.get("subscription_tier") or "free").strip().lower()
-    if raw_tier in {"edge", "pro"} or profile.get("is_premium") is True:
-        return Membership(user_id, AccessLevel.PRO, "pro", "user")
+    if raw_tier in {"edge", "gold", "pro", "pro_gold", "pro-gold"} or profile.get("is_premium") is True:
+        return Membership(user_id, AccessLevel.PRO, raw_tier or "pro", "user")
     if raw_tier == "core":
         return Membership(user_id, AccessLevel.CORE, "core", "user")
     return Membership(user_id, AccessLevel.FREE, "free", "user")

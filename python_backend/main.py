@@ -189,6 +189,7 @@ from services.wnba_grading_service import (
 )
 from services.wnba_mapping_service import map_wnba_event
 from services.api_auth_service import (
+	AccessLevel,
 	Membership,
 	require_admin,
 	require_core,
@@ -2053,6 +2054,11 @@ def props(
 	started_at = time.perf_counter()
 	try:
 		is_pro = membership.has_pro_access
+		subscription_tier = str(membership.subscription_tier or "").strip().lower()
+		has_strikeout_suggestive_pick = (
+			subscription_tier in {"edge", "gold", "pro_gold", "pro-gold"}
+			or membership.level >= AccessLevel.ADMIN
+		)
 		prop_list = _cached_prop_catalog()
 		side_filter = side.strip().lower() if is_pro else "all"
 		tier_filter = tier.strip().lower() if is_pro else "all"
@@ -2070,6 +2076,46 @@ def props(
 			5,
 			int(os.getenv("PROP_FEED_STALE_MINUTES", "180")),
 		)
+
+		def _is_mlb_strikeout_prop(prop: PropResponse) -> bool:
+			sport_text = str(prop.sport or "").strip().upper()
+			market_text = " ".join((
+				str(prop.market or ""),
+				str(prop.marketKey or ""),
+				str(prop.category or ""),
+			)).lower()
+			return sport_text == "MLB" and "strikeout" in market_text
+
+		def _recommendation_visible(prop: PropResponse) -> bool:
+			if not bool(getattr(prop, "recommendationAvailable", False)):
+				return False
+			if _is_mlb_strikeout_prop(prop) and not has_strikeout_suggestive_pick:
+				return False
+			return True
+
+		def _visible_recommendation_side(prop: PropResponse) -> str:
+			if not _recommendation_visible(prop):
+				return ""
+			return str(prop.recommendedSide or "").strip().lower()
+
+		def _visible_recommendation_tier(prop: PropResponse) -> str:
+			if not _recommendation_visible(prop):
+				return ""
+			return str(prop.tier or "").strip().lower()
+
+		def _pro_payload(prop: PropResponse) -> dict[str, object]:
+			payload = prop.model_dump()
+			if _is_mlb_strikeout_prop(prop) and not has_strikeout_suggestive_pick:
+				payload.update({
+					"recommendedSide": "N/A",
+					"pick": "N/A",
+					"pickText": "No Pick",
+					"tier": "No Pick",
+					"recommendationAvailable": False,
+					"recommendationUnavailableReason": "pro_gold_required_for_strikeout_pick",
+					"recommendationExplanation": "Suggestive strikeout picks require Pro Gold.",
+				})
+			return payload
 
 		def _matches_filters(
 			prop: PropResponse,
@@ -2104,12 +2150,8 @@ def props(
 				current = float(getattr(prop, "currentLine", 0) or 0)
 				if opening == 0 or current == 0 or abs(current - opening) < 0.01:
 					return False
-			recommended_side = str(
-				prop.recommendedSide or ""
-			).strip().lower()
-			recommended_tier = str(
-				prop.tier or ""
-			).strip().lower()
+			recommended_side = _visible_recommendation_side(prop)
+			recommended_tier = _visible_recommendation_tier(prop)
 			confidence = int(prop.confidence or 0)
 			prop_sportsbook = str(prop.sportsbook or "").strip().lower().replace(" ", "")
 			if prop_sportsbook in {"betr", "betr_us_dfs", "betrusdfs"}:
@@ -2191,7 +2233,7 @@ def props(
 				key=lambda row: (
 					_all_sports_priority(row),
 					-tier_rank.get(
-						str(row.tier or "no pick").strip().lower(),
+						_visible_recommendation_tier(row) or "no pick",
 						0,
 					),
 					-int(row.confidence or 0),
@@ -2219,14 +2261,14 @@ def props(
 		model_pick_count = sum(
 			1
 			for prop in filtered_props
-			if bool(getattr(prop, "recommendationAvailable", False))
+			if _recommendation_visible(prop)
 			and str(getattr(prop, "recommendedSide", "") or "").strip().upper()
 			in {"OVER", "UNDER"}
 		)
 		baseline_pick_count = sum(
 			1
 			for prop in filtered_props
-			if bool(getattr(prop, "recommendationAvailable", False))
+			if _recommendation_visible(prop)
 			and str(getattr(prop, "projectionModelVersion", "") or "")
 			== "baseline-v2"
 		)
@@ -2250,7 +2292,7 @@ def props(
 		market_pick_count = sum(
 			1
 			for prop in filtered_props
-			if not bool(getattr(prop, "recommendationAvailable", False))
+			if not _recommendation_visible(prop)
 			and _has_market_direction(prop)
 		)
 		system_pick_count = model_pick_count + market_pick_count
@@ -2282,7 +2324,7 @@ def props(
 				"total": total_count,
 			} if is_pro else {"total": total_count},
 			"props": [
-				prop.model_dump() if is_pro else core_prop_payload(prop)
+				_pro_payload(prop) if is_pro else core_prop_payload(prop)
 				for prop in page
 			],
 			"filters": {

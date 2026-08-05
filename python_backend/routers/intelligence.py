@@ -271,6 +271,17 @@ def analyze_prop_intelligence(request: PropIntelligenceRequest) -> dict[str, obj
         kelly_fraction=request.kelly_fraction,
         simulations=request.simulations,
         seed=request.seed,
+        pitcher_k_pct=request.pitcher_k_pct,
+        lineup_k_pct=request.lineup_k_pct,
+        pitches_per_start=request.pitches_per_start,
+        pitches_per_batter=request.pitches_per_batter,
+        pitcher_csw=request.pitcher_csw,
+        lineup_csw_against=request.lineup_csw_against,
+        temp_f=request.temp_f,
+        umpire_k_boost=request.umpire_k_boost,
+        park_k_factor=request.park_k_factor,
+        league_avg_k_rate=request.league_avg_k_rate,
+        league_avg_csw=request.league_avg_csw,
     )
 
 
