@@ -60,8 +60,8 @@ def test_prop_context_recalculates_projection_probability_and_side() -> None:
         projectionVolatility=1.5,
         projectionSampleSize=20,
         historicalHitRate=60,
-        sport="MLB",
-        market="Pitcher Strikeouts",
+        sport="NBA",
+        market="Points",
         recommendationAvailable=True,
     )
     apply_projection_context(prop)
@@ -106,8 +106,8 @@ def test_missing_sample_metadata_does_not_overwrite_verified_tier() -> None:
         projectionSampleSize=0,
         projectionCalibrated=False,
         historicalHitRate=None,
-        sport="MLB",
-        market="Pitcher Strikeouts",
+        sport="NBA",
+        market="Points",
         recommendationAvailable=True,
         confidence=62,
         tier="Strong",
@@ -157,7 +157,14 @@ def test_strikeout_release_gate_suppresses_fallback_heavy_pick(monkeypatch) -> N
         marketKey="pitcher_strikeouts",
         category="STRIKEOUTS",
         recommendationAvailable=True,
-        mlbProjectedLineupMatchup={"opposingLineup": [{"player": "Batter", "battingOrder": 1}]},
+        mlbProjectedLineupMatchup={
+            "confirmed": True,
+            "observedAt": "2026-08-05T18:10:00Z",
+                "opposingLineup": [
+                    {"player": f"Batter {idx}", "battingOrder": idx}
+                    for idx in range(1, 10)
+                ],
+        },
         pitcherKPercent=None,
         pitcherCsw=None,
         pitchesPerStart=95.0,
@@ -174,6 +181,6 @@ def test_strikeout_release_gate_suppresses_fallback_heavy_pick(monkeypatch) -> N
     apply_projection_context(prop)
 
     assert prop.recommendationAvailable is False
-    assert prop.recommendationUnavailableReason == "strikeout_pitcher_skill_unverified"
+    assert prop.recommendationUnavailableReason == "strikeout_fallback_over_limit"
     assert prop.pick == "N/A"
     assert prop.confidence == 0

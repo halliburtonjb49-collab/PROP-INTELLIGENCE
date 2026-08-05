@@ -361,6 +361,31 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> fetchStrikeoutControls() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/operations/strikeout-controls'),
+      headers: await _authenticatedHeaders(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load strikeout controls: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateStrikeoutControls(
+    Map<String, dynamic> controls,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/operations/strikeout-controls'),
+      headers: await _authenticatedHeaders(json: true),
+      body: jsonEncode({'controls': controls}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to update strikeout controls: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<List<Map<String, dynamic>>> fetchAlertDeliveries() async {
     final response = await http.get(
       Uri.parse('$baseUrl/api/intelligence/alerts/deliveries'),

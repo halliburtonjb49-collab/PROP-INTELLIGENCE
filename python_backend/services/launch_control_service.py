@@ -18,6 +18,13 @@ from services.grading_review_service import grading_review_queue
 from services.provider_quality_service import provider_quality_score
 from services.model_performance_service import model_performance, operations_summary
 from services.sync_diagnostic_service import ticket_sync_diagnostic_summary
+from services.strikeout_quality_service import (
+    get_strikeout_release_controls,
+    strikeout_backtest_monitoring,
+    strikeout_calibration_report,
+    strikeout_explainability_snippets,
+    strikeout_method_ab_report,
+)
 
 FAILED_PAYMENT_EVENTS = ("BILLING_ISSUE", "SUBSCRIPTION_PAUSED")
 _prop_cache = PropCache(DB_PATH)
@@ -314,6 +321,16 @@ def launch_control_snapshot() -> dict[str, object]:
         strikeout_intelligence = _strikeout_owner_report(performance)
         strikeout_input_coverage = _current_strikeout_input_coverage()
         strikeout_method_audit = _graded_strikeout_method_report()
+        strikeout_controls = get_strikeout_release_controls()
+        control_values = strikeout_controls.get("controls") if isinstance(strikeout_controls, dict) else None
+        strikeout_calibration = strikeout_calibration_report(
+            control_values if isinstance(control_values, dict) else None,
+        )
+        strikeout_backtest = strikeout_backtest_monitoring(
+            control_values if isinstance(control_values, dict) else None,
+        )
+        strikeout_method_ab = strikeout_method_ab_report()
+        strikeout_explainability = strikeout_explainability_snippets()
     except Exception as exc:
         performance = {
             "sampleSize": 0,
@@ -340,6 +357,35 @@ def launch_control_snapshot() -> dict[str, object]:
             "available": False,
             "methods": [],
             "reason": type(exc).__name__,
+        }
+        strikeout_controls = {
+            "configured": database_is_configured(),
+            "controls": {},
+            "source": "error",
+            "error": type(exc).__name__,
+        }
+        strikeout_calibration = {
+            "available": False,
+            "sampleSize": 0,
+            "reason": type(exc).__name__,
+            "adjustments": [],
+        }
+        strikeout_backtest = {
+            "available": False,
+            "healthy": False,
+            "reason": type(exc).__name__,
+            "slices": [],
+            "alerts": [],
+        }
+        strikeout_method_ab = {
+            "available": False,
+            "reason": type(exc).__name__,
+            "variants": [],
+        }
+        strikeout_explainability = {
+            "available": False,
+            "reason": type(exc).__name__,
+            "items": [],
         }
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
@@ -372,6 +418,11 @@ def launch_control_snapshot() -> dict[str, object]:
             "strikeoutIntelligence": strikeout_intelligence,
             "strikeoutInputCoverage": strikeout_input_coverage,
             "strikeoutMethodAudit": strikeout_method_audit,
+            "strikeoutReleaseControls": strikeout_controls,
+            "strikeoutCalibration": strikeout_calibration,
+            "strikeoutBacktest": strikeout_backtest,
+            "strikeoutMethodComparison": strikeout_method_ab,
+            "strikeoutExplainability": strikeout_explainability,
             "notes": [
                 "Suggestive strikeout picks are restricted to Pro Gold.",
                 "Owner Operations always shows full strikeout validation diagnostics.",

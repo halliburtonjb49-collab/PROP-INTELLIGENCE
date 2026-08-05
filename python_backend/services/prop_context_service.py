@@ -20,6 +20,12 @@ from services.basketball_matchup_ingestion_service import enrich_basketball_matc
 from services.context_quality_service import evaluate_context_quality
 from services.mlb_strikeout_enrichment_service import enrich_mlb_strikeout_props
 from services.pregame_context_ingestion_service import apply_latest_pregame_context
+from services.strikeout_quality_service import (
+    build_explainability_snippet,
+    evaluate_release_gate,
+    get_strikeout_release_controls,
+    strikeout_probability_adjustment,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,17 +42,15 @@ def _apply_strikeout_release_gate(prop: object) -> bool:
     ):
         return False
 
-    lineup_matchup = getattr(prop, "mlbProjectedLineupMatchup", None)
-    if not isinstance(lineup_matchup, dict) or not list(lineup_matchup.get("opposingLineup") or []):
-        reason = "strikeout_lineup_missing"
-    elif bool(getattr(prop, "strikeoutUsedFallbackPitcherRate", False)):
-        reason = "strikeout_pitcher_skill_unverified"
-    elif bool(getattr(prop, "strikeoutUsedFallbackTbf", False)):
-        reason = "strikeout_tbf_unverified"
-    elif getattr(prop, "lineupKPercent", None) is None and getattr(prop, "lineupCswAgainst", None) is None:
-        reason = "strikeout_lineup_split_missing"
-    else:
+    controls = get_strikeout_release_controls()
+    control_values = controls.get("controls") if isinstance(controls, dict) else None
+    gate = evaluate_release_gate(
+        prop,
+        control_values if isinstance(control_values, dict) else None,
+    )
+    if not gate.blocked:
         return False
+    reason = gate.reason or "strikeout_quality_gate_blocked"
 
     prop.recommendationAvailable = False
     prop.recommendationUnavailableReason = reason
@@ -57,6 +61,8 @@ def _apply_strikeout_release_gate(prop: object) -> bool:
     prop.confidence = 0
     prop.isPositiveEv = False
     prop.opportunityStatus = "SYSTEM_LEAN"
+    if gate.details:
+        prop.opportunityReasons = list(gate.details)
     return True
 
 
@@ -235,11 +241,17 @@ def apply_projection_context(prop: object) -> None:
     prop.probabilityMethod = evaluation.distribution
     prop.probabilityMarketWeight = evaluation.market_weight
     prop.probabilityUncertainty = evaluation.uncertainty
+    base_calibration_adjustment = float(evaluation.calibration_adjustment or 0.0)
+    strikeout_adjustment = 0.0
     conservative_probability = max(
         0.0, min(1.0, probability - evaluation.uncertainty)
     )
+    if is_mlb_strikeout:
+        strikeout_adjustment = strikeout_probability_adjustment(side, conservative_probability)
+        conservative_probability = max(0.0, min(1.0, conservative_probability + strikeout_adjustment))
+        prop.recommendationExplanation = build_explainability_snippet(prop)
     prop.uncertaintyAdjustedProbability = round(conservative_probability, 6)
-    prop.probabilityCalibrationAdjustment = evaluation.calibration_adjustment
+    prop.probabilityCalibrationAdjustment = round(base_calibration_adjustment + strikeout_adjustment, 6)
     calculated_confidence = confidence_from_probability(conservative_probability)
     prop.recommendedSide = side.title()
     prop.pick = side

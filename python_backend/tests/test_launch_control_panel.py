@@ -97,6 +97,55 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
             ],
         },
     )
+    monkeypatch.setattr(
+        launch_control_service,
+        "get_strikeout_release_controls",
+        lambda: {
+            "configured": True,
+            "source": "database",
+            "controls": {
+                "enabled": True,
+                "maxLineupAgeMinutes": 240,
+            },
+        },
+    )
+    monkeypatch.setattr(
+        launch_control_service,
+        "strikeout_calibration_report",
+        lambda _controls=None: {
+            "available": True,
+            "healthy": True,
+            "sampleSize": 120,
+            "overallGap": 0.01,
+            "adjustments": [],
+        },
+    )
+    monkeypatch.setattr(
+        launch_control_service,
+        "strikeout_backtest_monitoring",
+        lambda _controls=None: {
+            "available": True,
+            "healthy": True,
+            "slices": [],
+            "alerts": [],
+        },
+    )
+    monkeypatch.setattr(
+        launch_control_service,
+        "strikeout_method_ab_report",
+        lambda: {
+            "available": True,
+            "variants": [{"variant": "enriched_variant", "sampleSize": 40}],
+        },
+    )
+    monkeypatch.setattr(
+        launch_control_service,
+        "strikeout_explainability_snippets",
+        lambda: {
+            "available": True,
+            "items": [{"player": "Pitcher", "summary": "model | p 61%"}],
+        },
+    )
 
     result = launch_control_service.launch_control_snapshot()
 
@@ -115,6 +164,11 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
     assert result["predictionOperations"]["snapshotsToday"] == 24
     assert result["ownerOnlyInsights"]["strikeoutInputCoverage"]["total"] == 12
     assert result["ownerOnlyInsights"]["strikeoutMethodAudit"]["methods"][0]["method"] == "mlb_strikeout_log5_binomial"
+    assert result["ownerOnlyInsights"]["strikeoutReleaseControls"]["controls"]["enabled"] is True
+    assert result["ownerOnlyInsights"]["strikeoutCalibration"]["sampleSize"] == 120
+    assert result["ownerOnlyInsights"]["strikeoutBacktest"]["healthy"] is True
+    assert result["ownerOnlyInsights"]["strikeoutMethodComparison"]["variants"][0]["variant"] == "enriched_variant"
+    assert result["ownerOnlyInsights"]["strikeoutExplainability"]["items"][0]["player"] == "Pitcher"
 
 
 def test_scoreboard_latency_snapshot_records_request() -> None:

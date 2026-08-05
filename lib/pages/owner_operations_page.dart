@@ -19,6 +19,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   late final ApiService _api = widget.apiService ?? ApiService();
   Map<String, dynamic>? _control;
   Map<String, dynamic>? _review;
+  Map<String, dynamic> _strikeoutControlsDraft = const {};
+  bool _savingStrikeoutControls = false;
   bool _loading = true;
   String? _error;
   DateTime? _lastChecked;
@@ -45,6 +47,14 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       setState(() {
         _control = results[0];
         _review = results[1];
+        final ownerInsights = _control?['ownerOnlyInsights'] as Map? ?? const {};
+        final controlPayload =
+            ownerInsights['strikeoutReleaseControls'] as Map? ?? const {};
+        final controls =
+            controlPayload['controls'] as Map? ?? const {};
+        _strikeoutControlsDraft = Map<String, dynamic>.from(
+          controls.map((key, value) => MapEntry('$key', value)),
+        );
         _lastChecked = DateTime.now();
       });
     } catch (error) {
@@ -55,6 +65,50 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   }
 
   Map _map(String key) => _control?[key] as Map? ?? const {};
+
+  bool _boolControl(String key, bool fallback) {
+    final value = _strikeoutControlsDraft[key];
+    if (value is bool) return value;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true') return true;
+      if (normalized == 'false') return false;
+    }
+    return fallback;
+  }
+
+  int _intControl(String key, int fallback) {
+    final value = _strikeoutControlsDraft[key];
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return fallback;
+  }
+
+  Future<void> _saveStrikeoutControls() async {
+    if (_savingStrikeoutControls) return;
+    setState(() => _savingStrikeoutControls = true);
+    try {
+      final response = await _api.updateStrikeoutControls(_strikeoutControlsDraft);
+      if (!mounted) return;
+      final controls = response['controls'] as Map? ?? const {};
+      setState(() {
+        _strikeoutControlsDraft = Map<String, dynamic>.from(
+          controls.map((key, value) => MapEntry('$key', value)),
+        );
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Strikeout controls updated.')),
+      );
+      await _refresh();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to update controls: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingStrikeoutControls = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -435,6 +489,11 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     final strikeout = ownerInsights['strikeoutIntelligence'] as Map? ?? const {};
     final inputCoverage = ownerInsights['strikeoutInputCoverage'] as Map? ?? const {};
     final methodAudit = ownerInsights['strikeoutMethodAudit'] as Map? ?? const {};
+    final releaseControls = ownerInsights['strikeoutReleaseControls'] as Map? ?? const {};
+    final calibration = ownerInsights['strikeoutCalibration'] as Map? ?? const {};
+    final backtest = ownerInsights['strikeoutBacktest'] as Map? ?? const {};
+    final methodComparison = ownerInsights['strikeoutMethodComparison'] as Map? ?? const {};
+    final explainability = ownerInsights['strikeoutExplainability'] as Map? ?? const {};
     final available = strikeout['available'] == true;
     if (!available) {
       return _notice(
@@ -462,12 +521,189 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       .whereType<Map>()
       .take(3)
       .toList(growable: false);
+    final variants = (methodComparison['variants'] as List? ?? const [])
+      .whereType<Map>()
+      .take(2)
+      .toList(growable: false);
+    final explainItems = (explainability['items'] as List? ?? const [])
+      .whereType<Map>()
+      .take(4)
+      .toList(growable: false);
+    final backtestAlerts = (backtest['alerts'] as List? ?? const [])
+      .whereType<Map>()
+      .take(3)
+      .toList(growable: false);
+    final calibrationAdjustments = (calibration['adjustments'] as List? ?? const [])
+      .whereType<Map>()
+      .take(4)
+      .toList(growable: false);
     final health = (strikeout['health']?.toString() ?? 'COLLECTING').toUpperCase();
     final healthy = health == 'HEALTHY';
+    final controlsLoaded = releaseControls['controls'] is Map;
+    if (_strikeoutControlsDraft.isEmpty && controlsLoaded) {
+      _strikeoutControlsDraft = Map<String, dynamic>.from(
+        (releaseControls['controls'] as Map).map(
+          (key, value) => MapEntry('$key', value),
+        ),
+      );
+    }
+    final controlSource = releaseControls['source']?.toString() ?? 'defaults';
+    final calibrationHealthy = calibration['healthy'] == true;
+    final driftHealthy = backtest['healthy'] == true;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const Text(
+          'OWNER CONTROLS',
+          style: TextStyle(
+            color: AppColors.gold,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 6),
+        _notice(
+          Icons.tune,
+          'Runtime Gate Controls',
+          'Source: $controlSource | Toggle release rules without deploying new code.',
+          AppColors.gold,
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0C1823),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.gold.withValues(alpha: .2)),
+          ),
+          child: Column(
+            children: [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _boolControl('enabled', true),
+                onChanged: (value) => setState(
+                  () => _strikeoutControlsDraft['enabled'] = value,
+                ),
+                title: const Text(
+                  'Gate enabled',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                subtitle: const Text(
+                  'Blocks weak-data strikeout suggestive picks before release',
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 10),
+                ),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _boolControl('requireConfirmedLineup', true),
+                onChanged: (value) => setState(
+                  () => _strikeoutControlsDraft['requireConfirmedLineup'] = value,
+                ),
+                title: const Text(
+                  'Require confirmed lineup',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _boolControl('requireTemperature', true),
+                onChanged: (value) => setState(
+                  () => _strikeoutControlsDraft['requireTemperature'] = value,
+                ),
+                title: const Text(
+                  'Require weather temperature',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _boolControl('requireUmpireBoost', true),
+                onChanged: (value) => setState(
+                  () => _strikeoutControlsDraft['requireUmpireBoost'] = value,
+                ),
+                title: const Text(
+                  'Require umpire signal',
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  'Max lineup age: ${_intControl('maxLineupAgeMinutes', 240)} min',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                subtitle: Slider(
+                  value: _intControl('maxLineupAgeMinutes', 240).toDouble(),
+                  min: 30,
+                  max: 720,
+                  divisions: 23,
+                  label: '${_intControl('maxLineupAgeMinutes', 240)}',
+                  onChanged: (value) => setState(
+                    () => _strikeoutControlsDraft['maxLineupAgeMinutes'] = value.round(),
+                  ),
+                ),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  'Min opposing lineup size: ${_intControl('minOpposingLineupSize', 8)}',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                subtitle: Slider(
+                  value: _intControl('minOpposingLineupSize', 8).toDouble(),
+                  min: 5,
+                  max: 9,
+                  divisions: 4,
+                  label: '${_intControl('minOpposingLineupSize', 8)}',
+                  onChanged: (value) => setState(
+                    () => _strikeoutControlsDraft['minOpposingLineupSize'] = value.round(),
+                  ),
+                ),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  'Max fallback signals: ${_intControl('maxFallbackSignals', 0)}',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                subtitle: Slider(
+                  value: _intControl('maxFallbackSignals', 0).toDouble(),
+                  min: 0,
+                  max: 3,
+                  divisions: 3,
+                  label: '${_intControl('maxFallbackSignals', 0)}',
+                  onChanged: (value) => setState(
+                    () => _strikeoutControlsDraft['maxFallbackSignals'] = value.round(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: _savingStrikeoutControls ? null : _saveStrikeoutControls,
+                  icon: _savingStrikeoutControls
+                      ? const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save_outlined, size: 16),
+                  label: Text(
+                    _savingStrikeoutControls ? 'Saving...' : 'Save strikeout controls',
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.gold,
+                    foregroundColor: const Color(0xFF07121C),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
         Wrap(
           spacing: 10,
           runSpacing: 10,
@@ -507,6 +743,18 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
               pct(strikeout['positiveOddsClvRate']),
               ((strikeout['positiveOddsClvRate'] as num?)?.toDouble() ?? 0) >= 0.5,
               detail: '${numVal(strikeout['averageOddsClvExpectedValuePercent'])}% avg',
+            ),
+            _status(
+              'Calibration',
+              calibrationHealthy ? 'HEALTHY' : 'MONITOR',
+              calibrationHealthy,
+              detail: 'Gap ${pct(calibration['overallGap'])} | ${calibration['sampleSize'] ?? 0} samples',
+            ),
+            _status(
+              'Backtest drift',
+              driftHealthy ? 'HEALTHY' : 'ALERT',
+              driftHealthy,
+              detail: '${backtestAlerts.length} active alerts',
             ),
           ],
         ),
@@ -600,6 +848,90 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                   Icons.science_outlined,
                   '${method['method'] ?? 'unknown'} | ${method['sampleSize'] ?? 0} graded',
                   'accuracy ${pct(method['accuracy'])} | fallback pitcher ${pct(method['fallbackPitcherRate'])} | fallback lineup ${pct(method['fallbackLineupRate'])} | fallback TBF ${pct(method['fallbackTbfRate'])} | market blend ${pct(method['marketBlendRate'])}',
+                  AppColors.gold,
+                ),
+              )),
+        ],
+        if (variants.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text(
+            'METHOD A/B',
+            style: TextStyle(
+              color: AppColors.gold,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 7),
+          ...variants.map((variant) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _notice(
+                  Icons.compare_arrows,
+                  '${variant['variant'] ?? 'variant'} | ${variant['sampleSize'] ?? 0} graded',
+                  'accuracy ${pct(variant['accuracy'])} | predicted ${pct(variant['predicted'])} | brier ${numVal(variant['brier'], decimals: 3)} | ROI ${numVal(variant['simulatedRoi'])}',
+                  AppColors.gold,
+                ),
+              )),
+        ],
+        if (calibrationAdjustments.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text(
+            'CALIBRATION ADJUSTMENTS',
+            style: TextStyle(
+              color: AppColors.gold,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 7),
+          ...calibrationAdjustments.map((row) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _notice(
+                  Icons.straighten,
+                  '${row['side'] ?? '--'} ${row['bucket'] ?? '--'} | ${row['sampleSize'] ?? 0} picks',
+                  'predicted ${pct(row['predicted'])} | actual ${pct(row['actual'])} | gap ${pct(row['gap'])} | adjust ${pct(row['recommendedAdjustment'])}',
+                  AppColors.gold,
+                ),
+              )),
+        ],
+        if (backtestAlerts.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text(
+            'DRIFT ALERTS',
+            style: TextStyle(
+              color: AppColors.gold,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 7),
+          ...backtestAlerts.map((alert) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _notice(
+                  Icons.warning_amber_rounded,
+                  '${alert['severity'] ?? 'warning'} | ${alert['sportsbook'] ?? '--'} | ${alert['lineRange'] ?? '--'} | ${alert['handedness'] ?? '--'}',
+                  '${alert['message'] ?? ''} | sample ${alert['sampleSize'] ?? 0}',
+                  const Color(0xFFFF7B7B),
+                ),
+              )),
+        ],
+        if (explainItems.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text(
+            'EXPLAINABILITY',
+            style: TextStyle(
+              color: AppColors.gold,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 7),
+          ...explainItems.map((item) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _notice(
+                  Icons.psychology_outlined,
+                  '${item['player'] ?? '--'} | ${item['side'] ?? '--'} ${item['line'] ?? '--'}',
+                  '${item['summary'] ?? ''}',
                   AppColors.gold,
                 ),
               )),
