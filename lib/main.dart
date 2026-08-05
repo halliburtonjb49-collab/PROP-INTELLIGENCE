@@ -9694,25 +9694,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           const Spacer(),
           RecommendationExplainabilityBlock(prop: prop),
           const SizedBox(height: 8),
-          Text(
-            hasModelPick && delta != null
-                ? 'Projection is ${delta.abs().toStringAsFixed(2)} $market ${delta >= 0 ? 'above' : 'below'} the posted line. Verify lineup and price before selecting.'
-                : advisedSide != null && prop.proSuggestionUsesMarket
-                ? 'System leans ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} from current sportsbook pricing${signalRating == null ? '' : ' ($signalRating% signal)'}. Informational only — this is not a verified model pick.'
-                : advisedSide != null && prop.proSuggestionUsesHistoricalStats
-                ? 'System leans ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} from recent player results${signalRating == null ? '' : ' ($signalRating% historical hit rate)'}. Informational only — verify the live line.'
-                : prop.pickGradeExplanation.isNotEmpty
-                ? prop.pickGradeExplanation
-                : prop.recommendationExplanation.isNotEmpty
-                ? prop.recommendationExplanation
-                : 'Review the live line, player status, and current information before selecting.',
+          const Text(
+            'Standardized explainability is shown above. Confirm live line movement and player availability before adding to slip.',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.muted,
-              fontSize: 8,
-              height: 1.3,
-            ),
+            style: TextStyle(color: AppColors.muted, fontSize: 8, height: 1.3),
           ),
           const SizedBox(height: 11),
           Row(
@@ -10028,38 +10014,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            hasModelRecommendation
-                ? prop.projectionModelVersion == 'baseline-v2'
-                      ? 'Baseline historical model • ${prop.projectionSampleSize} games • ${prop.historicalHitRate ?? '--'}% historical hit rate'
-                      : 'Verified provider projection • $confidence% confidence'
-                : hasHistoricalLean
-                ? '${prop.projectionLabel.isEmpty ? 'Historical stats' : prop.projectionLabel} • ${prop.projectionSampleSize} games • informational only'
-                : hasMarketLean
-                ? 'Based on current sportsbook pricing (${prop.marketLeanPercentage ?? 50}%) • not an AI projection'
-                : !hasProAccess
-                ? 'Upgrade to Pro for projections and edge metrics'
-                : prop.recommendationUnavailableReason ==
-                      'player_identity_unresolved'
-                ? 'Player identity verification pending'
-                : prop.recommendationUnavailableReason ==
-                      'model_signal_below_threshold'
-                ? 'Baseline projection available • no qualified edge'
-                : prop.pickGradeExplanation.isNotEmpty
-                ? 'GRADE ${prop.pickGrade} • ${prop.pickGradeExplanation}'
-                : 'Projection data pending',
-            style: const TextStyle(color: AppColors.muted, fontSize: 7.5),
+          RecommendationExplainabilityBlock(
+            prop: prop,
+            title: 'STANDARDIZED EXPLAINABILITY',
           ),
-          if (hasModelRecommendation &&
-              prop.recommendationExplanation.isNotEmpty) ...[
-            const SizedBox(height: 3),
-            Text(
-              prop.recommendationExplanation,
-              style: const TextStyle(color: Color(0xFFB8C7D6), fontSize: 7.5),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
           const SizedBox(height: 3),
           Text(
             hasProAccess && prop.projectionModelVersion == 'baseline-v2'
