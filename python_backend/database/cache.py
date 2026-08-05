@@ -46,6 +46,15 @@ class PropCache:
                     prediction TEXT,
                     confidence REAL,
                     source_player_id TEXT,
+                    pitcher_k_pct REAL,
+                    lineup_k_pct REAL,
+                    pitches_per_start REAL,
+                    pitches_per_batter REAL,
+                    pitcher_csw REAL,
+                    lineup_csw_against REAL,
+                    temperature_f REAL,
+                    umpire_k_boost REAL,
+                    park_k_factor REAL,
                     updated_at TEXT,
                     FOREIGN KEY (game_id) REFERENCES games(id)
                 )
@@ -95,6 +104,24 @@ class PropCache:
                     ADD COLUMN updated_at TEXT
                     """
                 )
+            for column, sql_type in (
+                ("pitcher_k_pct", "REAL"),
+                ("lineup_k_pct", "REAL"),
+                ("pitches_per_start", "REAL"),
+                ("pitches_per_batter", "REAL"),
+                ("pitcher_csw", "REAL"),
+                ("lineup_csw_against", "REAL"),
+                ("temperature_f", "REAL"),
+                ("umpire_k_boost", "REAL"),
+                ("park_k_factor", "REAL"),
+            ):
+                if column not in prop_columns:
+                    connection.execute(
+                        f"""
+                        ALTER TABLE props
+                        ADD COLUMN {column} {sql_type}
+                        """
+                    )
             if "opening_line" not in prop_columns:
                 connection.execute(
                     """
@@ -314,6 +341,15 @@ class PropCache:
         prediction: str,
         confidence: float,
         source_player_id: str,
+        pitcher_k_pct: float | None,
+        lineup_k_pct: float | None,
+        pitches_per_start: float | None,
+        pitches_per_batter: float | None,
+        pitcher_csw: float | None,
+        lineup_csw_against: float | None,
+        temperature_f: float | None,
+        umpire_k_boost: float | None,
+        park_k_factor: float | None,
         updated_at: str,
     ) -> None:
         with self.connect() as connection:
@@ -333,9 +369,18 @@ class PropCache:
                     prediction,
                     confidence,
                     source_player_id,
+                    pitcher_k_pct,
+                    lineup_k_pct,
+                    pitches_per_start,
+                    pitches_per_batter,
+                    pitcher_csw,
+                    lineup_csw_against,
+                    temperature_f,
+                    umpire_k_boost,
+                    park_k_factor,
                     updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     game_id,
@@ -351,6 +396,15 @@ class PropCache:
                     prediction,
                     confidence,
                     source_player_id,
+                    pitcher_k_pct,
+                    lineup_k_pct,
+                    pitches_per_start,
+                    pitches_per_batter,
+                    pitcher_csw,
+                    lineup_csw_against,
+                    temperature_f,
+                    umpire_k_boost,
+                    park_k_factor,
                     updated_at,
                 ),
             )
@@ -390,8 +444,11 @@ class PropCache:
                 INSERT INTO props (
                     game_id, player_name, prop_type, line, opening_line,
                     current_line, line_updated_at, over_odds, under_odds,
-                    bookmaker, prediction, confidence, source_player_id, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    bookmaker, prediction, confidence, source_player_id,
+                    pitcher_k_pct, lineup_k_pct, pitches_per_start,
+                    pitches_per_batter, pitcher_csw, lineup_csw_against,
+                    temperature_f, umpire_k_boost, park_k_factor, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 props,
             )
@@ -420,6 +477,15 @@ class PropCache:
                     p.over_odds,
                     p.under_odds,
                     p.source_player_id,
+                    p.pitcher_k_pct,
+                    p.lineup_k_pct,
+                    p.pitches_per_start,
+                    p.pitches_per_batter,
+                    p.pitcher_csw,
+                    p.lineup_csw_against,
+                    p.temperature_f,
+                    p.umpire_k_boost,
+                    p.park_k_factor,
                     p.updated_at
                 FROM props p
                 JOIN games g ON p.game_id = g.id

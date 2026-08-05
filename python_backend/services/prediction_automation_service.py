@@ -217,7 +217,14 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
                              "expectedValuePercentage": prop.evPercentage,
                              "entryOdds": prop.overOdds if side == "OVER" else prop.underOdds,
                              "openingLine": prop.openingLine,
-                             "currentLine": prop.currentLine}), event_time))
+                             "currentLine": prop.currentLine,
+                             "strikeoutModelMethod": getattr(prop, "strikeoutModelMethod", ""),
+                             "strikeoutSkillSource": getattr(prop, "strikeoutSkillSource", ""),
+                             "strikeoutProjectedBattersFaced": getattr(prop, "strikeoutProjectedBattersFaced", None),
+                             "strikeoutUsedFallbackPitcherRate": getattr(prop, "strikeoutUsedFallbackPitcherRate", False),
+                             "strikeoutUsedFallbackLineupRate": getattr(prop, "strikeoutUsedFallbackLineupRate", False),
+                             "strikeoutUsedFallbackTbf": getattr(prop, "strikeoutUsedFallbackTbf", False),
+                             "strikeoutUsedMarketBlend": getattr(prop, "strikeoutUsedMarketBlend", False)}), event_time))
             snapshot_id = cursor.fetchone()[0]
             feature_payload = {
                 "opponentAllowanceByPosition": getattr(prop, "opponentAllowanceByPosition", None),

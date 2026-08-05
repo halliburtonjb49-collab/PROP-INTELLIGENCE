@@ -268,6 +268,13 @@ def apply_prop_intelligence_recommendation(
 		"recommendationEdge": float(analysis.get("edgePercent", 0.0) or 0.0),
 		"confidence": confidence,
 		"tier": _tier_from_confidence(confidence, analysis["recommendation"]),
+		"analysisMethod": str(analysis.get("method") or ""),
+		"skillSource": str(analysis.get("skillSource") or ""),
+		"projectedBattersFaced": analysis.get("projectedBattersFaced"),
+		"usedFallbackPitcherRate": bool(analysis.get("usedFallbackPitcherRate")),
+		"usedFallbackLineupRate": bool(analysis.get("usedFallbackLineupRate")),
+		"usedFallbackTbf": bool(analysis.get("usedFallbackTbf")),
+		"usedMarketBlend": bool(analysis.get("usedMarketBlend")),
 		"recommendationExplanation": (
 			f"Prop-intelligence model estimated a {analysis['recommendation'].lower()} edge with "
 			f"{analysis['expectedValuePercent']:.2f}% EV."
@@ -839,6 +846,26 @@ def get_props() -> list[PropResponse]:
 					if market_evaluation is not None
 					else 0
 				),
+				pitcherKPercent=pitcher_k_pct,
+				lineupKPercent=lineup_k_pct,
+				pitchesPerStart=pitches_per_start,
+				pitchesPerBatter=pitches_per_batter,
+				pitcherCsw=pitcher_csw,
+				lineupCswAgainst=lineup_csw_against,
+				temperatureF=temp_f,
+				umpireKBoost=umpire_k_boost,
+				parkKFactor=park_k_factor,
+				strikeoutModelMethod=str(recommendation.get("analysisMethod") or ""),
+				strikeoutSkillSource=str(recommendation.get("skillSource") or ""),
+				strikeoutProjectedBattersFaced=(
+					int(recommendation["projectedBattersFaced"])
+					if recommendation.get("projectedBattersFaced") is not None
+					else None
+				),
+				strikeoutUsedFallbackPitcherRate=bool(recommendation.get("usedFallbackPitcherRate")),
+				strikeoutUsedFallbackLineupRate=bool(recommendation.get("usedFallbackLineupRate")),
+				strikeoutUsedFallbackTbf=bool(recommendation.get("usedFallbackTbf")),
+				strikeoutUsedMarketBlend=bool(recommendation.get("usedMarketBlend")),
 			)
 		)
 

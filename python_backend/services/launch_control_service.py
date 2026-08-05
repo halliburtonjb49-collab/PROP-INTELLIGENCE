@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import os
 
+from config import DB_PATH
+from database.cache import PropCache
 from database.postgres import database_is_configured, get_database_pool
 from services.acceptance_service import production_acceptance_snapshot
 from services.distributed_cache_service import health as cache_health
@@ -18,6 +20,7 @@ from services.model_performance_service import model_performance, operations_sum
 from services.sync_diagnostic_service import ticket_sync_diagnostic_summary
 
 FAILED_PAYMENT_EVENTS = ("BILLING_ISSUE", "SUBSCRIPTION_PAUSED")
+_prop_cache = PropCache(DB_PATH)
 
 
 def _safe_int(value: object, default: int = 0) -> int:
@@ -125,6 +128,102 @@ def _strikeout_owner_report(performance: dict[str, object]) -> dict[str, object]
     }
 
 
+def _current_strikeout_input_coverage() -> dict[str, object]:
+    rows = _prop_cache.load_props()
+    strikeout_rows = [
+        row for row in rows
+        if str(row["sport"] or "").strip().upper() in {"MLB", "BASEBALL_MLB"}
+        and "strikeout" in str(row["prop_type"] or "").lower()
+    ]
+    total = len(strikeout_rows)
+    if total == 0:
+        return {
+            "available": False,
+            "total": 0,
+            "reason": "No live MLB strikeout props are cached.",
+        }
+
+    def _count(column: str) -> int:
+        return sum(1 for row in strikeout_rows if row[column] is not None)
+
+    pitcher_rate = _count("pitcher_k_pct")
+    lineup_rate = _count("lineup_k_pct")
+    pitcher_csw = _count("pitcher_csw")
+    lineup_csw = _count("lineup_csw_against")
+    tbf_ready = sum(
+        1
+        for row in strikeout_rows
+        if row["pitches_per_start"] is not None and row["pitches_per_batter"] is not None
+    )
+    environment_ready = sum(
+        1
+        for row in strikeout_rows
+        if row["temperature_f"] is not None
+        and row["umpire_k_boost"] is not None
+        and row["park_k_factor"] is not None
+    )
+    full_model_ready = sum(
+        1
+        for row in strikeout_rows
+        if (
+            (row["pitcher_csw"] is not None and row["lineup_csw_against"] is not None)
+            or (row["pitcher_k_pct"] is not None and row["lineup_k_pct"] is not None)
+        )
+        and row["pitches_per_start"] is not None
+        and row["pitches_per_batter"] is not None
+    )
+    return {
+        "available": True,
+        "total": total,
+        "pitcherKCoverage": round(pitcher_rate / total, 4),
+        "lineupKCoverage": round(lineup_rate / total, 4),
+        "pitcherCswCoverage": round(pitcher_csw / total, 4),
+        "lineupCswCoverage": round(lineup_csw / total, 4),
+        "tbfCoverage": round(tbf_ready / total, 4),
+        "environmentCoverage": round(environment_ready / total, 4),
+        "fullModelCoverage": round(full_model_ready / total, 4),
+        "fallbackRate": round(max(0.0, 1 - (full_model_ready / total)), 4),
+    }
+
+
+def _graded_strikeout_method_report() -> dict[str, object]:
+    if not database_is_configured():
+        return {"available": False, "reason": "DATABASE_URL is not configured"}
+    with get_database_pool().connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """select coalesce(nullif(inputs->>'strikeoutModelMethod',''),'legacy_or_unspecified') method,
+                count(*),
+                avg(case when hit then 1 else 0 end),
+                avg(case when coalesce((inputs->>'strikeoutUsedFallbackPitcherRate')::boolean, false) then 1 else 0 end),
+                avg(case when coalesce((inputs->>'strikeoutUsedFallbackLineupRate')::boolean, false) then 1 else 0 end),
+                avg(case when coalesce((inputs->>'strikeoutUsedFallbackTbf')::boolean, false) then 1 else 0 end),
+                avg(case when coalesce((inputs->>'strikeoutUsedMarketBlend')::boolean, false) then 1 else 0 end)
+            from prediction_snapshots
+            where hit is not null
+              and upper(coalesce(sport,''))='MLB'
+              and lower(coalesce(market,'')) like '%strikeout%'
+            group by 1 order by count(*) desc"""
+        )
+        rows = cursor.fetchall()
+    methods = [
+        {
+            "method": str(row[0]),
+            "sampleSize": int(row[1] or 0),
+            "accuracy": round(float(row[2]), 4) if row[2] is not None else None,
+            "fallbackPitcherRate": round(float(row[3]), 4) if row[3] is not None else None,
+            "fallbackLineupRate": round(float(row[4]), 4) if row[4] is not None else None,
+            "fallbackTbfRate": round(float(row[5]), 4) if row[5] is not None else None,
+            "marketBlendRate": round(float(row[6]), 4) if row[6] is not None else None,
+        }
+        for row in rows
+    ]
+    return {
+        "available": bool(methods),
+        "methods": methods,
+        "reason": None if methods else "No graded MLB strikeout snapshots available yet.",
+    }
+
+
 def _database_counts() -> dict[str, object]:
     result: dict[str, object] = {
         "activeUsers": {
@@ -213,6 +312,8 @@ def launch_control_snapshot() -> dict[str, object]:
         performance = model_performance()
         prediction_operations = operations_summary()
         strikeout_intelligence = _strikeout_owner_report(performance)
+        strikeout_input_coverage = _current_strikeout_input_coverage()
+        strikeout_method_audit = _graded_strikeout_method_report()
     except Exception as exc:
         performance = {
             "sampleSize": 0,
@@ -229,6 +330,16 @@ def launch_control_snapshot() -> dict[str, object]:
             "reason": type(exc).__name__,
             "suggestivePickTier": "pro_gold",
             "visibility": "owner_only",
+        }
+        strikeout_input_coverage = {
+            "available": False,
+            "total": 0,
+            "reason": type(exc).__name__,
+        }
+        strikeout_method_audit = {
+            "available": False,
+            "methods": [],
+            "reason": type(exc).__name__,
         }
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
@@ -259,6 +370,8 @@ def launch_control_snapshot() -> dict[str, object]:
         "predictionOperations": prediction_operations,
         "ownerOnlyInsights": {
             "strikeoutIntelligence": strikeout_intelligence,
+            "strikeoutInputCoverage": strikeout_input_coverage,
+            "strikeoutMethodAudit": strikeout_method_audit,
             "notes": [
                 "Suggestive strikeout picks are restricted to Pro Gold.",
                 "Owner Operations always shows full strikeout validation diagnostics.",

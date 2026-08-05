@@ -70,3 +70,26 @@ def test_analyze_prop_uses_mlb_strikeout_log5_path() -> None:
     assert result["projectedBattersFaced"] > 0
     assert 0 < result["matchupKRate"] < 1
     assert result["recommendation"] in {"OVER", "UNDER", "PASS"}
+
+
+def test_mlb_strikeout_analysis_blends_with_market_when_odds_exist() -> None:
+    result = analyze_prop(
+        player="Pitcher",
+        sport="MLB",
+        market="Pitcher Strikeouts",
+        line=6.5,
+        projected_mean=8.0,
+        projected_std_dev=2.0,
+        sharp_over_odds=2.15,
+        sharp_under_odds=1.74,
+        retail_over_odds=2.05,
+        retail_under_odds=1.80,
+        pitches_per_start=95,
+        pitches_per_batter=3.9,
+        pitcher_k_pct=0.30,
+        lineup_k_pct=0.25,
+    )
+
+    assert result["usedMarketBlend"] is True
+    assert result["marketWeight"] > 0
+    assert result["marketOverProbability"] != result["modelOverProbability"]

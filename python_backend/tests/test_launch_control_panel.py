@@ -66,6 +66,37 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
         "operations_summary",
         lambda: {"databaseConfigured": True, "snapshotsToday": 24},
     )
+    monkeypatch.setattr(
+        launch_control_service,
+        "_current_strikeout_input_coverage",
+        lambda: {
+            "available": True,
+            "total": 12,
+            "fullModelCoverage": 0.75,
+            "fallbackRate": 0.25,
+            "pitcherCswCoverage": 0.5,
+            "lineupKCoverage": 0.66,
+            "environmentCoverage": 0.58,
+        },
+    )
+    monkeypatch.setattr(
+        launch_control_service,
+        "_graded_strikeout_method_report",
+        lambda: {
+            "available": True,
+            "methods": [
+                {
+                    "method": "mlb_strikeout_log5_binomial",
+                    "sampleSize": 18,
+                    "accuracy": 0.61,
+                    "fallbackPitcherRate": 0.10,
+                    "fallbackLineupRate": 0.20,
+                    "fallbackTbfRate": 0.15,
+                    "marketBlendRate": 1.0,
+                }
+            ],
+        },
+    )
 
     result = launch_control_service.launch_control_snapshot()
 
@@ -82,6 +113,8 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
     assert result["pipelines"]["healthy"] is True
     assert result["modelPerformance"]["sampleSize"] == 120
     assert result["predictionOperations"]["snapshotsToday"] == 24
+    assert result["ownerOnlyInsights"]["strikeoutInputCoverage"]["total"] == 12
+    assert result["ownerOnlyInsights"]["strikeoutMethodAudit"]["methods"][0]["method"] == "mlb_strikeout_log5_binomial"
 
 
 def test_scoreboard_latency_snapshot_records_request() -> None:

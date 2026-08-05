@@ -433,6 +433,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   Widget _strikeoutIntelligence() {
     final ownerInsights = _control?['ownerOnlyInsights'] as Map? ?? const {};
     final strikeout = ownerInsights['strikeoutIntelligence'] as Map? ?? const {};
+    final inputCoverage = ownerInsights['strikeoutInputCoverage'] as Map? ?? const {};
+    final methodAudit = ownerInsights['strikeoutMethodAudit'] as Map? ?? const {};
     final available = strikeout['available'] == true;
     if (!available) {
       return _notice(
@@ -456,6 +458,10 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
 
     final over = strikeout['over'] as Map? ?? const {};
     final under = strikeout['under'] as Map? ?? const {};
+    final methods = (methodAudit['methods'] as List? ?? const [])
+      .whereType<Map>()
+      .take(3)
+      .toList(growable: false);
     final health = (strikeout['health']?.toString() ?? 'COLLECTING').toUpperCase();
     final healthy = health == 'HEALTHY';
 
@@ -512,6 +518,58 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
           AppColors.gold,
         ),
         const SizedBox(height: 10),
+        if (inputCoverage['available'] == true)
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _status(
+                'Live strikeout props',
+                '${inputCoverage['total'] ?? 0}',
+                (inputCoverage['total'] as num? ?? 0) > 0,
+                detail: 'Current cached MLB strikeout rows',
+              ),
+              _status(
+                'Full-model coverage',
+                pct(inputCoverage['fullModelCoverage']),
+                ((inputCoverage['fullModelCoverage'] as num?)?.toDouble() ?? 0) >= .6,
+                detail: 'Real matchup rate plus TBF inputs present',
+              ),
+              _status(
+                'Fallback rate',
+                pct(inputCoverage['fallbackRate']),
+                ((inputCoverage['fallbackRate'] as num?)?.toDouble() ?? 1) <= .4,
+                detail: 'Live props still leaning on defaults',
+              ),
+              _status(
+                'CSW coverage',
+                pct(inputCoverage['pitcherCswCoverage']),
+                ((inputCoverage['pitcherCswCoverage'] as num?)?.toDouble() ?? 0) >= .5,
+                detail: 'Pitcher CSW present in cache',
+              ),
+              _status(
+                'Lineup handedness',
+                pct(inputCoverage['lineupKCoverage']),
+                ((inputCoverage['lineupKCoverage'] as num?)?.toDouble() ?? 0) >= .5,
+                detail: 'Lineup K% vs handedness present',
+              ),
+              _status(
+                'Environment coverage',
+                pct(inputCoverage['environmentCoverage']),
+                ((inputCoverage['environmentCoverage'] as num?)?.toDouble() ?? 0) >= .5,
+                detail: 'Temp, umpire, and park loaded',
+              ),
+            ],
+          )
+        else
+          _notice(
+            Icons.storage_outlined,
+            'Strikeout Input Coverage Unavailable',
+            inputCoverage['reason']?.toString() ??
+                'Live strikeout input coverage is not available yet.',
+            AppColors.gold,
+          ),
+        const SizedBox(height: 10),
         _notice(
           Icons.trending_up,
           'OVER Side',
@@ -525,6 +583,27 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
           '${under['sampleSize'] ?? 0} picks | accuracy ${pct(under['accuracy'])} | ROI ${numVal(under['simulatedRoi'])}% | beat close ${pct(under['beatClosingLineRate'])}',
           AppColors.gold,
         ),
+        if (methods.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text(
+            'GRADED METHOD AUDIT',
+            style: TextStyle(
+              color: AppColors.gold,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 7),
+          ...methods.map((method) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _notice(
+                  Icons.science_outlined,
+                  '${method['method'] ?? 'unknown'} | ${method['sampleSize'] ?? 0} graded',
+                  'accuracy ${pct(method['accuracy'])} | fallback pitcher ${pct(method['fallbackPitcherRate'])} | fallback lineup ${pct(method['fallbackLineupRate'])} | fallback TBF ${pct(method['fallbackTbfRate'])} | market blend ${pct(method['marketBlendRate'])}',
+                  AppColors.gold,
+                ),
+              )),
+        ],
       ],
     );
   }

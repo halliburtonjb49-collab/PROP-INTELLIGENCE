@@ -89,7 +89,10 @@ def _analyze_mlb_strikeout_prop(
         pitches_per_batter,
         fallback=24,
     )
+    used_fallback_tbf = pitches_per_start is None or pitches_per_batter is None
     fallback_pitcher_rate = _clamp(projected_mean / max(1, projected_tbf), 0.05, 0.6)
+    used_fallback_pitcher_rate = pitcher_k_pct is None and pitcher_csw is None
+    used_fallback_lineup_rate = lineup_k_pct is None and lineup_csw_against is None
 
     if pitcher_csw is not None and lineup_csw_against is not None:
         base_rate = _log5_rate(pitcher_csw, lineup_csw_against, league_avg_csw)
@@ -113,13 +116,59 @@ def _analyze_mlb_strikeout_prop(
     )
     under_probability = 1.0 - over_probability
 
+    sharp_over_implied = _decimal_to_implied_probability(sharp_over_odds)
+    sharp_under_implied = _decimal_to_implied_probability(sharp_under_odds)
+    retail_over_implied = _decimal_to_implied_probability(retail_over_odds)
+    retail_under_implied = _decimal_to_implied_probability(retail_under_odds)
+
+    sharp_over_market = None
+    sharp_under_market = None
+    if sharp_over_implied is not None and sharp_under_implied is not None:
+        sharp_over_market, sharp_under_market = power_method_devig(
+            sharp_over_implied,
+            sharp_under_implied,
+        )
+
+    retail_over_market = None
+    retail_under_market = None
+    if retail_over_implied is not None and retail_under_implied is not None:
+        retail_over_market, retail_under_market = power_method_devig(
+            retail_over_implied,
+            retail_under_implied,
+        )
+
+    over_market_probability = (
+        sharp_over_market
+        if sharp_over_market is not None
+        else retail_over_market
+    )
+    under_market_probability = (
+        sharp_under_market
+        if sharp_under_market is not None
+        else retail_under_market
+    )
+    if (
+        sharp_over_market is not None
+        and retail_over_market is not None
+        and sharp_under_market is not None
+        and retail_under_market is not None
+    ):
+        over_market_probability = round((sharp_over_market * 0.7) + (retail_over_market * 0.3), 6)
+        under_market_probability = round((sharp_under_market * 0.7) + (retail_under_market * 0.3), 6)
+
     blended_over_probability, market_weight = blend_with_sharp_market(
         over_probability,
-        None,
+        over_market_probability,
         sample_size=max(1, projected_tbf),
         model_calibrated=True,
     )
-    blended_under_probability = _clamp(1.0 - blended_over_probability, 0.0, 1.0)
+    blended_under_probability, _ = blend_with_sharp_market(
+        under_probability,
+        under_market_probability,
+        sample_size=max(1, projected_tbf),
+        model_calibrated=True,
+    )
+    used_market_blend = over_market_probability is not None and under_market_probability is not None
 
     over_ev = expected_value(
         win_probability=blended_over_probability,
@@ -168,6 +217,7 @@ def _analyze_mlb_strikeout_prop(
         "projectedMedianStrikeouts": round(true_k_probability * projected_tbf, 2),
         "modelOverProbability": round(over_probability, 6),
         "marketOverProbability": round(blended_over_probability, 6),
+        "marketUnderProbability": round(blended_under_probability, 6),
         "expectedValuePercent": round(max(over_edge, under_edge), 2),
         "suggestedWagerUsd": round(suggested_wager, 2),
         "edgePercent": round(max(over_edge, under_edge), 2),
@@ -176,6 +226,10 @@ def _analyze_mlb_strikeout_prop(
         "distribution": "binomial",
         "line": round(line, 2),
         "projection": round(projected_mean, 2),
+        "usedFallbackPitcherRate": used_fallback_pitcher_rate,
+        "usedFallbackLineupRate": used_fallback_lineup_rate,
+        "usedFallbackTbf": used_fallback_tbf,
+        "usedMarketBlend": used_market_blend,
     }
 
 

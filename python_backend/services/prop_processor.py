@@ -123,6 +123,36 @@ def _find_price(
     return None
 
 
+def _float_candidate(container: object, key: str) -> float | None:
+    if not isinstance(container, dict):
+        return None
+    value = container.get(key)
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.strip())
+        except ValueError:
+            return None
+    return None
+
+
+def _metadata_float(*containers: object, keys: tuple[str, ...]) -> float | None:
+    for container in containers:
+        if isinstance(container, dict):
+            for key in keys:
+                value = _float_candidate(container, key)
+                if value is not None:
+                    return value
+            metadata = container.get("metadata")
+            if isinstance(metadata, dict):
+                for key in keys:
+                    value = _float_candidate(metadata, key)
+                    if value is not None:
+                        return value
+    return None
+
+
 def process_and_cache_props(
     *,
     cache: PropCache,
@@ -244,6 +274,61 @@ def process_and_cache_props(
                     under_odds,
                 )
 
+                pitcher_k_pct = _metadata_float(
+                    outcome,
+                    market,
+                    event,
+                    keys=("pitcher_k_pct", "pitcherKPercent", "pitcherKRate"),
+                )
+                lineup_k_pct = _metadata_float(
+                    outcome,
+                    market,
+                    event,
+                    keys=("lineup_k_pct", "lineupKPercent", "lineupKRateVsHandedness"),
+                )
+                pitches_per_start = _metadata_float(
+                    outcome,
+                    market,
+                    event,
+                    keys=("pitches_per_start", "pitchesPerStart", "avgPitchesPerStart"),
+                )
+                pitches_per_batter = _metadata_float(
+                    outcome,
+                    market,
+                    event,
+                    keys=("pitches_per_batter", "pitchesPerBatter", "pitchesPerPlateAppearance"),
+                )
+                pitcher_csw = _metadata_float(
+                    outcome,
+                    market,
+                    event,
+                    keys=("pitcher_csw", "pitcherCsw", "pitcherCSW"),
+                )
+                lineup_csw_against = _metadata_float(
+                    outcome,
+                    market,
+                    event,
+                    keys=("lineup_csw_against", "lineupCswAgainst", "lineupCSWVsHandedness"),
+                )
+                temperature_f = _metadata_float(
+                    outcome,
+                    market,
+                    event,
+                    keys=("temperature_f", "temperatureF", "gameTemperatureF"),
+                )
+                umpire_k_boost = _metadata_float(
+                    outcome,
+                    market,
+                    event,
+                    keys=("umpire_k_boost", "umpireKBoost", "umpireStrikeoutBoost"),
+                )
+                park_k_factor = _metadata_float(
+                    outcome,
+                    market,
+                    event,
+                    keys=("park_k_factor", "parkKFactor", "parkStrikeoutFactor"),
+                )
+
                 prop_rows.append(
                     (
                         event_id,
@@ -264,6 +349,15 @@ def process_and_cache_props(
                             or outcome.get("id")
                             or ""
                         ),
+                        pitcher_k_pct,
+                        lineup_k_pct,
+                        pitches_per_start,
+                        pitches_per_batter,
+                        pitcher_csw,
+                        lineup_csw_against,
+                        temperature_f,
+                        umpire_k_boost,
+                        park_k_factor,
                         updated_at,
                     )
                 )
