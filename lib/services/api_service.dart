@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -829,6 +830,11 @@ class ApiService {
     final sportsbookVariants = _sportsbookQueryVariants(selectedSportsbook);
     final targetSportsbookKey = _normalizeSportsbookKey(selectedSportsbook);
     final sportsbookFilterEnabled = targetSportsbookKey != 'ALL';
+    final scopedLimit = limit.clamp(1, 500);
+    final requestLimit = sportsbookFilterEnabled
+        ? math.max(scopedLimit, 350)
+        : scopedLimit;
+    final requestOffset = sportsbookFilterEnabled ? 0 : offset;
     final cacheKey = _propsCacheKey(
       selectedSide,
       selectedTier,
@@ -854,8 +860,8 @@ class ApiService {
               'search': search,
               'minConfidence': minConfidence.toString(),
               'sortBy': sortBy,
-              'limit': limit.clamp(1, 500).toString(),
-              'offset': offset.toString(),
+              'limit': requestLimit.toString(),
+              'offset': requestOffset.toString(),
             },
           );
           final response = await _getPropsPage(uri);
@@ -876,6 +882,17 @@ class ApiService {
         var sportCounts = parsed.sportCounts;
         var sportCategoryCounts = parsed.sportCategoryCounts;
 
+        if (sportsbookFilterEnabled) {
+          props = props
+              .where(
+                (prop) => _matchesSelectedSportsbook(
+                  prop,
+                  targetSportsbookKey,
+                ),
+              )
+              .toList(growable: false);
+        }
+
         if (sportsbookFilterEnabled && props.isEmpty) {
           final fallbackUri = Uri.parse('$candidate/api/props').replace(
             queryParameters: {
@@ -887,8 +904,8 @@ class ApiService {
               'search': search,
               'minConfidence': minConfidence.toString(),
               'sortBy': sortBy,
-              'limit': limit.clamp(1, 500).toString(),
-              'offset': offset.toString(),
+              'limit': requestLimit.toString(),
+              'offset': requestOffset.toString(),
             },
           );
           final fallbackResponse = await _getPropsPage(fallbackUri);

@@ -8,10 +8,12 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
     super.key,
     required this.prop,
     this.title = 'WHY THIS PICK',
+    this.expandOnTap = true,
   });
 
   final PropData prop;
   final String title;
+  final bool expandOnTap;
 
   String _pct(double? value, {int decimals = 1}) {
     if (value == null) return '--';
@@ -91,8 +93,7 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
         : prop.recommendationExplanation;
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildContent({bool expanded = false}) {
     final side = prop.recommendedSide.trim().isEmpty
         ? 'N/A'
         : prop.recommendedSide;
@@ -124,14 +125,30 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              letterSpacing: .5,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .5,
+                  ),
+                ),
+              ),
+              if (!expanded)
+                const Text(
+                  'TAP TO EXPAND',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .4,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 9),
           _row('Pick', '$side ${prop.line.toStringAsFixed(1)} ${prop.market}'),
@@ -176,6 +193,74 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _showExpandedDialog(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: .58),
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 700, maxHeight: 760),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xC6111B26),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.borderGold),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'FULL PICK EXPLAINABILITY',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: .4,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      icon: const Icon(Icons.close, color: AppColors.textMuted),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: _buildContent(expanded: true),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final content = _buildContent();
+    if (!expandOnTap) {
+      return content;
+    }
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => _showExpandedDialog(context),
+        child: content,
       ),
     );
   }

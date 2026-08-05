@@ -9437,6 +9437,51 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     return '$date  •  $time';
   }
 
+  double _displayedLineValue(PropData prop) {
+    return prop.currentLine != 0 ? prop.currentLine : prop.line;
+  }
+
+  String? _specialLineBadge(PropData prop, PickSide? advisedSide) {
+    final combinedText =
+        '${prop.customLabel} ${prop.manualNote} ${prop.recommendationExplanation} ${prop.recommendationUnavailableReason} ${prop.selectionReason}'
+            .toLowerCase();
+
+    if (combinedText.contains('taco')) {
+      return 'SPECIAL: TACO TUESDAY';
+    }
+    if (combinedText.contains('special') ||
+        combinedText.contains('promo') ||
+        combinedText.contains('discount') ||
+        combinedText.contains('flash')) {
+      return 'SPECIAL LINE';
+    }
+
+    if (prop.openingLine == 0) {
+      return null;
+    }
+
+    final opening = prop.openingLine;
+    final current = _displayedLineValue(prop);
+    final delta = current - opening;
+    if (delta.abs() < 0.5) {
+      return null;
+    }
+
+    final lineImprovedForOver = delta <= -0.5;
+    final lineImprovedForUnder = delta >= 0.5;
+
+    final taggedAsSpecial = advisedSide == PickSide.over
+        ? lineImprovedForOver
+        : advisedSide == PickSide.under
+        ? lineImprovedForUnder
+        : delta.abs() >= 1;
+    if (!taggedAsSpecial) {
+      return null;
+    }
+
+    return 'SPECIAL LINE ${opening.toStringAsFixed(1)}→${current.toStringAsFixed(1)}';
+  }
+
   void _handleCardSelection(PropData prop, PickSide side) {
     widget.onSelect(prop, side);
   }
@@ -9458,6 +9503,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         : null;
     final hasModelPick =
         hasProAccess && prop.proSuggestionUsesModel && advisedSide != null;
+    final specialLineBadge = _specialLineBadge(prop, advisedSide);
     final signalRating = prop.displayConfidenceRating;
     // Keep the two visible metric values consistent on every card. Evidence
     // provenance is shown separately below rather than appended to the value.
@@ -9979,6 +10025,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 chip('ROLE ${prop.roleStatus.replaceAll('_', ' ')}'),
               if (hasProAccess && prop.roleChange != 'UNKNOWN')
                 chip('ROLE TREND ${prop.roleChange.replaceAll('_', ' ')}'),
+              if (specialLineBadge != null) chip(specialLineBadge),
               if (prop.openingLine != 0)
                 chip('OPEN ${prop.openingLine.toStringAsFixed(1)}'),
             ],
