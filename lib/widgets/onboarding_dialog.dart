@@ -51,7 +51,7 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
       icon: Icons.receipt_long_outlined,
       title: 'Build, track, and learn',
       body:
-          'Compare the market, add researched props to your slip, and use graded history to improve your process over time.',
+          'PROP INTELLIGENCE is an all-in-one sports-prop command center: research, track, analyze, and discuss picks made on other platforms without placing bets in-app.',
     ),
   ];
 

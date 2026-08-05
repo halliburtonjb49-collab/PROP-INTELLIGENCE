@@ -597,7 +597,9 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _isHistory ? 'PAST SLIP HISTORY' : 'SLIP WATCHER',
+                    _isHistory
+                        ? 'PAST TRACKING TICKET HISTORY'
+                        : 'TRACKING WATCHER',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
@@ -606,12 +608,21 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                   const SizedBox(height: 3),
                   Text(
                     _isHistory
-                        ? 'Settled tickets and final results'
-                        : 'Locked tickets with live grading',
+                        ? 'Settled tracking tickets and final results'
+                        : 'Saved tracking tickets with live grading',
                     style: const TextStyle(
                       color: brand_colors.AppColors.textMuted,
                       fontSize: 9,
                       fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'PROP INTELLIGENCE provides independent sports research, analytics, pick tracking, and community features. We do not accept wagers, operate a sportsbook, or facilitate betting transactions.',
+                    style: TextStyle(
+                      color: brand_colors.AppColors.textMuted,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],

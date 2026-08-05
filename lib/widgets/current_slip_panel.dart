@@ -217,7 +217,7 @@ class _CurrentSlipPanelContainerState extends State<CurrentSlipPanelContainer> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Est. Return / Win:',
+                    'Tracked Return Estimate:',
                     style: TextStyle(color: Colors.grey),
                   ),
                   Text(
@@ -264,7 +264,7 @@ class _CurrentSlipPanelContainerState extends State<CurrentSlipPanelContainer> {
                     ),
                   ),
                   child: const Text(
-                    'PLACE WAGER',
+                    'OPEN SPORTSBOOK (OPTIONAL)',
                     style: TextStyle(
                       color: Colors.black,
                       fontWeight: FontWeight.bold,

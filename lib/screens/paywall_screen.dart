@@ -24,8 +24,7 @@ class SubscriptionRequiredScreen extends StatelessWidget {
                   const BrandedPaywallModalSheet(
                     heading: 'CHOOSE A PLAN TO CONTINUE',
                     supportingText:
-                        'PROP INTELLIGENCE requires an active Core or Pro plan. '
-                        'Any promotional trial provides temporary Core access.',
+                    'PROP INTELLIGENCE is your all-in-one sports-prop command center for research, tracking, analytics, and community. An active Core or Pro plan is required. Any promotional trial provides temporary Core access.',
                   ),
                   const SizedBox(height: 12),
                   TextButton.icon(
@@ -47,7 +46,8 @@ class BrandedPaywallModalSheet extends StatelessWidget {
   const BrandedPaywallModalSheet({
     super.key,
     this.heading = 'CHOOSE YOUR PROP INTELLIGENCE PLAN',
-    this.supportingText = 'Research tools for every level of play',
+    this.supportingText =
+        'Research, track, analyze, and discuss picks without placing bets in-app',
   });
 
   final String heading;

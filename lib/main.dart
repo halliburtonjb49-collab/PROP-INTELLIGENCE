@@ -3285,7 +3285,7 @@ class _MainDashboardState extends State<MainDashboard> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'Find mispriced props, compare fair probability, and move qualified value into Active Slip.',
+                      'Find mispriced props, compare fair probability, and move qualified value into Active Tracking Slip.',
                       style: TextStyle(color: AppColors.muted),
                     ),
                   ],
@@ -7559,7 +7559,7 @@ class TopNavigation extends StatelessWidget {
 
   String get _pageHowTo => switch (selectedPage) {
     AppPage.board =>
-      'Use the sport, category and prop-site filters to narrow today\'s board. Compare the posted line with the projection, edge and confidence, then choose Over or Under to add a prop to the active slip.',
+      'Use the sport, category and prop-site filters to narrow today\'s board. Compare the posted line with the projection, edge and confidence, then choose Over or Under to add a prop to the active tracking slip.',
     AppPage.gameMarkets =>
       'Choose a sport and game, then compare moneyline, spread and total prices across sites. Use the best available number and confirm it again at the sportsbook before playing.',
     AppPage.propBuilder =>

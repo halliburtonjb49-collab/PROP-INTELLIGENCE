@@ -1826,15 +1826,15 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   }
 
   Widget _buildPrizePicksFooter(List<Map<String, dynamic>> legs) {
-    return _buildLockOnlyFooter(legs, label: 'VIEW / LOCK ENTRY');
+    return _buildLockOnlyFooter(legs, label: 'SAVE TRACKING TICKET');
   }
 
   Widget _buildUnderdogFooter(List<Map<String, dynamic>> legs) {
-    return _buildLockOnlyFooter(legs, label: 'VIEW / LOCK ENTRY');
+    return _buildLockOnlyFooter(legs, label: 'SAVE TRACKING TICKET');
   }
 
   Widget _buildSleeperFooter(List<Map<String, dynamic>> legs) {
-    return _buildLockOnlyFooter(legs, label: 'VIEW / LOCK ENTRY');
+    return _buildLockOnlyFooter(legs, label: 'SAVE TRACKING TICKET');
   }
 
   Widget _buildFanDuelHeader(List<Map<String, dynamic>> legs) {
@@ -2147,7 +2147,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   }
 
   Widget _buildFanDuelFooter(List<Map<String, dynamic>> legs) {
-    return _buildLockOnlyFooter(legs, label: 'VIEW / LOCK BET');
+    return _buildLockOnlyFooter(legs, label: 'SAVE TRACKING TICKET');
   }
 
   Widget _buildDraftKingsTabs(List<Map<String, dynamic>> legs) {
@@ -2604,7 +2604,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   }
 
   Widget _buildDraftKingsFooter(List<Map<String, dynamic>> legs) {
-    return _buildLockOnlyFooter(legs, label: 'LOCK ENTRY');
+    return _buildLockOnlyFooter(legs, label: 'SAVE TRACKING TICKET');
   }
 
   Widget _buildLockOnlyFooter(
@@ -2777,9 +2777,19 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                       ),
                     )
                   : const Text(
-                      'VIEW / LOCK SLIP',
+                      'SAVE TRACKING TICKET',
                       style: TextStyle(fontWeight: FontWeight.w900),
                     ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'PROP INTELLIGENCE provides independent sports research, analytics, pick tracking, and community features. We do not accept wagers, operate a sportsbook, or facilitate betting transactions.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: PropIntelligenceColors.secondaryText,
+              fontSize: 9,
+              height: 1.35,
             ),
           ),
         ],
@@ -2802,17 +2812,27 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             Icon(Icons.assignment_turned_in_outlined, size: 44),
             SizedBox(height: 12),
             Text(
-              'Your active slip is ready to build',
+              'Your active tracking slip is ready',
               style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 8),
             Text(
-              '1. Select a prop  •  2. Choose Over or Under  •  3. Review and lock',
+              '1. Select a prop  •  2. Choose Over or Under  •  3. Review and save tracking ticket',
               style: TextStyle(
                 color: PropIntelligenceColors.secondaryText,
                 fontSize: 11,
                 height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 10),
+            Text(
+              'PROP INTELLIGENCE provides independent sports research, analytics, pick tracking, and community features. We do not accept wagers, operate a sportsbook, or facilitate betting transactions.',
+              style: TextStyle(
+                color: PropIntelligenceColors.secondaryText,
+                fontSize: 9,
+                height: 1.35,
               ),
               textAlign: TextAlign.center,
             ),
@@ -2861,7 +2881,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 ),
                 SizedBox(width: 8),
                 Text(
-                  'TICKET SLIP',
+                  'ACTIVE TRACKING SLIP',
                   style: TextStyle(
                     color: PropIntelligenceColors.gold,
                     fontSize: 10,
@@ -2871,9 +2891,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 ),
                 Spacer(),
                 ContextHelp(
-                  title: 'Active slip',
+                  title: 'Active tracking slip',
                   message:
-                      'Your active slip is a research workspace. Drag legs to reorder them, review edge and model confidence, remove unwanted props, then lock the slip when your selections and live lines are confirmed.',
+                      'Your active tracking slip is a research workspace. Drag legs to reorder them, review edge and model confidence, remove unwanted props, then save the tracking ticket when your selections and live lines are confirmed.',
                 ),
               ],
             ),
