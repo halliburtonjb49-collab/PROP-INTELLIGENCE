@@ -9,6 +9,7 @@ import '../services/billing_service.dart';
 import '../services/developer_mode_service.dart';
 import '../services/pwa_install_bridge.dart';
 import '../theme/prop_intelligence_colors.dart';
+import '../widgets/compliance_notice_badge.dart';
 
 const _gold = PropIntelligenceColors.premiumGold;
 const _silver = PropIntelligenceColors.metallicSilver;
@@ -992,30 +993,10 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               style: TextStyle(color: _mutedText, fontSize: dense ? 15 : 16),
             ),
             const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: _fieldBackground,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _gold.withValues(alpha: 0.45)),
-                boxShadow: [
-                  BoxShadow(
-                    color: _gold.withValues(alpha: 0.08),
-                    blurRadius: 8,
-                  ),
-                ],
-              ),
-              child: Text(
-                'Independent research and tracking only. No wagers are accepted in-app.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: _silver70,
-                  fontSize: dense ? 11 : 12,
-                  fontWeight: FontWeight.w700,
-                  height: 1.3,
-                ),
-              ),
+            ComplianceNoticeBadge(
+              size: dense ? 26 : 28,
+              fontSize: dense ? 10.5 : 11.5,
+              textColor: _silver70.withValues(alpha: 0.38),
             ),
             const SizedBox(height: 12),
             Container(
@@ -2235,19 +2216,40 @@ class _Footer extends StatelessWidget {
         color: Color(0xB3000305),
         border: Border(top: BorderSide(color: Color(0xFF111619))),
       ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.lock_outline_rounded, color: _gold, size: 12),
-          SizedBox(width: 7),
-          Flexible(
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock_outline_rounded, color: _gold, size: 12),
+              SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  '(C) 2026 PI PROP INTELLIGENCE. ALL RIGHTS RESERVED.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _silver38,
+                    fontSize: 9,
+                    letterSpacing: 1.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // The one place the notice stays permanently visible: fine print
+          // under the copyright line, where it can't cover any UI.
+          SizedBox(height: 5),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
             child: Text(
-              '(C) 2026 PI PROP INTELLIGENCE. ALL RIGHTS RESERVED.',
+              kComplianceNotice,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: _silver38,
-                fontSize: 9,
-                letterSpacing: 1.3,
+                fontSize: 8.5,
+                letterSpacing: 0.3,
+                height: 1.4,
               ),
             ),
           ),
