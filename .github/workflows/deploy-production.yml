@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
 name: Deploy to Production
 
 on:
@@ -33,14 +35,14 @@ jobs:
           PRODUCTION_FEED_WARMUP_SECONDS: "300"
         run: python tools/post_deploy_smoke.py
       - name: Trigger Render deployment
-        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL != '' }}
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL is not configured; skipping Render deployment trigger."
+            exit 0
+          fi
           echo "Triggering Render deployment for main..."
           curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
-      - name: Skip Render deployment without hook
-        if: ${{ secrets.RENDER_DEPLOY_HOOK_URL == '' }}
-        run: echo "RENDER_DEPLOY_HOOK_URL is not configured; skipping Render deployment trigger."
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ vars.RENDER_DEPLOY_HOOK_URL }}
       - name: Deployment summary
         run: echo "Production deployment passed all smoke checks."
