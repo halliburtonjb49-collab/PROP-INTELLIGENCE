@@ -724,6 +724,9 @@ def get_props() -> list[PropResponse]:
 				recommendationExplanation=str(
 					recommendation.get("explanation") or ""
 				),
+				recommendationExplainability=(
+					dict(recommendation.get("explainability") or {})
+				),
 				dataQualityScore=float(
 					recommendation.get("dataQualityScore") or 0
 				),

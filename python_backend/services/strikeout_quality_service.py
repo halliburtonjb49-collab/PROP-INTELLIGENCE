@@ -284,6 +284,76 @@ def build_explainability_snippet(prop: object) -> str:
     return " | ".join(parts)
 
 
+def build_explainability_payload(prop: object) -> dict[str, object]:
+    action_status = (
+        "blocked"
+        if not bool(getattr(prop, "recommendationAvailable", False))
+        else "actionable"
+        if str(getattr(prop, "opportunityStatus", "") or "").strip().upper() == "READY"
+        else "monitor"
+    )
+    fallback_count = sum(
+        int(bool(value))
+        for value in (
+            getattr(prop, "strikeoutUsedFallbackPitcherRate", False),
+            getattr(prop, "strikeoutUsedFallbackLineupRate", False),
+            getattr(prop, "strikeoutUsedFallbackTbf", False),
+        )
+    )
+    lineup_payload = getattr(prop, "mlbProjectedLineupMatchup", None)
+    observed_at = (
+        lineup_payload.get("observedAt")
+        if isinstance(lineup_payload, dict)
+        else None
+    )
+    reason = str(getattr(prop, "recommendationExplanation", "") or "").strip()
+    if not reason:
+        reason = str(getattr(prop, "pickGradeExplanation", "") or "").strip()
+    if not reason:
+        reasons = list(getattr(prop, "opportunityReasons", []) or [])
+        reason = str(reasons[0]) if reasons else "quality gates applied"
+    return {
+        "formatVersion": "v1",
+        "pick": {
+            "side": str(getattr(prop, "recommendedSide", "N/A") or "N/A"),
+            "line": getattr(prop, "line", None),
+            "market": str(getattr(prop, "market", "") or ""),
+        },
+        "confidence": {
+            "value": int(getattr(prop, "confidence", 0) or 0),
+            "tier": str(getattr(prop, "tier", "No Pick") or "No Pick"),
+        },
+        "model": {
+            "method": str(getattr(prop, "strikeoutModelMethod", "") or getattr(prop, "selectionMethod", "") or "calibrated model"),
+            "calibrationAdjustment": float(getattr(prop, "probabilityCalibrationAdjustment", 0.0) or 0.0),
+        },
+        "topFactors": {
+            "pitcherKPercent": getattr(prop, "pitcherKPercent", None),
+            "lineupKPercent": getattr(prop, "lineupKPercent", None),
+            "projectedBattersFaced": getattr(prop, "strikeoutProjectedBattersFaced", None),
+            "umpireKBoost": getattr(prop, "umpireKBoost", None),
+            "parkKFactor": getattr(prop, "parkKFactor", None),
+        },
+        "riskFlags": {
+            "fallbackCount": fallback_count,
+            "fallbackLimit": 3,
+            "lineupObservedAt": observed_at,
+            "lineupConfirmed": bool(lineup_payload.get("confirmed")) if isinstance(lineup_payload, dict) else False,
+            "temperaturePresent": getattr(prop, "temperatureF", None) is not None,
+            "umpirePresent": getattr(prop, "umpireKBoost", None) is not None,
+            "splitPresent": (
+                getattr(prop, "lineupKPercent", None) is not None
+                or getattr(prop, "lineupCswAgainst", None) is not None
+            ),
+        },
+        "recommendationReason": reason,
+        "actionStatus": {
+            "status": action_status,
+            "reason": str(getattr(prop, "recommendationUnavailableReason", "") or ""),
+        },
+    }
+
+
 def _calibration_query(window_days: int) -> tuple[list[tuple[object, ...]], int, float | None, float | None]:
     with get_database_pool().connection() as connection, connection.cursor() as cursor:
         cursor.execute(

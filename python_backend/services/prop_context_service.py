@@ -21,6 +21,7 @@ from services.context_quality_service import evaluate_context_quality
 from services.mlb_strikeout_enrichment_service import enrich_mlb_strikeout_props
 from services.pregame_context_ingestion_service import apply_latest_pregame_context
 from services.strikeout_quality_service import (
+    build_explainability_payload,
     build_explainability_snippet,
     evaluate_release_gate,
     get_strikeout_release_controls,
@@ -347,6 +348,7 @@ def apply_projection_context(prop: object) -> None:
         prop.tier = "No Pick"
         prop.confidence = 0
     _apply_strikeout_release_gate(prop)
+    prop.recommendationExplainability = build_explainability_payload(prop)
 
 
 def enrich_props(props: list[object]) -> None:

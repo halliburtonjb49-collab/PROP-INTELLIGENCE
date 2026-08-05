@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../models/prop_data.dart';
 import '../services/recommendation_access.dart';
 import '../services/auth_service.dart';
 import 'player_analytics_chart.dart';
 import 'premium_gate.dart';
 import 'context_help.dart';
+import 'recommendation_explainability_block.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -296,95 +298,105 @@ class _ElitePropCardState extends State<ElitePropCard> {
   }
 
   Widget _buildDecisionSummary(List<double> history) {
+    final explainabilityProp = PropData.fromJson(
+      Map<String, dynamic>.from(widget.propData),
+    );
     final signals = _decisionSignals(history);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF09131D),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: brand_colors.AppColors.gunmetalLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RecommendationExplainabilityBlock(prop: explainabilityProp),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF09131D),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: brand_colors.AppColors.gunmetalLight),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.fact_check_outlined,
-                color: brand_colors.AppColors.goldHighlight,
-                size: 18,
+              const Row(
+                children: [
+                  Icon(
+                    Icons.fact_check_outlined,
+                    color: brand_colors.AppColors.goldHighlight,
+                    size: 18,
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'SUPPLEMENTAL SIGNALS',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .5,
+                      ),
+                    ),
+                  ),
+                  ContextHelp(
+                    title: 'Decision summary',
+                    message:
+                        'These additional signals provide context beyond the standardized explainability block.',
+                  ),
+                ],
               ),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'WHY THIS PICK?',
+              const SizedBox(height: 9),
+              if (signals.isEmpty)
+                const Text(
+                  'More verified context is needed before a supplemental summary can be generated.',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .5,
+                    color: brand_colors.AppColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                )
+              else
+                ...signals.map(
+                  (signal) => Padding(
+                    padding: const EdgeInsets.only(bottom: 7),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          signal.positive
+                              ? Icons.check_circle_outline
+                              : Icons.warning_amber_rounded,
+                          size: 15,
+                          color: signal.positive
+                              ? brand_colors.AppColors.blue
+                              : const Color(0xFFFFB74D),
+                        ),
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: Text(
+                            signal.text,
+                            style: const TextStyle(
+                              color: Color(0xFFDCE8F4),
+                              fontSize: 11,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              ContextHelp(
-                title: 'Decision summary',
-                message:
-                    'This summary lists available model and context signals. Green signals support the displayed direction; amber signals are risks or context to verify. A signal is omitted when its underlying data is unavailable.',
+              const Divider(color: Colors.white10, height: 16),
+              const Text(
+                'Verify the live line, injury status, and lineup before placing a wager.',
+                style: TextStyle(
+                  color: brand_colors.AppColors.textSecondary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 9),
-          if (signals.isEmpty)
-            const Text(
-              'More verified context is needed before a decision summary can be generated.',
-              style: TextStyle(
-                color: brand_colors.AppColors.textSecondary,
-                fontSize: 11,
-              ),
-            )
-          else
-            ...signals.map(
-              (signal) => Padding(
-                padding: const EdgeInsets.only(bottom: 7),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      signal.positive
-                          ? Icons.check_circle_outline
-                          : Icons.warning_amber_rounded,
-                      size: 15,
-                      color: signal.positive
-                          ? brand_colors.AppColors.blue
-                          : const Color(0xFFFFB74D),
-                    ),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Text(
-                        signal.text,
-                        style: const TextStyle(
-                          color: Color(0xFFDCE8F4),
-                          fontSize: 11,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          const Divider(color: Colors.white10, height: 16),
-          const Text(
-            'Verify the live line, injury status, and lineup before placing a wager.',
-            style: TextStyle(
-              color: brand_colors.AppColors.textSecondary,
-              fontSize: 10,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

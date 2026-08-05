@@ -8,6 +8,7 @@ import '../services/api_service.dart';
 import '../services/player_image_resolver.dart';
 import '../theme/app_colors.dart';
 import '../widgets/player_image_widget.dart';
+import '../widgets/recommendation_explainability_block.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -846,22 +847,10 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   ),
                 ],
               ),
-            )
-          else
-            Text(
-              systemSide == null
-                  ? 'No valid Over or Under signal is available for this line. The app will not manufacture a pick.'
-                  : prop.proSuggestionUsesMarket
-                  ? 'Informational market lean based on unequal Over and Under prices. This is not a model pick or claimed edge.'
-                  : !prop.proSuggestionUsesModel
-                  ? 'Informational stats lean based on recent historical results. It is not a validated top model pick.'
-                  : 'Projection is ${delta!.abs().toStringAsFixed(2)} strikeouts ${delta >= 0 ? 'above' : 'below'} the posted line. Verify lineup and price before selecting.',
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 9.5,
-                height: 1.3,
+                RecommendationExplainabilityBlock(
+                  prop: prop,
+                  title: 'STANDARDIZED EXPLAINABILITY',
+                ),
               ),
             ),
           const SizedBox(height: 10),

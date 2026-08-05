@@ -50,6 +50,7 @@ class PropData {
   final bool recommendationAvailable;
   final String recommendationUnavailableReason;
   final String recommendationExplanation;
+  final Map<String, dynamic> recommendationExplainability;
   final double dataQualityScore;
   final List<String> dataQualityReasons;
   final double opportunityScore;
@@ -115,6 +116,22 @@ class PropData {
   final double? matchupMultiplier;
   final String matchupContext;
   final double? officiatingAdjustment;
+  final double? pitcherKPercent;
+  final double? lineupKPercent;
+  final double? pitchesPerStart;
+  final double? pitchesPerBatter;
+  final double? pitcherCsw;
+  final double? lineupCswAgainst;
+  final double? temperatureF;
+  final double? umpireKBoost;
+  final double? parkKFactor;
+  final String strikeoutModelMethod;
+  final int? strikeoutProjectedBattersFaced;
+  final bool strikeoutUsedFallbackPitcherRate;
+  final bool strikeoutUsedFallbackLineupRate;
+  final bool strikeoutUsedFallbackTbf;
+  final bool strikeoutUsedMarketBlend;
+  final Map<String, dynamic>? mlbProjectedLineupMatchup;
 
   String get injuryDisplayLabel {
     final status = injuryStatus.trim().toLowerCase().replaceAll('_', ' ');
@@ -187,6 +204,7 @@ class PropData {
     this.recommendationAvailable = false,
     this.recommendationUnavailableReason = '',
     this.recommendationExplanation = '',
+    this.recommendationExplainability = const {},
     this.dataQualityScore = 0,
     this.dataQualityReasons = const [],
     this.opportunityScore = 0,
@@ -252,6 +270,22 @@ class PropData {
     this.matchupMultiplier,
     this.matchupContext = '',
     this.officiatingAdjustment,
+    this.pitcherKPercent,
+    this.lineupKPercent,
+    this.pitchesPerStart,
+    this.pitchesPerBatter,
+    this.pitcherCsw,
+    this.lineupCswAgainst,
+    this.temperatureF,
+    this.umpireKBoost,
+    this.parkKFactor,
+    this.strikeoutModelMethod = '',
+    this.strikeoutProjectedBattersFaced,
+    this.strikeoutUsedFallbackPitcherRate = false,
+    this.strikeoutUsedFallbackLineupRate = false,
+    this.strikeoutUsedFallbackTbf = false,
+    this.strikeoutUsedMarketBlend = false,
+    this.mlbProjectedLineupMatchup,
   });
 
   static double? _safeDoubleOrNull(dynamic rawValue) {
@@ -538,6 +572,15 @@ class PropData {
           json['recommendationExplanation']?.toString() ??
           json['recommendation_explanation']?.toString() ??
           '',
+      recommendationExplainability: json['recommendationExplainability'] is Map
+          ? Map<String, dynamic>.from(
+              json['recommendationExplainability'] as Map,
+            )
+          : json['recommendation_explainability'] is Map
+          ? Map<String, dynamic>.from(
+              json['recommendation_explainability'] as Map,
+            )
+          : const {},
       dataQualityScore:
           _safeDoubleOrNull(
             json['dataQualityScore'] ?? json['data_quality_score'],
@@ -764,6 +807,61 @@ class PropData {
       officiatingAdjustment: _safeDoubleOrNull(
         json['officiatingAdjustment'] ?? json['officiating_adjustment'],
       ),
+      pitcherKPercent: _safeDoubleOrNull(
+        json['pitcherKPercent'] ?? json['pitcher_k_pct'],
+      ),
+      lineupKPercent: _safeDoubleOrNull(
+        json['lineupKPercent'] ?? json['lineup_k_pct'],
+      ),
+      pitchesPerStart: _safeDoubleOrNull(
+        json['pitchesPerStart'] ?? json['pitches_per_start'],
+      ),
+      pitchesPerBatter: _safeDoubleOrNull(
+        json['pitchesPerBatter'] ?? json['pitches_per_batter'],
+      ),
+      pitcherCsw: _safeDoubleOrNull(
+        json['pitcherCsw'] ?? json['pitcher_csw'],
+      ),
+      lineupCswAgainst: _safeDoubleOrNull(
+        json['lineupCswAgainst'] ?? json['lineup_csw_against'],
+      ),
+      temperatureF: _safeDoubleOrNull(
+        json['temperatureF'] ?? json['temperature_f'],
+      ),
+      umpireKBoost: _safeDoubleOrNull(
+        json['umpireKBoost'] ?? json['umpire_k_boost'],
+      ),
+      parkKFactor: _safeDoubleOrNull(
+        json['parkKFactor'] ?? json['park_k_factor'],
+      ),
+      strikeoutModelMethod:
+          json['strikeoutModelMethod']?.toString() ??
+          json['strikeout_model_method']?.toString() ??
+          '',
+      strikeoutProjectedBattersFaced:
+          (json['strikeoutProjectedBattersFaced'] as num?)?.toInt() ??
+          (json['strikeout_projected_batters_faced'] as num?)?.toInt(),
+      strikeoutUsedFallbackPitcherRate:
+          json['strikeoutUsedFallbackPitcherRate'] == true ||
+          json['strikeout_used_fallback_pitcher_rate'] == true,
+      strikeoutUsedFallbackLineupRate:
+          json['strikeoutUsedFallbackLineupRate'] == true ||
+          json['strikeout_used_fallback_lineup_rate'] == true,
+      strikeoutUsedFallbackTbf:
+          json['strikeoutUsedFallbackTbf'] == true ||
+          json['strikeout_used_fallback_tbf'] == true,
+      strikeoutUsedMarketBlend:
+          json['strikeoutUsedMarketBlend'] == true ||
+          json['strikeout_used_market_blend'] == true,
+      mlbProjectedLineupMatchup: json['mlbProjectedLineupMatchup'] is Map
+          ? Map<String, dynamic>.from(
+              json['mlbProjectedLineupMatchup'] as Map,
+            )
+          : json['mlb_projected_lineup_matchup'] is Map
+          ? Map<String, dynamic>.from(
+              json['mlb_projected_lineup_matchup'] as Map,
+            )
+          : null,
     );
   }
 

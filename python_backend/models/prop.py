@@ -41,6 +41,7 @@ class PropResponse(BaseModel):
     recommendationAvailable: bool = False
     recommendationUnavailableReason: str = ""
     recommendationExplanation: str = ""
+    recommendationExplainability: dict[str, object] = Field(default_factory=dict)
     dataQualityScore: float = Field(default=0.0, ge=0, le=1)
     dataQualityReasons: list[str] = Field(default_factory=list)
     opportunityScore: float = Field(default=0.0, ge=0, le=1)
