@@ -1,5 +1,8 @@
 from services.model_performance_service import (
-    _audit_recommendation, _dominant_model_version, _rolling_row,
+    _audit_recommendation,
+    _dominant_model_version,
+    _is_quarantined_market,
+    _rolling_row,
 )
 
 
@@ -54,3 +57,11 @@ def test_rolling_row_reports_accuracy_confidence_and_status() -> None:
     assert result["averageConfidence"] == 0.61
     assert result["calibrationGap"] == 0.19
     assert result["status"] == "RECALIBRATE"
+
+
+def test_quarantines_wnba_and_nba_fantasy_markets_from_reporting() -> None:
+    assert _is_quarantined_market("WNBA", "player_fantasy_points") is True
+    assert _is_quarantined_market("WNBA", "Fantasy Points") is True
+    assert _is_quarantined_market("NBA", "player_fantasy_points") is True
+    assert _is_quarantined_market("NBA", "player_points") is False
+    assert _is_quarantined_market("MLB", "batter_hits") is False

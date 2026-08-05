@@ -9,6 +9,16 @@ from services.baseline_projection_service import MODEL_VERSION
 
 MINIMUM_ACTION_SAMPLE = 30
 
+QUARANTINED_MARKETS = {
+    "basketball_nba": {"player_fantasy_points"},
+    "basketball_wnba": {"player_fantasy_points"},
+}
+
+QUARANTINE_SQL = """ and not (
+    lower(coalesce(sport,'')) in ('nba','wnba','basketball_nba','basketball_wnba')
+    and lower(coalesce(market,'')) in ('player_fantasy_points','fantasy points','fantasypoints')
+)"""
+
 ROLLING_WINDOWS = (
     ("7d", "LAST 7 DAYS", "7 days"),
     ("30d", "LAST 30 DAYS", "30 days"),
@@ -45,6 +55,16 @@ def _audit_recommendation(
         "calibrationGap": round(gap, 4) if gap is not None else None,
         "actionable": sample_size >= MINIMUM_ACTION_SAMPLE,
     }
+
+
+def _is_quarantined_market(sport: str | None, market: str | None) -> bool:
+    if not sport or not market:
+        return False
+    normalized_sport = str(sport).strip().lower()
+    normalized_market = str(market).strip().lower()
+    if normalized_market in {"player_fantasy_points", "fantasy points", "fantasypoints"}:
+        return normalized_sport in {"nba", "wnba", "basketball_nba", "basketball_wnba"}
+    return False
 
 
 def _segment(row: tuple[object, ...]) -> dict[str, object]:
@@ -146,7 +166,7 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
         cursor.execute(
             """select count(*) from prediction_snapshots
             where model_version=%s and hit is not null
-            and created_at < event_time - interval '5 minutes'""",
+            and created_at < event_time - interval '5 minutes'""" + QUARANTINE_SQL,
             (model_version,),
         )
         (requested_count,) = cursor.fetchone()
@@ -155,7 +175,7 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
             if dominant:
                 model_version = dominant
     base = """from prediction_snapshots where model_version=%s and hit is not null
-              and created_at < event_time - interval '5 minutes'"""
+              and created_at < event_time - interval '5 minutes'""" + QUARANTINE_SQL
     profit = """case when hit then
       case when nullif(inputs->>'entryOdds','')::double precision > 0
         then nullif(inputs->>'entryOdds','')::double precision/100
