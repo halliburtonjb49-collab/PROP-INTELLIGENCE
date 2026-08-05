@@ -18,6 +18,7 @@ from services.grading_review_service import grading_review_queue
 from services.provider_quality_service import provider_quality_score
 from services.model_performance_service import model_performance, operations_summary
 from services.sync_diagnostic_service import ticket_sync_diagnostic_summary
+from services.user_feedback_service import list_feedback
 from services.strikeout_quality_service import (
     get_strikeout_release_controls,
     strikeout_backtest_monitoring,
@@ -249,6 +250,14 @@ def _database_counts() -> dict[str, object]:
         },
         "failedPayments": {"count": None, "windowHours": 24},
         "unsettledSlips": {"count": None},
+        "newSignups": {
+            "count": None,
+            "windowHours": 24,
+            "last7Days": None,
+            "total": None,
+            "instrumented": False,
+            "note": "user_profiles signup telemetry is not available.",
+        },
     }
     if not database_is_configured():
         return result
@@ -285,6 +294,27 @@ def _database_counts() -> dict[str, object]:
             }
             cursor.execute("select count(*) from public.slips where status = 'active'")
             result["unsettledSlips"] = {"count": int(cursor.fetchone()[0] or 0)}
+            cursor.execute("select to_regclass('public.user_profiles') is not null")
+            has_user_profiles = bool(cursor.fetchone()[0])
+            if has_user_profiles:
+                cursor.execute(
+                    """
+                    select
+                        count(*) filter(where created_at >= now() - interval '24 hours') as signup_24h,
+                        count(*) filter(where created_at >= now() - interval '7 days') as signup_7d,
+                        count(*) as signup_total
+                    from public.user_profiles
+                    """
+                )
+                signup_24h, signup_7d, signup_total = cursor.fetchone()
+                result["newSignups"] = {
+                    "count": int(signup_24h or 0),
+                    "windowHours": 24,
+                    "last7Days": int(signup_7d or 0),
+                    "total": int(signup_total or 0),
+                    "instrumented": True,
+                    "note": "New accounts observed from user_profiles.created_at.",
+                }
     except Exception as exc:
         result["databaseError"] = type(exc).__name__
     return result
@@ -339,6 +369,7 @@ def launch_control_snapshot() -> dict[str, object]:
         strikeout_trust_weekly = strikeout_weekly_trust_report(
             control_values if isinstance(control_values, dict) else None,
         )
+        feedback_inbox = list_feedback(limit=20)
     except Exception as exc:
         performance = {
             "sampleSize": 0,
@@ -407,6 +438,17 @@ def launch_control_snapshot() -> dict[str, object]:
             "weekly": [],
             "alerts": [],
         }
+        feedback_inbox = {
+            "available": False,
+            "reason": type(exc).__name__,
+            "summary": {
+                "last24Hours": 0,
+                "last7Days": 0,
+                "new": 0,
+                "total": 0,
+            },
+            "items": [],
+        }
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "api": {
@@ -445,6 +487,7 @@ def launch_control_snapshot() -> dict[str, object]:
             "strikeoutMethodComparison": strikeout_method_ab,
             "strikeoutExplainability": strikeout_explainability,
             "strikeoutTrustWeekly": strikeout_trust_weekly,
+            "feedbackInbox": feedback_inbox,
             "notes": [
                 "Suggestive strikeout picks are restricted to Pro Gold.",
                 "Owner Operations always shows full strikeout validation diagnostics.",

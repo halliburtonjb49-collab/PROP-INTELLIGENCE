@@ -54,6 +54,13 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
             "failedLogins": {"count": None, "instrumented": False},
             "failedPayments": {"count": 0},
             "unsettledSlips": {"count": 6},
+            "newSignups": {
+                "count": 2,
+                "windowHours": 24,
+                "last7Days": 9,
+                "total": 120,
+                "instrumented": True,
+            },
         },
     )
     monkeypatch.setattr(
@@ -156,6 +163,15 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
             "crossBookValidation": {"reliabilityReady": True},
         },
     )
+    monkeypatch.setattr(
+        launch_control_service,
+        "list_feedback",
+        lambda limit=20: {
+            "available": True,
+            "summary": {"last24Hours": 2, "last7Days": 5, "new": 1, "total": 12},
+            "items": [{"category": "issue", "message": "line stale", "page": "board"}],
+        },
+    )
 
     result = launch_control_service.launch_control_snapshot()
 
@@ -169,6 +185,7 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
     assert result["failedLogins"]["count"] is None
     assert result["failedPayments"]["count"] == 0
     assert result["unsettledSlips"]["count"] == 6
+    assert result["newSignups"]["count"] == 2
     assert result["pipelines"]["healthy"] is True
     assert result["modelPerformance"]["sampleSize"] == 120
     assert result["predictionOperations"]["snapshotsToday"] == 24
@@ -180,6 +197,7 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
     assert result["ownerOnlyInsights"]["strikeoutMethodComparison"]["variants"][0]["variant"] == "enriched_variant"
     assert result["ownerOnlyInsights"]["strikeoutExplainability"]["items"][0]["player"] == "Pitcher"
     assert result["ownerOnlyInsights"]["strikeoutTrustWeekly"]["available"] is True
+    assert result["ownerOnlyInsights"]["feedbackInbox"]["available"] is True
 
 
 def test_scoreboard_latency_snapshot_records_request() -> None:

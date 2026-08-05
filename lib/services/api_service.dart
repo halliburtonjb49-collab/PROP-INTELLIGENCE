@@ -386,6 +386,48 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> submitUserFeedback({
+    required String category,
+    required String message,
+    String page = '',
+    Map<String, dynamic>? metadata,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/operations/feedback'),
+      headers: await _authenticatedHeaders(json: true),
+      body: jsonEncode({
+        'category': category,
+        'message': message,
+        'page': page,
+        'metadata': metadata ?? const {},
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to submit feedback: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> fetchOwnerFeedback({
+    int limit = 50,
+    String status = '',
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/operations/feedback').replace(
+      queryParameters: {
+        'limit': '$limit',
+        if (status.trim().isNotEmpty) 'status': status.trim(),
+      },
+    );
+    final response = await http.get(
+      uri,
+      headers: await _authenticatedHeaders(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load owner feedback: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<List<Map<String, dynamic>>> fetchAlertDeliveries() async {
     final response = await http.get(
       Uri.parse('$baseUrl/api/intelligence/alerts/deliveries'),

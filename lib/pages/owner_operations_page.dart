@@ -47,11 +47,11 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       setState(() {
         _control = results[0];
         _review = results[1];
-        final ownerInsights = _control?['ownerOnlyInsights'] as Map? ?? const {};
+        final ownerInsights =
+            _control?['ownerOnlyInsights'] as Map? ?? const {};
         final controlPayload =
             ownerInsights['strikeoutReleaseControls'] as Map? ?? const {};
-        final controls =
-            controlPayload['controls'] as Map? ?? const {};
+        final controls = controlPayload['controls'] as Map? ?? const {};
         _strikeoutControlsDraft = Map<String, dynamic>.from(
           controls.map((key, value) => MapEntry('$key', value)),
         );
@@ -88,7 +88,9 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     if (_savingStrikeoutControls) return;
     setState(() => _savingStrikeoutControls = true);
     try {
-      final response = await _api.updateStrikeoutControls(_strikeoutControlsDraft);
+      final response = await _api.updateStrikeoutControls(
+        _strikeoutControlsDraft,
+      );
       if (!mounted) return;
       final controls = response['controls'] as Map? ?? const {};
       setState(() {
@@ -186,10 +188,69 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
               )
             else
               ...failures.map(_pipelineCard),
+            const SizedBox(height: 22),
+            _sectionTitle(
+              'USER FEEDBACK INBOX',
+              'Live user suggestions and issue reports sent from the app',
+            ),
+            const SizedBox(height: 10),
+            _feedbackInbox(),
             const SizedBox(height: 24),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _feedbackInbox() {
+    final ownerInsights = _control?['ownerOnlyInsights'] as Map? ?? const {};
+    final inbox = ownerInsights['feedbackInbox'] as Map? ?? const {};
+    final summary = inbox['summary'] as Map? ?? const {};
+    final items = (inbox['items'] as List? ?? const []).whereType<Map>().toList(
+      growable: false,
+    );
+    if (inbox['available'] != true) {
+      return _notice(
+        Icons.inbox_outlined,
+        'Feedback inbox unavailable',
+        inbox['reason']?.toString() ??
+            'Feedback storage is not configured yet.',
+        brand_colors.AppColors.goldHighlight,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _notice(
+          Icons.mark_email_read_outlined,
+          'NEW ${summary['new'] ?? 0} | 24H ${summary['last24Hours'] ?? 0} | 7D ${summary['last7Days'] ?? 0}',
+          'Total submissions ${summary['total'] ?? 0}',
+          const Color(0xFF8CFFB2),
+        ),
+        const SizedBox(height: 10),
+        if (items.isEmpty)
+          _notice(
+            Icons.chat_bubble_outline,
+            'No feedback yet',
+            'Once users submit issues or recommendations, they appear here.',
+            AppColors.gold,
+          )
+        else
+          ...items
+              .take(8)
+              .map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _notice(
+                    Icons.feedback_outlined,
+                    '${item['category'] ?? 'feedback'} | ${item['page'] ?? '--'}',
+                    '${item['message'] ?? ''}',
+                    AppColors.gold,
+                    trailing: item['createdAt']?.toString() ?? '',
+                  ),
+                ),
+              ),
+      ],
     );
   }
 
@@ -271,6 +332,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     final freshness = _map('propFreshness');
     final scoreboard = _map('scoreboardLatency');
     final users = _map('activeUsers');
+    final signups = _map('newSignups');
     final payments = _map('failedPayments');
     final slips = _map('unsettledSlips');
     final review = _map('gradingReview');
@@ -320,6 +382,13 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
           'Active users',
           '${users['count'] ?? '--'}',
           users['instrumented'] == true,
+        ),
+        _status(
+          'New signups',
+          '${signups['count'] ?? '--'}',
+          signups['instrumented'] == true,
+          detail:
+              '24h • 7d ${signups['last7Days'] ?? '--'} • total ${signups['total'] ?? '--'}',
         ),
         _status(
           'Failed payments',
@@ -486,14 +555,21 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
 
   Widget _strikeoutIntelligence() {
     final ownerInsights = _control?['ownerOnlyInsights'] as Map? ?? const {};
-    final strikeout = ownerInsights['strikeoutIntelligence'] as Map? ?? const {};
-    final inputCoverage = ownerInsights['strikeoutInputCoverage'] as Map? ?? const {};
-    final methodAudit = ownerInsights['strikeoutMethodAudit'] as Map? ?? const {};
-    final releaseControls = ownerInsights['strikeoutReleaseControls'] as Map? ?? const {};
-    final calibration = ownerInsights['strikeoutCalibration'] as Map? ?? const {};
+    final strikeout =
+        ownerInsights['strikeoutIntelligence'] as Map? ?? const {};
+    final inputCoverage =
+        ownerInsights['strikeoutInputCoverage'] as Map? ?? const {};
+    final methodAudit =
+        ownerInsights['strikeoutMethodAudit'] as Map? ?? const {};
+    final releaseControls =
+        ownerInsights['strikeoutReleaseControls'] as Map? ?? const {};
+    final calibration =
+        ownerInsights['strikeoutCalibration'] as Map? ?? const {};
     final backtest = ownerInsights['strikeoutBacktest'] as Map? ?? const {};
-    final methodComparison = ownerInsights['strikeoutMethodComparison'] as Map? ?? const {};
-    final explainability = ownerInsights['strikeoutExplainability'] as Map? ?? const {};
+    final methodComparison =
+        ownerInsights['strikeoutMethodComparison'] as Map? ?? const {};
+    final explainability =
+        ownerInsights['strikeoutExplainability'] as Map? ?? const {};
     final available = strikeout['available'] == true;
     if (!available) {
       return _notice(
@@ -518,26 +594,28 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     final over = strikeout['over'] as Map? ?? const {};
     final under = strikeout['under'] as Map? ?? const {};
     final methods = (methodAudit['methods'] as List? ?? const [])
-      .whereType<Map>()
-      .take(3)
-      .toList(growable: false);
+        .whereType<Map>()
+        .take(3)
+        .toList(growable: false);
     final variants = (methodComparison['variants'] as List? ?? const [])
-      .whereType<Map>()
-      .take(2)
-      .toList(growable: false);
+        .whereType<Map>()
+        .take(2)
+        .toList(growable: false);
     final explainItems = (explainability['items'] as List? ?? const [])
-      .whereType<Map>()
-      .take(4)
-      .toList(growable: false);
+        .whereType<Map>()
+        .take(4)
+        .toList(growable: false);
     final backtestAlerts = (backtest['alerts'] as List? ?? const [])
-      .whereType<Map>()
-      .take(3)
-      .toList(growable: false);
-    final calibrationAdjustments = (calibration['adjustments'] as List? ?? const [])
-      .whereType<Map>()
-      .take(4)
-      .toList(growable: false);
-    final health = (strikeout['health']?.toString() ?? 'COLLECTING').toUpperCase();
+        .whereType<Map>()
+        .take(3)
+        .toList(growable: false);
+    final calibrationAdjustments =
+        (calibration['adjustments'] as List? ?? const [])
+            .whereType<Map>()
+            .take(4)
+            .toList(growable: false);
+    final health = (strikeout['health']?.toString() ?? 'COLLECTING')
+        .toUpperCase();
     final healthy = health == 'HEALTHY';
     final controlsLoaded = releaseControls['controls'] is Map;
     if (_strikeoutControlsDraft.isEmpty && controlsLoaded) {
@@ -583,9 +661,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 value: _boolControl('enabled', true),
-                onChanged: (value) => setState(
-                  () => _strikeoutControlsDraft['enabled'] = value,
-                ),
+                onChanged: (value) =>
+                    setState(() => _strikeoutControlsDraft['enabled'] = value),
                 title: const Text(
                   'Gate enabled',
                   style: TextStyle(color: Colors.white, fontSize: 12),
@@ -599,7 +676,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                 contentPadding: EdgeInsets.zero,
                 value: _boolControl('requireConfirmedLineup', true),
                 onChanged: (value) => setState(
-                  () => _strikeoutControlsDraft['requireConfirmedLineup'] = value,
+                  () =>
+                      _strikeoutControlsDraft['requireConfirmedLineup'] = value,
                 ),
                 title: const Text(
                   'Require confirmed lineup',
@@ -641,7 +719,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                   divisions: 23,
                   label: '${_intControl('maxLineupAgeMinutes', 240)}',
                   onChanged: (value) => setState(
-                    () => _strikeoutControlsDraft['maxLineupAgeMinutes'] = value.round(),
+                    () => _strikeoutControlsDraft['maxLineupAgeMinutes'] = value
+                        .round(),
                   ),
                 ),
               ),
@@ -658,7 +737,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                   divisions: 4,
                   label: '${_intControl('minOpposingLineupSize', 8)}',
                   onChanged: (value) => setState(
-                    () => _strikeoutControlsDraft['minOpposingLineupSize'] = value.round(),
+                    () => _strikeoutControlsDraft['minOpposingLineupSize'] =
+                        value.round(),
                   ),
                 ),
               ),
@@ -675,7 +755,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                   divisions: 3,
                   label: '${_intControl('maxFallbackSignals', 0)}',
                   onChanged: (value) => setState(
-                    () => _strikeoutControlsDraft['maxFallbackSignals'] = value.round(),
+                    () => _strikeoutControlsDraft['maxFallbackSignals'] = value
+                        .round(),
                   ),
                 ),
               ),
@@ -683,7 +764,9 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
               Align(
                 alignment: Alignment.centerRight,
                 child: FilledButton.icon(
-                  onPressed: _savingStrikeoutControls ? null : _saveStrikeoutControls,
+                  onPressed: _savingStrikeoutControls
+                      ? null
+                      : _saveStrikeoutControls,
                   icon: _savingStrikeoutControls
                       ? const SizedBox(
                           width: 12,
@@ -692,7 +775,9 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                         )
                       : const Icon(Icons.save_outlined, size: 16),
                   label: Text(
-                    _savingStrikeoutControls ? 'Saving...' : 'Save strikeout controls',
+                    _savingStrikeoutControls
+                        ? 'Saving...'
+                        : 'Save strikeout controls',
                   ),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.gold,
@@ -718,7 +803,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
               'Graded strikeout sample',
               '${strikeout['sampleSize'] ?? 0}',
               ((strikeout['sampleSize'] as num?)?.toInt() ?? 0) >= 40,
-              detail: 'Suggestive picks tier: ${strikeout['suggestivePickTier'] ?? 'pro_gold'}',
+              detail:
+                  'Suggestive picks tier: ${strikeout['suggestivePickTier'] ?? 'pro_gold'}',
             ),
             _status(
               'Strikeout accuracy',
@@ -735,20 +821,24 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             _status(
               'Beat closing line',
               pct(strikeout['beatClosingLineRate']),
-              ((strikeout['beatClosingLineRate'] as num?)?.toDouble() ?? 0) >= 0.5,
+              ((strikeout['beatClosingLineRate'] as num?)?.toDouble() ?? 0) >=
+                  0.5,
               detail: '${strikeout['oddsSampleSize'] ?? 0} odds pairs',
             ),
             _status(
               'Positive odds CLV',
               pct(strikeout['positiveOddsClvRate']),
-              ((strikeout['positiveOddsClvRate'] as num?)?.toDouble() ?? 0) >= 0.5,
-              detail: '${numVal(strikeout['averageOddsClvExpectedValuePercent'])}% avg',
+              ((strikeout['positiveOddsClvRate'] as num?)?.toDouble() ?? 0) >=
+                  0.5,
+              detail:
+                  '${numVal(strikeout['averageOddsClvExpectedValuePercent'])}% avg',
             ),
             _status(
               'Calibration',
               calibrationHealthy ? 'HEALTHY' : 'MONITOR',
               calibrationHealthy,
-              detail: 'Gap ${pct(calibration['overallGap'])} | ${calibration['sampleSize'] ?? 0} samples',
+              detail:
+                  'Gap ${pct(calibration['overallGap'])} | ${calibration['sampleSize'] ?? 0} samples',
             ),
             _status(
               'Backtest drift',
@@ -780,31 +870,39 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
               _status(
                 'Full-model coverage',
                 pct(inputCoverage['fullModelCoverage']),
-                ((inputCoverage['fullModelCoverage'] as num?)?.toDouble() ?? 0) >= .6,
+                ((inputCoverage['fullModelCoverage'] as num?)?.toDouble() ??
+                        0) >=
+                    .6,
                 detail: 'Real matchup rate plus TBF inputs present',
               ),
               _status(
                 'Fallback rate',
                 pct(inputCoverage['fallbackRate']),
-                ((inputCoverage['fallbackRate'] as num?)?.toDouble() ?? 1) <= .4,
+                ((inputCoverage['fallbackRate'] as num?)?.toDouble() ?? 1) <=
+                    .4,
                 detail: 'Live props still leaning on defaults',
               ),
               _status(
                 'CSW coverage',
                 pct(inputCoverage['pitcherCswCoverage']),
-                ((inputCoverage['pitcherCswCoverage'] as num?)?.toDouble() ?? 0) >= .5,
+                ((inputCoverage['pitcherCswCoverage'] as num?)?.toDouble() ??
+                        0) >=
+                    .5,
                 detail: 'Pitcher CSW present in cache',
               ),
               _status(
                 'Lineup handedness',
                 pct(inputCoverage['lineupKCoverage']),
-                ((inputCoverage['lineupKCoverage'] as num?)?.toDouble() ?? 0) >= .5,
+                ((inputCoverage['lineupKCoverage'] as num?)?.toDouble() ?? 0) >=
+                    .5,
                 detail: 'Lineup K% vs handedness present',
               ),
               _status(
                 'Environment coverage',
                 pct(inputCoverage['environmentCoverage']),
-                ((inputCoverage['environmentCoverage'] as num?)?.toDouble() ?? 0) >= .5,
+                ((inputCoverage['environmentCoverage'] as num?)?.toDouble() ??
+                        0) >=
+                    .5,
                 detail: 'Temp, umpire, and park loaded',
               ),
             ],
@@ -842,15 +940,17 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             ),
           ),
           const SizedBox(height: 7),
-          ...methods.map((method) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _notice(
-                  Icons.science_outlined,
-                  '${method['method'] ?? 'unknown'} | ${method['sampleSize'] ?? 0} graded',
-                  'accuracy ${pct(method['accuracy'])} | fallback pitcher ${pct(method['fallbackPitcherRate'])} | fallback lineup ${pct(method['fallbackLineupRate'])} | fallback TBF ${pct(method['fallbackTbfRate'])} | market blend ${pct(method['marketBlendRate'])}',
-                  AppColors.gold,
-                ),
-              )),
+          ...methods.map(
+            (method) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _notice(
+                Icons.science_outlined,
+                '${method['method'] ?? 'unknown'} | ${method['sampleSize'] ?? 0} graded',
+                'accuracy ${pct(method['accuracy'])} | fallback pitcher ${pct(method['fallbackPitcherRate'])} | fallback lineup ${pct(method['fallbackLineupRate'])} | fallback TBF ${pct(method['fallbackTbfRate'])} | market blend ${pct(method['marketBlendRate'])}',
+                AppColors.gold,
+              ),
+            ),
+          ),
         ],
         if (variants.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -863,15 +963,17 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             ),
           ),
           const SizedBox(height: 7),
-          ...variants.map((variant) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _notice(
-                  Icons.compare_arrows,
-                  '${variant['variant'] ?? 'variant'} | ${variant['sampleSize'] ?? 0} graded',
-                  'accuracy ${pct(variant['accuracy'])} | predicted ${pct(variant['predicted'])} | brier ${numVal(variant['brier'], decimals: 3)} | ROI ${numVal(variant['simulatedRoi'])}',
-                  AppColors.gold,
-                ),
-              )),
+          ...variants.map(
+            (variant) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _notice(
+                Icons.compare_arrows,
+                '${variant['variant'] ?? 'variant'} | ${variant['sampleSize'] ?? 0} graded',
+                'accuracy ${pct(variant['accuracy'])} | predicted ${pct(variant['predicted'])} | brier ${numVal(variant['brier'], decimals: 3)} | ROI ${numVal(variant['simulatedRoi'])}',
+                AppColors.gold,
+              ),
+            ),
+          ),
         ],
         if (calibrationAdjustments.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -884,15 +986,17 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             ),
           ),
           const SizedBox(height: 7),
-          ...calibrationAdjustments.map((row) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _notice(
-                  Icons.straighten,
-                  '${row['side'] ?? '--'} ${row['bucket'] ?? '--'} | ${row['sampleSize'] ?? 0} picks',
-                  'predicted ${pct(row['predicted'])} | actual ${pct(row['actual'])} | gap ${pct(row['gap'])} | adjust ${pct(row['recommendedAdjustment'])}',
-                  AppColors.gold,
-                ),
-              )),
+          ...calibrationAdjustments.map(
+            (row) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _notice(
+                Icons.straighten,
+                '${row['side'] ?? '--'} ${row['bucket'] ?? '--'} | ${row['sampleSize'] ?? 0} picks',
+                'predicted ${pct(row['predicted'])} | actual ${pct(row['actual'])} | gap ${pct(row['gap'])} | adjust ${pct(row['recommendedAdjustment'])}',
+                AppColors.gold,
+              ),
+            ),
+          ),
         ],
         if (backtestAlerts.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -905,15 +1009,17 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             ),
           ),
           const SizedBox(height: 7),
-          ...backtestAlerts.map((alert) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _notice(
-                  Icons.warning_amber_rounded,
-                  '${alert['severity'] ?? 'warning'} | ${alert['sportsbook'] ?? '--'} | ${alert['lineRange'] ?? '--'} | ${alert['handedness'] ?? '--'}',
-                  '${alert['message'] ?? ''} | sample ${alert['sampleSize'] ?? 0}',
-                  const Color(0xFFFF7B7B),
-                ),
-              )),
+          ...backtestAlerts.map(
+            (alert) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _notice(
+                Icons.warning_amber_rounded,
+                '${alert['severity'] ?? 'warning'} | ${alert['sportsbook'] ?? '--'} | ${alert['lineRange'] ?? '--'} | ${alert['handedness'] ?? '--'}',
+                '${alert['message'] ?? ''} | sample ${alert['sampleSize'] ?? 0}',
+                const Color(0xFFFF7B7B),
+              ),
+            ),
+          ),
         ],
         if (explainItems.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -926,15 +1032,17 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             ),
           ),
           const SizedBox(height: 7),
-          ...explainItems.map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _notice(
-                  Icons.psychology_outlined,
-                  '${item['player'] ?? '--'} | ${item['side'] ?? '--'} ${item['line'] ?? '--'}',
-                  '${item['summary'] ?? ''}',
-                  AppColors.gold,
-                ),
-              )),
+          ...explainItems.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _notice(
+                Icons.psychology_outlined,
+                '${item['player'] ?? '--'} | ${item['side'] ?? '--'} ${item['line'] ?? '--'}',
+                '${item['summary'] ?? ''}',
+                AppColors.gold,
+              ),
+            ),
+          ),
         ],
       ],
     );

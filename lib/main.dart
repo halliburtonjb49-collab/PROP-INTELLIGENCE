@@ -1546,6 +1546,187 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     );
   }
 
+  Future<void> _openFeedbackDialog() async {
+    final messageController = TextEditingController();
+    var category = 'suggestion';
+    var sending = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            backgroundColor: const Color(0xFF0B1825),
+            title: const Text('SEND FEEDBACK TO OWNER'),
+            content: SizedBox(
+              width: 520,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Share any recommendation, issue, or request. This goes directly to the owner operations inbox.',
+                    style: TextStyle(
+                      color: app_colors.AppColors.textMuted,
+                      fontSize: 11,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    initialValue: category,
+                    decoration: const InputDecoration(labelText: 'Category'),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'suggestion',
+                        child: Text('Suggestion'),
+                      ),
+                      DropdownMenuItem(value: 'issue', child: Text('Issue')),
+                      DropdownMenuItem(
+                        value: 'recommendation',
+                        child: Text('Recommendation'),
+                      ),
+                      DropdownMenuItem(value: 'other', child: Text('Other')),
+                    ],
+                    onChanged: sending
+                        ? null
+                        : (value) {
+                            setDialogState(
+                              () => category = value ?? 'suggestion',
+                            );
+                          },
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: messageController,
+                    maxLines: 6,
+                    maxLength: 1200,
+                    enabled: !sending,
+                    decoration: const InputDecoration(
+                      labelText: 'Your feedback',
+                      hintText:
+                          'Example: Add an alert when line moves by 0.5 in the last hour.',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: sending
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
+                child: const Text('CANCEL'),
+              ),
+              FilledButton.icon(
+                onPressed: sending
+                    ? null
+                    : () async {
+                        final text = messageController.text.trim();
+                        if (text.length < 5) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please enter at least 5 characters.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+                        setDialogState(() => sending = true);
+                        try {
+                          await _apiService.submitUserFeedback(
+                            category: category,
+                            message: text,
+                            page: _selectedPage.name,
+                            metadata: {
+                              'selectedPage': _selectedPage.name,
+                              'platform': kIsWeb
+                                  ? 'web'
+                                  : defaultTargetPlatform.name,
+                            },
+                          );
+                          if (!mounted) return;
+                          Navigator.of(dialogContext).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Feedback sent to owner. Thank you.',
+                              ),
+                            ),
+                          );
+                        } catch (error) {
+                          if (!mounted) return;
+                          setDialogState(() => sending = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Unable to send feedback: $error'),
+                            ),
+                          );
+                        }
+                      },
+                icon: sending
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send_rounded, size: 16),
+                label: Text(sending ? 'SENDING' : 'SEND'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    messageController.dispose();
+  }
+
+  Widget _buildFeedbackButton() {
+    return Positioned(
+      right: 18,
+      bottom: 18,
+      child: SafeArea(
+        minimum: const EdgeInsets.all(4),
+        child: Material(
+          elevation: 12,
+          color: app_colors.AppColors.bgPanel,
+          shape: const StadiumBorder(
+            side: BorderSide(color: app_colors.AppColors.gold, width: 1.5),
+          ),
+          child: InkWell(
+            key: const ValueKey('open-user-feedback-dialog'),
+            onTap: _openFeedbackDialog,
+            borderRadius: BorderRadius.circular(999),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.campaign_outlined,
+                    size: 16,
+                    color: app_colors.AppColors.gold,
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'FEEDBACK',
+                    style: TextStyle(
+                      color: app_colors.AppColors.gold,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .6,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Map<String, dynamic> _selectionToLeg(SlipSelection selection) {
     final prop = selection.prop;
     final selectedOdds = selection.odds;
@@ -1961,6 +2142,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
               !_chatFloating &&
               _selectedPage != AppPage.propChat)
             _buildChatRestoreButton(),
+          _buildFeedbackButton(),
         ],
       ),
     );
@@ -5889,6 +6071,7 @@ class _DataAdminPageState extends State<DataAdminPage> {
     final freshness = _controlPanel?['propFreshness'] as Map? ?? const {};
     final scoreboard = _controlPanel?['scoreboardLatency'] as Map? ?? const {};
     final activeUsers = _controlPanel?['activeUsers'] as Map? ?? const {};
+    final newSignups = _controlPanel?['newSignups'] as Map? ?? const {};
     final failedLogins = _controlPanel?['failedLogins'] as Map? ?? const {};
     final failedPayments = _controlPanel?['failedPayments'] as Map? ?? const {};
     final unsettledSlips = _controlPanel?['unsettledSlips'] as Map? ?? const {};
@@ -6066,6 +6249,14 @@ class _DataAdminPageState extends State<DataAdminPage> {
                 Icons.people_outline,
                 healthy: activeUsers['instrumented'] == true,
                 detail: 'Observed in the last 15 minutes',
+              ),
+              signal(
+                'NEW SIGNUPS',
+                newSignups['count']?.toString() ?? 'UNAVAILABLE',
+                Icons.person_add_alt_1_outlined,
+                healthy: newSignups['instrumented'] == true,
+                detail:
+                    '24h • 7d ${newSignups['last7Days'] ?? '--'} • total ${newSignups['total'] ?? '--'}',
               ),
               signal(
                 'FAILED LOGINS',
