@@ -69,6 +69,27 @@ flutter test
 flutter build web --release
 ```
 
+### Local CI gate (recommended)
+
+Run the same core checks used by CI before every push:
+
+```powershell
+.\tools\verify_ci_local.ps1
+```
+
+Enable the repository-managed Git hook so pushes are blocked when checks fail:
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+After this is enabled, `git push` automatically runs:
+
+- `flutter pub get`
+- `flutter analyze`
+- `flutter test`
+- `pytest` (using `.venv` Python when available)
+
 After applying the Supabase migrations and running historical ingestion, audit
 production data coverage before advertising calibrated probabilities:
 

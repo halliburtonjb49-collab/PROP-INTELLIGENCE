@@ -9648,10 +9648,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         style: TextStyle(color: AppColors.muted, fontSize: 7.5),
       );
     }
-          ),
-        ),
-      );
-    }
 
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 11),
