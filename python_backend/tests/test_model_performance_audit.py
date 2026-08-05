@@ -1,4 +1,32 @@
-from services.model_performance_service import _audit_recommendation, _rolling_row
+from services.model_performance_service import (
+    _audit_recommendation, _dominant_model_version, _rolling_row,
+)
+
+
+class _FakeCursor:
+    def __init__(self, row):
+        self._row = row
+
+    def execute(self, _query):
+        pass
+
+    def fetchone(self):
+        return self._row
+
+
+def test_dominant_model_version_returns_the_top_row() -> None:
+    cursor = _FakeCursor(("provider-projection-v1", 85))
+    assert _dominant_model_version(cursor) == "provider-projection-v1"
+
+
+def test_dominant_model_version_handles_no_graded_rows() -> None:
+    cursor = _FakeCursor(None)
+    assert _dominant_model_version(cursor) is None
+
+
+def test_dominant_model_version_handles_null_version() -> None:
+    cursor = _FakeCursor((None, 3))
+    assert _dominant_model_version(cursor) is None
 
 
 def test_audit_waits_for_a_safe_sample() -> None:

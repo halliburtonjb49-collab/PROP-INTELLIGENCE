@@ -121,9 +121,39 @@ def _rolling_audit(cursor, model_version: str, base: str) -> dict[str, object]:
     return {"windows": windows, "minimumActionSample": MINIMUM_ACTION_SAMPLE}
 
 
+def _dominant_model_version(cursor) -> str | None:
+    """The model_version with the most graded, in-window predictions.
+
+    Predictions aren't always snapshotted under the MODEL_VERSION constant -
+    snapshot_live_predictions falls back to a prop's own
+    projectionModelVersion (e.g. "provider-projection-v1") whenever one is
+    present. Querying a single hardcoded version can silently show "0
+    graded" while real graded data sits under a different version string.
+    """
+    cursor.execute("""select model_version, count(*)
+        from prediction_snapshots
+        where hit is not null and created_at < event_time - interval '5 minutes'
+        group by model_version order by count(*) desc limit 1""")
+    row = cursor.fetchone()
+    return str(row[0]) if row and row[0] else None
+
+
 def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
     if not database_is_configured():
         return {"modelVersion": model_version, "sampleSize": 0, "segments": []}
+    requested_version = model_version
+    with get_database_pool().connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """select count(*) from prediction_snapshots
+            where model_version=%s and hit is not null
+            and created_at < event_time - interval '5 minutes'""",
+            (model_version,),
+        )
+        (requested_count,) = cursor.fetchone()
+        if not requested_count:
+            dominant = _dominant_model_version(cursor)
+            if dominant:
+                model_version = dominant
     base = """from prediction_snapshots where model_version=%s and hit is not null
               and created_at < event_time - interval '5 minutes'"""
     profit = """case when hit then
@@ -211,7 +241,8 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
          positive_odds_rate, odds_sample_size) = cursor.fetchone()
         rolling_audit = _rolling_audit(cursor, model_version, base)
     actionable = [segment for segment in side_segments if segment["actionable"]]
-    return {"modelVersion": model_version, **overall, "segments": segments,
+    return {"modelVersion": model_version, "requestedModelVersion": requested_version,
+            **overall, "segments": segments,
             "qualitySegments": quality_segments,
             "sideSegments": side_segments,
             "auditSummary": {
