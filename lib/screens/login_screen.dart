@@ -996,9 +996,15 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0x331B9AAA),
+                color: _fieldBackground,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: _gold.withValues(alpha: 0.45)),
+                boxShadow: [
+                  BoxShadow(
+                    color: _gold.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                  ),
+                ],
               ),
               child: Text(
                 'Independent research and tracking only. No wagers are accepted in-app.',
