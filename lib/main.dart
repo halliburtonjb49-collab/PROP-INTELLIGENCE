@@ -51,6 +51,7 @@ import 'widgets/auth_account_panel.dart';
 import 'widgets/current_slip_panel.dart';
 import 'widgets/ev_scanner_card.dart';
 import 'widgets/onboarding_dialog.dart';
+import 'widgets/recommendation_explainability_block.dart';
 import 'widgets/scoreboard_view.dart';
 import 'widgets/selected_prop_slip.dart';
 import 'widgets/slip_history_panel.dart';
@@ -9691,6 +9692,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             ],
           ),
           const Spacer(),
+          RecommendationExplainabilityBlock(prop: prop),
+          const SizedBox(height: 8),
           Text(
             hasModelPick && delta != null
                 ? 'Projection is ${delta.abs().toStringAsFixed(2)} $market ${delta >= 0 ? 'above' : 'below'} the posted line. Verify lineup and price before selecting.'
@@ -9703,11 +9706,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 : prop.recommendationExplanation.isNotEmpty
                 ? prop.recommendationExplanation
                 : 'Review the live line, player status, and current information before selecting.',
-            maxLines: 3,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppColors.muted,
-              fontSize: 9,
+              fontSize: 8,
               height: 1.3,
             ),
           ),
