@@ -2062,9 +2062,18 @@ def props(
 		prop_list = _cached_prop_catalog()
 		side_filter = side.strip().lower() if is_pro else "all"
 		tier_filter = tier.strip().lower() if is_pro else "all"
-		sportsbook_filter = sportsbook.strip().lower().replace(" ", "")
-		if sportsbook_filter in {"betr", "betr_us_dfs", "betrusdfs"}:
-			sportsbook_filter = "betr"
+		def _normalize_sportsbook_filter_key(value: str) -> str:
+			normalized = str(value or "").strip().lower()
+			normalized = normalized.replace(" ", "").replace("_", "").replace("-", "")
+			if normalized == "all":
+				return "all"
+			if "betr" in normalized:
+				return "betr"
+			if "sleeper" in normalized:
+				return "sleeper"
+			return normalized
+
+		sportsbook_filter = _normalize_sportsbook_filter_key(sportsbook)
 		sport_filter = sport.strip().lower().replace(" ", "")
 		category_filter = category.strip().lower()
 		search_filter = search.strip().lower()
@@ -2153,9 +2162,7 @@ def props(
 			recommended_side = _visible_recommendation_side(prop)
 			recommended_tier = _visible_recommendation_tier(prop)
 			confidence = int(prop.confidence or 0)
-			prop_sportsbook = str(prop.sportsbook or "").strip().lower().replace(" ", "")
-			if prop_sportsbook in {"betr", "betr_us_dfs", "betrusdfs"}:
-				prop_sportsbook = "betr"
+			prop_sportsbook = _normalize_sportsbook_filter_key(prop.sportsbook)
 			prop_sport = str(prop.sport or "").strip().lower().replace(" ", "")
 			prop_category = str(prop.category or "").strip().lower()
 			searchable = " ".join((

@@ -339,6 +339,35 @@ def test_each_prop_site_reports_only_its_active_sports_and_categories(
     } == expected_categories
 
 
+@pytest.mark.parametrize(
+    ("query_site", "expected_ids"),
+    [
+        ("SLEEPER PICKS", ["sl-nfl"]),
+        ("SLEEPERPICKS", ["sl-nfl"]),
+        ("BETR PICKS", ["betr-nba"]),
+        ("BETR-US-DFS", ["betr-nba"]),
+    ],
+)
+def test_sportsbook_alias_queries_match_sleeper_and_betr_props(
+    monkeypatch,
+    query_site: str,
+    expected_ids: list[str],
+) -> None:
+    rows = [
+        FakeProp("sl-nfl", "Six", "NFL", "SLEEPER", "PASSING YARDS"),
+        FakeProp("betr-nba", "Eight", "NBA", "BETR_US_DFS", "REBOUNDS"),
+        FakeProp("pp-mlb", "One", "MLB", "PRIZEPICKS", "HITS"),
+    ]
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: rows)
+
+    payload = TestClient(main.app).get(
+        "/api/props",
+        params={"sportsbook": query_site, "limit": 75},
+    ).json()
+
+    assert [row["id"] for row in payload["props"]] == expected_ids
+
+
 def test_started_props_are_hidden_from_the_actionable_feed(monkeypatch) -> None:
     started = FakeProp("started", "One", "MLB", "FANDUEL", "HITS")
     started.startTimeUtc = "2020-07-20T20:00:00Z"
