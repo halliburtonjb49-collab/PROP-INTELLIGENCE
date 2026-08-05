@@ -8,7 +8,7 @@
     "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
     "background_color": "#07121B",
     "theme_color": "#D8B25C",
-    "description": "PROP INTELLIGENCE sports analytics and prop research.",
+    "description": "An all-in-one sports-prop intelligence ecosystem that helps users research, track, analyze, and discuss their picks without placing bets.",
     "orientation": "any",
     "prefer_related_applications": false,
     "categories": ["sports", "productivity", "utilities"],

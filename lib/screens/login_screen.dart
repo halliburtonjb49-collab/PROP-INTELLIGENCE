@@ -335,7 +335,12 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
           _AboutNotice(
             title: 'BUILT FOR INFORMED DECISIONS',
             text:
-                'PROP INTELLIGENCE organizes research and model estimates. It does not guarantee outcomes or replace your own judgment.',
+                'PROP INTELLIGENCE is your all-in-one sports-prop command center. Discover live insights, research player props, track picks made on other platforms, measure performance, connect with the community, and use powerful tools without placing bets.',
+          ),
+          _AboutNotice(
+            title: 'INDEPENDENT ANALYTICS ONLY',
+            text:
+                'PROP INTELLIGENCE provides independent sports research, analytics, pick tracking, and community features. We do not accept wagers, operate a sportsbook, or facilitate betting transactions.',
           ),
         ];
       case 'how-it-works':
