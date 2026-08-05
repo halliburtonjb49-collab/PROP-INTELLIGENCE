@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_service.dart';
@@ -214,6 +216,11 @@ class AuthManager {
 
   StreamSubscription<AuthState>? _authSubscription;
   int _profileRefreshGeneration = 0;
+  String? _lastMemberJoinNotificationUserId;
+  static const String _apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://api.propsintell.com',
+  );
 
   SupabaseClient? get _client => SupabaseService.client;
 
@@ -550,10 +557,43 @@ class AuthManager {
       username: metadataUsername,
       message: 'Authenticated; refreshing membership',
     );
+    if (_lastMemberJoinNotificationUserId != user.id) {
+      unawaited(_notifyMemberJoined(session!));
+    }
     final generation = ++_profileRefreshGeneration;
     unawaited(
       _refreshProfileSession(user: user, role: role, generation: generation),
     );
+  }
+
+  Future<void> _notifyMemberJoined(Session session) async {
+    final user = session.user;
+    if (_lastMemberJoinNotificationUserId == user.id) {
+      return;
+    }
+    final token = session.accessToken;
+    if (token.isEmpty) {
+      return;
+    }
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/api/operations/member-joined');
+      final response = await http.post(
+        uri,
+        headers: <String, String>{
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(<String, String>{
+          'email': user.email ?? '',
+          'source': 'app_session',
+        }),
+      );
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        _lastMemberJoinNotificationUserId = user.id;
+      }
+    } catch (_) {
+      // Best-effort only: signup notification failure must not block auth.
+    }
   }
 
   Future<void> _refreshProfileSession({

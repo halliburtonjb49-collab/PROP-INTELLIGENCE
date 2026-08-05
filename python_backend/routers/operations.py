@@ -10,6 +10,7 @@ from services.acceptance_service import production_acceptance_snapshot
 from services.launch_control_service import launch_control_snapshot
 from services.grading_review_service import grading_review_queue
 from services.user_feedback_service import list_feedback, submit_feedback
+from services.member_signup_service import record_member_join
 from services.strikeout_quality_service import (
     get_strikeout_release_controls,
     update_strikeout_release_controls,
@@ -27,6 +28,11 @@ class UserFeedbackRequest(BaseModel):
     message: str
     page: str = ""
     metadata: dict[str, object] | None = None
+
+
+class MemberJoinedRequest(BaseModel):
+    email: str = ""
+    source: str = "app"
 
 
 @router.get("/readiness", dependencies=[Depends(require_admin)])
@@ -83,3 +89,15 @@ def submit_user_feedback(
 @router.get("/feedback", dependencies=[Depends(require_owner)])
 def owner_feedback(limit: int = 50, status: str = "") -> dict[str, object]:
     return list_feedback(limit=limit, status=status)
+
+
+@router.post("/member-joined")
+def member_joined(
+    payload: MemberJoinedRequest,
+    user_id: str = Depends(require_user_id),
+) -> dict[str, object]:
+    return record_member_join(
+        user_id,
+        email=payload.email,
+        source=payload.source,
+    )

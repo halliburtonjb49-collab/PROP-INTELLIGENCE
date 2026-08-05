@@ -9,7 +9,6 @@ import '../services/billing_service.dart';
 import '../services/developer_mode_service.dart';
 import '../services/pwa_install_bridge.dart';
 import '../theme/prop_intelligence_colors.dart';
-import '../widgets/launch_notification_icon.dart';
 
 const _gold = PropIntelligenceColors.premiumGold;
 const _silver = PropIntelligenceColors.metallicSilver;
@@ -1576,7 +1575,6 @@ class _TopNavigation extends StatelessWidget {
             ),
             const SizedBox(width: 4),
           ],
-          const LaunchNotificationIcon(),
           SizedBox(width: compact ? 4 : 10),
           OutlinedButton(
             onPressed: onSignUp,
