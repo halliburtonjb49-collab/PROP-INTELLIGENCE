@@ -991,6 +991,26 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(color: _mutedText, fontSize: dense ? 15 : 16),
             ),
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0x331B9AAA),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _gold.withValues(alpha: 0.45)),
+              ),
+              child: Text(
+                'Independent research and tracking only. No wagers are accepted in-app.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: _silver70,
+                  fontSize: dense ? 11 : 12,
+                  fontWeight: FontWeight.w700,
+                  height: 1.3,
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
             Container(
               width: 74,
