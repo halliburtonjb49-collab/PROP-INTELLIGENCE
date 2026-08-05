@@ -114,6 +114,67 @@ def _lineup_k_rate(opposing_lineup: Iterable[object], event_date: object) -> flo
     return round(weighted_total / total_weight, 6)
 
 
+def _lineup_split_metrics(
+    opposing_lineup: Iterable[object],
+    event_date: object,
+    pitcher_hand: str,
+) -> dict[str, float | None]:
+    hand = str(pitcher_hand or "").strip().upper()
+    if hand not in {"L", "R"} or not database_is_configured():
+        return {}
+    batter_ids: list[str] = []
+    weights: dict[str, float] = {}
+    for entry in opposing_lineup:
+        if not isinstance(entry, dict):
+            continue
+        batter_id_raw = str(entry.get("providerPlayerId") or "").strip()
+        batter_id = batter_id_raw if batter_id_raw.isdigit() else None
+        if batter_id is None:
+            player_name = str(entry.get("player") or "").strip()
+            resolved = mlb_player_id(player_name) if player_name else None
+            batter_id = str(resolved) if resolved is not None else None
+        if not batter_id:
+            continue
+        batter_ids.append(batter_id)
+        weights[batter_id] = max(1.0, 12.0 - float(entry.get("battingOrder") or 9))
+    if not batter_ids:
+        return {}
+    with get_database_pool().connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """select batter_id,
+                count(*) filter(where nullif(events,'') is not null and nullif(events,'') <> '') plate_appearances,
+                count(*) filter(where lower(coalesce(events,'')) in ('strikeout','strikeout_double_play')) strikeouts,
+                count(*) pitches,
+                count(*) filter(where lower(coalesce(description,'')) in
+                    ('called_strike','swinging_strike','swinging_strike_blocked','missed_bunt')) csw_events
+            from historical_mlb_pitches
+            where batter_id = any(%s)
+              and game_date < %s
+              and upper(coalesce(raw->>'p_throws','')) = %s
+            group by batter_id""",
+            (batter_ids, event_date, hand),
+        )
+        rows = cursor.fetchall()
+    weighted_k_total = 0.0
+    weighted_csw_total = 0.0
+    k_weight_total = 0.0
+    csw_weight_total = 0.0
+    for batter_id, plate_appearances, strikeouts, pitches, csw_events in rows:
+        weight = weights.get(str(batter_id), 0.0)
+        if weight <= 0:
+            continue
+        if plate_appearances and float(plate_appearances) > 0:
+            weighted_k_total += (float(strikeouts or 0) / float(plate_appearances)) * weight
+            k_weight_total += weight
+        if pitches and float(pitches) > 0:
+            weighted_csw_total += (float(csw_events or 0) / float(pitches)) * weight
+            csw_weight_total += weight
+    return {
+        "lineup_k_pct": round(weighted_k_total / k_weight_total, 6) if k_weight_total > 0 else None,
+        "lineup_csw_against": round(weighted_csw_total / csw_weight_total, 6) if csw_weight_total > 0 else None,
+    }
+
+
 def _home_team_from_matchup(matchup: str) -> str:
     if "@" not in matchup:
         return ""
@@ -176,10 +237,21 @@ def enrich_mlb_strikeout_props(props: list[object]) -> None:
                 prop.pitchesPerBatter = metrics["pitches_per_batter"]
 
         lineup_matchup = getattr(prop, "mlbProjectedLineupMatchup", None)
-        if isinstance(lineup_matchup, dict) and getattr(prop, "lineupKPercent", None) is None:
-            lineup_rate = _lineup_k_rate(lineup_matchup.get("opposingLineup") or [], event_date)
-            if lineup_rate is not None:
-                prop.lineupKPercent = lineup_rate
+        if isinstance(lineup_matchup, dict):
+            opposing_lineup = lineup_matchup.get("opposingLineup") or []
+            split_metrics = _lineup_split_metrics(
+                opposing_lineup,
+                event_date,
+                str(lineup_matchup.get("throws") or ""),
+            )
+            if getattr(prop, "lineupKPercent", None) is None:
+                lineup_rate = split_metrics.get("lineup_k_pct")
+                if lineup_rate is None:
+                    lineup_rate = _lineup_k_rate(opposing_lineup, event_date)
+                if lineup_rate is not None:
+                    prop.lineupKPercent = lineup_rate
+            if getattr(prop, "lineupCswAgainst", None) is None and split_metrics.get("lineup_csw_against") is not None:
+                prop.lineupCswAgainst = split_metrics.get("lineup_csw_against")
 
         if getattr(prop, "umpireKBoost", None) is None:
             umpire_boost = _umpire_boost(str(getattr(prop, "apiSportsGameId", "") or ""))
