@@ -1218,6 +1218,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           child: Column(
             children: [
               const AuthAccountPanel(),
+              const SizedBox(height: 8),
+              _buildFeedbackActionButton(),
               const SizedBox(height: 10),
               Expanded(
                 child: SelectedPropSlip(
@@ -1683,44 +1685,41 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     messageController.dispose();
   }
 
-  Widget _buildFeedbackButton() {
-    return Positioned(
-      right: 18,
-      bottom: 18,
-      child: SafeArea(
-        minimum: const EdgeInsets.all(4),
-        child: Material(
-          elevation: 12,
-          color: app_colors.AppColors.bgPanel,
-          shape: const StadiumBorder(
-            side: BorderSide(color: app_colors.AppColors.gold, width: 1.5),
-          ),
-          child: InkWell(
-            key: const ValueKey('open-user-feedback-dialog'),
-            onTap: _openFeedbackDialog,
-            borderRadius: BorderRadius.circular(999),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.campaign_outlined,
-                    size: 16,
+  Widget _buildFeedbackActionButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: Material(
+        elevation: 6,
+        color: app_colors.AppColors.bgPanel,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: app_colors.AppColors.gold, width: 1.3),
+        ),
+        child: InkWell(
+          key: const ValueKey('open-user-feedback-dialog'),
+          onTap: _openFeedbackDialog,
+          borderRadius: BorderRadius.circular(10),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.campaign_outlined,
+                  size: 16,
+                  color: app_colors.AppColors.gold,
+                ),
+                SizedBox(width: 6),
+                Text(
+                  'FEEDBACK',
+                  style: TextStyle(
                     color: app_colors.AppColors.gold,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .6,
                   ),
-                  SizedBox(width: 6),
-                  Text(
-                    'FEEDBACK',
-                    style: TextStyle(
-                      color: app_colors.AppColors.gold,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: .6,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -2131,6 +2130,22 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                   _switchToPage(AppPage.watchlist, source: 'mobile-bottom-nav'),
               onMobileChat: _floatChat,
               onMobileDismissOverlay: _closeFloatingChat,
+              onMobileNavigateIndex: (index) {
+                switch (index) {
+                  case 0:
+                    _switchToPage(AppPage.board, source: 'mobile-swipe');
+                    break;
+                  case 1:
+                    _switchToPage(
+                      AppPage.gameMarkets,
+                      source: 'mobile-swipe',
+                    );
+                    break;
+                  case 2:
+                    _switchToPage(AppPage.watchlist, source: 'mobile-swipe');
+                    break;
+                }
+              },
               accentColor: membershipAccent,
             ),
           ),
@@ -2143,7 +2158,6 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
               !_chatFloating &&
               _selectedPage != AppPage.propChat)
             _buildChatRestoreButton(),
-          _buildFeedbackButton(),
         ],
       ),
     );
@@ -4371,7 +4385,9 @@ class _MainDashboardState extends State<MainDashboard> {
     return _latestProps.where((prop) {
       final propSport = _normalizeSport(prop.sport);
       final sportMatches = selectedSport == 'ALL' || propSport == selectedSport;
-      final propSite = _normalizeSite(prop.sportsbook);
+      final propSite = _normalizeSite(
+        '${prop.sportsbook} ${prop.sourceProvider}',
+      );
       final siteMatches = selectedSite == 'ALL' || propSite == selectedSite;
       final market = _propMarket(prop).toLowerCase();
       final searchMatches =
@@ -4409,7 +4425,8 @@ class _MainDashboardState extends State<MainDashboard> {
           .where(
             (prop) =>
                 prop.player.trim().toLowerCase() == playerKey &&
-                _normalizeSite(prop.sportsbook) == siteKey,
+            _normalizeSite('${prop.sportsbook} ${prop.sourceProvider}') ==
+              siteKey,
           )
           .toList(growable: false);
     } catch (_) {
@@ -4418,7 +4435,7 @@ class _MainDashboardState extends State<MainDashboard> {
             (prop) =>
                 prop.player.trim().toLowerCase() ==
                     focused.player.trim().toLowerCase() &&
-                _normalizeSite(prop.sportsbook) ==
+            _normalizeSite('${prop.sportsbook} ${prop.sourceProvider}') ==
                     _normalizeSite(focused.sportsbook),
           )
           .toList(growable: false);
@@ -4849,6 +4866,63 @@ class _MainDashboardState extends State<MainDashboard> {
       'DRAFTKINGS',
       'BETR',
     ];
+    final compactLayout = MediaQuery.sizeOf(context).width < 720;
+
+    Widget playerSearchField({double? width}) {
+      final field = TextField(
+        controller: _searchController,
+        textInputAction: TextInputAction.search,
+        onChanged: (value) {
+          _searchDebounce?.cancel();
+          _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+            if (!mounted) return;
+            setState(() {
+              _searchQuery = value.trim().toLowerCase();
+              _focusedProp = null;
+              _latestProps = const [];
+              _lastUpdated = null;
+            });
+          });
+        },
+        decoration: InputDecoration(
+          hintText: 'Search players',
+          prefixIcon: const Icon(Icons.search_rounded, size: 18),
+          suffixIcon: _searchQuery.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'Clear player search',
+                  onPressed: () {
+                    _searchDebounce?.cancel();
+                    _searchController.clear();
+                    setState(() {
+                      _searchQuery = '';
+                      _focusedProp = null;
+                      _latestProps = const [];
+                      _lastUpdated = null;
+                    });
+                  },
+                  icon: const Icon(Icons.close, size: 17),
+                ),
+          filled: true,
+          fillColor: app_colors.AppColors.sidebar,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(7),
+            borderSide: const BorderSide(color: AppColors.gold),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(7),
+            borderSide: const BorderSide(color: AppColors.gold, width: 1.4),
+          ),
+        ),
+      );
+      if (width == null) {
+        return field;
+      }
+      return SizedBox(width: width, child: field);
+    }
+
     Widget bookMark(String book) {
       if (book == 'ALL') {
         return const Icon(Icons.keyboard_arrow_down, size: 13);
@@ -4910,335 +4984,246 @@ class _MainDashboardState extends State<MainDashboard> {
       });
     }
 
-    return Row(
-      children: [
-        IconButton(
-          key: const ValueKey('prop-sites-scroll-left'),
-          tooltip: 'Previous prop sites',
-          onPressed: () => slideSites(-240),
-          style: IconButton.styleFrom(
-            backgroundColor: AppColors.gold.withValues(alpha: .12),
-            side: const BorderSide(color: AppColors.gold),
-            minimumSize: const Size(38, 42),
-          ),
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: AppColors.gold,
-            size: 16,
+    Widget buildAllSitesSelector(bool selected) {
+      return PopupMenuButton<String>(
+        key: const ValueKey('all-prop-sites-menu'),
+        tooltip: 'Choose a prop site',
+        onSelected: selectSite,
+        color: app_colors.AppColors.sidebar,
+        itemBuilder: (context) => [
+          for (final option in books)
+            PopupMenuItem<String>(
+              value: option,
+              child: Row(
+                children: [
+                  bookMark(option),
+                  const SizedBox(width: 8),
+                  Text(
+                    option == 'ALL' ? 'All Prop Sites' : option,
+                    style: TextStyle(
+                      color: _selectedSite == option
+                          ? AppColors.gold
+                          : Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+        child: IgnorePointer(
+          child: OutlinedButton(
+            onPressed: () {},
+            style: OutlinedButton.styleFrom(
+              foregroundColor: selected ? AppColors.gold : Colors.white,
+              backgroundColor: selected
+                  ? AppColors.gold.withValues(alpha: .10)
+                  : app_colors.AppColors.sidebar,
+              side: BorderSide(color: selected ? AppColors.gold : AppColors.border),
+              padding: const EdgeInsets.symmetric(horizontal: 13),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_selectedSite != 'ALL') ...[
+                  bookMark(_selectedSite),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  _selectedSite == 'ALL' ? 'All Prop Sites' : _selectedSite,
+                  style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(width: 5),
+                const Icon(Icons.keyboard_arrow_down, size: 13),
+              ],
+            ),
           ),
         ),
-        Expanded(
-          child: SizedBox(
-            height: 48,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onHorizontalDragUpdate: (details) {
-                if (!_bookHorizontalController.hasClients) return;
-                final target =
-                    (_bookHorizontalController.offset - details.delta.dx).clamp(
-                      0.0,
-                      _bookHorizontalController.position.maxScrollExtent,
-                    );
-                _bookHorizontalController.jumpTo(target);
-              },
-              child: Listener(
-                onPointerSignal: (event) {
-                  if (event is! PointerScrollEvent ||
-                      !_bookHorizontalController.hasClients) {
-                    return;
-                  }
-                  final delta =
-                      event.scrollDelta.dy.abs() >= event.scrollDelta.dx.abs()
-                      ? event.scrollDelta.dy
-                      : event.scrollDelta.dx;
-                  if (delta == 0) return;
-                  final target = (_bookHorizontalController.offset + delta)
-                      .clamp(
-                        0.0,
-                        _bookHorizontalController.position.maxScrollExtent,
-                      );
-                  unawaited(
-                    _bookHorizontalController.animateTo(
-                      target,
-                      duration: const Duration(milliseconds: 140),
-                      curve: Curves.easeOutCubic,
-                    ),
-                  );
-                },
-                child: Scrollbar(
-                  controller: _bookHorizontalController,
-                  thumbVisibility: true,
-                  trackVisibility: true,
-                  interactive: true,
-                  scrollbarOrientation: ScrollbarOrientation.bottom,
-                  thickness: 4,
-                  radius: const Radius.circular(99),
-                  child: ListView.separated(
-                    key: const ValueKey('prop-sites-scroll-list'),
-                    controller: _bookHorizontalController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.only(bottom: 6),
-                    itemCount: books.length + 3,
-                    separatorBuilder: (_, _) => const SizedBox(width: 6),
-                    itemBuilder: (context, index) {
-                      if (index == 1) {
-                        return SizedBox(
-                          key: const ValueKey('board-player-search'),
-                          width: 230,
-                          child: TextField(
-                            controller: _searchController,
-                            textInputAction: TextInputAction.search,
-                            onChanged: (value) {
-                              _searchDebounce?.cancel();
-                              _searchDebounce = Timer(
-                                const Duration(milliseconds: 250),
-                                () {
-                                  if (!mounted) return;
-                                  setState(() {
-                                    _searchQuery = value.trim().toLowerCase();
-                                    _focusedProp = null;
-                                    _latestProps = const [];
-                                    _lastUpdated = null;
-                                  });
-                                },
-                              );
-                            },
-                            decoration: InputDecoration(
-                              hintText: 'Search players',
-                              prefixIcon: const Icon(
-                                Icons.search_rounded,
-                                size: 18,
-                              ),
-                              suffixIcon: _searchQuery.isEmpty
-                                  ? null
-                                  : IconButton(
-                                      tooltip: 'Clear player search',
-                                      onPressed: () {
-                                        _searchDebounce?.cancel();
-                                        _searchController.clear();
-                                        setState(() {
-                                          _searchQuery = '';
-                                          _focusedProp = null;
-                                          _latestProps = const [];
-                                          _lastUpdated = null;
-                                        });
-                                      },
-                                      icon: const Icon(Icons.close, size: 17),
-                                    ),
-                              filled: true,
-                              fillColor: app_colors.AppColors.sidebar,
-                              contentPadding: const EdgeInsets.symmetric(
-                                vertical: 8,
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(7),
-                                borderSide: const BorderSide(
-                                  color: AppColors.gold,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(7),
-                                borderSide: const BorderSide(
-                                  color: AppColors.gold,
-                                  width: 1.4,
-                                ),
-                              ),
-                            ),
-                          ),
+      );
+    }
+
+    Widget buildSiteButton(String book) {
+      final selected = _selectedSite == book;
+      if (book == 'ALL') {
+        return buildAllSitesSelector(selected);
+      }
+      return OutlinedButton(
+        onPressed: () => selectSite(book),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: selected ? AppColors.gold : Colors.white,
+          backgroundColor: selected
+              ? AppColors.gold.withValues(alpha: .10)
+              : app_colors.AppColors.sidebar,
+          side: BorderSide(color: selected ? AppColors.gold : AppColors.border),
+          padding: const EdgeInsets.symmetric(horizontal: 13),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            bookMark(book),
+            const SizedBox(width: 6),
+            Text(
+              book,
+              style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final siteBarItems = <Widget>[
+      if (!compactLayout)
+        SizedBox(
+          key: const ValueKey('board-player-search'),
+          width: 190,
+          child: playerSearchField(),
+        ),
+      Tooltip(
+        message: 'Open PROP CHAT and join the community.',
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            OutlinedButton.icon(
+              key: const ValueKey('board-prop-chat-button'),
+              onPressed: () => widget.onSelectPage?.call(AppPage.propChat),
+              icon: const Icon(Icons.forum_rounded, size: 17),
+              label: const Text('PROP CHAT'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.gold,
+                backgroundColor: AppColors.gold.withValues(alpha: .08),
+                side: const BorderSide(color: AppColors.gold),
+                padding: const EdgeInsets.symmetric(horizontal: 13),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(7),
+                ),
+              ),
+            ),
+            const Positioned(right: -7, top: -7, child: _ChatUnreadBadge()),
+          ],
+        ),
+      ),
+      OutlinedButton.icon(
+        onPressed: _showBoardFilterOptions,
+        icon: const Icon(Icons.filter_alt_outlined, size: 14),
+        label: const Text('FILTERS', style: TextStyle(fontSize: 8)),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.white,
+          backgroundColor: app_colors.AppColors.sidebar,
+          side: const BorderSide(color: AppColors.border),
+          padding: const EdgeInsets.symmetric(horizontal: 11),
+        ),
+      ),
+      ...books.map(buildSiteButton),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (compactLayout) ...[
+          SizedBox(
+            key: const ValueKey('board-player-search'),
+            child: playerSearchField(),
+          ),
+          const SizedBox(height: 8),
+        ],
+        Row(
+          children: [
+            IconButton(
+              key: const ValueKey('prop-sites-scroll-left'),
+              tooltip: 'Previous prop sites',
+              onPressed: () => slideSites(-240),
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.gold.withValues(alpha: .12),
+                side: const BorderSide(color: AppColors.gold),
+                minimumSize: const Size(38, 42),
+              ),
+              icon: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: AppColors.gold,
+                size: 16,
+              ),
+            ),
+            Expanded(
+              child: SizedBox(
+                height: 48,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onHorizontalDragUpdate: (details) {
+                    if (!_bookHorizontalController.hasClients) return;
+                    final target = (_bookHorizontalController.offset -
+                            details.delta.dx)
+                        .clamp(
+                          0.0,
+                          _bookHorizontalController.position.maxScrollExtent,
                         );
+                    _bookHorizontalController.jumpTo(target);
+                  },
+                  child: Listener(
+                    onPointerSignal: (event) {
+                      if (event is! PointerScrollEvent ||
+                          !_bookHorizontalController.hasClients) {
+                        return;
                       }
-                      if (index == 2) {
-                        return Tooltip(
-                          message: 'Open PROP CHAT and join the community.',
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              OutlinedButton.icon(
-                                key: const ValueKey('board-prop-chat-button'),
-                                onPressed: () =>
-                                    widget.onSelectPage?.call(AppPage.propChat),
-                                icon: const Icon(Icons.forum_rounded, size: 17),
-                                label: const Text('PROP CHAT'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppColors.gold,
-                                  backgroundColor: AppColors.gold.withValues(
-                                    alpha: .08,
-                                  ),
-                                  side: const BorderSide(color: AppColors.gold),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 13,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(7),
-                                  ),
-                                ),
-                              ),
-                              const Positioned(
-                                right: -7,
-                                top: -7,
-                                child: _ChatUnreadBadge(),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                      if (index == 3) {
-                        return OutlinedButton.icon(
-                          onPressed: _showBoardFilterOptions,
-                          icon: const Icon(Icons.filter_alt_outlined, size: 14),
-                          label: const Text(
-                            'FILTERS',
-                            style: TextStyle(fontSize: 8),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            backgroundColor: app_colors.AppColors.sidebar,
-                            side: const BorderSide(color: AppColors.border),
-                            padding: const EdgeInsets.symmetric(horizontal: 11),
-                          ),
-                        );
-                      }
-                      final book = books[index > 3 ? index - 3 : index];
-                      final selected = _selectedSite == book;
-                      if (book == 'ALL') {
-                        return PopupMenuButton<String>(
-                          key: const ValueKey('all-prop-sites-menu'),
-                          tooltip: 'Choose a prop site',
-                          onSelected: selectSite,
-                          color: app_colors.AppColors.sidebar,
-                          itemBuilder: (context) => [
-                            for (final option in books)
-                              PopupMenuItem<String>(
-                                value: option,
-                                child: Row(
-                                  children: [
-                                    bookMark(option),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      option == 'ALL'
-                                          ? 'All Prop Sites'
-                                          : option,
-                                      style: TextStyle(
-                                        color: _selectedSite == option
-                                            ? AppColors.gold
-                                            : Colors.white,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                          child: IgnorePointer(
-                            child: OutlinedButton(
-                              onPressed: () {},
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: selected
-                                    ? AppColors.gold
-                                    : Colors.white,
-                                backgroundColor: selected
-                                    ? AppColors.gold.withValues(alpha: .10)
-                                    : app_colors.AppColors.sidebar,
-                                side: BorderSide(
-                                  color: selected
-                                      ? AppColors.gold
-                                      : AppColors.border,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 13,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(7),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (_selectedSite != 'ALL') ...[
-                                    bookMark(_selectedSite),
-                                    const SizedBox(width: 6),
-                                  ],
-                                  Text(
-                                    _selectedSite == 'ALL'
-                                        ? 'All Prop Sites'
-                                        : _selectedSite,
-                                    style: const TextStyle(
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  const Icon(
-                                    Icons.keyboard_arrow_down,
-                                    size: 13,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                      return OutlinedButton(
-                        onPressed: () => selectSite(book),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: selected
-                              ? AppColors.gold
-                              : Colors.white,
-                          backgroundColor: selected
-                              ? AppColors.gold.withValues(alpha: .10)
-                              : app_colors.AppColors.sidebar,
-                          side: BorderSide(
-                            color: selected ? AppColors.gold : AppColors.border,
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 13),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(7),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (book != 'ALL') ...[
-                              bookMark(book),
-                              const SizedBox(width: 6),
-                            ],
-                            Text(
-                              book == 'ALL' ? 'All Prop Sites' : book,
-                              style: const TextStyle(
-                                fontSize: 8,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            if (book == 'ALL') ...[
-                              const SizedBox(width: 5),
-                              bookMark(book),
-                            ],
-                          ],
+                      final delta =
+                          event.scrollDelta.dy.abs() >= event.scrollDelta.dx.abs()
+                          ? event.scrollDelta.dy
+                          : event.scrollDelta.dx;
+                      if (delta == 0) return;
+                      final target = (_bookHorizontalController.offset + delta)
+                          .clamp(
+                            0.0,
+                            _bookHorizontalController.position.maxScrollExtent,
+                          );
+                      unawaited(
+                        _bookHorizontalController.animateTo(
+                          target,
+                          duration: const Duration(milliseconds: 140),
+                          curve: Curves.easeOutCubic,
                         ),
                       );
                     },
+                    child: Scrollbar(
+                      controller: _bookHorizontalController,
+                      thumbVisibility: true,
+                      trackVisibility: true,
+                      interactive: true,
+                      scrollbarOrientation: ScrollbarOrientation.bottom,
+                      thickness: 4,
+                      radius: const Radius.circular(99),
+                      child: ListView.separated(
+                        key: const ValueKey('prop-sites-scroll-list'),
+                        controller: _bookHorizontalController,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.only(bottom: 6),
+                        itemCount: siteBarItems.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 6),
+                        itemBuilder: (context, index) => siteBarItems[index],
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ),
-        IconButton(
-          key: const ValueKey('prop-sites-scroll-right'),
-          tooltip: 'More prop sites',
-          onPressed: () => slideSites(240),
-          style: IconButton.styleFrom(
-            backgroundColor: AppColors.gold.withValues(alpha: .12),
-            side: const BorderSide(color: AppColors.gold),
-            minimumSize: const Size(38, 42),
-          ),
-          icon: const Icon(
-            Icons.arrow_forward_ios_rounded,
-            color: AppColors.gold,
-            size: 16,
-          ),
+            IconButton(
+              key: const ValueKey('prop-sites-scroll-right'),
+              tooltip: 'More prop sites',
+              onPressed: () => slideSites(240),
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.gold.withValues(alpha: .12),
+                side: const BorderSide(color: AppColors.gold),
+                minimumSize: const Size(38, 42),
+              ),
+              icon: const Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: AppColors.gold,
+                size: 16,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -9532,6 +9517,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
 
     Widget sideButton(PickSide side) {
       final selected = selectedSide == side;
+      final systemRecommended = advisedSide == side;
       final label = side == PickSide.over ? 'OVER' : 'UNDER';
       return Expanded(
         child: OutlinedButton(
@@ -9539,21 +9525,129 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               ? () => _handleCardSelection(prop, side)
               : null,
           style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 44),
+            minimumSize: const Size(0, 54),
             foregroundColor: selected ? AppColors.background : Colors.white,
-            backgroundColor: selected ? AppColors.gold : Colors.transparent,
+            backgroundColor: selected
+                ? AppColors.goldBright.withValues(alpha: .88)
+                : const Color(0xFF1A2430),
             side: BorderSide(
-              color: selected ? AppColors.gold : AppColors.border,
+              color: selected
+                  ? AppColors.goldBright
+                  : systemRecommended
+                  ? AppColors.gold.withValues(alpha: .85)
+                  : AppColors.border,
+              width: selected ? 1.4 : 1,
             ),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(12),
             ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           ),
-          child: FittedBox(
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
+          child: Row(
+            children: [
+              if (side == PickSide.under)
+                Text(
+                  '⌄',
+                  style: TextStyle(
+                    color: selected ? AppColors.background : AppColors.text,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                  ),
+                ),
+              if (side == PickSide.under) const SizedBox(width: 7),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        color: selected ? AppColors.background : AppColors.gold,
+                        letterSpacing: .4,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      prop.line.toStringAsFixed(1),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: selected ? AppColors.background : Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (side == PickSide.over) const SizedBox(width: 7),
+              if (side == PickSide.over)
+                Text(
+                  '⌃',
+                  style: TextStyle(
+                    color: selected ? AppColors.background : AppColors.text,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                  ),
+                ),
+              if (!selected && systemRecommended) ...[
+                const SizedBox(width: 6),
+                const Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 12,
+                  color: AppColors.gold,
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget lineDisplay() {
+      return Container(
+        constraints: const BoxConstraints(minWidth: 74),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0B1622),
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(color: AppColors.gold.withValues(alpha: .28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'LINE',
+              style: TextStyle(
+                color: AppColors.gold,
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .6,
+              ),
             ),
+            const SizedBox(height: 3),
+            Text(
+              prop.line.toStringAsFixed(1),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget selectionHint() {
+      return const Text(
+        'Tap OVER or UNDER to add it to the active slip. Tap the selected side again to remove it.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: AppColors.muted, fontSize: 7.5),
+      );
+    }
           ),
         ),
       );
@@ -9856,6 +9950,18 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             ],
           ),
           const SizedBox(height: 11),
+          Row(
+            children: [
+              sideButton(PickSide.under),
+              const SizedBox(width: 7),
+              lineDisplay(),
+              const SizedBox(width: 7),
+              sideButton(PickSide.over),
+            ],
+          ),
+          const SizedBox(height: 7),
+          selectionHint(),
+          const SizedBox(height: 11),
           Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -9890,20 +9996,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(color: AppColors.muted, fontSize: 8, height: 1.3),
           ),
-          const SizedBox(height: 11),
-          Row(
-            children: [
-              sideButton(PickSide.over),
-              const SizedBox(width: 8),
-              sideButton(PickSide.under),
-            ],
-          ),
-          const SizedBox(height: 7),
-          const Text(
-            'Tap OVER or UNDER to add it to the active slip. Tap the selected side again to remove it.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.muted, fontSize: 7.5),
-          ),
+          const SizedBox(height: 6),
         ],
       ),
     );
@@ -9982,46 +10075,134 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       final advised = hasSuggestion && side == advisedSide;
       final label = side == PickSide.over ? 'OVER' : 'UNDER';
 
-      // Green for OVER, Red for UNDER when selected
-      final selectedColor = side == PickSide.over
-          ? const Color(0xFF4CAF50) // Green
-          : const Color(0xFFEF5350); // Red
-
       return Expanded(
         child: OutlinedButton(
           onPressed: () => _handleCardSelection(prop, side),
           style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 36),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            minimumSize: const Size(0, 54),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            foregroundColor: selected
-                ? Colors.white
-                : (advised ? AppColors.gold : Colors.white),
+            foregroundColor: selected ? AppColors.background : Colors.white,
             backgroundColor: selected
-                ? selectedColor.withValues(alpha: .85)
-                : (advised
-                      ? AppColors.gold.withValues(alpha: .16)
-                      : const Color(0xFF091620)),
+                ? AppColors.goldBright.withValues(alpha: .88)
+                : const Color(0xFF1A2430),
             side: BorderSide(
               color: selected
-                  ? selectedColor
-                  : (advised ? AppColors.gold : AppColors.border),
-              width: selected ? 2 : 1,
+                  ? AppColors.goldBright
+                  : advised
+                  ? AppColors.gold.withValues(alpha: .85)
+                  : AppColors.border,
+              width: selected ? 1.4 : 1,
             ),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              advised
-                  ? hasModelRecommendation
-                        ? '$label  •  SYSTEM PICK'
-                        : '$label  •  INFO LEAN'
-                  : label,
-              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
+          child: Row(
+            children: [
+              if (side == PickSide.under)
+                Text(
+                  '⌄',
+                  style: TextStyle(
+                    color: selected ? AppColors.background : AppColors.text,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                  ),
+                ),
+              if (side == PickSide.under) const SizedBox(width: 7),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        color: selected ? AppColors.background : AppColors.gold,
+                        letterSpacing: .4,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      prop.line.toStringAsFixed(1),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: selected ? AppColors.background : Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (side == PickSide.over) const SizedBox(width: 7),
+              if (side == PickSide.over)
+                Text(
+                  '⌃',
+                  style: TextStyle(
+                    color: selected ? AppColors.background : AppColors.text,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                  ),
+                ),
+              if (!selected && advised) ...[
+                const SizedBox(width: 6),
+                const Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 12,
+                  color: AppColors.gold,
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget lineDisplay() {
+      return Container(
+        constraints: const BoxConstraints(minWidth: 74),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0B1622),
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(color: AppColors.gold.withValues(alpha: .28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'LINE',
+              style: TextStyle(
+                color: AppColors.gold,
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .6,
+              ),
             ),
+            const SizedBox(height: 3),
+            Text(
+              prop.line.toStringAsFixed(1),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget selectionHint() {
+      return const Text(
+        'Tap OVER or UNDER to add it to the active slip. Tap the selected side again to remove it.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: AppColors.muted, fontSize: 7.5),
+      );
+    }
           ),
         ),
       );
@@ -10204,6 +10385,18 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(height: 8),
+          Row(
+            children: [
+              sideButton(PickSide.under),
+              const SizedBox(width: 7),
+              lineDisplay(),
+              const SizedBox(width: 7),
+              sideButton(PickSide.over),
+            ],
+          ),
+          const SizedBox(height: 7),
+          selectionHint(),
+          const SizedBox(height: 8),
           RecommendationExplainabilityBlock(
             prop: prop,
             title: 'STANDARDIZED EXPLAINABILITY',
@@ -10314,14 +10507,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               backgroundColor: AppColors.border,
             ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              sideButton(PickSide.over),
-              const SizedBox(width: 8),
-              sideButton(PickSide.under),
-            ],
-          ),
         ],
       ),
     );
@@ -10339,72 +10524,130 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         ? PickSide.under
         : PickSide.over;
     final projection = prop.projection ?? prop.line;
-    final overOdds = prop.overOdds ?? 1.85;
-    final underOdds = prop.underOdds ?? 1.85;
     final market = _marketCategory(prop);
 
-    String displayOdds(double odds) {
-      if (odds.abs() >= 100) {
-        final decimal = odds > 0 ? 1 + (odds / 100) : 1 + (100 / odds.abs());
-        return decimal.toStringAsFixed(2);
-      }
-      return odds.toStringAsFixed(2);
-    }
-
-    Widget sideButton(PickSide side, double odds) {
+    Widget sideButton(PickSide side) {
       final advised = side == advisedSide;
       final selected = side == selectedSide;
       final isOver = side == PickSide.over;
       return Expanded(
-        child: Tooltip(
-          message: advised
-              ? 'Model advised pick'
-              : 'Select ${isOver ? 'OVER' : 'UNDER'}',
-          child: OutlinedButton(
-            onPressed: prop.dataStale
-                ? null
-                : () => widget.onSelect(prop, side),
-            style: OutlinedButton.styleFrom(
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(0, 24),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
-              foregroundColor: selected ? AppColors.gold : Colors.white,
-              backgroundColor: selected
-                  ? AppColors.gold.withValues(alpha: .18)
-                  : const Color(0xFF091620),
-              side: BorderSide(
-                color: selected ? AppColors.gold : AppColors.border,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(5),
-              ),
+        child: OutlinedButton(
+          onPressed: prop.dataStale ? null : () => widget.onSelect(prop, side),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 52),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+            foregroundColor: selected ? AppColors.background : Colors.white,
+            backgroundColor: selected
+                ? AppColors.goldBright.withValues(alpha: .88)
+                : const Color(0xFF1A2430),
+            side: BorderSide(
+              color: selected
+                  ? AppColors.goldBright
+                  : advised
+                  ? AppColors.gold.withValues(alpha: .85)
+                  : AppColors.border,
+              width: selected ? 1.4 : 1,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(11),
+            ),
+          ),
+          child: Row(
+            children: [
+              if (!isOver)
+                Text(
+                  '⌄',
+                  style: TextStyle(
+                    color: selected ? AppColors.background : AppColors.text,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                  ),
+                ),
+              if (!isOver) const SizedBox(width: 5),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      isOver ? Icons.arrow_upward : Icons.arrow_downward,
-                      size: 13,
-                    ),
-                    const SizedBox(width: 3),
                     Text(
                       isOver ? 'OVER' : 'UNDER',
-                      style: const TextStyle(
-                        fontSize: 7.5,
+                      style: TextStyle(
+                        fontSize: 8,
                         fontWeight: FontWeight.w900,
+                        color: selected ? AppColors.background : AppColors.gold,
+                        letterSpacing: .35,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      prop.line.toStringAsFixed(1),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        color: selected ? AppColors.background : Colors.white,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 2),
-                Text(displayOdds(odds), style: const TextStyle(fontSize: 7)),
+              ),
+              if (isOver) const SizedBox(width: 5),
+              if (isOver)
+                Text(
+                  '⌃',
+                  style: TextStyle(
+                    color: selected ? AppColors.background : AppColors.text,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                  ),
+                ),
+              if (!selected && advised) ...[
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 10,
+                  color: AppColors.gold,
+                ),
               ],
-            ),
+            ],
           ),
+        ),
+      );
+    }
+
+    Widget lineDisplay() {
+      return Container(
+        constraints: const BoxConstraints(minWidth: 58),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0B1622),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: AppColors.gold.withValues(alpha: .28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'LINE',
+              style: TextStyle(
+                color: AppColors.gold,
+                fontSize: 7,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .5,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              prop.line.toStringAsFixed(1),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -10590,9 +10833,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    sideButton(PickSide.over, overOdds),
+                    sideButton(PickSide.under),
                     const SizedBox(width: 6),
-                    sideButton(PickSide.under, underOdds),
+                    lineDisplay(),
+                    const SizedBox(width: 6),
+                    sideButton(PickSide.over),
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -11210,7 +11455,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       return _PreparedProp(
         prop: prop,
         normalizedSport: _normalizeSport(prop.sport),
-        normalizedSite: _normalizeSite(prop.sportsbook),
+        normalizedSite: _normalizeSite(
+          '${prop.sportsbook} ${prop.sourceProvider}',
+        ),
         searchText: searchText,
       );
     }).toList();

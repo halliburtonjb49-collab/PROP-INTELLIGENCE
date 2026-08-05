@@ -19,6 +19,7 @@ class AppShell extends StatelessWidget {
     this.onMobileWatchSlip,
     this.onMobileChat,
     this.onMobileDismissOverlay,
+    this.onMobileNavigateIndex,
     this.accentColor = AppColors.gold,
   });
 
@@ -33,6 +34,7 @@ class AppShell extends StatelessWidget {
   final VoidCallback? onMobileWatchSlip;
   final VoidCallback? onMobileChat;
   final VoidCallback? onMobileDismissOverlay;
+  final ValueChanged<int>? onMobileNavigateIndex;
   final Color accentColor;
 
   static const double leftWidth = 244;
@@ -86,6 +88,7 @@ class AppShell extends StatelessWidget {
             onWatchSlip: onMobileWatchSlip,
             onChat: onMobileChat,
             onDismissOverlay: onMobileDismissOverlay,
+            onNavigateIndex: onMobileNavigateIndex,
             accentColor: accentColor,
           );
         }
@@ -164,6 +167,7 @@ class _MobileAppShell extends StatefulWidget {
     required this.onWatchSlip,
     required this.onChat,
     required this.onDismissOverlay,
+    required this.onNavigateIndex,
     required this.accentColor,
   });
 
@@ -178,6 +182,7 @@ class _MobileAppShell extends StatefulWidget {
   final VoidCallback? onWatchSlip;
   final VoidCallback? onChat;
   final VoidCallback? onDismissOverlay;
+  final ValueChanged<int>? onNavigateIndex;
   final Color accentColor;
 
   @override
@@ -186,6 +191,65 @@ class _MobileAppShell extends StatefulWidget {
 
 class _MobileAppShellState extends State<_MobileAppShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  DateTime? _lastHorizontalScrollSignal;
+  double _dragNetX = 0;
+  double _dragAbsX = 0;
+  double _dragAbsY = 0;
+
+  bool get _supportsSwipeRoute {
+    // Swiping is intended only for top-level destinations represented in the
+    // mobile bottom navigation.
+    return widget.selectedIndex >= 0 && widget.selectedIndex <= 2;
+  }
+
+  void _handleSwipeStart(DragStartDetails details) {
+    _dragNetX = 0;
+    _dragAbsX = 0;
+    _dragAbsY = 0;
+  }
+
+  void _handleSwipeUpdate(DragUpdateDetails details) {
+    _dragNetX += details.delta.dx;
+    _dragAbsX += details.delta.dx.abs();
+    _dragAbsY += details.delta.dy.abs();
+  }
+
+  void _handleSwipeEnd(DragEndDetails details) {
+    if (!_supportsSwipeRoute) return;
+    if ((_scaffoldKey.currentState?.isDrawerOpen ?? false) ||
+        (_scaffoldKey.currentState?.isEndDrawerOpen ?? false)) {
+      return;
+    }
+
+    final now = DateTime.now();
+    if (_lastHorizontalScrollSignal != null &&
+        now.difference(_lastHorizontalScrollSignal!) <
+            const Duration(milliseconds: 240)) {
+      return;
+    }
+
+    // Require a deliberate horizontal gesture so regular vertical board
+    // scrolling does not unexpectedly navigate pages.
+    final velocity = details.primaryVelocity ?? 0;
+    final strongVelocity = velocity.abs() >= 760;
+    final strongDistance = _dragAbsX >= 84;
+    final mostlyHorizontal = _dragAbsX >= (_dragAbsY * 1.35);
+    if (!mostlyHorizontal || (!strongVelocity && !strongDistance)) {
+      return;
+    }
+
+    var targetIndex = widget.selectedIndex;
+    if (velocity < -1 || (velocity == 0 && _dragNetX < -1)) {
+      targetIndex += 1;
+    } else if (velocity > 1 || (velocity == 0 && _dragNetX > 1)) {
+      targetIndex -= 1;
+    }
+    targetIndex = targetIndex.clamp(0, 2);
+    if (targetIndex == widget.selectedIndex) {
+      return;
+    }
+    widget.onNavigateIndex?.call(targetIndex);
+  }
 
   @override
   void didUpdateWidget(covariant _MobileAppShell oldWidget) {
@@ -254,15 +318,29 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                   ),
                   const SizedBox(height: 7),
                   Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(15),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: const Color(0xE607111B),
-                          border: Border.all(color: AppColors.border),
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        if (notification.metrics.axis == Axis.horizontal) {
+                          _lastHorizontalScrollSignal = DateTime.now();
+                        }
+                        return false;
+                      },
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onHorizontalDragStart: _handleSwipeStart,
+                        onHorizontalDragUpdate: _handleSwipeUpdate,
+                        onHorizontalDragEnd: _handleSwipeEnd,
+                        child: ClipRRect(
                           borderRadius: BorderRadius.circular(15),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: const Color(0xE607111B),
+                              border: Border.all(color: AppColors.border),
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: widget.content,
+                          ),
                         ),
-                        child: widget.content,
                       ),
                     ),
                   ),
@@ -377,7 +455,7 @@ class _MobileBottomNavigation extends StatelessWidget {
             child: _MobileNavItem(
               key: const ValueKey('mobile-nav-ticket'),
               icon: Icons.receipt_long_rounded,
-              label: 'TICKET',
+              label: 'ACTIVE SLIP',
               selected: false,
               badge: activeSlipCount,
               onTap: onTicket,

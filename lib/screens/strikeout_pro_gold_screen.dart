@@ -807,6 +807,38 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          if (!isExpired)
+            Row(
+              children: [
+                Expanded(
+                  child: _sideButton(
+                    prop: prop,
+                    side: PickSide.under,
+                    selected: selectedSide == PickSide.under,
+                    systemPick: systemSide == PickSide.under,
+                  ),
+                ),
+                const SizedBox(width: 7),
+                _lineDisplay(prop),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: _sideButton(
+                    prop: prop,
+                    side: PickSide.over,
+                    selected: selectedSide == PickSide.over,
+                    systemPick: systemSide == PickSide.over,
+                  ),
+                ),
+              ],
+            ),
+          if (!isExpired) const SizedBox(height: 8),
+          if (!isExpired)
+            const Text(
+              'Tap OVER or UNDER to add it to the active slip. Tap the selected side again to remove it.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textMuted, fontSize: 8),
+            ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 6,
@@ -853,36 +885,42 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
             prop: prop,
             title: 'STANDARDIZED EXPLAINABILITY',
           ),
-          const SizedBox(height: 10),
-          if (!isExpired)
-            Row(
-              children: [
-                Expanded(
-                  child: _sideButton(
-                    prop: prop,
-                    side: PickSide.over,
-                    selected: selectedSide == PickSide.over,
-                    systemPick: systemSide == PickSide.over,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _sideButton(
-                    prop: prop,
-                    side: PickSide.under,
-                    selected: selectedSide == PickSide.under,
-                    systemPick: systemSide == PickSide.under,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+
+  Widget _lineDisplay(PropData prop) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 74),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B1622),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: AppColors.gold.withValues(alpha: .28)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'LINE',
+            style: TextStyle(
+              color: AppColors.gold,
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .6,
             ),
-          if (!isExpired) const SizedBox(height: 8),
-          if (!isExpired)
-            const Text(
-              'Tap OVER or UNDER to add it to the active slip. Tap the selected side again to remove it.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textMuted, fontSize: 8),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            prop.line.toStringAsFixed(1),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
             ),
+          ),
         ],
       ),
     );
@@ -908,17 +946,90 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
         widget.onSelect(prop, side);
       },
       style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 54),
         foregroundColor: selected
             ? brand_colors.AppColors.sidebar
             : Colors.white,
-        backgroundColor: selected ? AppColors.gold : Colors.transparent,
-        side: BorderSide(color: selected ? AppColors.gold : AppColors.border),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        backgroundColor: selected
+            ? AppColors.goldHighlight.withValues(alpha: .88)
+            : const Color(0xFF1A2430),
+        side: BorderSide(
+          color: selected
+              ? AppColors.goldHighlight
+              : systemPick
+              ? AppColors.gold.withValues(alpha: .85)
+              : AppColors.border,
+          width: selected ? 1.4 : 1,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
-      child: Text(
-        systemPick ? '$label • SYSTEM PICK' : label,
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
+      child: Row(
+        children: [
+          if (side == PickSide.under)
+            Text(
+              '⌄',
+              style: TextStyle(
+                color: selected
+                    ? brand_colors.AppColors.sidebar
+                    : AppColors.text,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                height: 1,
+              ),
+            ),
+          if (side == PickSide.under) const SizedBox(width: 7),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    color: selected
+                        ? brand_colors.AppColors.sidebar
+                        : AppColors.gold,
+                    letterSpacing: .4,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  prop.line.toStringAsFixed(1),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    color: selected
+                        ? brand_colors.AppColors.sidebar
+                        : Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (side == PickSide.over) const SizedBox(width: 7),
+          if (side == PickSide.over)
+            Text(
+              '⌃',
+              style: TextStyle(
+                color: selected
+                    ? brand_colors.AppColors.sidebar
+                    : AppColors.text,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                height: 1,
+              ),
+            ),
+          if (!selected && systemPick) ...[
+            const SizedBox(width: 6),
+            const Icon(
+              Icons.auto_awesome_rounded,
+              size: 12,
+              color: AppColors.gold,
+            ),
+          ],
+        ],
       ),
     );
   }

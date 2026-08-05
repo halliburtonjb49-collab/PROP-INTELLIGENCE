@@ -826,6 +826,9 @@ class ApiService {
     int offset = 0,
   }) async {
     Object? lastError;
+    final sportsbookVariants = _sportsbookQueryVariants(selectedSportsbook);
+    final targetSportsbookKey = _normalizeSportsbookKey(selectedSportsbook);
+    final sportsbookFilterEnabled = targetSportsbookKey != 'ALL';
     final cacheKey = _propsCacheKey(
       selectedSide,
       selectedTier,
@@ -839,32 +842,84 @@ class ApiService {
 
     for (final candidate in _candidateBaseUrls) {
       try {
-        final uri = Uri.parse('$candidate/api/props').replace(
-          queryParameters: {
-            'side': selectedSide,
-            'tier': selectedTier,
-            'sportsbook': selectedSportsbook,
-            'sport': selectedSport,
-            'category': selectedCategory,
-            'search': search,
-            'minConfidence': minConfidence.toString(),
-            'sortBy': sortBy,
-            'limit': limit.clamp(1, 500).toString(),
-            'offset': offset.toString(),
-          },
-        );
-        final response = await _getPropsPage(uri);
-        // Parsing and model construction can be expensive on large feeds. Keep
-        // it off the UI isolate so scrolling and animations remain responsive.
-        final parsed = await compute(_parsePropsPayload, response.body);
-        final props = parsed.props;
-        final totalCount = parsed.count;
-        _lastFacetCount = parsed.facetCount;
-        _lastCategoryCounts = parsed.categoryCounts;
+        _ParsedPropsPayload? parsed;
+        for (final sportsbook in sportsbookVariants) {
+          final uri = Uri.parse('$candidate/api/props').replace(
+            queryParameters: {
+              'side': selectedSide,
+              'tier': selectedTier,
+              'sportsbook': sportsbook,
+              'sport': selectedSport,
+              'category': selectedCategory,
+              'search': search,
+              'minConfidence': minConfidence.toString(),
+              'sortBy': sortBy,
+              'limit': limit.clamp(1, 500).toString(),
+              'offset': offset.toString(),
+            },
+          );
+          final response = await _getPropsPage(uri);
+          // Parsing and model construction can be expensive on large feeds.
+          final candidateParsed = await compute(_parsePropsPayload, response.body);
+          parsed = candidateParsed;
+          if (candidateParsed.props.isNotEmpty) {
+            break;
+          }
+        }
+        if (parsed == null) {
+          continue;
+        }
+        var props = parsed.props;
+        var totalCount = parsed.count;
+        var facetCount = parsed.facetCount;
+        var categoryCounts = parsed.categoryCounts;
+        var sportCounts = parsed.sportCounts;
+        var sportCategoryCounts = parsed.sportCategoryCounts;
+
+        if (sportsbookFilterEnabled && props.isEmpty) {
+          final fallbackUri = Uri.parse('$candidate/api/props').replace(
+            queryParameters: {
+              'side': selectedSide,
+              'tier': selectedTier,
+              'sportsbook': 'All',
+              'sport': selectedSport,
+              'category': selectedCategory,
+              'search': search,
+              'minConfidence': minConfidence.toString(),
+              'sortBy': sortBy,
+              'limit': limit.clamp(1, 500).toString(),
+              'offset': offset.toString(),
+            },
+          );
+          final fallbackResponse = await _getPropsPage(fallbackUri);
+          final fallbackParsed = await compute(
+            _parsePropsPayload,
+            fallbackResponse.body,
+          );
+          final fallbackProps = fallbackParsed.props
+              .where(
+                (prop) => _matchesSelectedSportsbook(
+                  prop,
+                  targetSportsbookKey,
+                ),
+              )
+              .toList(growable: false);
+          if (fallbackProps.isNotEmpty) {
+            props = fallbackProps;
+            totalCount = fallbackProps.length;
+            facetCount = fallbackProps.length;
+            categoryCounts = _categoryCountsFromProps(fallbackProps);
+            sportCounts = _sportCountsFromProps(fallbackProps);
+            sportCategoryCounts = _sportCategoryCountsFromProps(fallbackProps);
+          }
+        }
+
+        _lastFacetCount = facetCount;
+        _lastCategoryCounts = categoryCounts;
         if (selectedSport.trim().toUpperCase() == 'ALL' &&
             selectedCategory.trim().toUpperCase() == 'ALL') {
-          _lastSportCounts = parsed.sportCounts;
-          _lastSportCategoryCounts = parsed.sportCategoryCounts;
+          _lastSportCounts = sportCounts;
+          _lastSportCategoryCounts = sportCategoryCounts;
         }
         _resolvedBaseUrl = candidate;
         _lastPropsCount = totalCount > 0 ? totalCount : props.length;
@@ -904,8 +959,8 @@ class ApiService {
               _lastPropsCount,
               _lastFacetCount,
               _lastCategoryCounts,
-              parsed.sportCounts,
-              parsed.sportCategoryCounts,
+              sportCounts,
+              sportCategoryCounts,
             ).catchError((_) {
               // A storage quota or private-browsing restriction must not turn
               // a successful live response into a failed board load.
@@ -941,6 +996,129 @@ class ApiService {
     throw Exception(
       'Unable to reach the live props service. Check your connection and retry.',
     );
+  }
+
+  List<String> _sportsbookQueryVariants(String selectedSportsbook) {
+    final trimmed = selectedSportsbook.trim();
+    final normalized = trimmed
+        .toUpperCase()
+        .replaceAll(' ', '')
+        .replaceAll('_', '')
+        .replaceAll('-', '');
+    if (normalized == 'BETR' || normalized == 'BETRPICKS') {
+      return _dedupeSportsbookVariants([
+        selectedSportsbook,
+        'BETR',
+        'BETR PICKS',
+        'BETRPICKS',
+      ]);
+    }
+    if (normalized == 'SLEEPER' || normalized == 'SLEEPERPICKS') {
+      return _dedupeSportsbookVariants([
+        selectedSportsbook,
+        'SLEEPER',
+        'SLEEPER PICKS',
+        'SLEEPERPICKS',
+      ]);
+    }
+    return [selectedSportsbook];
+  }
+
+  List<String> _dedupeSportsbookVariants(List<String> values) {
+    final seen = <String>{};
+    final ordered = <String>[];
+    for (final value in values) {
+      final key = value
+          .trim()
+          .toUpperCase()
+          .replaceAll(' ', '')
+          .replaceAll('_', '')
+          .replaceAll('-', '');
+      if (key.isEmpty || seen.contains(key)) {
+        continue;
+      }
+      seen.add(key);
+      ordered.add(value);
+    }
+    return ordered;
+  }
+
+  String _normalizeSportsbookKey(String value) {
+    final normalized = value
+        .trim()
+        .toUpperCase()
+        .replaceAll(' ', '')
+        .replaceAll('_', '')
+        .replaceAll('-', '');
+    if (normalized.isEmpty) {
+      return '';
+    }
+    if (normalized == 'ALL') {
+      return 'ALL';
+    }
+    if (normalized.contains('SLEEPER')) {
+      return 'SLEEPER';
+    }
+    if (normalized.contains('PRIZEPICKS')) {
+      return 'PRIZEPICKS';
+    }
+    if (normalized.contains('DRAFTKINGS')) {
+      return 'DRAFTKINGS';
+    }
+    if (normalized.contains('DRAFTPICKS')) {
+      return 'DRAFTPICKS';
+    }
+    if (normalized.contains('FANDUEL')) {
+      return 'FANDUEL';
+    }
+    if (normalized.contains('UNDERDOG')) {
+      return 'UNDERDOG';
+    }
+    if (normalized.contains('BETR')) {
+      return 'BETR';
+    }
+    return normalized;
+  }
+
+  bool _matchesSelectedSportsbook(PropData prop, String targetSportsbookKey) {
+    if (targetSportsbookKey.isEmpty || targetSportsbookKey == 'ALL') {
+      return true;
+    }
+    final propSiteKey = _normalizeSportsbookKey(
+      '${prop.sportsbook} ${prop.sourceProvider}',
+    );
+    return propSiteKey == targetSportsbookKey;
+  }
+
+  Map<String, int> _categoryCountsFromProps(List<PropData> props) {
+    final counts = <String, int>{};
+    for (final prop in props) {
+      final category = prop.category.trim().isEmpty ? 'OTHER' : prop.category;
+      counts[category] = (counts[category] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  Map<String, int> _sportCountsFromProps(List<PropData> props) {
+    final counts = <String, int>{};
+    for (final prop in props) {
+      final sport = prop.sport.trim().isEmpty ? 'ALL' : prop.sport;
+      counts[sport] = (counts[sport] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  Map<String, Map<String, int>> _sportCategoryCountsFromProps(
+    List<PropData> props,
+  ) {
+    final counts = <String, Map<String, int>>{};
+    for (final prop in props) {
+      final sport = prop.sport.trim().isEmpty ? 'ALL' : prop.sport;
+      final category = prop.category.trim().isEmpty ? 'OTHER' : prop.category;
+      final byCategory = counts.putIfAbsent(sport, () => <String, int>{});
+      byCategory[category] = (byCategory[category] ?? 0) + 1;
+    }
+    return counts;
   }
 
   /// Loads the complete actionable set of props whose current site line has
