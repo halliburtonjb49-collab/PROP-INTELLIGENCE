@@ -104,6 +104,11 @@ void main() {
       find.byKey(const ValueKey('owner-operations-refresh')),
       findsOneWidget,
     );
+    await tester.scrollUntilVisible(
+      find.text('MODEL ACCOUNTABILITY'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('MODEL ACCOUNTABILITY'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('OVER / UNDER AUDIT'),

@@ -44,7 +44,7 @@ void main() {
     await tester.tap(find.text('Test Player'));
     await tester.pumpAndSettle();
     expect(find.text('DATA PENDING'), findsOneWidget);
-    expect(find.text('WHY THIS PICK?'), findsOneWidget);
+    expect(find.text('WHY THIS PICK'), findsOneWidget);
     expect(find.text('LINE SHOP'), findsOneWidget);
     expect(find.text('BEST • Book B'), findsOneWidget);
     expect(find.text('24.5  +105'), findsOneWidget);

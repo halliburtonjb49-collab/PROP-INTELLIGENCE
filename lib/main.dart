@@ -1622,8 +1622,9 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                     ? null
                     : () async {
                         final text = messageController.text.trim();
+                        final messenger = ScaffoldMessenger.of(context);
                         if (text.length < 5) {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          messenger.showSnackBar(
                             const SnackBar(
                               content: Text(
                                 'Please enter at least 5 characters.',
@@ -1645,9 +1646,9 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                                   : defaultTargetPlatform.name,
                             },
                           );
-                          if (!mounted) return;
+                          if (!mounted || !dialogContext.mounted) return;
                           Navigator.of(dialogContext).pop();
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          messenger.showSnackBar(
                             const SnackBar(
                               content: Text(
                                 'Feedback sent to owner. Thank you.',
@@ -1657,7 +1658,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                         } catch (error) {
                           if (!mounted) return;
                           setDialogState(() => sending = false);
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          messenger.showSnackBar(
                             SnackBar(
                               content: Text('Unable to send feedback: $error'),
                             ),
