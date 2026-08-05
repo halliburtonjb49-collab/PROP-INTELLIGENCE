@@ -25,6 +25,11 @@ def test_enrich_mlb_strikeout_props_populates_pitcher_lineup_and_umpire_inputs(m
         "_umpire_boost",
         lambda _game_pk: 0.012,
     )
+    monkeypatch.setattr(
+        mlb_strikeout_enrichment_service,
+        "game_temperature_f",
+        lambda _matchup, _start_time: 61.5,
+    )
 
     prop = SimpleNamespace(
         sport="MLB",
@@ -45,6 +50,7 @@ def test_enrich_mlb_strikeout_props_populates_pitcher_lineup_and_umpire_inputs(m
         pitchesPerBatter=None,
         lineupKPercent=None,
         umpireKBoost=None,
+        temperatureF=None,
         parkKFactor=None,
     )
 
@@ -56,6 +62,7 @@ def test_enrich_mlb_strikeout_props_populates_pitcher_lineup_and_umpire_inputs(m
     assert prop.pitchesPerBatter == 3.91
     assert prop.lineupKPercent == 0.247
     assert prop.umpireKBoost == 0.012
+    assert prop.temperatureF == 61.5
     assert prop.parkKFactor is not None
 
 

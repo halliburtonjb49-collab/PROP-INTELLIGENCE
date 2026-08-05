@@ -8,6 +8,7 @@ from typing import Iterable
 from database.postgres import database_is_configured, get_database_pool
 from services.mlb_headshot_service import mlb_player_id
 from services.mlb_parquet_feature_service import latest_player_features
+from services.mlb_weather_service import game_temperature_f
 from services.officiating_profile_service import get_officiating_profile
 from services.team_normalizer import normalize_team_name
 
@@ -184,5 +185,12 @@ def enrich_mlb_strikeout_props(props: list[object]) -> None:
             umpire_boost = _umpire_boost(str(getattr(prop, "apiSportsGameId", "") or ""))
             if umpire_boost is not None:
                 prop.umpireKBoost = umpire_boost
+        if getattr(prop, "temperatureF", None) is None:
+            temperature = game_temperature_f(
+                str(getattr(prop, "matchup", "") or ""),
+                getattr(prop, "startTimeUtc", ""),
+            )
+            if temperature is not None:
+                prop.temperatureF = temperature
         if getattr(prop, "parkKFactor", None) is None:
             prop.parkKFactor = _park_k_factor(str(getattr(prop, "matchup", "") or ""))
