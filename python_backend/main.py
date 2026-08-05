@@ -2078,11 +2078,11 @@ def props(
 		)
 
 		def _is_mlb_strikeout_prop(prop: PropResponse) -> bool:
-			sport_text = str(prop.sport or "").strip().upper()
+			sport_text = str(getattr(prop, "sport", "") or "").strip().upper()
 			market_text = " ".join((
-				str(prop.market or ""),
-				str(prop.marketKey or ""),
-				str(prop.category or ""),
+				str(getattr(prop, "market", "") or ""),
+				str(getattr(prop, "marketKey", "") or ""),
+				str(getattr(prop, "category", "") or ""),
 			)).lower()
 			return sport_text == "MLB" and "strikeout" in market_text
 
