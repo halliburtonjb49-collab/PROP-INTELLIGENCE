@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
+import logging
 import re
 import unicodedata
 from typing import Any
@@ -15,9 +16,16 @@ from database.postgres import database_is_configured, get_database_pool
 from services.mlb_headshot_service import mlb_player_id
 
 
+LOGGER = logging.getLogger(__name__)
 BASE_URL = "https://statsapi.mlb.com/api"
 TIMEOUT_SECONDS = 12
 _response_cache: dict[str, Any] = {}
+# Grading has been failing to find an official result for 100% of checked
+# MLB predictions in production. Rather than guess which of (game
+# matching / player matching / market parsing) is the actual failure
+# point, sample a few real failures per grading cycle and log exactly
+# where the chain breaks.
+_diagnostic_budget = {"remaining": 5}
 
 
 @dataclass(frozen=True)
@@ -111,8 +119,13 @@ def _final_game_pk(
         },
     )
     matches: list[tuple[str, datetime | None]] = []
+    total_games = 0
+    final_games = 0
+    team_matched_games = 0
+    sample_games: list[str] = []
     for date_row in payload.get("dates", []) if isinstance(payload, dict) else []:
         for game in date_row.get("games", []) if isinstance(date_row, dict) else []:
+            total_games += 1
             teams = game.get("teams", {})
             away = (
                 teams.get("away", {}).get("team", {})
@@ -126,10 +139,21 @@ def _final_game_pk(
             )
             status = game.get("status", {})
             final = str(status.get("abstractGameState", "")).lower() == "final"
+            if final:
+                final_games += 1
+            if len(sample_games) < 6:
+                sample_games.append(
+                    f"{away.get('name')}@{home.get('name')}"
+                    f"[{status.get('abstractGameState')}]"
+                )
+            team_matched = _matchup_contains_team(
+                matchup, away
+            ) and _matchup_contains_team(matchup, home)
+            if final and team_matched:
+                team_matched_games += 1
             if (
                 final
-                and _matchup_contains_team(matchup, away)
-                and _matchup_contains_team(matchup, home)
+                and team_matched
                 and game.get("gamePk") is not None
             ):
                 try:
@@ -139,27 +163,39 @@ def _final_game_pk(
                 except ValueError:
                     game_time = None
                 matches.append((str(game["gamePk"]), game_time))
+    resolved: str | None = None
     if len(matches) == 1:
-        return matches[0][0]
-    if len(matches) > 1:
+        resolved = matches[0][0]
+    elif len(matches) > 1:
         try:
             wanted_time = datetime.fromisoformat(
                 str(game_start_time).replace("Z", "+00:00")
             )
             timed = [item for item in matches if item[1] is not None]
             if timed:
-                return min(
+                resolved = min(
                     timed,
                     key=lambda item: abs((item[1] - wanted_time).total_seconds()),
                 )[0]
         except ValueError:
-            return None
-    return None
+            resolved = None
+    if resolved is None and _diagnostic_budget["remaining"] > 0:
+        _diagnostic_budget["remaining"] -= 1
+        LOGGER.warning(
+            "mlb grading: no game match matchup=%r window=%s-%s "
+            "totalGames=%s finalGames=%s teamMatchedFinalGames=%s "
+            "ambiguousMatches=%s sample=%s",
+            matchup, start_date, end_date,
+            total_games, final_games, team_matched_games,
+            len(matches), sample_games,
+        )
+    return resolved
 
 
 def _player_stats(boxscore: dict[str, Any], player_name: str) -> dict[str, Any] | None:
     wanted = _normalized(player_name)
     matches: list[dict[str, Any]] = []
+    all_names: list[str] = []
     teams = boxscore.get("teams", {})
     for side in ("away", "home"):
         players = (
@@ -173,8 +209,16 @@ def _player_stats(boxscore: dict[str, Any], player_name: str) -> dict[str, Any] 
             if not isinstance(row, dict):
                 continue
             name = row.get("person", {}).get("fullName", "")
+            all_names.append(name)
             if _normalized(name) == wanted:
                 matches.append(row.get("stats", {}))
+    if len(matches) != 1 and _diagnostic_budget["remaining"] > 0:
+        _diagnostic_budget["remaining"] -= 1
+        LOGGER.warning(
+            "mlb grading: player match failed wantedPlayer=%r matchCount=%s "
+            "boxscoreNames=%s",
+            player_name, len(matches), all_names,
+        )
     return matches[0] if len(matches) == 1 else None
 
 
@@ -198,7 +242,7 @@ def _market_value(stats: dict[str, Any], market: str) -> float | None:
         elif "earned" in text:
             value = pitching.get("earnedRuns")
         else:
-            return None
+            value = None
     elif "total base" in text:
         value = batting.get("totalBases")
     elif "home run" in text:
@@ -210,11 +254,20 @@ def _market_value(stats: dict[str, Any], market: str) -> float | None:
     elif "run" in text:
         value = batting.get("runs")
     else:
-        return None
+        value = None
+    result: float | None
     try:
-        return float(value)
+        result = float(value) if value is not None else None
     except (TypeError, ValueError):
-        return None
+        result = None
+    if result is None and _diagnostic_budget["remaining"] > 0:
+        _diagnostic_budget["remaining"] -= 1
+        LOGGER.warning(
+            "mlb grading: market value failed market=%r rawValue=%r "
+            "pitchingKeys=%s battingKeys=%s",
+            market, value, list(pitching.keys()), list(batting.keys()),
+        )
+    return result
 
 
 def official_mlb_result(
