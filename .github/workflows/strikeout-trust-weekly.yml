@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Strikeout Trust Weekly
+
+on:
+  schedule:
+    - cron: '33 12 * * 1'
+  workflow_dispatch:
+
+jobs:
+  trust-weekly:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python_backend
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ../requirements.txt
+      - name: Build weekly trust report
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          STRIKEOUT_TRUST_FAIL_ON_CRITICAL: 'false'
+        run: |
+          PYTHONPATH=. python scripts/strikeout_trust_weekly_report.py

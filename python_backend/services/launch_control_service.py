@@ -22,8 +22,10 @@ from services.strikeout_quality_service import (
     get_strikeout_release_controls,
     strikeout_backtest_monitoring,
     strikeout_calibration_report,
+    strikeout_calibration_history_report,
     strikeout_explainability_snippets,
     strikeout_method_ab_report,
+    strikeout_weekly_trust_report,
 )
 
 FAILED_PAYMENT_EVENTS = ("BILLING_ISSUE", "SUBSCRIPTION_PAUSED")
@@ -326,11 +328,17 @@ def launch_control_snapshot() -> dict[str, object]:
         strikeout_calibration = strikeout_calibration_report(
             control_values if isinstance(control_values, dict) else None,
         )
+        strikeout_calibration_history = strikeout_calibration_history_report(
+            control_values if isinstance(control_values, dict) else None,
+        )
         strikeout_backtest = strikeout_backtest_monitoring(
             control_values if isinstance(control_values, dict) else None,
         )
         strikeout_method_ab = strikeout_method_ab_report()
         strikeout_explainability = strikeout_explainability_snippets()
+        strikeout_trust_weekly = strikeout_weekly_trust_report(
+            control_values if isinstance(control_values, dict) else None,
+        )
     except Exception as exc:
         performance = {
             "sampleSize": 0,
@@ -370,6 +378,12 @@ def launch_control_snapshot() -> dict[str, object]:
             "reason": type(exc).__name__,
             "adjustments": [],
         }
+        strikeout_calibration_history = {
+            "available": False,
+            "reason": type(exc).__name__,
+            "windows": [],
+            "alerts": [],
+        }
         strikeout_backtest = {
             "available": False,
             "healthy": False,
@@ -386,6 +400,12 @@ def launch_control_snapshot() -> dict[str, object]:
             "available": False,
             "reason": type(exc).__name__,
             "items": [],
+        }
+        strikeout_trust_weekly = {
+            "available": False,
+            "reason": type(exc).__name__,
+            "weekly": [],
+            "alerts": [],
         }
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
@@ -420,9 +440,11 @@ def launch_control_snapshot() -> dict[str, object]:
             "strikeoutMethodAudit": strikeout_method_audit,
             "strikeoutReleaseControls": strikeout_controls,
             "strikeoutCalibration": strikeout_calibration,
+            "strikeoutCalibrationHistory": strikeout_calibration_history,
             "strikeoutBacktest": strikeout_backtest,
             "strikeoutMethodComparison": strikeout_method_ab,
             "strikeoutExplainability": strikeout_explainability,
+            "strikeoutTrustWeekly": strikeout_trust_weekly,
             "notes": [
                 "Suggestive strikeout picks are restricted to Pro Gold.",
                 "Owner Operations always shows full strikeout validation diagnostics.",

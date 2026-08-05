@@ -25,6 +25,8 @@ DEFAULT_CONTROLS: dict[str, object] = {
     "driftMinSample": 40,
     "maxBrierDelta": 0.03,
     "maxAccuracyDelta": 0.07,
+    "calibrationGapWarn": 0.03,
+    "calibrationGapHard": 0.05,
 }
 
 
@@ -38,6 +40,16 @@ class StrikeoutGateResult:
 _CACHE_TTL_SECONDS = 600
 _cached_calibration_at: datetime | None = None
 _cached_calibration: dict[str, object] | None = None
+
+ALERT_OWNERS: dict[str, str] = {
+    "stale_data": "data-platform",
+    "calibration_drift": "model-ops",
+    "calibration_gap_guardrail": "model-ops",
+    "ingest_failure": "data-platform",
+    "deploy_failure": "release-engineering",
+    "grading_mismatch": "grading-ops",
+    "cross_book_validation": "model-ops",
+}
 
 
 def _safe_int(value: object, default: int = 0) -> int:
@@ -88,6 +100,8 @@ def _coerce_controls(raw: dict[str, object] | None) -> dict[str, object]:
     merged["driftMinSample"] = _safe_int(merged.get("driftMinSample"), 40)
     merged["maxBrierDelta"] = _safe_float(merged.get("maxBrierDelta"), 0.03)
     merged["maxAccuracyDelta"] = _safe_float(merged.get("maxAccuracyDelta"), 0.07)
+    merged["calibrationGapWarn"] = _safe_float(merged.get("calibrationGapWarn"), 0.03)
+    merged["calibrationGapHard"] = _safe_float(merged.get("calibrationGapHard"), 0.05)
 
     merged["maxLineupAgeMinutes"] = max(30, min(720, _safe_int(merged["maxLineupAgeMinutes"], 240)))
     merged["minOpposingLineupSize"] = max(5, min(9, _safe_int(merged["minOpposingLineupSize"], 8)))
@@ -98,7 +112,25 @@ def _coerce_controls(raw: dict[str, object] | None) -> dict[str, object]:
     merged["driftMinSample"] = max(20, min(200, _safe_int(merged["driftMinSample"], 40)))
     merged["maxBrierDelta"] = round(_clamp(_safe_float(merged["maxBrierDelta"], 0.03), 0.005, 0.2), 4)
     merged["maxAccuracyDelta"] = round(_clamp(_safe_float(merged["maxAccuracyDelta"], 0.07), 0.01, 0.3), 4)
+    merged["calibrationGapWarn"] = round(_clamp(_safe_float(merged["calibrationGapWarn"], 0.03), 0.01, 0.1), 4)
+    hard_gap = round(_clamp(_safe_float(merged["calibrationGapHard"], 0.05), 0.02, 0.2), 4)
+    merged["calibrationGapHard"] = max(hard_gap, _safe_float(merged["calibrationGapWarn"], 0.03) + 0.005)
     return merged
+
+
+def _gap_guardrail_status(gap: float | None, warn_gap: float, hard_gap: float) -> str:
+    if gap is None:
+        return "unknown"
+    abs_gap = abs(gap)
+    if abs_gap > hard_gap:
+        return "hard_breach"
+    if abs_gap > warn_gap:
+        return "warning"
+    return "ok"
+
+
+def _owner_for_alert(alert_type: str) -> str:
+    return ALERT_OWNERS.get(alert_type, "model-ops")
 
 
 def _ensure_controls_table() -> None:
@@ -430,12 +462,18 @@ def strikeout_calibration_report(controls: dict[str, object] | None = None) -> d
             "recommendedAdjustment": adjustment,
         })
     minimum = _safe_int(active_controls["calibrationMinSample"], 80)
+    warn_gap = _safe_float(active_controls["calibrationGapWarn"], 0.03)
+    hard_gap = _safe_float(active_controls["calibrationGapHard"], 0.05)
+    guardrail = _gap_guardrail_status(overall_gap, warn_gap, hard_gap)
     return {
         "available": True,
         "sampleSize": sample_size,
         "minimumSample": minimum,
         "windowDays": window_days,
-        "healthy": sample_size >= minimum and (overall_gap is None or abs(overall_gap) <= 0.05),
+        "healthy": sample_size >= minimum and guardrail != "hard_breach",
+        "guardrailStatus": guardrail,
+        "calibrationGapWarn": warn_gap,
+        "calibrationGapHard": hard_gap,
         "overallGap": overall_gap,
         "adjustments": adjustments,
     }
@@ -507,6 +545,7 @@ def _slice_rows(window_days: int) -> list[tuple[object, ...]]:
                     else 'HIGH_K'
                 end pitcher_tier,
                 coalesce(nullif(upper(mfs.features->'mlbProjectedLineupMatchup'->>'throws'), ''), 'UNKNOWN') handedness,
+                coalesce(nullif(upper(ps.side), ''), 'UNKNOWN') side,
                 count(*) sample_size,
                 avg(case when ps.hit then 1 else 0 end) accuracy,
                 avg(ps.hit_probability) predicted,
@@ -517,7 +556,7 @@ def _slice_rows(window_days: int) -> list[tuple[object, ...]]:
               and ps.created_at >= now() - (%s || ' days')::interval
               and upper(coalesce(ps.sport,''))='MLB'
                             and lower(coalesce(ps.market,'')) like '%%strikeout%%'
-            group by 1,2,3,4
+            group by 1,2,3,4,5
             order by sample_size desc""",
             (window_days,),
         )
@@ -541,13 +580,14 @@ def strikeout_backtest_monitoring(controls: dict[str, object] | None = None) -> 
             "lineRange": str(row[1]),
             "pitcherTier": str(row[2]),
             "handedness": str(row[3]),
-            "sampleSize": int(row[4] or 0),
-            "accuracy": round(float(row[5]), 4) if row[5] is not None else None,
-            "predicted": round(float(row[6]), 4) if row[6] is not None else None,
-            "brier": round(float(row[7]), 4) if row[7] is not None else None,
+            "side": str(row[4]),
+            "sampleSize": int(row[5] or 0),
+            "accuracy": round(float(row[6]), 4) if row[6] is not None else None,
+            "predicted": round(float(row[7]), 4) if row[7] is not None else None,
+            "brier": round(float(row[8]), 4) if row[8] is not None else None,
             "gap": (
-                round(float(row[6]) - float(row[5]), 4)
-                if row[5] is not None and row[6] is not None else None
+                round(float(row[7]) - float(row[6]), 4)
+                if row[6] is not None and row[7] is not None else None
             ),
         }
         for row in rows
@@ -561,18 +601,21 @@ def strikeout_backtest_monitoring(controls: dict[str, object] | None = None) -> 
         if sample_size < min_sample or gap is None:
             continue
         if abs(float(gap)) > max_gap:
+            severity = "warning" if abs(float(gap)) <= max_gap * 1.35 else "critical"
             alerts.append({
-                "severity": "warning" if abs(float(gap)) <= max_gap * 1.35 else "critical",
+                "severity": severity,
                 "type": "calibration_drift",
+                "owner": _owner_for_alert("calibration_drift"),
                 "sportsbook": item["sportsbook"],
                 "lineRange": item["lineRange"],
                 "pitcherTier": item["pitcherTier"],
                 "handedness": item["handedness"],
+                "side": item["side"],
                 "sampleSize": sample_size,
                 "gap": gap,
                 "message": (
                     f"Accuracy drift {float(gap) * 100:.1f} pts on {item['sportsbook']} "
-                    f"{item['lineRange']} {item['pitcherTier']} {item['handedness']}"
+                    f"{item['lineRange']} {item['pitcherTier']} {item['handedness']} {item['side']}"
                 ),
             })
     return {
@@ -583,6 +626,345 @@ def strikeout_backtest_monitoring(controls: dict[str, object] | None = None) -> 
         "slices": slices,
         "alerts": alerts,
         "healthy": not alerts,
+    }
+
+
+def _calibration_window_slice_report(
+    window_days: int,
+    minimum_sample: int,
+    warn_gap: float,
+    hard_gap: float,
+) -> dict[str, object]:
+    rows = _slice_rows(window_days)
+    slices: list[dict[str, object]] = []
+    alerts: list[dict[str, object]] = []
+    total_sample = 0
+    weighted_gap_sum = 0.0
+    weighted_brier_sum = 0.0
+
+    for row in rows:
+        sportsbook = str(row[0])
+        line_range = str(row[1])
+        handedness = str(row[3])
+        side = str(row[4])
+        sample_size = int(row[5] or 0)
+        actual = float(row[6]) if row[6] is not None else None
+        predicted = float(row[7]) if row[7] is not None else None
+        brier = float(row[8]) if row[8] is not None else None
+        calibration_gap = (
+            round(predicted - actual, 4)
+            if predicted is not None and actual is not None
+            else None
+        )
+        hit_rate_delta = (
+            round(actual - predicted, 4)
+            if predicted is not None and actual is not None
+            else None
+        )
+        guardrail_status = _gap_guardrail_status(calibration_gap, warn_gap, hard_gap)
+
+        item = {
+            "sportsbook": sportsbook,
+            "lineBand": line_range,
+            "handedness": handedness,
+            "side": side,
+            "sampleSize": sample_size,
+            "predicted": round(predicted, 4) if predicted is not None else None,
+            "actual": round(actual, 4) if actual is not None else None,
+            "calibrationGap": calibration_gap,
+            "brier": round(brier, 4) if brier is not None else None,
+            "hitRateDeltaVsPredicted": hit_rate_delta,
+            "guardrailStatus": guardrail_status,
+        }
+        slices.append(item)
+
+        if sample_size >= minimum_sample and guardrail_status in {"warning", "hard_breach"}:
+            severity = "critical" if guardrail_status == "hard_breach" else "warning"
+            alerts.append({
+                "severity": severity,
+                "type": "calibration_gap_guardrail",
+                "owner": _owner_for_alert("calibration_gap_guardrail"),
+                "windowDays": window_days,
+                "sportsbook": sportsbook,
+                "lineBand": line_range,
+                "handedness": handedness,
+                "side": side,
+                "sampleSize": sample_size,
+                "calibrationGap": calibration_gap,
+                "message": (
+                    f"Calibration gap {float(calibration_gap) * 100:+.1f} pts in {window_days}d "
+                    f"for {sportsbook} {line_range} {handedness} {side}"
+                ) if calibration_gap is not None else "Calibration gap unavailable",
+            })
+
+        if sample_size > 0 and calibration_gap is not None:
+            total_sample += sample_size
+            weighted_gap_sum += calibration_gap * sample_size
+            if brier is not None:
+                weighted_brier_sum += brier * sample_size
+
+    overall_gap = round(weighted_gap_sum / total_sample, 4) if total_sample else None
+    overall_brier = round(weighted_brier_sum / total_sample, 4) if total_sample else None
+    return {
+        "windowDays": window_days,
+        "minimumSample": minimum_sample,
+        "sampleSize": total_sample,
+        "overallCalibrationGap": overall_gap,
+        "overallBrier": overall_brier,
+        "slices": slices,
+        "alerts": alerts,
+        "healthy": not any(alert.get("severity") == "critical" for alert in alerts),
+    }
+
+
+def strikeout_calibration_history_report(controls: dict[str, object] | None = None) -> dict[str, object]:
+    active_controls = _coerce_controls(controls)
+    if not database_is_configured():
+        return {
+            "available": False,
+            "reason": "DATABASE_URL is not configured",
+            "windows": [],
+            "alerts": [],
+        }
+
+    minimum_sample = _safe_int(active_controls["driftMinSample"], 40)
+    warn_gap = _safe_float(active_controls["calibrationGapWarn"], 0.03)
+    hard_gap = _safe_float(active_controls["calibrationGapHard"], 0.05)
+    windows = [
+        _calibration_window_slice_report(7, minimum_sample, warn_gap, hard_gap),
+        _calibration_window_slice_report(30, minimum_sample, warn_gap, hard_gap),
+        _calibration_window_slice_report(90, minimum_sample, warn_gap, hard_gap),
+    ]
+    alerts = [
+        alert
+        for window in windows
+        for alert in (window.get("alerts") or [])
+        if isinstance(alert, dict)
+    ]
+    hard_breach_count = sum(1 for alert in alerts if alert.get("severity") == "critical")
+    warning_count = sum(1 for alert in alerts if alert.get("severity") == "warning")
+
+    return {
+        "available": True,
+        "fixedWindowsDays": [7, 30, 90],
+        "guardrails": {
+            "calibrationGapWarn": warn_gap,
+            "calibrationGapHard": hard_gap,
+            "units": "probability",
+        },
+        "minimumSample": minimum_sample,
+        "windows": windows,
+        "alerts": alerts,
+        "healthy": hard_breach_count == 0,
+        "hardBreaches": hard_breach_count,
+        "warnings": warning_count,
+    }
+
+
+def _weekly_trend_rows(lookback_days: int = 90) -> list[tuple[object, ...]]:
+    with get_database_pool().connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """select
+                date_trunc('week', ps.created_at)::date week_start,
+                coalesce(nullif(ps.inputs->>'sportsbook',''),'unknown') sportsbook,
+                coalesce(nullif(ps.market,''),'unknown') market,
+                count(*) sample_size,
+                avg(ps.hit_probability) predicted,
+                avg(case when ps.hit then 1 else 0 end) actual,
+                avg(power(ps.hit_probability - case when ps.hit then 1 else 0 end, 2)) brier,
+                avg(nullif(ps.inputs->>'lineClvPoints','')::double precision)
+                    filter(where nullif(ps.inputs->>'lineClvPoints','') is not null) line_clv,
+                avg(case
+                    when nullif(ps.inputs->>'entryOdds','')::double precision > 0 and ps.hit then
+                        nullif(ps.inputs->>'entryOdds','')::double precision/100
+                    when nullif(ps.inputs->>'entryOdds','')::double precision <= 0 and ps.hit then
+                        100/abs(nullif(ps.inputs->>'entryOdds','')::double precision)
+                    else -1 end)
+                    filter(where nullif(ps.inputs->>'entryOdds','') is not null) roi
+            from prediction_snapshots ps
+            where ps.hit is not null
+              and ps.created_at >= now() - (%s || ' days')::interval
+              and upper(coalesce(ps.sport,''))='MLB'
+                            and lower(coalesce(ps.market,'')) like '%%strikeout%%'
+            group by 1,2,3
+            order by 1 desc, 4 desc""",
+            (lookback_days,),
+        )
+        return cursor.fetchall()
+
+
+def _regime_split_rows(lookback_days: int = 90) -> list[tuple[object, ...]]:
+    with get_database_pool().connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """with base as (
+                select
+                    case
+                        when (
+                            coalesce((ps.inputs->>'strikeoutUsedFallbackPitcherRate')::boolean, false)::int +
+                            coalesce((ps.inputs->>'strikeoutUsedFallbackLineupRate')::boolean, false)::int +
+                            coalesce((ps.inputs->>'strikeoutUsedFallbackTbf')::boolean, false)::int
+                        ) >= 2 then 'fallback_heavy'
+                        when (
+                            coalesce((ps.inputs->>'strikeoutUsedFallbackPitcherRate')::boolean, false)::int +
+                            coalesce((ps.inputs->>'strikeoutUsedFallbackLineupRate')::boolean, false)::int +
+                            coalesce((ps.inputs->>'strikeoutUsedFallbackTbf')::boolean, false)::int
+                        ) = 0 then 'enriched_only'
+                        else 'mixed'
+                    end fallback_regime,
+                    case
+                        when ps.line < 5 then 'low_line'
+                        when ps.line >= 6.5 then 'high_line'
+                        else 'mid_line'
+                    end line_regime,
+                    case
+                        when ps.event_time is null then 'unknown_timing'
+                        when ps.created_at <= ps.event_time - interval '6 hours' then 'early_day'
+                        when ps.created_at >= ps.event_time - interval '90 minutes' then 'close_to_game'
+                        else 'mid_window'
+                    end timing_regime,
+                    ps.hit_probability,
+                    ps.hit,
+                    nullif(ps.inputs->>'lineClvPoints','')::double precision line_clv
+                from prediction_snapshots ps
+                where ps.hit is not null
+                  and ps.created_at >= now() - (%s || ' days')::interval
+                  and upper(coalesce(ps.sport,''))='MLB'
+                                and lower(coalesce(ps.market,'')) like '%%strikeout%%'
+            )
+            select regime_type, regime_value,
+                count(*) sample_size,
+                avg(hit_probability) predicted,
+                avg(case when hit then 1 else 0 end) actual,
+                avg(power(hit_probability - case when hit then 1 else 0 end, 2)) brier,
+                avg(line_clv)
+            from (
+                select 'fallback' regime_type, fallback_regime regime_value, * from base
+                union all
+                select 'line' regime_type, line_regime regime_value, * from base
+                union all
+                select 'timing' regime_type, timing_regime regime_value, * from base
+            ) expanded
+            group by 1,2
+            order by 1,3 desc""",
+            (lookback_days,),
+        )
+        return cursor.fetchall()
+
+
+def _cross_book_validation(controls: dict[str, object]) -> dict[str, object]:
+    min_sample = _safe_int(controls.get("driftMinSample"), 40)
+    hard_gap = _safe_float(controls.get("calibrationGapHard"), 0.05)
+    rows = _slice_rows(30)
+    by_book: dict[str, dict[str, object]] = {}
+    for row in rows:
+        book = str(row[0])
+        sample = int(row[5] or 0)
+        actual = float(row[6]) if row[6] is not None else None
+        predicted = float(row[7]) if row[7] is not None else None
+        if sample <= 0 or actual is None or predicted is None:
+            continue
+        gap = predicted - actual
+        state = by_book.setdefault(book, {"sampleSize": 0, "weightedGapSum": 0.0})
+        state["sampleSize"] = int(state["sampleSize"]) + sample
+        state["weightedGapSum"] = float(state["weightedGapSum"]) + (gap * sample)
+
+    books: list[dict[str, object]] = []
+    qualifying_books = 0
+    for book, state in by_book.items():
+        sample_size = int(state["sampleSize"])
+        gap = float(state["weightedGapSum"]) / sample_size if sample_size > 0 else 0.0
+        healthy = sample_size >= min_sample and abs(gap) <= hard_gap
+        if healthy:
+            qualifying_books += 1
+        books.append({
+            "sportsbook": book,
+            "sampleSize": sample_size,
+            "calibrationGap": round(gap, 4),
+            "qualifies": healthy,
+        })
+
+    books.sort(key=lambda item: int(item.get("sampleSize") or 0), reverse=True)
+    requires_books = 3
+    reliability_ready = qualifying_books >= requires_books
+    return {
+        "windowDays": 30,
+        "minimumBookSample": min_sample,
+        "requiredQualifiedBooks": requires_books,
+        "qualifiedBooks": qualifying_books,
+        "reliabilityReady": reliability_ready,
+        "books": books,
+    }
+
+
+def strikeout_weekly_trust_report(controls: dict[str, object] | None = None) -> dict[str, object]:
+    active_controls = _coerce_controls(controls)
+    if not database_is_configured():
+        return {
+            "available": False,
+            "reason": "DATABASE_URL is not configured",
+            "weekly": [],
+            "regimeSplits": {},
+            "alerts": [],
+        }
+
+    weekly_rows = _weekly_trend_rows(90)
+    weekly = [
+        {
+            "weekStart": row[0].isoformat() if row[0] is not None else None,
+            "sportsbook": str(row[1]),
+            "market": str(row[2]),
+            "sampleSize": int(row[3] or 0),
+            "predicted": round(float(row[4]), 4) if row[4] is not None else None,
+            "actual": round(float(row[5]), 4) if row[5] is not None else None,
+            "calibrationGap": (
+                round(float(row[4]) - float(row[5]), 4)
+                if row[4] is not None and row[5] is not None else None
+            ),
+            "brier": round(float(row[6]), 4) if row[6] is not None else None,
+            "clvTrend": round(float(row[7]), 4) if row[7] is not None else None,
+            "roiTrend": round(float(row[8]), 4) if row[8] is not None else None,
+        }
+        for row in weekly_rows
+    ]
+
+    regime_rows = _regime_split_rows(90)
+    regime_splits: dict[str, list[dict[str, object]]] = {}
+    for row in regime_rows:
+        regime_type = str(row[0])
+        regime_splits.setdefault(regime_type, []).append({
+            "regime": str(row[1]),
+            "sampleSize": int(row[2] or 0),
+            "predicted": round(float(row[3]), 4) if row[3] is not None else None,
+            "actual": round(float(row[4]), 4) if row[4] is not None else None,
+            "calibrationGap": (
+                round(float(row[3]) - float(row[4]), 4)
+                if row[3] is not None and row[4] is not None else None
+            ),
+            "brier": round(float(row[5]), 4) if row[5] is not None else None,
+            "lineClv": round(float(row[6]), 4) if row[6] is not None else None,
+        })
+
+    cross_book = _cross_book_validation(active_controls)
+    alerts: list[dict[str, object]] = []
+    if not bool(cross_book.get("reliabilityReady")):
+        alerts.append({
+            "severity": "warning",
+            "type": "cross_book_validation",
+            "owner": _owner_for_alert("cross_book_validation"),
+            "message": (
+                "Cross-book validation is not yet met for reliability claims "
+                f"({cross_book.get('qualifiedBooks', 0)}/{cross_book.get('requiredQualifiedBooks', 3)} books)."
+            ),
+        })
+
+    return {
+        "available": True,
+        "lookbackDays": 90,
+        "weekly": weekly,
+        "regimeSplits": regime_splits,
+        "crossBookValidation": cross_book,
+        "alerts": alerts,
+        "publishable": True,
     }
 
 

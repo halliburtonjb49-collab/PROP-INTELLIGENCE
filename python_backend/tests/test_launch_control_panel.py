@@ -146,6 +146,16 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
             "items": [{"player": "Pitcher", "summary": "model | p 61%"}],
         },
     )
+    monkeypatch.setattr(
+        launch_control_service,
+        "strikeout_weekly_trust_report",
+        lambda _controls=None: {
+            "available": True,
+            "weekly": [{"sportsbook": "book-a", "sampleSize": 25}],
+            "alerts": [],
+            "crossBookValidation": {"reliabilityReady": True},
+        },
+    )
 
     result = launch_control_service.launch_control_snapshot()
 
@@ -169,6 +179,7 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
     assert result["ownerOnlyInsights"]["strikeoutBacktest"]["healthy"] is True
     assert result["ownerOnlyInsights"]["strikeoutMethodComparison"]["variants"][0]["variant"] == "enriched_variant"
     assert result["ownerOnlyInsights"]["strikeoutExplainability"]["items"][0]["player"] == "Pitcher"
+    assert result["ownerOnlyInsights"]["strikeoutTrustWeekly"]["available"] is True
 
 
 def test_scoreboard_latency_snapshot_records_request() -> None:
