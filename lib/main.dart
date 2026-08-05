@@ -9478,8 +9478,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final signalRatingLabel = signalRating == null
         ? 'INFO ONLY'
         : '$signalRating%';
-    final projection = prop.projection;
-    final delta = projection == null ? null : projection - prop.line;
     final market = _marketCategory(prop);
     final badgeExplanation = !hasProAccess
         ? 'PROP TYPE: the statistic and posted line available for manual research and selection.'

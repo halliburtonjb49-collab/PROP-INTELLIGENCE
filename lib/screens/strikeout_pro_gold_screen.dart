@@ -847,12 +847,12 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   ),
                 ],
               ),
-                RecommendationExplainabilityBlock(
-                  prop: prop,
-                  title: 'STANDARDIZED EXPLAINABILITY',
-                ),
-              ),
             ),
+          const SizedBox(height: 10),
+          RecommendationExplainabilityBlock(
+            prop: prop,
+            title: 'STANDARDIZED EXPLAINABILITY',
+          ),
           const SizedBox(height: 10),
           if (!isExpired)
             Row(
