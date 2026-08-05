@@ -36,13 +36,12 @@ jobs:
         run: python tools/post_deploy_smoke.py
       - name: Trigger Render deployment
         run: |
+          RENDER_DEPLOY_HOOK_URL="${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
           if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
             echo "RENDER_DEPLOY_HOOK_URL is not configured; skipping Render deployment trigger."
             exit 0
           fi
           echo "Triggering Render deployment for main..."
           curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ vars.RENDER_DEPLOY_HOOK_URL }}
       - name: Deployment summary
         run: echo "Production deployment passed all smoke checks."
