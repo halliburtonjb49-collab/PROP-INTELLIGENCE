@@ -17,6 +17,7 @@ from services.opportunity_gate_service import evaluate_opportunity_gate
 from services.opportunity_projection_service import basketball_opportunities
 from services.basketball_matchup_ingestion_service import enrich_basketball_matchups
 from services.context_quality_service import evaluate_context_quality
+from services.mlb_strikeout_enrichment_service import enrich_mlb_strikeout_props
 from services.pregame_context_ingestion_service import apply_latest_pregame_context
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,16 @@ def apply_projection_context(prop: object) -> None:
     projection = getattr(prop, "projection", None)
     if projection is None:
         return
+    strikeout_analysis: dict[str, object] | None = None
+    market_key_text = " ".join((
+        str(getattr(prop, "marketKey", "") or ""),
+        str(getattr(prop, "market", "") or ""),
+        str(getattr(prop, "category", "") or ""),
+    )).lower()
+    is_mlb_strikeout = (
+        str(getattr(prop, "sport", "") or "").strip().upper() == "MLB"
+        and "strikeout" in market_key_text
+    )
     blend = blend_projection_with_market(
         custom_projection=float(projection),
         market_origin_line=getattr(prop, "marketOriginLine", None),
@@ -85,7 +96,52 @@ def apply_projection_context(prop: object) -> None:
     )
     adjusted = contextual_projection(float(projection), context)
     line = float(getattr(prop, "line", 0))
-    side = "OVER" if adjusted > line else "UNDER" if adjusted < line else "PASS"
+
+    if is_mlb_strikeout and projection is not None:
+        from services.prop_intelligence_service import analyze_prop
+
+        strikeout_analysis = analyze_prop(
+            player=str(getattr(prop, "player", "") or ""),
+            sport=str(getattr(prop, "sport", "") or ""),
+            market=str(getattr(prop, "marketKey", "") or getattr(prop, "market", "") or ""),
+            line=line,
+            projected_mean=float(projection),
+            projected_std_dev=float(getattr(prop, "projectionVolatility", None) or 1.0),
+            sharp_over_odds=getattr(prop, "overDecimalOdds", None),
+            sharp_under_odds=getattr(prop, "underDecimalOdds", None),
+            retail_over_odds=getattr(prop, "overDecimalOdds", None),
+            retail_under_odds=getattr(prop, "underDecimalOdds", None),
+            pitcher_k_pct=getattr(prop, "pitcherKPercent", None),
+            lineup_k_pct=getattr(prop, "lineupKPercent", None),
+            pitches_per_start=getattr(prop, "pitchesPerStart", None),
+            pitches_per_batter=getattr(prop, "pitchesPerBatter", None),
+            pitcher_csw=getattr(prop, "pitcherCsw", None),
+            lineup_csw_against=getattr(prop, "lineupCswAgainst", None),
+            temp_f=float(getattr(prop, "temperatureF", None) or 70.0),
+            umpire_k_boost=float(getattr(prop, "umpireKBoost", None) or 0.0),
+            park_k_factor=float(getattr(prop, "parkKFactor", None) or 1.0),
+        )
+        prop.strikeoutModelMethod = str(strikeout_analysis.get("method") or "")
+        prop.strikeoutSkillSource = str(strikeout_analysis.get("skillSource") or "")
+        prop.strikeoutProjectedBattersFaced = (
+            int(strikeout_analysis["projectedBattersFaced"])
+            if strikeout_analysis.get("projectedBattersFaced") is not None
+            else None
+        )
+        prop.strikeoutUsedFallbackPitcherRate = bool(strikeout_analysis.get("usedFallbackPitcherRate"))
+        prop.strikeoutUsedFallbackLineupRate = bool(strikeout_analysis.get("usedFallbackLineupRate"))
+        prop.strikeoutUsedFallbackTbf = bool(strikeout_analysis.get("usedFallbackTbf"))
+        prop.strikeoutUsedMarketBlend = bool(strikeout_analysis.get("usedMarketBlend"))
+        prop.modelProbability = strikeout_analysis.get("modelOverProbability")
+        prop.marketProbability = strikeout_analysis.get("marketOverProbability")
+        prop.probabilityMarketWeight = float(strikeout_analysis.get("marketWeight") or 0.0)
+
+    recommended = str((strikeout_analysis or {}).get("recommendation") or "").upper()
+    side = (
+        recommended
+        if recommended in {"OVER", "UNDER", "PASS"}
+        else "OVER" if adjusted > line else "UNDER" if adjusted < line else "PASS"
+    )
     prop.projection = adjusted
     prop.edgeSigned = round(adjusted - line, 4)
     prop.edge = round(abs(adjusted - line), 2)
@@ -173,6 +229,22 @@ def apply_projection_context(prop: object) -> None:
     else:
         prop.confidence = existing_confidence
         prop.tier = existing_tier or "No Pick"
+    if strikeout_analysis is not None:
+        analysis_confidence = int(strikeout_analysis.get("confidence") or 0)
+        if analysis_confidence > 0:
+            prop.confidence = analysis_confidence
+            prop.tier = (
+                "Premium"
+                if prop.confidence >= 65
+                else "Strong"
+                if prop.confidence >= 60
+                else "Lean"
+                if prop.confidence >= 57
+                else "Pass"
+            )
+        prop.evPercentage = float(strikeout_analysis.get("expectedValuePercent") or prop.evPercentage or 0)
+        prop.recommendationEdge = float(strikeout_analysis.get("edgePercent") or prop.recommendationEdge or 0)
+        prop.edge = round(abs(prop.edgeSigned), 2) if prop.edgeSigned else prop.recommendationEdge
     if prop.tier == "Pass":
         prop.recommendationAvailable = False
         prop.isPositiveEv = False
@@ -237,6 +309,7 @@ def enrich_props(props: list[object]) -> None:
             apply_projection_context(prop)
         return
     apply_latest_pregame_context(props)
+    enrich_mlb_strikeout_props(props)
     enrich_basketball_matchups(props)
     player_ids = sorted({str(getattr(prop, "playerId", "")) for prop in props if getattr(prop, "playerId", "")})
     prop_ids = sorted({str(getattr(prop, "id", "")) for prop in props if getattr(prop, "id", "")})
