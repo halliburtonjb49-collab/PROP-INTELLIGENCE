@@ -13,10 +13,12 @@ import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/line_movement_alert.dart';
+import '../models/prop_data.dart';
 import '../controllers/active_slip_controller.dart';
 import '../services/api_service.dart';
 import '../services/prop_watchlist_service.dart';
 import '../widgets/context_help.dart';
+import '../widgets/recommendation_explainability_block.dart';
 import 'prop_watchlist_screen.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
@@ -4386,6 +4388,7 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
   }
 
   Widget _pickExplanationPanel(Map<String, dynamic> leg) {
+    final explainabilityProp = PropData.fromJson(leg);
     final reason =
         leg['selection_reason']?.toString() ?? 'No explanation is available.';
     final strategyMatch = leg['strategy_match'] == true;
@@ -4409,18 +4412,17 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.lightbulb_outline, size: 18),
-              SizedBox(width: 7),
-              Text(
-                'WHY THIS PICK?',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-            ],
+          RecommendationExplainabilityBlock(
+            prop: explainabilityProp,
+            title: 'STANDARDIZED EXPLAINABILITY',
           ),
-          const SizedBox(height: 10),
-          Text(reason),
+          const SizedBox(height: 12),
+          Text(
+            reason,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
