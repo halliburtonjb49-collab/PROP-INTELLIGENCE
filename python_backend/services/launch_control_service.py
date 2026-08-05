@@ -20,6 +20,111 @@ from services.sync_diagnostic_service import ticket_sync_diagnostic_summary
 FAILED_PAYMENT_EVENTS = ("BILLING_ISSUE", "SUBSCRIPTION_PAUSED")
 
 
+def _safe_int(value: object, default: int = 0) -> int:
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_float(value: object, default: float = 0.0) -> float:
+    try:
+        return float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+
+
+def _weighted_average(items: list[dict[str, object]], value_key: str, weight_key: str) -> float | None:
+    numerator = 0.0
+    denominator = 0.0
+    for item in items:
+        weight = max(0, _safe_int(item.get(weight_key)))
+        if weight <= 0:
+            continue
+        numerator += _safe_float(item.get(value_key)) * weight
+        denominator += weight
+    if denominator <= 0:
+        return None
+    return round(numerator / denominator, 4)
+
+
+def _strikeout_owner_report(performance: dict[str, object]) -> dict[str, object]:
+    rows = [
+        row for row in (performance.get("roiClvSegments") or [])
+        if isinstance(row, dict)
+    ]
+    strikeout_rows = [
+        row for row in rows
+        if str(row.get("sport") or "").strip().upper() == "MLB"
+        and "strikeout" in str(row.get("market") or "").lower()
+    ]
+    if not strikeout_rows:
+        return {
+            "available": False,
+            "sampleSize": 0,
+            "reason": "No graded MLB strikeout predictions available yet.",
+            "suggestivePickTier": "pro_gold",
+            "visibility": "owner_only",
+        }
+
+    def _side(side: str) -> dict[str, object]:
+        side_rows = [
+            row for row in strikeout_rows
+            if str(row.get("side") or "").strip().upper() == side
+        ]
+        sample_size = sum(_safe_int(row.get("sampleSize")) for row in side_rows)
+        hits = sum(_safe_int(row.get("hits")) for row in side_rows)
+        return {
+            "side": side,
+            "sampleSize": sample_size,
+            "hits": hits,
+            "accuracy": round(hits / sample_size, 4) if sample_size else None,
+            "simulatedRoi": _weighted_average(side_rows, "simulatedRoi", "sampleSize"),
+            "beatClosingLineRate": _weighted_average(side_rows, "beatClosingLineRate", "sampleSize"),
+            "averageLineClvPoints": _weighted_average(side_rows, "averageLineClvPoints", "sampleSize"),
+            "averageOddsClvExpectedValuePercent": _weighted_average(
+                side_rows,
+                "averageOddsClvExpectedValuePercent",
+                "oddsSampleSize",
+            ),
+            "positiveOddsClvRate": _weighted_average(side_rows, "positiveOddsClvRate", "oddsSampleSize"),
+            "oddsSampleSize": sum(_safe_int(row.get("oddsSampleSize")) for row in side_rows),
+        }
+
+    total_sample = sum(_safe_int(row.get("sampleSize")) for row in strikeout_rows)
+    total_hits = sum(_safe_int(row.get("hits")) for row in strikeout_rows)
+    over = _side("OVER")
+    under = _side("UNDER")
+    health = (
+        "HEALTHY" if total_sample >= 100
+        else "MONITOR" if total_sample >= 40
+        else "COLLECTING"
+    )
+    return {
+        "available": True,
+        "sampleSize": total_sample,
+        "hits": total_hits,
+        "accuracy": round(total_hits / total_sample, 4) if total_sample else None,
+        "simulatedRoi": _weighted_average(strikeout_rows, "simulatedRoi", "sampleSize"),
+        "beatClosingLineRate": _weighted_average(strikeout_rows, "beatClosingLineRate", "sampleSize"),
+        "averageLineClvPoints": _weighted_average(strikeout_rows, "averageLineClvPoints", "sampleSize"),
+        "averageOddsClvExpectedValuePercent": _weighted_average(
+            strikeout_rows,
+            "averageOddsClvExpectedValuePercent",
+            "oddsSampleSize",
+        ),
+        "positiveOddsClvRate": _weighted_average(strikeout_rows, "positiveOddsClvRate", "oddsSampleSize"),
+        "oddsSampleSize": sum(_safe_int(row.get("oddsSampleSize")) for row in strikeout_rows),
+        "over": over,
+        "under": under,
+        "health": health,
+        "markets": sorted({str(row.get("market") or "") for row in strikeout_rows}),
+        "suggestivePickTier": "pro_gold",
+        "visibility": "owner_only",
+        "method": "log5_binomial_environment_adjusted",
+    }
+
+
 def _database_counts() -> dict[str, object]:
     result: dict[str, object] = {
         "activeUsers": {
@@ -107,6 +212,7 @@ def launch_control_snapshot() -> dict[str, object]:
     try:
         performance = model_performance()
         prediction_operations = operations_summary()
+        strikeout_intelligence = _strikeout_owner_report(performance)
     except Exception as exc:
         performance = {
             "sampleSize": 0,
@@ -116,6 +222,13 @@ def launch_control_snapshot() -> dict[str, object]:
         prediction_operations = {
             "databaseConfigured": database_is_configured(),
             "error": type(exc).__name__,
+        }
+        strikeout_intelligence = {
+            "available": False,
+            "sampleSize": 0,
+            "reason": type(exc).__name__,
+            "suggestivePickTier": "pro_gold",
+            "visibility": "owner_only",
         }
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
@@ -144,6 +257,13 @@ def launch_control_snapshot() -> dict[str, object]:
         "gradingReview": grading_review,
         "modelPerformance": performance,
         "predictionOperations": prediction_operations,
+        "ownerOnlyInsights": {
+            "strikeoutIntelligence": strikeout_intelligence,
+            "notes": [
+                "Suggestive strikeout picks are restricted to Pro Gold.",
+                "Owner Operations always shows full strikeout validation diagnostics.",
+            ],
+        },
         "syncDiagnostics": ticket_sync_diagnostic_summary(),
         **database_counts,
     }

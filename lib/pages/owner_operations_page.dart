@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
-
 import '../theme/app_colors.dart' as brand_colors;
 
 class OwnerOperationsPage extends StatefulWidget {
@@ -96,6 +95,13 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             ),
             const SizedBox(height: 10),
             _modelAccountability(),
+            const SizedBox(height: 22),
+            _sectionTitle(
+              'OWNER-ONLY STRIKEOUT INTELLIGENCE',
+              'Log5 and binomial validation with environmental adjustments for MLB strikeout props',
+            ),
+            const SizedBox(height: 10),
+            _strikeoutIntelligence(),
             const SizedBox(height: 22),
             _sectionTitle(
               'ISSUES REQUIRING REVIEW',
@@ -420,6 +426,105 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             );
           }),
         ],
+      ],
+    );
+  }
+
+  Widget _strikeoutIntelligence() {
+    final ownerInsights = _control?['ownerOnlyInsights'] as Map? ?? const {};
+    final strikeout = ownerInsights['strikeoutIntelligence'] as Map? ?? const {};
+    final available = strikeout['available'] == true;
+    if (!available) {
+      return _notice(
+        Icons.analytics_outlined,
+        'Strikeout Report Not Ready',
+        strikeout['reason']?.toString() ??
+            'No graded MLB strikeout predictions are available yet.',
+        AppColors.gold,
+      );
+    }
+
+    String pct(Object? value) {
+      final numeric = (value as num?)?.toDouble();
+      return numeric == null ? '--' : '${(numeric * 100).toStringAsFixed(1)}%';
+    }
+
+    String numVal(Object? value, {int decimals = 2}) {
+      final numeric = (value as num?)?.toDouble();
+      return numeric == null ? '--' : numeric.toStringAsFixed(decimals);
+    }
+
+    final over = strikeout['over'] as Map? ?? const {};
+    final under = strikeout['under'] as Map? ?? const {};
+    final health = (strikeout['health']?.toString() ?? 'COLLECTING').toUpperCase();
+    final healthy = health == 'HEALTHY';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _status(
+              'Report health',
+              health,
+              healthy,
+              detail: 'Visibility: owner only',
+            ),
+            _status(
+              'Graded strikeout sample',
+              '${strikeout['sampleSize'] ?? 0}',
+              ((strikeout['sampleSize'] as num?)?.toInt() ?? 0) >= 40,
+              detail: 'Suggestive picks tier: ${strikeout['suggestivePickTier'] ?? 'pro_gold'}',
+            ),
+            _status(
+              'Strikeout accuracy',
+              pct(strikeout['accuracy']),
+              ((strikeout['accuracy'] as num?)?.toDouble() ?? 0) >= 0.5,
+              detail: 'All MLB strikeout sides',
+            ),
+            _status(
+              'Strikeout ROI',
+              '${numVal(strikeout['simulatedRoi'])}%',
+              ((strikeout['simulatedRoi'] as num?)?.toDouble() ?? 0) > 0,
+              detail: 'Simulated average return',
+            ),
+            _status(
+              'Beat closing line',
+              pct(strikeout['beatClosingLineRate']),
+              ((strikeout['beatClosingLineRate'] as num?)?.toDouble() ?? 0) >= 0.5,
+              detail: '${strikeout['oddsSampleSize'] ?? 0} odds pairs',
+            ),
+            _status(
+              'Positive odds CLV',
+              pct(strikeout['positiveOddsClvRate']),
+              ((strikeout['positiveOddsClvRate'] as num?)?.toDouble() ?? 0) >= 0.5,
+              detail: '${numVal(strikeout['averageOddsClvExpectedValuePercent'])}% avg',
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _notice(
+          Icons.security_outlined,
+          'Owner-Only Visibility Guard',
+          'Strikeout suggestive picks are shown only to Pro Gold users. Owner Operations exposes full validation telemetry for oversight.',
+          AppColors.gold,
+        ),
+        const SizedBox(height: 10),
+        _notice(
+          Icons.trending_up,
+          'OVER Side',
+          '${over['sampleSize'] ?? 0} picks | accuracy ${pct(over['accuracy'])} | ROI ${numVal(over['simulatedRoi'])}% | beat close ${pct(over['beatClosingLineRate'])}',
+          const Color(0xFF8CFFB2),
+        ),
+        const SizedBox(height: 8),
+        _notice(
+          Icons.trending_down,
+          'UNDER Side',
+          '${under['sampleSize'] ?? 0} picks | accuracy ${pct(under['accuracy'])} | ROI ${numVal(under['simulatedRoi'])}% | beat close ${pct(under['beatClosingLineRate'])}',
+          AppColors.gold,
+        ),
       ],
     );
   }
