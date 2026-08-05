@@ -12,6 +12,7 @@ from services.projection_calibration_service import (
     contextual_projection,
 )
 from services.prop_probability_service import evaluate_market
+from services.prop_intelligence_service import analyze_prop
 from services.projection_formula_service import blend_projection_with_market
 from services.opportunity_gate_service import evaluate_opportunity_gate
 from services.opportunity_projection_service import basketball_opportunities
@@ -21,6 +22,42 @@ from services.mlb_strikeout_enrichment_service import enrich_mlb_strikeout_props
 from services.pregame_context_ingestion_service import apply_latest_pregame_context
 
 logger = logging.getLogger(__name__)
+
+
+def _apply_strikeout_release_gate(prop: object) -> bool:
+    market_key_text = " ".join((
+        str(getattr(prop, "marketKey", "") or ""),
+        str(getattr(prop, "market", "") or ""),
+        str(getattr(prop, "category", "") or ""),
+    )).lower()
+    if not (
+        str(getattr(prop, "sport", "") or "").strip().upper() == "MLB"
+        and "strikeout" in market_key_text
+    ):
+        return False
+
+    lineup_matchup = getattr(prop, "mlbProjectedLineupMatchup", None)
+    if not isinstance(lineup_matchup, dict) or not list(lineup_matchup.get("opposingLineup") or []):
+        reason = "strikeout_lineup_missing"
+    elif bool(getattr(prop, "strikeoutUsedFallbackPitcherRate", False)):
+        reason = "strikeout_pitcher_skill_unverified"
+    elif bool(getattr(prop, "strikeoutUsedFallbackTbf", False)):
+        reason = "strikeout_tbf_unverified"
+    elif getattr(prop, "lineupKPercent", None) is None and getattr(prop, "lineupCswAgainst", None) is None:
+        reason = "strikeout_lineup_split_missing"
+    else:
+        return False
+
+    prop.recommendationAvailable = False
+    prop.recommendationUnavailableReason = reason
+    prop.recommendedSide = "N/A"
+    prop.pick = "N/A"
+    prop.pickText = "No Pick"
+    prop.tier = "No Pick"
+    prop.confidence = 0
+    prop.isPositiveEv = False
+    prop.opportunityStatus = "SYSTEM_LEAN"
+    return True
 
 
 def _availability_multiplier(injury_status: object, lineup_status: object) -> float:
@@ -98,8 +135,6 @@ def apply_projection_context(prop: object) -> None:
     line = float(getattr(prop, "line", 0))
 
     if is_mlb_strikeout and projection is not None:
-        from services.prop_intelligence_service import analyze_prop
-
         strikeout_analysis = analyze_prop(
             player=str(getattr(prop, "player", "") or ""),
             sport=str(getattr(prop, "sport", "") or ""),
@@ -139,7 +174,7 @@ def apply_projection_context(prop: object) -> None:
     recommended = str((strikeout_analysis or {}).get("recommendation") or "").upper()
     side = (
         recommended
-        if recommended in {"OVER", "UNDER", "PASS"}
+        if recommended in {"OVER", "UNDER"}
         else "OVER" if adjusted > line else "UNDER" if adjusted < line else "PASS"
     )
     prop.projection = adjusted
@@ -299,6 +334,7 @@ def apply_projection_context(prop: object) -> None:
         prop.pickText = "No Pick"
         prop.tier = "No Pick"
         prop.confidence = 0
+    _apply_strikeout_release_gate(prop)
 
 
 def enrich_props(props: list[object]) -> None:

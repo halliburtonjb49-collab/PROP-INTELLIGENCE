@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+from services import prop_context_service
 from services.projection_calibration_service import (
     ProjectionContext,
     calibrated_hit_probability,
@@ -119,3 +120,60 @@ def test_missing_sample_metadata_does_not_overwrite_verified_tier() -> None:
     assert prop.recommendationAvailable is False
     assert "insufficient_projection_sample" in prop.opportunityReasons
     assert prop.pick == "N/A"
+
+
+def test_strikeout_release_gate_suppresses_fallback_heavy_pick(monkeypatch) -> None:
+    monkeypatch.setattr(
+        prop_context_service,
+        "analyze_prop",
+        lambda **_: {
+            "recommendation": "OVER",
+            "confidence": 72,
+            "expectedValuePercent": 6.1,
+            "edgePercent": 6.1,
+            "usedFallbackPitcherRate": True,
+            "usedFallbackLineupRate": False,
+            "usedFallbackTbf": False,
+            "usedMarketBlend": True,
+            "method": "mlb_strikeout_log5_binomial",
+            "skillSource": "k_rate_log5",
+            "projectedBattersFaced": 24,
+            "marketWeight": 0.2,
+            "modelOverProbability": 0.61,
+            "marketOverProbability": 0.58,
+        },
+    )
+    prop = SimpleNamespace(
+        projection=6.5,
+        line=5.5,
+        injuryStatus="healthy",
+        lineupStatus="confirmed",
+        projectionVolatility=1.4,
+        projectionSampleSize=20,
+        projectionCalibrated=True,
+        historicalHitRate=None,
+        sport="MLB",
+        market="Pitcher Strikeouts",
+        marketKey="pitcher_strikeouts",
+        category="STRIKEOUTS",
+        recommendationAvailable=True,
+        mlbProjectedLineupMatchup={"opposingLineup": [{"player": "Batter", "battingOrder": 1}]},
+        pitcherKPercent=None,
+        pitcherCsw=None,
+        pitchesPerStart=95.0,
+        pitchesPerBatter=3.9,
+        lineupKPercent=0.24,
+        lineupCswAgainst=None,
+        temperatureF=65.0,
+        umpireKBoost=0.01,
+        parkKFactor=1.0,
+        overDecimalOdds=1.91,
+        underDecimalOdds=1.91,
+    )
+
+    apply_projection_context(prop)
+
+    assert prop.recommendationAvailable is False
+    assert prop.recommendationUnavailableReason == "strikeout_pitcher_skill_unverified"
+    assert prop.pick == "N/A"
+    assert prop.confidence == 0
