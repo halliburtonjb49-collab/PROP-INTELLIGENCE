@@ -12,6 +12,10 @@ from services.projection_calibration_service import (
     contextual_projection,
 )
 from services.prop_probability_service import evaluate_market
+from services.probability_calibration_service import (
+    calibrated_probability,
+    calibration_map_for,
+)
 from services.prop_intelligence_service import analyze_prop
 from services.projection_formula_service import blend_projection_with_market
 from services.opportunity_gate_service import evaluate_opportunity_gate
@@ -80,6 +84,22 @@ def _availability_multiplier(injury_status: object, lineup_status: object) -> fl
     if injury in {"questionable", "day-to-day", "probable"}:
         return 0.96
     return 1.0
+
+
+def _probability_calibrator(sport: str):
+    """The sport's fitted calibration map, or nothing when none is validated.
+
+    Returning None leaves the raw probability and the existing additive
+    market adjustment in place, which is the correct behaviour for a sport
+    with too little graded history to fit a curve worth trusting.
+    """
+
+    label = str(sport or "").strip().upper()
+    if not label:
+        return None
+    if calibration_map_for(label) is None:
+        return None
+    return lambda probability: calibrated_probability(probability, sport=label)
 
 
 def apply_projection_context(prop: object) -> None:
@@ -235,6 +255,9 @@ def apply_projection_context(prop: object) -> None:
         ),
         calibration_adjustment=float(
             getattr(prop, "probabilityCalibrationAdjustment", 0) or 0
+        ),
+        probability_calibrator=_probability_calibrator(
+            str(getattr(prop, "sport", "") or "")
         ),
     )
     probability = evaluation.fair_probability

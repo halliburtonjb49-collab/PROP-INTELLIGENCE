@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from math import exp, floor, isclose, lgamma, log, sqrt
 from random import Random
 from statistics import NormalDist
+from typing import Callable
 
 
 @dataclass(frozen=True)
@@ -550,6 +551,7 @@ def evaluate_market(
     decimal_odds: float | None,
     calibration_adjustment: float = 0.0,
     zero_rate: float | None = None,
+    probability_calibrator: Callable[[float], float] | None = None,
 ) -> MarketEvaluation:
     probabilities = prop_probabilities(
         projection=projection,
@@ -571,10 +573,20 @@ def evaluate_market(
             + empirical * empirical_weight
         )
     model_probability = max(0.01, min(0.99, model_probability))
-    applied_adjustment = max(-0.08, min(0.08, calibration_adjustment))
-    model_probability = max(
-        0.01, min(0.99, model_probability + applied_adjustment)
-    )
+    if probability_calibrator is not None:
+        # A fitted map corrects both the level and the shape of the
+        # probability curve. The additive adjustment below was fitted against
+        # uncalibrated probabilities and corrects the level only, so applying
+        # both would correct the same error twice.
+        model_probability = max(
+            0.01, min(0.99, float(probability_calibrator(model_probability)))
+        )
+        applied_adjustment = 0.0
+    else:
+        applied_adjustment = max(-0.08, min(0.08, calibration_adjustment))
+        model_probability = max(
+            0.01, min(0.99, model_probability + applied_adjustment)
+        )
     fair, market_weight = blend_with_sharp_market(
         model_probability,
         sharp_probability,
