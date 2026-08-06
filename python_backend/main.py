@@ -2224,6 +2224,7 @@ def props(
 			prop: PropResponse,
 			*,
 			apply_category: bool,
+			apply_sportsbook: bool = True,
 		) -> bool:
 			# This predicate runs across the complete live catalog, often more
 			# than 8,000 rows. Reading model attributes directly avoids creating
@@ -2270,7 +2271,11 @@ def props(
 				return False
 			if tier_filter != "all" and recommended_tier != tier_filter:
 				return False
-			if sportsbook_filter != "all" and prop_sportsbook != sportsbook_filter:
+			if (
+				apply_sportsbook
+				and sportsbook_filter != "all"
+				and prop_sportsbook != sportsbook_filter
+			):
 				return False
 			if sport_filter != "all" and prop_sport != sport_filter:
 				return False
@@ -2297,6 +2302,17 @@ def props(
 		sport_counts = Counter(
 			str(prop.sport or "other").strip().upper()
 			for prop in facet_props
+		)
+		# Counted before the sportsbook filter is applied, so selecting one
+		# book does not report every other book as empty.
+		sportsbook_counts = Counter(
+			_normalize_sportsbook_filter_key(
+				str(prop.sportsbook or "other")
+			)
+			for prop in prop_list
+			if _matches_filters(
+				prop, apply_category=False, apply_sportsbook=False
+			)
 		)
 		sport_category_counts: dict[str, Counter[str]] = {}
 		for prop in facet_props:
@@ -2416,6 +2432,9 @@ def props(
 			"facetCount": len(facet_props),
 			"categoryCounts": dict(sorted(category_counts.items())),
 			"sportCounts": dict(sorted(sport_counts.items())),
+			# Lets the board hide a prop site that currently has nothing,
+			# rather than offering a filter that returns an empty screen.
+			"sportsbookCounts": dict(sorted(sportsbook_counts.items())),
 			"sportCategoryCounts": {
 				sport_key: dict(sorted(counts.items()))
 				for sport_key, counts in sorted(sport_category_counts.items())

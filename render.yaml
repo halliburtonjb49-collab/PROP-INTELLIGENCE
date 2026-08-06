@@ -123,7 +123,7 @@ services:
       - key: ODDS_REGIONS
         value: us,us2,us_dfs
       - key: PREFERRED_BOOKMAKERS
-        value: prizepicks,underdog,draftkings,sleeper,fanduel,betr_us_dfs
+        value: prizepicks,underdog,draftkings,pick6,fanduel,betr_us_dfs
       - key: PROP_SYNC_SPORTS
         value: baseball_mlb,basketball_wnba,basketball_nba,americanfootball_nfl,icehockey_nhl,soccer_epl,soccer_usa_mls,soccer_france_ligue_one,soccer_germany_bundesliga,soccer_italy_serie_a,soccer_spain_la_liga,aussierules_afl,rugbyleague_nrl
       - key: ADMIN_API_KEY
@@ -208,7 +208,7 @@ services:
       - key: RAW_PROP_STREAM_MAXLEN
         value: 5000
       - key: PREFERRED_BOOKMAKERS
-        value: prizepicks,underdog,draftkings,sleeper,fanduel,betr_us_dfs
+        value: prizepicks,underdog,draftkings,pick6,fanduel,betr_us_dfs
       - key: ODDS_REGIONS
         value: us,us2,us_dfs
       - key: PROP_SYNC_SPORTS
