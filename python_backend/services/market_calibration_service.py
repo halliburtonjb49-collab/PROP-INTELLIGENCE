@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from threading import Lock
 
 from database.postgres import database_is_configured, get_database_pool
+from services.probability_calibration_service import calibrated_probability
 
 _CACHE_TTL = timedelta(minutes=10)
 _MINIMUM_SAMPLE = 30
@@ -56,28 +57,48 @@ def _refresh() -> None:
             return
         values: dict[tuple[str, str, str, str], tuple[float, int]] = {}
         try:
+            # Rows rather than a grouped average, because the sport's fitted
+            # calibration map has to be applied per prediction before the
+            # segment mean means anything. Averaging first and correcting the
+            # average is not the same operation.
             with get_database_pool().connection() as connection, connection.cursor() as cursor:
                 cursor.execute(
-                    """select sport,market,model_version,side,count(*),
-                        avg(hit_probability),avg(case when hit then 1.0 else 0.0 end)
+                    """select sport,market,model_version,side,hit_probability,
+                        case when hit then 1.0 else 0.0 end
                     from prediction_snapshots
                     where graded_at is not null and actual_value <> line
-                    group by sport,market,model_version,side
-                    having count(*) >= %s""",
-                    (_MINIMUM_SAMPLE,),
+                        and hit_probability is not null""",
                 )
-                for sport, market, version, side, count, predicted, actual in cursor.fetchall():
-                    adjustment = _eligible_adjustment(
-                        predicted=float(predicted),
-                        actual=float(actual),
-                        sample_size=int(count),
+                grouped: dict[
+                    tuple[str, str, str, str], list[tuple[float, float]]
+                ] = {}
+                for sport, market, version, side, probability, outcome in cursor.fetchall():
+                    key = _key(str(sport), str(market), str(version), str(side))
+                    grouped.setdefault(key, []).append(
+                        (float(probability), float(outcome))
                     )
-                    if adjustment == 0.0:
-                        continue
-                    values[_key(str(sport), str(market), str(version), str(side))] = (
-                        adjustment,
-                        int(count),
-                    )
+            for key, rows in grouped.items():
+                if len(rows) < _MINIMUM_SAMPLE:
+                    continue
+                sport_label = key[0]
+                # What remains after the sport-level curve has been applied is
+                # the market's own bias, which is the only part this segment
+                # correction should carry. Fitting against raw probabilities
+                # would re-apply a correction the curve already made.
+                calibrated = [
+                    (calibrated_probability(probability, sport=sport_label), outcome)
+                    for probability, outcome in rows
+                ]
+                predicted = sum(p for p, _ in calibrated) / len(calibrated)
+                actual = sum(o for _, o in calibrated) / len(calibrated)
+                adjustment = _eligible_adjustment(
+                    predicted=predicted,
+                    actual=actual,
+                    sample_size=len(rows),
+                )
+                if adjustment == 0.0:
+                    continue
+                values[key] = (adjustment, len(rows))
         except Exception:
             values = {}
         _adjustments = values

@@ -1,4 +1,10 @@
+from statistics import NormalDist
 from typing import Any
+
+from services.projection_calibration_service import (
+    confidence_from_probability,
+    market_volatility_floor,
+)
 
 
 def safe_float(value: object, default: float | None = None) -> float | None:
@@ -34,7 +40,20 @@ def _pick_text(side: str, line: float | None, tier: str) -> str:
 def build_prop_recommendation(
     projection: object,
     line: object,
+    *,
+    sport: str = "",
+    market: str = "",
+    volatility: object = None,
 ) -> dict[str, Any]:
+    """Side, edge and confidence for a projection against a line.
+
+    Confidence comes from how far the projection sits from the line measured
+    in the market's own spread, not from the raw difference. A yard of
+    receiving yards and a strikeout are not the same distance: scaling the
+    gap by a linear constant made a trivial move on a wide market outrank a
+    large one on a tight market. The edge itself stays in stat units, since
+    that is what a card displays.
+    """
     projection_value = safe_float(projection)
     line_value = safe_float(line)
 
@@ -59,8 +78,12 @@ def build_prop_recommendation(
 
     edge = abs(difference)
 
-    confidence = round(50 + (edge * 12))
-    confidence = max(50, min(confidence, 99))
+    # The market's typical spread, so the same gap means the same thing
+    # whichever market it came from.
+    sigma = safe_float(volatility) or market_volatility_floor(sport, market)
+    sigma = max(1e-6, float(sigma))
+    win_probability = NormalDist().cdf(edge / sigma)
+    confidence = max(50, min(confidence_from_probability(win_probability), 99))
 
     tier = _tier_from_confidence(confidence, side)
     pick_text = _pick_text(side, line_value, tier)

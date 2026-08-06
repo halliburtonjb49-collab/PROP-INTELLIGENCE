@@ -605,3 +605,46 @@ def test_edge_ranking_puts_unpriced_props_last(monkeypatch) -> None:
         "priced",
         "unpriced",
     ]
+
+
+def test_confidence_scales_by_the_market_not_by_stat_units() -> None:
+    """A yard and a strikeout are not the same distance.
+
+    The previous formula added twelve points of confidence per stat unit, so
+    three yards of receiving yards scored the same as three points of
+    basketball, and a large strikeout edge scored far less than either.
+    """
+
+    from services.prop_recommendation_service import build_prop_recommendation
+
+    yards = build_prop_recommendation(
+        103.0, 100.0, sport="NFL", market="player_reception_yds", volatility=32,
+    )
+    strikeouts = build_prop_recommendation(
+        6.3, 5.5, sport="MLB", market="pitcher_strikeouts",
+    )
+
+    # Three yards is noise on a market that swings thirty; eight tenths of a
+    # strikeout is not, on a market that swings one and a half.
+    assert yards["confidence"] < strikeouts["confidence"]
+    assert yards["confidence"] < 60
+
+
+def test_confidence_still_rises_with_the_edge_within_one_market() -> None:
+    from services.prop_recommendation_service import build_prop_recommendation
+
+    small = build_prop_recommendation(19.0, 18.5, sport="NBA", market="player_points")
+    large = build_prop_recommendation(23.0, 18.5, sport="NBA", market="player_points")
+
+    assert large["confidence"] > small["confidence"]
+    assert 50 <= small["confidence"] <= 99
+
+
+def test_edge_stays_in_stat_units_for_display() -> None:
+    from services.prop_recommendation_service import build_prop_recommendation
+
+    # The card shows "+1.9"; only confidence is rescaled.
+    result = build_prop_recommendation(
+        25.4, 23.5, sport="NBA", market="player_points",
+    )
+    assert result["edge"] == pytest.approx(1.9, abs=1e-6)

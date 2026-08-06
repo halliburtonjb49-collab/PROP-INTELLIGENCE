@@ -106,3 +106,29 @@ def test_holdout_is_reproducible_and_spans_the_range() -> None:
     # Both halves must cover the whole probability range, not one corner.
     assert min(p for p, _ in first_holdout) < 0.05
     assert max(p for p, _ in first_holdout) > 0.95
+
+
+def test_market_residuals_are_fitted_after_the_sport_curve() -> None:
+    """The two corrections must compose, not compete.
+
+    The sport curve fixes the overall shape and the market adjustment carries
+    what one market has left over. Fitting the second against raw
+    probabilities would re-apply a correction the first already made.
+    """
+
+    from services.market_calibration_service import _eligible_adjustment
+
+    fitted = build_calibration_map(
+        _pairs(0.70, 500, 500) + _pairs(0.30, 250, 750), sport="TEST"
+    )
+    assert fitted is not None
+
+    # One market that is unbiased once the curve has been applied.
+    unbiased = [(fitted.apply(0.70), 0.5)] * 100
+    residual = _eligible_adjustment(
+        predicted=sum(p for p, _ in unbiased) / len(unbiased),
+        actual=0.5,
+        sample_size=100,
+    )
+    # Nothing left to correct means no second adjustment.
+    assert residual == pytest.approx(0.0, abs=0.02)

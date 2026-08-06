@@ -43,9 +43,10 @@ def test_two_props_from_one_game_come_out_correlated() -> None:
     )
     correlation = result.correlations[("a", "b")]
 
-    # Nothing asserted this. They share a pace and a game script, so the
-    # correlation falls out of the draws.
-    assert correlation > 0.05
+    # Nothing asserted this. Two different players share only the game -- its
+    # pace and its script -- so the link is real but slight, and the fitted
+    # pace volatility of about 0.056 is what sets its size.
+    assert 0.01 < correlation < 0.15
 
 
 def test_one_players_markets_move_together_more_than_two_players_do() -> None:
@@ -195,17 +196,84 @@ def test_residual_never_collapses_to_nothing() -> None:
     residual = residual_volatility(
         spec, minutes_volatility=0.30, pace_volatility=0.20,
     )
-    assert residual > 0
-    assert residual == pytest.approx(0.35, abs=1e-6)
+    # At most 85% of a prop's variance may come from the shared state, so the
+    # residual keeps the square root of the remaining fifteen percent.
+    assert residual == pytest.approx(1.0 * (0.15 ** 0.5), abs=1e-6)
 
 
 def test_player_form_ties_a_players_markets_beyond_shared_minutes() -> None:
-    specs = [_spec("pts", "Alice"), _spec("reb", "Alice")]
-    with_form = simulate_game(specs, simulations=5000, form_volatility=0.14)
-    without_form = simulate_game(specs, simulations=5000, form_volatility=0.0)
+    # Wide props, so the shared channels are not already capped by the prop's
+    # own spread. Where the cap binds, minutes alone saturate the coupling and
+    # form has nothing left to add -- which the fitted values make the common
+    # case rather than the exception.
+    specs = [
+        _spec("pts", "Alice", projection=20.0, volatility=10.0),
+        _spec("reb", "Alice", projection=8.0, volatility=4.5),
+    ]
+    with_form = simulate_game(
+        specs, simulations=5000, minutes_volatility=0.20, form_volatility=0.20
+    )
+    without_form = simulate_game(
+        specs, simulations=5000, minutes_volatility=0.20, form_volatility=0.0
+    )
 
-    # A heavy-usage night lifts a player's markets together; minutes alone
-    # understate how much they move as one.
     assert with_form.correlations[("pts", "reb")] > (
         without_form.correlations[("pts", "reb")]
     )
+
+
+def test_coupling_volatilities_are_fitted_per_league() -> None:
+    from services.game_state_simulation_service import (
+        DEFAULT_COUPLING, coupling_for,
+    )
+
+    assert coupling_for("NBA") != coupling_for("WNBA")
+    # An unfitted sport falls back rather than silently borrowing a league.
+    assert coupling_for("KABADDI") == DEFAULT_COUPLING
+
+
+def test_a_count_prop_keeps_the_spread_it_was_given() -> None:
+    # A Poisson or negative binomial cannot hold variance below its mean. If
+    # the split ignores that, the draw silently falls back to a Poisson whose
+    # variance is the mean and the marginal reinflates.
+    result = simulate_game(
+        [
+            PropSpec(
+                prop_id="reb", player="Alice", team="HOME", line=6.5,
+                side="OVER", projection=7.0, volatility=3.2,
+                distribution="negative-binomial",
+            )
+        ],
+        simulations=8000,
+        sport="NBA",
+    )
+    assert result.outcomes["reb"].outcome_volatility == pytest.approx(3.2, rel=0.10)
+
+
+def test_a_narrow_prop_scales_back_the_shared_channels() -> None:
+    from services.game_state_simulation_service import variance_split
+
+    # League-wide minutes and pace swings imply more variance than this prop
+    # has. Correlation gives way so the marginal stays right.
+    narrow = _spec("a", "Alice", projection=30.0, volatility=1.5)
+    _, scale = variance_split(
+        narrow, minutes_volatility=0.293, pace_volatility=0.056,
+    )
+    assert scale < 1.0
+
+    wide = _spec("b", "Bob", projection=20.0, volatility=9.0)
+    _, wide_scale = variance_split(
+        wide, minutes_volatility=0.293, pace_volatility=0.056,
+    )
+    assert wide_scale == pytest.approx(1.0)
+
+
+def test_fitted_coupling_keeps_the_marginal_intact() -> None:
+    result = simulate_game(
+        [_spec("a", "Alice", projection=19.2, volatility=6.0)],
+        simulations=8000,
+        sport="NBA",
+    )
+    outcome = result.outcomes["a"]
+    assert outcome.mean_outcome == pytest.approx(19.2, rel=0.03)
+    assert outcome.outcome_volatility == pytest.approx(6.0, rel=0.05)

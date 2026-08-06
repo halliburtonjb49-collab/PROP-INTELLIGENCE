@@ -573,20 +573,19 @@ def evaluate_market(
             + empirical * empirical_weight
         )
     model_probability = max(0.01, min(0.99, model_probability))
+    # Order matters. The fitted curve corrects the sport's overall shape, and
+    # the additive adjustment is fitted against already-calibrated
+    # probabilities, so it carries only the residual bias of one market. The
+    # curve must therefore run first, or the additive term would be applied to
+    # a probability it was never fitted against.
     if probability_calibrator is not None:
-        # A fitted map corrects both the level and the shape of the
-        # probability curve. The additive adjustment below was fitted against
-        # uncalibrated probabilities and corrects the level only, so applying
-        # both would correct the same error twice.
         model_probability = max(
             0.01, min(0.99, float(probability_calibrator(model_probability)))
         )
-        applied_adjustment = 0.0
-    else:
-        applied_adjustment = max(-0.08, min(0.08, calibration_adjustment))
-        model_probability = max(
-            0.01, min(0.99, model_probability + applied_adjustment)
-        )
+    applied_adjustment = max(-0.08, min(0.08, calibration_adjustment))
+    model_probability = max(
+        0.01, min(0.99, model_probability + applied_adjustment)
+    )
     fair, market_weight = blend_with_sharp_market(
         model_probability,
         sharp_probability,
@@ -740,6 +739,11 @@ def outcome_from_quantile(
     target = max(1e-9, min(1 - 1e-9, quantile))
     mean = max(0.0, projection)
     variance = max(1e-6, volatility * volatility)
+    if mean <= 0 and distribution not in {"normal", "student-t"}:
+        # A count distribution with no mean produces nothing. Reached when a
+        # simulated game state scales a projection to zero, and previously a
+        # division by zero in the negative-binomial shape.
+        return 0.0
     if distribution == "normal":
         return max(0.0, NormalDist(mean, sqrt(variance)).inv_cdf(target))
     if distribution == "log-normal":

@@ -34,6 +34,11 @@ DEFAULT_SIMULATIONS = 10_000
 # decimals is far finer than any line resolution and keeps the cache small.
 _QUANTILE_CACHE_PRECISION = 2
 
+# Distributions whose variance cannot be set below their mean.
+_COUNT_DISTRIBUTIONS = frozenset(
+    {"poisson", "negative-binomial", "zero-inflated-poisson"}
+)
+
 
 @dataclass(frozen=True)
 class GameState:
@@ -136,11 +141,44 @@ def draw_game_state(random: Random, conditions: GameConditions) -> GameState:
     )
 
 
-# How much a player's role on the night swings independently of his minutes:
-# the share of his team's shots and touches he takes when he is involved.
-# Minutes alone understate how much a player's markets move together, because
-# a night of heavy usage lifts his points, rebounds and assists at once.
-DEFAULT_FORM_VOLATILITY = 0.14
+# Fitted from stored basketball logs rather than chosen. Each was measured
+# against the quantity the simulator actually needs, which is not always the
+# obvious one:
+#
+#   minutes  residual spread around the recency-weighted minutes projection,
+#            not the raw spread of minutes. Measured at 0.293 in both leagues,
+#            and notably the projection does not narrow it -- minutes really
+#            are that uncertain.
+#   pace     spread of team possessions per game.
+#   form     the part of per-minute production that a player's markets share.
+#            Taken from the correlation between his own per-minute scoring,
+#            rebounding and passing rates, which is low (0.048 NBA, 0.027
+#            WNBA) but sits on top of a large rate spread, so the shared
+#            component is rate_spread * sqrt(correlation) rather than either
+#            number alone. Using the rate spread directly would treat pure
+#            shooting luck as though it moved every market together.
+@dataclass(frozen=True)
+class CouplingVolatility:
+    minutes: float
+    pace: float
+    form: float
+
+
+FITTED_COUPLING: Mapping[str, CouplingVolatility] = {
+    "NBA": CouplingVolatility(minutes=0.293, pace=0.056, form=0.118),
+    "WNBA": CouplingVolatility(minutes=0.294, pace=0.072, form=0.097),
+}
+
+# Used where a sport has not been fitted. Deliberately the more conservative
+# NBA figures rather than an average of everything.
+DEFAULT_COUPLING = CouplingVolatility(minutes=0.293, pace=0.060, form=0.110)
+
+DEFAULT_FORM_VOLATILITY = DEFAULT_COUPLING.form
+DEFAULT_MINUTES_VOLATILITY = DEFAULT_COUPLING.minutes
+
+
+def coupling_for(sport: str) -> CouplingVolatility:
+    return FITTED_COUPLING.get(str(sport or "").strip().upper(), DEFAULT_COUPLING)
 
 
 def residual_volatility(
@@ -163,15 +201,60 @@ def residual_volatility(
     part through the channel that actually ties props together.
     """
 
+    residual, _ = variance_split(
+        spec,
+        minutes_volatility=minutes_volatility,
+        pace_volatility=pace_volatility,
+        form_volatility=form_volatility,
+    )
+    return residual
+
+
+def variance_split(
+    spec: PropSpec,
+    *,
+    minutes_volatility: float,
+    pace_volatility: float,
+    form_volatility: float = DEFAULT_FORM_VOLATILITY,
+) -> tuple[float, float]:
+    """Residual spread, and how far the shared channels must be scaled back.
+
+    The shared channels are fitted league-wide while volatility arrives per
+    prop, so nothing guarantees the first fits inside the second. A prop whose
+    own spread is narrower than the league's minutes and pace swings imply
+    would otherwise be simulated wider than it really is, because the residual
+    cannot go below zero and the excess leaks into the total.
+
+    Scaling the shared channels down for that prop keeps the marginal
+    distribution right, which is the invariant every probability depends on.
+    Correlation is what gives way instead, which is the correct thing to
+    sacrifice: a prop that genuinely varies less than the league does move
+    less with the game.
+    """
+
     total_variance = max(1e-9, float(spec.volatility) ** 2)
     multiplier_variance = (spec.pace_sensitivity * pace_volatility) ** 2
     if spec.minutes_driven:
         multiplier_variance += minutes_volatility**2 + form_volatility**2
     shared_variance = (float(spec.projection) ** 2) * multiplier_variance
-    # A floor keeps a prop from becoming a deterministic function of the game
-    # state when the shared component would otherwise explain everything.
-    floor = 0.35 * float(spec.volatility)
-    return max(floor, (max(0.0, total_variance - shared_variance)) ** 0.5)
+    if shared_variance <= 0:
+        return float(spec.volatility), 1.0
+
+    # Leave the prop some randomness of its own; a prop that is a pure
+    # function of the game state is not something the data ever shows.
+    usable_shared = min(shared_variance, total_variance * 0.85)
+
+    if spec.distribution in _COUNT_DISTRIBUTIONS:
+        # A Poisson or negative binomial cannot hold variance below its mean,
+        # and asking for it silently falls back to a Poisson whose variance is
+        # the mean -- which is larger than requested and quietly reinflates the
+        # marginal. Cap the shared share so the residual stays representable.
+        headroom = total_variance - float(spec.projection)
+        usable_shared = min(usable_shared, max(0.0, headroom))
+
+    scale = usable_shared / shared_variance
+    residual = (max(0.0, total_variance - usable_shared)) ** 0.5
+    return residual, scale
 
 
 def _state_multiplier(
@@ -180,15 +263,22 @@ def _state_multiplier(
     *,
     minutes_multiplier: float,
     form_multiplier: float = 1.0,
+    shared_scale: float = 1.0,
 ) -> float:
-    """How this game moves this prop, before its own randomness."""
+    """How this game moves this prop, before its own randomness.
 
-    multiplier = 1.0 + ((state.pace_factor - 1.0) * spec.pace_sensitivity)
+    shared_scale shrinks every shared swing toward one for a prop whose own
+    spread cannot accommodate the league-wide channels at full strength.
+    """
+
+    damp = max(0.0, min(1.0, shared_scale)) ** 0.5
+    multiplier = 1.0 + ((state.pace_factor - 1.0) * spec.pace_sensitivity * damp)
     if state.blowout and spec.blowout_sensitivity > 0:
         # A starter's late minutes are the first thing a decided game removes.
         multiplier *= 1.0 - (spec.blowout_sensitivity * 0.18)
     if spec.minutes_driven:
-        multiplier *= minutes_multiplier * form_multiplier
+        multiplier *= 1.0 + ((minutes_multiplier - 1.0) * damp)
+        multiplier *= 1.0 + ((form_multiplier - 1.0) * damp)
     if spec.weather_sensitivity > 0:
         multiplier *= 1.0 - (
             (1.0 - state.weather_factor) * spec.weather_sensitivity
@@ -238,8 +328,9 @@ def simulate_game(
     conditions: GameConditions | None = None,
     simulations: int = DEFAULT_SIMULATIONS,
     seed: int = 7,
-    minutes_volatility: float = 0.12,
-    form_volatility: float = DEFAULT_FORM_VOLATILITY,
+    sport: str = "",
+    minutes_volatility: float | None = None,
+    form_volatility: float | None = None,
 ) -> SimulationResult:
     """Simulate every prop in one game against a shared state per draw.
 
@@ -252,13 +343,20 @@ def simulate_game(
         return SimulationResult(outcomes={}, correlations={}, simulations=0)
 
     setup = conditions or GameConditions()
+    # Fitted values unless a caller overrides them, so a simulation reflects
+    # the league it is simulating rather than one set of constants.
+    coupling = coupling_for(sport)
+    if minutes_volatility is None:
+        minutes_volatility = coupling.minutes
+    if form_volatility is None:
+        form_volatility = coupling.form
     random = Random(seed)
     sampler = _QuantileSampler()
     draws = max(1, int(simulations))
 
     players = sorted({spec.player for spec in specs})
-    residual = {
-        spec.prop_id: residual_volatility(
+    split = {
+        spec.prop_id: variance_split(
             spec,
             minutes_volatility=minutes_volatility,
             pace_volatility=setup.pace_volatility,
@@ -266,6 +364,7 @@ def simulate_game(
         )
         for spec in specs
     }
+    residual = {key: value[0] for key, value in split.items()}
     samples: dict[str, list[float]] = {spec.prop_id: [] for spec in specs}
     hits: dict[str, list[int]] = {spec.prop_id: [] for spec in specs}
     over = {spec.prop_id: 0 for spec in specs}
@@ -303,6 +402,7 @@ def simulate_game(
                     spec,
                     minutes_multiplier=minutes_by_player[spec.player],
                     form_multiplier=form_by_player[spec.player],
+                    shared_scale=split[spec.prop_id][1],
                 )
                 adjusted = max(0.0, spec.projection * multiplier)
                 outcome = sampler.outcome(
