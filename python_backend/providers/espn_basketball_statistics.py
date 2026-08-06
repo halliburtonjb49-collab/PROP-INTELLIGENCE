@@ -125,6 +125,25 @@ class EspnBasketballStatisticsProvider:
                             "FTA": _attempted(
                                 stats.get("freeThrowsMade-freeThrowsAttempted")
                             ),
+                            # The made-attempted pairs were already being
+                            # parsed for makes; the attempt half drives usage,
+                            # shot rate and the three-point prior.
+                            "FGM": _made(
+                                stats.get("fieldGoalsMade-fieldGoalsAttempted")
+                            ),
+                            "FGA": _attempted(
+                                stats.get("fieldGoalsMade-fieldGoalsAttempted")
+                            ),
+                            "FG3A": _attempted(
+                                stats.get(
+                                    "threePointFieldGoalsMade-threePointFieldGoalsAttempted"
+                                )
+                            ),
+                            "FTM": _made(
+                                stats.get("freeThrowsMade-freeThrowsAttempted")
+                            ),
+                            "OREB": _number(stats.get("offensiveRebounds")),
+                            "DREB": _number(stats.get("defensiveRebounds")),
                             "SOURCE": "ESPN",
                         }
                     )

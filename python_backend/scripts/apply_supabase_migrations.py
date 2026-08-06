@@ -47,6 +47,7 @@ MIGRATIONS = (
     "supabase_mlb_player_game_features.sql",
     "supabase_prop_catalog_snapshots.sql",
     "supabase_owner_runtime_controls.sql",
+    "supabase_basketball_advanced_box_score.sql",
 )
 
 

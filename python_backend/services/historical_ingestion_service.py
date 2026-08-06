@@ -109,7 +109,14 @@ def normalize_basketball_logs(rows: Iterable[dict[str, object]], sport: str) -> 
             "assists": _number(row.get("AST")), "steals": _number(row.get("STL")),
             "blocks": _number(row.get("BLK")), "turnovers": _number(row.get("TOV")),
             "threes": _number(row.get("FG3M")), "personal_fouls": _number(row.get("PF")),
-            "free_throw_attempts": _number(row.get("FTA")), "raw": _json_safe(row),
+            "free_throw_attempts": _number(row.get("FTA")),
+            "field_goals_made": _number(row.get("FGM")),
+            "field_goals_attempted": _number(row.get("FGA")),
+            "three_point_attempts": _number(row.get("FG3A")),
+            "free_throws_made": _number(row.get("FTM")),
+            "offensive_rebounds": _number(row.get("OREB")),
+            "defensive_rebounds": _number(row.get("DREB")),
+            "raw": _json_safe(row),
         })
     return normalized
 
@@ -360,15 +367,28 @@ class HistoricalRepository:
         values = [(r["id"], r["sport"], r["league_game_id"], r["player_id"], r["player_name"],
                    r["team_id"], r["game_date"], r["matchup"], r["minutes"], r["points"], r["rebounds"],
                    r["assists"], r["steals"], r["blocks"], r["turnovers"], r["threes"],
-                   r["personal_fouls"], r["free_throw_attempts"], json.dumps(r["raw"], default=str)) for r in rows]
+                   r["personal_fouls"], r["free_throw_attempts"],
+                   r.get("field_goals_made"), r.get("field_goals_attempted"),
+                   r.get("three_point_attempts"), r.get("free_throws_made"),
+                   r.get("offensive_rebounds"), r.get("defensive_rebounds"),
+                   json.dumps(r["raw"], default=str)) for r in rows]
         with get_database_pool().connection() as connection, connection.cursor() as cursor:
             cursor.executemany("""insert into historical_basketball_game_logs
-                (id,sport,league_game_id,player_id,player_name,team_id,game_date,matchup,minutes,points,rebounds,assists,steals,blocks,turnovers,threes,personal_fouls,free_throw_attempts,raw)
-                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
+                (id,sport,league_game_id,player_id,player_name,team_id,game_date,matchup,minutes,points,rebounds,assists,steals,blocks,turnovers,threes,personal_fouls,free_throw_attempts,field_goals_made,field_goals_attempted,three_point_attempts,free_throws_made,offensive_rebounds,defensive_rebounds,raw)
+                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
                 on conflict (id) do update set minutes=excluded.minutes,points=excluded.points,rebounds=excluded.rebounds,
                 assists=excluded.assists,steals=excluded.steals,blocks=excluded.blocks,turnovers=excluded.turnovers,
                 threes=excluded.threes,personal_fouls=excluded.personal_fouls,
-                free_throw_attempts=excluded.free_throw_attempts,raw=excluded.raw,updated_at=now()""", values)
+                free_throw_attempts=excluded.free_throw_attempts,
+                -- Coalesced so a provider that omits shooting detail cannot
+                -- erase values an earlier, richer source already supplied.
+                field_goals_made=coalesce(excluded.field_goals_made,historical_basketball_game_logs.field_goals_made),
+                field_goals_attempted=coalesce(excluded.field_goals_attempted,historical_basketball_game_logs.field_goals_attempted),
+                three_point_attempts=coalesce(excluded.three_point_attempts,historical_basketball_game_logs.three_point_attempts),
+                free_throws_made=coalesce(excluded.free_throws_made,historical_basketball_game_logs.free_throws_made),
+                offensive_rebounds=coalesce(excluded.offensive_rebounds,historical_basketball_game_logs.offensive_rebounds),
+                defensive_rebounds=coalesce(excluded.defensive_rebounds,historical_basketball_game_logs.defensive_rebounds),
+                raw=excluded.raw,updated_at=now()""", values)
         return len(values)
 
     def upsert_mlb_pitches(self, rows: list[dict[str, object]]) -> int:
