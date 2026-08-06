@@ -343,6 +343,53 @@ def build_explainability_snippet(prop: object) -> str:
     return " | ".join(parts)
 
 
+def _is_strikeout_prop(prop: object) -> bool:
+    text = " ".join(
+        str(getattr(prop, name, "") or "")
+        for name in ("marketKey", "market", "category")
+    ).lower()
+    return (
+        str(getattr(prop, "sport", "") or "").strip().upper() == "MLB"
+        and "strikeout" in text
+    )
+
+
+def _top_factors(prop: object) -> dict[str, object]:
+    """The factors that actually drove this prop.
+
+    The strikeout fields were previously reported for every prop of every
+    sport, so a points market showed a pitcher's strikeout rate, a projected
+    batters faced and a park factor -- all empty, because they do not exist
+    for that market. Empty values read as missing data rather than as
+    inapplicable ones, which is a different and more alarming thing.
+    """
+
+    if _is_strikeout_prop(prop):
+        return {
+            "pitcherKPercent": getattr(prop, "pitcherKPercent", None),
+            "lineupKPercent": getattr(prop, "lineupKPercent", None),
+            "projectedBattersFaced": getattr(
+                prop, "strikeoutProjectedBattersFaced", None
+            ),
+            "umpireKBoost": getattr(prop, "umpireKBoost", None),
+            "parkKFactor": getattr(prop, "parkKFactor", None),
+        }
+    return {
+        "projection": getattr(prop, "projection", None),
+        "line": getattr(prop, "line", None),
+        "edgeSigned": getattr(prop, "edgeSigned", None),
+        "sampleSize": getattr(prop, "projectionSampleSize", None),
+        "paceMultiplier": getattr(prop, "paceMultiplier", None),
+        "opponentDefenseMultiplier": getattr(
+            prop, "opponentDefenseMultiplier", None
+        ),
+        "matchupMultiplier": getattr(prop, "matchupMultiplier", None),
+        "opponentAllowanceByPosition": getattr(
+            prop, "opponentAllowanceByPosition", None
+        ),
+    }
+
+
 def build_explainability_payload(prop: object) -> dict[str, object]:
     action_status = (
         "blocked"
@@ -386,13 +433,8 @@ def build_explainability_payload(prop: object) -> dict[str, object]:
             "method": str(getattr(prop, "strikeoutModelMethod", "") or getattr(prop, "selectionMethod", "") or "calibrated model"),
             "calibrationAdjustment": float(getattr(prop, "probabilityCalibrationAdjustment", 0.0) or 0.0),
         },
-        "topFactors": {
-            "pitcherKPercent": getattr(prop, "pitcherKPercent", None),
-            "lineupKPercent": getattr(prop, "lineupKPercent", None),
-            "projectedBattersFaced": getattr(prop, "strikeoutProjectedBattersFaced", None),
-            "umpireKBoost": getattr(prop, "umpireKBoost", None),
-            "parkKFactor": getattr(prop, "parkKFactor", None),
-        },
+        "factorKind": "strikeout" if _is_strikeout_prop(prop) else "general",
+        "topFactors": _top_factors(prop),
         "riskFlags": {
             "fallbackCount": fallback_count,
             "fallbackLimit": 3,
@@ -409,8 +451,32 @@ def build_explainability_payload(prop: object) -> dict[str, object]:
         "actionStatus": {
             "status": action_status,
             "reason": str(getattr(prop, "recommendationUnavailableReason", "") or ""),
+            # Blocking is the safe outcome, not a fault. A model that declines
+            # a prop it cannot support is working; only a genuine data problem
+            # deserves to be surfaced as one.
+            "severity": _block_severity(prop, action_status),
         },
     }
+
+
+# Reasons that mean something is wrong, as opposed to the model declining.
+_FAULT_REASONS = frozenset(
+    {
+        "player_identity_unresolved",
+        "insufficient_data_quality",
+        "insufficient_projection_sample",
+        "player_unavailable",
+        "strikeout_lineup_stale",
+        "strikeout_fallback_over_limit",
+    }
+)
+
+
+def _block_severity(prop: object, action_status: str) -> str:
+    if action_status != "blocked":
+        return "none"
+    reason = str(getattr(prop, "recommendationUnavailableReason", "") or "").strip()
+    return "fault" if reason in _FAULT_REASONS else "routine"
 
 
 def _calibration_query(window_days: int) -> tuple[list[tuple[object, ...]], int, float | None, float | None]:

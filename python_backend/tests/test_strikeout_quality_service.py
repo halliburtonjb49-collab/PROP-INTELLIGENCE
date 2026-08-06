@@ -212,3 +212,65 @@ def test_weekly_trust_report_includes_regimes_and_cross_book_status(monkeypatch)
     assert result["weekly"][0]["sportsbook"] == "book_a"
     assert result["regimeSplits"]["fallback"][0]["regime"] == "fallback_heavy"
     assert result["crossBookValidation"]["reliabilityReady"] is True
+
+
+def test_factors_match_the_market_they_describe() -> None:
+    """A points prop must not be explained with strikeout inputs.
+
+    Those fields are empty for a non-strikeout market by construction, and an
+    empty value reads as missing data rather than as one that never applied.
+    """
+
+    from types import SimpleNamespace
+    from services.strikeout_quality_service import build_explainability_payload
+
+    strikeout = SimpleNamespace(
+        sport="MLB", market="Pitcher Strikeouts",
+        marketKey="pitcher_strikeouts", category="STRIKEOUTS",
+        recommendationAvailable=True, pitcherKPercent=0.26,
+    )
+    points = SimpleNamespace(
+        sport="MLB", market="Player Points", marketKey="player_points",
+        category="POINTS", recommendationAvailable=True,
+        projection=0.62, line=0.5,
+    )
+
+    assert build_explainability_payload(strikeout)["factorKind"] == "strikeout"
+    assert "pitcherKPercent" in build_explainability_payload(strikeout)["topFactors"]
+
+    general = build_explainability_payload(points)
+    assert general["factorKind"] == "general"
+    assert "pitcherKPercent" not in general["topFactors"]
+    assert "projection" in general["topFactors"]
+
+
+def test_a_model_pass_is_routine_and_a_data_problem_is_not() -> None:
+    from types import SimpleNamespace
+    from services.strikeout_quality_service import build_explainability_payload
+
+    def status(reason):
+        prop = SimpleNamespace(
+            sport="NBA", market="Player Points", recommendationAvailable=False,
+            recommendationUnavailableReason=reason,
+        )
+        return build_explainability_payload(prop)["actionStatus"]["severity"]
+
+    # Declining a prop is the model working, not failing.
+    assert status("prop_intelligence_pass") == "routine"
+    assert status("probability_below_action_threshold") == "routine"
+    # These mean something is actually wrong.
+    assert status("player_unavailable") == "fault"
+    assert status("insufficient_data_quality") == "fault"
+
+
+def test_an_available_pick_carries_no_block_severity() -> None:
+    from types import SimpleNamespace
+    from services.strikeout_quality_service import build_explainability_payload
+
+    prop = SimpleNamespace(
+        sport="NBA", market="Player Points", recommendationAvailable=True,
+        opportunityStatus="READY",
+    )
+    payload = build_explainability_payload(prop)
+    assert payload["actionStatus"]["status"] == "actionable"
+    assert payload["actionStatus"]["severity"] == "none"

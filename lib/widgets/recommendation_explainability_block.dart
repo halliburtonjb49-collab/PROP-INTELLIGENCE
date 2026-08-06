@@ -72,6 +72,59 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
     return 'calibrated model';
   }
 
+  bool _isStrikeoutProp() {
+    final text = '${prop.marketKey} ${prop.market} ${prop.category}'
+        .toLowerCase();
+    return prop.sport.trim().toUpperCase() == 'MLB' &&
+        text.contains('strikeout');
+  }
+
+  /// Reasons that mean something is wrong, rather than the model declining.
+  static const Set<String> _faultReasons = {
+    'player_identity_unresolved',
+    'insufficient_data_quality',
+    'insufficient_projection_sample',
+    'player_unavailable',
+    'strikeout_lineup_stale',
+    'strikeout_fallback_over_limit',
+  };
+
+  bool _isFault() =>
+      _faultReasons.contains(prop.recommendationUnavailableReason.trim());
+
+  /// The factors that actually drove this prop.
+  ///
+  /// Strikeout inputs were previously listed for every market, so a points
+  /// prop showed a pitcher's strikeout rate and a park factor, both empty.
+  /// An empty value reads as missing data rather than as one that never
+  /// applied.
+  List<String> _topFactors() {
+    if (_isStrikeoutProp()) {
+      return [
+        'Pitcher K% vs lineup K%: ${_pct(prop.pitcherKPercent)} vs ${_pct(prop.lineupKPercent)}',
+        'Projected batters faced: ${prop.strikeoutProjectedBattersFaced?.toString() ?? '--'}',
+        'Umpire boost: ${prop.umpireKBoost == null ? '--' : '${(prop.umpireKBoost! * 100).toStringAsFixed(1)}%'}',
+        'Park factor: ${_num(prop.parkKFactor, decimals: 2)}',
+      ];
+    }
+    final factors = <String>[
+      'Projection ${_num(prop.projection, decimals: 2)} vs line ${_num(prop.line, decimals: 2)}',
+      'Sample ${prop.projectionSampleSize} games',
+    ];
+    if (prop.paceMultiplier != null) {
+      factors.add('Pace ${_num(prop.paceMultiplier, decimals: 2)}x');
+    }
+    if (prop.opponentDefenseMultiplier != null) {
+      factors.add(
+        'Opponent defence ${_num(prop.opponentDefenseMultiplier, decimals: 2)}x',
+      );
+    }
+    if (prop.matchupMultiplier != null) {
+      factors.add('Matchup ${_num(prop.matchupMultiplier, decimals: 2)}x');
+    }
+    return factors;
+  }
+
   String _actionStatus() {
     if (!prop.recommendationAvailable) return 'Blocked';
     final status = prop.opportunityStatus.trim().toUpperCase();
@@ -80,10 +133,25 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
     return status.isEmpty ? 'Monitor' : status;
   }
 
+  static const Map<String, String> _reasonLabels = {
+    'prop_intelligence_pass': 'model passed on this prop',
+    'player_identity_unresolved': 'player could not be verified',
+    'insufficient_data_quality': 'supporting data below threshold',
+    'insufficient_projection_sample': 'not enough graded history',
+    'player_unavailable': 'player is unavailable',
+    'strikeout_lineup_stale': 'lineup data is stale',
+    'strikeout_fallback_over_limit': 'too many estimated inputs',
+    'probability_below_action_threshold': 'edge too small to act on',
+    'uncertainty_adjusted_edge_below_threshold': 'edge inside the noise',
+  };
+
   String _actionReason() {
     if (!prop.recommendationAvailable &&
         prop.recommendationUnavailableReason.trim().isNotEmpty) {
-      return prop.recommendationUnavailableReason;
+      final raw = prop.recommendationUnavailableReason.trim();
+      // Fall back to the raw token so an unmapped reason is still visible
+      // rather than silently replaced with something vaguer.
+      return _reasonLabels[raw] ?? raw.replaceAll('_', ' ');
     }
     if (prop.opportunityReasons.isNotEmpty) {
       return prop.opportunityReasons.first;
@@ -101,17 +169,15 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
         '${prop.displayConfidenceLabel} (Tier: ${prop.tier.trim().isEmpty ? 'No Pick' : prop.tier})';
     final riskFlags =
         'Fallback ${_fallbackCount()}/3 | Freshness ${_lineupFreshness()} | Coverage ${_coverageSummary()}';
-    final factors = [
-      'Pitcher K% vs lineup K%: ${_pct(prop.pitcherKPercent)} vs ${_pct(prop.lineupKPercent)}',
-      'Projected batters faced: ${prop.strikeoutProjectedBattersFaced?.toString() ?? '--'}',
-      'Umpire boost: ${prop.umpireKBoost == null ? '--' : '${(prop.umpireKBoost! * 100).toStringAsFixed(1)}%'}',
-      'Park factor: ${_num(prop.parkKFactor, decimals: 2)}',
-    ];
+    final factors = _topFactors();
     final action = _actionStatus();
+    // A blocked pick is the model declining, which is the safe outcome and
+    // not a fault. Only a genuine data problem earns the alert colour, and
+    // every colour here comes from the app palette.
     final actionColor = action == 'Actionable'
-        ? const Color(0xFF8CFFB2)
+        ? AppColors.success
         : action == 'Blocked'
-        ? const Color(0xFFFF7B7B)
+        ? (_isFault() ? AppColors.danger : AppColors.textMuted)
         : AppColors.gold;
 
     return Container(
