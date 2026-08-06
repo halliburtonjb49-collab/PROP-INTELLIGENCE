@@ -162,3 +162,39 @@ def test_the_highest_bin_is_not_clamped_away() -> None:
     bucket = report.buckets[0]
     assert bucket.lower == pytest.approx(0.95)
     assert bucket.upper == pytest.approx(1.0)
+
+
+def test_served_picks_are_judged_separately_from_every_evaluated_prop() -> None:
+    from services.calibration_report_service import served_pick_performance
+
+    # Most evaluated props never clear the gate. Judging the product by all of
+    # them mistakes the model's scratch paper for its output.
+    predictions = (
+        [(0.51, False)] * 800 + [(0.51, True)] * 700
+        + [(0.62, True)] * 62 + [(0.62, False)] * 38
+    )
+    result = served_pick_performance(predictions, release_threshold=0.58)
+
+    assert result["evaluated"] == 1600
+    assert result["served"] == 100
+    assert result["observedWinRate"] == pytest.approx(0.62)
+    assert result["profitable"] is True
+
+
+def test_a_gate_nothing_clears_reports_no_served_picks() -> None:
+    from services.calibration_report_service import served_pick_performance
+
+    result = served_pick_performance([(0.50, True)] * 100, release_threshold=0.58)
+    assert result["served"] == 0
+    assert result["observedWinRate"] is None
+
+
+def test_served_picks_below_break_even_are_flagged_unprofitable() -> None:
+    from services.calibration_report_service import served_pick_performance
+
+    result = served_pick_performance(
+        [(0.60, True)] * 50 + [(0.60, False)] * 50, release_threshold=0.58
+    )
+    assert result["observedWinRate"] == pytest.approx(0.50)
+    assert result["profitable"] is False
+    assert result["marginOverBreakEven"] < 0

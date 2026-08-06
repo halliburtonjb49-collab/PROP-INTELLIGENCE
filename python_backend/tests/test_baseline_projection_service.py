@@ -205,10 +205,16 @@ def _basketball_row(points, minutes):
     return (points, 4, 3, 1, 0, 2, 1, minutes)
 
 
-def test_basketball_projection_decomposes_when_minutes_are_present() -> None:
+def test_basketball_projection_decomposes_when_minutes_are_present(monkeypatch) -> None:
     from datetime import datetime, timezone
+    from services import baseline_projection_service
     from services.baseline_projection_service import _HistoricalProjectionIndex
 
+    # Off in production: the walk-forward backtest found no accuracy gain.
+    # The path is still exercised so the experiment can be rerun.
+    monkeypatch.setattr(
+        baseline_projection_service, "MINUTES_DECOMPOSITION_ENABLED", True
+    )
     index = _HistoricalProjectionIndex()
     index.loaded_at = datetime.now(timezone.utc)
     # A promotion: same scoring rate throughout, minutes nearly doubled.
@@ -228,6 +234,28 @@ def test_basketball_projection_decomposes_when_minutes_are_present() -> None:
     # A per-game blend still carries the bench games; minutes times rate does
     # not, so it projects nearer the current role.
     assert result.projection > 17.5
+
+
+def test_basketball_is_per_game_by_default() -> None:
+    """The shipped default after the backtest: no decomposition."""
+
+    from datetime import datetime, timezone
+    from services.baseline_projection_service import _HistoricalProjectionIndex
+
+    index = _HistoricalProjectionIndex()
+    index.loaded_at = datetime.now(timezone.utc)
+    index.basketball[("NBA", "anyplayer")] = (
+        [_basketball_row(12, 18)] * 5 + [_basketball_row(22, 34)] * 5
+    )
+
+    result = index.project(
+        sport="NBA", player="Any Player", player_id="1",
+        market="player_points", line=17.5,
+    )
+
+    assert result is not None
+    assert result.decomposed is False
+    assert result.source == "historical-game-logs"
 
 
 def test_basketball_falls_back_to_per_game_without_minutes() -> None:

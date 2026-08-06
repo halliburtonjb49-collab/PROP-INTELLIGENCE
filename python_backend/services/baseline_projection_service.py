@@ -16,6 +16,7 @@ from math import sqrt
 from statistics import fmean
 from threading import Lock
 from typing import Iterable, Sequence
+import os
 import re
 
 from database.postgres import database_is_configured, get_database_pool
@@ -46,6 +47,14 @@ _CACHE_TTL = timedelta(minutes=5)
 # includes deep bench players.
 PRIOR_BUCKETS = 3
 PRIOR_MINIMUM_PLAYERS = 12
+
+# Whether basketball projects as minutes times a per-minute rate instead of a
+# per-game baseline. Default off: the backtest recorded in
+# _decomposed_basketball_projection found no accuracy gain from it.
+MINUTES_DECOMPOSITION_ENABLED = (
+    os.getenv("BASKETBALL_MINUTES_DECOMPOSITION", "").strip().lower()
+    in {"1", "true", "yes", "on"}
+)
 
 
 @dataclass(frozen=True)
@@ -371,11 +380,27 @@ class _HistoricalProjectionIndex:
     ) -> tuple[float | None, float | None]:
         """Minutes times a per-minute rate, when the log carries minutes.
 
+        Off by default. A walk-forward backtest over 28,889 player-games found
+        no accuracy gain: mean absolute error 4.5690 against the per-game
+        baseline's 4.5622, and closer on only 48.4% of games. Segmenting by
+        how much minutes had actually moved did not rescue it either -- the
+        role-change bucket, which this was built for, came out at -0.0012.
+
+        The reasoning behind it stands: a per-game average genuinely does lag
+        a rotation change. The data says the recency weighting already
+        captures that, and splitting the same information into two estimated
+        terms adds more error than the split removes.
+
+        Kept behind a flag rather than deleted so the experiment can be rerun
+        against a different market or a longer history.
+
         Returns (None, None) whenever the inputs are missing, so a log without
         minutes falls back to the per-game baseline rather than projecting on
         an assumed workload.
         """
 
+        if not MINUTES_DECOMPOSITION_ENABLED:
+            return None, None
         minutes_log = [basketball_minutes(row) for row in rows]
         if any(value is None for value in minutes_log):
             return None, None

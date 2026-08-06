@@ -301,3 +301,55 @@ def calibration_by_sport(
         calibration_report(sport=sport, days=days, bucket_width=bucket_width)
         for sport in sorted(sports)
     ]
+
+
+# Both sides priced at -110 need this to break even.
+STANDARD_BREAK_EVEN = 0.5238
+
+
+def served_pick_performance(
+    predictions: Sequence[tuple[float, bool]],
+    *,
+    release_threshold: float,
+    break_even: float = STANDARD_BREAK_EVEN,
+) -> dict[str, object]:
+    """How the picks that clear the release gate actually did.
+
+    The reliability curve covers every evaluated prop, most of which are never
+    shown to anyone. Judging the product by that curve mistakes the model's
+    scratch paper for its output: the only rows that matter commercially are
+    the ones that cleared the gate and were served.
+    """
+
+    graded = [
+        (float(probability), bool(outcome))
+        for probability, outcome in predictions
+        if probability is not None and outcome is not None
+    ]
+    if not graded:
+        return {"evaluated": 0, "served": 0, "observedWinRate": None}
+
+    served = [pair for pair in graded if pair[0] >= float(release_threshold)]
+    if not served:
+        return {
+            "evaluated": len(graded),
+            "served": 0,
+            "servedShare": 0.0,
+            "observedWinRate": None,
+            "breakEven": break_even,
+            "profitable": None,
+        }
+    wins = sum(1 for _, outcome in served if outcome)
+    rate = wins / len(served)
+    return {
+        "evaluated": len(graded),
+        "served": len(served),
+        "servedShare": round(len(served) / len(graded), 5),
+        "predicted": round(
+            sum(probability for probability, _ in served) / len(served), 5
+        ),
+        "observedWinRate": round(rate, 5),
+        "breakEven": break_even,
+        "profitable": rate > break_even,
+        "marginOverBreakEven": round(rate - break_even, 5),
+    }
