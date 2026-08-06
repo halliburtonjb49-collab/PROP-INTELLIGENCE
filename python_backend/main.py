@@ -593,6 +593,19 @@ def _rebuild_prop_catalog_from_local(
 		_publish_prop_catalog_summary(props)
 		with _prop_catalog_lock:
 			_prop_catalog["version"] = catalog_version
+		# The durable snapshot was previously written only by the worker job
+		# and by the branch that reads the catalog back out of Redis. Both
+		# require Redis, so when it was unavailable nothing persisted a
+		# snapshot at all: this instance would sync fresh props, hold them in
+		# memory, publish nothing durable, and fall back to a snapshot hours
+		# old the next time it restarted. This is the path with genuinely
+		# fresh data, so it persists too, off the request thread because a
+		# live request must never block on a Postgres write.
+		Thread(
+			target=_persist_catalog_snapshot_background,
+			args=(props,),
+			daemon=True,
+		).start()
 	return props
 
 

@@ -129,3 +129,52 @@ def test_refresh_trigger_is_independent_of_the_health_alarm(monkeypatch) -> None
     )
 
     assert main._prop_cache_needs_refresh([stale_prop]) is True
+
+
+def test_a_fresh_local_sync_persists_the_durable_snapshot(monkeypatch):
+    """The snapshot must not depend on Redis being reachable.
+
+    It was previously written only by the worker job and by the branch that
+    reads the catalog back out of Redis. Both need Redis, so while it was
+    down nothing persisted anything: an instance would sync fresh props, hold
+    them in memory, and revert to an hours-old snapshot on its next restart.
+    """
+
+    saved = []
+    prop = SimpleNamespace(
+        lastUpdatedUtc=datetime.now(timezone.utc).isoformat(),
+        model_dump=lambda mode=None: {"id": "p1"},
+    )
+
+    monkeypatch.setattr(main, "get_props", lambda: [prop])
+    monkeypatch.setattr(main, "set_distributed_json", lambda *a, **k: True)
+    monkeypatch.setattr(main, "_publish_prop_catalog_summary", lambda _props: None)
+    monkeypatch.setattr(main, "save_catalog_snapshot", lambda rows: saved.append(rows))
+
+    # Persisting happens on a daemon thread; run it inline so the test is
+    # deterministic rather than timing-dependent.
+    class _Inline:
+        def __init__(self, target=None, args=(), daemon=None):
+            self._target = target
+            self._args = args
+
+        def start(self):
+            self._target(*self._args)
+
+    monkeypatch.setattr(main, "Thread", _Inline)
+
+    result = main._rebuild_prop_catalog_from_local()
+
+    assert result == [prop]
+    assert saved and saved[0] == [{"id": "p1"}]
+
+
+def test_an_empty_sync_does_not_overwrite_a_good_snapshot(monkeypatch):
+    saved = []
+    monkeypatch.setattr(main, "get_props", lambda: [])
+    monkeypatch.setattr(main, "save_catalog_snapshot", lambda rows: saved.append(rows))
+
+    main._rebuild_prop_catalog_from_local()
+
+    # Persisting nothing would replace a working catalog with an empty one.
+    assert saved == []
