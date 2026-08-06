@@ -2307,7 +2307,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
 
   @override
   Widget build(BuildContext context) {
-    const sports = [
+    const allSports = [
       'MLB',
       'NFL',
       'NBA',
@@ -2318,6 +2318,27 @@ class _LeftSidebarState extends State<LeftSidebar> {
       'AFL',
       'NRL',
     ];
+
+    // Offer a sport only when the board can actually show it. Six of
+    // these nine are routinely empty -- basketball and hockey are out
+    // of season for months at a time -- and an button that answers
+    // with a blank board is indistinguishable from one that is broken.
+    final sportCounts = ApiService().lastSportCounts;
+    bool hasProps(String sport) {
+      if (sportCounts.isEmpty) return true;
+      final key = sport.toUpperCase();
+      return sportCounts.entries.any(
+        (entry) =>
+            (entry.key == key || entry.key.startsWith('${key}_')) &&
+            entry.value > 0,
+      );
+    }
+
+    final sports = allSports
+        // The current selection stays visible even at zero, so the
+        // sport the user is looking at cannot vanish beneath them.
+        .where((sport) => hasProps(sport) || widget.selectedSport == sport)
+        .toList(growable: false);
 
     return Container(
       color: AppColors.leftSidebar,
@@ -4857,7 +4878,7 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Widget _buildBoardSearchAndBooks() {
-    const books = [
+    const allBooks = [
       'ALL',
       'PRIZEPICKS',
       'UNDERDOG',
@@ -4866,6 +4887,23 @@ class _MainDashboardState extends State<MainDashboard> {
       'DRAFTKINGS',
       'BETR',
     ];
+
+    // A prop site with nothing on the board is not worth offering: the
+    // filter returns an empty screen and reads as a fault rather than
+    // as a quiet book. Counts come from the whole board, before the
+    // sportsbook filter narrows it, so choosing one site does not hide
+    // all the others.
+    final bookCounts = ApiService().lastSportsbookCounts;
+    final books = bookCounts.isEmpty
+        ? allBooks
+        : allBooks
+              .where(
+                (book) =>
+                    book == 'ALL' ||
+                    (bookCounts[book] ?? 0) > 0 ||
+                    _selectedSite == book,
+              )
+              .toList(growable: false);
     final compactLayout = MediaQuery.sizeOf(context).width < 720;
 
     Widget playerSearchField({double? width}) {

@@ -26,6 +26,7 @@ class _ParsedPropsPayload {
     required this.facetCount,
     required this.categoryCounts,
     required this.sportCounts,
+    required this.sportsbookCounts,
     required this.sportCategoryCounts,
     required this.rawMaps,
   });
@@ -35,6 +36,11 @@ class _ParsedPropsPayload {
   final int facetCount;
   final Map<String, int> categoryCounts;
   final Map<String, int> sportCounts;
+
+  /// Props available per prop site, counted before the sportsbook
+  /// filter is applied. A site absent here has nothing right now and
+  /// should not be offered as a filter that returns an empty screen.
+  final Map<String, int> sportsbookCounts;
   final Map<String, Map<String, int>> sportCategoryCounts;
   final List<Map<String, dynamic>> rawMaps;
 }
@@ -78,6 +84,14 @@ _ParsedPropsPayload _parsePropsPayload(String body) {
                 (entry.value as num?)?.toInt() ?? 0,
         }
       : const <String, int>{};
+  final rawSportsbookCounts = decoded['sportsbookCounts'];
+  final sportsbookCounts = rawSportsbookCounts is Map
+      ? {
+          for (final entry in rawSportsbookCounts.entries)
+            entry.key.toString().trim().toUpperCase():
+                (entry.value as num?)?.toInt() ?? 0,
+        }
+      : const <String, int>{};
   final rawSportCategoryCounts = decoded['sportCategoryCounts'];
   final sportCategoryCounts = rawSportCategoryCounts is Map
       ? {
@@ -102,6 +116,7 @@ _ParsedPropsPayload _parsePropsPayload(String body) {
     facetCount: facetCount,
     categoryCounts: categoryCounts,
     sportCounts: sportCounts,
+    sportsbookCounts: sportsbookCounts,
     sportCategoryCounts: sportCategoryCounts,
     rawMaps: rawMaps,
   );
@@ -162,6 +177,12 @@ class ApiService {
   Map<String, int> get lastCategoryCounts =>
       Map.unmodifiable(_lastCategoryCounts);
   Map<String, int> get lastSportCounts => Map.unmodifiable(_lastSportCounts);
+
+  static Map<String, int> _lastSportsbookCounts = const {};
+
+  /// Props available per prop site across the whole board.
+  Map<String, int> get lastSportsbookCounts =>
+      Map.unmodifiable(_lastSportsbookCounts);
   Map<String, Map<String, int>> get lastSportCategoryCounts =>
       Map<String, Map<String, int>>.unmodifiable({
         for (final entry in _lastSportCategoryCounts.entries)
@@ -961,6 +982,7 @@ class ApiService {
         if (selectedSport.trim().toUpperCase() == 'ALL' &&
             selectedCategory.trim().toUpperCase() == 'ALL') {
           _lastSportCounts = sportCounts;
+          _lastSportsbookCounts = parsed.sportsbookCounts;
           _lastSportCategoryCounts = sportCategoryCounts;
         }
         _resolvedBaseUrl = candidate;
