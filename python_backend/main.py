@@ -830,14 +830,19 @@ def _prop_cache_needs_refresh(
 		(str(getattr(prop, "lastUpdatedUtc", "") or "") for prop in props),
 		default="",
 	)
-	stale_after_minutes = max(
+	# Deliberately NOT PROP_FEED_STALE_MINUTES. That knob answers "when should
+	# the feed be reported unhealthy" and production sets it to 180; reusing it
+	# here silently meant the watchdog let the feed sit three hours old before
+	# queueing a refresh, which is why deploy smoke checks kept failing on
+	# staleness. When to refresh and when to alarm are separate decisions.
+	refresh_after_minutes = max(
 		5,
-		int(os.getenv("PROP_FEED_STALE_MINUTES", "45")),
+		int(os.getenv("PROP_FEED_REFRESH_AFTER_MINUTES", "30")),
 	)
 	return _is_stale_timestamp(
 		latest,
 		now_utc or datetime.now(timezone.utc),
-		stale_after_minutes,
+		refresh_after_minutes,
 	)
 
 

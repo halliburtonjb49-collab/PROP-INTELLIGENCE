@@ -105,8 +105,15 @@ services:
         value: 3
       - key: EMPTY_PROP_SYNC_RETRY_SECONDS
         value: 300
+      # How old the feed may get before it is reported unhealthy.
       - key: PROP_FEED_STALE_MINUTES
         value: 180
+      # How old the feed may get before the watchdog queues a refresh. Must
+      # stay well below the value above, and below the deploy smoke gate in
+      # tools/post_deploy_smoke.py. Lowering it costs provider quota; raising
+      # it past the smoke gate makes deploys fail on staleness.
+      - key: PROP_FEED_REFRESH_AFTER_MINUTES
+        value: 30
       - key: PROP_FEED_WATCHDOG_SECONDS
         value: 300
       - key: ODDS_API_LOW_QUOTA_THRESHOLD

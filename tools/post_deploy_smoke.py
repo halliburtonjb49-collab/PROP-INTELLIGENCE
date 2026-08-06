@@ -9,7 +9,22 @@ from datetime import datetime, timezone
 
 APP_URL = "https://app.propsintell.com"
 API_URL = "https://api.propsintell.com"
-MAX_PROP_FEED_AGE_MINUTES = 45
+
+# This gate must be reachable by the refresh policy that feeds it, or deploys
+# fail on a bound the system cannot hold. The worst case age is the watchdog's
+# refresh threshold, plus the 15-minute window it deduplicates jobs into, plus
+# the time a sync takes to run. A gate tighter than that sum rejects healthy
+# deployments; this was set to 45 while the refresh threshold was 180.
+PROP_FEED_REFRESH_AFTER_MINUTES = int(
+    os.getenv("PROP_FEED_REFRESH_AFTER_MINUTES", "30")
+)
+PROP_FEED_REFRESH_DEDUPE_MINUTES = 15
+PROP_FEED_SYNC_ALLOWANCE_MINUTES = 10
+MAX_PROP_FEED_AGE_MINUTES = (
+    PROP_FEED_REFRESH_AFTER_MINUTES
+    + PROP_FEED_REFRESH_DEDUPE_MINUTES
+    + PROP_FEED_SYNC_ALLOWANCE_MINUTES
+)
 DEFAULT_TRANSIENT_ATTEMPTS = 12
 MAX_RETRY_DELAY_SECONDS = 10
 TRANSIENT_HTTP_STATUSES = {502, 503, 504}
