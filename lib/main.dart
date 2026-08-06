@@ -2307,7 +2307,12 @@ class _LeftSidebarState extends State<LeftSidebar> {
 
   @override
   Widget build(BuildContext context) {
-    const allSports = [
+    // Every sport stays listed whether or not it currently has props.
+    // A season that has not started is not the same as a sport the app
+    // does not cover, and a rail that changes shape month to month is
+    // harder to navigate than one that does not. The board says when a
+    // sport is empty instead.
+    const sports = [
       'MLB',
       'NFL',
       'NBA',
@@ -2318,27 +2323,6 @@ class _LeftSidebarState extends State<LeftSidebar> {
       'AFL',
       'NRL',
     ];
-
-    // Offer a sport only when the board can actually show it. Six of
-    // these nine are routinely empty -- basketball and hockey are out
-    // of season for months at a time -- and an button that answers
-    // with a blank board is indistinguishable from one that is broken.
-    final sportCounts = ApiService().lastSportCounts;
-    bool hasProps(String sport) {
-      if (sportCounts.isEmpty) return true;
-      final key = sport.toUpperCase();
-      return sportCounts.entries.any(
-        (entry) =>
-            (entry.key == key || entry.key.startsWith('${key}_')) &&
-            entry.value > 0,
-      );
-    }
-
-    final sports = allSports
-        // The current selection stays visible even at zero, so the
-        // sport the user is looking at cannot vanish beneath them.
-        .where((sport) => hasProps(sport) || widget.selectedSport == sport)
-        .toList(growable: false);
 
     return Container(
       color: AppColors.leftSidebar,
@@ -11615,7 +11599,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     try {
       final fresh = activePropsInChronologicalOrder(await _fetchPropsPage());
       if (!mounted || requestKey != _queryKey) return;
-      if (fresh.isEmpty && _preparedProps.isNotEmpty) {
+      // Keeping the last page through an empty response protects the
+      // board from a blip in the feed. Applied to a narrowed query it
+      // does the opposite: it leaves the previous sport's props on
+      // screen and makes the filter look like it did nothing.
+      if (fresh.isEmpty && _preparedProps.isNotEmpty && !_isNarrowedQuery) {
         _autoRetryTimer = null;
         _scheduleAutomaticRetry();
         return;
@@ -11717,6 +11705,24 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     });
   }
 
+  /// Whether the board has been narrowed by a filter.
+  ///
+  /// An empty response means opposite things either side of this. With
+  /// nothing selected it means the feed is in trouble and the previous
+  /// page is worth keeping. With a sport chosen it is simply the
+  /// answer -- basketball in August has no props -- and retrying while
+  /// showing another sport's props reads as the filter being ignored.
+  bool get _isNarrowedQuery {
+    bool isAll(String value) => value.trim().toUpperCase() == 'ALL';
+    return !isAll(widget.sportFilter) ||
+        !isAll(widget.selectedSite) ||
+        !isAll(widget.selectedCategory) ||
+        !isAll(widget.selectedSide) ||
+        !isAll(widget.selectedTier) ||
+        widget.searchQuery.trim().isNotEmpty ||
+        widget.minConfidence > 0;
+  }
+
   void _scheduleAutomaticRetry() {
     if (_autoRetryTimer?.isActive == true || _automaticRetryCount >= 3) return;
     _automaticRetryCount += 1;
@@ -11731,7 +11737,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       final requestKey = _queryKey;
       final props = activePropsInChronologicalOrder(await _fetchPropsPage());
       if (!mounted || requestKey != _queryKey) return;
-      if (props.isEmpty) {
+      if (props.isEmpty && !_isNarrowedQuery) {
         throw StateError('The live prop feed is temporarily empty.');
       }
       setState(() {
