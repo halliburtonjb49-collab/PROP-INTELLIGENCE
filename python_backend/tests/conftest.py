@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 import main
@@ -23,3 +25,19 @@ def authenticated_pro_dependencies():
         main.app.dependency_overrides.pop(require_pro, None)
     else:
         main.app.dependency_overrides[require_pro] = previous_pro
+
+
+@pytest.fixture
+def recently_observed():
+    """Build a lineup timestamp the staleness gate accepts, on any date.
+
+    Hardcoding an observation time makes a test pass only on the day it was
+    written; afterwards the staleness gate fires first and hides the gate the
+    test is actually about.
+    """
+
+    def _timestamp(minutes_ago: int = 5) -> str:
+        observed = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
+        return observed.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    return _timestamp

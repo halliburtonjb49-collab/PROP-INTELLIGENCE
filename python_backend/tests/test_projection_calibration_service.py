@@ -172,7 +172,10 @@ def test_missing_sample_metadata_does_not_overwrite_verified_tier() -> None:
     assert prop.pick == "N/A"
 
 
-def test_strikeout_release_gate_suppresses_fallback_heavy_pick(monkeypatch) -> None:
+def test_strikeout_release_gate_suppresses_fallback_heavy_pick(
+    monkeypatch,
+    recently_observed,
+) -> None:
     monkeypatch.setattr(
         prop_context_service,
         "analyze_prop",
@@ -209,7 +212,7 @@ def test_strikeout_release_gate_suppresses_fallback_heavy_pick(monkeypatch) -> N
         recommendationAvailable=True,
         mlbProjectedLineupMatchup={
             "confirmed": True,
-            "observedAt": "2026-08-05T18:10:00Z",
+            "observedAt": recently_observed(),
                 "opposingLineup": [
                     {"player": f"Batter {idx}", "battingOrder": idx}
                     for idx in range(1, 10)

@@ -36,11 +36,13 @@ def test_release_gate_blocks_stale_lineup_and_missing_signals() -> None:
     assert result.reason == "strikeout_lineup_stale"
 
 
-def test_release_gate_blocks_when_fallback_count_exceeds_limit() -> None:
+def test_release_gate_blocks_when_fallback_count_exceeds_limit(
+    recently_observed,
+) -> None:
     prop = SimpleNamespace(
         mlbProjectedLineupMatchup={
             "confirmed": True,
-            "observedAt": "2026-08-05T12:00:00Z",
+            "observedAt": recently_observed(),
             "opposingLineup": [{"player": "A"}] * 9,
         },
         temperatureF=70.0,
