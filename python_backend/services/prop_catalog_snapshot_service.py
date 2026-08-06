@@ -12,6 +12,26 @@ from database.postgres import database_is_configured, get_database_pool
 LOGGER = logging.getLogger(__name__)
 _SNAPSHOT_KEY = "live-props"
 
+# The outcome of the last persist attempt. This write is best-effort and
+# swallows its own errors, which meant a snapshot could stop updating for
+# hours with nothing to show for it: the only trace was a log line naming the
+# exception type. Keeping the result here lets the health endpoint say whether
+# the last attempt succeeded, and why not when it did not.
+_last_persist: dict[str, object] = {
+    "attemptedAt": None,
+    "succeeded": None,
+    "error": None,
+    "rows": 0,
+    "payloadBytes": 0,
+    "durationMs": None,
+}
+
+
+def catalog_snapshot_status() -> dict[str, object]:
+    """What happened the last time a snapshot write was attempted."""
+
+    return dict(_last_persist)
+
 
 def _encode_payload(rows: list[dict[str, object]]) -> bytes:
     return gzip.compress(
@@ -32,11 +52,28 @@ def _decode_payload(payload: object) -> list[dict[str, object]]:
 
 def save_catalog_snapshot(rows: list[dict[str, object]]) -> bool:
     """Atomically replace the durable snapshot; never erase it with empty data."""
+    started = datetime.now(timezone.utc)
+    _last_persist.update(
+        attemptedAt=started.isoformat(),
+        succeeded=None,
+        error=None,
+        rows=len(rows),
+        payloadBytes=0,
+        durationMs=None,
+    )
     if not rows or not database_is_configured():
+        _last_persist.update(
+            succeeded=False,
+            error="no_rows" if not rows else "database_not_configured",
+        )
         return False
     payload = _encode_payload(rows)
+    _last_persist["payloadBytes"] = len(payload)
     latest = max((str(row.get("lastUpdatedUtc") or "") for row in rows), default="")
     try:
+        # A catalog of several thousand props is a multi-megabyte write. Ten
+        # seconds is the pool wait, not the transfer, so a slow write is not
+        # cut off partway.
         with get_database_pool().connection(timeout=10) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -49,9 +86,30 @@ def save_catalog_snapshot(rows: list[dict[str, object]]) -> bool:
                     updated_at=excluded.updated_at""",
                     (_SNAPSHOT_KEY, payload, len(rows), latest or None, datetime.now(timezone.utc)),
                 )
+        _last_persist.update(
+            succeeded=True,
+            error=None,
+            durationMs=round(
+                (datetime.now(timezone.utc) - started).total_seconds() * 1000
+            ),
+        )
         return True
     except Exception as exc:
-        LOGGER.warning("Unable to persist prop catalog snapshot: %s", type(exc).__name__)
+        # The message, not just the type. A bare "OperationalError" is what
+        # made this failure impossible to diagnose from outside the process.
+        LOGGER.warning(
+            "Unable to persist prop catalog snapshot: %s: %s",
+            type(exc).__name__,
+            exc,
+            exc_info=True,
+        )
+        _last_persist.update(
+            succeeded=False,
+            error=f"{type(exc).__name__}: {str(exc)[:300]}",
+            durationMs=round(
+                (datetime.now(timezone.utc) - started).total_seconds() * 1000
+            ),
+        )
         return False
 
 

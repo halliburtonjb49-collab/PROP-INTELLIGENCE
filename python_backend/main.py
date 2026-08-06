@@ -92,6 +92,7 @@ from services.distributed_cache_service import (
 from services.job_queue_service import enqueue as enqueue_background_job, health as job_queue_health
 from services.prop_catalog_snapshot_service import (
 	load_catalog_snapshot,
+	catalog_snapshot_status,
 	save_catalog_snapshot,
 )
 from services.raw_ingestion_service import health as ingestion_pipeline_health
@@ -1851,6 +1852,11 @@ def prop_feed_health() -> dict[str, object]:
 			(requests_count - int(metrics["errors"])) / requests_count,
 			4,
 		),
+		# Whether the durable snapshot is actually being written. A stale
+		# snapshot beside a healthy feed means this instance is serving
+		# fresh props it has failed to record, which is otherwise
+		# invisible from outside the process.
+		"snapshotPersist": catalog_snapshot_status(),
 		**metrics,
 	}
 

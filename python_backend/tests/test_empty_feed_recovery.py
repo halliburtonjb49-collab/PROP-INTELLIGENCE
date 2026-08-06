@@ -178,3 +178,79 @@ def test_an_empty_sync_does_not_overwrite_a_good_snapshot(monkeypatch):
 
     # Persisting nothing would replace a working catalog with an empty one.
     assert saved == []
+
+
+def test_a_failed_snapshot_write_is_recorded_not_swallowed(monkeypatch):
+    """A best-effort write that fails silently is undiagnosable.
+
+    The snapshot stopped updating for hours and the only trace was a log line
+    naming the exception type, which never leaves the process.
+    """
+
+    from services import prop_catalog_snapshot_service as snapshots
+
+    monkeypatch.setattr(snapshots, "database_is_configured", lambda: True)
+
+    class _Boom:
+        def connection(self, timeout=None):
+            raise RuntimeError("pool exhausted")
+
+    monkeypatch.setattr(snapshots, "get_database_pool", lambda: _Boom())
+
+    assert snapshots.save_catalog_snapshot([{"id": "a"}]) is False
+
+    status = snapshots.catalog_snapshot_status()
+    assert status["succeeded"] is False
+    # The message, not just the class name.
+    assert "pool exhausted" in status["error"]
+    assert status["attemptedAt"] is not None
+    assert status["rows"] == 1
+
+
+def test_a_successful_snapshot_write_is_recorded(monkeypatch):
+    from services import prop_catalog_snapshot_service as snapshots
+
+    class _Cursor:
+        def execute(self, *_a, **_k):
+            return None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+    class _Connection:
+        def cursor(self):
+            return _Cursor()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+    class _Pool:
+        def connection(self, timeout=None):
+            return _Connection()
+
+    monkeypatch.setattr(snapshots, "database_is_configured", lambda: True)
+    monkeypatch.setattr(snapshots, "get_database_pool", lambda: _Pool())
+
+    assert snapshots.save_catalog_snapshot([{"id": "a"}, {"id": "b"}]) is True
+
+    status = snapshots.catalog_snapshot_status()
+    assert status["succeeded"] is True
+    assert status["error"] is None
+    assert status["rows"] == 2
+    assert status["payloadBytes"] > 0
+    assert status["durationMs"] is not None
+
+
+def test_refusing_to_persist_nothing_is_reported_as_such(monkeypatch):
+    from services import prop_catalog_snapshot_service as snapshots
+
+    assert snapshots.save_catalog_snapshot([]) is False
+    # Distinguishable from a real failure: an empty sync must never overwrite
+    # a good snapshot, and that is a refusal rather than an error.
+    assert snapshots.catalog_snapshot_status()["error"] == "no_rows"
