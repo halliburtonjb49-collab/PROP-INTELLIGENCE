@@ -10,7 +10,7 @@ class PropBuilderRequest(BaseModel):
             "PrizePicks",
             "Underdog",
             "FanDuel",
-            "Sleeper",
+            "DraftKings Pick6",
             "Draft Picks",
         ]
     )
@@ -142,7 +142,7 @@ class PropReplacementRequest(BaseModel):
         default_factory=lambda: [
             "PrizePicks",
             "Underdog",
-            "Sleeper",
+            "DraftKings Pick6",
             "FanDuel",
             "Draft Picks",
         ]

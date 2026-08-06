@@ -39,7 +39,7 @@ class _PropBuilderPerformanceScreenState
     'ALL',
     'PrizePicks',
     'Underdog',
-    'Sleeper',
+    'DraftKings Pick6',
     'FanDuel',
     'Draft Picks',
   ];

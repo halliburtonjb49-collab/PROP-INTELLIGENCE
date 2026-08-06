@@ -304,7 +304,7 @@ def test_site_facets_report_full_sport_and_category_totals(monkeypatch) -> None:
         ("PRIZEPICKS", {"MLB", "NFL"}, {"MLB": {"HITS"}, "NFL": {"RECEPTIONS"}}),
         ("UNDERDOG", {"NBA", "NHL"}, {"NBA": {"POINTS"}, "NHL": {"SHOTS"}}),
         ("FANDUEL", {"WNBA"}, {"WNBA": {"ASSISTS"}}),
-        ("SLEEPER", {"NFL"}, {"NFL": {"PASSING YARDS"}}),
+        ("PICK6", {"NFL"}, {"NFL": {"PASSING YARDS"}}),
         ("DRAFTKINGS", {"MLB"}, {"MLB": {"STRIKEOUTS"}}),
         ("BETR", {"NBA"}, {"NBA": {"REBOUNDS"}}),
     ],
@@ -321,7 +321,7 @@ def test_each_prop_site_reports_only_its_active_sports_and_categories(
         FakeProp("ud-nba", "Three", "NBA", "UNDERDOG", "POINTS"),
         FakeProp("ud-nhl", "Four", "NHL", "UNDERDOG", "SHOTS"),
         FakeProp("fd-wnba", "Five", "WNBA", "FANDUEL", "ASSISTS"),
-        FakeProp("sl-nfl", "Six", "NFL", "SLEEPER", "PASSING YARDS"),
+        FakeProp("sl-nfl", "Six", "NFL", "PICK6", "PASSING YARDS"),
         FakeProp("dk-mlb", "Seven", "MLB", "DRAFTKINGS", "STRIKEOUTS"),
         FakeProp("betr-nba", "Eight", "NBA", "BETR_US_DFS", "REBOUNDS"),
     ]
@@ -342,19 +342,19 @@ def test_each_prop_site_reports_only_its_active_sports_and_categories(
 @pytest.mark.parametrize(
     ("query_site", "expected_ids"),
     [
-        ("SLEEPER PICKS", ["sl-nfl"]),
-        ("SLEEPERPICKS", ["sl-nfl"]),
+        ("PICK 6", ["sl-nfl"]),
+        ("DRAFTKINGS PICK6", ["sl-nfl"]),
         ("BETR PICKS", ["betr-nba"]),
         ("BETR-US-DFS", ["betr-nba"]),
     ],
 )
-def test_sportsbook_alias_queries_match_sleeper_and_betr_props(
+def test_sportsbook_alias_queries_match_pick6_and_betr_props(
     monkeypatch,
     query_site: str,
     expected_ids: list[str],
 ) -> None:
     rows = [
-        FakeProp("sl-nfl", "Six", "NFL", "SLEEPER", "PASSING YARDS"),
+        FakeProp("sl-nfl", "Six", "NFL", "PICK6", "PASSING YARDS"),
         FakeProp("betr-nba", "Eight", "NBA", "BETR_US_DFS", "REBOUNDS"),
         FakeProp("pp-mlb", "One", "MLB", "PRIZEPICKS", "HITS"),
     ]

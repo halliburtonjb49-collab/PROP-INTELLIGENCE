@@ -2080,8 +2080,10 @@ def props(
 				return "all"
 			if "betr" in normalized:
 				return "betr"
-			if "sleeper" in normalized:
-				return "sleeper"
+			# DraftKings Pick6 arrives under several spellings. The sportsbook
+			# DraftKings is a different book and must not collapse into it.
+			if "pick6" in normalized or "pick06" in normalized:
+				return "pick6"
 			return normalized
 
 		sportsbook_filter = _normalize_sportsbook_filter_key(sportsbook)
@@ -2490,7 +2492,7 @@ def props_test(
 			"market": "Three-Pointers Made",
 			"line": 4.5,
 			"projection": 5.8,
-			"book": "Sleeper",
+			"book": "DraftKings Pick6",
 			"imageUrl": "",
 			"game_id": "nba_gsw_lal",
 			"displayTime": "10:00 PM",

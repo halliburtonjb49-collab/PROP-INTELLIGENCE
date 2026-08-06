@@ -181,7 +181,7 @@ def seed_default_prop_builder_presets() -> None:
             prop_sites=[
                 "PrizePicks",
                 "Underdog",
-                "Sleeper",
+                "DraftKings Pick6",
                 "FanDuel",
                 "Draft Picks",
             ],
@@ -200,7 +200,7 @@ def seed_default_prop_builder_presets() -> None:
             prop_sites=[
                 "PrizePicks",
                 "Underdog",
-                "Sleeper",
+                "DraftKings Pick6",
                 "FanDuel",
                 "Draft Picks",
             ],
@@ -219,7 +219,7 @@ def seed_default_prop_builder_presets() -> None:
             prop_sites=[
                 "PrizePicks",
                 "Underdog",
-                "Sleeper",
+                "DraftKings Pick6",
                 "FanDuel",
                 "Draft Picks",
             ],

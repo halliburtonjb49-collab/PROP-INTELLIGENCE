@@ -75,7 +75,7 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
   static const List<String> _availablePropSites = [
     'PrizePicks',
     'Underdog',
-    'Sleeper',
+    'DraftKings Pick6',
     'FanDuel',
     'Draft Picks',
   ];
@@ -135,7 +135,7 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
   final Set<String> _selectedSites = {
     'PrizePicks',
     'Underdog',
-    'Sleeper',
+    'DraftKings Pick6',
     'FanDuel',
     'Draft Picks',
   };

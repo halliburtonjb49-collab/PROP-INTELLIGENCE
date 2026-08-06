@@ -226,8 +226,8 @@ class ActiveSlipController extends ChangeNotifier {
     if (normalized.contains('UNDERDOG')) {
       return 'UNDERDOG';
     }
-    if (normalized.contains('SLEEPER')) {
-      return 'SLEEPER';
+    if (normalized.contains('PICK6') || normalized.contains('PICK 6')) {
+      return 'PICK6';
     }
     if (normalized.contains('FANDUEL')) {
       return 'FANDUEL';

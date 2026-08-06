@@ -94,13 +94,13 @@ void main() {
     expect(find.byKey(const ValueKey('all-prop-sites-menu')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('all-prop-sites-menu')));
     await tester.pumpAndSettle();
-    expect(find.text('SLEEPER'), findsWidgets);
-    await tester.tap(find.text('SLEEPER').last);
+    expect(find.text('PICK6'), findsWidgets);
+    await tester.tap(find.text('PICK6').last);
     await tester.pumpAndSettle();
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('all-prop-sites-menu')),
-        matching: find.text('SLEEPER'),
+        matching: find.text('PICK6'),
       ),
       findsOneWidget,
     );

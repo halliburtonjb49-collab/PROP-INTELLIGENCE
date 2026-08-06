@@ -172,7 +172,7 @@ class _CentralPropsDisplayGridCanvasState
       'DRAFTKINGS',
       'PRIZEPICKS',
       'UNDERDOG',
-      'SLEEPER',
+      'PICK6',
     ];
 
     return ValueListenableBuilder<Set<String>>(

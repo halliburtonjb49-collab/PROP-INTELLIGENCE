@@ -1055,12 +1055,15 @@ class ApiService {
         'BETRPICKS',
       ]);
     }
-    if (normalized == 'SLEEPER' || normalized == 'SLEEPERPICKS') {
+    if (normalized == 'PICK6' ||
+        normalized == 'PICK 6' ||
+        normalized == 'DRAFTKINGSPICK6') {
       return _dedupeSportsbookVariants([
         selectedSportsbook,
-        'SLEEPER',
-        'SLEEPER PICKS',
-        'SLEEPERPICKS',
+        'PICK6',
+        'PICK 6',
+        'DRAFTKINGS PICK6',
+        'DK PICK6',
       ]);
     }
     return [selectedSportsbook];
@@ -1098,8 +1101,8 @@ class ApiService {
     if (normalized == 'ALL') {
       return 'ALL';
     }
-    if (normalized.contains('SLEEPER')) {
-      return 'SLEEPER';
+    if (normalized.contains('PICK6') || normalized.contains('PICK 6')) {
+      return 'PICK6';
     }
     if (normalized.contains('PRIZEPICKS')) {
       return 'PRIZEPICKS';

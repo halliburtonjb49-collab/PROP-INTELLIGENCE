@@ -1446,8 +1446,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     if (normalized.contains('BETR')) {
       return 'BETR';
     }
-    if (normalized.contains('SLEEPER')) {
-      return 'SLEEPER';
+    if (normalized.contains('PICK6') || normalized.contains('PICK 6')) {
+      return 'PICK6';
     }
     if (normalized.contains('FANDUEL')) {
       return 'FANDUEL';
@@ -3593,8 +3593,8 @@ class _MainDashboardState extends State<MainDashboard> {
         .replaceAll(' ', '')
         .replaceAll('_', '')
         .replaceAll('-', '');
-    if (normalized.contains('SLEEPER')) {
-      return 'SLEEPER';
+    if (normalized.contains('PICK6') || normalized.contains('PICK 6')) {
+      return 'PICK6';
     }
     if (normalized.contains('PRIZEPICKS')) {
       return 'PRIZEPICKS';
@@ -4862,7 +4862,7 @@ class _MainDashboardState extends State<MainDashboard> {
       'PRIZEPICKS',
       'UNDERDOG',
       'FANDUEL',
-      'SLEEPER',
+      'PICK6',
       'DRAFTKINGS',
       'BETR',
     ];
@@ -4931,7 +4931,7 @@ class _MainDashboardState extends State<MainDashboard> {
         'PRIZEPICKS' => ('P', const Color(0xFF9B5CFF)),
         'UNDERDOG' => ('U', app_colors.AppColors.gold),
         'FANDUEL' => ('F', const Color(0xFF1685F8)),
-        'SLEEPER' => ('S', const Color(0xFF65D8EF)),
+        'PICK6' => ('6', const Color(0xFF53D337)),
         'BETR' => ('B', const Color(0xFF34D399)),
         _ => ('D', const Color(0xFF8D4DFF)),
       };
@@ -8409,7 +8409,7 @@ class _FilterBarState extends State<FilterBar> {
     'DRAFTKINGS',
     'PRIZEPICKS',
     'UNDERDOG',
-    'SLEEPER',
+    'PICK6',
   ];
 
   Widget _buildSiteTab(String site) {
@@ -8572,7 +8572,7 @@ List<PropData> _boardPreviewProps() {
       'player': "A'ja Wilson",
       'sport': 'WNBA',
       'matchup': 'LVA @ PHX',
-      'sportsbook': 'SLEEPER',
+      'sportsbook': 'PICK6',
       'market': 'POINTS',
       'line': 19.5,
       'projection': 21.7,
@@ -8843,8 +8843,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         .replaceAll(' ', '')
         .replaceAll('_', '')
         .replaceAll('-', '');
-    if (normalized.contains('SLEEPER')) {
-      return 'SLEEPER';
+    if (normalized.contains('PICK6') || normalized.contains('PICK 6')) {
+      return 'PICK6';
     }
     if (normalized.contains('PRIZEPICKS')) {
       return 'PRIZEPICKS';
@@ -10968,8 +10968,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         ? const Color(0xFF9B5CFF)
         : key.contains('UNDERDOG')
         ? app_colors.AppColors.gold
-        : key.contains('SLEEPER')
-        ? const Color(0xFF65D8EF)
+        : key.contains('PICK6')
+        ? const Color(0xFF53D337)
         : const Color(0xFF8D4DFF);
     final label = key.contains('FANDUEL')
         ? 'F'
@@ -10977,8 +10977,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         ? 'P'
         : key.contains('UNDERDOG')
         ? 'U'
-        : key.contains('SLEEPER')
-        ? 'S'
+        : key.contains('PICK6')
+        ? '6'
         : 'D';
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -12834,8 +12834,8 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
     if (source.contains('UNDERDOG')) {
       return 'UNDERDOG';
     }
-    if (source.contains('SLEEPER')) {
-      return 'SLEEPER';
+    if (source.contains('PICK6') || source.contains('PICK 6')) {
+      return 'PICK6';
     }
     if (source.contains('FANDUEL')) {
       return 'FANDUEL';
@@ -12852,7 +12852,7 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
         return const ['POWER', 'FLEX'];
       case 'UNDERDOG':
         return const ['POWER'];
-      case 'SLEEPER':
+      case 'PICK6':
         return const ['POWER'];
       case 'FANDUEL':
       case 'DRAFTKINGS':

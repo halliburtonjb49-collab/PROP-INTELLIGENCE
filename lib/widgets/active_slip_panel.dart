@@ -45,7 +45,7 @@ class ActiveSlipPanel extends StatefulWidget {
 class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   final ApiService _apiService = ApiService();
   final double _underdogEntryAmount = 25;
-  final double _sleeperEntryAmount = 25;
+  final double _pick6EntryAmount = 25;
   final ScrollController _activeSlipScrollController = ScrollController();
   final TextEditingController _entryController = TextEditingController(
     text: '25.00',
@@ -53,7 +53,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   final TextEditingController _underdogEntryController = TextEditingController(
     text: '25.00',
   );
-  final TextEditingController _sleeperEntryController = TextEditingController(
+  final TextEditingController _pick6EntryController = TextEditingController(
     text: '25.00',
   );
   final TextEditingController _fanDuelWagerController = TextEditingController(
@@ -94,7 +94,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     _activeSlipScrollController.dispose();
     _entryController.dispose();
     _underdogEntryController.dispose();
-    _sleeperEntryController.dispose();
+    _pick6EntryController.dispose();
     _fanDuelWagerController.dispose();
     _draftKingsWagerController.dispose();
     super.dispose();
@@ -651,7 +651,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     return side;
   }
 
-  String _sleeperSide(Map<String, dynamic> leg) {
+  String _pick6Side(Map<String, dynamic> leg) {
     final side = leg['side']?.toString().toUpperCase() ?? '';
     if (side == 'OVER') {
       return 'MORE';
@@ -781,7 +781,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     }
   }
 
-  double _sleeperLegMultiplier(Map<String, dynamic> leg) {
+  double _pick6LegMultiplier(Map<String, dynamic> leg) {
     double? asDouble(dynamic rawValue) {
       if (rawValue is num) {
         return rawValue.toDouble();
@@ -825,19 +825,19 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     return 1.5;
   }
 
-  double _sleeperTotalMultiplier(List<Map<String, dynamic>> legs) {
+  double _pick6TotalMultiplier(List<Map<String, dynamic>> legs) {
     if (legs.isEmpty) {
       return 1;
     }
     var total = 1.0;
     for (final leg in legs) {
-      total *= _sleeperLegMultiplier(leg);
+      total *= _pick6LegMultiplier(leg);
     }
     return total;
   }
 
-  double _sleeperPayout(List<Map<String, dynamic>> legs) {
-    return _sleeperEntryAmount * _sleeperTotalMultiplier(legs);
+  double _pick6Payout(List<Map<String, dynamic>> legs) {
+    return _pick6EntryAmount * _pick6TotalMultiplier(legs);
   }
 
   Widget _buildTicketLeg({
@@ -1160,9 +1160,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     );
   }
 
-  Widget _buildSleeperHeader(List<Map<String, dynamic>> legs) {
-    final totalMultiplier = _sleeperTotalMultiplier(legs);
-    final payout = _sleeperPayout(legs);
+  Widget _buildPick6Header(List<Map<String, dynamic>> legs) {
+    final totalMultiplier = _pick6TotalMultiplier(legs);
+    final payout = _pick6Payout(legs);
     final sport = legs.isEmpty
         ? ''
         : (legs.first['sport'] ?? legs.first['league'] ?? '').toString();
@@ -1630,7 +1630,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     );
   }
 
-  Widget _buildSleeperLeg({
+  Widget _buildPick6Leg({
     required Map<String, dynamic> leg,
     required int index,
   }) {
@@ -1639,7 +1639,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     final lineValue = leg['current_line'] ?? leg['line'] ?? '';
     final sport = (leg['sport'] ?? leg['league'] ?? '').toString();
     final matchup = leg['matchup']?.toString() ?? '';
-    final multiplier = _sleeperLegMultiplier(leg);
+    final multiplier = _pick6LegMultiplier(leg);
     final resultValue = (leg['result_value'] as num?)?.toDouble();
     final resultStatus =
         leg['result_status']?.toString().toLowerCase() ?? 'pending';
@@ -1711,7 +1711,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${_sleeperSide(leg)} $lineValue',
+                      '${_pick6Side(leg)} $lineValue',
                       style: const TextStyle(
                         color: brand_colors.AppColors.gold,
                         fontSize: 13,
@@ -1833,7 +1833,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     return _buildLockOnlyFooter(legs, label: 'SAVE TRACKING TICKET');
   }
 
-  Widget _buildSleeperFooter(List<Map<String, dynamic>> legs) {
+  Widget _buildPick6Footer(List<Map<String, dynamic>> legs) {
     return _buildLockOnlyFooter(legs, label: 'SAVE TRACKING TICKET');
   }
 
@@ -2615,7 +2615,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     final minimumLegs =
         (site.contains('PRIZEPICKS') ||
             site.contains('UNDERDOG') ||
-            site.contains('SLEEPER'))
+            site.contains('PICK6'))
         ? 2
         : 1;
 
@@ -2996,7 +2996,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     );
   }
 
-  Widget _buildSleeperStyleSlip(List<Map<String, dynamic>> legs) {
+  Widget _buildPick6StyleSlip(List<Map<String, dynamic>> legs) {
     if (legs.isEmpty) {
       return _buildEmptyActiveSlip();
     }
@@ -3009,7 +3009,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildSleeperHeader(legs),
+          _buildPick6Header(legs),
           ReorderableListView.builder(
             buildDefaultDragHandles: false,
             shrinkWrap: true,
@@ -3023,11 +3023,11 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 key: ValueKey(
                   _propId(leg).isEmpty ? 'leg-$index' : _propId(leg),
                 ),
-                child: _buildSleeperLeg(leg: leg, index: index),
+                child: _buildPick6Leg(leg: leg, index: index),
               );
             },
           ),
-          _buildSleeperFooter(legs),
+          _buildPick6Footer(legs),
         ],
       ),
     );
@@ -3049,8 +3049,8 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     if (normalized.contains('BETR')) {
       return 'BETR';
     }
-    if (normalized.contains('SLEEPER')) {
-      return 'SLEEPER';
+    if (normalized.contains('PICK6')) {
+      return 'PICK6';
     }
     if (normalized.contains('FANDUEL')) {
       return 'FANDUEL';
@@ -3083,8 +3083,8 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     if (site.contains('UNDERDOG')) {
       return _buildUnderdogStyleSlip(legs);
     }
-    if (site.contains('SLEEPER')) {
-      return _buildSleeperStyleSlip(legs);
+    if (site.contains('PICK6')) {
+      return _buildPick6StyleSlip(legs);
     }
     if (site.contains('FANDUEL')) {
       return _buildFanDuelStyleSlip(legs);

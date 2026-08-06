@@ -24,7 +24,7 @@ class _PropWatchlistScreenState extends State<PropWatchlistScreen> {
   static const List<String> _defaultReplacementSites = [
     'PrizePicks',
     'Underdog',
-    'Sleeper',
+    'DraftKings Pick6',
     'FanDuel',
     'Draft Picks',
   ];
