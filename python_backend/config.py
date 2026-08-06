@@ -62,14 +62,41 @@ ODDS_REGIONS = (
     os.getenv("ODDS_REGIONS", "us,us2,us_dfs").strip()
     or "us,us2,us_dfs"
 )
-PREFERRED_BOOKMAKERS = [
-    bookmaker.strip().lower()
-    for bookmaker in os.getenv(
-        "PREFERRED_BOOKMAKERS",
-        "prizepicks,underdog,draftkings,pick6,fanduel,betr_us_dfs",
-    ).split(",")
-    if bookmaker.strip()
-]
+_DEFAULT_BOOKMAKERS = "prizepicks,underdog,draftkings,pick6,fanduel,betr_us_dfs"
+
+# Keys the odds provider does not have. Asking for one is silent -- the
+# response simply omits it -- so a stale entry costs a book with no error
+# to notice. `sleeper` was requested for months and could never return
+# anything, because the provider has no such bookmaker.
+_RETIRED_BOOKMAKERS = frozenset({"sleeper"})
+
+# The provider's DFS catalogue. Deployment environments drift from the
+# repository -- a value set in a dashboard outranks this file, and stays
+# behind when the file moves on -- so these are restored if a configured
+# list has fallen behind rather than silently losing coverage.
+_REQUIRED_DFS_BOOKMAKERS = ("prizepicks", "underdog", "betr_us_dfs", "pick6")
+
+
+def _resolve_bookmakers(raw: str) -> tuple[list[str], list[str], list[str]]:
+    """Configured books, minus retired keys, plus any missing DFS site."""
+
+    configured = [
+        bookmaker.strip().lower()
+        for bookmaker in raw.split(",")
+        if bookmaker.strip()
+    ]
+    dropped = [key for key in configured if key in _RETIRED_BOOKMAKERS]
+    resolved = [key for key in configured if key not in _RETIRED_BOOKMAKERS]
+    added = [key for key in _REQUIRED_DFS_BOOKMAKERS if key not in resolved]
+    resolved.extend(added)
+    return resolved, dropped, added
+
+
+(
+    PREFERRED_BOOKMAKERS,
+    RETIRED_BOOKMAKERS_DROPPED,
+    MISSING_BOOKMAKERS_RESTORED,
+) = _resolve_bookmakers(os.getenv("PREFERRED_BOOKMAKERS", _DEFAULT_BOOKMAKERS))
 PREFERRED_BOOKMAKERS_CSV = ",".join(PREFERRED_BOOKMAKERS)
 DEFAULT_LOOKAHEAD_HOURS = 72
 NEXT_AVAILABLE_MAX_DAYS = 7

@@ -13,7 +13,9 @@ from config import (
     ODDS_REGIONS,
     ODDS_API_LOW_QUOTA_THRESHOLD,
     ODDS_API_QUOTA_RESERVE,
+    MISSING_BOOKMAKERS_RESTORED,
     PREFERRED_BOOKMAKERS,
+    RETIRED_BOOKMAKERS_DROPPED,
     PREFERRED_BOOKMAKERS_CSV,
 )
 
@@ -258,4 +260,9 @@ def bookmaker_coverage() -> dict[str, object]:
         # The answer to "why is this book empty": it was asked for and the
         # provider has never once returned it.
         "requestedButNeverSeen": [key for key in requested if key not in seen],
+        # Drift between the deployed environment and the repository. A key
+        # dropped here was configured but cannot exist; one restored was
+        # missing from a configuration that had fallen behind.
+        "retiredKeysDropped": list(RETIRED_BOOKMAKERS_DROPPED),
+        "missingKeysRestored": list(MISSING_BOOKMAKERS_RESTORED),
     }
