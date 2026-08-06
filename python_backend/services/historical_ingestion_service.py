@@ -21,6 +21,7 @@ from providers.espn_basketball_statistics import (
 )
 from providers.espn_box_score_statistics import EspnBoxScoreStatisticsProvider
 from providers.espn_soccer_statistics import EspnSoccerStatisticsProvider
+from providers.nhl_official_statistics import NhlOfficialStatisticsProvider
 from providers.sportmonks_statistics import SportmonksStatisticsProvider
 from services.vector_similarity_service import upsert_basketball_stretches
 from services.officiating_profile_service import (calculate_mlb_umpire_profiles,
@@ -599,10 +600,33 @@ def run_daily_historical_sync(
         ("WNBA", "10", wnba_season),
     ):
         try:
+            # Playoff games are a separate season type in the stats API and
+            # were previously never requested, so every postseason game was
+            # missing from the logs the projections read -- exactly when the
+            # rotations they model change most.
             logs = normalize_basketball_logs(
                 nba.league_game_logs(season=league_season, league_id=league_id, timeout=20),
                 sport,
             )
+            try:
+                logs.extend(
+                    normalize_basketball_logs(
+                        nba.league_game_logs(
+                            season=league_season,
+                            league_id=league_id,
+                            season_type="Playoffs",
+                            timeout=20,
+                        ),
+                        sport,
+                    )
+                )
+            except Exception:
+                logger.warning(
+                    "Playoff game logs unavailable for %s %s",
+                    sport,
+                    league_season,
+                    exc_info=True,
+                )
             espn_logs: list[dict[str, object]] = []
             espn_reconciliation = {"matched": 0, "added": 0, "fieldsFilled": 0}
             try:
@@ -855,6 +879,7 @@ def run_gridiron_ice_backfill(
     cannot cost the rest of the window.
     """
     provider = EspnBoxScoreStatisticsProvider()
+    nhl = NhlOfficialStatisticsProvider()
     repository = HistoricalRepository()
     end = target_date or (datetime.now(timezone.utc).date() - timedelta(days=1))
     window = max(1, int(days))
@@ -870,7 +895,15 @@ def run_gridiron_ice_backfill(
         for offset in range(window):
             day = end - timedelta(days=offset)
             try:
-                rows = provider.daily_game_logs(sport=sport, target_date=day)
+                # Hockey uses the league's own API: its field names are
+                # verified against live responses and its goalie lines carry
+                # shots against split by strength state, which the ESPN box
+                # score does not provide at all.
+                rows = (
+                    nhl.daily_game_logs(target_date=day)
+                    if sport == "NHL"
+                    else provider.daily_game_logs(sport=sport, target_date=day)
+                )
             except Exception as exc:
                 failures.append(f"{day.isoformat()}: {type(exc).__name__}")
                 logger.warning(

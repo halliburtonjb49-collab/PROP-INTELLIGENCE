@@ -265,13 +265,17 @@ def test_backfill_isolates_a_failing_day_from_the_rest(monkeypatch) -> None:
 def test_backfill_reports_each_sport_separately(monkeypatch) -> None:
     from services import historical_ingestion_service as service
 
-    class _Provider:
+    class _Espn:
         def daily_game_logs(self, *, sport, target_date):
-            if sport == "NHL":
-                raise RuntimeError("league outage")
             return []
 
-    monkeypatch.setattr(service, "EspnBoxScoreStatisticsProvider", _Provider)
+    class _Nhl:
+        # Hockey reads the league's own API, not the ESPN box score.
+        def daily_game_logs(self, *, target_date):
+            raise RuntimeError("league outage")
+
+    monkeypatch.setattr(service, "EspnBoxScoreStatisticsProvider", _Espn)
+    monkeypatch.setattr(service, "NhlOfficialStatisticsProvider", _Nhl)
     monkeypatch.setattr(
         service, "HistoricalRepository", lambda: type(
             "R", (), {"upsert_player_game_logs": lambda self, rows: len(rows)}
