@@ -1854,6 +1854,26 @@ def market_intelligence(
 	return {"count": len(rows), "items": rows}
 
 
+def _job_queue_summary() -> dict[str, object]:
+	"""Queue reachability and worker count, without leaking connection details."""
+
+	try:
+		state = job_queue_health()
+	except Exception as exc:
+		return {"available": False, "error": type(exc).__name__}
+	if not isinstance(state, dict):
+		return {"available": False, "error": "unexpected_response"}
+	return {
+		"configured": bool(state.get("configured")),
+		"available": bool(state.get("available")),
+		"mode": state.get("mode"),
+		"workers": state.get("workers"),
+		"queued": state.get("queued"),
+		"started": state.get("started"),
+		"failed": state.get("failed"),
+	}
+
+
 @app.get("/api/operations/prop-feed-health")
 def prop_feed_health() -> dict[str, object]:
 	with _prop_metrics_lock:
@@ -1889,6 +1909,12 @@ def prop_feed_health() -> dict[str, object]:
 		# fresh props it has failed to record, which is otherwise
 		# invisible from outside the process.
 		"snapshotPersist": catalog_snapshot_status(),
+		# Redis reachability and live worker count. Whether background
+		# jobs can run at all was previously only visible on the
+		# owner-authenticated control panel, which is no help when that
+		# panel is the thing failing to load. Counts only, no connection
+		# details.
+		"jobQueue": _job_queue_summary(),
 		**metrics,
 	}
 
