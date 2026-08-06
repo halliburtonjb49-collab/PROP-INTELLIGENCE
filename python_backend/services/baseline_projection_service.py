@@ -66,10 +66,24 @@ def _market_text(value: object) -> str:
     return re.sub(r"\s+", " ", str(value or "").lower().replace("_", " ")).strip()
 
 
+def basketball_minutes(row: tuple[object, ...]) -> float | None:
+    """Minutes played, when the log carries them. Index 7, after the box score."""
+
+    if len(row) < 8 or row[7] is None:
+        return None
+    try:
+        return max(0.0, float(row[7]))
+    except (TypeError, ValueError):
+        return None
+
+
 def basketball_market_value(market: object, row: tuple[object, ...]) -> float | None:
     text = _market_text(market)
+    # Rows carry minutes after the box score; callers that only need a market
+    # value still pass the shorter tuple, so read positionally and ignore any
+    # trailing columns.
     points, rebounds, assists, steals, blocks, turnovers, threes = [
-        float(value or 0) for value in row
+        float(value or 0) for value in row[:7]
     ]
     if "points rebounds assists" in text or text.endswith(" pra") or text == "pra":
         return points + rebounds + assists
@@ -290,9 +304,9 @@ class _HistoricalProjectionIndex:
                 with connection.cursor() as cursor:
                     cursor.execute(
                         """select sport,player_name,points,rebounds,assists,steals,
-                            blocks,turnovers,threes from (
+                            blocks,turnovers,threes,minutes from (
                             select sport,player_name,points,rebounds,assists,steals,
-                            blocks,turnovers,threes,
+                            blocks,turnovers,threes,minutes,
                             row_number() over(
                                 partition by sport,lower(player_name)
                                 order by game_date desc,updated_at desc
