@@ -122,13 +122,20 @@ def apply_projection_context(prop: object) -> None:
             "Pick remains visible, but the player is currently unavailable."
         )
         return
-    context = ProjectionContext(
-        workload_multiplier=(
-            float(getattr(prop, "fatigueMultiplier", None) or 1)
-            * float(getattr(prop, "usageMultiplier", None) or 1)
-            * float(getattr(prop, "wowyMultiplier", None) or 1)
+    # When the projection is already minutes times a per-minute rate, the
+    # multipliers that describe workload have been applied once inside it.
+    # Applying them again here counted a rotation change twice, inflating
+    # every projection for the players whose minutes had actually moved.
+    projection_uses_minutes = bool(getattr(prop, "projectionUsesMinutes", False))
+    workload_multiplier = float(getattr(prop, "fatigueMultiplier", None) or 1)
+    if not projection_uses_minutes:
+        workload_multiplier *= (
+            float(getattr(prop, "usageMultiplier", None) or 1)
             * float(getattr(prop, "opportunityMultiplier", None) or 1)
-        ),
+        )
+    workload_multiplier *= float(getattr(prop, "wowyMultiplier", None) or 1)
+    context = ProjectionContext(
+        workload_multiplier=workload_multiplier,
         opponent_multiplier=(
             float(getattr(prop, "matchupMultiplier", None) or 1)
             * float(getattr(prop, "opponentDefenseMultiplier", None) or 1)

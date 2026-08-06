@@ -286,3 +286,59 @@ def test_probability_edge_is_absent_without_a_priced_market() -> None:
     apply_projection_context(prop)
 
     assert prop.probabilityEdge is None
+
+
+def test_workload_multipliers_are_dropped_once_minutes_are_in_the_projection() -> None:
+    def _prop(uses_minutes: bool) -> SimpleNamespace:
+        return SimpleNamespace(
+            projection=20.0,
+            line=18.5,
+            injuryStatus="healthy",
+            lineupStatus="confirmed",
+            projectionVolatility=5.0,
+            projectionSampleSize=25,
+            projectionCalibrated=True,
+            historicalHitRate=None,
+            sport="NBA",
+            market="Points",
+            recommendationAvailable=True,
+            projectionUsesMinutes=uses_minutes,
+            # A player whose minutes have expanded sharply.
+            opportunityMultiplier=1.12,
+            usageMultiplier=1.08,
+        )
+
+    per_game = _prop(False)
+    decomposed = _prop(True)
+    apply_projection_context(per_game)
+    apply_projection_context(decomposed)
+
+    # The per-game projection needs the workload lift; the decomposed one
+    # already contains it and must not receive it twice.
+    assert per_game.projection > decomposed.projection
+    assert decomposed.projection == 20.0
+
+
+def test_fatigue_and_wowy_still_apply_to_a_decomposed_projection() -> None:
+    # Only the multipliers describing minutes are removed. Fatigue and the
+    # role change from an absent teammate are about the rate, not the volume.
+    prop = SimpleNamespace(
+        projection=20.0,
+        line=18.5,
+        injuryStatus="healthy",
+        lineupStatus="confirmed",
+        projectionVolatility=5.0,
+        projectionSampleSize=25,
+        projectionCalibrated=True,
+        historicalHitRate=None,
+        sport="NBA",
+        market="Points",
+        recommendationAvailable=True,
+        projectionUsesMinutes=True,
+        fatigueMultiplier=.95,
+        wowyMultiplier=1.10,
+    )
+
+    apply_projection_context(prop)
+
+    assert prop.projection != 20.0

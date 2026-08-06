@@ -198,3 +198,53 @@ def test_ufc_uses_sparse_sport_floor_without_relaxing_other_sports() -> None:
         sport="TENNIS", player="Player", player_id="11",
         market="sets won", line=1.5,
     ) is None
+
+
+def _basketball_row(points, minutes):
+    # points, rebounds, assists, steals, blocks, turnovers, threes, minutes
+    return (points, 4, 3, 1, 0, 2, 1, minutes)
+
+
+def test_basketball_projection_decomposes_when_minutes_are_present() -> None:
+    from datetime import datetime, timezone
+    from services.baseline_projection_service import _HistoricalProjectionIndex
+
+    index = _HistoricalProjectionIndex()
+    index.loaded_at = datetime.now(timezone.utc)
+    # A promotion: same scoring rate throughout, minutes nearly doubled.
+    index.basketball[("NBA", "risingstarter")] = (
+        [_basketball_row(12, 18)] * 5 + [_basketball_row(22, 34)] * 5
+    )
+
+    result = index.project(
+        sport="NBA", player="Rising Starter", player_id="1",
+        market="player_points", line=17.5,
+    )
+
+    assert result is not None
+    assert result.decomposed is True
+    assert result.projected_minutes is not None and result.projected_minutes > 30
+    assert result.source == "historical-game-logs-minutes-rate"
+    # A per-game blend still carries the bench games; minutes times rate does
+    # not, so it projects nearer the current role.
+    assert result.projection > 17.5
+
+
+def test_basketball_falls_back_to_per_game_without_minutes() -> None:
+    from datetime import datetime, timezone
+    from services.baseline_projection_service import _HistoricalProjectionIndex
+
+    index = _HistoricalProjectionIndex()
+    index.loaded_at = datetime.now(timezone.utc)
+    # Seven-column rows: no minutes recorded at all.
+    index.basketball[("NBA", "nominutes")] = [(20, 4, 3, 1, 0, 2, 1)] * 10
+
+    result = index.project(
+        sport="NBA", player="No Minutes", player_id="2",
+        market="player_points", line=18.5,
+    )
+
+    assert result is not None
+    assert result.decomposed is False
+    assert result.projected_minutes is None
+    assert result.source == "historical-game-logs"

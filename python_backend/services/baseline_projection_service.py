@@ -19,6 +19,11 @@ from typing import Iterable, Sequence
 import re
 
 from database.postgres import database_is_configured, get_database_pool
+from services.basketball_projection_service import (
+    per_minute_rate,
+    project_minutes,
+    project_stat,
+)
 from services.projection_calibration_service import (
     confidence_from_probability,
     recency_weighted_baseline,
@@ -56,6 +61,11 @@ class BaselineProjection:
     calibrated: bool = False
     prior: float | None = None
     prior_weight: float = 1.0
+    # True when the projection came from minutes times a per-minute rate
+    # rather than from per-game totals. Downstream context must not then apply
+    # a workload multiplier, or the change in minutes is counted twice.
+    decomposed: bool = False
+    projected_minutes: float | None = None
 
 
 def _normalized(value: object) -> str:
@@ -142,6 +152,8 @@ def compute_baseline_projection(
     market: str = "",
     minimum_sample_size: int = MINIMUM_SAMPLE_SIZE,
     prior: float | None = None,
+    projection_override: float | None = None,
+    projected_minutes: float | None = None,
 ) -> BaselineProjection | None:
     ordered = [float(value) for value in values][-MAXIMUM_SAMPLE_SIZE:]
     if len(ordered) < minimum_sample_size:
@@ -158,6 +170,12 @@ def compute_baseline_projection(
         sample_size=len(ordered),
         k=shrinkage_k_for(sport, market),
     )
+    # A decomposed projection replaces the central estimate only. Volatility,
+    # hit rate and the probability all still come from the observed values,
+    # which is the record of what actually happened.
+    decomposed = projection_override is not None
+    if decomposed:
+        projection = float(projection_override)
     variance = sum((value - long_mean) ** 2 for value in ordered) / max(
         1, len(ordered) - 1
     )
@@ -197,6 +215,17 @@ def compute_baseline_projection(
         hit_probability=hit_probability,
         prior=None if prior is None else round(float(prior), 3),
         prior_weight=round(own_weight, 4),
+        decomposed=decomposed,
+        projected_minutes=(
+            round(float(projected_minutes), 2)
+            if projected_minutes is not None
+            else None
+        ),
+        source=(
+            "historical-game-logs-minutes-rate"
+            if decomposed
+            else "historical-game-logs"
+        ),
     )
 
 
@@ -265,6 +294,71 @@ class _HistoricalProjectionIndex:
             means = self._basketball_population(sport, market)
         self._population_cache[cache_key] = means
         return means
+
+    def _basketball_rate_population(self, sport: str, market: str) -> list[float]:
+        """Every player's per-minute rate for this market, for the role prior."""
+
+        rates: list[float] = []
+        for (log_sport, _player), rows in self.basketball.items():
+            if log_sport != sport:
+                continue
+            produced = 0.0
+            played = 0.0
+            for row in rows:
+                minutes = basketball_minutes(row)
+                value = basketball_market_value(market, row)
+                if minutes is None or value is None or minutes <= 0:
+                    continue
+                produced += value
+                played += minutes
+            if played > 0:
+                rates.append(produced / played)
+        return rates
+
+    def _decomposed_basketball_projection(
+        self,
+        rows: Sequence[tuple[object, ...]],
+        *,
+        sport: str,
+        market: str,
+    ) -> tuple[float | None, float | None]:
+        """Minutes times a per-minute rate, when the log carries minutes.
+
+        Returns (None, None) whenever the inputs are missing, so a log without
+        minutes falls back to the per-game baseline rather than projecting on
+        an assumed workload.
+        """
+
+        minutes_log = [basketball_minutes(row) for row in rows]
+        if any(value is None for value in minutes_log):
+            return None, None
+        played = [value for value in minutes_log if value is not None]
+        values = [basketball_market_value(market, row) for row in rows]
+        if any(value is None for value in values) or not played:
+            return None, None
+
+        projected = project_minutes(played, sport=sport)
+        if projected is None:
+            return None, None
+        rate = per_minute_rate(
+            [value for value in values if value is not None],
+            played,
+            prior_rate=role_bucket_prior(
+                (
+                    sum(value for value in values if value is not None)
+                    / sum(played)
+                )
+                if sum(played) > 0
+                else 0.0,
+                self._basketball_rate_population(sport, market),
+            ),
+        )
+        if rate is None:
+            return None, None
+        return (
+            project_stat(minutes=projected.minutes, rate=rate.rate),
+            projected.minutes,
+        )
 
     def _prior_for(
         self,
@@ -412,6 +506,9 @@ class _HistoricalProjectionIndex:
                 for row in rows
                 if (value := basketball_market_value(market, row)) is not None
             ]
+            override, minutes = self._decomposed_basketball_projection(
+                rows, sport=normalized_sport, market=market
+            )
             return compute_baseline_projection(
                 values,
                 line=line,
@@ -420,6 +517,8 @@ class _HistoricalProjectionIndex:
                 prior=self._prior_for(
                     values, sport=normalized_sport, market=market
                 ),
+                projection_override=override,
+                projected_minutes=minutes,
             )
 
         if normalized_sport == "SOCCER":

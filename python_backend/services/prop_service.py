@@ -400,6 +400,8 @@ def get_props() -> list[PropResponse]:
 		)
 		sport_label = format_sport_label(str(row["sport"]))
 		baseline = None
+		projection_uses_minutes = False
+		projected_minutes = None
 		if projection is None and identity_confidence >= 0.8:
 			baseline = baseline_projection_for_prop(
 				sport=sport_label,
@@ -415,7 +417,13 @@ def get_props() -> list[PropResponse]:
 				projection_sample_size = baseline.sample_size
 				projection_volatility = baseline.volatility
 				projection_calibrated = baseline.calibrated
-				projection_label = "Baseline historical model"
+				projection_uses_minutes = baseline.decomposed
+				projected_minutes = baseline.projected_minutes
+				projection_label = (
+					"Minutes and per-minute rate model"
+					if baseline.decomposed
+					else "Baseline historical model"
+				)
 				historical_hit_rate = baseline.historical_hit_rate
 				hit_probability = baseline.hit_probability
 		confidence_override = baseline.confidence if baseline is not None else None
@@ -699,6 +707,8 @@ def get_props() -> list[PropResponse]:
 				projectionSampleSize=projection_sample_size,
 				projectionVolatility=projection_volatility,
 				projectionCalibrated=projection_calibrated,
+				projectionUsesMinutes=projection_uses_minutes,
+				projectedMinutes=projected_minutes,
 				projectionLabel=projection_label,
 				historicalHitRate=historical_hit_rate,
 				pick=recommended_pick,

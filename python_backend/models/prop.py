@@ -30,6 +30,11 @@ class PropResponse(BaseModel):
     projectionLabel: str = ""
     projectionPreMarket: float | None = None
     projectionMarketWeight: float = 0.0
+    # True when the projection is minutes times a per-minute rate. The
+    # workload multipliers must then be left out of the context adjustment,
+    # because the minutes they describe are already inside the projection.
+    projectionUsesMinutes: bool = False
+    projectedMinutes: float | None = None
     historicalHitRate: int | None = None
     pick: str
     edge: float = Field(ge=0)
