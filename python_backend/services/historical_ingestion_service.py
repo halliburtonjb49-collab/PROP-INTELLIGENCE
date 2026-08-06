@@ -270,6 +270,13 @@ _ESPN_SOCCER_STAT_CODES = {
     "totalGoals": "goals",
     "redCards": "red_cards",
     "yellowCards": "yellow_cards",
+    # Goalkeeper lines. The saves model needs shots faced as well as saves,
+    # because shots faced is the term that actually varies between matches.
+    "saves": "saves",
+    "shotsFaced": "shots_faced",
+    "goalsConceded": "goals_conceded",
+    "foulsCommitted": "fouls_committed",
+    "appearances": "appearances",
 }
 
 
@@ -321,6 +328,12 @@ def normalize_espn_soccer_fixtures(
                     stats["red_cards"] > 0 or stats["yellow_cards"] > 0
                 )
                 stats["received_red_card"] = float(stats["red_cards"] > 0)
+                # Selection and substitution, which drive the expected-minutes
+                # model. ESPN reports these as flags on the roster entry rather
+                # than as statistics, and no minute count is published at all.
+                stats["started"] = float(bool(player.get("starter")))
+                stats["substituted_on"] = float(bool(player.get("subbedIn")))
+                stats["substituted_off"] = float(bool(player.get("subbedOut")))
                 normalized.append({
                     "id": _stable_id("SOCCER", event_id, player_id),
                     "sport": "SOCCER",

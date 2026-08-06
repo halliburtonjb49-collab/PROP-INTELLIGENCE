@@ -111,17 +111,41 @@ DEFAULT_RECENCY_WEIGHTS: tuple[float, float, float, float] = (0.40, 0.25, 0.20, 
 _MARKET_RECENCY_WEIGHTS: dict[str, tuple[float, float, float, float]] = {}
 
 
-def _market_signature(sport: str, market: str) -> str:
-    return f"{sport} {market}".lower().replace("_", " ").strip()
+def _market_signature(sport: str, market: str, competition: str = "") -> str:
+    parts = [str(sport or ""), str(competition or ""), str(market or "")]
+    return " ".join(part for part in parts if part).lower().replace("_", " ").strip()
 
 
-def recency_weights_for(sport: str, market: str) -> tuple[float, float, float, float]:
+def parameter_keys(sport: str, market: str, competition: str = "") -> tuple[str, ...]:
+    """Lookup keys from most specific to least.
+
+    A sport is not always one population. Premier League and MLS are both
+    "soccer" and behave differently, as do T20 and Test cricket, so a
+    competition-specific entry must win over the sport-wide one. The sport-wide
+    key remains as the fallback, and the default below that, so adding a
+    competition never orphans a market that has no entry for it.
+    """
+
+    if competition:
+        return (
+            _market_signature(sport, market, competition),
+            _market_signature(sport, market),
+        )
+    return (_market_signature(sport, market),)
+
+
+def recency_weights_for(
+    sport: str,
+    market: str,
+    competition: str = "",
+) -> tuple[float, float, float, float]:
     """Learned weights for a market, falling back to the default configuration."""
 
-    return _MARKET_RECENCY_WEIGHTS.get(
-        _market_signature(sport, market),
-        DEFAULT_RECENCY_WEIGHTS,
-    )
+    for key in parameter_keys(sport, market, competition):
+        weights = _MARKET_RECENCY_WEIGHTS.get(key)
+        if weights is not None:
+            return weights
+    return DEFAULT_RECENCY_WEIGHTS
 
 
 def recency_weighted_baseline(
@@ -165,11 +189,12 @@ DEFAULT_SHRINKAGE_K = 8.0
 _MARKET_SHRINKAGE_K: dict[str, float] = {}
 
 
-def shrinkage_k_for(sport: str, market: str) -> float:
-    return _MARKET_SHRINKAGE_K.get(
-        _market_signature(sport, market),
-        DEFAULT_SHRINKAGE_K,
-    )
+def shrinkage_k_for(sport: str, market: str, competition: str = "") -> float:
+    for key in parameter_keys(sport, market, competition):
+        k = _MARKET_SHRINKAGE_K.get(key)
+        if k is not None:
+            return k
+    return DEFAULT_SHRINKAGE_K
 
 
 def shrinkage_weight(sample_size: int, *, k: float = DEFAULT_SHRINKAGE_K) -> float:
