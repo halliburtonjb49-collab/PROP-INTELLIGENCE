@@ -3,6 +3,7 @@ from services.baseline_projection_service import (
     baseline_is_actionable,
     basketball_market_value,
     compute_baseline_projection,
+    role_bucket_prior,
 )
 
 
@@ -128,6 +129,54 @@ def test_baseline_requires_both_model_strength_and_historical_support() -> None:
     assert result.historical_hit_rate >= 55
     assert baseline_is_actionable(result, recommendation_tier="Strong") is True
     assert baseline_is_actionable(result, recommendation_tier="Pass") is False
+
+
+def test_role_prior_matches_a_starter_to_starters_not_to_the_league() -> None:
+    # Twelve bench players and six starters. A starter must not be shrunk
+    # toward a league average that is dominated by bench minutes.
+    population = [2, 3, 3, 4, 4, 5, 5, 6, 7, 8, 9, 10, 22, 24, 25, 27, 28, 30]
+    league_average = sum(population) / len(population)
+
+    starter_prior = role_bucket_prior(26, population)
+    bench_prior = role_bucket_prior(3, population)
+
+    assert starter_prior is not None and bench_prior is not None
+    assert starter_prior > league_average > bench_prior
+    assert starter_prior >= 22
+
+
+def test_role_prior_is_withheld_when_the_population_cannot_describe_roles() -> None:
+    assert role_bucket_prior(20, [18, 19, 21]) is None
+
+
+def test_thin_sample_projection_is_pulled_toward_the_role_prior() -> None:
+    # Eight games from a player running hot against a role prior of 18.
+    values = [30, 32, 29, 33, 31, 34, 30, 32]
+    unshrunk = compute_baseline_projection(
+        values, line=28.5, sport="NBA", market="Points",
+    )
+    shrunk = compute_baseline_projection(
+        values, line=28.5, sport="NBA", market="Points", prior=18.0,
+    )
+
+    assert unshrunk is not None and shrunk is not None
+    assert unshrunk.prior is None and unshrunk.prior_weight == 1
+    assert shrunk.prior == 18
+    assert shrunk.prior_weight == .5
+    assert 18 < shrunk.projection < unshrunk.projection
+
+
+def test_shrinkage_fades_as_the_sample_grows() -> None:
+    thin = compute_baseline_projection(
+        [30] * 8, line=28.5, sport="NBA", market="Points", prior=18.0,
+    )
+    deep = compute_baseline_projection(
+        [30] * 40, line=28.5, sport="NBA", market="Points", prior=18.0,
+    )
+
+    assert thin is not None and deep is not None
+    assert deep.prior_weight > thin.prior_weight
+    assert deep.projection > thin.projection
 
 
 def test_ufc_uses_sparse_sport_floor_without_relaxing_other_sports() -> None:

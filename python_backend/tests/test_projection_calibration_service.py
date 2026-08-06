@@ -1,11 +1,17 @@
 from types import SimpleNamespace
 
+from pytest import approx
+
 from services import prop_context_service
 from services.projection_calibration_service import (
+    DEFAULT_RECENCY_WEIGHTS,
     ProjectionContext,
     calibrated_hit_probability,
     contextual_projection,
     exponentially_weighted_mean,
+    recency_weighted_baseline,
+    shrink_toward_prior,
+    shrinkage_weight,
 )
 from services.prop_context_service import apply_projection_context
 
@@ -36,6 +42,50 @@ def test_exponential_average_responds_to_recent_form_without_discarding_history(
     values = [2, 2, 2, 2, 2, 8, 8, 8]
     weighted = exponentially_weighted_mean(values)
     assert sum(values) / len(values) < weighted < 8
+
+
+def test_recency_baseline_leads_recent_form_without_discarding_the_long_run() -> None:
+    values = ([10] * 20) + ([20] * 5)
+    baseline = recency_weighted_baseline(values)
+
+    assert sum(values) / len(values) < baseline < 20
+    # The last five games are the only ones at 20, so they lift the baseline by
+    # their share of each window and no further.
+    assert baseline == approx(
+        10 + (10 * (0.40 + (0.25 / 2) + (0.20 / 4) + (0.15 / 5)))
+    )
+
+
+def test_recency_baseline_stays_inside_the_observed_range() -> None:
+    values = [3, 9, 1, 12, 7, 4, 8, 2]
+    assert min(values) <= recency_weighted_baseline(values) <= max(values)
+    assert sum(DEFAULT_RECENCY_WEIGHTS) == approx(1)
+
+
+def test_recency_baseline_handles_logs_shorter_than_every_window() -> None:
+    # Windows overlap completely, so a three-game log is just its own mean.
+    assert recency_weighted_baseline([4, 5, 6]) == approx(5)
+
+
+def test_shrinkage_gives_the_player_more_weight_as_games_accumulate() -> None:
+    assert shrinkage_weight(0, k=8) == 0
+    assert shrinkage_weight(8, k=8) == .5
+    assert shrinkage_weight(40, k=8) > .8
+
+
+def test_two_hot_games_cannot_carry_a_projection() -> None:
+    hot, weight = shrink_toward_prior(34.0, 18.0, sample_size=2, k=8)
+
+    assert weight == approx(.2)
+    assert hot == approx(21.2)
+
+    settled, settled_weight = shrink_toward_prior(34.0, 18.0, sample_size=40, k=8)
+    assert settled_weight > weight
+    assert settled > hot
+
+
+def test_shrinkage_is_skipped_when_no_prior_describes_the_role() -> None:
+    assert shrink_toward_prior(12.5, None, sample_size=3) == (12.5, 1.0)
 
 
 def test_context_multiplier_is_bounded() -> None:

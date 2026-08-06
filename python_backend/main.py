@@ -79,6 +79,9 @@ from services.automatic_grader import grade_event_slips
 from services.game_status_service import (
 	refresh_saved_slip_game_statuses,
 )
+from services.baseline_projection_service import (
+	MODEL_VERSION as BASELINE_MODEL_VERSION,
+)
 from services.prop_service import get_props
 from services.distributed_cache_service import (
 	delete as delete_distributed_cache,
@@ -2277,13 +2280,13 @@ def props(
 			for prop in filtered_props
 			if _recommendation_visible(prop)
 			and str(getattr(prop, "projectionModelVersion", "") or "")
-			== "baseline-v2"
+			== BASELINE_MODEL_VERSION
 		)
 		baseline_projection_count = sum(
 			1
 			for prop in filtered_props
 			if str(getattr(prop, "projectionModelVersion", "") or "")
-			== "baseline-v2"
+			== BASELINE_MODEL_VERSION
 		)
 		provider_pick_count = max(0, model_pick_count - baseline_pick_count)
 
