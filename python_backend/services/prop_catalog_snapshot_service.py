@@ -132,3 +132,56 @@ def load_catalog_snapshot() -> list[dict[str, object]]:
         # will seed it without turning startup into a failure.
         LOGGER.info("No durable prop catalog snapshot available: %s", type(exc).__name__)
         return []
+
+
+def catalog_snapshot_metadata() -> dict[str, object]:
+    """Age and size of the stored snapshot, without decoding its payload.
+
+    Reading the whole catalog to answer "is this stale" would cost megabytes
+    of transfer and a gzip decompress for a question two columns can settle.
+    """
+
+    if not database_is_configured():
+        return {"exists": False, "reason": "database_not_configured"}
+    try:
+        with get_database_pool().connection(timeout=10) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """select prop_count, data_updated_at, updated_at
+                       from prop_catalog_snapshots where snapshot_key = %s""",
+                    (_SNAPSHOT_KEY,),
+                )
+                row = cursor.fetchone()
+    except Exception as exc:
+        return {"exists": False, "reason": type(exc).__name__}
+    if not row:
+        return {"exists": False, "reason": "no_snapshot"}
+    count, data_updated_at, updated_at = row
+    return {
+        "exists": True,
+        "propCount": int(count or 0),
+        "dataUpdatedAt": data_updated_at.isoformat() if data_updated_at else None,
+        "writtenAt": updated_at.isoformat() if updated_at else None,
+    }
+
+
+def snapshot_is_behind(rows: list[dict[str, object]]) -> bool:
+    """Whether these props are newer than what is stored.
+
+    Fresh props in memory do not imply a fresh snapshot on disk. Comparing the
+    two is what tells an instance it is serving data it has never recorded.
+    """
+
+    if not rows:
+        return False
+    stored = catalog_snapshot_metadata()
+    if not stored.get("exists"):
+        return True
+    stored_at = str(stored.get("dataUpdatedAt") or "")
+    latest = max((str(row.get("lastUpdatedUtc") or "") for row in rows), default="")
+    if not latest:
+        return False
+    if not stored_at:
+        return True
+    # Both are ISO-8601 UTC, so a string comparison orders them correctly.
+    return latest > stored_at

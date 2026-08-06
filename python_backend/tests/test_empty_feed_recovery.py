@@ -254,3 +254,54 @@ def test_refusing_to_persist_nothing_is_reported_as_such(monkeypatch):
     # Distinguishable from a real failure: an empty sync must never overwrite
     # a good snapshot, and that is a refusal rather than an error.
     assert snapshots.catalog_snapshot_status()["error"] == "no_rows"
+
+
+def test_reconciliation_writes_when_the_snapshot_is_behind(monkeypatch):
+    """Fresh props in memory do not imply a fresh snapshot on disk.
+
+    This is the hole the whole failure fell through: the durable write only
+    ever happened as a side effect of the worker job or of reading the catalog
+    back out of Redis, so an instance could serve current props for hours
+    while the snapshot it would restore from stayed hours behind.
+    """
+
+    saved = []
+    prop = SimpleNamespace(model_dump=lambda mode=None: {"id": "p1"})
+    monkeypatch.setattr(main, "get_props", lambda: [prop])
+    monkeypatch.setattr(main, "snapshot_is_behind", lambda _rows: True)
+    monkeypatch.setattr(main, "save_catalog_snapshot", lambda rows: saved.append(rows) or True)
+
+    assert main._reconcile_catalog_snapshot() is True
+    assert saved == [[{"id": "p1"}]]
+
+
+def test_reconciliation_does_not_rewrite_a_current_snapshot(monkeypatch):
+    saved = []
+    prop = SimpleNamespace(model_dump=lambda mode=None: {"id": "p1"})
+    monkeypatch.setattr(main, "get_props", lambda: [prop])
+    monkeypatch.setattr(main, "snapshot_is_behind", lambda _rows: False)
+    monkeypatch.setattr(main, "save_catalog_snapshot", lambda rows: saved.append(rows))
+
+    assert main._reconcile_catalog_snapshot() is False
+    # A multi-megabyte write every five minutes for no reason is its own bug.
+    assert saved == []
+
+
+def test_reconciliation_never_persists_an_empty_catalog(monkeypatch):
+    saved = []
+    monkeypatch.setattr(main, "get_props", lambda: [])
+    monkeypatch.setattr(main, "save_catalog_snapshot", lambda rows: saved.append(rows))
+
+    assert main._reconcile_catalog_snapshot() is False
+    assert saved == []
+
+
+def test_reconciliation_failure_does_not_break_the_caller(monkeypatch):
+    def _boom():
+        raise RuntimeError("database gone")
+
+    monkeypatch.setattr(main, "get_props", _boom)
+
+    # Startup and the watchdog both call this; neither may die because a
+    # best-effort snapshot write failed.
+    assert main._reconcile_catalog_snapshot() is False

@@ -94,6 +94,7 @@ from services.prop_catalog_snapshot_service import (
 	load_catalog_snapshot,
 	catalog_snapshot_status,
 	save_catalog_snapshot,
+	snapshot_is_behind,
 )
 from services.raw_ingestion_service import health as ingestion_pipeline_health
 from services.rate_limit_service import allow_request
@@ -800,11 +801,39 @@ def run_queued_prop_sync() -> None:
 	_run_sync_background(release_local_lock=False)
 
 
+def _reconcile_catalog_snapshot() -> bool:
+	"""Record the props this instance is serving if they are newer.
+
+	Fresh props in memory do not imply a fresh snapshot on disk. The
+	durable write only ever happened as a side effect of the worker job
+	or of reading the catalog back out of Redis, so an instance could
+	serve current props for hours while the snapshot it would restore
+	from stayed hours behind -- which is exactly what a restart then
+	exposed.
+	"""
+
+	try:
+		props = get_props()
+		if not props:
+			return False
+		rows = [prop.model_dump(mode='json') for prop in props]
+		if not snapshot_is_behind(rows):
+			return False
+		return save_catalog_snapshot(rows)
+	except Exception:
+		logging.exception("Catalog snapshot reconciliation failed")
+		return False
+
+
 async def _ensure_props_available() -> None:
 	"""Check startup freshness without running provider work in the API."""
 	props = await asyncio.to_thread(get_props)
 	if not _prop_cache_needs_refresh(props):
 		logging.info("Startup prop check ready props=%s", len(props))
+		# Returning here without this left the durable snapshot untouched
+		# whenever the local cache happened to be fresh, which is the
+		# common case and the reason it could rot for hours.
+		await asyncio.to_thread(_reconcile_catalog_snapshot)
 		return
 	queued = _enqueue_prop_refresh()
 	queue_state = await asyncio.to_thread(job_queue_health)
@@ -873,6 +902,9 @@ async def _maintain_prop_freshness() -> None:
 		await asyncio.sleep(check_seconds)
 		try:
 			props = await asyncio.to_thread(get_props)
+			# Runs whether or not a refresh is due, so a snapshot that has
+			# fallen behind is repaired without waiting for a restart.
+			await asyncio.to_thread(_reconcile_catalog_snapshot)
 			if not _prop_cache_needs_refresh(props):
 				continue
 			queued = _enqueue_prop_refresh()
