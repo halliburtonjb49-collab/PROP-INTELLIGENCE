@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from services.api_auth_service import require_admin, require_owner, require_user_id
+from services.operations_detail_service import operations_detail
 from services.pipeline_run_service import recent_pipeline_runs, summarize_pipeline_health
 from services.readiness_service import production_readiness
 from services.acceptance_service import production_acceptance_snapshot
@@ -55,6 +56,12 @@ def pipelines(limit: int = 25) -> dict[str, object]:
 @router.get("/control-panel", dependencies=[Depends(require_owner)])
 def control_panel() -> dict[str, object]:
     return launch_control_snapshot()
+
+
+@router.get("/control-panel/detail/{metric}", dependencies=[Depends(require_owner)])
+def control_panel_detail(metric: str, limit: int = 50) -> dict[str, object]:
+    """The rows behind one control-panel tile."""
+    return operations_detail(metric, limit=limit)
 
 
 @router.get("/grading-review", dependencies=[Depends(require_owner)])

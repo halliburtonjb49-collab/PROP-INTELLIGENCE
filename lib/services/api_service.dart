@@ -340,6 +340,31 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  /// The rows behind one control-panel tile.
+  ///
+  /// Detail is an enrichment: a failure here returns an empty result so the
+  /// tile that opened it keeps working rather than the panel breaking.
+  Future<Map<String, dynamic>> fetchOperationsDetail(
+    String metric, {
+    int limit = 50,
+  }) async {
+    final response = await http.get(
+      Uri.parse(
+        '$baseUrl/api/operations/control-panel/detail/$metric?limit=$limit',
+      ),
+      headers: await _authenticatedHeaders(),
+    );
+    if (response.statusCode != 200) {
+      return {
+        'metric': metric,
+        'supported': true,
+        'reason': 'http_${response.statusCode}',
+        'rows': const [],
+      };
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> fetchLaunchControlPanel() async {
     final response = await http.get(
       Uri.parse('$baseUrl/api/operations/control-panel'),

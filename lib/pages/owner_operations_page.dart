@@ -25,10 +25,39 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   String? _error;
   DateTime? _lastChecked;
 
+  Timer? _retryTimer;
+  int _consecutiveFailures = 0;
+
+  // A deploy or a brief network fault used to leave this screen showing dashes
+  // until somebody reloaded the page. It now retries on its own, backing off
+  // so a genuinely down API is not hammered.
+  static const List<Duration> _retryBackoff = [
+    Duration(seconds: 5),
+    Duration(seconds: 15),
+    Duration(seconds: 30),
+    Duration(minutes: 1),
+    Duration(minutes: 2),
+  ];
+
   @override
   void initState() {
     super.initState();
     unawaited(_refresh());
+  }
+
+  @override
+  void dispose() {
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleRetry() {
+    _retryTimer?.cancel();
+    final delay = _retryBackoff[
+        _consecutiveFailures.clamp(0, _retryBackoff.length - 1)];
+    _retryTimer = Timer(delay, () {
+      if (mounted) unawaited(_refresh());
+    });
   }
 
   Future<void> _refresh() async {
@@ -57,11 +86,36 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         );
         _lastChecked = DateTime.now();
       });
+      _consecutiveFailures = 0;
+      _retryTimer?.cancel();
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) {
+        setState(() => _error = error.toString());
+        _consecutiveFailures += 1;
+        _scheduleRetry();
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Opens the rows behind a tile.
+  ///
+  /// A count answers "how many" and immediately raises "which ones", which
+  /// previously meant leaving the panel for the database.
+  Future<void> _openDetail(String metric, String label) async {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF0C1823),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) => _DetailSheet(
+        title: label,
+        future: _api.fetchOperationsDetail(metric),
+      ),
+    );
   }
 
   Map _map(String key) => _control?[key] as Map? ?? const {};
@@ -382,6 +436,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
           'Active users',
           '${users['count'] ?? '--'}',
           users['instrumented'] == true,
+          metric: 'activeUsers',
         ),
         _status(
           'New signups',
@@ -389,13 +444,20 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
           signups['instrumented'] == true,
           detail:
               '24h • 7d ${signups['last7Days'] ?? '--'} • total ${signups['total'] ?? '--'}',
+          metric: 'newSignups',
         ),
         _status(
           'Failed payments',
           '${payments['count'] ?? '--'}',
           (payments['count'] ?? 0) == 0,
+          metric: 'failedPayments',
         ),
-        _status('Unsettled slips', '${slips['count'] ?? '--'}', true),
+        _status(
+          'Unsettled slips',
+          '${slips['count'] ?? '--'}',
+          true,
+          metric: 'unsettledSlips',
+        ),
         _status(
           'Questionable grades',
           '${review['questionableCount'] ?? '--'}',
@@ -1053,11 +1115,17 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     return text.length > 10 ? text.substring(0, 10) : text;
   }
 
-  Widget _status(String label, String value, bool healthy, {String? detail}) {
+  Widget _status(
+    String label,
+    String value,
+    bool healthy, {
+    String? detail,
+    String? metric,
+  }) {
     final color = healthy
-        ? const Color(0xFF8CFFB2)
+        ? AppColors.success
         : brand_colors.AppColors.goldHighlight;
-    return Container(
+    final tile = Container(
       width: 205,
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
@@ -1094,8 +1162,36 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
               style: const TextStyle(color: AppColors.textMuted, fontSize: 9),
             ),
           ],
+          if (metric != null) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(
+                  Icons.list_alt_rounded,
+                  size: 11,
+                  color: AppColors.gold.withValues(alpha: .8),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'TAP TO VIEW',
+                  style: TextStyle(
+                    color: AppColors.gold.withValues(alpha: .8),
+                    fontSize: 8,
+                    letterSpacing: .8,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
+    );
+    if (metric == null) return tile;
+    return InkWell(
+      onTap: () => _openDetail(metric, label),
+      borderRadius: BorderRadius.circular(10),
+      child: tile,
     );
   }
 
@@ -1176,4 +1272,187 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       ],
     ),
   );
+}
+
+/// The rows behind one operations tile.
+///
+/// Rendered from the columns the backend declares rather than a fixed layout,
+/// so a new tile detail needs no matching change here.
+class _DetailSheet extends StatelessWidget {
+  const _DetailSheet({required this.title, required this.future});
+
+  final String title;
+  final Future<Map<String, dynamic>> future;
+
+  String _label(String column) {
+    final spaced = column.replaceAllMapped(
+      RegExp(r'(?<=[a-z])(?=[A-Z])'),
+      (_) => ' ',
+    );
+    return spaced.toUpperCase();
+  }
+
+  String _value(Object? raw) {
+    if (raw == null) return '--';
+    final text = raw.toString();
+    final parsed = DateTime.tryParse(text);
+    if (parsed != null) {
+      final local = parsed.toLocal();
+      final hh = local.hour.toString().padLeft(2, '0');
+      final mm = local.minute.toString().padLeft(2, '0');
+      return '${local.month}/${local.day} $hh:$mm';
+    }
+    return text;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: .6,
+      maxChildSize: .92,
+      builder: (context, controller) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: FutureBuilder<Map<String, dynamic>>(
+          future: future,
+          builder: (context, snapshot) {
+            final header = Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title.toUpperCase(),
+                    style: const TextStyle(
+                      color: brand_colors.AppColors.goldHighlight,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close, color: AppColors.textMuted),
+                ),
+              ],
+            );
+
+            if (snapshot.connectionState != ConnectionState.done) {
+              return Column(
+                children: [
+                  header,
+                  const SizedBox(height: 40),
+                  const CircularProgressIndicator(color: AppColors.gold),
+                ],
+              );
+            }
+
+            final data = snapshot.data ?? const <String, dynamic>{};
+            final rows = (data['rows'] as List? ?? const [])
+                .whereType<Map>()
+                .toList();
+            final columns = (data['columns'] as List? ?? const [])
+                .map((value) => value.toString())
+                .toList();
+
+            if (rows.isEmpty) {
+              // Say why rather than showing an empty box that could equally
+              // mean "none" or "failed".
+              final reason = data['reason']?.toString();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  header,
+                  const SizedBox(height: 24),
+                  Text(
+                    reason == null || reason.isEmpty
+                        ? 'Nothing to show for this window.'
+                        : 'No records available ($reason).',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                header,
+                if (data['description'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text(
+                      data['description'].toString(),
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  child: ListView.separated(
+                    controller: controller,
+                    itemCount: rows.length,
+                    separatorBuilder: (_, _) =>
+                        const Divider(color: AppColors.border, height: 14),
+                    itemBuilder: (context, index) {
+                      final row = rows[index];
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final column in columns)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: 96,
+                                    child: Text(
+                                      _label(column),
+                                      style: const TextStyle(
+                                        color: AppColors.textMuted,
+                                        fontSize: 9,
+                                        letterSpacing: .6,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      _value(row[column]),
+                                      style: const TextStyle(
+                                        color: AppColors.silver,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                if (data['truncated'] == true)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Showing the most recent ${rows.length}. '
+                      'The tile count is the true total.',
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
 }
