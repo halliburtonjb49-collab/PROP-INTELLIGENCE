@@ -29,11 +29,11 @@ jobs:
           else
             echo "EXPECTED_PRODUCTION_VERSION=$GITHUB_SHA" >> "$GITHUB_ENV"
           fi
-      - name: Run blocking production smoke tests
-        env:
-          PRODUCTION_DEPLOY_WAIT_SECONDS: "600"
-          PRODUCTION_FEED_WARMUP_SECONDS: "300"
-        run: python tools/post_deploy_smoke.py
+      # This must run before the smoke check, not after. Waiting ten minutes
+      # for a deployment that has not been requested yet fails the job at the
+      # wait step, so the trigger below never runs and the drift never heals.
+      # It is unconditional so that a service which has fallen behind main
+      # catches up on the next push rather than staying behind indefinitely.
       - name: Trigger Render deployment
         run: |
           RENDER_DEPLOY_HOOK_URL="${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
@@ -43,5 +43,10 @@ jobs:
           fi
           echo "Triggering Render deployment for main..."
           curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
+      - name: Run blocking production smoke tests
+        env:
+          PRODUCTION_DEPLOY_WAIT_SECONDS: "900"
+          PRODUCTION_FEED_WARMUP_SECONDS: "300"
+        run: python tools/post_deploy_smoke.py
       - name: Deployment summary
         run: echo "Production deployment passed all smoke checks."
