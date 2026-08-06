@@ -27,6 +27,7 @@ import requests
 from config import HTTP_TIMEOUT_SECONDS
 
 _WEB_BASE = "https://api-web.nhle.com/v1"
+_STATS_BASE = "https://api.nhle.com/stats/rest/en"
 
 # Game states the schedule uses for a finished game. "OFF" is the final state
 # once the box score is official; "FINAL" appears briefly before it.
@@ -243,11 +244,51 @@ class NhlOfficialStatisticsProvider:
             if game.game_date == target_date.isoformat()
         ]
 
+    def shift_rows(self, game_id: str) -> list[dict[str, object]]:
+        payload = self._json(
+            f"{_STATS_BASE}/shiftcharts?cayenneExp=gameId={game_id}"
+        )
+        data = payload.get("data")
+        return [row for row in data if isinstance(row, dict)] if isinstance(data, list) else []
+
+    def _with_strength_split(
+        self,
+        rows: list[dict[str, object]],
+        *,
+        game_id: str,
+    ) -> list[dict[str, object]]:
+        """Add strength-state ice time, leaving the totals alone if it fails.
+
+        The split is an enrichment. A shift feed that is missing or malformed
+        costs the split for that game and nothing else.
+        """
+
+        from services.nhl_strength_state_service import (
+            ice_time_by_strength,
+            parse_shifts,
+            strength_stats,
+        )
+
+        goalie_ids = frozenset(
+            str(row["player_id"]) for row in rows if "saves" in row["stats"]
+        )
+        try:
+            shifts = parse_shifts(self.shift_rows(game_id))
+            split = ice_time_by_strength(shifts, goalie_ids=goalie_ids)
+        except Exception:
+            return rows
+        for row in rows:
+            ice_time = split.get(str(row["player_id"]))
+            if ice_time is not None:
+                row["stats"].update(strength_stats(ice_time))
+        return rows
+
     def daily_game_logs(
         self,
         *,
         target_date: date,
         include_postseason: bool = True,
+        include_strength_split: bool = True,
     ) -> list[dict[str, object]]:
         rows: list[dict[str, object]] = []
         for game in self.completed_games(target_date):
@@ -256,13 +297,16 @@ class NhlOfficialStatisticsProvider:
             payload = self._json(
                 f"{_WEB_BASE}/gamecenter/{game.game_id}/boxscore"
             )
-            rows.extend(
-                parse_boxscore(
-                    payload,
-                    game_id=game.game_id,
-                    game_date=game.game_date,
-                )
+            game_rows = parse_boxscore(
+                payload,
+                game_id=game.game_id,
+                game_date=game.game_date,
             )
+            if include_strength_split and game_rows:
+                game_rows = self._with_strength_split(
+                    game_rows, game_id=game.game_id
+                )
+            rows.extend(game_rows)
         return rows
 
 
