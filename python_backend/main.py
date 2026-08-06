@@ -146,7 +146,7 @@ from services.prop_builder_strategy_service import (
 	get_prop_builder_strategy,
 )
 from services.score_service import fetch_scores
-from services.odds_service import fetch_events, quota_snapshot
+from services.odds_service import bookmaker_coverage, fetch_events, quota_snapshot
 from providers.sportsgameodds import usage_snapshot as sportsgameodds_usage
 from services.game_market_service import get_game_markets, game_market_health
 from services.slip_service import (
@@ -1915,6 +1915,10 @@ def prop_feed_health() -> dict[str, object]:
 		# panel is the thing failing to load. Counts only, no connection
 		# details.
 		"jobQueue": _job_queue_summary(),
+		# Which bookmakers the provider has actually returned, against those
+		# requested. A key that is asked for and never seen is the difference
+		# between a book with no props today and one the plan does not cover.
+		"bookmakerCoverage": bookmaker_coverage(),
 		**metrics,
 	}
 

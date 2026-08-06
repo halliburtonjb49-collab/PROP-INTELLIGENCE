@@ -13,6 +13,7 @@ from config import (
     ODDS_REGIONS,
     ODDS_API_LOW_QUOTA_THRESHOLD,
     ODDS_API_QUOTA_RESERVE,
+    PREFERRED_BOOKMAKERS,
     PREFERRED_BOOKMAKERS_CSV,
 )
 
@@ -182,6 +183,7 @@ def fetch_event_odds(
     payload = response.json()
 
     if isinstance(payload, dict):
+        record_bookmakers(payload)
         return payload
     return {"bookmakers": []}
 
@@ -206,5 +208,54 @@ def fetch_game_odds(
     response.raise_for_status()
     payload = response.json()
     if isinstance(payload, list):
-        return [event for event in payload if isinstance(event, dict)]
+        events = [event for event in payload if isinstance(event, dict)]
+        record_bookmakers(events)
+        return events
     return []
+
+
+# Which bookmakers the provider actually returned, and when each was last
+# seen. Requesting a bookmaker key and receiving nothing is silent: the API
+# omits unknown or uncovered books without comment, so the only way to tell
+# "this book has no props right now" from "this book is not on our plan" is to
+# record what came back.
+_bookmakers_seen: dict[str, dict[str, object]] = {}
+_bookmakers_lock = Lock()
+
+
+def record_bookmakers(events: object) -> None:
+    """Note every bookmaker key present in a provider response."""
+
+    rows = events if isinstance(events, list) else [events]
+    now = datetime.now(timezone.utc).isoformat()
+    with _bookmakers_lock:
+        for event in rows:
+            if not isinstance(event, dict):
+                continue
+            for bookmaker in event.get("bookmakers") or []:
+                if not isinstance(bookmaker, dict):
+                    continue
+                key = str(bookmaker.get("key") or "").strip().lower()
+                if not key:
+                    continue
+                entry = _bookmakers_seen.setdefault(
+                    key,
+                    {"title": bookmaker.get("title"), "events": 0, "lastSeenAt": None},
+                )
+                entry["events"] = int(entry.get("events") or 0) + 1
+                entry["lastSeenAt"] = now
+
+
+def bookmaker_coverage() -> dict[str, object]:
+    """Requested bookmakers against those actually seen in responses."""
+
+    with _bookmakers_lock:
+        seen = {key: dict(value) for key, value in _bookmakers_seen.items()}
+    requested = list(PREFERRED_BOOKMAKERS)
+    return {
+        "requested": requested,
+        "seen": seen,
+        # The answer to "why is this book empty": it was asked for and the
+        # provider has never once returned it.
+        "requestedButNeverSeen": [key for key in requested if key not in seen],
+    }
