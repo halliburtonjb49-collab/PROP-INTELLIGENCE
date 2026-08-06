@@ -134,6 +134,14 @@ def _owner_for_alert(alert_type: str) -> str:
 
 
 def _ensure_controls_table() -> None:
+    """Create the controls table only if a migration has not already.
+
+    Creating it here without row level security is what failed the pre-deploy
+    guard and blocked every deployment, so the protections are applied in the
+    same statement block. Both are idempotent, and the canonical definition
+    lives in supabase_owner_runtime_controls.sql.
+    """
+
     with get_database_pool().connection() as connection, connection.cursor() as cursor:
         cursor.execute(
             """create table if not exists owner_runtime_controls (
@@ -141,6 +149,25 @@ def _ensure_controls_table() -> None:
                 value jsonb not null,
                 updated_at timestamptz not null default now()
             )"""
+        )
+        cursor.execute(
+            "alter table owner_runtime_controls enable row level security"
+        )
+        cursor.execute(
+            "alter table owner_runtime_controls force row level security"
+        )
+        # Supabase grants new public tables to anon/authenticated by default.
+        # Guarded because those roles do not exist on a plain Postgres.
+        cursor.execute(
+            """do $$
+            begin
+                if exists (select 1 from pg_roles where rolname = 'anon') then
+                    revoke all on owner_runtime_controls from anon;
+                end if;
+                if exists (select 1 from pg_roles where rolname = 'authenticated') then
+                    revoke all on owner_runtime_controls from authenticated;
+                end if;
+            end $$"""
         )
         connection.commit()
 
