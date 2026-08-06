@@ -1,8 +1,10 @@
+from math import exp
 from random import Random
 
 import pytest
 
 from services.prop_probability_service import (
+    _zero_inflated_parameters,
     blend_with_sharp_market,
     distribution_for_market,
     evaluate_market,
@@ -11,8 +13,10 @@ from services.prop_probability_service import (
     choose_over_under,
     outcome_from_quantile,
     power_method_devig,
+    projection_interval,
     prop_probabilities,
     shin_method_devig,
+    student_t_cdf,
 )
 
 
@@ -205,3 +209,180 @@ def test_selector_requires_positive_actionable_value_when_odds_exist() -> None:
     )
     assert decision.side == "N/A"
     assert decision.reason == "expected_value_below_threshold"
+
+
+def test_worked_example_matches_the_normal_reference_probability() -> None:
+    # Projection 25.4, line 23.5, sigma 6.2 -> z = -0.306 -> P(Over) ~ 62%.
+    result = prop_probabilities(
+        projection=25.4,
+        line=23.5,
+        volatility=6.2,
+        sport="NBA",
+        market="Player Points",
+        sample_size=30,
+    )
+    assert result.distribution == "normal"
+    assert result.over == pytest.approx(.62, abs=.01)
+    assert result.under == pytest.approx(.38, abs=.01)
+
+
+def test_thin_sample_continuous_market_uses_fat_tailed_student_t() -> None:
+    assert (
+        distribution_for_market(
+            "NBA", "Player Points", mean=25, variance=38, sample_size=9
+        )
+        == "student-t"
+    )
+    thin = prop_probabilities(
+        projection=25.4, line=23.5, volatility=6.2,
+        sport="NBA", market="Player Points", sample_size=9,
+    )
+    deep = prop_probabilities(
+        projection=25.4, line=23.5, volatility=6.2,
+        sport="NBA", market="Player Points", sample_size=30,
+    )
+    # Fatter tails move probability away from the favoured side, not toward it.
+    assert .5 < thin.over < deep.over
+
+
+def test_student_t_cdf_matches_known_reference_points() -> None:
+    assert student_t_cdf(0, 10) == pytest.approx(.5, abs=1e-9)
+    assert student_t_cdf(1.812, 10) == pytest.approx(.95, abs=1e-3)
+    assert student_t_cdf(-1.812, 10) == pytest.approx(.05, abs=1e-3)
+    assert student_t_cdf(2.228, 10) == pytest.approx(.975, abs=1e-3)
+
+
+def test_yardage_uses_log_normal_and_keeps_the_right_tail() -> None:
+    assert (
+        distribution_for_market(
+            "NFL", "Player Receiving Yards", mean=62, variance=900, sample_size=25
+        )
+        == "log-normal"
+    )
+    result = prop_probabilities(
+        projection=62, line=62, volatility=30,
+        sport="NFL", market="Player Receiving Yards", sample_size=25,
+    )
+    # Right skew puts the median below the mean, so a line at the mean is an
+    # under, unlike the symmetric case where it would be exactly even.
+    assert result.over < .5
+    assert result.over + result.under == pytest.approx(1, abs=1e-5)
+
+
+def test_excess_zeros_route_to_zero_inflated_poisson() -> None:
+    assert (
+        distribution_for_market(
+            "NFL", "Player Touchdowns", mean=.6, variance=.9, zero_rate=.75
+        )
+        == "zero-inflated-poisson"
+    )
+    # A plain Poisson at this mean implies far fewer blanks than observed.
+    assert (
+        distribution_for_market(
+            "NFL", "Player Touchdowns", mean=.6, variance=.9, zero_rate=.55
+        )
+        != "zero-inflated-poisson"
+    )
+
+
+def test_zero_inflation_lowers_the_over_relative_to_plain_poisson() -> None:
+    inflated = prop_probabilities(
+        projection=.6, line=.5, volatility=.95,
+        sport="NFL", market="Player Touchdowns", zero_rate=.75,
+    )
+    plain = prop_probabilities(
+        projection=.6, line=.5, volatility=.7,
+        sport="NFL", market="Player Touchdowns",
+    )
+    assert inflated.distribution == "zero-inflated-poisson"
+    assert inflated.over < plain.over
+    assert inflated.over + inflated.under == pytest.approx(1, abs=1e-5)
+
+
+def test_zero_inflated_parameters_reproduce_the_observed_zero_rate() -> None:
+    inflation, rate = _zero_inflated_parameters(.6, .75)
+    assert 0 < inflation < 1
+    assert (1 - inflation) * rate == pytest.approx(.6, abs=1e-6)
+    assert inflation + (1 - inflation) * exp(-rate) == pytest.approx(.75, abs=1e-6)
+
+
+def test_projection_interval_brackets_the_projection() -> None:
+    low, high = projection_interval(
+        projection=25.4, volatility=6.2, distribution="normal",
+    )
+    assert low < 25.4 < high
+    tighter, _ = projection_interval(
+        projection=25.4, volatility=2.0, distribution="normal",
+    )
+    assert tighter > low
+
+
+def test_interval_covers_every_supported_distribution() -> None:
+    for distribution in (
+        "normal",
+        "student-t",
+        "log-normal",
+        "poisson",
+        "negative-binomial",
+        "zero-inflated-poisson",
+    ):
+        low, high = projection_interval(
+            projection=6.0,
+            volatility=2.5,
+            distribution=distribution,
+            sample_size=10,
+            zero_rate=.2,
+        )
+        assert 0 <= low <= high, distribution
+
+
+def test_evaluation_reports_both_sides_and_the_interval() -> None:
+    evaluation = evaluate_market(
+        projection=25.4,
+        line=23.5,
+        volatility=6.2,
+        sport="NBA",
+        market="Player Points",
+        side="OVER",
+        sample_size=30,
+        model_calibrated=False,
+        empirical_hit_rate=None,
+        sharp_probability=None,
+        decimal_odds=None,
+    )
+    assert evaluation.over_probability == pytest.approx(.62, abs=.01)
+    assert evaluation.under_probability == pytest.approx(.38, abs=.01)
+    assert evaluation.interval_low < 25.4 < evaluation.interval_high
+
+
+def test_scoring_markets_stay_counts_despite_a_continuous_token() -> None:
+    # "Passing touchdowns" names both a continuous and a counting concept. At
+    # a mean under one it is a count, and a normal would misprice the 0.5 line.
+    assert (
+        distribution_for_market(
+            "NFL", "Passing Touchdowns", mean=1.8, variance=1.9, sample_size=25
+        )
+        == "poisson"
+    )
+    assert (
+        distribution_for_market(
+            "NFL", "Rushing Touchdowns", mean=.6, variance=.7, sample_size=25
+        )
+        == "poisson"
+    )
+    # Yardage under the same tokens remains continuous.
+    assert (
+        distribution_for_market(
+            "NFL", "Passing Yards", mean=268, variance=1225, sample_size=25
+        )
+        == "log-normal"
+    )
+
+
+def test_combination_markets_are_not_demoted_to_counts_by_a_token_match() -> None:
+    assert (
+        distribution_for_market(
+            "NBA", "Points Rebounds Assists", mean=41, variance=64, sample_size=30
+        )
+        == "normal"
+    )

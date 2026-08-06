@@ -64,7 +64,9 @@ def test_monte_carlo_is_reproducible_and_prices_props() -> None:
     second = simulate_game_script(request)
     assert first == second
     assert first["method"] == "correlated-distribution-copula-monte-carlo"
-    assert all(impact["distribution"] == "normal" for impact in first["impacts"])
+    # Yardage is right-skewed and cannot go negative, so both legs price on a
+    # log-normal rather than a symmetric distribution.
+    assert all(impact["distribution"] == "log-normal" for impact in first["impacts"])
     assert 0 < first["portfolioHitProbability"] < 1
     assert all(0 < impact["hitProbability"] < 1 for impact in first["impacts"])
 

@@ -45,6 +45,10 @@ class MarketEvaluation:
     uncertainty: float
     calibration_adjustment: float
     recommended_stake_fraction: float
+    over_probability: float = 0.0
+    under_probability: float = 0.0
+    interval_low: float = 0.0
+    interval_high: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -135,37 +139,79 @@ def fractional_kelly_stake(
     return round(max(0.0, min(1.0, full_kelly * min(1.0, fraction))), 6)
 
 
+# A projection is only half the story; the distribution around it decides the
+# probability. Counting markets are discrete and overdispersed, yardage is
+# right-skewed and non-negative, and a thin sample has fatter tails than a
+# normal admits. Each shape below exists because one of those is true.
+
+# Below this many games the tails are wider than a normal describes, so
+# continuous markets use Student-t with the sample's degrees of freedom.
+_THIN_CONTINUOUS_SAMPLE = 15
+_MINIMUM_T_DEGREES_OF_FREEDOM = 3
+
+# Below this mean, a market that names a countable event is a count no matter
+# what other tokens its name carries.
+_COUNT_MEAN_CEILING = 10.0
+
+_COUNT_TOKENS = (
+    "strikeout",
+    "home run",
+    "touchdown",
+    "goal",
+    "hit",
+    "shot",
+    "save",
+    "steal",
+    "block",
+    "assist",
+    "rebound",
+    "reception",
+    "tackle",
+    "wicket",
+    "walk",
+    "double fault",
+    "ace",
+)
+
+# Yardage accumulates over a variable number of plays and cannot go negative,
+# which leaves a right tail a symmetric distribution understates.
+_SKEWED_CONTINUOUS_TOKENS = ("yard", "rushing", "receiving")
+
+_CONTINUOUS_TOKENS = _SKEWED_CONTINUOUS_TOKENS + ("passing", "points rebounds")
+
+
 def distribution_for_market(
     sport: str,
     market: str,
     *,
     mean: float,
     variance: float,
+    sample_size: int = 0,
+    zero_rate: float | None = None,
 ) -> str:
     text = f"{sport} {market}".lower().replace("_", " ")
-    low_count = any(
-        token in text
-        for token in (
-            "strikeout",
-            "home run",
-            "touchdown",
-            "goal",
-            "hit",
-            "shot",
-            "steal",
-            "block",
-            "assist",
-            "rebound",
-        )
-    )
-    continuous_or_compound = any(
-        token in text
-        for token in ("yard", "passing", "rushing", "receiving", "points rebounds")
-    )
-    if continuous_or_compound or ("point" in text and mean >= 10):
+    low_count = any(token in text for token in _COUNT_TOKENS)
+    continuous = any(token in text for token in _CONTINUOUS_TOKENS)
+    # "Passing touchdowns" and "rushing touchdowns" match a continuous token
+    # and a counting one. At these means they are counts: a normal would put
+    # real mass below zero and none on the exact integers that decide the bet.
+    if low_count and mean < _COUNT_MEAN_CEILING:
+        continuous = False
+    if continuous or ("point" in text and mean >= 10):
+        if 0 < sample_size < _THIN_CONTINUOUS_SAMPLE:
+            return "student-t"
+        if any(token in text for token in _SKEWED_CONTINUOUS_TOKENS) and mean > 0:
+            return "log-normal"
         return "normal"
     if low_count:
-        return "negative-binomial" if variance > max(mean * 1.15, mean + 0.25) else "poisson"
+        # Excess zeros beyond what the mean implies mean two processes are at
+        # work — whether the player gets a chance at all, and how often they
+        # convert. One Poisson rate cannot describe both.
+        if zero_rate is not None and mean > 0 and zero_rate > exp(-mean) + 0.10:
+            return "zero-inflated-poisson"
+        if variance > max(mean * 1.15, mean + 0.25):
+            return "negative-binomial"
+        return "poisson"
     return "normal"
 
 
@@ -206,6 +252,114 @@ def _negative_binomial_cdf(k: int, mean: float, variance: float) -> float:
     return min(1.0, total)
 
 
+def _regularized_incomplete_beta(a: float, b: float, x: float) -> float:
+    """I_x(a, b) via the Lentz continued fraction, avoiding a SciPy dependency."""
+
+    if x <= 0:
+        return 0.0
+    if x >= 1:
+        return 1.0
+    # The fraction converges quickly only on the near side of the mode; the
+    # symmetry I_x(a,b) = 1 - I_{1-x}(b,a) covers the other.
+    if x > (a + 1) / (a + b + 2):
+        return 1.0 - _regularized_incomplete_beta(b, a, 1 - x)
+
+    front = exp(
+        lgamma(a + b) - lgamma(a) - lgamma(b) + a * log(x) + b * log(1 - x)
+    )
+    tiny = 1e-30
+    c = 1.0
+    d = 1.0 - (a + b) * x / (a + 1)
+    d = tiny if abs(d) < tiny else d
+    d = 1.0 / d
+    result = d
+    for m in range(1, 300):
+        m2 = 2 * m
+        for numerator in (
+            m * (b - m) * x / ((a + m2 - 1) * (a + m2)),
+            -(a + m) * (a + b + m) * x / ((a + m2) * (a + m2 + 1)),
+        ):
+            d = 1.0 + numerator * d
+            d = tiny if abs(d) < tiny else d
+            c = 1.0 + numerator / c
+            c = tiny if abs(c) < tiny else c
+            d = 1.0 / d
+            result *= c * d
+        if abs(c * d - 1.0) < 1e-14:
+            break
+    return front * result / a
+
+
+def student_t_cdf(t: float, degrees_of_freedom: float) -> float:
+    """P(T <= t) for Student's t with the given degrees of freedom."""
+
+    df = max(1.0, float(degrees_of_freedom))
+    tail = 0.5 * _regularized_incomplete_beta(df / 2, 0.5, df / (df + t * t))
+    return 1.0 - tail if t > 0 else tail
+
+
+def _student_t_over(mean: float, sigma: float, line: float, df: float) -> float:
+    if sigma <= 0:
+        return 1.0 if mean > line else 0.0
+    return 1.0 - student_t_cdf((line - mean) / sigma, df)
+
+
+def _log_normal_parameters(mean: float, variance: float) -> tuple[float, float]:
+    """Underlying normal mu and sigma that reproduce this mean and variance."""
+
+    safe_mean = max(mean, 1e-9)
+    sigma_squared = log(1.0 + (variance / (safe_mean * safe_mean)))
+    return log(safe_mean) - (sigma_squared / 2), sqrt(max(sigma_squared, 1e-12))
+
+
+def _log_normal_over(mean: float, variance: float, line: float) -> float:
+    if line <= 0:
+        return 1.0
+    mu, sigma = _log_normal_parameters(mean, variance)
+    return 1.0 - NormalDist(mu, sigma).cdf(log(line))
+
+
+def _zero_inflated_parameters(mean: float, zero_rate: float) -> tuple[float, float]:
+    """Inflation share and Poisson rate matching an observed zero frequency.
+
+    The pair must satisfy mean = (1 - pi) * lam and zero_rate = pi + (1 - pi)
+    * exp(-lam). Both are monotone in pi, so bisection is stable.
+    """
+
+    observed_zero = max(0.0, min(0.999, float(zero_rate)))
+    if mean <= 0 or observed_zero <= exp(-mean):
+        return 0.0, max(mean, 0.0)
+
+    def zero_probability(inflation: float) -> float:
+        rate = mean / max(1e-9, 1 - inflation)
+        return inflation + (1 - inflation) * exp(-rate)
+
+    low, high = 0.0, 0.999
+    for _ in range(80):
+        midpoint = (low + high) / 2
+        if zero_probability(midpoint) < observed_zero:
+            low = midpoint
+        else:
+            high = midpoint
+    inflation = (low + high) / 2
+    return inflation, mean / max(1e-9, 1 - inflation)
+
+
+def _zero_inflated_poisson_cdf(k: int, mean: float, zero_rate: float) -> float:
+    if k < 0:
+        return 0.0
+    inflation, rate = _zero_inflated_parameters(mean, zero_rate)
+    return min(1.0, inflation + (1 - inflation) * _poisson_cdf(k, rate))
+
+
+def _zero_inflated_poisson_pmf(k: int, mean: float, zero_rate: float) -> float:
+    if k < 0:
+        return 0.0
+    inflation, rate = _zero_inflated_parameters(mean, zero_rate)
+    poisson = _poisson_pmf(k, rate)
+    return (inflation + (1 - inflation) * poisson) if k == 0 else (1 - inflation) * poisson
+
+
 def _negative_binomial_pmf(k: int, mean: float, variance: float) -> float:
     if k < 0:
         return 0.0
@@ -230,11 +384,18 @@ def prop_probabilities(
     volatility: float,
     sport: str,
     market: str,
+    sample_size: int = 0,
+    zero_rate: float | None = None,
 ) -> ProbabilityResult:
     mean = max(0.0, float(projection))
     variance = max(1e-6, float(volatility) ** 2)
     distribution = distribution_for_market(
-        sport, market, mean=mean, variance=variance
+        sport,
+        market,
+        mean=mean,
+        variance=variance,
+        sample_size=sample_size,
+        zero_rate=zero_rate,
     )
     integer_line = isclose(line, round(line), abs_tol=1e-9)
     boundary = floor(line)
@@ -253,6 +414,31 @@ def prop_probabilities(
         )
         under = below_or_equal - push if integer_line else below_or_equal
         over = 1.0 - below_or_equal
+    elif distribution == "zero-inflated-poisson":
+        observed_zero = float(zero_rate or 0.0)
+        below_or_equal = _zero_inflated_poisson_cdf(boundary, mean, observed_zero)
+        push = (
+            _zero_inflated_poisson_pmf(boundary, mean, observed_zero)
+            if integer_line
+            else 0.0
+        )
+        under = below_or_equal - push if integer_line else below_or_equal
+        over = 1.0 - below_or_equal
+    elif distribution == "log-normal":
+        over = _log_normal_over(mean, variance, line)
+        under = 1.0 - over
+        push = 0.0
+    elif distribution == "student-t":
+        sigma = sqrt(variance)
+        degrees_of_freedom = max(
+            _MINIMUM_T_DEGREES_OF_FREEDOM, float(sample_size) - 1
+        )
+        correction = 0.5 if integer_line else 0.0
+        over = _student_t_over(mean, sigma, line + correction, degrees_of_freedom)
+        under = student_t_cdf(
+            (line - correction - mean) / sigma, degrees_of_freedom
+        )
+        push = max(0.0, 1.0 - over - under) if integer_line else 0.0
     else:
         sigma = sqrt(variance)
         # A continuity correction better approximates integer counting outcomes.
@@ -268,6 +454,43 @@ def prop_probabilities(
         distribution=distribution,
         variance=round(variance, 6),
     )
+
+
+def projection_interval(
+    *,
+    projection: float,
+    volatility: float,
+    distribution: str,
+    coverage: float = 0.80,
+    sample_size: int = 0,
+    zero_rate: float | None = None,
+) -> tuple[float, float]:
+    """Central interval from the same distribution that produced the odds.
+
+    A projection without a range invites false precision: 25.4 against a line
+    of 23.5 reads very differently when the interval is 24-27 than when it is
+    12-39.
+    """
+
+    share = max(0.0, min(0.99, float(coverage)))
+    tail = (1.0 - share) / 2
+    low = outcome_from_quantile(
+        tail,
+        projection=projection,
+        volatility=volatility,
+        distribution=distribution,
+        sample_size=sample_size,
+        zero_rate=zero_rate,
+    )
+    high = outcome_from_quantile(
+        1 - tail,
+        projection=projection,
+        volatility=volatility,
+        distribution=distribution,
+        sample_size=sample_size,
+        zero_rate=zero_rate,
+    )
+    return round(min(low, high), 2), round(max(low, high), 2)
 
 
 def blend_with_sharp_market(
@@ -326,6 +549,7 @@ def evaluate_market(
     sharp_probability: float | None,
     decimal_odds: float | None,
     calibration_adjustment: float = 0.0,
+    zero_rate: float | None = None,
 ) -> MarketEvaluation:
     probabilities = prop_probabilities(
         projection=projection,
@@ -333,6 +557,8 @@ def evaluate_market(
         volatility=volatility,
         sport=sport,
         market=market,
+        sample_size=sample_size,
+        zero_rate=zero_rate,
     )
     raw = probabilities.probability_for(side)
     reliability = max(0.0, min(1.0, sample_size / (sample_size + 20.0)))
@@ -367,6 +593,13 @@ def evaluate_market(
     )
     loss = max(0.0, 1.0 - fair - probabilities.push)
     uncertainty = sqrt(max(0.0, fair * (1 - fair)) / max(1, sample_size))
+    interval_low, interval_high = projection_interval(
+        projection=projection,
+        volatility=volatility,
+        distribution=probabilities.distribution,
+        sample_size=sample_size,
+        zero_rate=zero_rate,
+    )
     return MarketEvaluation(
         model_probability=round(model_probability, 6),
         fair_probability=fair,
@@ -394,6 +627,10 @@ def evaluate_market(
             if decimal_odds is not None
             else 0.0
         ),
+        over_probability=probabilities.over,
+        under_probability=probabilities.under,
+        interval_low=interval_low,
+        interval_high=interval_high,
     )
 
 
@@ -453,6 +690,16 @@ def sample_prop_outcome(
     variance = max(1e-6, volatility * volatility)
     if distribution == "normal":
         return max(0.0, random.gauss(mean, sqrt(variance)))
+    if distribution == "log-normal":
+        mu, sigma = _log_normal_parameters(mean, variance)
+        return max(0.0, exp(random.gauss(mu, sigma)))
+    if distribution == "student-t":
+        # A t draw is a normal scaled by an independent chi-square, which
+        # random.gammavariate supplies without a SciPy dependency.
+        df = max(_MINIMUM_T_DEGREES_OF_FREEDOM, 8.0)
+        chi_square = 2.0 * random.gammavariate(df / 2, 1.0)
+        scaled = random.gauss(0.0, 1.0) / sqrt(chi_square / df)
+        return max(0.0, mean + sqrt(variance) * scaled)
     poisson_mean = mean
     if distribution == "negative-binomial" and variance > mean:
         shape = mean * mean / (variance - mean)
@@ -475,14 +722,43 @@ def outcome_from_quantile(
     projection: float,
     volatility: float,
     distribution: str,
+    sample_size: int = 0,
+    zero_rate: float | None = None,
 ) -> float:
     target = max(1e-9, min(1 - 1e-9, quantile))
     mean = max(0.0, projection)
     variance = max(1e-6, volatility * volatility)
     if distribution == "normal":
         return max(0.0, NormalDist(mean, sqrt(variance)).inv_cdf(target))
+    if distribution == "log-normal":
+        mu, sigma = _log_normal_parameters(mean, variance)
+        return max(0.0, exp(mu + sigma * NormalDist().inv_cdf(target)))
+    if distribution == "student-t":
+        degrees_of_freedom = max(
+            _MINIMUM_T_DEGREES_OF_FREEDOM, float(sample_size) - 1
+        )
+        low, high = -60.0, 60.0
+        for _ in range(200):
+            midpoint = (low + high) / 2
+            if student_t_cdf(midpoint, degrees_of_freedom) < target:
+                low = midpoint
+            else:
+                high = midpoint
+        return max(0.0, mean + sqrt(variance) * ((low + high) / 2))
     cumulative = 0.0
     value = 0
+    if distribution == "zero-inflated-poisson":
+        inflation, rate = _zero_inflated_parameters(mean, float(zero_rate or 0.0))
+        probability = inflation + (1 - inflation) * exp(-rate)
+        poisson = exp(-rate)
+        while value < 500:
+            cumulative += probability
+            if cumulative >= target:
+                return float(value)
+            value += 1
+            poisson *= rate / value
+            probability = (1 - inflation) * poisson
+        return float(value)
     if distribution == "negative-binomial" and variance > mean:
         safe_variance = max(variance, mean + 1e-6)
         shape = mean * mean / (safe_variance - mean)

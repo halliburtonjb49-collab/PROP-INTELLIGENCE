@@ -93,6 +93,15 @@ class PropResponse(BaseModel):
     isPositiveEv: bool = False
     modelProbability: float | None = None
     marketProbability: float | None = None
+    # Both sides of the modeled distribution, so a card can show the full
+    # picture rather than only the recommended side's probability.
+    modelOverProbability: float | None = None
+    modelUnderProbability: float | None = None
+    # Central interval of the modeled outcome, from the same distribution that
+    # produced the probabilities above.
+    projectionIntervalLow: float | None = None
+    projectionIntervalHigh: float | None = None
+    projectionIntervalCoverage: float = 0.80
     pushProbability: float = 0.0
     lossProbability: float | None = None
     fairDecimalOdds: float | None = None

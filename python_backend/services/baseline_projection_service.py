@@ -168,6 +168,10 @@ def compute_baseline_projection(
         empirical_hit_rate=historical_hit_rate / 100,
         sharp_probability=None,
         decimal_odds=None,
+        # The observed share of blanked games is what distinguishes a player
+        # who scores steadily from one who is shut out half the time and
+        # compensates when they do produce.
+        zero_rate=sum(1 for value in ordered if value <= 0) / len(ordered),
     )
     hit_probability = evaluation.model_probability
     return BaselineProjection(
