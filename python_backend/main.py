@@ -108,7 +108,10 @@ from services.sportmonks_headshot_service import (
 	refresh_sportmonks_headshot_map,
 	sportmonks_headshot_cache_health,
 )
-from services.historical_ingestion_service import run_soccer_historical_backfill
+from services.historical_ingestion_service import (
+	run_gridiron_ice_backfill,
+	run_soccer_historical_backfill,
+)
 from services.sportsdataio_golf_service import refresh_golf_roster_map
 from services.prop_builder_service import (
 	build_prop_slip,
@@ -3773,6 +3776,7 @@ _mlb_headshot_job = _BackgroundJob()
 _espn_headshot_job = _BackgroundJob()
 _sportmonks_headshot_job = _BackgroundJob()
 _sportmonks_history_job = _BackgroundJob()
+_gridiron_ice_history_job = _BackgroundJob()
 _golf_roster_job = _BackgroundJob()
 
 
@@ -3824,6 +3828,27 @@ def refresh_sportmonks_history(
 		background_tasks,
 		lambda: run_soccer_historical_backfill(days=365),
 	)
+
+
+@app.post("/api/admin/refresh-gridiron-ice-history")
+def refresh_gridiron_ice_history(
+	background_tasks: BackgroundTasks,
+	days: int = 7,
+	_admin: str = Depends(require_admin),
+) -> dict[str, object]:
+	"""Ingest recent NFL and NHL box scores into the player game logs."""
+	window = max(1, min(60, int(days)))
+	return _gridiron_ice_history_job.start(
+		background_tasks,
+		lambda: run_gridiron_ice_backfill(days=window),
+	)
+
+
+@app.get("/api/admin/refresh-gridiron-ice-history/status")
+def refresh_gridiron_ice_history_status(
+	_admin: str = Depends(require_admin),
+) -> dict[str, object]:
+	return _gridiron_ice_history_job.snapshot()
 
 
 @app.get("/api/admin/refresh-sportmonks-history/status")

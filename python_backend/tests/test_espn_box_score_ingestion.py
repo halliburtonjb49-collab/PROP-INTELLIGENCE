@@ -221,3 +221,65 @@ def test_normalizer_rejects_rows_missing_identity_or_stats() -> None:
             "player_name": "X", "stats": {}, "game_date": "2026-09-13",
         },
     ]) == []
+
+
+def test_backfill_isolates_a_failing_day_from_the_rest(monkeypatch) -> None:
+    from datetime import date as _date
+    from services import historical_ingestion_service as service
+
+    attempted: list[tuple[str, _date]] = []
+
+    class _Provider:
+        def daily_game_logs(self, *, sport, target_date):
+            attempted.append((sport, target_date))
+            if target_date.day % 2 == 0:
+                raise RuntimeError("provider outage")
+            return [{
+                "sport": sport, "event_id": f"e{target_date.day}",
+                "player_id": "1", "player_name": "Player",
+                "team_id": "9", "game_date": target_date.isoformat(),
+                "stats": {"targets": 5}, "source": "ESPN",
+            }]
+
+    stored: list[int] = []
+
+    class _Repository:
+        def upsert_player_game_logs(self, rows):
+            stored.append(len(rows))
+            return len(rows)
+
+    monkeypatch.setattr(service, "EspnBoxScoreStatisticsProvider", _Provider)
+    monkeypatch.setattr(service, "HistoricalRepository", _Repository)
+
+    result = service.run_gridiron_ice_backfill(
+        days=4, sports=("NFL",), target_date=_date(2026, 9, 13),
+    )
+
+    # Four days attempted; the two that raised are recorded, not fatal.
+    assert len(attempted) == 4
+    assert len(result["NFL"]["failedDays"]) == 2
+    assert result["NFL"]["stored"] == 2
+    assert result["endDate"] == "2026-09-13"
+
+
+def test_backfill_reports_each_sport_separately(monkeypatch) -> None:
+    from services import historical_ingestion_service as service
+
+    class _Provider:
+        def daily_game_logs(self, *, sport, target_date):
+            if sport == "NHL":
+                raise RuntimeError("league outage")
+            return []
+
+    monkeypatch.setattr(service, "EspnBoxScoreStatisticsProvider", _Provider)
+    monkeypatch.setattr(
+        service, "HistoricalRepository", lambda: type(
+            "R", (), {"upsert_player_game_logs": lambda self, rows: len(rows)}
+        )(),
+    )
+
+    result = service.run_gridiron_ice_backfill(days=2)
+
+    # One league failing must not hide or block the other.
+    assert result["NFL"]["failedDays"] == []
+    assert len(result["NHL"]["failedDays"]) == 2

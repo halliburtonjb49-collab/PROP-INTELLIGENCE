@@ -19,6 +19,7 @@ from providers.historical_data import MlbHistoricalProvider, NbaHistoricalProvid
 from providers.espn_basketball_statistics import (
     EspnBasketballStatisticsProvider,
 )
+from providers.espn_box_score_statistics import EspnBoxScoreStatisticsProvider
 from providers.espn_soccer_statistics import EspnSoccerStatisticsProvider
 from providers.sportmonks_statistics import SportmonksStatisticsProvider
 from services.vector_similarity_service import upsert_basketball_stretches
@@ -839,3 +840,51 @@ def normalize_espn_box_score_logs(
             "raw": _json_safe(row),
         })
     return normalized
+
+
+def run_gridiron_ice_backfill(
+    *,
+    days: int = 7,
+    sports: tuple[str, ...] = ("NFL", "NHL"),
+    target_date: date | None = None,
+) -> dict[str, object]:
+    """Ingest NFL and NHL box scores for a bounded window of recent dates.
+
+    Walks day by day because the ESPN scoreboard is queried per date. Each day
+    and each sport is isolated: one league's outage or one malformed event
+    cannot cost the rest of the window.
+    """
+    provider = EspnBoxScoreStatisticsProvider()
+    repository = HistoricalRepository()
+    end = target_date or (datetime.now(timezone.utc).date() - timedelta(days=1))
+    window = max(1, int(days))
+    results: dict[str, object] = {
+        "startedAt": datetime.now(timezone.utc).isoformat(),
+        "endDate": end.isoformat(),
+        "days": window,
+    }
+    for sport in sports:
+        stored = 0
+        fetched = 0
+        failures: list[str] = []
+        for offset in range(window):
+            day = end - timedelta(days=offset)
+            try:
+                rows = provider.daily_game_logs(sport=sport, target_date=day)
+            except Exception as exc:
+                failures.append(f"{day.isoformat()}: {type(exc).__name__}")
+                logger.warning(
+                    "ESPN %s ingestion failed for %s", sport, day, exc_info=True
+                )
+                continue
+            fetched += len(rows)
+            logs = normalize_espn_box_score_logs(rows)
+            if logs:
+                stored += repository.upsert_player_game_logs(logs)
+        results[sport] = {
+            "fetched": fetched,
+            "stored": stored,
+            "failedDays": failures,
+        }
+    results["finishedAt"] = datetime.now(timezone.utc).isoformat()
+    return results
