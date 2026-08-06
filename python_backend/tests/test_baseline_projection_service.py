@@ -248,3 +248,43 @@ def test_basketball_falls_back_to_per_game_without_minutes() -> None:
     assert result.decomposed is False
     assert result.projected_minutes is None
     assert result.source == "historical-game-logs"
+
+
+def test_nfl_and_nhl_markets_project_from_stored_logs() -> None:
+    from datetime import datetime, timezone
+    from services.baseline_projection_service import _HistoricalProjectionIndex
+
+    index = _HistoricalProjectionIndex()
+    index.loaded_at = datetime.now(timezone.utc)
+    index.multi_sport[("NFL", "wrthree", "receiving_yards")] = [
+        62, 78, 55, 91, 70, 84, 66, 73, 88, 59,
+    ]
+    index.multi_sport[("NHL", "winger", "shots_on_goal")] = [3, 4, 2, 5, 3, 4, 3, 2, 4, 3]
+
+    receiving = index.project(
+        sport="NFL", player="WR Three", player_id="3",
+        market="player_receiving_yards", line=68.5,
+    )
+    shots = index.project(
+        sport="NHL", player="Winger", player_id="21",
+        market="player_shots_on_goal", line=2.5,
+    )
+
+    assert receiving is not None and receiving.projection > 0
+    assert shots is not None and shots.projection > 2.5
+
+
+def test_unmapped_gridiron_markets_stay_unprojected() -> None:
+    from datetime import datetime, timezone
+    from services.baseline_projection_service import _HistoricalProjectionIndex
+
+    index = _HistoricalProjectionIndex()
+    index.loaded_at = datetime.now(timezone.utc)
+    index.multi_sport[("NFL", "kicker", "field_goals")] = [2] * 10
+
+    # Matching an unrecognised market to some other stat would measure the
+    # wrong thing, so it stays unprojected.
+    assert index.project(
+        sport="NFL", player="Kicker", player_id="7",
+        market="player_field_goals_made", line=1.5,
+    ) is None

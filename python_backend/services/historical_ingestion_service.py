@@ -798,3 +798,44 @@ def backfill_basketball_officiating(*, sport: str, season: str,
     return {"persisted": True, "candidateGames": len(candidate_ids),
             "assignments": persisted, "profiles": profiles, "failures": failures,
             "source": source, "primaryProviderError": primary_provider_error}
+
+
+def normalize_espn_box_score_logs(
+    rows: Iterable[dict[str, object]],
+) -> list[dict[str, object]]:
+    """Normalize NFL/NHL box-score rows into player game logs.
+
+    The destination table stores stats as jsonb, so these sports need no
+    schema of their own: the canonical stat names the provider emits are the
+    keys the projection layer looks up.
+    """
+    normalized: list[dict[str, object]] = []
+    for row in rows:
+        sport = str(row.get("sport") or "").upper()
+        event_id = str(row.get("event_id") or "")
+        player_id = str(row.get("player_id") or "")
+        player_name = str(row.get("player_name") or "").strip()
+        stats = row.get("stats")
+        game_date = _as_date(row.get("game_date"))
+        if not sport or not event_id or not player_id or not player_name:
+            continue
+        if not isinstance(stats, dict) or not stats or game_date is None:
+            continue
+        normalized.append({
+            "id": _stable_id(sport, event_id, player_id),
+            "sport": sport,
+            "league": sport,
+            "event_id": event_id,
+            "player_id": player_id,
+            "player_name": player_name,
+            "team_id": str(row.get("team_id") or ""),
+            "game_date": game_date,
+            "stats": {
+                str(key): float(value)
+                for key, value in stats.items()
+                if isinstance(value, (int, float))
+            },
+            "source": str(row.get("source") or "ESPN"),
+            "raw": _json_safe(row),
+        })
+    return normalized

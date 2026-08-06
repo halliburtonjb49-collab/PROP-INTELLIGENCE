@@ -76,6 +76,53 @@ def _market_text(value: object) -> str:
     return re.sub(r"\s+", " ", str(value or "").lower().replace("_", " ")).strip()
 
 
+# Market text to the stat name the box-score ingestion stores. Matched in
+# order, so a longer phrase is tested before a shorter one it contains.
+_NFL_MARKET_STATS: tuple[tuple[str, str], ...] = (
+    ("passing yards", "passing_yards"),
+    ("pass attempts", "pass_attempts"),
+    ("passing attempts", "pass_attempts"),
+    ("completions", "completions"),
+    ("passing touchdowns", "passing_touchdowns"),
+    ("interceptions", "interceptions_thrown"),
+    ("receiving yards", "receiving_yards"),
+    ("receptions", "receptions"),
+    ("targets", "targets"),
+    ("rushing yards", "rushing_yards"),
+    ("rushing attempts", "carries"),
+    ("carries", "carries"),
+)
+
+_NHL_MARKET_STATS: tuple[tuple[str, str], ...] = (
+    ("shots on goal", "shots_on_goal"),
+    ("shots on target", "shots_on_goal"),
+    ("saves", "saves"),
+    ("shots against", "shots_against"),
+    ("goals against", "goals_against"),
+    ("assists", "assists"),
+    ("points", "points"),
+    ("blocked shots", "blocked_shots"),
+    ("hits", "hits"),
+    ("goals", "goals"),
+    ("shots", "shots_on_goal"),
+)
+
+
+def _gridiron_ice_stat(sport: str, market: object) -> str | None:
+    """Stat name for an NFL or NHL market, or None when it is not covered.
+
+    Returning None keeps an unrecognised market unprojected rather than
+    silently matching it to a stat that measures something else.
+    """
+
+    text = _market_text(market)
+    table = _NFL_MARKET_STATS if sport == "NFL" else _NHL_MARKET_STATS
+    for phrase, stat in table:
+        if phrase in text:
+            return stat
+    return None
+
+
 def basketball_minutes(row: tuple[object, ...]) -> float | None:
     """Minutes played, when the log carries them. Index 7, after the box score."""
 
@@ -551,6 +598,23 @@ class _HistoricalProjectionIndex:
                 market=market,
                 prior=self._prior_for(
                     values, sport="SOCCER", market=market, stat=stat
+                ),
+            )
+
+        if normalized_sport in {"NFL", "NHL"}:
+            stat = _gridiron_ice_stat(normalized_sport, market)
+            if stat is None:
+                return None
+            values = self.multi_sport.get(
+                (normalized_sport, _normalized(player), stat), []
+            )
+            return compute_baseline_projection(
+                values,
+                line=line,
+                sport=normalized_sport,
+                market=market,
+                prior=self._prior_for(
+                    values, sport=normalized_sport, market=market, stat=stat
                 ),
             )
 
