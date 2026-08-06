@@ -236,6 +236,11 @@ def apply_projection_context(prop: object) -> None:
     prop.marketProbability = evaluation.market_probability
     prop.modelOverProbability = evaluation.over_probability
     prop.modelUnderProbability = evaluation.under_probability
+    prop.probabilityEdge = (
+        round(evaluation.model_probability - evaluation.market_probability, 6)
+        if evaluation.market_probability is not None
+        else None
+    )
     prop.projectionIntervalLow = evaluation.interval_low
     prop.projectionIntervalHigh = evaluation.interval_high
     prop.pushProbability = evaluation.push_probability

@@ -386,3 +386,40 @@ def test_combination_markets_are_not_demoted_to_counts_by_a_token_match() -> Non
         )
         == "normal"
     )
+
+
+def test_american_odds_convert_to_implied_probability() -> None:
+    from calculations.prediction import american_to_implied_probability
+    from services.prop_service import _american_to_implied_probability
+
+    # -115 -> 115/215 = 53.49%; +110 -> 100/210 = 47.62%.
+    assert american_to_implied_probability(-115) == pytest.approx(.5349, abs=1e-4)
+    assert american_to_implied_probability(110) == pytest.approx(.4762, abs=1e-4)
+    assert _american_to_implied_probability(-115) == pytest.approx(.5349, abs=1e-4)
+    assert _american_to_implied_probability(110) == pytest.approx(.4762, abs=1e-4)
+
+
+def test_raw_implied_probabilities_carry_the_margin_devig_removes() -> None:
+    from calculations.prediction import american_to_implied_probability
+
+    over = american_to_implied_probability(-115)
+    under = american_to_implied_probability(-115)
+    # Both sides at -115 sum past one; that excess is the book's margin.
+    assert over + under == pytest.approx(1.0698, abs=1e-4)
+
+    fair_over, fair_under = power_method_devig(over, under)
+    assert fair_over + fair_under == pytest.approx(1)
+    assert fair_over == pytest.approx(.5)
+    assert fair_over < over
+
+
+def test_expected_value_uses_profit_and_stake() -> None:
+    # EV = P(win) * profit - P(loss) * stake, at 0.60/1.91 with no push:
+    # .60 * .91 - .40 * 1 = .146
+    result = expected_value(
+        win_probability=.60,
+        push_probability=0,
+        decimal_odds=1.91,
+    )
+    assert result.expected_value == pytest.approx(.146, abs=1e-6)
+    assert result.loss_probability == pytest.approx(.40)

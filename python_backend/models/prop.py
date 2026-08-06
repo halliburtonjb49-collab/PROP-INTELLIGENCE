@@ -93,6 +93,11 @@ class PropResponse(BaseModel):
     isPositiveEv: bool = False
     modelProbability: float | None = None
     marketProbability: float | None = None
+    # Model probability minus the de-vigged market probability for the
+    # recommended side. Unlike `edge`, which is a difference in stat units and
+    # therefore incomparable across markets, this is the quantity worth
+    # ranking on: it is denominated in probability and already net of margin.
+    probabilityEdge: float | None = None
     # Both sides of the modeled distribution, so a card can show the full
     # picture rather than only the recommended side's probability.
     modelOverProbability: float | None = None

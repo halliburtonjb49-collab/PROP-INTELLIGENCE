@@ -2232,9 +2232,23 @@ def props(
 			return 1 if sport_label == "SOCCER" or sport_label.startswith("SOCCER_") else 0
 
 		if sort_by == "edge":
+			# Rank on probability, not stat units. A 3.0 edge on passing yards
+			# and a 0.8 edge on strikeouts are not comparable quantities, and
+			# neither accounts for the price being offered: the ordering was
+			# dominated by whichever markets happened to have the widest
+			# distributions. Probability edge is model minus de-vigged market,
+			# so it is denominated the same way for every market and already
+			# net of the book's margin. Expected value breaks ties, and the
+			# stat-unit edge only orders props with no priced market at all.
 			filtered_props.sort(
 				key=lambda row: (
 					_all_sports_priority(row),
+					-float(
+						row.probabilityEdge
+						if row.probabilityEdge is not None
+						else -1
+					),
+					-float(row.evPercentage or 0),
 					-float(row.edge or 0),
 				),
 			)

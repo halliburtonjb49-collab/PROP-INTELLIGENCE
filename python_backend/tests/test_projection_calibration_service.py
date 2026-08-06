@@ -237,3 +237,52 @@ def test_strikeout_release_gate_suppresses_fallback_heavy_pick(
     assert prop.recommendationUnavailableReason == "strikeout_fallback_over_limit"
     assert prop.pick == "N/A"
     assert prop.confidence == 0
+
+
+def test_probability_edge_is_measured_against_the_no_vig_market() -> None:
+    prop = SimpleNamespace(
+        projection=6.4,
+        line=5.5,
+        injuryStatus="healthy",
+        lineupStatus="confirmed",
+        projectionVolatility=1.5,
+        projectionSampleSize=25,
+        projectionCalibrated=True,
+        historicalHitRate=None,
+        sport="MLB",
+        market="Pitcher Strikeouts",
+        noVigOverProbability=.52,
+        noVigUnderProbability=.48,
+        overDecimalOdds=1.91,
+        underDecimalOdds=1.91,
+        recommendationAvailable=True,
+    )
+
+    apply_projection_context(prop)
+
+    assert prop.marketProbability == .52
+    assert prop.probabilityEdge == approx(
+        prop.modelProbability - .52, abs=1e-6
+    )
+    # The stat-unit edge and the probability edge are different quantities.
+    assert prop.probabilityEdge != prop.projection - prop.line
+
+
+def test_probability_edge_is_absent_without_a_priced_market() -> None:
+    prop = SimpleNamespace(
+        projection=6.4,
+        line=5.5,
+        injuryStatus="healthy",
+        lineupStatus="confirmed",
+        projectionVolatility=1.5,
+        projectionSampleSize=25,
+        projectionCalibrated=True,
+        historicalHitRate=None,
+        sport="MLB",
+        market="Pitcher Strikeouts",
+        recommendationAvailable=True,
+    )
+
+    apply_projection_context(prop)
+
+    assert prop.probabilityEdge is None

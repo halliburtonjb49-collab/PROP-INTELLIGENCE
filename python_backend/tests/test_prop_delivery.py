@@ -558,3 +558,50 @@ def test_prop_feed_monitor_reports_payload_and_freshness(monkeypatch) -> None:
     assert health["stale"] is False
     assert health["lastTotalCount"] == 1
     assert health["lastPayloadBytes"] > 0
+
+
+def test_edge_ranking_uses_no_vig_probability_not_stat_units(monkeypatch) -> None:
+    # A three-yard edge on a wide market is worth less than a small edge on a
+    # tight one, and the posted price decides which is actually a bet. Ranking
+    # on raw stat units gets both wrong.
+    wide = FakeProp("yards", "Receiver", "NFL", "FANDUEL", "RECEIVING_YARDS")
+    wide.edge = 3.0
+    wide.probabilityEdge = .01
+    wide.evPercentage = .4
+    tight = FakeProp("strikeouts", "Pitcher", "MLB", "FANDUEL", "STRIKEOUTS")
+    tight.edge = 0.8
+    tight.probabilityEdge = .07
+    tight.evPercentage = 5.2
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [wide, tight])
+
+    response = TestClient(main.app).get(
+        "/api/props",
+        params={"sport": "All", "sortBy": "edge"},
+    )
+
+    assert response.status_code == 200
+    assert [row["id"] for row in response.json()["props"]] == [
+        "strikeouts",
+        "yards",
+    ]
+
+
+def test_edge_ranking_puts_unpriced_props_last(monkeypatch) -> None:
+    priced = FakeProp("priced", "One", "NBA", "FANDUEL", "POINTS")
+    priced.edge = 0.5
+    priced.probabilityEdge = -.02
+    unpriced = FakeProp("unpriced", "Two", "NBA", "FANDUEL", "POINTS")
+    unpriced.edge = 9.0
+    unpriced.probabilityEdge = None
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [unpriced, priced])
+
+    response = TestClient(main.app).get(
+        "/api/props",
+        params={"sport": "All", "sortBy": "edge"},
+    )
+
+    assert response.status_code == 200
+    assert [row["id"] for row in response.json()["props"]] == [
+        "priced",
+        "unpriced",
+    ]
