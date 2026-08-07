@@ -190,6 +190,51 @@ def _record_probability_source(probability: float, source: str) -> None:
         _probability_tiers[tier] = _probability_tiers.get(tier, 0) + 1
 
 
+_PROBABILITY_SOURCES_KEY = "diagnostics:snapshot-probability-sources"
+_PROBABILITY_SOURCES_TTL_SECONDS = 60 * 60 * 24
+
+
+def _publish_probability_sources() -> None:
+    """Share this instance's view so any other can report it.
+
+    The snapshot runs on the worker and the operations endpoint is answered
+    by the web instance. Process memory cannot cross that gap -- the sport
+    counters learned this the hard way and left every sport reading as never
+    fetched, and holding these counts in module state repeated it exactly:
+    the distribution read back empty while the run that produced it had
+    already finished somewhere else.
+    """
+
+    try:
+        from services.distributed_cache_service import set_json
+
+        with _probability_source_lock:
+            payload = {
+                "observedAt": _probability_observed_at,
+                "sources": dict(_probability_sources),
+                "tiers": dict(_probability_tiers),
+                "skipped": dict(_probability_skipped),
+            }
+        set_json(
+            _PROBABILITY_SOURCES_KEY,
+            payload,
+            ttl_seconds=_PROBABILITY_SOURCES_TTL_SECONDS,
+        )
+    except Exception:
+        # Diagnostics must never break a snapshot run.
+        pass
+
+
+def _read_probability_sources() -> dict[str, object]:
+    try:
+        from services.distributed_cache_service import get_json
+
+        value = get_json(_PROBABILITY_SOURCES_KEY)
+    except Exception:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
 def snapshot_probability_sources() -> dict[str, object]:
     """Which source the last snapshot run drew from, and which tier it hit.
 
@@ -200,15 +245,26 @@ def snapshot_probability_sources() -> dict[str, object]:
     """
 
     with _probability_source_lock:
-        return {
+        local = {
             "observedAt": _probability_observed_at,
-            "props": sum(_probability_sources.values()),
             "sources": dict(_probability_sources),
             "tiers": dict(_probability_tiers),
             # Not written, and why. A record that shrank must be able to say
             # it was pruned rather than look like a feed that dried up.
             "skipped": dict(_probability_skipped),
         }
+    shared = _read_probability_sources()
+    # Prefer whichever view has actually seen a run, so the web instance
+    # reports the worker's observation rather than its own blank slate.
+    chosen = local if local["sources"] or not shared else shared
+    sources = chosen.get("sources") or {}
+    return {
+        "observedAt": chosen.get("observedAt") or "",
+        "props": sum(int(value) for value in sources.values()),
+        "sources": sources,
+        "tiers": chosen.get("tiers") or {},
+        "skipped": chosen.get("skipped") or {},
+    }
 
 
 def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, object]:
@@ -368,6 +424,7 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
                 )
             created += 1
         connection.commit()
+    _publish_probability_sources()
     return {"created": created, "modelVersion": model_version}
 
 
