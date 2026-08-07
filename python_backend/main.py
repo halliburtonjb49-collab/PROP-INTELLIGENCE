@@ -147,7 +147,12 @@ from services.prop_builder_strategy_service import (
 	get_prop_builder_strategy,
 )
 from services.score_service import fetch_scores
-from services.odds_service import bookmaker_coverage, fetch_events, quota_snapshot
+from services.odds_service import (
+	active_key_snapshot,
+	bookmaker_coverage,
+	fetch_events,
+	quota_snapshot,
+)
 from providers.sportsgameodds import usage_snapshot as sportsgameodds_usage
 from services.game_market_service import get_game_markets, game_market_health
 from services.slip_service import (
@@ -1924,6 +1929,13 @@ def prop_feed_health() -> dict[str, object]:
 		# requested. A key that is asked for and never seen is the difference
 		# between a book with no props today and one the plan does not cover.
 		"bookmakerCoverage": bookmaker_coverage(),
+		# Which odds key is in use and how many are configured. A 401 from a
+		# deactivated key is treated as quota exhaustion and rotates to the
+		# next key one way, never back, until the process restarts -- so a
+		# run can begin on a healthy key and end with none left while the
+		# environment still looks correctly configured. Index and count
+		# only; no key material.
+		"oddsApiKeys": active_key_snapshot(),
 		**metrics,
 	}
 
