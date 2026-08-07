@@ -210,6 +210,10 @@ def sync_sport(sport_key: str) -> dict[str, object]:
     fetched_events = 0
     skipped_for_quota = 0
     failed_events = 0
+    # Kept so a sport whose every request fails can say why. The log line
+    # below already records it per event, but nothing outside the process
+    # can read those, which left six soccer leagues failing silently.
+    first_failure = ""
     estimated_event_cost = estimate_event_odds_cost(markets)
 
     eligible_events: list[dict[str, object]] = []
@@ -253,6 +257,8 @@ def sync_sport(sport_key: str) -> dict[str, object]:
             event_id = str(event.get("id", ""))
             if error is not None or odds_payload is None:
                 failed_events += 1
+                if not first_failure and error is not None:
+                    first_failure = f"{type(error).__name__}: {error}"[:200]
                 logger.error(
                     "sync_event failed; preserving cached props sport=%s event=%s error=%s",
                     sport_key,
@@ -287,6 +293,7 @@ def sync_sport(sport_key: str) -> dict[str, object]:
         fetched_events=fetched_events,
         skipped_for_quota=skipped_for_quota,
         failed_events=failed_events,
+        error=first_failure,
     )
     return {
         "sport": sport_key,
