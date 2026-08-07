@@ -166,6 +166,11 @@ def public_track_record(model_version: str = MODEL_VERSION) -> dict[str, object]
             "beatClosingLineRate": (
                 _number(clv.get("beatClosingLineRate")) if published else None
             ),
+            # The denominator, without which the rate above is unreadable.
+            # A prop line often does not move at all, and those are not
+            # failures to price it well -- they are absence of evidence.
+            "movedLineSampleSize": _count(clv.get("movedLineSampleSize")),
+            "unchangedLineCount": _count(clv.get("unchangedLineCount")),
             "averageLinePoints": (
                 _number(clv.get("averageLineClvPoints")) if published else None
             ),

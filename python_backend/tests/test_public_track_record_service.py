@@ -212,3 +212,23 @@ def test_a_recovery_clears_the_stale_reason(monkeypatch) -> None:
     public_track_record()
 
     assert track_record.last_failure() == ""
+
+
+def test_the_closing_line_rate_carries_its_denominator(monkeypatch) -> None:
+    """A rate over "lines that moved" is unreadable without that count.
+
+    Averaging beatClosingLine across every row measured how often prop lines
+    move, not how well we priced them, and produced 6.7% on a live board.
+    """
+
+    payload = _mature()
+    payload["clv"] = {
+        **payload["clv"],
+        "movedLineSampleSize": 300,
+        "unchangedLineCount": 4077,
+    }
+    _install(monkeypatch, payload)
+    clv = public_track_record()["closingLineValue"]
+
+    assert clv["movedLineSampleSize"] == 300
+    assert clv["unchangedLineCount"] == 4077

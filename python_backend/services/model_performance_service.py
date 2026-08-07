@@ -277,12 +277,19 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
             })
         cursor.execute(
             """select count(*),
-                avg(case when (inputs->>'beatClosingLine')::boolean then 1 else 0 end),
+                -- Only over lines that actually moved. A prop line often does
+                -- not move at all, and beatClosingLine collapses "unchanged"
+                -- into false, so averaging it across every row measured how
+                -- often prop lines move rather than how well we priced them.
+                avg(case when (inputs->>'beatClosingLine')::boolean then 1 else 0 end)
+                    filter(where nullif(inputs->>'lineClvPoints','')::double precision <> 0),
                 avg((inputs->>'lineClvPoints')::double precision),
                 avg((inputs->>'oddsClvExpectedValuePercent')::double precision),
                 avg(case when (inputs->>'oddsClvExpectedValuePercent')::double precision > 0 then 1 else 0 end)
                     filter(where inputs ? 'oddsClvExpectedValuePercent'),
-                count(*) filter(where inputs ? 'oddsClvExpectedValuePercent')
+                count(*) filter(where inputs ? 'oddsClvExpectedValuePercent'),
+                count(*) filter(where nullif(inputs->>'lineClvPoints','')::double precision <> 0),
+                count(*) filter(where nullif(inputs->>'lineClvPoints','')::double precision = 0)
             from prediction_snapshots
             where model_version=%s and inputs ? 'closingLine'""",
             (model_version,),
@@ -292,7 +299,7 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
         # already overwritten it and fetchall had drained the cursor, so the
         # fetch returned None and unpacking it raised -- taking the whole
         # performance view, and every page built on it, down with it.
-        clv_totals = cursor.fetchone() or (0, None, None, None, None, 0)
+        clv_totals = cursor.fetchone() or (0, None, None, None, None, 0, 0, 0)
         cursor.execute(f"""select sport,market,side,count(*),count(*) filter(where hit),
             avg(hit_probability),
             avg({profit}) filter(where nullif(inputs->>'entryOdds','') is not null),
@@ -325,7 +332,8 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
             for row in cursor.fetchall()
         ])
         (clv_count, beat_close_rate, average_points, average_odds_ev,
-         positive_odds_rate, odds_sample_size) = clv_totals
+         positive_odds_rate, odds_sample_size, moved_line_count,
+         unchanged_line_count) = clv_totals
         rolling_audit = _rolling_audit(cursor, model_version, base)
     actionable = [segment for segment in side_segments if segment["actionable"]]
     return {"modelVersion": model_version, "requestedModelVersion": requested_version,
@@ -345,10 +353,15 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
             "clv": {
                 "available": bool(clv_count),
                 "sampleSize": int(clv_count or 0),
+                # Read as: of the lines that moved, how often ours was the
+                # better number. Unchanged lines are reported beside it rather
+                # than counted as failures.
                 "beatClosingLineRate": (
                     round(float(beat_close_rate), 4)
                     if beat_close_rate is not None else None
                 ),
+                "movedLineSampleSize": int(moved_line_count or 0),
+                "unchangedLineCount": int(unchanged_line_count or 0),
                 "averageLineClvPoints": (
                     round(float(average_points), 4)
                     if average_points is not None else None
