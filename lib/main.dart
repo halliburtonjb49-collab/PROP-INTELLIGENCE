@@ -16,6 +16,7 @@ import 'models/prop_data.dart';
 import 'models/saved_slip.dart';
 import 'pages/analytics_page.dart';
 import 'pages/line_movement_page.dart';
+import 'pages/track_record_page.dart';
 import 'pages/owner_operations_page.dart';
 import 'pages/prop_chat_page.dart';
 import 'pages/referee_tracker_page.dart';
@@ -215,6 +216,7 @@ enum AppPage {
   intelligenceLab,
   refereeTracker,
   propChat,
+  trackRecord,
 }
 
 @visibleForTesting
@@ -744,6 +746,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       case AppPage.intelligenceLab:
       case AppPage.refereeTracker:
       case AppPage.propChat:
+      case AppPage.trackRecord:
         return 0;
       case AppPage.propBuilder:
         return 1;
@@ -5865,6 +5868,8 @@ class _MainDashboardState extends State<MainDashboard> {
                 ? const LiveScoreboardTickerGridWidget(watchedOnly: true)
                 : widget.selectedPage == AppPage.propAlerts
                 ? PropAlertsPage(alerts: alertsForPage)
+                : widget.selectedPage == AppPage.trackRecord
+                ? const TrackRecordPage()
                 : widget.selectedPage == AppPage.analytics
                 ? AnalyticsAdminWorkspace(selectedSport: widget.sportFilter)
                 : widget.selectedPage == AppPage.lineMovement
@@ -7697,6 +7702,8 @@ class TopNavigation extends StatelessWidget {
       'Run all checks to refresh production health, review provider and pipeline warnings, and inspect unsettled or questionable grading items.',
     AppPage.propChat =>
       'Join the shared community room using your public username. Keep messages respectful, never post personal information, and use the message menu to report or block abusive content.',
+    AppPage.trackRecord =>
+      'Every graded pick the model has made, winners and losers, with the sample size beside each number. Rates stay hidden until enough picks have been graded to mean anything.',
   };
 
   void _showPageHelp(BuildContext context) {
@@ -7825,6 +7832,7 @@ class TopNavigation extends StatelessWidget {
     AppPage.scoreboard => 'LIVE SCOREBOARD',
     AppPage.scoreboardWatchlist => 'SCOREBOARD WATCHLIST',
     AppPage.analytics => 'PERFORMANCE ANALYTICS',
+    AppPage.trackRecord => 'TRACK RECORD',
     AppPage.lineMovement => 'LINE MOVEMENT',
     AppPage.intelligenceLab => 'INTELLIGENCE LAB',
     AppPage.refereeTracker => 'REFEREE TRACKER',
@@ -7849,6 +7857,7 @@ class TopNavigation extends StatelessWidget {
     AppPage.scoreboardWatchlist =>
       'Quick-view watched games with live score and result alerts',
     AppPage.analytics => 'Analytics and owner data-management workspace',
+    AppPage.trackRecord => 'Published model record, open to everyone',
     AppPage.lineMovement => 'Monitor number and price changes in real time',
     AppPage.intelligenceLab => 'Stress-test correlation, context and scenarios',
     AppPage.refereeTracker =>
@@ -8013,6 +8022,12 @@ class TopNavigation extends StatelessWidget {
                       page: AppPage.gameMarkets,
                       icon: Icons.sports_rounded,
                       requiredTier: SubscriptionTier.core,
+                    ),
+                    const SizedBox(width: 4),
+                    _buildNavItem(
+                      label: 'TRACK RECORD',
+                      page: AppPage.trackRecord,
+                      icon: Icons.verified_outlined,
                     ),
                     const SizedBox(width: 4),
                     _buildNavItem(

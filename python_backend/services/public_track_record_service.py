@@ -22,11 +22,37 @@ calculates a result.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
+from threading import Lock
 from typing import Any, Mapping, Sequence
 
 from services.baseline_projection_service import MODEL_VERSION
 from services.model_performance_service import model_performance
+
+logger = logging.getLogger(__name__)
+
+# Why the last read of the performance view failed, if it did.
+#
+# This page is the one a prospective buyer sees, so it must not be able to
+# answer with a server error -- "the record is unavailable" is a far smaller
+# problem than a page that looks broken. Swallowing the failure silently
+# would just move the mystery, so the reason is kept here and reported on the
+# operations health endpoint, where every other unobservable failure in this
+# service ended up being diagnosed.
+_failure_lock = Lock()
+_last_failure = ""
+
+
+def last_failure() -> str:
+    with _failure_lock:
+        return _last_failure
+
+
+def _record_failure(error: BaseException) -> None:
+    global _last_failure
+    with _failure_lock:
+        _last_failure = f"{type(error).__name__}: {error}"[:300]
 
 # Graded picks required before any rate is published.
 #
@@ -101,7 +127,15 @@ def _tier_results(segments: Sequence[Mapping[str, Any]]) -> list[dict[str, objec
 def public_track_record(model_version: str = MODEL_VERSION) -> dict[str, object]:
     """What the model has actually done, for anyone who asks."""
 
-    performance = model_performance(model_version)
+    try:
+        performance = model_performance(model_version)
+    except Exception as exc:  # noqa: BLE001 - the page must still answer
+        _record_failure(exc)
+        logger.exception("public track record unavailable")
+        performance = {}
+    else:
+        with _failure_lock:
+            globals()["_last_failure"] = ""
     sample_size = _count(performance.get("sampleSize"))
     published = sample_size >= MINIMUM_PUBLISHED_SAMPLE
 

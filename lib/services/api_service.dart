@@ -287,6 +287,35 @@ class ApiService {
     throw Exception(lastError ?? 'Intelligence API unavailable');
   }
 
+  /// The model's published record. Deliberately unauthenticated.
+  ///
+  /// Every number this returns was already computed and already served, but
+  /// only behind the Pro gate -- which meant the evidence was visible to
+  /// people who had already bought and to nobody who was deciding whether to.
+  Future<Map<String, dynamic>> fetchTrackRecord() async {
+    Object? lastError;
+    for (final candidate in _candidateBaseUrls) {
+      try {
+        final response = await http
+            .get(Uri.parse('$candidate/api/performance/track-record'))
+            .timeout(const Duration(seconds: 15));
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          _resolvedBaseUrl = candidate;
+          final decoded = jsonDecode(response.body);
+          if (decoded is! Map<String, dynamic>) {
+            throw const FormatException('Invalid track record response.');
+          }
+          return decoded;
+        }
+        lastError = 'Track record ${response.statusCode}';
+      } catch (error) {
+        if (error is FormatException) rethrow;
+        lastError = error;
+      }
+    }
+    throw Exception(lastError ?? 'Track record unavailable');
+  }
+
   Future<GameMarketFeed> fetchGameMarkets({
     required String sport,
     bool refresh = false,

@@ -167,3 +167,48 @@ def test_roi_keeps_the_word_simulated(monkeypatch) -> None:
 
     assert "simulatedRoi" in record
     assert "roi" not in record
+
+
+def test_a_broken_performance_view_does_not_error_the_page(monkeypatch) -> None:
+    """The buyer-facing page must never answer with a server error.
+
+    "The record is unavailable" is a much smaller problem than a page that
+    looks broken to the person deciding whether to pay.
+    """
+
+    def explode(*_args, **_kwargs):
+        raise RuntimeError("relation prediction_snapshots does not exist")
+
+    monkeypatch.setattr(track_record, "model_performance", explode)
+    record = public_track_record()
+
+    assert record["published"] is False
+    assert record["winRate"] is None
+    assert record["sampleSize"] == 0
+    assert record["confidenceTiers"] == []
+
+
+def test_the_reason_is_kept_rather_than_swallowed(monkeypatch) -> None:
+    # Swallowing it silently would move the mystery rather than remove it.
+    def explode(*_args, **_kwargs):
+        raise RuntimeError("relation prediction_snapshots does not exist")
+
+    monkeypatch.setattr(track_record, "model_performance", explode)
+    public_track_record()
+
+    assert "RuntimeError" in track_record.last_failure()
+    assert "prediction_snapshots" in track_record.last_failure()
+
+
+def test_a_recovery_clears_the_stale_reason(monkeypatch) -> None:
+    def explode(*_args, **_kwargs):
+        raise RuntimeError("transient")
+
+    monkeypatch.setattr(track_record, "model_performance", explode)
+    public_track_record()
+    assert track_record.last_failure() != ""
+
+    _install(monkeypatch, _mature())
+    public_track_record()
+
+    assert track_record.last_failure() == ""

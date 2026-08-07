@@ -84,7 +84,10 @@ from services.baseline_projection_service import (
 )
 from services.odds_service import sport_coverage
 from services.prop_service import get_props
-from services.public_track_record_service import public_track_record
+from services.public_track_record_service import (
+	last_failure as track_record_last_failure,
+	public_track_record,
+)
 from services.distributed_cache_service import (
 	delete as delete_distributed_cache,
 	get_json as get_distributed_json,
@@ -1954,6 +1957,10 @@ def prop_feed_health() -> dict[str, object]:
 		# environment still looks correctly configured. Index and count
 		# only; no key material.
 		"oddsApiKeys": active_key_snapshot(),
+		# Why the buyer-facing record last failed to build, if it did. That
+		# page answers 200 with "unavailable" rather than erroring, which
+		# would otherwise hide the cause completely.
+		"trackRecordLastError": track_record_last_failure(),
 		**metrics,
 	}
 
