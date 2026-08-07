@@ -154,9 +154,18 @@ class Verification:
 
 # Faults that make a prop meaningless rather than merely incomplete. These are
 # not shown at all: there is nothing a person could do with a prop whose market
-# does not exist in its sport.
+# does not exist in its sport, and nothing to trust in one whose source cannot
+# be named. A card that has to print UNKNOWN is telling the reader the feed
+# does not know what it is showing them, which is worse than showing nothing.
 _QUARANTINE_REASONS = frozenset(
-    {"market_not_in_sport", "market_missing", "player_missing", "line_missing"}
+    {
+        "market_not_in_sport",
+        "market_missing",
+        "player_missing",
+        "line_missing",
+        "source_unverified",
+        "event_unnamed",
+    }
 )
 
 

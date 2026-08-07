@@ -47,6 +47,12 @@ class PropResponse(BaseModel):
     recommendationUnavailableReason: str = ""
     recommendationExplanation: str = ""
     recommendationExplainability: dict[str, object] = Field(default_factory=dict)
+    # Whether this prop is coherent enough to show, and complete enough to
+    # act on. A prop naming a market its sport does not have, or a source it
+    # cannot identify, is not displayed at all.
+    verificationStatus: str = "verified"
+    verificationReasons: list[str] = Field(default_factory=list)
+    selectable: bool = True
     dataQualityScore: float = Field(default=0.0, ge=0, le=1)
     dataQualityReasons: list[str] = Field(default_factory=list)
     opportunityScore: float = Field(default=0.0, ge=0, le=1)

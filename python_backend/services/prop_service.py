@@ -19,6 +19,15 @@ from services.time_utils import (
 	status_from_start_time,
 	app_timezone,
 )
+import logging
+
+logger = logging.getLogger(__name__)
+
+from services.prop_verification_service import (
+	display_matchup,
+	display_team_name,
+	verify_prop,
+)
 from services.prop_recommendation_service import (
 	build_verified_prop_recommendation,
 )
@@ -326,9 +335,14 @@ def get_props() -> list[PropResponse]:
 		raw_market = str(row["prop_type"])
 		sportsbook = str(row["bookmaker"] or "")
 		line = float(row["line"])
-		home_team = str(row["home_team"] or "")
-		away_team = str(row["away_team"] or "")
-		matchup = f"{away_team} @ {home_team}".strip()
+		# Feeds hand back team identifiers when they have no display name,
+		# so CLEVELAND_GUARDIANS_MLB reaches the card verbatim unless it is
+		# turned into something a person would write.
+		home_team = display_team_name(row["home_team"]) or str(row["home_team"] or "")
+		away_team = display_team_name(row["away_team"]) or str(row["away_team"] or "")
+		matchup = display_matchup(
+			f"{away_team} @ {home_team}", home=home_team, away=away_team
+		)
 		start_time_utc = parse_to_utc_iso(
 			row["commence_time"]
 		)
@@ -897,4 +911,38 @@ def get_props() -> list[PropResponse]:
 			deduped[key] = prop
 	results = list(deduped.values())
 	enrich_props(results)
-	return results
+	return _verified_props(results)
+
+
+def _verified_props(props: list[PropResponse]) -> list[PropResponse]:
+	"""Mark every prop, and withhold the ones that make no sense.
+
+	A prop naming a market its sport does not have, or a source it cannot
+	identify, is not a card with a gap in it -- it is the feed saying it
+	does not know what this is. Those are dropped. A prop that is merely
+	incomplete stays visible but cannot be selected, because a pick built
+	on an unverified prop is a pick built on nothing.
+	"""
+
+	shown: list[PropResponse] = []
+	quarantined = 0
+	for prop in props:
+		result = verify_prop(prop)
+		prop.verificationStatus = result.status
+		prop.verificationReasons = list(result.reasons)
+		prop.selectable = result.selectable
+		if not result.selectable and not prop.recommendationUnavailableReason:
+			prop.recommendationUnavailableReason = result.reasons[0]
+		if not result.selectable:
+			prop.recommendationAvailable = False
+		if result.displayable:
+			shown.append(prop)
+		else:
+			quarantined += 1
+	if quarantined:
+		logger.info(
+			"withheld %s of %s props that failed verification",
+			quarantined,
+			len(props),
+		)
+	return shown

@@ -108,6 +108,22 @@ def test_every_fault_is_reported_not_just_the_first() -> None:
     assert set(result.reasons) == {"source_unverified", "projection_missing"}
 
 
+def test_a_prop_whose_source_cannot_be_named_is_hidden() -> None:
+    """A card that prints UNKNOWN is worse than no card.
+
+    It tells the reader the feed does not know what it is showing them.
+    """
+
+    result = verify_prop(_prop(sportsbook="UNKNOWN"))
+
+    assert result.status == "quarantined"
+    assert result.displayable is False
+    assert "source_unverified" in result.reasons
+
+    # An unnamed event is the same failure seen from the other side.
+    assert verify_prop(_prop(matchup="")).displayable is False
+
+
 def test_an_incomplete_prop_is_shown_but_cannot_be_selected() -> None:
     # There is something to look at; there is not enough to act on.
     result = verify_prop(_prop(projection=None))

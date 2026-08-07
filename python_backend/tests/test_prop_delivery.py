@@ -648,3 +648,52 @@ def test_edge_stays_in_stat_units_for_display() -> None:
         25.4, 23.5, sport="NBA", market="player_points",
     )
     assert result["edge"] == pytest.approx(1.9, abs=1e-6)
+
+
+def test_props_that_cannot_be_verified_are_withheld_from_the_board() -> None:
+    """A market its sport does not have, or a source with no name.
+
+    Neither is a card with a gap in it. Both are the feed saying it does not
+    know what it is showing, and repeating that verbatim is what put
+    "Player Points" and "UNKNOWN" in front of users.
+    """
+
+    from models.prop import PropResponse
+    from services.prop_service import _verified_props
+
+    def prop(**over):
+        base = dict(
+            id="a", player="Drew Romo", sport="MLB",
+            matchup="Cleveland Guardians @ Chicago White Sox",
+            sportsbook="PRIZEPICKS", market="Batter Hits",
+            marketKey="batter_hits", line=0.5, projection=0.62,
+            pick="Over", edge=0.12,
+        )
+        base.update(over)
+        return PropResponse(**base)
+
+    shown = _verified_props([
+        prop(),
+        prop(id="b", marketKey="player_points", market="Player Points"),
+        prop(id="c", sportsbook="UNKNOWN"),
+        prop(id="d", projection=None),
+    ])
+
+    assert [p.id for p in shown] == ["a", "d"]
+    assert shown[0].verificationStatus == "verified"
+    assert shown[0].selectable is True
+
+    # Present but not actionable, with the gap named.
+    assert shown[1].verificationStatus == "unverified"
+    assert shown[1].selectable is False
+    assert shown[1].recommendationAvailable is False
+    assert "projection_missing" in shown[1].verificationReasons
+
+
+def test_team_identifiers_never_reach_a_card() -> None:
+    from services.prop_verification_service import display_matchup
+
+    # 47% of live matchups carried underscores before this.
+    assert display_matchup(
+        "CLEVELAND_GUARDIANS_MLB @ CHICAGO_WHITE_SOX_MLB"
+    ) == "Cleveland Guardians @ Chicago White Sox"
