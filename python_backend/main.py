@@ -82,6 +82,7 @@ from services.game_status_service import (
 from services.baseline_projection_service import (
 	MODEL_VERSION as BASELINE_MODEL_VERSION,
 )
+from services.odds_service import sport_coverage
 from services.prop_service import get_props
 from services.distributed_cache_service import (
 	delete as delete_distributed_cache,
@@ -1915,6 +1916,10 @@ def prop_feed_health() -> dict[str, object]:
 		# panel is the thing failing to load. Counts only, no connection
 		# details.
 		"jobQueue": _job_queue_summary(),
+		# Which configured sports actually return props. An empty rail has
+		# three very different causes and they are indistinguishable from
+		# outside: out of season, not covered by the plan, or not requested.
+		"sportCoverage": sport_coverage(),
 		# Which bookmakers the provider has actually returned, against those
 		# requested. A key that is asked for and never seen is the difference
 		# between a book with no props today and one the plan does not cover.

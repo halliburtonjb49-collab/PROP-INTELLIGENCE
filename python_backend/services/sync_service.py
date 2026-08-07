@@ -11,6 +11,7 @@ from database.cache import PropCache
 from services.market_config import markets_for_sport
 from services.odds_service import (
     estimate_event_odds_cost, fetch_event_odds, fetch_events, quota_allows,
+    record_sport_fetch,
 )
 from services.prop_processor import process_and_cache_props
 from services.prediction_automation_service import (
@@ -276,6 +277,10 @@ def sync_sport(sport_key: str) -> dict[str, object]:
         elapsed_ms,
     )
 
+    # Recorded so an empty rail can be explained from outside the process:
+    # a sport that returns games but no player markets looks identical to one
+    # that is out of season, and to one nobody is asking for.
+    record_sport_fetch(sport_key, events=len(events), props=prop_count)
     return {
         "sport": sport_key,
         "events": len(events),

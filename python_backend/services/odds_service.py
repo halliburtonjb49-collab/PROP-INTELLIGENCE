@@ -266,3 +266,62 @@ def bookmaker_coverage() -> dict[str, object]:
         "retiredKeysDropped": list(RETIRED_BOOKMAKERS_DROPPED),
         "missingKeysRestored": list(MISSING_BOOKMAKERS_RESTORED),
     }
+
+
+# What each sport actually returned. A sport can be configured, requested and
+# still yield nothing -- because the plan does not cover it, because the
+# provider has no player props for it, or because it is out of season -- and
+# from outside the process all three look identical: an empty rail.
+_sport_results: dict[str, dict[str, object]] = {}
+_sport_lock = Lock()
+
+
+def record_sport_fetch(
+    sport_key: str,
+    *,
+    events: int,
+    props: int,
+    error: str = "",
+) -> None:
+    """Note what one sport's fetch produced."""
+
+    key = str(sport_key or "").strip().lower()
+    if not key:
+        return
+    with _sport_lock:
+        entry = _sport_results.setdefault(
+            key, {"fetches": 0, "events": 0, "props": 0, "lastError": ""}
+        )
+        entry["fetches"] = int(entry["fetches"]) + 1
+        entry["events"] = int(entry["events"]) + int(events)
+        entry["props"] = int(entry["props"]) + int(props)
+        entry["lastFetchedAt"] = datetime.now(timezone.utc).isoformat()
+        if error:
+            entry["lastError"] = error
+
+
+def sport_coverage() -> dict[str, object]:
+    """Configured sports against what they have actually returned."""
+
+    from services.sync_service import configured_sync_sports
+
+    try:
+        configured = configured_sync_sports()
+    except Exception:
+        configured = []
+    with _sport_lock:
+        results = {key: dict(value) for key, value in _sport_results.items()}
+    return {
+        "configured": configured,
+        "results": results,
+        # Requested and never once seen. Distinguishes "out of season" from
+        # "we are not actually asking for it".
+        "neverFetched": [key for key in configured if key not in results],
+        # Fetched, returned events, and still produced no props: the provider
+        # has the games but not the player markets.
+        "eventsWithoutProps": [
+            key
+            for key, value in results.items()
+            if int(value.get("events") or 0) > 0 and int(value.get("props") or 0) == 0
+        ],
+    }
