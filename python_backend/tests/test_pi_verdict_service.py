@@ -218,10 +218,13 @@ def test_the_model_is_read_even_when_the_gate_named_no_side():
     assert "69%" in verdict.reason
 
 
-def test_a_side_the_gate_declined_is_never_a_full_play():
-    """The gate checks things this does not -- separation, expected value.
+def test_the_legacy_gate_does_not_cap_a_prop_that_clears_the_price():
+    """Deferring to that gate as well demoted good bets for no reason.
 
-    Overruling it would put two different answers on the same board.
+    It tests the pre-calibration probability; this tests the calibrated one
+    and the price, which is the stricter pair. Sixty-four props at a median
+    15% expected value were being called leans while nine with the same
+    credentials were called plays.
     """
 
     verdict = compute_verdict(
@@ -231,12 +234,22 @@ def test_a_side_the_gate_declined_is_never_a_full_play():
             modelOverProbability=0.72,
             modelUnderProbability=0.28,
             probabilityEdge=0.12,
+            evPercentage=15.0,
         )
     )
 
-    assert verdict.decision == LEAN
+    assert verdict.decision == PLAY_NOW
     assert verdict.side == "OVER"
-    assert "release checks" in verdict.reason
+
+
+def test_a_lean_is_a_real_edge_that_falls_short_of_a_play():
+    # Between the lean and action thresholds, and priced well enough to pay.
+    verdict = compute_verdict(
+        _prop(uncertaintyAdjustedProbability=0.56, evPercentage=3.0)
+    )
+
+    assert verdict.decision == LEAN
+    assert verdict.is_actionable
 
 
 def test_a_released_side_still_earns_a_full_play():
@@ -265,3 +278,46 @@ def test_the_stronger_model_side_is_chosen():
         )
     )
     assert under_favoured.side == "UNDER"
+
+
+def test_a_confident_model_at_a_bad_price_is_still_a_pass():
+    """The price decides, not the probability.
+
+    Measured on a live board, props the model liked at a median 68% carried a
+    median expected value of -5.6%: the probability was real and the book had
+    already taken it. Playing all of them would lose money slowly while every
+    card looked encouraging.
+    """
+
+    verdict = compute_verdict(
+        _prop(uncertaintyAdjustedProbability=0.74, evPercentage=-4.0)
+    )
+
+    assert verdict.decision == PASS
+    assert "negative_expected_value" in verdict.reasons
+    assert "already in the line" in verdict.reason
+
+
+def test_expected_value_is_checked_before_conviction_is_awarded():
+    # A play, a shop and a lean must each survive the price test; otherwise the
+    # board offers confident-looking bets that lose.
+    for probability in (0.85, 0.66, 0.56):
+        verdict = compute_verdict(
+            _prop(uncertaintyAdjustedProbability=probability, evPercentage=-1.0)
+        )
+        assert verdict.decision == PASS, probability
+
+
+def test_a_prop_with_no_price_is_judged_on_the_model_alone():
+    # Pick'em sites publish no odds. Absent expected value is not negative
+    # expected value, and refusing those would empty the board.
+    verdict = compute_verdict(_prop(evPercentage=None))
+
+    assert verdict.decision == PLAY_NOW
+
+
+def test_a_positive_price_survives_the_gate():
+    verdict = compute_verdict(_prop(evPercentage=12.5))
+
+    assert verdict.decision == PLAY_NOW
+    assert verdict.is_actionable

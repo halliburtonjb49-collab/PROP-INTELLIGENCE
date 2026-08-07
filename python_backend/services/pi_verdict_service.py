@@ -52,6 +52,13 @@ SHOP_ODDS_GAIN = 0.06
 # A line this much better elsewhere changes the bet, not just the price.
 SHOP_LINE_GAIN = 0.5
 
+# Expected value, after the price, below which a bet loses money however
+# confident the model is. Measured on a live board, props the model liked at
+# a median 68% still had a median expected value of -5.6%: the probability
+# was real and the price had already taken it. Conviction without price is
+# how a confident model loses money slowly.
+MINIMUM_EXPECTED_VALUE_PERCENT = 1.0
+
 _UNSETTLED_LINEUPS = frozenset({"", "unknown", "unconfirmed", "projected", "expected"})
 _DOUBTFUL_INJURIES = frozenset({"questionable", "doubtful", "day-to-day", "probable"})
 
@@ -184,6 +191,23 @@ def compute_verdict(prop: object) -> Verdict:
             confidence=confidence,
             reasons=("probability_below_threshold",),
         )
+    # The price decides, not the probability. A side the model likes at 74%
+    # is a losing bet if the book has priced it at 80%, and most of what the
+    # model likes is priced that way.
+    expected_value = _float(getattr(prop, "evPercentage", None))
+    if expected_value is not None and expected_value < MINIMUM_EXPECTED_VALUE_PERCENT:
+        return Verdict(
+            decision=PASS,
+            side=side,
+            headline="PASS",
+            reason=(
+                f"The model likes {side.title()} at {probability * 100:.0f}%, "
+                f"but the price returns {expected_value:+.1f}% -- the number "
+                "is already in the line."
+            ),
+            confidence=confidence,
+            reasons=("negative_expected_value",),
+        )
     if edge is not None and edge < MEANINGFUL_PROBABILITY_EDGE:
         return Verdict(
             decision=PASS,
@@ -254,11 +278,13 @@ def compute_verdict(prop: object) -> Verdict:
         )
 
     # --- PLAY NOW or LEAN: how much conviction the numbers support. -------
-    # A side the release gate declined to name is never promoted to a full
-    # play, however well it scores here. The gate applies checks this does
-    # not -- separation between the sides, expected value against the price --
-    # and overruling it would put two different answers on the same board.
-    if probability >= ACTIONABLE_PROBABILITY and released:
+    # Not conditioned on the legacy gate having named the side. That gate
+    # tests separation and expected value against the pre-calibration
+    # probability; this has already tested the calibrated probability and the
+    # price, which is the stricter pair. Deferring to it as well left 64 props
+    # at a median 15% expected value labelled a lean while nine others with
+    # the same credentials were called plays.
+    if probability >= ACTIONABLE_PROBABILITY:
         return Verdict(
             decision=PLAY_NOW,
             side=side,
