@@ -9997,6 +9997,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(height: 13),
+          // The conclusion first. Everything below it is the working that
+          // led here, and a reader who stops at the top should still have
+          // the answer rather than six signals to assemble themselves.
+          if (prop.verdict.isPresent) ...[
+            _PiVerdictBlock(verdict: prop.verdict),
+            const SizedBox(height: 11),
+          ],
           Row(
             children: [
               metric(
@@ -13420,5 +13427,139 @@ class MobileDashboardViewport extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const DesktopDashboard();
+  }
+}
+
+/// The PI Verdict: one conclusion, stated before the evidence that produced it.
+///
+/// Colour carries the decision so the board can be read by scanning, and the
+/// palette is the app's own rather than invented traffic lights. Play and shop
+/// are actionable and read gold; wait is deliberately muted because acting on
+/// unsettled information is the mistake it exists to prevent; pass recedes.
+class _PiVerdictBlock extends StatelessWidget {
+  const _PiVerdictBlock({required this.verdict});
+
+  final PropVerdict verdict;
+
+  ({Color accent, IconData icon}) get _treatment {
+    switch (verdict.decision) {
+      case 'PLAY_NOW':
+        return (accent: app_colors.AppColors.success, icon: Icons.bolt_rounded);
+      case 'SHOP':
+        return (
+          accent: app_colors.AppColors.goldHighlight,
+          icon: Icons.travel_explore_rounded,
+        );
+      case 'LEAN':
+        return (accent: app_colors.AppColors.gold, icon: Icons.trending_up_rounded);
+      case 'WAIT':
+        return (
+          accent: app_colors.AppColors.textSecondary,
+          icon: Icons.schedule_rounded,
+        );
+      default:
+        return (
+          accent: app_colors.AppColors.textMuted,
+          icon: Icons.remove_circle_outline_rounded,
+        );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final treatment = _treatment;
+    final accent = treatment.accent;
+
+    // Only the facts that change the decision earn a place on the summary
+    // line. Everything else stays in the detail below the card.
+    final facts = <String>[
+      if (verdict.confidence > 0) '${verdict.confidence}% confidence',
+      if (verdict.maximumPlayableLine != null)
+        'playable to ${verdict.maximumPlayableLine!.toStringAsFixed(1)}',
+      if (verdict.betterPriceAt.isNotEmpty) 'better at ${verdict.betterPriceAt}',
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: .07),
+        borderRadius: BorderRadius.circular(9),
+        border: Border(left: BorderSide(color: accent, width: 3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(treatment.icon, size: 15, color: accent),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  verdict.headline,
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+              ),
+              Text(
+                'PI VERDICT',
+                style: TextStyle(
+                  color: app_colors.AppColors.textMuted,
+                  fontSize: 8,
+                  letterSpacing: 1.1,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            verdict.reason,
+            style: const TextStyle(
+              color: app_colors.AppColors.textSecondary,
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+          if (facts.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Text(
+              facts.join('  ·  '),
+              style: const TextStyle(
+                color: app_colors.AppColors.textMuted,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          if (verdict.recheck.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(
+                  Icons.refresh_rounded,
+                  size: 11,
+                  color: app_colors.AppColors.textMuted,
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    'Recheck ${verdict.recheck.toLowerCase()}',
+                    style: const TextStyle(
+                      color: app_colors.AppColors.textMuted,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }

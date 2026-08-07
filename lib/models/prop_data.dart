@@ -3,6 +3,62 @@ String _clientPickGrade(String? value) {
   return grade == 'A' || grade == 'B' ? grade! : 'C';
 }
 
+/// The single conclusion the backend reached about a prop.
+///
+/// The card already carries a lean, a confidence, a suggested pick, evidence
+/// tags and a grade. Each is true and together they ask the reader to do the
+/// reasoning. This is that reasoning already done: what to do, which side,
+/// why, and the line past which the edge is gone.
+class PropVerdict {
+  const PropVerdict({
+    this.decision = '',
+    this.side = '',
+    this.headline = '',
+    this.reason = '',
+    this.confidence = 0,
+    this.reasons = const [],
+    this.maximumPlayableLine,
+    this.betterPriceAt = '',
+    this.recheck = '',
+    this.actionable = false,
+  });
+
+  final String decision;
+  final String side;
+  final String headline;
+  final String reason;
+  final int confidence;
+  final List<String> reasons;
+  final double? maximumPlayableLine;
+  final String betterPriceAt;
+  final String recheck;
+  final bool actionable;
+
+  /// Whether the backend produced a verdict at all. An older payload has
+  /// none, and showing an empty block would be worse than showing nothing.
+  bool get isPresent => decision.isNotEmpty;
+
+  static PropVerdict fromJson(Object? raw) {
+    if (raw is! Map) return const PropVerdict();
+    final json = Map<String, dynamic>.from(raw);
+    final line = json['maximumPlayableLine'];
+    return PropVerdict(
+      decision: json['decision']?.toString() ?? '',
+      side: json['side']?.toString() ?? '',
+      headline: json['headline']?.toString() ?? '',
+      reason: json['reason']?.toString() ?? '',
+      confidence: (json['confidence'] as num?)?.toInt() ?? 0,
+      reasons: (json['reasons'] as List? ?? const [])
+          .map((value) => value.toString())
+          .toList(growable: false),
+      maximumPlayableLine: line is num ? line.toDouble() : null,
+      betterPriceAt: json['betterPriceAt']?.toString() ?? '',
+      recheck: json['recheck']?.toString() ?? '',
+      actionable: json['actionable'] as bool? ?? false,
+    );
+  }
+}
+
 class PropData {
   static const Duration selectionSafetyWindow = Duration(minutes: 2);
   final String id;
@@ -54,6 +110,7 @@ class PropData {
   /// Whether the backend could confirm what this prop is, and whether it is
   /// complete enough to act on. A prop it could not confirm never reaches
   /// the app; one that is merely incomplete arrives with selectable false.
+  final PropVerdict verdict;
   final String verificationStatus;
   final List<String> verificationReasons;
   final bool selectable;
@@ -211,6 +268,7 @@ class PropData {
     this.recommendationUnavailableReason = '',
     this.recommendationExplanation = '',
     this.recommendationExplainability = const {},
+    this.verdict = const PropVerdict(),
     this.verificationStatus = 'verified',
     this.verificationReasons = const [],
     this.selectable = true,
@@ -590,6 +648,7 @@ class PropData {
               json['recommendation_explainability'] as Map,
             )
           : const {},
+      verdict: PropVerdict.fromJson(json['verdict']),
       verificationStatus:
           json['verificationStatus']?.toString() ?? 'verified',
       verificationReasons:
