@@ -144,6 +144,51 @@ def capture_prediction_closing_lines() -> dict[str, object]:
     return {"updated": updated}
 
 
+def snapshot_probability(prop: object) -> tuple[float, str]:
+    """The number recorded as hit_probability, and where it came from.
+
+    Extracted so the diagnostic below cannot drift from what is actually
+    written. The fallback is the reason this exists: confidence is not a
+    probability, and storing it as one makes every later measurement -- win
+    rate by tier, calibration, closing-line value -- a statement about a
+    quantity nobody modelled.
+    """
+
+    value = getattr(prop, "uncertaintyAdjustedProbability", None)
+    if value is not None:
+        return float(value), "uncertaintyAdjusted"
+    value = getattr(prop, "fairProbability", None)
+    if value is not None:
+        return float(value), "fair"
+    confidence = float(getattr(prop, "confidence", 0) or 0)
+    return max(.5, min(.95, confidence / 100)), "confidenceFallback"
+
+
+def snapshot_probability_sources() -> dict[str, object]:
+    """Which source the live board would snapshot from, and into which tier.
+
+    409 graded picks landed 408 in BASELINE while the board showed props at
+    58 to 74 percent. Either the board and the record disagree about what a
+    probability is, or they disagree about which props get one. This says
+    which, without needing database access to find out.
+    """
+
+    sources: dict[str, int] = {}
+    tiers: dict[str, int] = {}
+    total = 0
+    for prop in get_props():
+        probability, source = snapshot_probability(prop)
+        sources[source] = sources.get(source, 0) + 1
+        tier = (
+            "HIGH" if probability >= .7
+            else "MEDIUM" if probability >= .6
+            else "BASELINE"
+        )
+        tiers[tier] = tiers.get(tier, 0) + 1
+        total += 1
+    return {"props": total, "sources": sources, "tiers": tiers}
+
+
 def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, object]:
     if not database_is_configured():
         return {"created": 0, "reason": "DATABASE_URL is not configured"}
@@ -170,14 +215,7 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
             if projection is None:
                 signed = prop.edgeSigned or (prop.recommendationEdge if side == "OVER" else -prop.recommendationEdge)
                 projection = prop.line + signed
-            probability = (
-                float(prop.uncertaintyAdjustedProbability)
-                if prop.uncertaintyAdjustedProbability is not None
-                else
-                float(prop.fairProbability)
-                if prop.fairProbability is not None
-                else max(.5, min(.95, prop.confidence / 100))
-            )
+            probability, _probability_source = snapshot_probability(prop)
             cursor.execute("""select 1 from prediction_snapshots where prop_id=%s and model_version=%s
                 and snapshot_date=(now() at time zone 'UTC')::date limit 1""", (prop.id, snapshot_model_version))
             if cursor.fetchone():

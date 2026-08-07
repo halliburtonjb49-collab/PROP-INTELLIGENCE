@@ -84,6 +84,9 @@ from services.baseline_projection_service import (
 )
 from services.odds_service import sport_coverage
 from services.prop_service import get_props
+from services.prediction_automation_service import (
+	snapshot_probability_sources as _snapshot_probability_sources,
+)
 from services.public_track_record_service import (
 	last_failure as track_record_last_failure,
 	public_track_record,
@@ -1972,6 +1975,9 @@ def prop_feed_health() -> dict[str, object]:
 		# page answers 200 with "unavailable" rather than erroring, which
 		# would otherwise hide the cause completely.
 		"trackRecordLastError": track_record_last_failure(),
+		# Where the live board would draw hit_probability from if it were
+		# snapshotted right now, and which tier each would land in.
+		"snapshotProbability": _snapshot_probability_sources(),
 		**metrics,
 	}
 
