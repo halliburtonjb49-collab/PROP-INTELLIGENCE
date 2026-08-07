@@ -12179,9 +12179,14 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                           crossAxisCount: columns,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
-                          // A grid row is only as tall as its tallest cell, so
-                          // an opened card needs room the closed ones will pad.
-                          mainAxisExtent: _expandedResearch.isEmpty ? 330 : 470,
+                          // 410 held the whole card before the toggle existed,
+                          // and the toggle adds a row; an opened card needs
+                          // that back plus a little. Sizing down for closed
+                          // cards would be guesswork against content I cannot
+                          // measure here, and guessing short overflows the
+                          // cell -- so the desktop grid keeps one safe height
+                          // and lets the Spacer absorb the slack.
+                          mainAxisExtent: 440,
                         ),
                         itemBuilder: (context, index) =>
                             cardFor(visibleProps[index], fixedHeight: true),
