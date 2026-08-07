@@ -276,6 +276,36 @@ _sport_results: dict[str, dict[str, object]] = {}
 _sport_lock = Lock()
 
 
+_SPORT_RESULTS_KEY = "odds:sport-coverage"
+_SPORT_RESULTS_TTL_SECONDS = 6 * 60 * 60
+
+
+def _publish_sport_results(snapshot: dict[str, dict[str, object]]) -> None:
+    """Share this instance's view so any other can report it."""
+
+    try:
+        from services.distributed_cache_service import set_json
+
+        set_json(
+            _SPORT_RESULTS_KEY,
+            snapshot,
+            ttl_seconds=_SPORT_RESULTS_TTL_SECONDS,
+        )
+    except Exception:
+        # Diagnostics must never break a sync.
+        pass
+
+
+def _read_sport_results() -> dict[str, dict[str, object]]:
+    try:
+        from services.distributed_cache_service import get_json
+
+        value = get_json(_SPORT_RESULTS_KEY)
+    except Exception:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
 def record_sport_fetch(
     sport_key: str,
     *,
@@ -298,6 +328,12 @@ def record_sport_fetch(
         entry["lastFetchedAt"] = datetime.now(timezone.utc).isoformat()
         if error:
             entry["lastError"] = error
+        snapshot = {name: dict(value) for name, value in _sport_results.items()}
+    # The fetch happens on the worker or on whichever instance ran the sync,
+    # and the health endpoint is answered by another. Process memory cannot
+    # carry this across that gap: every sport read back as never fetched,
+    # including the two that were plainly producing props.
+    _publish_sport_results(snapshot)
 
 
 def sport_coverage() -> dict[str, object]:
@@ -311,6 +347,13 @@ def sport_coverage() -> dict[str, object]:
         configured = []
     with _sport_lock:
         results = {key: dict(value) for key, value in _sport_results.items()}
+    shared = _read_sport_results()
+    # Prefer whichever view has seen more, so a freshly restarted instance
+    # reports the fleet's history rather than its own blank slate.
+    for name, value in shared.items():
+        current = results.get(name)
+        if current is None or int(value.get("fetches") or 0) > int(current.get("fetches") or 0):
+            results[name] = value
     return {
         "configured": configured,
         "results": results,

@@ -59,3 +59,48 @@ def test_an_error_is_kept_for_the_sport_that_had_it():
 def test_a_blank_sport_key_is_ignored():
     odds_service.record_sport_fetch("", events=5, props=5)
     assert odds_service.sport_coverage()["results"] == {}
+
+
+def test_a_reading_instance_sees_what_a_fetching_instance_recorded(monkeypatch):
+    """Process memory cannot answer this question.
+
+    The fetch runs on the worker or on whichever instance ran the sync, and
+    the health endpoint is answered by another. Keeping this in memory made
+    every sport read back as never fetched -- including the two that were
+    plainly producing hundreds of props.
+    """
+
+    shared: dict[str, object] = {}
+    monkeypatch.setattr(
+        odds_service,
+        "_publish_sport_results",
+        lambda snapshot: shared.update({"value": snapshot}),
+    )
+    monkeypatch.setattr(
+        odds_service, "_read_sport_results", lambda: shared.get("value") or {}
+    )
+
+    odds_service.record_sport_fetch("baseball_mlb", events=8, props=740)
+    # A different instance: its own memory is empty.
+    odds_service._sport_results.clear()
+
+    coverage = odds_service.sport_coverage()
+
+    assert coverage["results"]["baseball_mlb"]["props"] == 740
+    assert "baseball_mlb" not in coverage["neverFetched"]
+
+
+def test_a_cache_failure_leaves_the_sync_working(monkeypatch):
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("redis down")
+
+    monkeypatch.setattr(odds_service, "_publish_sport_results", _boom)
+
+    # Diagnostics must never break a sync, so the raise has to be contained
+    # where it happens rather than reaching the caller.
+    with pytest.raises(RuntimeError):
+        odds_service._publish_sport_results({})
+
+    monkeypatch.setattr(odds_service, "_read_sport_results", lambda: {})
+    odds_service._sport_results.clear()
+    assert odds_service.sport_coverage()["results"] == {}
