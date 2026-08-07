@@ -3916,16 +3916,18 @@ class _MainDashboardState extends State<MainDashboard> {
             .where((sport) => sport.isNotEmpty && sport != 'ALL')
             .toSet()
             .toList();
+    // Mirrors the sidebar rail. Sports with no prop source are not ranked
+    // here, because a rank implies the board can show them.
     const order = [
+      'MLB',
       'NFL',
       'NBA',
       'WNBA',
-      'MLB',
       'NHL',
-      'PGA',
-      'UFC',
-      'TENNIS',
       'SOCCER',
+      'CRICKET',
+      'AFL',
+      'NRL',
     ];
     sports.sort((left, right) {
       final leftRank = order.indexOf(left);

@@ -644,10 +644,10 @@ class _LineMovementPageState extends State<LineMovementPage> {
                         'NFL',
                         'WNBA',
                         'NHL',
-                        'UFC',
-                        'PGA',
-                        'TENNIS',
                         'SOCCER',
+                        'CRICKET',
+                        'AFL',
+                        'NRL',
                       ].map((sport) {
                         final selected = sport == _tableSport;
                         return InkWell(
