@@ -108,20 +108,25 @@ def test_every_fault_is_reported_not_just_the_first() -> None:
     assert set(result.reasons) == {"source_unverified", "projection_missing"}
 
 
-def test_a_prop_whose_source_cannot_be_named_is_hidden() -> None:
-    """A card that prints UNKNOWN is worse than no card.
+def test_a_prop_whose_source_cannot_be_named_is_shown_and_explained() -> None:
+    """UNKNOWN in the raw feed is a metadata gap, not proof the bet is fake.
 
-    It tells the reader the feed does not know what it is showing them.
+    The prop still corresponds to something a sportsbook is actually
+    offering, so it stays on the board with the gap named rather than
+    disappearing -- the same treatment a missing projection already gets.
     """
 
     result = verify_prop(_prop(sportsbook="UNKNOWN"))
 
-    assert result.status == "quarantined"
-    assert result.displayable is False
+    assert result.status == "unverified"
+    assert result.displayable is True
+    assert result.selectable is True
     assert "source_unverified" in result.reasons
 
     # An unnamed event is the same failure seen from the other side.
-    assert verify_prop(_prop(matchup="")).displayable is False
+    unnamed_event = verify_prop(_prop(matchup=""))
+    assert unnamed_event.displayable is True
+    assert unnamed_event.selectable is True
 
 
 def test_a_missing_projection_is_reported_but_does_not_block() -> None:
@@ -139,10 +144,38 @@ def test_a_missing_projection_is_reported_but_does_not_block() -> None:
     assert "projection_missing" in result.reasons
 
 
-def test_a_prop_with_no_market_at_all_is_quarantined() -> None:
+def test_a_broken_core_object_is_withheld_entirely() -> None:
+    """Faults with nothing coherent underneath the caveat.
+
+    A market that does not exist in its sport cannot be graded against
+    anything real. A prop with no line has no number for an Over/Under to
+    mean anything against. A prop with no player has nothing to attach a
+    pick to. None of these can be shown with a warning, because there is no
+    real bet underneath the warning -- so all three are hidden rather than
+    explained.
+    """
+
     assert verify_prop(_prop(marketKey="", market="")).displayable is False
+    assert verify_prop(
+        _prop(marketKey="player_points", market="Player Points")
+    ).displayable is False
     assert verify_prop(_prop(line=None)).displayable is False
     assert verify_prop(_prop(player="")).displayable is False
+
+
+def test_a_missing_source_or_event_name_is_shown_and_explained() -> None:
+    # These are holes in our metadata about the surroundings of a real prop,
+    # not about whether the prop itself exists -- the player, market and line
+    # are all still intact, so they are treated like a missing projection.
+    missing_source = verify_prop(_prop(sportsbook="UNKNOWN"))
+    assert missing_source.displayable is True
+    assert missing_source.selectable is True
+    assert "source_unverified" in missing_source.reasons
+
+    missing_event = verify_prop(_prop(matchup=""))
+    assert missing_event.displayable is True
+    assert missing_event.selectable is True
+    assert "event_unnamed" in missing_event.reasons
 
 
 def test_reasons_read_as_english() -> None:

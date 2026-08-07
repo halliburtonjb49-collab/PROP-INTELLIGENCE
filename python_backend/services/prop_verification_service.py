@@ -5,21 +5,26 @@ CLEVELAND_GUARDIANS_MLB, and reports its source as UNKNOWN is not a display
 problem. It is the feed telling us it does not know what this prop is, in
 three separate ways, and the interface repeating it verbatim.
 
-This module answers two questions the rest of the pipeline never asked:
+The failures split into two kinds, and the split is not "how many fields are
+missing" but "does the core object still exist."
 
-    Is this prop internally coherent -- does its market exist in its sport,
-    does it name a real event, does it come from a source we can name?
+Some gaps are about the surroundings of a real prop, not the prop itself. An
+unnamed source and an unnamed event still leave a real player, a real market
+and a real line -- the underlying bet exists, we just cannot say which book
+or which specific game. Those are shown, selectable, and explained, on the
+same footing as a projection the model has not produced yet: a caveat, not a
+disqualification.
 
-    Is it complete enough to act on -- is there a projection behind it, a
-    line, a verified market?
-
-The first failure means the prop should not be displayed at all. The second is
-reported and stood beside: a missing projection is a gap in our coverage, not
-a fault in the prop, and refusing the pick would mistake one for the other.
+Other gaps break the object outright. A prop with no player has nothing to
+attach a pick to. A prop with no line has no number for an Over/Under to mean
+anything against. A market that does not exist in its sport -- "points"
+mapped onto a baseball player -- does not correspond to any real bet
+anywhere. None of these can be selected with a caveat, because there is
+nothing coherent underneath the caveat. They are withheld entirely.
 
 Nothing here guesses. A prop missing its market is not assigned a plausible
-one; it is marked unverified and the reason is recorded, so the gap is
-visible rather than papered over.
+one; it is marked and the reason is recorded, so the gap is visible rather
+than papered over.
 """
 
 from __future__ import annotations
@@ -147,31 +152,42 @@ class Verification:
 
     @property
     def status(self) -> str:
+        # Selectable no longer distinguishes these: every displayable prop is
+        # now selectable, since the only reasons left that block selection
+        # are the ones that also block display. Whether a caveat exists is
+        # what the card still needs to know, so status reads the reasons
+        # directly rather than a field that has gone flat.
         if not self.displayable:
             return "quarantined"
-        return "verified" if self.selectable else "unverified"
+        return "unverified" if self.reasons else "verified"
 
 
-# Gaps worth telling someone about that do not make a prop unusable. The model
-# having no projection yet is a statement about our coverage, not about the
-# prop: the line is real, the market is real, and a person doing their own
-# research has every right to take it. Saying so and standing aside is honest;
-# refusing the pick would be mistaking our own gap for their mistake.
-_ADVISORY_REASONS = frozenset({"projection_missing"})
+# Gaps about the surroundings of a real prop, not about whether it exists. An
+# unnamed source or an unnamed event still leaves a real player, market and
+# line behind them -- the bet exists, we just cannot say which book or which
+# specific game. The model having no projection yet is the same shape of gap.
+# Refusing any of these would mistake our own incompleteness for the prop's,
+# so all three are shown, selectable, and explained.
+_ADVISORY_REASONS = frozenset(
+    {
+        "projection_missing",
+        "source_unverified",
+        "event_unnamed",
+    }
+)
 
-# Faults that make a prop meaningless rather than merely incomplete. These are
-# not shown at all: there is nothing a person could do with a prop whose market
-# does not exist in its sport, and nothing to trust in one whose source cannot
-# be named. A card that has to print UNKNOWN is telling the reader the feed
-# does not know what it is showing them, which is worse than showing nothing.
+# Faults that break the core object rather than merely its surroundings.
+# There is nothing to attach a pick to without a player, no number for an
+# Over/Under to mean anything against without a line, and nothing a person
+# could do with a market that does not exist in its sport at all -- none of
+# these correspond to a real bet a sportsbook offers, so none can be shown
+# with a caveat. They are withheld entirely rather than shown with a warning.
 _QUARANTINE_REASONS = frozenset(
     {
         "market_not_in_sport",
         "market_missing",
         "player_missing",
         "line_missing",
-        "source_unverified",
-        "event_unnamed",
     }
 )
 

@@ -650,12 +650,14 @@ def test_edge_stays_in_stat_units_for_display() -> None:
     assert result["edge"] == pytest.approx(1.9, abs=1e-6)
 
 
-def test_props_that_cannot_be_verified_are_withheld_from_the_board() -> None:
-    """A market its sport does not have, or a source with no name.
+def test_only_a_market_impossible_for_its_sport_is_withheld_from_the_board() -> None:
+    """A market its sport does not have is the one thing that cannot be shown.
 
-    Neither is a card with a gap in it. Both are the feed saying it does not
-    know what it is showing, and repeating that verbatim is what put
-    "Player Points" and "UNKNOWN" in front of users.
+    Everything else -- an unnamed source, a missing projection -- is a hole
+    in our metadata about a real prop, not evidence the prop is fake, so it
+    stays on the board explained rather than hidden. Repeating "Player
+    Points" on a baseball card verbatim was the actual defect; "UNKNOWN" as a
+    source is now a caveat, not a disappearance.
     """
 
     from models.prop import PropResponse
@@ -678,15 +680,22 @@ def test_props_that_cannot_be_verified_are_withheld_from_the_board() -> None:
         prop(id="c", sportsbook="UNKNOWN"),
         prop(id="d", projection=None),
     ])
+    by_id = {p.id: p for p in shown}
 
-    assert [p.id for p in shown] == ["a", "d"]
-    assert shown[0].verificationStatus == "verified"
-    assert shown[0].selectable is True
+    # Only the impossible market is gone.
+    assert set(by_id) == {"a", "c", "d"}
+
+    assert by_id["a"].verificationStatus == "verified"
+    assert by_id["a"].selectable is True
+
+    # An unnamed source stays selectable and says why.
+    assert by_id["c"].selectable is True
+    assert "source_unverified" in by_id["c"].verificationReasons
 
     # A missing projection is a gap in our coverage, not a defect in the prop,
     # so it stays selectable and simply says so.
-    assert shown[1].selectable is True
-    assert "projection_missing" in shown[1].verificationReasons
+    assert by_id["d"].selectable is True
+    assert "projection_missing" in by_id["d"].verificationReasons
 
 
 def test_team_identifiers_never_reach_a_card() -> None:
