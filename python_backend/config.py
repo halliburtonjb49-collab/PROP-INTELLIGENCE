@@ -62,6 +62,16 @@ ODDS_REGIONS = (
     os.getenv("ODDS_REGIONS", "us,us2,us_dfs").strip()
     or "us,us2,us_dfs"
 )
+# How far ahead an event may start and still be worth spending credits on.
+# The provider lists a sport's whole published schedule, so in August the NFL
+# returns all 272 regular-season games -- the entire season -- and each one
+# costs the same to price as tonight's. Those distant games carry almost no
+# player markets yet, so the spend buys nothing and the sports later in the
+# cycle are reached with the keys already exhausted. Zero disables the bound.
+ODDS_EVENT_HORIZON_DAYS = max(
+    0, int(os.getenv("ODDS_EVENT_HORIZON_DAYS", "7") or 7)
+)
+
 _DEFAULT_BOOKMAKERS = "prizepicks,underdog,draftkings,pick6,fanduel,betr_us_dfs"
 
 # Keys the odds provider does not have. Asking for one is silent -- the

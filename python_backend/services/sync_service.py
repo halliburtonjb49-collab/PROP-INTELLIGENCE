@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from threading import Lock
 from typing import Callable
 
@@ -21,7 +21,11 @@ from services.prediction_automation_service import (
 from services.compound_alert_service import evaluate_all_alerts
 from services.prop_service import get_props
 from services.pregame_context_ingestion_service import sync_pregame_context
-from config import BALLDONTLIE_API_KEY, SPORTSGAMEODDS_API_KEY
+from config import (
+    BALLDONTLIE_API_KEY,
+    ODDS_EVENT_HORIZON_DAYS,
+    SPORTSGAMEODDS_API_KEY,
+)
 from providers.sportsgameodds import (
     LEAGUE_TO_SPORT,
     fetch_account_usage as fetch_sgo_account_usage,
@@ -174,6 +178,42 @@ def prioritize_events(events: list[dict[str, object]]) -> list[dict[str, object]
     return sorted(events, key=lambda event: (_event_start(event), str(event.get("id", ""))))
 
 
+# What _event_start returns when an event carries no usable start time.
+_UNDATED = datetime.max.replace(tzinfo=timezone.utc)
+
+
+def within_horizon(
+    events: list[dict[str, object]], *, days: int,
+) -> tuple[list[dict[str, object]], int]:
+    """Drop events starting further ahead than credits are worth spending on.
+
+    Ordering alone does not help here. The nearest slate is already served
+    first, but nothing stops the run from continuing through the rest of a
+    published season, and each distant game costs exactly what tonight's
+    does. In August the NFL lists all 272 regular-season games and returns
+    1.6 props per event against MLB's 206, so the tail of that schedule
+    spends most of the quota to produce almost nothing -- and the sports
+    that come after it are reached with both keys exhausted.
+
+    An event whose start time cannot be parsed is kept. We cannot show it is
+    far away, and silently dropping a game we simply failed to read is the
+    worse of the two mistakes.
+    """
+
+    if days <= 0:
+        return list(events), 0
+    cutoff = datetime.now(timezone.utc) + timedelta(days=days)
+    kept: list[dict[str, object]] = []
+    dropped = 0
+    for event in events:
+        start = _event_start(event)
+        if start != _UNDATED and start > cutoff:
+            dropped += 1
+            continue
+        kept.append(event)
+    return kept, dropped
+
+
 def sync_sport(sport_key: str) -> dict[str, object]:
     started_at = time.perf_counter()
     markets = markets_for_sport(sport_key)
@@ -191,6 +231,14 @@ def sync_sport(sport_key: str) -> dict[str, object]:
     events = prioritize_events(_with_retries(
         lambda: fetch_events(sport_key), label=f"events {sport_key}",
     ))
+    events, beyond_horizon = within_horizon(
+        events, days=ODDS_EVENT_HORIZON_DAYS,
+    )
+    if beyond_horizon:
+        logger.info(
+            "sync_sport horizon sport=%s kept=%s beyondHorizon=%s days=%s",
+            sport_key, len(events), beyond_horizon, ODDS_EVENT_HORIZON_DAYS,
+        )
     active_event_ids = [
         str(event.get("id", "")).strip()
         for event in events
@@ -293,6 +341,7 @@ def sync_sport(sport_key: str) -> dict[str, object]:
         fetched_events=fetched_events,
         skipped_for_quota=skipped_for_quota,
         failed_events=failed_events,
+        beyond_horizon=beyond_horizon,
         error=first_failure,
     )
     return {

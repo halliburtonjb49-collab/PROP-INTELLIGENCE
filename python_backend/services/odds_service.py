@@ -315,6 +315,7 @@ def record_sport_fetch(
     fetched_events: int = 0,
     skipped_for_quota: int = 0,
     failed_events: int = 0,
+    beyond_horizon: int = 0,
 ) -> None:
     """Note what one sport's fetch produced, and how far it got.
 
@@ -348,6 +349,11 @@ def record_sport_fetch(
             int(entry.get("skippedForQuota") or 0) + int(skipped_for_quota)
         )
         entry["failedEvents"] = int(entry.get("failedEvents") or 0) + int(failed_events)
+        # Recorded rather than dropped quietly: a sport showing few events
+        # should be able to say it was bounded, not look naturally small.
+        entry["beyondHorizon"] = (
+            int(entry.get("beyondHorizon") or 0) + int(beyond_horizon)
+        )
         entry["lastFetchedAt"] = datetime.now(timezone.utc).isoformat()
         if error:
             entry["lastError"] = error
