@@ -88,6 +88,7 @@ SPORT_MARKETS = {
         "player_aces",
         "player_games_won",
         "player_break_points_won",
+        "player_double_faults",
         "player_fantasy_points",
     ],
     "tennis_wta": [
@@ -96,6 +97,7 @@ SPORT_MARKETS = {
         "player_aces",
         "player_games_won",
         "player_break_points_won",
+        "player_double_faults",
         "player_fantasy_points",
     ],
 }

@@ -30,6 +30,44 @@ LEAGUE_TO_SPORT = {
     "MLS": "soccer_usa_mls",
 }
 
+from services.market_config import SPORT_MARKETS
+
+# Stats whose meaning depends on the sport. `shots` is a shot on target in
+# soccer and a shot on goal in hockey, and the shared table below can only
+# hold one of them, so the sport decides first.
+_SPORT_STAT_MARKETS = {
+    # A goalkeeper save and a goaltender save are the same act under
+    # different market names, and soccer publishes tackles and goals of its
+    # own that the shared table maps elsewhere.
+    "_soccer": {
+        "saves": "player_goalkeeper_saves",
+        "goalkeepersaves": "player_goalkeeper_saves",
+        "shots": "player_shots",
+        "shotsontarget": "player_shots_on_target",
+        "tackles": "player_tackles",
+        "assists": "player_assists",
+    },
+    "aussierules_afl": {
+        "goals": "player_goals_scored_over",
+        "disposals": "player_disposals_over",
+        "marks": "player_marks_over",
+        "tackles": "player_tackles_over",
+        "kicks": "player_kicks_over",
+        "handballs": "player_handballs_over",
+        "clearances": "player_clearances_over",
+    },
+    "icehockey_nhl": {
+        "shots": "player_shots_on_goal",
+        "shotsongoal": "player_shots_on_goal",
+        "points": "player_points",
+        "assists": "player_assists",
+        "goals": "player_goals",
+        "saves": "player_total_saves",
+        "blockedshots": "player_blocked_shots",
+        "powerplaypoints": "player_power_play_points",
+    },
+}
+
 _STAT_MARKETS = {
     "points": "player_points",
     "rebounds": "player_rebounds",
@@ -312,6 +350,35 @@ def _market_key(
     bet_type: str,
     market_name: str,
 ) -> str | None:
+    """Resolve a stat to a market this sport actually has.
+
+    The resolver below has many early returns for sport-specific shapes, and
+    a guard placed inside any one of them would leave the others open --
+    which is how `strikeouts` on a basketball event still resolved to a
+    batter market. Validating once, here, covers every path.
+    """
+
+    mapped = _resolve_market_key(
+        stat_id=stat_id,
+        sport_key=sport_key,
+        bet_type=bet_type,
+        market_name=market_name,
+    )
+    if mapped is None:
+        return None
+    known = SPORT_MARKETS.get(sport_key)
+    if known and mapped not in known:
+        return None
+    return mapped
+
+
+def _resolve_market_key(
+    *,
+    stat_id: object,
+    sport_key: str,
+    bet_type: str,
+    market_name: str,
+) -> str | None:
     normalized = _normalized_stat(stat_id)
     text = market_name.lower()
     if sport_key.startswith("tennis_"):
@@ -396,7 +463,12 @@ def _market_key(
         return "pitcher_strikeouts" if "pitcher" in text else "batter_strikeouts"
     if normalized == "walks":
         return "pitcher_walks" if "pitcher" in text else "batter_walks"
-    return _STAT_MARKETS.get(normalized)
+    sport_specific = _SPORT_STAT_MARKETS.get(sport_key)
+    if sport_specific is None and sport_key.startswith("soccer_"):
+        sport_specific = _SPORT_STAT_MARKETS["_soccer"]
+    sport_specific = sport_specific or {}
+    mapped = sport_specific.get(normalized) or _STAT_MARKETS.get(normalized)
+    return mapped
 
 
 def _number(value: object) -> float | None:
