@@ -1885,7 +1885,18 @@ def _job_queue_summary() -> dict[str, object]:
 
 
 @app.get("/api/performance/track-record")
-def public_performance_track_record() -> dict[str, object]:
+def public_performance_track_record(
+	# Closed until the numbers are trusted.
+	#
+	# Served publicly for a few hours today and immediately published a
+	# beat-the-close rate of 6.7% across 4,377 samples. Random selection beats
+	# the close about half the time, so that is not a weak result, it is a
+	# broken measurement -- and 408 of 409 graded picks landing in the BASELINE
+	# tier says the snapshot probability is not the probability the board
+	# shows. Publishing a record we cannot stand behind is wrong in both
+	# directions: it misleads if it is wrong, and it costs sales if it is right.
+	_membership: Membership = Depends(require_pro),
+) -> dict[str, object]:
 	"""The model's record, readable without an account.
 
 	Every number here was already computed and already served -- behind

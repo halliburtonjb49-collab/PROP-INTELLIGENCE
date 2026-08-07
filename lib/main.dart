@@ -221,6 +221,8 @@ enum AppPage {
 
 @visibleForTesting
 SubscriptionTier? requiredTierForPage(AppPage page) => switch (page) {
+  // Closed until the published numbers are trusted. See the endpoint.
+  AppPage.trackRecord ||
   AppPage.propBuilder ||
   AppPage.gameMarkets ||
   AppPage.watchlist ||
@@ -8022,12 +8024,6 @@ class TopNavigation extends StatelessWidget {
                       page: AppPage.gameMarkets,
                       icon: Icons.sports_rounded,
                       requiredTier: SubscriptionTier.core,
-                    ),
-                    const SizedBox(width: 4),
-                    _buildNavItem(
-                      label: 'TRACK RECORD',
-                      page: AppPage.trackRecord,
-                      icon: Icons.verified_outlined,
                     ),
                     const SizedBox(width: 4),
                     _buildNavItem(
