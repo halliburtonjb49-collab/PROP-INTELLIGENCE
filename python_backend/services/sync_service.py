@@ -24,6 +24,7 @@ from services.pregame_context_ingestion_service import sync_pregame_context
 from config import (
     BALLDONTLIE_API_KEY,
     ODDS_EVENT_HORIZON_DAYS,
+    ODDS_MINIMUM_EVENTS_PER_SPORT,
     SPORTSGAMEODDS_API_KEY,
 )
 from providers.sportsgameodds import (
@@ -183,7 +184,7 @@ _UNDATED = datetime.max.replace(tzinfo=timezone.utc)
 
 
 def within_horizon(
-    events: list[dict[str, object]], *, days: int,
+    events: list[dict[str, object]], *, days: int, minimum: int = 0,
 ) -> tuple[list[dict[str, object]], int]:
     """Drop events starting further ahead than credits are worth spending on.
 
@@ -198,20 +199,31 @@ def within_horizon(
     An event whose start time cannot be parsed is kept. We cannot show it is
     far away, and silently dropping a game we simply failed to read is the
     worse of the two mistakes.
+
+    A date bound on its own deletes any sport whose season starts beyond the
+    window, which is not what "too far away to be worth pricing" was meant to
+    mean. `minimum` keeps the nearest few events of such a schedule so the
+    sport stays on the board, while the rest of the season stays unpriced.
     """
 
     if days <= 0:
         return list(events), 0
     cutoff = datetime.now(timezone.utc) + timedelta(days=days)
     kept: list[dict[str, object]] = []
-    dropped = 0
+    deferred: list[dict[str, object]] = []
     for event in events:
         start = _event_start(event)
         if start != _UNDATED and start > cutoff:
-            dropped += 1
-            continue
-        kept.append(event)
-    return kept, dropped
+            deferred.append(event)
+        else:
+            kept.append(event)
+    if minimum > 0 and len(kept) < minimum:
+        # Events arrive nearest-first, so the front of `deferred` is the
+        # front of the schedule -- the part actually worth reaching for.
+        shortfall = minimum - len(kept)
+        kept.extend(deferred[:shortfall])
+        deferred = deferred[shortfall:]
+    return kept, len(deferred)
 
 
 def sync_sport(sport_key: str) -> dict[str, object]:
@@ -232,7 +244,9 @@ def sync_sport(sport_key: str) -> dict[str, object]:
         lambda: fetch_events(sport_key), label=f"events {sport_key}",
     ))
     events, beyond_horizon = within_horizon(
-        events, days=ODDS_EVENT_HORIZON_DAYS,
+        events,
+        days=ODDS_EVENT_HORIZON_DAYS,
+        minimum=ODDS_MINIMUM_EVENTS_PER_SPORT,
     )
     if beyond_horizon:
         logger.info(

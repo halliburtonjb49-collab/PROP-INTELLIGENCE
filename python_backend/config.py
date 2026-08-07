@@ -72,6 +72,16 @@ ODDS_EVENT_HORIZON_DAYS = max(
     0, int(os.getenv("ODDS_EVENT_HORIZON_DAYS", "7") or 7)
 )
 
+# The nearest events a sport keeps even when its whole schedule sits beyond
+# the horizon. A date bound alone silently deletes any sport whose season
+# starts later than the window: in early August every NFL game is a month
+# out, so a seven-day bound took the sport from 445 props to none. This
+# floor keeps the front of each schedule reachable while still refusing to
+# price the season behind it.
+ODDS_MINIMUM_EVENTS_PER_SPORT = max(
+    0, int(os.getenv("ODDS_MINIMUM_EVENTS_PER_SPORT", "24") or 24)
+)
+
 _DEFAULT_BOOKMAKERS = "prizepicks,underdog,draftkings,pick6,fanduel,betr_us_dfs"
 
 # Keys the odds provider does not have. Asking for one is silent -- the

@@ -80,3 +80,47 @@ def test_an_ordinary_daily_slate_is_untouched() -> None:
 
     assert len(kept) == 15
     assert dropped == 0
+
+
+def test_a_sport_whose_season_starts_later_is_not_deleted() -> None:
+    """The regression a date bound alone caused.
+
+    In early August every NFL game is a month out, so a seven-day bound took
+    the sport from 445 props to none. Too far away to be worth pricing was
+    never meant to mean the sport disappears.
+    """
+
+    season = [_event(str(index), days_ahead=30 + index) for index in range(272)]
+    kept, dropped = within_horizon(season, days=7, minimum=24)
+
+    assert len(kept) == 24
+    assert dropped == 248
+    # The nearest games, not an arbitrary 24 of them.
+    assert [event["id"] for event in kept] == [str(index) for index in range(24)]
+
+
+def test_the_floor_does_not_inflate_an_ordinary_slate() -> None:
+    # MLB's 15 games are all inside the window; the floor must not reach
+    # forward and buy tomorrow's schedule as well.
+    events = [_event(str(index), days_ahead=0.1) for index in range(15)]
+    kept, dropped = within_horizon(events, days=7, minimum=24)
+
+    assert len(kept) == 15
+    assert dropped == 0
+
+
+def test_the_floor_tops_up_rather_than_replaces() -> None:
+    events = prioritize_events(
+        [_event("near", days_ahead=1)]
+        + [_event(f"far{index}", days_ahead=40 + index) for index in range(10)]
+    )
+    kept, dropped = within_horizon(events, days=7, minimum=4)
+
+    assert [event["id"] for event in kept] == ["near", "far0", "far1", "far2"]
+    assert dropped == 7
+
+
+def test_no_floor_keeps_the_strict_bound() -> None:
+    season = [_event(str(index), days_ahead=30) for index in range(5)]
+
+    assert within_horizon(season, days=7, minimum=0) == ([], 5)
