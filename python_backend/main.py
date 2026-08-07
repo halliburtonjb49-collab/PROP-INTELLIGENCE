@@ -84,6 +84,7 @@ from services.baseline_projection_service import (
 )
 from services.odds_service import sport_coverage
 from services.prop_service import get_props
+from services.public_track_record_service import public_track_record
 from services.distributed_cache_service import (
 	delete as delete_distributed_cache,
 	get_json as get_distributed_json,
@@ -1878,6 +1879,23 @@ def _job_queue_summary() -> dict[str, object]:
 		"started": state.get("started"),
 		"failed": state.get("failed"),
 	}
+
+
+@app.get("/api/performance/track-record")
+def public_performance_track_record() -> dict[str, object]:
+	"""The model's record, readable without an account.
+
+	Every number here was already computed and already served -- behind
+	require_pro, where only people who had subscribed could see it. A track
+	record visible only to existing subscribers cannot do the one job a track
+	record has, which is to let someone decide whether to become one.
+
+	Aggregate results only. Nothing here exposes a projection, a line or a
+	pick, so publishing it gives away the evidence without giving away the
+	product.
+	"""
+
+	return public_track_record()
 
 
 @app.get("/api/operations/prop-feed-health")

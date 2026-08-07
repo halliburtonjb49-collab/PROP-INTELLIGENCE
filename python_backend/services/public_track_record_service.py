@@ -1,0 +1,150 @@
+"""The record, stated plainly enough that someone who has not paid can check it.
+
+Every number here already existed. `model_performance` has computed win rate,
+simulated ROI, closing-line value and per-tier results for a long time, and
+all of it sat behind `require_pro`. A track record only visible to people who
+already subscribed proves nothing to the person deciding whether to.
+
+Two rules govern what this will say.
+
+The first is that a rate must be earned before it is published. A win rate
+drawn from nine graded picks is not a track record, it is noise with a
+percent sign, and putting it on a page aimed at buyers makes it a claim. Below
+the minimum sample this reports how far along the record is and publishes no
+rate at all -- `published` is false and the rates are absent rather than zero,
+because zero is a number and absent is the truth.
+
+The second is that nothing is recomputed here. If this file disagreed with
+the internal performance view, one of them would be wrong, and the one facing
+buyers is the worse one to be wrong. This selects, rounds and labels; it never
+calculates a result.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any, Mapping, Sequence
+
+from services.baseline_projection_service import MODEL_VERSION
+from services.model_performance_service import model_performance
+
+# Graded picks required before any rate is published.
+#
+# Matches the calibration minimum the model already holds itself to. Choosing
+# a smaller number here would mean advertising a record the model does not yet
+# consider itself calibrated on.
+MINIMUM_PUBLISHED_SAMPLE = 100
+
+# Order tiers strongest first, so the page reads top down as the model's own
+# confidence descending rather than alphabetically.
+_TIER_ORDER = ("HIGH", "MEDIUM", "BASELINE")
+
+_TIER_LABELS: Mapping[str, str] = {
+    "HIGH": "High confidence",
+    "MEDIUM": "Medium confidence",
+    "BASELINE": "Baseline",
+}
+
+
+def _number(value: object) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    return result if result == result else None  # reject NaN
+
+
+def _count(value: object) -> int:
+    number = _number(value)
+    return int(number) if number is not None else 0
+
+
+def _tier_results(segments: Sequence[Mapping[str, Any]]) -> list[dict[str, object]]:
+    """Per-tier record, summed from the segments rather than re-derived.
+
+    A tier is published on the same terms as the overall record: a tier with
+    too few graded picks reports its count and withholds its rate, because a
+    reader comparing tiers will read the strongest number as the claim.
+    """
+
+    totals: dict[str, dict[str, int]] = {}
+    for segment in segments:
+        tier = str(segment.get("confidenceTier") or "").strip().upper()
+        if tier not in _TIER_LABELS:
+            continue
+        bucket = totals.setdefault(tier, {"sampleSize": 0, "hits": 0})
+        bucket["sampleSize"] += _count(segment.get("sampleSize"))
+        bucket["hits"] += _count(segment.get("hits"))
+
+    results: list[dict[str, object]] = []
+    for tier in _TIER_ORDER:
+        bucket = totals.get(tier)
+        if bucket is None or bucket["sampleSize"] <= 0:
+            continue
+        sample = bucket["sampleSize"]
+        earned = sample >= MINIMUM_PUBLISHED_SAMPLE
+        results.append(
+            {
+                "tier": tier,
+                "label": _TIER_LABELS[tier],
+                "sampleSize": sample,
+                "hits": bucket["hits"],
+                "winRate": round(bucket["hits"] / sample, 4) if earned else None,
+                "published": earned,
+            }
+        )
+    return results
+
+
+def public_track_record(model_version: str = MODEL_VERSION) -> dict[str, object]:
+    """What the model has actually done, for anyone who asks."""
+
+    performance = model_performance(model_version)
+    sample_size = _count(performance.get("sampleSize"))
+    published = sample_size >= MINIMUM_PUBLISHED_SAMPLE
+
+    win_rate = _number(performance.get("accuracy"))
+    roi = _number(performance.get("simulatedRoi"))
+    clv = performance.get("clv")
+    clv = clv if isinstance(clv, Mapping) else {}
+    segments = performance.get("segments")
+    segments = segments if isinstance(segments, Sequence) else []
+
+    return {
+        # The reader needs to know how old this is before they trust it.
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "modelVersion": performance.get("modelVersion") or model_version,
+        # Whether anything below is a claim or a progress report.
+        "published": published,
+        "sampleSize": sample_size,
+        "minimumPublishedSample": MINIMUM_PUBLISHED_SAMPLE,
+        "gradedPicksRemaining": max(0, MINIMUM_PUBLISHED_SAMPLE - sample_size),
+        "winRate": win_rate if published else None,
+        # Named for what it is. This is modelled from entry odds, not money
+        # that was actually staked, and calling it plain ROI on a page aimed
+        # at buyers would be a claim we cannot support.
+        "simulatedRoi": roi if published else None,
+        "closingLineValue": {
+            "available": bool(clv.get("available")) and published,
+            "sampleSize": _count(clv.get("sampleSize")),
+            "beatClosingLineRate": (
+                _number(clv.get("beatClosingLineRate")) if published else None
+            ),
+            "averageLinePoints": (
+                _number(clv.get("averageLineClvPoints")) if published else None
+            ),
+            "averageOddsValuePercent": (
+                _number(clv.get("averageOddsClvExpectedValuePercent"))
+                if published
+                else None
+            ),
+            "reason": clv.get("reason"),
+        },
+        "confidenceTiers": _tier_results(segments),
+        # Kept because a reader who knows what it means can check our
+        # calibration claim against it, and one who does not can ignore it.
+        "brierScore": _number(performance.get("brierScore")) if published else None,
+        "calibrated": bool(performance.get("calibrated")),
+    }
