@@ -191,3 +191,77 @@ def test_a_board_can_be_summarised():
     assert counts[WAIT] == 1
     assert counts[PASS] == 1
     assert counts[SHOP] == 0
+
+
+def test_the_model_is_read_even_when_the_gate_named_no_side():
+    """The gate blanks recommendedSide on most of the board.
+
+    Reading only that field made the verdict claim the model had no opinion
+    on 1,574 live props that each carried a probability for both sides.
+    """
+
+    verdict = compute_verdict(
+        _prop(
+            recommendedSide="N/A",
+            confidence=0,
+            uncertaintyAdjustedProbability=None,
+            modelOverProbability=0.31,
+            modelUnderProbability=0.69,
+            projection=0.0,
+            line=0.5,
+            probabilityEdge=0.09,
+        )
+    )
+
+    assert verdict.decision != PASS
+    assert verdict.side == "UNDER"
+    assert "69%" in verdict.reason
+
+
+def test_a_side_the_gate_declined_is_never_a_full_play():
+    """The gate checks things this does not -- separation, expected value.
+
+    Overruling it would put two different answers on the same board.
+    """
+
+    verdict = compute_verdict(
+        _prop(
+            recommendedSide="N/A",
+            uncertaintyAdjustedProbability=None,
+            modelOverProbability=0.72,
+            modelUnderProbability=0.28,
+            probabilityEdge=0.12,
+        )
+    )
+
+    assert verdict.decision == LEAN
+    assert verdict.side == "OVER"
+    assert "release checks" in verdict.reason
+
+
+def test_a_released_side_still_earns_a_full_play():
+    verdict = compute_verdict(_prop(recommendedSide="OVER"))
+
+    assert verdict.decision == PLAY_NOW
+
+
+def test_the_stronger_model_side_is_chosen():
+    over_favoured = compute_verdict(
+        _prop(
+            recommendedSide="",
+            uncertaintyAdjustedProbability=None,
+            modelOverProbability=0.66,
+            modelUnderProbability=0.34,
+        )
+    )
+    assert over_favoured.side == "OVER"
+
+    under_favoured = compute_verdict(
+        _prop(
+            recommendedSide="",
+            uncertaintyAdjustedProbability=None,
+            modelOverProbability=0.34,
+            modelUnderProbability=0.66,
+        )
+    )
+    assert under_favoured.side == "UNDER"

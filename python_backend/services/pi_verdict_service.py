@@ -121,12 +121,24 @@ def _better_price(prop: object, side: str) -> tuple[str, float]:
 def compute_verdict(prop: object) -> Verdict:
     """Decide what this prop is worth doing about."""
 
-    side = str(getattr(prop, "recommendedSide", "") or "").strip().upper()
-    if side not in {"OVER", "UNDER"}:
-        side = ""
+    released = str(getattr(prop, "recommendedSide", "") or "").strip().upper()
+    if released not in {"OVER", "UNDER"}:
+        released = ""
+
+    # The release gate blanks recommendedSide on everything it will not put
+    # its name to, which is most of the board. Reading only that field made
+    # the verdict claim the model had no opinion on 1,574 props that each
+    # carried a probability for both sides. The model's own numbers are the
+    # honest source for what it thinks; the gate decides how loudly to say it.
+    over = _float(getattr(prop, "modelOverProbability", None))
+    under = _float(getattr(prop, "modelUnderProbability", None))
+    side = released
     probability = _float(getattr(prop, "uncertaintyAdjustedProbability", None))
     if probability is None:
         probability = _float(getattr(prop, "fairProbability", None))
+    if not side and over is not None and under is not None:
+        side = "OVER" if over >= under else "UNDER"
+        probability = max(over, under)
     edge = _float(getattr(prop, "probabilityEdge", None))
     confidence = int(_float(getattr(prop, "confidence", 0)) or 0)
     reasons: list[str] = []
@@ -242,7 +254,11 @@ def compute_verdict(prop: object) -> Verdict:
         )
 
     # --- PLAY NOW or LEAN: how much conviction the numbers support. -------
-    if probability >= ACTIONABLE_PROBABILITY:
+    # A side the release gate declined to name is never promoted to a full
+    # play, however well it scores here. The gate applies checks this does
+    # not -- separation between the sides, expected value against the price --
+    # and overruling it would put two different answers on the same board.
+    if probability >= ACTIONABLE_PROBABILITY and released:
         return Verdict(
             decision=PLAY_NOW,
             side=side,
@@ -254,14 +270,18 @@ def compute_verdict(prop: object) -> Verdict:
             confidence=confidence,
             maximum_playable_line=maximum_line,
         )
+    lean_reason = (
+        f"The model gives {side.title()} {probability * 100:.0f}%, but this "
+        "has not cleared the release checks for a full play."
+        if not released
+        else f"A real but modest edge at {probability * 100:.0f}%. Smaller "
+        "than a full play."
+    )
     return Verdict(
         decision=LEAN,
         side=side,
         headline=f"LEAN {side}",
-        reason=(
-            f"A real but modest edge at {probability * 100:.0f}%. Smaller "
-            "than a full play."
-        ),
+        reason=lean_reason,
         confidence=confidence,
         maximum_playable_line=maximum_line,
     )
