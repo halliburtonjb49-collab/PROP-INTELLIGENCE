@@ -50,6 +50,9 @@ class PropResponse(BaseModel):
     # Whether this prop is coherent enough to show, and complete enough to
     # act on. A prop naming a market its sport does not have, or a source it
     # cannot identify, is not displayed at all.
+    # One conclusion in place of six signals the reader would otherwise have
+    # to assemble: play now, shop, wait, lean or pass.
+    verdict: dict[str, object] = Field(default_factory=dict)
     verificationStatus: str = "verified"
     verificationReasons: list[str] = Field(default_factory=list)
     selectable: bool = True

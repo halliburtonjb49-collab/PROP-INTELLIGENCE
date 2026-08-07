@@ -11,6 +11,7 @@ from services.projection_calibration_service import (
     confidence_from_probability,
     contextual_projection,
 )
+from services.pi_verdict_service import compute_verdict, verdict_payload
 from services.prop_probability_service import evaluate_market
 from services.probability_calibration_service import (
     calibrated_probability,
@@ -387,6 +388,9 @@ def apply_projection_context(prop: object) -> None:
         prop.tier = "No Pick"
         prop.confidence = 0
     _apply_strikeout_release_gate(prop)
+    # Last, so the verdict reads the finished prop rather than a half-built
+    # one: the probability, the lineup and the price are all settled by now.
+    prop.verdict = verdict_payload(compute_verdict(prop))
     prop.recommendationExplainability = build_explainability_payload(prop)
 
 
