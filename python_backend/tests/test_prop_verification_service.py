@@ -124,13 +124,19 @@ def test_a_prop_whose_source_cannot_be_named_is_hidden() -> None:
     assert verify_prop(_prop(matchup="")).displayable is False
 
 
-def test_an_incomplete_prop_is_shown_but_cannot_be_selected() -> None:
-    # There is something to look at; there is not enough to act on.
+def test_a_missing_projection_is_reported_but_does_not_block() -> None:
+    """Our coverage gap is not the prop's fault.
+
+    The line is real and the market is real. Refusing the pick would mistake
+    a gap in what we model for a defect in what they are looking at.
+    """
+
     result = verify_prop(_prop(projection=None))
 
     assert result.displayable is True
-    assert result.selectable is False
-    assert result.status == "unverified"
+    assert result.selectable is True
+    # The gap is still recorded so the card can say so.
+    assert "projection_missing" in result.reasons
 
 
 def test_a_prop_with_no_market_at_all_is_quarantined() -> None:

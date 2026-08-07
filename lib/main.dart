@@ -10032,13 +10032,14 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             spacing: 6,
             runSpacing: 6,
             children: [
-              // What the backend could confirm about this prop. A card that
-              // cannot be acted on should say so where the evidence is read,
-              // not only when somebody taps and is refused.
-              if (prop.selectable)
+              // What the model could confirm. A prop with no projection is
+              // still a real line on a real market and stays selectable; the
+              // chip says the model has no opinion rather than implying the
+              // prop itself is suspect.
+              if (prop.hasModelProjection)
                 chip('VERIFIED DATA')
               else
-                chip('UNVERIFIED — NOT SELECTABLE'),
+                chip('NO MODEL PROJECTION'),
               chip('LINEUP ${prop.lineupStatus.toUpperCase()}'),
               chip(prop.injuryDisplayLabel),
               if (hasModelPick) chip('EVIDENCE: VERIFIED MODEL'),

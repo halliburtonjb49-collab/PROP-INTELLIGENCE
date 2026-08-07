@@ -13,9 +13,9 @@ This module answers two questions the rest of the pipeline never asked:
     Is it complete enough to act on -- is there a projection behind it, a
     line, a verified market?
 
-The first failure means the prop should not be displayed at all. The second
-means it can be displayed but must not be selectable, because a pick built on
-an unverified prop is a pick built on nothing.
+The first failure means the prop should not be displayed at all. The second is
+reported and stood beside: a missing projection is a gap in our coverage, not
+a fault in the prop, and refusing the pick would mistake one for the other.
 
 Nothing here guesses. A prop missing its market is not assigned a plausible
 one; it is marked unverified and the reason is recorded, so the gap is
@@ -152,6 +152,13 @@ class Verification:
         return "verified" if self.selectable else "unverified"
 
 
+# Gaps worth telling someone about that do not make a prop unusable. The model
+# having no projection yet is a statement about our coverage, not about the
+# prop: the line is real, the market is real, and a person doing their own
+# research has every right to take it. Saying so and standing aside is honest;
+# refusing the pick would be mistaking our own gap for their mistake.
+_ADVISORY_REASONS = frozenset({"projection_missing"})
+
 # Faults that make a prop meaningless rather than merely incomplete. These are
 # not shown at all: there is nothing a person could do with a prop whose market
 # does not exist in its sport, and nothing to trust in one whose source cannot
@@ -206,9 +213,10 @@ def verify_prop(prop: object) -> Verification:
         reasons.append("event_unnamed")
 
     quarantined = any(reason in _QUARANTINE_REASONS for reason in reasons)
+    blocking = [reason for reason in reasons if reason not in _ADVISORY_REASONS]
     return Verification(
         displayable=not quarantined,
-        selectable=not reasons,
+        selectable=not blocking,
         reasons=tuple(reasons),
     )
 

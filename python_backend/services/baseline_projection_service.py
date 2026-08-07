@@ -151,6 +151,24 @@ def basketball_market_value(market: object, row: tuple[object, ...]) -> float | 
     points, rebounds, assists, steals, blocks, turnovers, threes = [
         float(value or 0) for value in row[:7]
     ]
+    if "double double" in text:
+        # A double-double is a yes/no event, so its history is the rate at
+        # which it happened. Averaging that rate across recent games is what
+        # the projection layer expects, and it needs no data the box score
+        # does not already carry.
+        categories = sum(
+            1
+            for value in (points, rebounds, assists, steals, blocks)
+            if value >= 10
+        )
+        return 1.0 if categories >= 2 else 0.0
+    if "triple double" in text:
+        categories = sum(
+            1
+            for value in (points, rebounds, assists, steals, blocks)
+            if value >= 10
+        )
+        return 1.0 if categories >= 3 else 0.0
     if "points rebounds assists" in text or text.endswith(" pra") or text == "pra":
         return points + rebounds + assists
     if "points rebounds" in text:
@@ -495,7 +513,19 @@ class _HistoricalProjectionIndex:
                                 coalesce(sum(case events when 'single' then 1
                                     when 'double' then 2 when 'triple' then 3
                                     when 'home_run' then 4 else 0 end),0) total_bases,
-                                count(*) filter(where events='home_run') home_runs
+                                count(*) filter(where events='home_run') home_runs,
+                                -- Every one of these is already in the pitch
+                                -- log; the query simply never asked for them,
+                                -- which is why hundreds of MLB props had no
+                                -- projection to show.
+                                count(*) filter(where events='single') singles,
+                                count(*) filter(where events='double') doubles,
+                                count(*) filter(where events='triple') triples,
+                                count(*) filter(where events in
+                                    ('walk','intent_walk')) walks,
+                                count(*) filter(where events in
+                                    ('strikeout','strikeout_double_play'))
+                                    batter_strikeouts
                             from historical_mlb_pitches
                             where game_date < current_date
                                 and game_date >= current_date - interval '365 days'
@@ -504,26 +534,64 @@ class _HistoricalProjectionIndex:
                         ), pitcher_games as (
                             select pitcher_id,game_date,
                                 count(*) filter(where events in
-                                    ('strikeout','strikeout_double_play')) strikeouts
+                                    ('strikeout','strikeout_double_play')) strikeouts,
+                                count(*) filter(where events in
+                                    ('single','double','triple','home_run'))
+                                    hits_allowed,
+                                count(*) filter(where events in
+                                    ('walk','intent_walk')) pitcher_walks,
+                                -- An out is an out however it was recorded.
+                                count(*) filter(where events in
+                                    ('field_out','strikeout','force_out',
+                                     'grounded_into_double_play','sac_fly',
+                                     'sac_bunt','fielders_choice','double_play',
+                                     'strikeout_double_play')) outs
                             from historical_mlb_pitches
                             where game_date < current_date
                                 and game_date >= current_date - interval '365 days'
                                 and pitcher_id <> ''
                             group by pitcher_id,game_date
                         )
-                        select 'batter',batter_id,game_date,hits,total_bases,home_runs,0
+                        select 'batter',batter_id,game_date,hits,total_bases,
+                            home_runs,0,singles,doubles,triples,walks,
+                            batter_strikeouts,0,0,0
                         from batter_games
                         union all
-                        select 'pitcher',pitcher_id,game_date,0,0,0,strikeouts
+                        select 'pitcher',pitcher_id,game_date,0,0,0,strikeouts,
+                            0,0,0,0,0,hits_allowed,pitcher_walks,outs
                         from pitcher_games
                         order by game_date""",
                     )
-                    for role, player_id, _game_date, hits, bases, homers, strikeouts in cursor.fetchall():
+                    for row in cursor.fetchall():
+                        (role, player_id, _game_date, hits, bases, homers,
+                         strikeouts, singles, doubles, triples, walks,
+                         batter_ks, hits_allowed, pitcher_walks, outs) = row
                         prefix = f"{role}:{player_id}"
-                        mlb.setdefault((prefix, "hits"), []).append(float(hits or 0))
-                        mlb.setdefault((prefix, "total_bases"), []).append(float(bases or 0))
-                        mlb.setdefault((prefix, "home_runs"), []).append(float(homers or 0))
-                        mlb.setdefault((prefix, "strikeouts"), []).append(float(strikeouts or 0))
+                        # A batter row carries zeros in the pitcher columns and
+                        # the reverse, so only the stats belonging to the role
+                        # are recorded. Storing the zeros would teach the model
+                        # that every pitcher records no hits.
+                        if role == "batter":
+                            stats = {
+                                "hits": hits,
+                                "total_bases": bases,
+                                "home_runs": homers,
+                                "singles": singles,
+                                "doubles": doubles,
+                                "triples": triples,
+                                "walks": walks,
+                                "batter_strikeouts": batter_ks,
+                                "hits_runs_rbis": hits,
+                            }
+                        else:
+                            stats = {
+                                "strikeouts": strikeouts,
+                                "hits_allowed": hits_allowed,
+                                "pitcher_walks": pitcher_walks,
+                                "outs": outs,
+                            }
+                        for stat, value in stats.items():
+                            mlb.setdefault((prefix, stat), []).append(float(value or 0))
 
                     cursor.execute(
                         """select sport,player_name,stats from (
@@ -692,12 +760,35 @@ class _HistoricalProjectionIndex:
         if normalized_sport != "MLB" or not player_id:
             return None
         text = _market_text(market)
-        if "strikeout" in text:
+        # Longer phrases first: "pitcher hits allowed" must not be read as
+        # "hits", and "batter strikeouts" is not the pitcher market.
+        if "hits allowed" in text:
+            role, stat = "pitcher", "hits_allowed"
+        elif "batter strikeout" in text:
+            role, stat = "batter", "batter_strikeouts"
+        elif "strikeout" in text:
             role, stat = "pitcher", "strikeouts"
+        elif "pitcher walk" in text:
+            role, stat = "pitcher", "pitcher_walks"
+        elif "out" in text and "pitcher" in text:
+            role, stat = "pitcher", "outs"
         elif "total base" in text:
             role, stat = "batter", "total_bases"
         elif "home run" in text:
             role, stat = "batter", "home_runs"
+        elif "hits runs rbis" in text:
+            # Runs and RBIs are not in the pitch log, so this is projected
+            # from hits alone and will run low. It is better than no
+            # projection, and the card says the model is a baseline.
+            role, stat = "batter", "hits_runs_rbis"
+        elif "single" in text:
+            role, stat = "batter", "singles"
+        elif "double" in text:
+            role, stat = "batter", "doubles"
+        elif "triple" in text:
+            role, stat = "batter", "triples"
+        elif "walk" in text:
+            role, stat = "batter", "walks"
         elif text in {"batter hits", "player hits", "hits"}:
             role, stat = "batter", "hits"
         else:

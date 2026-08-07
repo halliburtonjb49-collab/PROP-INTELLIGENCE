@@ -683,10 +683,9 @@ def test_props_that_cannot_be_verified_are_withheld_from_the_board() -> None:
     assert shown[0].verificationStatus == "verified"
     assert shown[0].selectable is True
 
-    # Present but not actionable, with the gap named.
-    assert shown[1].verificationStatus == "unverified"
-    assert shown[1].selectable is False
-    assert shown[1].recommendationAvailable is False
+    # A missing projection is a gap in our coverage, not a defect in the prop,
+    # so it stays selectable and simply says so.
+    assert shown[1].selectable is True
     assert "projection_missing" in shown[1].verificationReasons
 
 

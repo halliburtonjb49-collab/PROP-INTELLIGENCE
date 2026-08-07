@@ -31,18 +31,20 @@ PropData _prop({
 }
 
 void main() {
-  test('an unverified prop cannot be selected', () {
-    // The backend withholds props it cannot describe at all. What arrives
-    // unverified is merely incomplete, and a pick built on that is a pick
-    // built on nothing.
-    final prop = _prop(
-      selectable: false,
-      status: 'unverified',
-      reasons: const ['projection_missing'],
-    );
+  test('a prop the model has no projection for is still selectable', () {
+    // The line and the market are real. The gap is in our coverage, so the
+    // card says so and stands aside rather than refusing the pick.
+    final prop = _prop(reasons: const ['projection_missing']);
+
+    expect(prop.isSelectable, isTrue);
+    expect(prop.hasModelProjection, isFalse);
+  });
+
+  test('a prop the backend could not verify cannot be selected', () {
+    final prop = _prop(selectable: false, status: 'unverified');
 
     expect(prop.isSelectable, isFalse);
-    expect(prop.selectionBlockedReason, 'No model projection yet for this prop.');
+    expect(prop.selectionBlockedReason, 'This prop could not be fully verified.');
   });
 
   test('a verified prop is selectable before its game starts', () {

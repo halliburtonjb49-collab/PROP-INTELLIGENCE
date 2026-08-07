@@ -1041,12 +1041,16 @@ class PropData {
     return DateTime.now().toUtc().isBefore(closesAt);
   }
 
+  /// Whether the model produced a projection for this prop.
+  ///
+  /// A prop without one is still selectable: the line and the market are
+  /// real, and the gap is in our coverage rather than in the prop.
+  bool get hasModelProjection =>
+      !verificationReasons.contains('projection_missing');
+
   /// Why selection is closed, phrased for the person looking at the card.
   String get selectionBlockedReason {
     if (!selectable) {
-      if (verificationReasons.contains('projection_missing')) {
-        return 'No model projection yet for this prop.';
-      }
       return 'This prop could not be fully verified.';
     }
     return 'Selection closed: this game is starting or already underway.';
