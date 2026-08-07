@@ -280,7 +280,14 @@ def sync_sport(sport_key: str) -> dict[str, object]:
     # Recorded so an empty rail can be explained from outside the process:
     # a sport that returns games but no player markets looks identical to one
     # that is out of season, and to one nobody is asking for.
-    record_sport_fetch(sport_key, events=len(events), props=prop_count)
+    record_sport_fetch(
+        sport_key,
+        events=len(events),
+        props=prop_count,
+        fetched_events=fetched_events,
+        skipped_for_quota=skipped_for_quota,
+        failed_events=failed_events,
+    )
     return {
         "sport": sport_key,
         "events": len(events),

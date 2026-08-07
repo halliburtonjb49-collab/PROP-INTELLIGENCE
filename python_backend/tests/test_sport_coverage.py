@@ -104,3 +104,41 @@ def test_a_cache_failure_leaves_the_sync_working(monkeypatch):
     monkeypatch.setattr(odds_service, "_read_sport_results", lambda: {})
     odds_service._sport_results.clear()
     assert odds_service.sport_coverage()["results"] == {}
+
+
+def test_quota_starvation_is_not_mistaken_for_missing_coverage():
+    """Events listed with no props has three unrelated causes.
+
+    The quota ran out before their odds were requested, every request failed,
+    or the provider genuinely has no player markets. Only the last is a
+    coverage problem, and treating the first as one would have us retire a
+    sport that works.
+    """
+
+    odds_service.record_sport_fetch(
+        "soccer_epl", events=10, props=0, fetched_events=0, skipped_for_quota=10
+    )
+    odds_service.record_sport_fetch(
+        "icehockey_nhl", events=31, props=0, fetched_events=31
+    )
+
+    coverage = odds_service.sport_coverage()
+
+    # Both look identical on event count alone.
+    assert "soccer_epl" in coverage["eventsWithoutProps"]
+    assert "icehockey_nhl" in coverage["eventsWithoutProps"]
+
+    # Only one was actually asked.
+    assert coverage["starvedByQuota"] == ["soccer_epl"]
+    assert coverage["fetchedButEmpty"] == ["icehockey_nhl"]
+
+
+def test_a_working_sport_appears_in_neither_bucket():
+    odds_service.record_sport_fetch(
+        "baseball_mlb", events=15, props=2990, fetched_events=15
+    )
+
+    coverage = odds_service.sport_coverage()
+
+    assert coverage["starvedByQuota"] == []
+    assert coverage["fetchedButEmpty"] == []

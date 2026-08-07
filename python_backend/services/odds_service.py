@@ -312,19 +312,42 @@ def record_sport_fetch(
     events: int,
     props: int,
     error: str = "",
+    fetched_events: int = 0,
+    skipped_for_quota: int = 0,
+    failed_events: int = 0,
 ) -> None:
-    """Note what one sport's fetch produced."""
+    """Note what one sport's fetch produced, and how far it got.
+
+    Events listed but no props can mean three unrelated things: the quota ran
+    out before their odds were requested, every request failed, or the
+    provider simply has no player markets for that sport. Recording only the
+    event count leaves all three looking identical.
+    """
 
     key = str(sport_key or "").strip().lower()
     if not key:
         return
     with _sport_lock:
         entry = _sport_results.setdefault(
-            key, {"fetches": 0, "events": 0, "props": 0, "lastError": ""}
+            key,
+            {
+                "fetches": 0,
+                "events": 0,
+                "props": 0,
+                "oddsFetched": 0,
+                "skippedForQuota": 0,
+                "failedEvents": 0,
+                "lastError": "",
+            },
         )
         entry["fetches"] = int(entry["fetches"]) + 1
         entry["events"] = int(entry["events"]) + int(events)
         entry["props"] = int(entry["props"]) + int(props)
+        entry["oddsFetched"] = int(entry.get("oddsFetched") or 0) + int(fetched_events)
+        entry["skippedForQuota"] = (
+            int(entry.get("skippedForQuota") or 0) + int(skipped_for_quota)
+        )
+        entry["failedEvents"] = int(entry.get("failedEvents") or 0) + int(failed_events)
         entry["lastFetchedAt"] = datetime.now(timezone.utc).isoformat()
         if error:
             entry["lastError"] = error
@@ -366,5 +389,20 @@ def sport_coverage() -> dict[str, object]:
             key
             for key, value in results.items()
             if int(value.get("events") or 0) > 0 and int(value.get("props") or 0) == 0
+        ],
+        # Listed events whose odds were never actually requested because the
+        # quota ran out first. These are not evidence the provider lacks
+        # player markets; nobody asked it.
+        "starvedByQuota": [
+            key
+            for key, value in results.items()
+            if int(value.get("skippedForQuota") or 0) > 0
+        ],
+        # Odds were requested and returned, and still no props came out. This
+        # is the only pattern that actually indicates missing coverage.
+        "fetchedButEmpty": [
+            key
+            for key, value in results.items()
+            if int(value.get("oddsFetched") or 0) > 0 and int(value.get("props") or 0) == 0
         ],
     }
