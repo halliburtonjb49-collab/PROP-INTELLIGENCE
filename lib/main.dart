@@ -11727,6 +11727,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       sortBy: widget.sortBy,
       limit: _visiblePropStep,
       offset: offset,
+    ).timeout(
+      propFetchTimeout,
+      onTimeout: () => throw TimeoutException(
+        'The prop feed did not respond within '
+        '${propFetchTimeout.inSeconds} seconds.',
+        propFetchTimeout,
+      ),
     );
   }
 
@@ -11928,7 +11935,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                       : 'Unable to load props',
                   message: specialtyFeedUnavailable
                       ? 'The selected providers have not returned current $normalizedSport props. The board will refresh automatically when an authorized feed posts them.'
-                      : snapshot.error.toString(),
+                      : describeLoadFailure(snapshot.error),
                   onRetry: _retryLoad,
                 ),
               );
@@ -12327,8 +12334,75 @@ class _PropToolbar extends StatelessWidget {
   }
 }
 
-class _PropLoadingSkeleton extends StatelessWidget {
+/// How long the board waits before it stops claiming to be loading.
+///
+/// Without a bound, a feed that never answers leaves the skeleton on screen
+/// forever: indistinguishable from a slow load, and offering nothing to do
+/// about it. Timing out is what turns that into an error the reader can
+/// retry. Generous on purpose -- a cold backend genuinely takes seconds, and
+/// a bound tight enough to fire on a slow-but-working feed would be a worse
+/// bug than the one it fixes.
+const Duration propFetchTimeout = Duration(seconds: 25);
+
+/// What to say at this point in a wait.
+///
+/// A skeleton alone says "something is happening" and keeps saying it at the
+/// second mark and at the twentieth. This escalates with real elapsed time so
+/// a wait that has become abnormal reads as abnormal, and says what happens
+/// next rather than leaving the reader to guess whether to keep waiting.
+String loadProgressMessage(Duration elapsed) {
+  if (elapsed.inSeconds < 4) return 'Loading live props…';
+  if (elapsed.inSeconds < 10) return 'Pulling the latest lines…';
+  if (elapsed.inSeconds < 18) {
+    return 'Still working. The feed is slower than usual.';
+  }
+  return 'The feed has not answered. This will stop shortly and offer a retry.';
+}
+
+/// What a failed board load should say to the person looking at it.
+///
+/// A timeout arrives as "TimeoutException after 0:00:25.000000", which names
+/// the mechanism and not the situation. The reader needs to know whether to
+/// retry now, and an exception's toString never tells them that.
+String describeLoadFailure(Object? error) {
+  if (error is TimeoutException) {
+    return 'The prop feed did not respond in time. It is usually back within '
+        'a moment -- retry, and the board will reload.';
+  }
+  if (error is SocketException) {
+    return 'No connection to the prop feed. Check your network and retry.';
+  }
+  return error?.toString() ?? 'The board could not be loaded.';
+}
+
+/// Placeholder cards, plus an honest account of how the wait is going.
+class _PropLoadingSkeleton extends StatefulWidget {
   const _PropLoadingSkeleton();
+
+  @override
+  State<_PropLoadingSkeleton> createState() => _PropLoadingSkeletonState();
+}
+
+class _PropLoadingSkeletonState extends State<_PropLoadingSkeleton> {
+  final Stopwatch _elapsed = Stopwatch()..start();
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    // One second is the coarsest tick that still lets each message appear on
+    // the beat it describes.
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    _elapsed.stop();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -12376,9 +12450,15 @@ class _PropLoadingSkeleton extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Loading live props…',
-                  style: TextStyle(color: AppColors.muted, fontSize: 10),
+                Text(
+                  loadProgressMessage(_elapsed.elapsed),
+                  key: const ValueKey('prop-loading-progress'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 10,
+                  ),
                 ),
               ],
             ),
