@@ -175,6 +175,7 @@ def snapshot_probability(prop: object) -> tuple[float, str]:
 _probability_source_lock = Lock()
 _probability_sources: dict[str, int] = {}
 _probability_tiers: dict[str, int] = {}
+_probability_skipped: dict[str, int] = {}
 _probability_observed_at = ""
 
 
@@ -204,6 +205,9 @@ def snapshot_probability_sources() -> dict[str, object]:
             "props": sum(_probability_sources.values()),
             "sources": dict(_probability_sources),
             "tiers": dict(_probability_tiers),
+            # Not written, and why. A record that shrank must be able to say
+            # it was pruned rather than look like a feed that dried up.
+            "skipped": dict(_probability_skipped),
         }
 
 
@@ -211,10 +215,12 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
     if not database_is_configured():
         return {"created": 0, "reason": "DATABASE_URL is not configured"}
     created = 0
+    skipped_without_probability = 0
     global _probability_observed_at
     with _probability_source_lock:
         _probability_sources.clear()
         _probability_tiers.clear()
+        _probability_skipped.clear()
         _probability_observed_at = datetime.now(timezone.utc).isoformat()
     with get_database_pool().connection() as connection, connection.cursor() as cursor:
         for prop in get_props():
@@ -240,6 +246,24 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
                 projection = prop.line + signed
             probability, probability_source = snapshot_probability(prop)
             _record_probability_source(probability, probability_source)
+            # A prop the model produced no probability for is not a model
+            # prediction, and recording confidence in the probability column
+            # does not make it one. Every measurement downstream -- win rate
+            # by tier, calibration, closing-line value -- reads that column
+            # as a modelled probability, so a placeholder there does not
+            # merely add noise, it changes what those numbers are about.
+            #
+            # Skipping costs sample size. Keeping costs the meaning of the
+            # sample, which is the more expensive of the two: a smaller
+            # honest record can be acted on and a large meaningless one
+            # cannot.
+            if probability_source == "confidenceFallback":
+                skipped_without_probability += 1
+                with _probability_source_lock:
+                    _probability_skipped["confidenceFallback"] = (
+                        _probability_skipped.get("confidenceFallback", 0) + 1
+                    )
+                continue
             cursor.execute("""select 1 from prediction_snapshots where prop_id=%s and model_version=%s
                 and snapshot_date=(now() at time zone 'UTC')::date limit 1""", (prop.id, snapshot_model_version))
             if cursor.fetchone():
@@ -253,6 +277,7 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
                  json.dumps({"playerName": prop.player, "sportsbook": prop.sportsbook,
                              "eventId": prop.eventId,
                              "marketKey": prop.marketKey,
+                             "probabilitySource": probability_source,
                              "commenceTime": prop.startTimeUtc,
                              "matchup": prop.matchup, "confidence": prop.confidence,
                              "edge": prop.recommendationEdge,

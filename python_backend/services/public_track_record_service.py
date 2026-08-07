@@ -174,6 +174,19 @@ def public_track_record(model_version: str = MODEL_VERSION) -> dict[str, object]
             "averageLinePoints": (
                 _number(clv.get("averageLineClvPoints")) if published else None
             ),
+            # Not closing-line value, despite living under this key.
+            #
+            # It divides the market's de-vigged closing probability by our
+            # entry break-even, which still carries the vig, so it answers
+            # "what was this bet worth at the price we took" rather than
+            # "did we beat the close". The asymmetry is the point and must
+            # not be tidied away: a bet at -110 needing 52.4% to break even
+            # is genuinely losing if the true close is 50%.
+            #
+            # It is also the one measurement here that does not depend on
+            # our own hit_probability -- both sides come from market prices
+            # -- which makes it the most trustworthy number on this page and
+            # the reason it is kept despite reading badly.
             "averageOddsValuePercent": (
                 _number(clv.get("averageOddsClvExpectedValuePercent"))
                 if published
