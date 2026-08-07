@@ -287,6 +287,12 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
             where model_version=%s and inputs ? 'closingLine'""",
             (model_version,),
         )
+        # Read before the next execute replaces the result set. This row used
+        # to be fetched further down, after the per-segment query below had
+        # already overwritten it and fetchall had drained the cursor, so the
+        # fetch returned None and unpacking it raised -- taking the whole
+        # performance view, and every page built on it, down with it.
+        clv_totals = cursor.fetchone() or (0, None, None, None, None, 0)
         cursor.execute(f"""select sport,market,side,count(*),count(*) filter(where hit),
             avg(hit_probability),
             avg({profit}) filter(where nullif(inputs->>'entryOdds','') is not null),
@@ -319,7 +325,7 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
             for row in cursor.fetchall()
         ])
         (clv_count, beat_close_rate, average_points, average_odds_ev,
-         positive_odds_rate, odds_sample_size) = cursor.fetchone()
+         positive_odds_rate, odds_sample_size) = clv_totals
         rolling_audit = _rolling_audit(cursor, model_version, base)
     actionable = [segment for segment in side_segments if segment["actionable"]]
     return {"modelVersion": model_version, "requestedModelVersion": requested_version,
