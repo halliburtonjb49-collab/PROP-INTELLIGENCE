@@ -3056,6 +3056,9 @@ class _MainDashboardState extends State<MainDashboard> {
   final String _selectedTier = 'All';
   int _minConfidence = 0;
   String _sortBy = 'time';
+  // Which verdicts the board shows. ALL is the default so nothing
+  // is hidden until the reader asks for it.
+  String _verdictFilter = 'ALL';
   DateTime? _lastUpdated;
   List<PropData> _latestProps = const [];
   List<PropData> _siteInventoryProps = const [];
@@ -5554,6 +5557,14 @@ class _MainDashboardState extends State<MainDashboard> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 RadioListTile<String>(
+                  value: 'verdict',
+                  activeColor: AppColors.gold,
+                  title: Text(
+                    'PI Verdict (plays first)',
+                    style: TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
+                RadioListTile<String>(
                   value: 'source',
                   activeColor: AppColors.gold,
                   title: Text(
@@ -5586,6 +5597,67 @@ class _MainDashboardState extends State<MainDashboard> {
     if (selected != null && mounted) {
       setState(() => _sortBy = selected);
     }
+  }
+
+  /// The row that turns two thousand props into the ones worth acting on.
+  ///
+  /// PLAYABLE is deliberately first and deliberately broad: it is every
+  /// verdict the model would actually stand behind -- plays, prices worth
+  /// shopping, and leans -- rather than PLAY NOW alone. A reader who only
+  /// ever taps this one chip should still see everything actionable.
+  Widget _buildVerdictFilter() {
+    const options = <(String, String)>[
+      ('ALL', 'ALL PROPS'),
+      ('ACTIONABLE', 'PLAYABLE'),
+      ('PLAY_NOW', 'PLAY NOW'),
+      ('SHOP', 'SHOP'),
+      ('LEAN', 'LEAN'),
+      ('WAIT', 'WAIT'),
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final (value, label) in options)
+            Padding(
+              padding: const EdgeInsets.only(right: 7),
+              child: Semantics(
+                button: true,
+                selected: _verdictFilter == value,
+                label: 'Show $label',
+                child: GestureDetector(
+                  key: ValueKey('verdict-filter-$value'),
+                  onTap: () => setState(() => _verdictFilter = value),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _verdictFilter == value
+                          ? AppColors.gold
+                          : const Color(0xFF07111C),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: AppColors.gold),
+                    ),
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: _verdictFilter == value
+                            ? app_colors.AppColors.bgBase
+                            : Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 9,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _buildBoardCategories() {
@@ -5871,6 +5943,8 @@ class _MainDashboardState extends State<MainDashboard> {
                             ),
                           ),
                           const SizedBox(height: 10),*/
+                          _buildVerdictFilter(),
+                          const SizedBox(height: 10),
                           PropGrid(
                             selections: widget.selections,
                             onSelect: (prop, side) {
@@ -5893,6 +5967,7 @@ class _MainDashboardState extends State<MainDashboard> {
                             selectedTier: _selectedTier,
                             minConfidence: _minConfidence,
                             sortBy: _sortBy,
+                            verdictFilter: _verdictFilter,
                             onPropsLoaded: _handlePropsLoaded,
                           ),
                         ],
@@ -8706,6 +8781,11 @@ class PropGrid extends StatefulWidget {
   final String selectedTier;
   final int minConfidence;
   final String sortBy;
+  // Which PI Verdicts the board is allowed to show. Sorting alone
+  // could not solve this: the board pages in a few dozen props at a
+  // time, so plays that sort to the top of two thousand still sit
+  // behind pages of passes the moment any other order is chosen.
+  final String verdictFilter;
   final String searchQuery;
   final void Function(List<PropData>, int, int, Map<String, int>)?
   onPropsLoaded;
@@ -8723,6 +8803,7 @@ class PropGrid extends StatefulWidget {
     required this.selectedTier,
     required this.minConfidence,
     required this.sortBy,
+    this.verdictFilter = 'ALL',
     required this.searchQuery,
     this.onPropsLoaded,
     this.onPropFocused,
@@ -8823,6 +8904,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   static final Map<String, List<PropData>> _sessionViewCache =
       <String, List<PropData>>{};
   final ApiService _apiService = ApiService();
+  // Cards whose research detail the reader has opened. A card shows its
+  // conclusion and the two buttons that act on it; the fifteen chips and
+  // the explainability block are the working behind that conclusion and
+  // stay folded away until asked for.
+  final Set<String> _expandedResearch = <String>{};
   late Future<List<PropData>> _propsFuture;
   List<_PreparedProp> _preparedProps = const [];
   bool _isRefreshing = false;
@@ -9512,7 +9598,15 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     widget.onSelect(prop, side);
   }
 
-  Widget _buildPortraitPropCard(PropData prop, PickSide? selectedSide) {
+  Widget _buildPortraitPropCard(
+    PropData prop,
+    PickSide? selectedSide, {
+    // A grid cell is a fixed 410px box, so the card fills it with a Spacer.
+    // A single-column phone list gives each card its natural height instead,
+    // where a Spacer has no bounded height to expand into and would throw.
+    bool fixedHeight = true,
+  }) {
+    final researchOpen = _expandedResearch.contains(prop.id);
     final hasProAccess = canShowSystemRecommendation(
       hasEdgeAccess: AuthManager.instance.sessionState.value.hasEdgeAccess,
     );
@@ -10036,51 +10130,72 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 7),
           selectionHint(),
+          const SizedBox(height: 9),
+          // The decision ends here. Everything past this point is the working
+          // behind it: worth reading second, and never worth making a reader
+          // wade through before they know what the app thinks.
+          _ResearchToggle(
+            open: researchOpen,
+            onTap: () => setState(() {
+              if (!_expandedResearch.remove(prop.id)) {
+                _expandedResearch.add(prop.id);
+              }
+            }),
+          ),
+          if (researchOpen) ...[
           const SizedBox(height: 11),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              // What the model could confirm. A prop with no projection is
-              // still a real line on a real market and stays selectable; the
-              // chip says the model has no opinion rather than implying the
-              // prop itself is suspect.
-              if (prop.hasModelProjection)
-                chip('VERIFIED DATA')
-              else
-                chip('NO MODEL PROJECTION'),
-              chip('LINEUP ${prop.lineupStatus.toUpperCase()}'),
-              chip(prop.injuryDisplayLabel),
-              if (hasModelPick) chip('EVIDENCE: VERIFIED MODEL'),
-              if (!hasModelPick && prop.proSuggestionUsesHistoricalStats)
-                chip('EVIDENCE: RECENT RESULTS'),
-              if (!hasModelPick && prop.proSuggestionUsesMarket)
-                chip('EVIDENCE: SPORTSBOOK PRICING'),
-              if (prop.displayModelIsMarketBaseline) chip('MODEL: BASELINE'),
-              if (hasProAccess) chip('PICK GRADE ${prop.pickGrade}'),
-              if (hasProAccess && prop.projectedOpportunity != null)
-                chip(
-                  'PROJECTED ${prop.projectedOpportunity!.toStringAsFixed(1)} ${prop.opportunityUnit}',
-                ),
-              if (hasProAccess && prop.roleStatus != 'UNKNOWN')
-                chip('ROLE ${prop.roleStatus.replaceAll('_', ' ')}'),
-              if (hasProAccess && prop.roleChange != 'UNKNOWN')
-                chip('ROLE TREND ${prop.roleChange.replaceAll('_', ' ')}'),
-              if (specialLineBadge != null) chip(specialLineBadge),
-              if (prop.openingLine != 0)
-                chip('OPEN ${prop.openingLine.toStringAsFixed(1)}'),
-            ],
-          ),
-          const Spacer(),
-          RecommendationExplainabilityBlock(prop: prop),
-          const SizedBox(height: 8),
-          const Text(
-            'Standardized explainability is shown above. Confirm live line movement and player availability before adding to slip.',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: AppColors.muted, fontSize: 8, height: 1.3),
-          ),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                // What the model could confirm. A prop with no projection is
+                // still a real line on a real market and stays selectable; the
+                // chip says the model has no opinion rather than implying the
+                // prop itself is suspect.
+                if (prop.hasModelProjection)
+                  chip('VERIFIED DATA')
+                else
+                  chip('NO MODEL PROJECTION'),
+                // Gaps verification found but the card never mentioned. The
+                // prop stays selectable; the reader just gets told which part
+                // of it we could not confirm.
+                for (final caveat in prop.dataCaveats) chip(caveat),
+                chip('LINEUP ${prop.lineupStatus.toUpperCase()}'),
+                chip(prop.injuryDisplayLabel),
+                if (hasModelPick) chip('EVIDENCE: VERIFIED MODEL'),
+                if (!hasModelPick && prop.proSuggestionUsesHistoricalStats)
+                  chip('EVIDENCE: RECENT RESULTS'),
+                if (!hasModelPick && prop.proSuggestionUsesMarket)
+                  chip('EVIDENCE: SPORTSBOOK PRICING'),
+                if (prop.displayModelIsMarketBaseline) chip('MODEL: BASELINE'),
+                if (hasProAccess) chip('PICK GRADE ${prop.pickGrade}'),
+                if (hasProAccess && prop.projectedOpportunity != null)
+                  chip(
+                    'PROJECTED ${prop.projectedOpportunity!.toStringAsFixed(1)} ${prop.opportunityUnit}',
+                  ),
+                if (hasProAccess && prop.roleStatus != 'UNKNOWN')
+                  chip('ROLE ${prop.roleStatus.replaceAll('_', ' ')}'),
+                if (hasProAccess && prop.roleChange != 'UNKNOWN')
+                  chip('ROLE TREND ${prop.roleChange.replaceAll('_', ' ')}'),
+                if (specialLineBadge != null) chip(specialLineBadge),
+                if (prop.openingLine != 0)
+                  chip('OPEN ${prop.openingLine.toStringAsFixed(1)}'),
+              ],
+            ),
+            const SizedBox(height: 10),
+            RecommendationExplainabilityBlock(prop: prop),
+            const SizedBox(height: 8),
+            const Text(
+              'Standardized explainability is shown above. Confirm live line movement and player availability before adding to slip.',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: AppColors.muted, fontSize: 8, height: 1.3),
+            ),
+          ],
+          // Only a bounded box can absorb a Spacer; the phone list cannot.
+          if (fixedHeight && !researchOpen) const Spacer(),
           const SizedBox(height: 6),
+
         ],
       ),
     );
@@ -11495,6 +11610,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         oldWidget.selectedTier != widget.selectedTier ||
         oldWidget.minConfidence != widget.minConfidence ||
         oldWidget.sortBy != widget.sortBy ||
+        oldWidget.verdictFilter != widget.verdictFilter ||
         oldWidget.searchQuery != widget.searchQuery) {
       _visiblePropLimit = _visiblePropStep;
       _autoRetryTimer?.cancel();
@@ -11838,9 +11954,16 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   prepared.normalizedSite == normalizedSite;
               final searchMatches =
                   search.isEmpty || prepared.searchText.contains(search);
+              final verdictMatches =
+                  widget.verdictFilter == 'ALL' ||
+                  (widget.verdictFilter == 'ACTIONABLE'
+                      ? prepared.prop.verdict.actionable
+                      : prepared.prop.verdict.decision ==
+                            widget.verdictFilter);
               return prepared.prop.isSelectable &&
                   sportMatches &&
                   siteMatches &&
+                  verdictMatches &&
                   searchMatches;
             }).toList();
 
@@ -11888,6 +12011,16 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     if (leftStart == null) return 1;
                     if (rightStart == null) return -1;
                     return leftStart.compareTo(rightStart);
+                  case 'verdict':
+                    // Plays first, then the ones worth shopping, then leans.
+                    // Confidence breaks ties so the strongest example of each
+                    // decision leads its own group.
+                    final verdictDiff =
+                        right.verdict.actionRank - left.verdict.actionRank;
+                    if (verdictDiff != 0) return verdictDiff;
+                    return (right.displayConfidenceRating ?? -1).compareTo(
+                      left.displayConfidenceRating ?? -1,
+                    );
                   case 'confidence':
                   default:
                     return (right.displayConfidenceRating ?? -1).compareTo(
@@ -11915,6 +12048,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   widget.selectedSide.toUpperCase() != 'ALL' ||
                   widget.selectedTier.toUpperCase() != 'ALL' ||
                   widget.minConfidence > 0 ||
+                  // Without this, filtering to a verdict nothing matches
+                  // reads as a board that failed to load: the retry timer
+                  // fires and the skeleton spins forever over a result that
+                  // is simply empty on purpose.
+                  widget.verdictFilter != 'ALL' ||
                   widget.searchQuery.isNotEmpty;
               if (!hasFilters && _automaticRetryCount < 3) {
                 _scheduleAutomaticRetry();
@@ -11997,38 +12135,57 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     visibleCount < sortedProps.length ||
                     _preparedProps.length < _apiService.lastPropsCount;
 
+                Widget cardFor(PropData prop, {required bool fixedHeight}) {
+                  SlipSelection? selected;
+                  for (final selection in widget.selections) {
+                    if (selection.prop.id == prop.id) {
+                      selected = selection;
+                      break;
+                    }
+                  }
+                  return RepaintBoundary(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => widget.onPropFocused?.call(prop),
+                      child: _buildPortraitPropCard(
+                        prop,
+                        selected?.side,
+                        fixedHeight: fixedHeight,
+                      ),
+                    ),
+                  );
+                }
+
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    GridView.builder(
-                      shrinkWrap: true,
-                      primary: false,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: visibleProps.length,
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: columns,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        mainAxisExtent: 410,
+                    // On a phone the cards are a single column, so nothing is
+                    // gained by forcing every one to the same 410px and much is
+                    // lost: a collapsed card is far shorter than that, and the
+                    // padding needed to reach it is what pushed the buttons off
+                    // the first screen. A list lets each card be its own size.
+                    if (columns == 1)
+                      for (final prop in visibleProps) ...[
+                        cardFor(prop, fixedHeight: false),
+                        const SizedBox(height: 12),
+                      ]
+                    else
+                      GridView.builder(
+                        shrinkWrap: true,
+                        primary: false,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: visibleProps.length,
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: columns,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          // A grid row is only as tall as its tallest cell, so
+                          // an opened card needs room the closed ones will pad.
+                          mainAxisExtent: _expandedResearch.isEmpty ? 330 : 470,
+                        ),
+                        itemBuilder: (context, index) =>
+                            cardFor(visibleProps[index], fixedHeight: true),
                       ),
-                      itemBuilder: (context, index) {
-                        final prop = visibleProps[index];
-                        SlipSelection? selected;
-                        for (final selection in widget.selections) {
-                          if (selection.prop.id == prop.id) {
-                            selected = selection;
-                            break;
-                          }
-                        }
-                        return RepaintBoundary(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => widget.onPropFocused?.call(prop),
-                            child: _buildPortraitPropCard(prop, selected?.side),
-                          ),
-                        );
-                      },
-                    ),
                     if (hasMore) ...[
                       const SizedBox(height: 14),
                       Center(
@@ -13436,6 +13593,51 @@ class MobileDashboardViewport extends StatelessWidget {
 /// palette is the app's own rather than invented traffic lights. Play and shop
 /// are actionable and read gold; wait is deliberately muted because acting on
 /// unsettled information is the mistake it exists to prevent; pass recedes.
+/// The seam between what the app concluded and how it got there.
+///
+/// Closed by default: a reader deciding whether to take a prop needs the
+/// verdict and the two buttons, not fifteen chips of provenance. The count
+/// is shown so a closed card still admits how much it is holding back.
+class _ResearchToggle extends StatelessWidget {
+  const _ResearchToggle({required this.open, required this.onTap});
+
+  final bool open;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              open ? 'HIDE RESEARCH' : 'SHOW RESEARCH',
+              style: const TextStyle(
+                color: AppColors.gold,
+                fontSize: 9,
+                letterSpacing: .6,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              open
+                  ? Icons.keyboard_arrow_up_rounded
+                  : Icons.keyboard_arrow_down_rounded,
+              color: AppColors.gold,
+              size: 14,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PiVerdictBlock extends StatelessWidget {
   const _PiVerdictBlock({required this.verdict});
 

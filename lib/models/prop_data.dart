@@ -38,6 +38,25 @@ class PropVerdict {
   /// none, and showing an empty block would be worse than showing nothing.
   bool get isPresent => decision.isNotEmpty;
 
+  /// How strongly the app is telling the reader to act, highest first.
+  ///
+  /// This is the order the board sorts by, and it is deliberately the same
+  /// order the verdict itself is decided in. A board of two thousand props
+  /// containing seventy plays is useless if finding them means scrolling,
+  /// so the plays have to be able to come to the top.
+  ///
+  /// SHOP outranks LEAN because the edge is full sized -- only the price
+  /// here is wrong -- whereas a lean is a genuinely smaller edge. WAIT sits
+  /// below both: the edge is real but not yet actable, so it belongs above
+  /// the passes and below anything playable today.
+  int get actionRank => switch (decision) {
+    'PLAY_NOW' => 4,
+    'SHOP' => 3,
+    'LEAN' => 2,
+    'WAIT' => 1,
+    _ => 0,
+  };
+
   static PropVerdict fromJson(Object? raw) {
     if (raw is! Map) return const PropVerdict();
     final json = Map<String, dynamic>.from(raw);
@@ -1106,6 +1125,24 @@ class PropData {
   /// real, and the gap is in our coverage rather than in the prop.
   bool get hasModelProjection =>
       !verificationReasons.contains('projection_missing');
+
+  /// Gaps worth naming on the card, phrased short enough to sit in a chip.
+  ///
+  /// These are the advisory reasons: the prop is real and selectable, but
+  /// something about its surroundings could not be confirmed. Verification
+  /// already records them and the card already had the data -- it simply
+  /// never said any of it out loud, which left "we could not identify the
+  /// event" looking exactly like a fully verified prop.
+  ///
+  /// A missing projection is excluded because the card carries its own
+  /// dedicated chip for that, and saying it twice reads as two faults.
+  List<String> get dataCaveats => [
+    for (final reason in verificationReasons)
+      if (reason == 'source_unverified')
+        'SOURCE UNVERIFIED'
+      else if (reason == 'event_unnamed')
+        'EVENT UNCONFIRMED',
+  ];
 
   /// Why selection is closed, phrased for the person looking at the card.
   String get selectionBlockedReason {
