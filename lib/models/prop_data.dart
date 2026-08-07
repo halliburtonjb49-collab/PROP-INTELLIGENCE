@@ -51,6 +51,12 @@ class PropData {
   final String recommendationUnavailableReason;
   final String recommendationExplanation;
   final Map<String, dynamic> recommendationExplainability;
+  /// Whether the backend could confirm what this prop is, and whether it is
+  /// complete enough to act on. A prop it could not confirm never reaches
+  /// the app; one that is merely incomplete arrives with selectable false.
+  final String verificationStatus;
+  final List<String> verificationReasons;
+  final bool selectable;
   final double dataQualityScore;
   final List<String> dataQualityReasons;
   final double opportunityScore;
@@ -205,6 +211,9 @@ class PropData {
     this.recommendationUnavailableReason = '',
     this.recommendationExplanation = '',
     this.recommendationExplainability = const {},
+    this.verificationStatus = 'verified',
+    this.verificationReasons = const [],
+    this.selectable = true,
     this.dataQualityScore = 0,
     this.dataQualityReasons = const [],
     this.opportunityScore = 0,
@@ -581,6 +590,15 @@ class PropData {
               json['recommendation_explainability'] as Map,
             )
           : const {},
+      verificationStatus:
+          json['verificationStatus']?.toString() ?? 'verified',
+      verificationReasons:
+          (json['verificationReasons'] as List? ?? const [])
+              .map((value) => value.toString())
+              .toList(growable: false),
+      // Absent means an older payload, which predates verification and must
+      // not be treated as unselectable.
+      selectable: json['selectable'] as bool? ?? true,
       dataQualityScore:
           _safeDoubleOrNull(
             json['dataQualityScore'] ?? json['data_quality_score'],
@@ -1008,6 +1026,10 @@ class PropData {
   /// Closes selection shortly before the scheduled start so clock drift,
   /// provider latency, and a stale card cannot admit an in-game pick.
   bool get isSelectable {
+    // The backend withholds props it cannot describe at all. What reaches
+    // here unverified is merely incomplete -- no projection yet -- and a
+    // pick built on that is a pick built on nothing.
+    if (!selectable) return false;
     if (gameHasStarted) return false;
     DateTime? gameStart;
     if (startTimeUtc.isNotEmpty) gameStart = DateTime.tryParse(startTimeUtc);
@@ -1017,5 +1039,16 @@ class PropData {
     if (gameStart == null) return true;
     final closesAt = gameStart.toUtc().subtract(selectionSafetyWindow);
     return DateTime.now().toUtc().isBefore(closesAt);
+  }
+
+  /// Why selection is closed, phrased for the person looking at the card.
+  String get selectionBlockedReason {
+    if (!selectable) {
+      if (verificationReasons.contains('projection_missing')) {
+        return 'No model projection yet for this prop.';
+      }
+      return 'This prop could not be fully verified.';
+    }
+    return 'Selection closed: this game is starting or already underway.';
   }
 }

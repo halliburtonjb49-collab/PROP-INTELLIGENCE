@@ -1325,11 +1325,13 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         existingIndex >= 0 && _slipSelections[existingIndex].side == side;
     if (!prop.isSelectable && !removingExisting) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           behavior: SnackBarBehavior.floating,
           backgroundColor: app_colors.AppColors.gold,
           content: Text(
-            'Selection closed: this game is starting or already underway.',
+            // Say which of the two reasons applies rather than always
+            // blaming the clock.
+            prop.selectionBlockedReason,
             style: TextStyle(
               color: app_colors.AppColors.bgBase,
               fontWeight: FontWeight.w900,
@@ -10030,6 +10032,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             spacing: 6,
             runSpacing: 6,
             children: [
+              // What the backend could confirm about this prop. A card that
+              // cannot be acted on should say so where the evidence is read,
+              // not only when somebody taps and is refused.
+              if (prop.selectable)
+                chip('VERIFIED DATA')
+              else
+                chip('UNVERIFIED — NOT SELECTABLE'),
               chip('LINEUP ${prop.lineupStatus.toUpperCase()}'),
               chip(prop.injuryDisplayLabel),
               if (hasModelPick) chip('EVIDENCE: VERIFIED MODEL'),
