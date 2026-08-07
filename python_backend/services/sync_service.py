@@ -538,6 +538,16 @@ def run_global_sync_pipeline(
                 results.append(sync_sport(sport_key))
             except Exception as exc:
                 logger.exception("sync_sport failed sport=%s", sport_key)
+                # Recorded here as well as on success. The recorder used to
+                # sit only on the success path, so a sport that threw looked
+                # exactly like one nobody had asked for -- and nine of them
+                # were reported as never fetched with no reason attached.
+                record_sport_fetch(
+                    sport_key,
+                    events=0,
+                    props=0,
+                    error=f"{type(exc).__name__}: {exc}"[:200],
+                )
                 results.append({"sport": sport_key, "events": 0, "props": 0, "error": str(exc)})
 
     sync_lane(fast_sports)
@@ -551,13 +561,18 @@ def run_global_sync_pipeline(
         sync_lane(coverage_sports)
         _mark_coverage_synced()
     else:
-        results.extend({
-            "sport": sport_key,
-            "events": 0,
-            "props": 0,
-            "lane": "coverage",
-            "skipped": "coverage cooldown",
-        } for sport_key in coverage_sports)
+        for sport_key in coverage_sports:
+            # A cooldown is not a failure and not an absence; say which.
+            record_sport_fetch(
+                sport_key, events=0, props=0, error="skipped: coverage cooldown"
+            )
+            results.append({
+                "sport": sport_key,
+                "events": 0,
+                "props": 0,
+                "lane": "coverage",
+                "skipped": "coverage cooldown",
+            })
     results.append(sync_sportsgameodds())
     results.append(sync_balldontlie_soccer())
     try:
