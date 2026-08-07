@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from datetime import datetime, timezone
+from threading import Lock
 
 from database.postgres import database_is_configured, get_database_pool
 from services.prop_service import get_props
@@ -164,35 +165,57 @@ def snapshot_probability(prop: object) -> tuple[float, str]:
     return max(.5, min(.95, confidence / 100)), "confidenceFallback"
 
 
-def snapshot_probability_sources() -> dict[str, object]:
-    """Which source the live board would snapshot from, and into which tier.
+# What the last snapshot run actually recorded, by source and by tier.
+#
+# Accumulated while that run is already walking the props rather than
+# recomputed on demand: reading it used to call get_props() inline on the
+# operations endpoint, which walks thousands of props and took the request
+# past the proxy timeout, so the one page meant to explain failures became a
+# 502 itself.
+_probability_source_lock = Lock()
+_probability_sources: dict[str, int] = {}
+_probability_tiers: dict[str, int] = {}
+_probability_observed_at = ""
 
-    409 graded picks landed 408 in BASELINE while the board showed props at
-    58 to 74 percent. Either the board and the record disagree about what a
-    probability is, or they disagree about which props get one. This says
-    which, without needing database access to find out.
-    """
 
-    sources: dict[str, int] = {}
-    tiers: dict[str, int] = {}
-    total = 0
-    for prop in get_props():
-        probability, source = snapshot_probability(prop)
-        sources[source] = sources.get(source, 0) + 1
+def _record_probability_source(probability: float, source: str) -> None:
+    with _probability_source_lock:
+        _probability_sources[source] = _probability_sources.get(source, 0) + 1
         tier = (
             "HIGH" if probability >= .7
             else "MEDIUM" if probability >= .6
             else "BASELINE"
         )
-        tiers[tier] = tiers.get(tier, 0) + 1
-        total += 1
-    return {"props": total, "sources": sources, "tiers": tiers}
+        _probability_tiers[tier] = _probability_tiers.get(tier, 0) + 1
+
+
+def snapshot_probability_sources() -> dict[str, object]:
+    """Which source the last snapshot run drew from, and which tier it hit.
+
+    409 graded picks landed 408 in BASELINE while the board showed props at
+    58 to 74 percent. Either the board and the record disagree about what a
+    probability is, or about which props get one. This says which, without
+    needing database access to find out.
+    """
+
+    with _probability_source_lock:
+        return {
+            "observedAt": _probability_observed_at,
+            "props": sum(_probability_sources.values()),
+            "sources": dict(_probability_sources),
+            "tiers": dict(_probability_tiers),
+        }
 
 
 def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, object]:
     if not database_is_configured():
         return {"created": 0, "reason": "DATABASE_URL is not configured"}
     created = 0
+    global _probability_observed_at
+    with _probability_source_lock:
+        _probability_sources.clear()
+        _probability_tiers.clear()
+        _probability_observed_at = datetime.now(timezone.utc).isoformat()
     with get_database_pool().connection() as connection, connection.cursor() as cursor:
         for prop in get_props():
             if prop.dataStale:
@@ -215,7 +238,8 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
             if projection is None:
                 signed = prop.edgeSigned or (prop.recommendationEdge if side == "OVER" else -prop.recommendationEdge)
                 projection = prop.line + signed
-            probability, _probability_source = snapshot_probability(prop)
+            probability, probability_source = snapshot_probability(prop)
+            _record_probability_source(probability, probability_source)
             cursor.execute("""select 1 from prediction_snapshots where prop_id=%s and model_version=%s
                 and snapshot_date=(now() at time zone 'UTC')::date limit 1""", (prop.id, snapshot_model_version))
             if cursor.fetchone():
