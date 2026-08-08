@@ -110,11 +110,23 @@ def test_a_modest_edge_is_a_lean_rather_than_a_play():
     assert "modest" in verdict.reason
 
 
-def test_a_probability_that_cannot_beat_the_vig_is_a_pass():
+def test_a_probability_below_the_directional_threshold_is_a_pass():
     verdict = compute_verdict(_prop(uncertaintyAdjustedProbability=0.52))
 
     assert verdict.decision == PASS
     assert verdict.is_actionable is False
+
+
+def test_a_qualified_direction_below_the_price_is_a_lean_with_a_warning():
+    verdict = compute_verdict(_prop(uncertaintyAdjustedProbability=0.56,
+                                    overDecimalOdds=1.73,
+                                    bestOverOdds=1.73))
+
+    assert verdict.decision == LEAN
+    assert verdict.is_actionable
+    assert verdict.reasons == ("directional_lean_price_not_cleared",)
+    assert "price needs" in verdict.reason
+    assert "posted price is not backed" in verdict.reason
 
 
 def test_agreeing_with_the_market_is_a_pass_however_high_the_probability():
@@ -351,7 +363,8 @@ def test_the_bar_follows_the_price_not_a_constant():
     )
 
     assert sportsbook.decision == PLAY_NOW
-    assert pickem.decision == PASS
+    assert pickem.decision == LEAN
+    assert "directional_lean_price_not_cleared" in pickem.reasons
 
 
 def test_a_pickem_leg_at_the_old_global_bar_is_no_longer_a_play():
@@ -363,6 +376,20 @@ def test_a_pickem_leg_at_the_old_global_bar_is_no_longer_a_play():
     )
 
     assert verdict.decision != PLAY_NOW
+
+
+def test_a_strong_direction_at_an_expensive_price_populates_lean_not_play_now():
+    verdict = compute_verdict(
+        _prop(uncertaintyAdjustedProbability=0.85, overDecimalOdds=1.11,
+              bestOverOdds=1.11, evPercentage=-5.0)
+    )
+
+    assert verdict.decision == LEAN
+    assert verdict.is_actionable
+    assert verdict.headline == "LEAN OVER"
+    assert "85%" in verdict.reason
+    assert "90%" in verdict.reason
+    assert "posted price is not backed" in verdict.reason
 
 
 def test_the_pass_explains_the_price_rather_than_a_threshold():

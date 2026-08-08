@@ -11,7 +11,7 @@ The verdict is that reasoning, done once and stated plainly:
     PLAY NOW   the edge is real, the inputs are settled, act on it
     SHOP       the edge is real but this price is not the best available
     WAIT       the edge is real but something material is still unknown
-    LEAN       a genuine but small edge, playable at a smaller size
+    LEAN       a qualified model direction, but not a full-price play
     PASS       no edge worth taking, or nothing solid to judge it on
 
 The order matters more than any single threshold. PASS is decided first,
@@ -54,7 +54,9 @@ PASS = "PASS"
 # either exactly is a coin flip that has already paid the vig.
 PLAY_MARGIN_OVER_BREAK_EVEN = 0.02
 
-# A lean is a real but modest edge: past the price, not far past it.
+# A lean is the model's qualified directional threshold. It can be a modest
+# positive-value edge, or a strong direction whose current price is too
+# expensive. The latter must say so plainly and can never become PLAY NOW.
 LEAN_MARGIN_OVER_BREAK_EVEN = 0.005
 
 # Retained for callers and tests that still reason in absolute terms. These
@@ -214,6 +216,21 @@ def compute_verdict(prop: object) -> Verdict:
             ),
             confidence=confidence,
             reasons=("no_side",),
+        )
+    if probability < lean_bar and probability >= LEAN_PROBABILITY:
+        return Verdict(
+            decision=LEAN,
+            side=side,
+            headline=f"LEAN {side}",
+            reason=(
+                f"The model leans {side.title()} at {probability * 100:.0f}%, "
+                f"but this price needs {break_even * 100:.0f}% to break even. "
+                "The direction qualifies as a lean; the posted price is not "
+                "backed, so keep the stake smaller or find a better number."
+            ),
+            confidence=confidence,
+            reasons=("directional_lean_price_not_cleared",),
+            maximum_playable_line=_maximum_playable_line(prop, side),
         )
     if probability < lean_bar:
         return Verdict(
