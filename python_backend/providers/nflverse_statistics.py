@@ -80,7 +80,9 @@ def log_id(season: object, week: object, player_id: object) -> str:
     """Stable per player-week, so a re-fetch updates rather than duplicates."""
 
     raw = f"nflverse:{season}:{week}:{player_id}"
-    return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+    return hashlib.sha1(
+        raw.encode("utf-8"), usedforsecurity=False
+    ).hexdigest()
 
 
 def normalize_weekly_rows(rows: Iterable[Mapping[str, Any]]) -> list[dict[str, object]]:
