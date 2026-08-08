@@ -7,7 +7,7 @@ void main() {
     int activeSlipCount = 0,
     int watchedSlipCount = 0,
     VoidCallback? onMobileWatchSlip,
-    VoidCallback? onMobileChat,
+    ValueChanged<int>? onMobileNavigateIndex,
   }) {
     return MaterialApp(
       home: AppShell(
@@ -18,7 +18,7 @@ void main() {
         activeSlipCount: activeSlipCount,
         watchedSlipCount: watchedSlipCount,
         onMobileWatchSlip: onMobileWatchSlip,
-        onMobileChat: onMobileChat,
+        onMobileNavigateIndex: onMobileNavigateIndex,
       ),
     );
   }
@@ -69,14 +69,12 @@ void main() {
     expect(find.byKey(const ValueKey('mobile-nav-ticket')), findsOneWidget);
     expect(find.text('3'), findsWidgets);
     expect(find.byKey(const ValueKey('mobile-nav-menu')), findsOneWidget);
-    expect(find.byKey(const ValueKey('mobile-nav-chat')), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('mobile-nav-active-slip')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('mobile-nav-board')), findsOneWidget);
+    expect(find.byKey(const ValueKey('mobile-nav-games')), findsOneWidget);
+    expect(find.byKey(const ValueKey('mobile-nav-watchlist')), findsOneWidget);
     expect(find.byKey(const ValueKey('mobile-nav-ticket')), findsOneWidget);
-    expect(find.text('BOARD'), findsNothing);
-    expect(find.text('GAMES'), findsNothing);
+    expect(find.text('PROPS'), findsOneWidget);
+    expect(find.text('GAMES'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -89,12 +87,27 @@ void main() {
       buildShell(watchedSlipCount: 3, onMobileWatchSlip: () => opened = true),
     );
 
-    expect(find.text('SLIP WATCHER'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('mobile-nav-active-slip')));
+    expect(find.text('WATCH'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('mobile-nav-watchlist')));
     expect(opened, isTrue);
     expect(find.text('3'), findsWidgets);
   });
 
+  testWidgets('mobile bottom navigation opens primary board destinations', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final destinations = <int>[];
+
+    await tester.pumpWidget(
+      buildShell(onMobileNavigateIndex: destinations.add),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('mobile-nav-board')));
+    await tester.tap(find.byKey(const ValueKey('mobile-nav-games')));
+    expect(destinations, [0, 1]);
+  });
   testWidgets('tablet portrait uses touch-friendly drawer shell', (
     tester,
   ) async {

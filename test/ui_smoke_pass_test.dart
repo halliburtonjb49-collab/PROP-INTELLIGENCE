@@ -268,7 +268,7 @@ void main() {
       find.byKey(const ValueKey('prop-chat-bubble-launcher')),
       findsOneWidget,
     );
-    await tester.tap(find.byKey(const ValueKey('mobile-nav-chat')));
+    await tester.tap(find.byKey(const ValueKey('prop-chat-bubble-launcher')));
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byKey(const ValueKey('floating-prop-chat')), findsOneWidget);
     expect(find.byKey(const ValueKey('board-player-search')), findsWidgets);

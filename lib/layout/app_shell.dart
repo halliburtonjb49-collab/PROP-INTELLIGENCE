@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../services/prop_chat_service.dart';
 import '../theme/app_colors.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
@@ -17,7 +16,6 @@ class AppShell extends StatelessWidget {
     this.mobileSelectedIndex = 0,
     this.mobileRouteKey,
     this.onMobileWatchSlip,
-    this.onMobileChat,
     this.onMobileDismissOverlay,
     this.onMobileNavigateIndex,
     this.accentColor = AppColors.gold,
@@ -32,7 +30,6 @@ class AppShell extends StatelessWidget {
   final int mobileSelectedIndex;
   final Object? mobileRouteKey;
   final VoidCallback? onMobileWatchSlip;
-  final VoidCallback? onMobileChat;
   final VoidCallback? onMobileDismissOverlay;
   final ValueChanged<int>? onMobileNavigateIndex;
   final Color accentColor;
@@ -86,7 +83,6 @@ class AppShell extends StatelessWidget {
             selectedIndex: mobileSelectedIndex,
             routeKey: mobileRouteKey,
             onWatchSlip: onMobileWatchSlip,
-            onChat: onMobileChat,
             onDismissOverlay: onMobileDismissOverlay,
             onNavigateIndex: onMobileNavigateIndex,
             accentColor: accentColor,
@@ -165,7 +161,6 @@ class _MobileAppShell extends StatefulWidget {
     required this.selectedIndex,
     required this.routeKey,
     required this.onWatchSlip,
-    required this.onChat,
     required this.onDismissOverlay,
     required this.onNavigateIndex,
     required this.accentColor,
@@ -180,7 +175,6 @@ class _MobileAppShell extends StatefulWidget {
   final int selectedIndex;
   final Object? routeKey;
   final VoidCallback? onWatchSlip;
-  final VoidCallback? onChat;
   final VoidCallback? onDismissOverlay;
   final ValueChanged<int>? onNavigateIndex;
   final Color accentColor;
@@ -353,9 +347,9 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                       widget.onDismissOverlay?.call();
                       widget.onWatchSlip?.call();
                     },
-                    onChat: () {
+                    onNavigateIndex: (index) {
                       widget.onDismissOverlay?.call();
-                      widget.onChat?.call();
+                      widget.onNavigateIndex?.call(index);
                     },
                     onTicket: () {
                       widget.onDismissOverlay?.call();
@@ -383,7 +377,7 @@ class _MobileBottomNavigation extends StatelessWidget {
     required this.activeSlipCount,
     required this.watchedSlipCount,
     required this.onWatchSlip,
-    required this.onChat,
+    required this.onNavigateIndex,
     required this.onTicket,
     required this.onMenu,
     required this.accentColor,
@@ -393,7 +387,7 @@ class _MobileBottomNavigation extends StatelessWidget {
   final int activeSlipCount;
   final int watchedSlipCount;
   final VoidCallback? onWatchSlip;
-  final VoidCallback? onChat;
+  final ValueChanged<int> onNavigateIndex;
   final VoidCallback onTicket;
   final VoidCallback onMenu;
   final Color accentColor;
@@ -427,24 +421,30 @@ class _MobileBottomNavigation extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: ValueListenableBuilder<int>(
-              valueListenable: PropChatService.unreadCount,
-              builder: (context, unread, _) => _MobileNavItem(
-                key: const ValueKey('mobile-nav-chat'),
-                icon: Icons.forum_rounded,
-                label: 'CHAT',
-                selected: false,
-                badge: unread,
-                onTap: onChat,
-                accentColor: accentColor,
-              ),
+            child: _MobileNavItem(
+              key: const ValueKey('mobile-nav-board'),
+              icon: Icons.view_agenda_outlined,
+              label: 'PROPS',
+              selected: selectedIndex == 0,
+              onTap: () => onNavigateIndex(0),
+              accentColor: accentColor,
             ),
           ),
           Expanded(
             child: _MobileNavItem(
-              key: const ValueKey('mobile-nav-active-slip'),
+              key: const ValueKey('mobile-nav-games'),
+              icon: Icons.sports_score_outlined,
+              label: 'GAMES',
+              selected: selectedIndex == 1,
+              onTap: () => onNavigateIndex(1),
+              accentColor: accentColor,
+            ),
+          ),
+          Expanded(
+            child: _MobileNavItem(
+              key: const ValueKey('mobile-nav-watchlist'),
               icon: Icons.visibility_outlined,
-              label: 'SLIP WATCHER',
+              label: 'WATCH',
               selected: selectedIndex == 2,
               badge: watchedSlipCount,
               onTap: onWatchSlip,
@@ -455,7 +455,7 @@ class _MobileBottomNavigation extends StatelessWidget {
             child: _MobileNavItem(
               key: const ValueKey('mobile-nav-ticket'),
               icon: Icons.receipt_long_rounded,
-              label: 'ACTIVE SLIP',
+              label: 'SLIP',
               selected: false,
               badge: activeSlipCount,
               onTap: onTicket,

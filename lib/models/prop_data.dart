@@ -126,6 +126,7 @@ class PropData {
   final String recommendationUnavailableReason;
   final String recommendationExplanation;
   final Map<String, dynamic> recommendationExplainability;
+
   /// Whether the backend could confirm what this prop is, and whether it is
   /// complete enough to act on. A prop it could not confirm never reaches
   /// the app; one that is merely incomplete arrives with selectable false.
@@ -430,6 +431,16 @@ class PropData {
   /// informational lean. Sportsbook pricing is the final fallback. Neither
   /// fallback is a validated model pick.
   String? get proSuggestedSide {
+    // The PI verdict is the final decision after probability, price, lineup,
+    // freshness, and book comparison are weighed together. When it exists,
+    // its side must be the one repeated everywhere else on the card; falling
+    // back to a raw projection here could otherwise show OVER beside an
+    // actionable UNDER verdict.
+    final verdictSide = verdict.side.trim().toUpperCase();
+    if (verdict.isPresent &&
+        (verdictSide == 'OVER' || verdictSide == 'UNDER')) {
+      return verdictSide;
+    }
     final modelSide = recommendedSide.trim().toUpperCase();
     if (recommendationAvailable &&
         (modelSide == 'OVER' || modelSide == 'UNDER')) {
@@ -668,12 +679,10 @@ class PropData {
             )
           : const {},
       verdict: PropVerdict.fromJson(json['verdict']),
-      verificationStatus:
-          json['verificationStatus']?.toString() ?? 'verified',
-      verificationReasons:
-          (json['verificationReasons'] as List? ?? const [])
-              .map((value) => value.toString())
-              .toList(growable: false),
+      verificationStatus: json['verificationStatus']?.toString() ?? 'verified',
+      verificationReasons: (json['verificationReasons'] as List? ?? const [])
+          .map((value) => value.toString())
+          .toList(growable: false),
       // Absent means an older payload, which predates verification and must
       // not be treated as unselectable.
       selectable: json['selectable'] as bool? ?? true,
@@ -915,9 +924,7 @@ class PropData {
       pitchesPerBatter: _safeDoubleOrNull(
         json['pitchesPerBatter'] ?? json['pitches_per_batter'],
       ),
-      pitcherCsw: _safeDoubleOrNull(
-        json['pitcherCsw'] ?? json['pitcher_csw'],
-      ),
+      pitcherCsw: _safeDoubleOrNull(json['pitcherCsw'] ?? json['pitcher_csw']),
       lineupCswAgainst: _safeDoubleOrNull(
         json['lineupCswAgainst'] ?? json['lineup_csw_against'],
       ),
@@ -950,9 +957,7 @@ class PropData {
           json['strikeoutUsedMarketBlend'] == true ||
           json['strikeout_used_market_blend'] == true,
       mlbProjectedLineupMatchup: json['mlbProjectedLineupMatchup'] is Map
-          ? Map<String, dynamic>.from(
-              json['mlbProjectedLineupMatchup'] as Map,
-            )
+          ? Map<String, dynamic>.from(json['mlbProjectedLineupMatchup'] as Map)
           : json['mlb_projected_lineup_matchup'] is Map
           ? Map<String, dynamic>.from(
               json['mlb_projected_lineup_matchup'] as Map,

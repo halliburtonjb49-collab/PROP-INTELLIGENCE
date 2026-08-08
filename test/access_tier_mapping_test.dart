@@ -200,6 +200,28 @@ void main() {
     expect(prop.proSuggestionUsesMarket, isFalse);
   });
 
+  test('PI verdict side overrides a conflicting fallback projection lean', () {
+    final prop = PropData.fromJson(const {
+      'id': 'verdict-wins',
+      'player': 'Player',
+      'sport': 'MLB',
+      'matchup': 'A @ B',
+      'sportsbook': 'Book',
+      'market': 'Pitcher Strikeouts',
+      'line': 4.5,
+      'projection': 4.8,
+      'recommendationAvailable': false,
+      'verdict': {
+        'decision': 'SHOP',
+        'side': 'UNDER',
+        'headline': 'CHECK OTHER BOOKS - UNDER',
+        'actionable': true,
+      },
+    });
+
+    expect(prop.proSuggestionUsesHistoricalStats, isTrue);
+    expect(prop.proSuggestedSide, 'UNDER');
+  });
   test('baseline projection metadata remains visible to the client', () {
     final prop = PropData.fromJson({
       'id': 'baseline',

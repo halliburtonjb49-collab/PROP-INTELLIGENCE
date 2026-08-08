@@ -2138,7 +2138,6 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
               mobileRouteKey: _selectedPage,
               onMobileWatchSlip: () =>
                   _switchToPage(AppPage.watchlist, source: 'mobile-bottom-nav'),
-              onMobileChat: _floatChat,
               onMobileDismissOverlay: _closeFloatingChat,
               onMobileNavigateIndex: (index) {
                 switch (index) {
@@ -9201,6 +9200,17 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         : null;
     final hasModelPick =
         hasProAccess && prop.proSuggestionUsesModel && advisedSide != null;
+    final rawFallbackSide = prop.proSuggestionUsesHistoricalStats
+        ? prop.projection == null || prop.projection == prop.line
+              ? null
+              : prop.projection! > prop.line
+              ? 'OVER'
+              : 'UNDER'
+        : prop.proSuggestionUsesMarket
+        ? prop.marketLeanSide
+        : null;
+    final signalConflict =
+        rawFallbackSide != null && rawFallbackSide != suggested;
     final specialLineBadge = _specialLineBadge(prop, advisedSide);
     final signalRating = prop.displayConfidenceRating;
     // Keep the two visible metric values consistent on every card. Evidence
@@ -9209,11 +9219,22 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         ? 'INFO ONLY'
         : '$signalRating%';
     final market = _marketCategory(prop);
+    final signalLabel = hasModelPick
+        ? 'MODEL PICK'
+        : signalConflict
+        ? 'PI SIGNAL'
+        : prop.proSuggestionUsesHistoricalStats
+        ? 'PROJECTION LEAN'
+        : 'MARKET LEAN';
     final badgeExplanation = !hasProAccess
         ? 'PROP TYPE: the statistic and posted line available for manual research and selection.'
         : hasModelPick
-        ? 'MODEL PICK: backed by a verified projection model with a calculated model value and confidence.'
-        : 'SYSTEM LEAN: an informational direction based on recent results or sportsbook pricing when a verified model projection is unavailable.';
+        ? 'MODEL PICK: a released model direction. The PI Verdict is still the action guide after price and availability checks.'
+        : signalConflict
+        ? 'PI SIGNAL: the final verdict direction after probability and price checks differs from the raw fallback lean. The PI Verdict is the action guide.'
+        : prop.proSuggestionUsesHistoricalStats
+        ? 'PROJECTION LEAN: direction from the available projection, not a released model pick. Follow the PI Verdict for the action decision.'
+        : 'MARKET LEAN: direction inferred from sportsbook pricing, not a released model pick. Follow the PI Verdict for the action decision.';
 
     Widget metric(String label, String value) => Expanded(
       child: Column(
@@ -9269,7 +9290,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               ? () => _handleCardSelection(prop, side)
               : null,
           style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 54),
+            minimumSize: const Size(0, 48),
             foregroundColor: selected ? AppColors.background : Colors.white,
             backgroundColor: selected
                 ? AppColors.goldBright.withValues(alpha: .88)
@@ -9385,16 +9406,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       );
     }
 
-    Widget selectionHint() {
-      return const Text(
-        'Tap OVER or UNDER to add it to the active slip. Tap the selected side again to remove it.',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: AppColors.muted, fontSize: 7.5),
-      );
-    }
-
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 11),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 9),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
@@ -9411,14 +9424,14 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 58,
-                height: 58,
+                width: 50,
+                height: 50,
                 padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: AppColors.gold),
                 ),
-                child: ClipOval(child: _fastPlayerPhoto(prop, size: 54)),
+                child: ClipOval(child: _fastPlayerPhoto(prop, size: 46)),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -9486,11 +9499,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            !hasProAccess
-                                ? 'PROP TYPE'
-                                : hasModelPick
-                                ? 'MODEL PICK'
-                                : 'SYSTEM LEAN',
+                            !hasProAccess ? 'PROP TYPE' : signalLabel,
                             style: TextStyle(
                               color: hasModelPick
                                   ? app_colors.AppColors.blue
@@ -9600,15 +9609,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 5),
-                        const Text(
-                          'EVERY PROP',
-                          style: TextStyle(
-                            color: AppColors.gold,
-                            fontSize: 7,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -9650,7 +9650,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           const SizedBox(height: 10),
           Container(
             key: ValueKey('prop-sport-${prop.id}'),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
             decoration: BoxDecoration(
               color: AppColors.gold.withValues(alpha: .12),
               borderRadius: BorderRadius.circular(8),
@@ -9668,7 +9668,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               ),
             ),
           ),
-          const SizedBox(height: 13),
+          const SizedBox(height: 9),
           // The conclusion first. Everything below it is the working that
           // led here, and a reader who stops at the top should still have
           // the answer rather than six signals to assemble themselves.
@@ -9677,7 +9677,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           // of it. Giving the opinion away leaves nothing to sell.
           if (hasProAccess && prop.verdict.isPresent) ...[
             _PiVerdictBlock(verdict: prop.verdict),
-            const SizedBox(height: 11),
+            const SizedBox(height: 8),
           ],
           // Above the fold, never inside the research fold. When an event's
           // odds request fails the sync keeps the last known props and serves
@@ -9719,27 +9719,24 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 9),
           ],
-          Row(
-            children: [
-              metric(
-                'MODEL',
-                hasProAccess
-                    ? prop.displayModelValue.toStringAsFixed(2)
-                    : prop.line.toStringAsFixed(2),
-              ),
-              metric('LINE', prop.line.toStringAsFixed(1)),
-              metric('CONFIDENCE', hasProAccess ? signalRatingLabel : '--'),
-              metric(
-                'SUGGESTIVE PICK',
-                advisedSide == null
-                    ? 'NO SUGGESTION'
-                    : advisedSide == PickSide.over
-                    ? 'OVER'
-                    : 'UNDER',
-              ),
-            ],
-          ),
-          const SizedBox(height: 11),
+          if (hasProAccess) ...[
+            Row(
+              children: [
+                metric(
+                  signalConflict
+                      ? 'VERDICT SIDE'
+                      : hasModelPick
+                      ? 'MODEL'
+                      : 'PROJECTION',
+                  signalConflict
+                      ? suggested ?? '--'
+                      : prop.displayModelValue.toStringAsFixed(2),
+                ),
+                metric('CONFIDENCE', signalRatingLabel),
+              ],
+            ),
+            const SizedBox(height: 8),
+          ],
           Row(
             children: [
               sideButton(PickSide.under),
@@ -9750,8 +9747,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             ],
           ),
           const SizedBox(height: 7),
-          selectionHint(),
-          const SizedBox(height: 9),
           // The decision ends here. Everything past this point is the working
           // behind it: worth reading second, and never worth making a reader
           // wade through before they know what the app thinks.
@@ -11813,14 +11808,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                           crossAxisCount: columns,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
-                          // 410 held the whole card before the toggle existed,
-                          // and the toggle adds a row; an opened card needs
-                          // that back plus a little. Sizing down for closed
-                          // cards would be guesswork against content I cannot
-                          // measure here, and guessing short overflows the
-                          // cell -- so the desktop grid keeps one safe height
-                          // and lets the Spacer absorb the slack.
-                          mainAxisExtent: 440,
+                          // Collapsed cards keep only decision-changing details.
+                          mainAxisExtent: 380,
                         ),
                         itemBuilder: (context, index) =>
                             cardFor(visibleProps[index], fixedHeight: true),
