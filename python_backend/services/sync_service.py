@@ -707,7 +707,18 @@ def run_global_sync_pipeline(
     })
     if _gridiron_ingest_due():
         try:
-            window = max(1, int(os.getenv("GRIDIRON_INGEST_DAYS", "3")))
+            # The first run after a deploy reaches back far enough to seed a
+            # history that does not exist yet; later runs only top it up.
+            # Without this the schedule keeps three days current forever and
+            # the 445 NFL props with no projection stay that way, because
+            # nothing was ever going to fetch the season behind them.
+            seeded = _last_gridiron_ingest_monotonic is not None
+            window = max(
+                1,
+                int(os.getenv("GRIDIRON_INGEST_DAYS", "3"))
+                if seeded
+                else int(os.getenv("GRIDIRON_SEED_DAYS", "240")),
+            )
             gridiron = run_gridiron_ice_backfill(days=window)
             stored = sum(
                 int((value or {}).get("stored") or 0)

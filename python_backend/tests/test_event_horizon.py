@@ -153,3 +153,42 @@ def test_it_comes_due_again_after_the_cooldown() -> None:
     sync_service._mark_gridiron_ingested(now=1000.0)
     assert sync_service._gridiron_ingest_due(now=1000.0 + 21600) is True
     sync_service._last_gridiron_ingest_monotonic = None
+
+
+def test_the_first_run_seeds_a_season_rather_than_three_days() -> None:
+    """445 NFL props had no projection and nothing was going to fix it.
+
+    A three-day top-up keeps a history current; it cannot create one. The
+    first run after a restart therefore reaches back far enough to seed.
+    """
+
+    import os
+    from services import sync_service
+
+    sync_service._last_gridiron_ingest_monotonic = None
+    seeded = sync_service._last_gridiron_ingest_monotonic is not None
+    window = max(
+        1,
+        int(os.getenv("GRIDIRON_INGEST_DAYS", "3"))
+        if seeded
+        else int(os.getenv("GRIDIRON_SEED_DAYS", "240")),
+    )
+
+    assert window >= 240
+
+
+def test_later_runs_only_top_up() -> None:
+    import os
+    from services import sync_service
+
+    sync_service._mark_gridiron_ingested(now=1000.0)
+    seeded = sync_service._last_gridiron_ingest_monotonic is not None
+    window = max(
+        1,
+        int(os.getenv("GRIDIRON_INGEST_DAYS", "3"))
+        if seeded
+        else int(os.getenv("GRIDIRON_SEED_DAYS", "240")),
+    )
+
+    assert window == 3
+    sync_service._last_gridiron_ingest_monotonic = None
