@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'auth_manager.dart';
+import 'founding_pro_reservation_service.dart';
 import 'supabase_service.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
@@ -89,6 +90,23 @@ class RevenueCatBillingService {
     PurchaseInterval interval = PurchaseInterval.monthly,
   }) async {
     try {
+      if (tier == PurchaseTier.foundingEdge) {
+        final reservation = await FoundingProReservationService().reserve();
+        if (reservation != FoundingReservationResult.available) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  reservation == FoundingReservationResult.soldOut
+                      ? 'Founding Pro is sold out. Choose Pro to continue.'
+                      : 'This account is not eligible to claim Founding Pro.',
+                ),
+              ),
+            );
+          }
+          return;
+        }
+      }
       await initializeBillingEngine();
       final offerings = await Purchases.getOfferings();
       final current = offerings.all[tier.offeringId];

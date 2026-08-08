@@ -57,6 +57,7 @@ def production_acceptance_snapshot(now: datetime | None = None) -> dict[str, obj
     webhook_configured = bool(os.getenv("REVENUECAT_WEBHOOK_SECRET", "").strip())
     core_configured = bool(os.getenv("REVENUECAT_CORE_PRODUCT_IDS", "").strip())
     edge_configured = bool(os.getenv("REVENUECAT_EDGE_PRODUCT_IDS", "").strip())
+    founding_configured = bool(os.getenv("REVENUECAT_FOUNDING_PRODUCT_IDS", "").strip())
     webhook_delivery = _webhook_delivery_snapshot()
 
     issues: list[dict[str, str]] = []
@@ -70,6 +71,8 @@ def production_acceptance_snapshot(now: datetime | None = None) -> dict[str, obj
         issues.append({"severity": "critical", "code": "webhook_unconfigured", "message": "RevenueCat webhook authentication is not configured."})
     if not core_configured or not edge_configured:
         issues.append({"severity": "critical", "code": "products_unconfigured", "message": "Core or Edge billing product mapping is not configured."})
+    if not founding_configured:
+        issues.append({"severity": "critical", "code": "founding_cap_unconfigured", "message": "Founding Pro product mapping is not configured; the member cap cannot be enforced."})
 
     status = "critical" if any(i["severity"] == "critical" for i in issues) else "warning" if issues else "healthy"
     return {
@@ -90,6 +93,7 @@ def production_acceptance_snapshot(now: datetime | None = None) -> dict[str, obj
             "webhookConfigured": webhook_configured,
             "coreProductsConfigured": core_configured,
             "edgeProductsConfigured": edge_configured,
+            "foundingProductsConfigured": founding_configured,
             "webhookDeliveryVerified": webhook_delivery["verified"],
             "webhookEventCount": webhook_delivery["eventCount"],
             "lastWebhookReceivedAt": webhook_delivery["lastReceivedAt"],

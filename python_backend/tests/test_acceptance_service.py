@@ -23,6 +23,7 @@ def test_acceptance_snapshot_reports_healthy_feed(monkeypatch):
     monkeypatch.setenv("REVENUECAT_WEBHOOK_SECRET", "configured")
     monkeypatch.setenv("REVENUECAT_CORE_PRODUCT_IDS", "core")
     monkeypatch.setenv("REVENUECAT_EDGE_PRODUCT_IDS", "edge")
+    monkeypatch.setenv("REVENUECAT_FOUNDING_PRODUCT_IDS", "founding")
 
     result = acceptance_service.production_acceptance_snapshot(now)
 
@@ -44,10 +45,15 @@ def test_acceptance_snapshot_alerts_on_empty_feed_and_missing_billing(monkeypatc
     monkeypatch.delenv("REVENUECAT_WEBHOOK_SECRET", raising=False)
     monkeypatch.delenv("REVENUECAT_CORE_PRODUCT_IDS", raising=False)
     monkeypatch.delenv("REVENUECAT_EDGE_PRODUCT_IDS", raising=False)
+    monkeypatch.delenv("REVENUECAT_FOUNDING_PRODUCT_IDS", raising=False)
 
     result = acceptance_service.production_acceptance_snapshot()
 
     assert result["status"] == "critical"
     assert {issue["code"] for issue in result["issues"]} == {
-        "feed_empty", "quota_low", "webhook_unconfigured", "products_unconfigured"
+        "feed_empty",
+        "quota_low",
+        "webhook_unconfigured",
+        "products_unconfigured",
+        "founding_cap_unconfigured",
     }

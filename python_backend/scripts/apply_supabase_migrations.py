@@ -20,6 +20,7 @@ MIGRATIONS = (
     "supabase_add_is_premium_column.sql",
     "supabase_subscription_tiers.sql",
     "supabase_billing_webhook_integrity.sql",
+    "supabase_founding_pro_claims.sql",
     "supabase_historical_data.sql",
     "supabase_multi_sport_history.sql",
     "supabase_intelligence_features.sql",

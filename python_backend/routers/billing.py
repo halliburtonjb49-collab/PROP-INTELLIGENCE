@@ -1,12 +1,22 @@
 import hmac
 import os
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 
+from services.api_auth_service import require_user_id
+from services.founding_pro_service import reserve_founding_pro_slot
 from services.subscription_service import apply_subscription_event, has_event_identity
 from services.security_event_service import record_security_event
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
+
+
+@router.post("/founding-pro/reserve")
+def reserve_founding_pro(user_id: str = Depends(require_user_id)) -> dict[str, object]:
+    result = reserve_founding_pro_slot(user_id)
+    if result.get("reason") == "DATABASE_URL is not configured":
+        raise HTTPException(status_code=503, detail="Founding Pro availability is temporarily unavailable")
+    return result
 
 
 @router.post("/revenuecat/webhook")

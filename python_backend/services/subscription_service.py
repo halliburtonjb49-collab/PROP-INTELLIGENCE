@@ -4,6 +4,7 @@ import hashlib
 import os
 
 from database.postgres import database_is_configured, get_database_pool
+from services.founding_pro_service import apply_founding_event
 
 
 def has_event_identity(event: dict[str, object]) -> bool:
@@ -52,6 +53,10 @@ def apply_subscription_event(event: dict[str, object]) -> dict[str, object]:
         if cursor.fetchone() is None:
             connection.commit()
             return {"updated": False, "duplicate": True, "tier": tier}
+        founding_rejection = apply_founding_event(cursor, event, user_id)
+        if founding_rejection is not None:
+            connection.commit()
+            return founding_rejection
         cursor.execute("""insert into user_profiles(
                 id,subscription_tier,is_premium,subscription_event_at,updated_at)
             values(%s,%s,%s,to_timestamp(%s / 1000.0),now()) on conflict(id) do update set

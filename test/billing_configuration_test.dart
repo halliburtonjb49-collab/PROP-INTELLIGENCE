@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/services/billing_service.dart';
+import 'package:prop_intelligence/services/founding_pro_reservation_service.dart';
 import 'package:prop_intelligence/services/subscription_pricing.dart';
 
 void main() {
@@ -27,6 +28,27 @@ void main() {
     expect(SubscriptionPricing.foundingProMemberLimit, 100);
     expect(PurchaseTier.foundingEdge.offeringId, 'edge_founding');
     expect(PurchaseTier.foundingEdge.entitlementId, 'edge_tier');
+  });
+
+  test('accepts a reserved Founding Pro slot', () {
+    expect(
+      parseFoundingReservationResponse(200, '{"available":true}'),
+      FoundingReservationResult.available,
+    );
+  });
+
+  test('distinguishes sold-out and ineligible Founding Pro responses', () {
+    expect(
+      parseFoundingReservationResponse(
+        200,
+        '{"available":false,"soldOut":true}',
+      ),
+      FoundingReservationResult.soldOut,
+    );
+    expect(
+      parseFoundingReservationResponse(200, '{"available":false}'),
+      FoundingReservationResult.ineligible,
+    );
   });
 
   test('selects a platform-specific RevenueCat public key', () {

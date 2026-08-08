@@ -61,6 +61,12 @@ services:
         sync: false
       - key: REVENUECAT_EDGE_PRODUCT_IDS
         sync: false
+      - key: REVENUECAT_FOUNDING_PRODUCT_IDS
+        value: prod_V2I3KIzAuJTE3k,prod_V2I6iiJdrfC1Bm,prod_V2HuAF8pvvncm1,prod_V2HuxzkBqojjLU
+      - key: FOUNDING_PRO_MEMBER_LIMIT
+        value: 100
+      - key: FOUNDING_PRO_RESERVATION_MINUTES
+        value: 30
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY
