@@ -3060,6 +3060,7 @@ class MainDashboard extends StatefulWidget {
 class _MainDashboardState extends State<MainDashboard> {
   final ApiService _apiService = ApiService();
   final TextEditingController _searchController = TextEditingController();
+  int _searchFieldGeneration = 0;
   final ScrollController _boardVerticalController = ScrollController();
   final ScrollController _bookHorizontalController = ScrollController();
   final ScrollController _categoryHorizontalController = ScrollController();
@@ -4645,6 +4646,7 @@ class _MainDashboardState extends State<MainDashboard> {
     Widget playerSearchField({double? width}) {
       final field = TextField(
         controller: _searchController,
+        key: ValueKey('player-search-input-$_searchFieldGeneration'),
         textInputAction: TextInputAction.search,
         onChanged: (value) {
           _searchDebounce?.cancel();
@@ -4670,6 +4672,7 @@ class _MainDashboardState extends State<MainDashboard> {
                     _searchController.clear();
                     setState(() {
                       _searchQuery = '';
+                      _searchFieldGeneration += 1;
                       _focusedProp = null;
                       _latestProps = const [];
                       _lastUpdated = null;
