@@ -2263,6 +2263,7 @@ def props(
 	search: str = Query(default=""),
 	minConfidence: int = Query(default=0),
 	sortBy: str = Query(default="confidence"),
+	verdict: str = Query(default="All"),
 	includePastDates: bool = Query(default=False),
 	includeStarted: bool = Query(default=False),
 	includeStale: bool = Query(default=False),
@@ -2301,6 +2302,7 @@ def props(
 		search_filter = search.strip().lower()
 		min_confidence = max(0, int(minConfidence)) if is_pro else 0
 		sort_by = sortBy.strip().lower() if is_pro else "time"
+		verdict_filter = verdict.strip().upper() if is_pro else "ALL"
 		today_local = datetime.now(_scoreboard_timezone()).date()
 		now_utc = datetime.now(timezone.utc)
 		stale_after_minutes = max(
@@ -2417,6 +2419,17 @@ def props(
 				return False
 			if confidence < min_confidence:
 				return False
+			if verdict_filter != "ALL":
+				prop_verdict = (
+					prop.verdict if isinstance(prop.verdict, dict) else {}
+				)
+				decision = str(prop_verdict.get("decision") or "").upper()
+				actionable = bool(prop_verdict.get("actionable"))
+				if verdict_filter == "ACTIONABLE":
+					if not actionable:
+						return False
+				elif decision != verdict_filter:
+					return False
 			return True
 
 		facet_props = [
@@ -2598,6 +2611,7 @@ def props(
 				"search": search,
 				"minConfidence": min_confidence,
 				"sortBy": sort_by,
+				"verdict": verdict_filter,
 				"includePastDates": includePastDates,
 				"includeStarted": includeStarted,
 				"onlyMoved": onlyMoved,

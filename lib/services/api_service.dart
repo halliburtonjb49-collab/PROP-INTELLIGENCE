@@ -148,7 +148,7 @@ class BackendRefreshStatus {
 }
 
 class ApiService {
-  static const String _lastStablePropsCacheKey = 'prop-feed-v4-last-stable';
+  static const String _lastStablePropsCacheKey = 'prop-feed-v5-last-stable';
   static const Duration _propsCacheMaxAge = Duration(minutes: 30);
   static const String appVersion = String.fromEnvironment(
     'APP_VERSION',
@@ -334,10 +334,7 @@ class ApiService {
     for (final candidate in _candidateBaseUrls) {
       try {
         final response = await http
-            .get(
-              Uri.parse('$candidate/api/briefing/today'),
-              headers: headers,
-            )
+            .get(Uri.parse('$candidate/api/briefing/today'), headers: headers)
             .timeout(const Duration(seconds: 15));
         if (response.statusCode >= 200 && response.statusCode < 300) {
           _resolvedBaseUrl = candidate;
@@ -938,6 +935,7 @@ class ApiService {
     String search = '',
     int minConfidence = 0,
     String sortBy = 'confidence',
+    String verdictFilter = 'All',
     int limit = 75,
     int offset = 0,
   }) async {
@@ -958,6 +956,7 @@ class ApiService {
       selectedCategory,
       search,
       minConfidence,
+      verdictFilter,
       sortBy,
     );
 
@@ -975,13 +974,17 @@ class ApiService {
               'search': search,
               'minConfidence': minConfidence.toString(),
               'sortBy': sortBy,
+              'verdict': verdictFilter,
               'limit': requestLimit.toString(),
               'offset': requestOffset.toString(),
             },
           );
           final response = await _getPropsPage(uri);
           // Parsing and model construction can be expensive on large feeds.
-          final candidateParsed = await compute(_parsePropsPayload, response.body);
+          final candidateParsed = await compute(
+            _parsePropsPayload,
+            response.body,
+          );
           parsed = candidateParsed;
           if (candidateParsed.props.isNotEmpty) {
             break;
@@ -1000,10 +1003,7 @@ class ApiService {
         if (sportsbookFilterEnabled) {
           props = props
               .where(
-                (prop) => _matchesSelectedSportsbook(
-                  prop,
-                  targetSportsbookKey,
-                ),
+                (prop) => _matchesSelectedSportsbook(prop, targetSportsbookKey),
               )
               .toList(growable: false);
         }
@@ -1019,6 +1019,7 @@ class ApiService {
               'search': search,
               'minConfidence': minConfidence.toString(),
               'sortBy': sortBy,
+              'verdict': verdictFilter,
               'limit': requestLimit.toString(),
               'offset': requestOffset.toString(),
             },
@@ -1030,10 +1031,7 @@ class ApiService {
           );
           final fallbackProps = fallbackParsed.props
               .where(
-                (prop) => _matchesSelectedSportsbook(
-                  prop,
-                  targetSportsbookKey,
-                ),
+                (prop) => _matchesSelectedSportsbook(prop, targetSportsbookKey),
               )
               .toList(growable: false);
           if (fallbackProps.isNotEmpty) {
@@ -1069,6 +1067,7 @@ class ApiService {
             selectedSport: selectedSport,
             selectedCategory: selectedCategory,
             search: search,
+            verdictFilter: verdictFilter,
             minConfidence: minConfidence,
           );
           // Rendering must never wait on browser/local device storage. Broad
@@ -1086,6 +1085,7 @@ class ApiService {
                       selectedCategory,
                       search,
                       minConfidence,
+                      verdictFilter,
                       sortBy,
                     ),
               parsed.rawMaps,
@@ -1303,10 +1303,21 @@ class ApiService {
     String category,
     String search,
     int confidence,
+    String verdict,
     String sort,
   ) {
     final raw =
-        [side, tier, sportsbook, sport, category, search, '$confidence', sort]
+        [
+              side,
+              tier,
+              sportsbook,
+              sport,
+              category,
+              search,
+              '$confidence',
+              verdict,
+              sort,
+            ]
             .map(
               (value) => value.trim().toLowerCase().replaceAll(
                 RegExp(r'[^a-z0-9]+'),
@@ -1314,7 +1325,7 @@ class ApiService {
               ),
             )
             .join('_');
-    return 'prop-feed-v4-$raw';
+    return 'prop-feed-v5-$raw';
   }
 
   bool _isBroadPropsQuery({
@@ -1324,6 +1335,7 @@ class ApiService {
     required String selectedSport,
     required String selectedCategory,
     required String search,
+    required String verdictFilter,
     required int minConfidence,
   }) {
     bool isAll(String value) => value.trim().toUpperCase() == 'ALL';
@@ -1332,6 +1344,7 @@ class ApiService {
         isAll(selectedSportsbook) &&
         isAll(selectedSport) &&
         isAll(selectedCategory) &&
+        isAll(verdictFilter) &&
         search.trim().isEmpty &&
         minConfidence <= 0;
   }
@@ -1369,6 +1382,7 @@ class ApiService {
     String search = '',
     int minConfidence = 0,
     String sortBy = 'confidence',
+    String verdictFilter = 'All',
   }) async {
     final preferences = await SharedPreferences.getInstance();
     final key = _propsCacheKey(
@@ -1379,6 +1393,7 @@ class ApiService {
       selectedCategory,
       search,
       minConfidence,
+      verdictFilter,
       sortBy,
     );
     final broadQuery = _isBroadPropsQuery(
@@ -1388,6 +1403,7 @@ class ApiService {
       selectedSport: selectedSport,
       selectedCategory: selectedCategory,
       search: search,
+      verdictFilter: verdictFilter,
       minConfidence: minConfidence,
     );
     final candidates = <String?>[

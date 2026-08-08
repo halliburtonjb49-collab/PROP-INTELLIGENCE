@@ -2146,10 +2146,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                     _switchToPage(AppPage.board, source: 'mobile-swipe');
                     break;
                   case 1:
-                    _switchToPage(
-                      AppPage.gameMarkets,
-                      source: 'mobile-swipe',
-                    );
+                    _switchToPage(AppPage.gameMarkets, source: 'mobile-swipe');
                     break;
                   case 2:
                     _switchToPage(AppPage.watchlist, source: 'mobile-swipe');
@@ -4171,8 +4168,8 @@ class _MainDashboardState extends State<MainDashboard> {
           .where(
             (prop) =>
                 prop.player.trim().toLowerCase() == playerKey &&
-            _normalizeSite('${prop.sportsbook} ${prop.sourceProvider}') ==
-              siteKey,
+                _normalizeSite('${prop.sportsbook} ${prop.sourceProvider}') ==
+                    siteKey,
           )
           .toList(growable: false);
     } catch (_) {
@@ -4181,7 +4178,7 @@ class _MainDashboardState extends State<MainDashboard> {
             (prop) =>
                 prop.player.trim().toLowerCase() ==
                     focused.player.trim().toLowerCase() &&
-            _normalizeSite('${prop.sportsbook} ${prop.sourceProvider}') ==
+                _normalizeSite('${prop.sportsbook} ${prop.sourceProvider}') ==
                     _normalizeSite(focused.sportsbook),
           )
           .toList(growable: false);
@@ -4783,9 +4780,13 @@ class _MainDashboardState extends State<MainDashboard> {
               backgroundColor: selected
                   ? AppColors.gold.withValues(alpha: .10)
                   : app_colors.AppColors.sidebar,
-              side: BorderSide(color: selected ? AppColors.gold : AppColors.border),
+              side: BorderSide(
+                color: selected ? AppColors.gold : AppColors.border,
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 13),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(7),
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -4796,7 +4797,10 @@ class _MainDashboardState extends State<MainDashboard> {
                 ],
                 Text(
                   _selectedSite == 'ALL' ? 'All Prop Sites' : _selectedSite,
-                  style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(width: 5),
                 const Icon(Icons.keyboard_arrow_down, size: 13),
@@ -4916,12 +4920,14 @@ class _MainDashboardState extends State<MainDashboard> {
                   behavior: HitTestBehavior.translucent,
                   onHorizontalDragUpdate: (details) {
                     if (!_bookHorizontalController.hasClients) return;
-                    final target = (_bookHorizontalController.offset -
-                            details.delta.dx)
-                        .clamp(
-                          0.0,
-                          _bookHorizontalController.position.maxScrollExtent,
-                        );
+                    final target =
+                        (_bookHorizontalController.offset - details.delta.dx)
+                            .clamp(
+                              0.0,
+                              _bookHorizontalController
+                                  .position
+                                  .maxScrollExtent,
+                            );
                     _bookHorizontalController.jumpTo(target);
                   },
                   child: Listener(
@@ -4931,7 +4937,8 @@ class _MainDashboardState extends State<MainDashboard> {
                         return;
                       }
                       final delta =
-                          event.scrollDelta.dy.abs() >= event.scrollDelta.dx.abs()
+                          event.scrollDelta.dy.abs() >=
+                              event.scrollDelta.dx.abs()
                           ? event.scrollDelta.dy
                           : event.scrollDelta.dx;
                       if (delta == 0) return;
@@ -5683,7 +5690,10 @@ class _MainDashboardState extends State<MainDashboard> {
                           const SizedBox(height: 10),*/
                           if (canShowSystemRecommendation(
                             hasEdgeAccess: AuthManager
-                                .instance.sessionState.value.hasEdgeAccess,
+                                .instance
+                                .sessionState
+                                .value
+                                .hasEdgeAccess,
                           )) ...[
                             _buildVerdictFilter(),
                             const SizedBox(height: 10),
@@ -7488,35 +7498,49 @@ class TopNavigation extends StatelessWidget {
   // the order of a session: find something, build a slip from it, watch it,
   // then look back at how it went.
   static const List<(String, IconData, List<(String, AppPage)>)> _navGroups = [
-    ('RESEARCH', Icons.travel_explore_rounded, [
-      ("Today's Briefing", AppPage.briefing),
-      ('Board', AppPage.board),
-      ('Search Players', AppPage.searchPlayers),
-      ('EV Scanner', AppPage.evScanner),
-      ('Line Movement', AppPage.lineMovement),
-      ('Analytics', AppPage.analytics),
-      ('Intelligence Lab', AppPage.intelligenceLab),
-      ('Referee Tracker', AppPage.refereeTracker),
-      ('Prop Chat', AppPage.propChat),
-    ]),
-    ('BUILD', Icons.construction_rounded, [
-      ('Prop Builder', AppPage.propBuilder),
-      ('Slip Watcher', AppPage.watchlist),
-      ('Prop Alerts', AppPage.propAlerts),
-      ('Builder Performance', AppPage.builderPerformance),
-      ('Strikeout Pro Gold', AppPage.strikeoutProGold),
-    ]),
-    ('LIVE', Icons.sensors_rounded, [
-      ('Scoreboard', AppPage.scoreboard),
-      ('Score Watch', AppPage.scoreboardWatchlist),
-    ]),
-    ('HISTORY', Icons.history_rounded, [
-      ('Past Slip History', AppPage.pastSlipHistory),
-      ('Track Record', AppPage.trackRecord),
-    ]),
-    ('SPORTS', Icons.sports_rounded, [
-      ('Game Markets', AppPage.gameMarkets),
-    ]),
+    (
+      'RESEARCH',
+      Icons.travel_explore_rounded,
+      [
+        ("Today's Briefing", AppPage.briefing),
+        ('Board', AppPage.board),
+        ('Search Players', AppPage.searchPlayers),
+        ('EV Scanner', AppPage.evScanner),
+        ('Line Movement', AppPage.lineMovement),
+        ('Analytics', AppPage.analytics),
+        ('Intelligence Lab', AppPage.intelligenceLab),
+        ('Referee Tracker', AppPage.refereeTracker),
+        ('Prop Chat', AppPage.propChat),
+      ],
+    ),
+    (
+      'BUILD',
+      Icons.construction_rounded,
+      [
+        ('Prop Builder', AppPage.propBuilder),
+        ('Slip Watcher', AppPage.watchlist),
+        ('Prop Alerts', AppPage.propAlerts),
+        ('Builder Performance', AppPage.builderPerformance),
+        ('Strikeout Pro Gold', AppPage.strikeoutProGold),
+      ],
+    ),
+    (
+      'LIVE',
+      Icons.sensors_rounded,
+      [
+        ('Scoreboard', AppPage.scoreboard),
+        ('Score Watch', AppPage.scoreboardWatchlist),
+      ],
+    ),
+    (
+      'HISTORY',
+      Icons.history_rounded,
+      [
+        ('Past Slip History', AppPage.pastSlipHistory),
+        ('Track Record', AppPage.trackRecord),
+      ],
+    ),
+    ('SPORTS', Icons.sports_rounded, [('Game Markets', AppPage.gameMarkets)]),
   ];
 
   /// One group of destinations, opened rather than crowded onto the bar.
@@ -8749,6 +8773,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     widget.selectedSide,
     widget.selectedTier,
     widget.minConfidence.toString(),
+    widget.verdictFilter,
     widget.sortBy,
     widget.searchQuery,
   ].join('|');
@@ -9733,7 +9758,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             }),
           ),
           if (researchOpen) ...[
-          const SizedBox(height: 11),
+            const SizedBox(height: 11),
             Wrap(
               spacing: 6,
               runSpacing: 6,
@@ -9779,13 +9804,16 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               'Standardized explainability is shown above. Confirm live line movement and player availability before adding to slip.',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: AppColors.muted, fontSize: 8, height: 1.3),
+              style: TextStyle(
+                color: AppColors.muted,
+                fontSize: 8,
+                height: 1.3,
+              ),
             ),
           ],
           // Only a bounded box can absorb a Spacer; the phone list cannot.
           if (fixedHeight && !researchOpen) const Spacer(),
           const SizedBox(height: 6),
-
         ],
       ),
     );
@@ -11261,6 +11289,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       selectedCategory: widget.selectedCategory,
       search: widget.searchQuery,
       minConfidence: widget.minConfidence,
+      verdictFilter: widget.verdictFilter,
       sortBy: widget.sortBy,
     );
     if (!mounted || requestKey != _queryKey) return const [];
@@ -11306,25 +11335,28 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   }
 
   Future<List<PropData>> _fetchPropsPage({int offset = 0}) {
-    return _apiService.fetchProps(
-      selectedSide: widget.selectedSide,
-      selectedTier: widget.selectedTier,
-      selectedSportsbook: widget.selectedSite,
-      selectedSport: widget.sportFilter,
-      selectedCategory: widget.selectedCategory,
-      search: widget.searchQuery,
-      minConfidence: widget.minConfidence,
-      sortBy: widget.sortBy,
-      limit: _visiblePropStep,
-      offset: offset,
-    ).timeout(
-      propFetchTimeout,
-      onTimeout: () => throw TimeoutException(
-        'The prop feed did not respond within '
-        '${propFetchTimeout.inSeconds} seconds.',
-        propFetchTimeout,
-      ),
-    );
+    return _apiService
+        .fetchProps(
+          selectedSide: widget.selectedSide,
+          selectedTier: widget.selectedTier,
+          selectedSportsbook: widget.selectedSite,
+          selectedSport: widget.sportFilter,
+          selectedCategory: widget.selectedCategory,
+          search: widget.searchQuery,
+          minConfidence: widget.minConfidence,
+          verdictFilter: widget.verdictFilter,
+          sortBy: widget.sortBy,
+          limit: _visiblePropStep,
+          offset: offset,
+        )
+        .timeout(
+          propFetchTimeout,
+          onTimeout: () => throw TimeoutException(
+            'The prop feed did not respond within '
+            '${propFetchTimeout.inSeconds} seconds.',
+            propFetchTimeout,
+          ),
+        );
   }
 
   Future<void> _refreshFirstPageFromNetwork(String requestKey) async {
@@ -11555,8 +11587,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   widget.verdictFilter == 'ALL' ||
                   (widget.verdictFilter == 'ACTIONABLE'
                       ? prepared.prop.verdict.actionable
-                      : prepared.prop.verdict.decision ==
-                            widget.verdictFilter);
+                      : prepared.prop.verdict.decision == widget.verdictFilter);
               return prepared.prop.isSelectable &&
                   sportMatches &&
                   siteMatches &&
@@ -12045,10 +12076,7 @@ class _PropLoadingSkeletonState extends State<_PropLoadingSkeleton> {
                   key: const ValueKey('prop-loading-progress'),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 10,
-                  ),
+                  style: const TextStyle(color: AppColors.muted, fontSize: 10),
                 ),
               ],
             ),
@@ -13328,7 +13356,10 @@ class _PiVerdictBlock extends StatelessWidget {
           icon: Icons.travel_explore_rounded,
         );
       case 'LEAN':
-        return (accent: app_colors.AppColors.gold, icon: Icons.trending_up_rounded);
+        return (
+          accent: app_colors.AppColors.gold,
+          icon: Icons.trending_up_rounded,
+        );
       case 'WAIT':
         return (
           accent: app_colors.AppColors.textSecondary,
@@ -13353,7 +13384,8 @@ class _PiVerdictBlock extends StatelessWidget {
       if (verdict.confidence > 0) '${verdict.confidence}% confidence',
       if (verdict.maximumPlayableLine != null)
         'playable to ${verdict.maximumPlayableLine!.toStringAsFixed(1)}',
-      if (verdict.betterPriceAt.isNotEmpty) 'better at ${verdict.betterPriceAt}',
+      if (verdict.betterPriceAt.isNotEmpty)
+        'better at ${verdict.betterPriceAt}',
     ];
 
     return Container(
@@ -13441,7 +13473,6 @@ class _PiVerdictBlock extends StatelessWidget {
   }
 }
 
-
 /// The display category for a market, derived from its raw key.
 ///
 /// Extracted so it can be tested against every market key the feed can
@@ -13459,11 +13490,11 @@ bool _matchesAny(String value, List<String> matches) =>
 @visibleForTesting
 String marketCategoryFor(String sport, String rawMarket) {
   final raw = rawMarket
-    .toUpperCase()
-    .replaceAll('_', ' ')
-    .replaceAll('-', ' ')
-    .replaceAll(RegExp(r'\s+'), ' ')
-    .trim();
+      .toUpperCase()
+      .replaceAll('_', ' ')
+      .replaceAll('-', ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
   if (sport == 'NBA' || sport == 'WNBA') {
     if (_matchesAny(raw, ['DOUBLE DOUBLE', 'DOUBLEDOUBLE'])) {
       return 'DOUBLE DOUBLE';
@@ -13476,18 +13507,10 @@ String marketCategoryFor(String sport, String rawMarket) {
     ])) {
       return 'PRA';
     }
-    if (_matchesAny(raw, [
-      'POINTS REBOUNDS',
-      'POINTS + REBOUNDS',
-      'PTS REB',
-    ])) {
+    if (_matchesAny(raw, ['POINTS REBOUNDS', 'POINTS + REBOUNDS', 'PTS REB'])) {
       return 'POINTS + REBOUNDS';
     }
-    if (_matchesAny(raw, [
-      'POINTS ASSISTS',
-      'POINTS + ASSISTS',
-      'PTS AST',
-    ])) {
+    if (_matchesAny(raw, ['POINTS ASSISTS', 'POINTS + ASSISTS', 'PTS AST'])) {
       return 'POINTS + ASSISTS';
     }
     if (_matchesAny(raw, [
@@ -13622,11 +13645,7 @@ String marketCategoryFor(String sport, String rawMarket) {
     ])) {
       return 'PITCHER STRIKEOUTS';
     }
-    if (_matchesAny(raw, [
-      'PITCHER OUTS',
-      'OUTS RECORDED',
-      'PITCHING OUTS',
-    ])) {
+    if (_matchesAny(raw, ['PITCHER OUTS', 'OUTS RECORDED', 'PITCHING OUTS'])) {
       return 'PITCHER OUTS';
     }
     if (raw.contains('HITS ALLOWED')) {
@@ -13721,11 +13740,7 @@ String marketCategoryFor(String sport, String rawMarket) {
     if (_matchesAny(raw, ['SUBMISSION ATTEMPTS', 'SUB ATTEMPTS'])) {
       return 'SUBMISSION ATTEMPTS';
     }
-    if (_matchesAny(raw, [
-      'FIGHT TIME',
-      'TOTAL FIGHT TIME',
-      'TIME OF FIGHT',
-    ])) {
+    if (_matchesAny(raw, ['FIGHT TIME', 'TOTAL FIGHT TIME', 'TIME OF FIGHT'])) {
       return 'FIGHT TIME';
     }
     if (_matchesAny(raw, [

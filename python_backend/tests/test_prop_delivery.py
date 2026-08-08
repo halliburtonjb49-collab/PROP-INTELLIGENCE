@@ -128,6 +128,48 @@ def test_prop_page_filters_server_side_and_exposes_version(monkeypatch) -> None:
     assert int(response.headers["x-ratelimit-limit"]) > 0
 
 
+def test_verdict_filter_is_applied_before_pagination(monkeypatch) -> None:
+    passed = FakeProp("pass", "Passed", "MLB", "FANDUEL", "HITS")
+    passed.verdict = {"decision": "PASS", "actionable": False}
+    lean = FakeProp("lean", "Lean", "MLB", "FANDUEL", "HITS")
+    lean.verdict = {"decision": "LEAN", "actionable": True}
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [passed, lean])
+
+    response = TestClient(main.app).get(
+        "/api/props",
+        params={"verdict": "LEAN", "limit": 1},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["count"] == 1
+    assert [row["id"] for row in response.json()["props"]] == ["lean"]
+    assert response.json()["filters"]["verdict"] == "LEAN"
+
+
+def test_playable_filter_returns_every_actionable_verdict(monkeypatch) -> None:
+    rows = []
+    for decision, actionable in (
+        ("PASS", False),
+        ("WAIT", False),
+        ("LEAN", True),
+        ("SHOP", True),
+        ("PLAY_NOW", True),
+    ):
+        prop = FakeProp(decision.lower(), decision, "MLB", "FANDUEL", "HITS")
+        prop.verdict = {"decision": decision, "actionable": actionable}
+        rows.append(prop)
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: rows)
+
+    response = TestClient(main.app).get(
+        "/api/props",
+        params={"verdict": "ACTIONABLE", "limit": 2},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["count"] == 3
+    assert len(response.json()["props"]) == 2
+    assert all(row["verdict"]["actionable"] for row in response.json()["props"])
+
 def test_prop_id_stays_stable_when_site_line_changes() -> None:
     before = _make_prop_id("event-1", "Player One", "points", 20.5, "FanDuel")
     after = _make_prop_id("event-1", "Player One", "points", 21.5, "FanDuel")
