@@ -211,6 +211,23 @@ def basketball_market_value(market: object, row: tuple[object, ...]) -> float | 
             if value >= 10
         )
         return 1.0 if categories >= 3 else 0.0
+    # Decided before any of the shorter tests below, all of which it would
+    # otherwise satisfy: "player fantasy points" contains "point", so it was
+    # being valued as raw scoring. A player averaging 14 points was projected
+    # at 14 against a fantasy line near 37, which returns Under every time.
+    #
+    # These are the pick'em weights, which is what the board is almost
+    # entirely made of. A book weighting its fantasy score differently would
+    # need its own row here rather than this one quietly standing in.
+    if "fantasy" in text:
+        return (
+            points
+            + 1.2 * rebounds
+            + 1.5 * assists
+            + 2.0 * steals
+            + 2.0 * blocks
+            - 0.5 * turnovers
+        )
     if "points rebounds assists" in text or text.endswith(" pra") or text == "pra":
         return points + rebounds + assists
     if "points rebounds" in text:
