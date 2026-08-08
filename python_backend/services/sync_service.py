@@ -730,9 +730,20 @@ def run_global_sync_pipeline(
     snapshot = snapshot_live_predictions()
     results.append({"sport": "prediction_snapshots", "events": 0,
                     "props": int(snapshot.get("created", 0))})
-    clv = capture_prediction_closing_lines()
-    results.append({"sport": "prediction_clv", "events": 0,
-                    "props": int(clv.get("updated", 0))})
+    # Guarded because it was not, and it is the last unguarded call in the
+    # pipeline. When it raised, everything after it died with it: the
+    # selectability projection never ran and no compound alert was ever
+    # evaluated. From outside this looked like two features quietly doing
+    # nothing, because the sync itself still reported success for the sports
+    # it had already finished.
+    try:
+        clv = capture_prediction_closing_lines()
+        results.append({"sport": "prediction_clv", "events": 0,
+                        "props": int(clv.get("updated", 0))})
+    except Exception as exc:
+        logger.warning("closing line capture failed error=%s", exc)
+        results.append({"sport": "prediction_clv", "events": 0, "props": 0,
+                        "error": str(exc)})
     # Measured here because this walk already holds every prop; doing it
     # inside a request is what turned the operations endpoint into a 502.
     _board = get_props()
