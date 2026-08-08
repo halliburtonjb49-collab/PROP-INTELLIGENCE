@@ -29,17 +29,34 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Sequence
 
+from services.selectability_projection_service import break_even_for
+
 PLAY_NOW = "PLAY_NOW"
 SHOP = "SHOP"
 WAIT = "WAIT"
 LEAN = "LEAN"
 PASS = "PASS"
 
-# Probability the release gate already requires before a pick is shown at all.
-# Reused rather than reinvented so the verdict cannot disagree with the board.
+# What a prop must clear beyond the break-even its own price implies.
+#
+# One global threshold was two mistakes at once. Measured on a live board,
+# 641 props cleared 0.58 while only 245 of them beat the number their book was
+# actually offering -- so 414 recommendations were negative expected value at
+# the posted price, and separately, sportsbook props in the low fifties were
+# being rejected while genuinely profitable.
+#
+# The bar is now the price plus a margin, because break-even differs by book:
+# a pick'em leg needs about 57.8%, a -110 line needs 52.4%, and clearing
+# either exactly is a coin flip that has already paid the vig.
+PLAY_MARGIN_OVER_BREAK_EVEN = 0.02
+
+# A lean is a real but modest edge: past the price, not far past it.
+LEAN_MARGIN_OVER_BREAK_EVEN = 0.005
+
+# Retained for callers and tests that still reason in absolute terms. These
+# are the pick'em equivalents of the margins above, not separate rules.
 ACTIONABLE_PROBABILITY = 0.58
 
-# A lean is a real but modest edge: enough to note, not enough to press.
 LEAN_PROBABILITY = 0.545
 
 # Probability edge over the de-vigged market. Below this the model and the
@@ -146,6 +163,11 @@ def compute_verdict(prop: object) -> Verdict:
     if not side and over is not None and under is not None:
         side = "OVER" if over >= under else "UNDER"
         probability = max(over, under)
+    # The price this prop must beat, taken from the odds the book posted
+    # wherever it posts them rather than from an assumption about the book.
+    break_even, break_even_source = break_even_for(prop)
+    play_bar = break_even + PLAY_MARGIN_OVER_BREAK_EVEN
+    lean_bar = break_even + LEAN_MARGIN_OVER_BREAK_EVEN
     edge = _float(getattr(prop, "probabilityEdge", None))
     confidence = int(_float(getattr(prop, "confidence", 0)) or 0)
     reasons: list[str] = []
@@ -179,17 +201,18 @@ def compute_verdict(prop: object) -> Verdict:
             confidence=confidence,
             reasons=("no_side",),
         )
-    if probability < LEAN_PROBABILITY:
+    if probability < lean_bar:
         return Verdict(
             decision=PASS,
             side=side,
             headline="PASS",
             reason=(
                 f"The model gives {side.title()} {probability * 100:.0f}%, "
-                "which is not worth the vig."
+                f"and this price needs {break_even * 100:.0f}% just to break "
+                "even."
             ),
             confidence=confidence,
-            reasons=("probability_below_threshold",),
+            reasons=("probability_below_price",),
         )
     # The price decides, not the probability. A side the model likes at 74%
     # is a losing bet if the book has priced it at 80%, and most of what the
@@ -284,16 +307,17 @@ def compute_verdict(prop: object) -> Verdict:
     # price, which is the stricter pair. Deferring to it as well left 64 props
     # at a median 15% expected value labelled a lean while nine others with
     # the same credentials were called plays.
-    if probability >= ACTIONABLE_PROBABILITY:
+    if probability >= play_bar:
         return Verdict(
             decision=PLAY_NOW,
             side=side,
             headline=f"PLAY {side} NOW",
             reason=(
                 f"The model gives {side.title()} {probability * 100:.0f}% "
-                "against a settled line."
+                f"against a price that needs {break_even * 100:.0f}%."
             ),
             confidence=confidence,
+            reasons=(f"priced_from_{break_even_source}",),
             maximum_playable_line=maximum_line,
         )
     lean_reason = (

@@ -101,7 +101,9 @@ def test_a_trivial_price_difference_is_not_worth_a_trip():
 
 
 def test_a_modest_edge_is_a_lean_rather_than_a_play():
-    verdict = compute_verdict(_prop(uncertaintyAdjustedProbability=0.56))
+    # The fixture is priced at 1.91, so break-even is 52.4% and a full play
+    # needs 54.4%. 53.5% is past the price but not far past it.
+    verdict = compute_verdict(_prop(uncertaintyAdjustedProbability=0.535))
 
     assert verdict.decision == LEAN
     assert verdict.is_actionable
@@ -243,9 +245,9 @@ def test_the_legacy_gate_does_not_cap_a_prop_that_clears_the_price():
 
 
 def test_a_lean_is_a_real_edge_that_falls_short_of_a_play():
-    # Between the lean and action thresholds, and priced well enough to pay.
+    # Between the lean and play bars this price implies, and paying enough.
     verdict = compute_verdict(
-        _prop(uncertaintyAdjustedProbability=0.56, evPercentage=3.0)
+        _prop(uncertaintyAdjustedProbability=0.535, evPercentage=3.0)
     )
 
     assert verdict.decision == LEAN
@@ -321,3 +323,47 @@ def test_a_positive_price_survives_the_gate():
 
     assert verdict.decision == PLAY_NOW
     assert verdict.is_actionable
+
+
+def test_the_bar_follows_the_price_not_a_constant():
+    """The defect a single global threshold caused.
+
+    Measured on a live board, 641 props cleared 0.58 while only 245 beat the
+    number their own book was offering. 56% is a comfortable play against a
+    -110 line needing 52.4%, and not a play at all on a pick'em leg needing
+    57.8% -- one threshold cannot be right for both.
+    """
+
+    sportsbook = compute_verdict(
+        _prop(uncertaintyAdjustedProbability=0.56, overDecimalOdds=1.91,
+              bestOverOdds=1.91, evPercentage=6.0)
+    )
+    pickem = compute_verdict(
+        _prop(uncertaintyAdjustedProbability=0.56, overDecimalOdds=1.73,
+              bestOverOdds=1.73, evPercentage=6.0)
+    )
+
+    assert sportsbook.decision == PLAY_NOW
+    assert pickem.decision == PASS
+
+
+def test_a_pickem_leg_at_the_old_global_bar_is_no_longer_a_play():
+    # 0.58 barely clears pick'em break-even of 57.8%, so the old rule called
+    # it a play while it carried no margin at all.
+    verdict = compute_verdict(
+        _prop(uncertaintyAdjustedProbability=0.58, overDecimalOdds=1.73,
+              bestOverOdds=1.73, evPercentage=4.0)
+    )
+
+    assert verdict.decision != PLAY_NOW
+
+
+def test_the_pass_explains_the_price_rather_than_a_threshold():
+    verdict = compute_verdict(
+        _prop(uncertaintyAdjustedProbability=0.51, overDecimalOdds=1.91,
+              bestOverOdds=1.91)
+    )
+
+    assert verdict.decision == PASS
+    assert "break even" in verdict.reason
+    assert verdict.reasons == ("probability_below_price",)
