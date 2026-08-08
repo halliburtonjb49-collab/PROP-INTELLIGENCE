@@ -9200,6 +9200,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         : null;
     final hasModelPick =
         hasProAccess && prop.proSuggestionUsesModel && advisedSide != null;
+    final noPiPick =
+        hasProAccess && prop.verdict.decision.trim().toUpperCase() == 'PASS';
     final rawFallbackSide = prop.proSuggestionUsesHistoricalStats
         ? prop.projection == null || prop.projection == prop.line
               ? null
@@ -9210,7 +9212,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         ? prop.marketLeanSide
         : null;
     final signalConflict =
-        rawFallbackSide != null && rawFallbackSide != suggested;
+        !noPiPick && rawFallbackSide != null && rawFallbackSide != suggested;
     final specialLineBadge = _specialLineBadge(prop, advisedSide);
     final signalRating = prop.displayConfidenceRating;
     // Keep the two visible metric values consistent on every card. Evidence
@@ -9221,6 +9223,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final market = _marketCategory(prop);
     final signalLabel = hasModelPick
         ? 'MODEL PICK'
+        : noPiPick
+        ? 'NO PI PICK'
         : signalConflict
         ? 'PI SIGNAL'
         : prop.proSuggestionUsesHistoricalStats
@@ -9230,11 +9234,18 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         ? 'PROP TYPE: the statistic and posted line available for manual research and selection.'
         : hasModelPick
         ? 'MODEL PICK: a released model direction. The PI Verdict is still the action guide after price and availability checks.'
+        : noPiPick
+        ? 'NO PI PICK: the final verdict does not back either side at this line. Both buttons remain available for your own read.'
         : signalConflict
         ? 'PI SIGNAL: the final verdict direction after probability and price checks differs from the raw fallback lean. The PI Verdict is the action guide.'
         : prop.proSuggestionUsesHistoricalStats
         ? 'PROJECTION LEAN: direction from the available projection, not a released model pick. Follow the PI Verdict for the action decision.'
         : 'MARKET LEAN: direction inferred from sportsbook pricing, not a released model pick. Follow the PI Verdict for the action decision.';
+    final signalColor = noPiPick
+        ? app_colors.AppColors.textMuted
+        : hasModelPick
+        ? app_colors.AppColors.blue
+        : AppColors.gold;
 
     Widget metric(String label, String value) => Expanded(
       child: Column(
@@ -9480,17 +9491,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    color:
-                        (hasModelPick
-                                ? app_colors.AppColors.blue
-                                : AppColors.gold)
-                            .withValues(alpha: .10),
+                    color: signalColor.withValues(alpha: .10),
                     borderRadius: BorderRadius.circular(9),
-                    border: Border.all(
-                      color: hasModelPick
-                          ? app_colors.AppColors.blue
-                          : AppColors.gold,
-                    ),
+                    border: Border.all(color: signalColor),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -9501,9 +9504,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                           Text(
                             !hasProAccess ? 'PROP TYPE' : signalLabel,
                             style: TextStyle(
-                              color: hasModelPick
-                                  ? app_colors.AppColors.blue
-                                  : AppColors.gold,
+                              color: signalColor,
                               fontSize: 7,
                               fontWeight: FontWeight.w900,
                             ),
@@ -9511,9 +9512,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                           const SizedBox(width: 3),
                           Icon(
                             Icons.info_outline_rounded,
-                            color: hasModelPick
-                                ? app_colors.AppColors.blue
-                                : AppColors.gold,
+                            color: signalColor,
                             size: 10,
                           ),
                         ],
@@ -9522,13 +9521,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                       Text(
                         !hasProAccess
                             ? market.toUpperCase()
+                            : noPiPick
+                            ? 'YOUR CHOICE'
                             : advisedSide == null
                             ? prop.line.toStringAsFixed(1)
                             : '${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} ${prop.line.toStringAsFixed(1)}',
                         style: TextStyle(
-                          color: hasModelPick
-                              ? app_colors.AppColors.blue
-                              : AppColors.gold,
+                          color: signalColor,
                           fontSize: 11,
                           fontWeight: FontWeight.w900,
                         ),
@@ -9723,16 +9722,20 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             Row(
               children: [
                 metric(
-                  signalConflict
+                  noPiPick
+                      ? 'PI STATUS'
+                      : signalConflict
                       ? 'VERDICT SIDE'
                       : hasModelPick
                       ? 'MODEL'
                       : 'PROJECTION',
-                  signalConflict
+                  noPiPick
+                      ? 'NOT BACKED'
+                      : signalConflict
                       ? suggested ?? '--'
                       : prop.displayModelValue.toStringAsFixed(2),
                 ),
-                metric('CONFIDENCE', signalRatingLabel),
+                if (!noPiPick) metric('CONFIDENCE', signalRatingLabel),
               ],
             ),
             const SizedBox(height: 8),

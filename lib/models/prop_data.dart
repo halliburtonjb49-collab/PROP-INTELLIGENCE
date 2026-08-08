@@ -437,9 +437,13 @@ class PropData {
     // back to a raw projection here could otherwise show OVER beside an
     // actionable UNDER verdict.
     final verdictSide = verdict.side.trim().toUpperCase();
-    if (verdict.isPresent &&
-        (verdictSide == 'OVER' || verdictSide == 'UNDER')) {
-      return verdictSide;
+    if (verdict.isPresent) {
+      if (verdict.decision.trim().toUpperCase() == 'PASS') {
+        return null;
+      }
+      return verdictSide == 'OVER' || verdictSide == 'UNDER'
+          ? verdictSide
+          : null;
     }
     final modelSide = recommendedSide.trim().toUpperCase();
     if (recommendationAvailable &&

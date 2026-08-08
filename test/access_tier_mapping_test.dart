@@ -222,6 +222,28 @@ void main() {
     expect(prop.proSuggestionUsesHistoricalStats, isTrue);
     expect(prop.proSuggestedSide, 'UNDER');
   });
+
+  test('PASS verdict does not expose a directional Pro suggestion', () {
+    final prop = PropData.fromJson(const {
+      'id': 'not-backed',
+      'player': 'Player',
+      'sport': 'MLB',
+      'matchup': 'A @ B',
+      'sportsbook': 'Book',
+      'market': 'Batter Hits',
+      'line': 0.5,
+      'projection': 0.8,
+      'verdict': {
+        'decision': 'PASS',
+        'side': 'OVER',
+        'headline': 'TAKE A CHANCE - NOT BACKED',
+        'actionable': false,
+      },
+    });
+
+    expect(prop.proSuggestionUsesHistoricalStats, isTrue);
+    expect(prop.proSuggestedSide, isNull);
+  });
   test('baseline projection metadata remains visible to the client', () {
     final prop = PropData.fromJson({
       'id': 'baseline',
