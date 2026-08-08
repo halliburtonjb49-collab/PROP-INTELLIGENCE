@@ -75,6 +75,11 @@ void _startupLog(String message) {
   debugPrint('[startup +${_startupStopwatch.elapsedMilliseconds}ms] $message');
 }
 
+@visibleForTesting
+bool shouldWrapVerdictFilters(double availableWidth) {
+  return availableWidth < 600;
+}
+
 Future<void> _configureDesktopWindow() async {
   if (kIsWeb) {
     return;
@@ -5357,52 +5362,59 @@ class _MainDashboardState extends State<MainDashboard> {
       ('WAIT', 'WAIT'),
     ];
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (final (value, label) in options)
-            Padding(
-              padding: const EdgeInsets.only(right: 7),
-              child: Semantics(
-                button: true,
-                selected: _verdictFilter == value,
-                label: _verdictCounts[value] == null
-                    ? 'Show $label'
-                    : 'Show $label, ${_verdictCounts[value]} available',
-                child: GestureDetector(
-                  key: ValueKey('verdict-filter-$value'),
-                  onTap: () => setState(() => _verdictFilter = value),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _verdictFilter == value
-                          ? AppColors.gold
-                          : const Color(0xFF07111C),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: AppColors.gold),
-                    ),
-                    child: Text(
-                      _verdictCounts[value] == null
-                          ? label
-                          : '$label ${_verdictCounts[value]}',
-                      style: TextStyle(
-                        color: _verdictFilter == value
-                            ? app_colors.AppColors.bgBase
-                            : Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 9,
-                      ),
-                    ),
+    final chips = [
+      for (final (value, label) in options)
+        Padding(
+          padding: const EdgeInsets.only(right: 7),
+          child: Semantics(
+            button: true,
+            selected: _verdictFilter == value,
+            label: _verdictCounts[value] == null
+                ? 'Show $label'
+                : 'Show $label, ${_verdictCounts[value]} available',
+            child: GestureDetector(
+              key: ValueKey('verdict-filter-$value'),
+              onTap: () => setState(() => _verdictFilter = value),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: _verdictFilter == value
+                      ? AppColors.gold
+                      : const Color(0xFF07111C),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: AppColors.gold),
+                ),
+                child: Text(
+                  _verdictCounts[value] == null
+                      ? label
+                      : '$label ${_verdictCounts[value]}',
+                  style: TextStyle(
+                    color: _verdictFilter == value
+                        ? app_colors.AppColors.bgBase
+                        : Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 9,
                   ),
                 ),
               ),
             ),
-        ],
-      ),
+          ),
+        ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (shouldWrapVerdictFilters(constraints.maxWidth)) {
+          return Wrap(runSpacing: 7, children: chips);
+        }
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: chips),
+        );
+      },
     );
   }
 
