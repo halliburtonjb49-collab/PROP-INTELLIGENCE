@@ -211,3 +211,28 @@ def test_a_sport_with_no_markets_records_why() -> None:
     assert entry is not None
     assert entry["lastError"].startswith("skipped:")
     odds_service._sport_results.pop("test_no_markets_sport", None)
+
+
+def test_the_grade_is_not_gated_on_a_cooldown_something_else_consumes() -> None:
+    """Why the grade never ran once.
+
+    It was gated on the history top-up's cooldown, and the top-up marks that
+    cooldown consumed several lines before the grade is reached -- so the
+    second check was always false. A gate that consumes its own precondition
+    is indistinguishable, from outside, from a job that is merely slow.
+    """
+
+    from services import sync_service
+
+    sync_service._last_grade_monotonic = None
+    sync_service._last_gridiron_ingest_monotonic = None
+
+    assert sync_service._grade_due(now=1000.0) is True
+    # The history top-up running must not consume the grade's turn.
+    sync_service._mark_gridiron_ingested(now=1000.0)
+    assert sync_service._grade_due(now=1000.0) is True
+
+    sync_service._mark_graded(now=1000.0)
+    assert sync_service._grade_due(now=1000.0 + 600) is False
+    assert sync_service._grade_due(now=1000.0 + 21600) is True
+    sync_service._last_grade_monotonic = None

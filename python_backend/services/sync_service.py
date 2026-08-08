@@ -103,6 +103,33 @@ def partition_sync_sports(sports: list[str]) -> tuple[list[str], list[str]]:
 _gridiron_lock = Lock()
 _last_gridiron_ingest_monotonic: float | None = None
 
+_grade_lock = Lock()
+_last_grade_monotonic: float | None = None
+
+
+def _grade_due(now: float | None = None) -> bool:
+    """Whether the projection grade is due its own replay.
+
+    It has a separate cooldown because it was originally gated on the
+    history top-up's, and the top-up marks that cooldown consumed before the
+    grade is reached -- so the second check was always false and the grade
+    never ran once. A gate that consumes its own precondition.
+    """
+
+    current = time.monotonic() if now is None else now
+    interval = max(1800, int(os.getenv("PROJECTION_GRADE_SECONDS", "21600")))
+    with _grade_lock:
+        return (
+            _last_grade_monotonic is None
+            or current - _last_grade_monotonic >= interval
+        )
+
+
+def _mark_graded(now: float | None = None) -> None:
+    global _last_grade_monotonic
+    with _grade_lock:
+        _last_grade_monotonic = time.monotonic() if now is None else now
+
 
 def _gridiron_ingest_due(now: float | None = None) -> bool:
     """Whether NFL and NHL game logs are due a top-up.
@@ -797,11 +824,13 @@ def run_global_sync_pipeline(
     # Graded on the same long cooldown as the history top-up: replaying
     # every stored game is expensive and its answer does not change
     # between syncs minutes apart.
-    if _gridiron_ingest_due():
+    if _grade_due():
         try:
             record_projection_grade()
         except Exception as exc:
             logger.warning("projection grade failed error=%s", exc)
+        finally:
+            _mark_graded()
     alert_snapshots = [{
         "propId": prop.id, "player": prop.player, "playerId": prop.playerId,
         "sport": prop.sport, "market": prop.market, "marketKey": prop.marketKey,
