@@ -416,3 +416,34 @@ def test_an_unmodelled_market_is_not_reported_as_a_warning():
 
     assert "no opinion" in verdict.reason
     assert "not a warning against it" in verdict.reason
+
+
+def test_every_pass_hands_the_choice_back():
+    """Plenty of people bet on a read rather than a number.
+
+    They are customers with a different method, not mistakes to correct, and
+    a card that reads as a scolding loses them. Every pass states our view
+    and then says plainly that the decision is theirs.
+    """
+
+    passes = [
+        compute_verdict(_prop(selectable=False)),
+        compute_verdict(_prop(projection=None)),
+        compute_verdict(
+            _prop(recommendedSide="", uncertaintyAdjustedProbability=None,
+                  modelOverProbability=None, modelUnderProbability=None)
+        ),
+        compute_verdict(_prop(uncertaintyAdjustedProbability=0.50)),
+        compute_verdict(
+            _prop(uncertaintyAdjustedProbability=0.62, probabilityEdge=0.001)
+        ),
+    ]
+
+    for verdict in passes:
+        assert verdict.decision == PASS
+        reason = verdict.reason.lower()
+        defers = any(
+            phrase in reason
+            for phrase in ("your call", "yours to take", "your read")
+        )
+        assert defers, verdict.reason

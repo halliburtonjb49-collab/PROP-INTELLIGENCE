@@ -206,7 +206,7 @@ def compute_verdict(prop: object) -> Verdict:
             headline="PASS",
             reason=(
                 "We do not see a lean either way on this one. That means it "
-                "looks close to us, not that it is a bad bet."
+                "looks close to us, not that it is a bad bet -- your call."
             ),
             confidence=confidence,
             reasons=("no_side",),
@@ -245,7 +245,7 @@ def compute_verdict(prop: object) -> Verdict:
             reason=(
                 "We land about where the market does on this one, so there is "
                 "no edge we can point to. Nothing wrong with the bet -- we "
-                "just cannot claim an advantage."
+                "just cannot claim an advantage. Your call."
             ),
             confidence=confidence,
             reasons=("no_edge_over_market",),
