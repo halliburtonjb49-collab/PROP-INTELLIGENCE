@@ -153,7 +153,10 @@ services:
     runtime: python
     plan: starter
     buildCommand: pip install -r requirements.txt
-    startCommand: cd python_backend && rq worker --url $REDIS_URL prop-intelligence
+    # Import the application before starting RQ so a missing provider or
+    # database credential fails the deploy visibly. RQ otherwise reports the
+    # worker live and waits until the first customer refresh job to import it.
+    startCommand: cd python_backend && python -c "import main" && exec rq worker --url $REDIS_URL prop-intelligence
     maxShutdownDelaySeconds: 120
     envVars:
       - key: PYTHON_VERSION

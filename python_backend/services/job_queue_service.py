@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 
@@ -11,6 +12,7 @@ from rq.registry import FailedJobRegistry, StartedJobRegistry
 
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
 QUEUE_NAME = os.getenv("BACKGROUND_QUEUE_NAME", "prop-intelligence")
+LOGGER = logging.getLogger(__name__)
 
 
 def _queue() -> Queue | None:
@@ -47,7 +49,15 @@ def enqueue(
             retry=Retry(max=3, interval=[30, 120, 300]),
         )
         return {"id": job.id, "status": job.get_status(), "queue": QUEUE_NAME}
-    except Exception:
+    except Exception as exc:
+        LOGGER.warning(
+            "Unable to enqueue background job function=%s job_id=%s error=%s: %s",
+            function_name,
+            job_id or "auto",
+            type(exc).__name__,
+            exc,
+            exc_info=True,
+        )
         return None
 
 

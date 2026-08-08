@@ -1,3 +1,5 @@
+import logging
+
 from fastapi.testclient import TestClient
 
 import main
@@ -61,6 +63,27 @@ def test_queue_uses_explicit_rq_call_arguments(monkeypatch) -> None:
     assert captured["args"] == ("baseball_mlb",)
     assert captured["kwargs"] == {"force": True}
     assert captured["timeout"] == 1800
+
+
+def test_queue_logs_enqueue_failures(monkeypatch, caplog) -> None:
+    class BrokenQueue:
+        @staticmethod
+        def enqueue_call(**_kwargs):
+            raise RuntimeError("credential unavailable")
+
+    monkeypatch.setattr(job_queue_service, "_queue", lambda: BrokenQueue())
+
+    with caplog.at_level(logging.WARNING):
+        result = job_queue_service.enqueue(
+            "jobs.run_prop_sync",
+            job_id="freshness-1",
+        )
+
+    assert result is None
+    assert "Unable to enqueue background job" in caplog.text
+    assert "jobs.run_prop_sync" in caplog.text
+    assert "freshness-1" in caplog.text
+    assert "credential unavailable" in caplog.text
 
 
 def test_large_responses_support_brotli() -> None:
