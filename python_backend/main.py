@@ -164,6 +164,7 @@ from services.prop_builder_strategy_service import (
 from services.score_service import fetch_scores
 from services.odds_service import (
 	active_key_snapshot,
+	historical_access_probe,
 	bookmaker_coverage,
 	fetch_events,
 	quota_snapshot,
@@ -2010,6 +2011,9 @@ def prop_feed_health() -> dict[str, object]:
 		# environment still looks correctly configured. Index and count
 		# only; no key material.
 		"oddsApiKeys": active_key_snapshot(),
+		# Whether the configured key can read historical odds. Status and
+		# quota only -- the key itself is never returned or logged.
+		"historicalOddsAccess": historical_access_probe(),
 		# Why the buyer-facing record last failed to build, if it did. That
 		# page answers 200 with "unavailable" rather than erroring, which
 		# would otherwise hide the cause completely.

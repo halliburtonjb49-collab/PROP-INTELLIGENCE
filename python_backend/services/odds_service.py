@@ -306,6 +306,48 @@ def _read_sport_results() -> dict[str, dict[str, object]]:
     return value if isinstance(value, dict) else {}
 
 
+def historical_access_probe(
+    sport_key: str = "basketball_wnba",
+    date: str = "2025-08-01T12:00:00Z",
+) -> dict[str, object]:
+    """Whether the configured key can read historical odds, and at what cost.
+
+    Historical player props are the only remaining way to grade profitability
+    rather than accuracy: everything else measures whether a projection is
+    right, and only a line the book was actually offering says whether the
+    bet made money.
+
+    Reports status and quota only. The key is never returned, logged, or
+    echoed, and this exists so nobody has to paste one anywhere to find out.
+    """
+
+    key = _current_api_key()
+    if not key:
+        return {"available": False, "reason": "no odds key configured"}
+    url = (
+        f"{BASE_URL}/historical/sports/{sport_key}/odds"
+        f"?apiKey={key}&regions=us&markets=h2h&date={date}"
+    )
+    try:
+        response = _http_session().get(url, timeout=25)
+    except Exception as exc:
+        return {"available": False, "reason": f"{type(exc).__name__}"}
+    status = response.status_code
+    body = ""
+    if status >= 400:
+        # Trimmed, and only the provider's own message: it explains a plan
+        # limit without containing anything sensitive.
+        body = response.text[:200]
+    return {
+        "available": status == 200,
+        "status": status,
+        "reason": body,
+        "requestsRemaining": response.headers.get("x-requests-remaining"),
+        "requestsUsed": response.headers.get("x-requests-used"),
+        "lastCost": response.headers.get("x-requests-last"),
+    }
+
+
 def record_sport_fetch(
     sport_key: str,
     *,
