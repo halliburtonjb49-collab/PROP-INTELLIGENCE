@@ -306,6 +306,39 @@ def _read_sport_results() -> dict[str, dict[str, object]]:
     return value if isinstance(value, dict) else {}
 
 
+_historical_lock = Lock()
+_historical_access: dict[str, object] = {}
+
+
+def historical_access() -> dict[str, object]:
+    """The last probe result, never a fresh request.
+
+    The probe makes a live call with a 25 second timeout. Answering a health
+    request with that is how the operations endpoint became a 502 earlier
+    today, and I did it again here within the hour -- so the request path
+    reads what a sync measured and nothing else.
+    """
+
+    with _historical_lock:
+        return dict(_historical_access)
+
+
+def record_historical_access(**kwargs: object) -> dict[str, object]:
+    """Probe once, off the request path, and keep the answer."""
+
+    global _historical_access
+    result = historical_access_probe(**kwargs)
+    with _historical_lock:
+        _historical_access = dict(result)
+    try:
+        from services.distributed_cache_service import set_json
+
+        set_json("diagnostics:historical-access", result, ttl_seconds=60 * 60 * 24)
+    except Exception:
+        pass
+    return result
+
+
 def historical_access_probe(
     sport_key: str = "basketball_wnba",
     date: str = "2025-08-01T12:00:00Z",

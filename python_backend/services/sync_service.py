@@ -10,6 +10,7 @@ from config import DB_PATH
 from database.cache import PropCache
 from services.market_config import markets_for_sport
 from services.odds_service import (
+    record_historical_access,
     estimate_event_odds_cost, fetch_event_odds, fetch_events, quota_allows,
     record_sport_fetch,
 )
@@ -825,6 +826,10 @@ def run_global_sync_pipeline(
     # every stored game is expensive and its answer does not change
     # between syncs minutes apart.
     if _grade_due():
+        try:
+            record_historical_access()
+        except Exception as exc:
+            logger.warning("historical access probe failed error=%s", exc)
         try:
             record_projection_grade()
         except Exception as exc:
