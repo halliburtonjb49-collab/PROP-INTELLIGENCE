@@ -151,7 +151,9 @@ class BrandedPaywallModalSheet extends StatelessWidget {
               PurchaseTier.core,
               interval: PurchaseInterval.annual,
             ),
-            child: const Text('CORE ANNUAL • 7-DAY FREE TRIAL'),
+            child: const Text(
+              'CORE ANNUAL • ${SubscriptionPricing.coreAnnual} • 7-DAY FREE TRIAL',
+            ),
           ),
           const SizedBox(height: 4),
           SizedBox(
@@ -189,7 +191,9 @@ class BrandedPaywallModalSheet extends StatelessWidget {
               PurchaseTier.edge,
               interval: PurchaseInterval.annual,
             ),
-            child: const Text('PRO ANNUAL • 7-DAY FREE TRIAL'),
+            child: const Text(
+              'PRO ANNUAL • ${SubscriptionPricing.proAnnual} • 7-DAY FREE TRIAL',
+            ),
           ),
           const SizedBox(height: 4),
           SizedBox(
@@ -211,7 +215,9 @@ class BrandedPaywallModalSheet extends StatelessWidget {
               PurchaseTier.foundingEdge,
               interval: PurchaseInterval.annual,
             ),
-            child: const Text('FOUNDING PRO ANNUAL • 7-DAY FREE TRIAL'),
+            child: const Text(
+              'FOUNDING PRO ANNUAL • ${SubscriptionPricing.foundingProAnnual} • 7-DAY FREE TRIAL',
+            ),
           ),
           const Text(
             'Monthly plans include a 2-day free trial. Founding Pro is limited to the first 100 members.',

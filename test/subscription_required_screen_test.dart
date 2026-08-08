@@ -14,7 +14,10 @@ void main() {
     expect(find.text('CHOOSE CORE - \$24.99 / MONTH'), findsOneWidget);
     expect(find.text('CHOOSE PRO - \$59.99 / MONTH'), findsOneWidget);
     expect(find.text('FOUNDING PRO - \$49.99 / MONTH'), findsOneWidget);
-    expect(find.text('CORE ANNUAL • 7-DAY FREE TRIAL'), findsOneWidget);
+    expect(
+      find.text('CORE ANNUAL • \$249.99 / YEAR • 7-DAY FREE TRIAL'),
+      findsOneWidget,
+    );
     expect(find.text('SIGN OUT'), findsOneWidget);
   });
 }

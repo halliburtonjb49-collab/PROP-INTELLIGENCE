@@ -509,6 +509,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               PurchaseTier.core,
               interval: PurchaseInterval.annual,
             ),
+            annualPrice: SubscriptionPricing.coreAnnual,
           ),
           const SizedBox(height: 12),
           _PricingTierCard(
@@ -540,6 +541,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               PurchaseTier.edge,
               interval: PurchaseInterval.annual,
             ),
+            annualPrice: SubscriptionPricing.coreAnnual,
           ),
           const SizedBox(height: 12),
           _PricingTierCard(
@@ -562,6 +564,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               PurchaseTier.foundingEdge,
               interval: PurchaseInterval.annual,
             ),
+            annualPrice: SubscriptionPricing.foundingProAnnual,
           ),
           const SizedBox(height: 16),
           const _AboutNotice(
@@ -1852,6 +1855,7 @@ class _PricingTierCard extends StatelessWidget {
   final ValueChanged<BuildContext>? onPressed;
   final ValueChanged<BuildContext>? onAnnualPressed;
   final String? buttonLabel;
+  final String? annualPrice;
 
   const _PricingTierCard({
     required this.name,
@@ -1863,6 +1867,7 @@ class _PricingTierCard extends StatelessWidget {
     this.onPressed,
     this.onAnnualPressed,
     this.buttonLabel,
+    this.annualPrice,
   });
 
   @override
@@ -2024,7 +2029,9 @@ class _PricingTierCard extends StatelessWidget {
             onPressed: onAnnualPressed == null
                 ? null
                 : () => onAnnualPressed!(context),
-            child: const Text('CHOOSE ANNUAL • 7-DAY FREE TRIAL'),
+            child: Text(
+              'CHOOSE ANNUAL • ${annualPrice ?? ''} • 7-DAY FREE TRIAL',
+            ),
           ),
           const Center(
             child: Text(

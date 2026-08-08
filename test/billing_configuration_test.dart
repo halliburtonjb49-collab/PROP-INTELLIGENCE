@@ -19,6 +19,9 @@ void main() {
     expect(SubscriptionPricing.coreMonthly, r'$24.99 / MONTH');
     expect(SubscriptionPricing.proMonthly, r'$59.99 / MONTH');
     expect(SubscriptionPricing.foundingProMonthly, r'$49.99 / MONTH');
+    expect(SubscriptionPricing.coreAnnual, r'$249.99 / YEAR');
+    expect(SubscriptionPricing.proAnnual, r'$599.99 / YEAR');
+    expect(SubscriptionPricing.foundingProAnnual, r'$499.99 / YEAR');
     expect(SubscriptionPricing.monthlyTrialDays, 2);
     expect(SubscriptionPricing.annualTrialDays, 7);
     expect(SubscriptionPricing.foundingProMemberLimit, 100);
