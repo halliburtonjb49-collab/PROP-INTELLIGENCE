@@ -14,6 +14,9 @@ from services.odds_service import (
     record_sport_fetch,
 )
 from services.prop_processor import process_and_cache_props
+from services.selectability_projection_service import (
+    record_projection as record_selectability_projection,
+)
 from services.prediction_automation_service import (
     capture_prediction_closing_lines,
     snapshot_live_predictions,
@@ -677,13 +680,17 @@ def run_global_sync_pipeline(
     clv = capture_prediction_closing_lines()
     results.append({"sport": "prediction_clv", "events": 0,
                     "props": int(clv.get("updated", 0))})
+    # Measured here because this walk already holds every prop; doing it
+    # inside a request is what turned the operations endpoint into a 502.
+    _board = get_props()
+    record_selectability_projection(_board)
     alert_snapshots = [{
         "propId": prop.id, "player": prop.player, "playerId": prop.playerId,
         "sport": prop.sport, "market": prop.market, "marketKey": prop.marketKey,
         "line": prop.line, "side": prop.recommendedSide, "confidence": prop.confidence,
         "edge": prop.recommendationEdge, "injuryStatus": prop.injuryStatus,
         "lineupStatus": prop.lineupStatus, "gameId": prop.gameId,
-    } for prop in get_props()]
+    } for prop in _board]
     deliveries = evaluate_all_alerts(alert_snapshots)
     results.append({"sport": "compound_alerts", "events": len(alert_snapshots), "props": len(deliveries)})
     logger.info(

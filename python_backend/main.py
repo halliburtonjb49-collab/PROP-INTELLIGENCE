@@ -84,6 +84,9 @@ from services.baseline_projection_service import (
 )
 from services.odds_service import sport_coverage
 from services.prop_service import get_props
+from services.selectability_projection_service import (
+	selectability_projection as _selectability_projection,
+)
 from services.prediction_automation_service import (
 	snapshot_probability_sources as _snapshot_probability_sources,
 )
@@ -1978,6 +1981,9 @@ def prop_feed_health() -> dict[str, object]:
 		# Where the live board would draw hit_probability from if it were
 		# snapshotted right now, and which tier each would land in.
 		"snapshotProbability": _snapshot_probability_sources(),
+		# What a price-aware threshold would call pickable, against the
+		# single global one in use. Measurement only; decides nothing.
+		"selectabilityProjection": _selectability_projection(),
 		**metrics,
 	}
 
