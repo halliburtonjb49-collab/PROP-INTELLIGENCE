@@ -640,7 +640,6 @@ class _HistoricalProjectionIndex:
                                 "triples": triples,
                                 "walks": walks,
                                 "batter_strikeouts": batter_ks,
-                                "hits_runs_rbis": hits,
                             }
                         else:
                             stats = {
@@ -836,10 +835,17 @@ class _HistoricalProjectionIndex:
         elif "home run" in text:
             role, stat = "batter", "home_runs"
         elif "hits runs rbis" in text:
-            # Runs and RBIs are not in the pitch log, so this is projected
-            # from hits alone and will run low. It is better than no
-            # projection, and the card says the model is a baseline.
-            role, stat = "batter", "hits_runs_rbis"
+            # Runs and RBIs are not in the pitch log, so this was stored as
+            # hits and projected as if hits were the whole market. A batter
+            # averaging one hit was projected at one against a line near
+            # three, which is not a low projection, it is a different bet --
+            # and it returns Under at high confidence every single time.
+            #
+            # "Better than no projection" is what the comment here used to
+            # say. It is the same argument that had a fantasy score projected
+            # from raw points, and it is wrong for the same reason: a
+            # confident wrong answer costs more than an absent one.
+            return None
         elif "single" in text:
             role, stat = "batter", "singles"
         elif "double" in text:

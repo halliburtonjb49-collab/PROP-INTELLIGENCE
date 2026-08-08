@@ -76,3 +76,58 @@ def test_no_nfl_market_borrows_another_market_stat() -> None:
         seen[stat] = market
 
     assert collisions == []
+
+
+def test_hits_runs_rbis_is_not_projected_from_hits(monkeypatch) -> None:
+    """The fourth instance of one defect.
+
+    Runs and RBIs are not in the pitch log, so this market was stored as
+    hits and projected as though hits were the whole bet. A batter averaging
+    one hit was projected at one against a line near three -- not a low
+    projection but a different market, returning Under at high confidence
+    every time.
+    """
+
+    from services.baseline_projection_service import _INDEX
+
+    monkeypatch.setattr(_INDEX, "ensure_loaded", lambda: None)
+    # A batter with a full hits history and nothing else: if the market were
+    # still read as hits, this would return a projection near one.
+    monkeypatch.setattr(_INDEX, "mlb", {("batter:p1", "hits"): [1, 1, 1, 1, 1]})
+
+    assert _INDEX.project(
+        sport="MLB", player="x", player_id="p1",
+        market="batter_hits_runs_rbis", line=2.5,
+    ) is None
+
+
+def test_no_two_markets_share_a_display_label() -> None:
+    """The audit that would have caught every defect in this file.
+
+    Two markets reduced to one name is the symptom shared by the fantasy
+    score read as points, four NFL reception markets read as receptions, and
+    hits+runs+rbis read as rbis. The label path happens to be clean; this
+    keeps it that way without anyone having to notice.
+    """
+
+    from services.formatters import format_market_label
+
+    seen: dict[tuple[str, str], list[str]] = {}
+    for sport_key, markets in SPORT_MARKETS.items():
+        for market in markets:
+            seen.setdefault((sport_key, format_market_label(market)), []).append(market)
+
+    collisions = {key: value for key, value in seen.items() if len(value) > 1}
+    assert collisions == {}
+
+
+def test_no_label_reaches_a_reader_as_a_raw_key() -> None:
+    from services.formatters import format_market_label
+
+    raw = [
+        market
+        for markets in SPORT_MARKETS.values()
+        for market in markets
+        if "_" in format_market_label(market)
+    ]
+    assert raw == []
