@@ -374,3 +374,45 @@ def test_the_pass_explains_the_price_rather_than_a_threshold():
     assert verdict.decision == PASS
     assert "break even" in verdict.reason
     assert verdict.reasons == ("probability_below_price",)
+
+
+def test_a_pass_never_tells_someone_they_cannot_have_it():
+    """Tone is part of the product.
+
+    A pass is our opinion, not a restriction. Wording that reads as a refusal
+    costs a customer the same way hiding the prop would, and the prop stays
+    fully selectable either way.
+    """
+
+    passes = [
+        compute_verdict(_prop(projection=None)),
+        compute_verdict(_prop(uncertaintyAdjustedProbability=0.50)),
+        compute_verdict(
+            _prop(uncertaintyAdjustedProbability=0.62, probabilityEdge=0.001)
+        ),
+    ]
+
+    for verdict in passes:
+        assert verdict.decision == PASS
+        # Says what we think, never what the reader is allowed to do.
+        assert "cannot be" not in verdict.reason
+        assert "not worth" not in verdict.reason
+        assert "nothing to take" not in verdict.reason
+
+
+def test_a_pass_speaks_for_us_rather_than_about_the_bet():
+    # "We do not see an edge" and "this is a bad bet" are different claims,
+    # and only the first one is ours to make.
+    verdict = compute_verdict(
+        _prop(uncertaintyAdjustedProbability=0.62, probabilityEdge=0.001)
+    )
+
+    assert "we" in verdict.reason.lower()
+
+
+def test_an_unmodelled_market_is_not_reported_as_a_warning():
+    # Our coverage gap is not evidence against the prop.
+    verdict = compute_verdict(_prop(projection=None))
+
+    assert "no opinion" in verdict.reason
+    assert "not a warning against it" in verdict.reason

@@ -178,7 +178,10 @@ def compute_verdict(prop: object) -> Verdict:
             decision=PASS,
             side="",
             headline="PASS",
-            reason="This prop could not be verified.",
+            reason=(
+                "We could not verify this one, so there is no read from us. "
+                "Still yours to take if you like it."
+            ),
             confidence=0,
             reasons=("unverified",),
         )
@@ -187,7 +190,11 @@ def compute_verdict(prop: object) -> Verdict:
             decision=PASS,
             side="",
             headline="PASS",
-            reason="No model projection for this market yet.",
+            reason=(
+                "We do not model this market yet, so we have no opinion to "
+                "offer -- not a warning against it. Your read is the better "
+                "one here."
+            ),
             confidence=0,
             reasons=("no_projection",),
             recheck="When this market gains model coverage",
@@ -197,7 +204,10 @@ def compute_verdict(prop: object) -> Verdict:
             decision=PASS,
             side="",
             headline="PASS",
-            reason="The model does not favour either side here.",
+            reason=(
+                "We do not see a lean either way on this one. That means it "
+                "looks close to us, not that it is a bad bet."
+            ),
             confidence=confidence,
             reasons=("no_side",),
         )
@@ -207,9 +217,9 @@ def compute_verdict(prop: object) -> Verdict:
             side=side,
             headline="PASS",
             reason=(
-                f"The model gives {side.title()} {probability * 100:.0f}%, "
-                f"and this price needs {break_even * 100:.0f}% just to break "
-                "even."
+                f"We have {side.title()} at {probability * 100:.0f}% and this "
+                f"price needs {break_even * 100:.0f}% to break even, so we "
+                "are not backing it. If you like the spot, it is your call."
             ),
             confidence=confidence,
             reasons=("probability_below_price",),
@@ -233,8 +243,9 @@ def compute_verdict(prop: object) -> Verdict:
             side=side,
             headline="PASS",
             reason=(
-                "The model and the market agree here, so there is nothing to "
-                "take."
+                "We land about where the market does on this one, so there is "
+                "no edge we can point to. Nothing wrong with the bet -- we "
+                "just cannot claim an advantage."
             ),
             confidence=confidence,
             reasons=("no_edge_over_market",),
