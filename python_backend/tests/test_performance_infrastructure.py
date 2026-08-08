@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -84,6 +85,15 @@ def test_queue_logs_enqueue_failures(monkeypatch, caplog) -> None:
     assert "jobs.run_prop_sync" in caplog.text
     assert "freshness-1" in caplog.text
     assert "credential unavailable" in caplog.text
+
+
+def test_worker_blueprint_validates_config_without_forking_sync_jobs() -> None:
+    blueprint = (Path(__file__).parents[2] / "render.yaml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "python -c \"import main\"" in blueprint
+    assert "-w rq.worker.SimpleWorker" in blueprint
 
 
 def test_large_responses_support_brotli() -> None:
