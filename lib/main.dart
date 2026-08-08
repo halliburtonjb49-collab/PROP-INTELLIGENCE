@@ -4959,8 +4959,8 @@ class _MainDashboardState extends State<MainDashboard> {
                     },
                     child: Scrollbar(
                       controller: _bookHorizontalController,
-                      thumbVisibility: true,
-                      trackVisibility: true,
+                      thumbVisibility: !compactLayout,
+                      trackVisibility: !compactLayout,
                       interactive: true,
                       scrollbarOrientation: ScrollbarOrientation.bottom,
                       thickness: 4,
@@ -4970,7 +4970,7 @@ class _MainDashboardState extends State<MainDashboard> {
                         controller: _bookHorizontalController,
                         physics: const AlwaysScrollableScrollPhysics(),
                         scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.only(bottom: 6),
+                        padding: EdgeInsets.only(bottom: compactLayout ? 0 : 6),
                         itemCount: siteBarItems.length,
                         separatorBuilder: (_, _) => const SizedBox(width: 6),
                         itemBuilder: (context, index) => siteBarItems[index],
@@ -7971,8 +7971,8 @@ class _TopNavScrollerState extends State<_TopNavScroller> {
     return Scrollbar(
       key: const ValueKey('top-navigation-scrollbar'),
       controller: _controller,
-      thumbVisibility: true,
-      trackVisibility: true,
+      thumbVisibility: false,
+      trackVisibility: false,
       interactive: true,
       scrollbarOrientation: ScrollbarOrientation.bottom,
       thickness: 4,
@@ -7980,7 +7980,7 @@ class _TopNavScrollerState extends State<_TopNavScroller> {
       child: SingleChildScrollView(
         controller: _controller,
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.only(bottom: 3),
         child: Row(mainAxisSize: MainAxisSize.min, children: widget.children),
       ),
     );
@@ -13387,7 +13387,7 @@ class _PiVerdictBlock extends StatelessWidget {
     // Only the facts that change the decision earn a place on the summary
     // line. Everything else stays in the detail below the card.
     final facts = <String>[
-      if (verdict.confidence > 0) '${verdict.confidence}% confidence',
+      if (verdict.confidence > 0) '${verdict.confidence}% verdict confidence',
       if (verdict.maximumPlayableLine != null)
         'playable to ${verdict.maximumPlayableLine!.toStringAsFixed(1)}',
       if (verdict.betterPriceAt.isNotEmpty)
