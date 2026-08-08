@@ -4163,7 +4163,13 @@ class _MainDashboardState extends State<MainDashboard> {
       ])) {
         return 'REBOUNDS + ASSISTS';
       }
-      if (raw.contains('FANTASY SCORE')) {
+      // The feed calls this market player_fantasy_points, which reads as
+      // FANTASY POINTS here -- not FANTASY SCORE. Matching only the
+      // latter let it fall through to the generic POINTS test below,
+      // which any string containing POINTS passes. A 36.5 fantasy line
+      // was then drawn on the card as a 36.5 points line, against a
+      // player whose actual points line was 15.
+      if (raw.contains('FANTASY')) {
         return 'FANTASY SCORE';
       }
       if (_containsAny(raw, ['BLOCKS STEALS', 'BLOCKS + STEALS', 'STOCKS'])) {
@@ -9295,7 +9301,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       ])) {
         return 'REBOUNDS + ASSISTS';
       }
-      if (raw.contains('FANTASY SCORE')) {
+      // The feed calls this market player_fantasy_points, which reads as
+      // FANTASY POINTS here -- not FANTASY SCORE. Matching only the
+      // latter let it fall through to the generic POINTS test below,
+      // which any string containing POINTS passes. A 36.5 fantasy line
+      // was then drawn on the card as a 36.5 points line, against a
+      // player whose actual points line was 15.
+      if (raw.contains('FANTASY')) {
         return 'FANTASY SCORE';
       }
       if (_containsAny(raw, ['BLOCKS STEALS', 'BLOCKS + STEALS', 'STOCKS'])) {

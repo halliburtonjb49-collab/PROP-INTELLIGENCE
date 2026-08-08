@@ -103,9 +103,45 @@ def _probability_calibrator(sport: str):
     return lambda probability: calibrated_probability(probability, sport=label)
 
 
+# Markets the engine has no formula for, by sport. A fantasy score is a
+# weighted combination the projection engine never learned, so any number it
+# produces for one describes something else.
+_UNPROJECTABLE_MARKETS = {
+    "player_fantasy_points", "fantasy points", "fantasypoints",
+    "fantasy score", "player_fantasy_score",
+}
+_UNPROJECTABLE_SPORTS = {"nba", "wnba", "basketball_nba", "basketball_wnba"}
+
+
+def _is_unprojectable_market(prop: object) -> bool:
+    sport = str(getattr(prop, "sport", "") or "").strip().lower()
+    if sport not in _UNPROJECTABLE_SPORTS:
+        return False
+    for field in ("marketKey", "market", "category"):
+        value = str(getattr(prop, field, "") or "").strip().lower()
+        if value in _UNPROJECTABLE_MARKETS or "fantasy" in value:
+            return True
+    return False
+
+
 def apply_projection_context(prop: object) -> None:
     projection = getattr(prop, "projection", None)
     if projection is None:
+        return
+    # Nothing in the engine projects a fantasy score. The projection produced
+    # for one of these props is a different statistic entirely -- points, or
+    # something near it -- and comparing it to a fantasy line is comparing two
+    # different quantities. It is not a weak edge, it is not an edge: a player
+    # projected at 21.9 against a 36.5 fantasy line returns Under every time,
+    # which is exactly what the board was doing.
+    #
+    # The performance view already excludes these from measurement, so the
+    # damage was invisible in the metrics while still reaching the card.
+    # Dropping the projection here leaves the prop on the board, selectable,
+    # marked as having no model projection -- the treatment already chosen for
+    # markets the model cannot speak to.
+    if _is_unprojectable_market(prop):
+        prop.projection = None
         return
     strikeout_analysis: dict[str, object] | None = None
     market_key_text = " ".join((
