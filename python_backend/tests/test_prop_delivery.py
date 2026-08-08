@@ -503,6 +503,25 @@ def test_catalog_reuses_models_when_distributed_version_is_unchanged(
         )
 
 
+def test_cached_catalog_verdicts_are_recomputed_for_the_running_release(
+    monkeypatch,
+) -> None:
+    prop = FakeProp("prop-1", "Player", "MLB", "FANDUEL", "HITS")
+    prop.verdict = {"decision": "PASS"}
+    verdict = object()
+    monkeypatch.setattr(main, "compute_verdict", lambda row: verdict)
+    monkeypatch.setattr(
+        main,
+        "verdict_payload",
+        lambda value: {"decision": "LEAN", "actionable": True},
+    )
+
+    result = main._recompute_runtime_verdicts([prop])
+
+    assert result == [prop]
+    assert prop.verdict == {"decision": "LEAN", "actionable": True}
+
+
 def test_positive_ev_route_returns_only_calculated_positive_rows(monkeypatch) -> None:
     positive = FakeProp("positive", "One", "MLB", "FANDUEL", "HITS")
     positive.evPercentage = 4.25

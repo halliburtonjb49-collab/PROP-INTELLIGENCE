@@ -84,6 +84,7 @@ from services.baseline_projection_service import (
 )
 from services.odds_service import sport_coverage
 from services.prop_service import get_props
+from services.pi_verdict_service import compute_verdict, verdict_payload
 from services.daily_briefing_service import build_briefing
 from services.projection_backtest_service import (
 	grade_sport,
@@ -515,6 +516,20 @@ def _persist_catalog_snapshot_background(props: list[PropResponse]) -> None:
 		logging.exception("Background prop catalog snapshot persist failed")
 
 
+def _recompute_runtime_verdicts(
+	props: list[PropResponse],
+) -> list[PropResponse]:
+	"""Refresh code-derived verdicts after hydrating a cached catalog.
+
+	Redis and the durable snapshot store complete prop payloads, including the
+	verdict produced by the release that wrote them. Reusing that field after a
+	deploy leaves new verdict formulas invisible until the next odds sync.
+	"""
+	for prop in props:
+		prop.verdict = verdict_payload(compute_verdict(prop))
+	return props
+
+
 def _cached_prop_catalog() -> list[PropResponse]:
 	now = time.monotonic()
 	with _prop_catalog_lock:
@@ -542,7 +557,9 @@ def _cached_prop_catalog() -> list[PropResponse]:
 	shared = get_distributed_json(_PROP_CATALOG_KEY)
 	if isinstance(shared, list) and shared:
 		try:
-			props = [PropResponse.model_validate(row) for row in shared]
+			props = _recompute_runtime_verdicts(
+				[PropResponse.model_validate(row) for row in shared]
+			)
 			# A live request must never block on a Postgres write. Persist the
 			# durable recovery snapshot off the request thread; it is
 			# best-effort already (save_catalog_snapshot swallows its own
@@ -566,7 +583,9 @@ def _cached_prop_catalog() -> list[PropResponse]:
 	durable = load_catalog_snapshot()
 	if durable:
 		try:
-			props = [PropResponse.model_validate(row) for row in durable]
+			props = _recompute_runtime_verdicts(
+				[PropResponse.model_validate(row) for row in durable]
+			)
 			with _prop_catalog_lock:
 				_prop_catalog.update(
 					loadedAt=now,
