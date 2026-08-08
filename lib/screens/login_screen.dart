@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/auth_service.dart';
 import '../services/billing_service.dart';
+import '../services/subscription_pricing.dart';
 import '../services/developer_mode_service.dart';
 import '../services/pwa_install_bridge.dart';
 import '../theme/prop_intelligence_colors.dart';
@@ -133,6 +134,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
   int _resendCooldownSeconds = 0;
   Timer? _resendCooldownTimer;
   PurchaseTier? _pendingPurchaseTier;
+  PurchaseInterval _pendingPurchaseInterval = PurchaseInterval.monthly;
 
   @override
   void dispose() {
@@ -191,10 +193,17 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
         _pendingPurchaseTier != null &&
         Supabase.instance.client.auth.currentSession != null) {
       final tier = _pendingPurchaseTier!;
+      final interval = _pendingPurchaseInterval;
       _pendingPurchaseTier = null;
       final billing = RevenueCatBillingService();
       await billing.initializeBillingEngine();
-      if (mounted) await billing.processSubscriptionPurchase(context, tier);
+      if (mounted) {
+        await billing.processSubscriptionPurchase(
+          context,
+          tier,
+          interval: interval,
+        );
+      }
     }
   }
 
@@ -208,14 +217,19 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
     setState(() => _isRegistering = true);
   }
 
-  void _choosePlan(BuildContext dialogContext, PurchaseTier tier) {
+  void _choosePlan(
+    BuildContext dialogContext,
+    PurchaseTier tier, {
+    PurchaseInterval interval = PurchaseInterval.monthly,
+  }) {
     Navigator.of(dialogContext).pop();
     setState(() {
       _pendingPurchaseTier = tier;
+      _pendingPurchaseInterval = interval;
       _isRegistering = true;
     });
     _showFeedbackMessage(
-      'Create your account to continue with the ${tier == PurchaseTier.core ? 'Core' : 'Pro / Edge'} plan.',
+      'Create your account to continue with the ${tier == PurchaseTier.core ? 'Core' : 'Pro'} plan.',
     );
   }
 
@@ -468,7 +482,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
           const SizedBox(height: 20),
           _PricingTierCard(
             name: 'CORE',
-            price: '\$29.99 / MONTH',
+            price: SubscriptionPricing.coreMonthly,
             description:
                 'Silver access for everyday research, manual building and standard tracking.',
             features: [
@@ -490,11 +504,16 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             ],
             onPressed: (dialogContext) =>
                 _choosePlan(dialogContext, PurchaseTier.core),
+            onAnnualPressed: (dialogContext) => _choosePlan(
+              dialogContext,
+              PurchaseTier.core,
+              interval: PurchaseInterval.annual,
+            ),
           ),
           const SizedBox(height: 12),
           _PricingTierCard(
             name: 'PRO',
-            price: '\$89.99 / MONTH',
+            price: SubscriptionPricing.proMonthly,
             description:
                 'Gold access to the complete model and automation suite.',
             featured: true,
@@ -516,6 +535,33 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             ],
             onPressed: (dialogContext) =>
                 _choosePlan(dialogContext, PurchaseTier.edge),
+            onAnnualPressed: (dialogContext) => _choosePlan(
+              dialogContext,
+              PurchaseTier.edge,
+              interval: PurchaseInterval.annual,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _PricingTierCard(
+            name: 'FOUNDING PRO',
+            price: SubscriptionPricing.foundingProMonthly,
+            description:
+                'The complete Pro experience at a locked founding-member price.',
+            featured: true,
+            buttonLabel: 'CLAIM FOUNDING PRO',
+            features: const [
+              'Everything in Pro',
+              'Founding price while the subscription remains active',
+              'Limited to the first 100 members',
+              '2-day monthly trial or 7-day annual trial',
+            ],
+            onPressed: (dialogContext) =>
+                _choosePlan(dialogContext, PurchaseTier.foundingEdge),
+            onAnnualPressed: (dialogContext) => _choosePlan(
+              dialogContext,
+              PurchaseTier.foundingEdge,
+              interval: PurchaseInterval.annual,
+            ),
           ),
           const SizedBox(height: 16),
           const _AboutNotice(
@@ -550,7 +596,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
           _LegalSection(
             title: 'SUBSCRIPTIONS & BILLING',
             text:
-                'Core is \$29.99 per month and Edge is \$89.99 per month. Subscriptions renew automatically each month until canceled. Prices and applicable taxes are shown before purchase.',
+                'Core is \$24.99 per month, Pro is \$59.99 per month, and Founding Pro is \$49.99 per month for the first 100 members. Monthly plans include a 2-day free trial; annual plans include a 7-day free trial. Subscriptions renew automatically until canceled. Prices and applicable taxes are shown before purchase.',
           ),
           _LegalSection(
             title: 'CANCELLATION & ACCESS',
@@ -1804,6 +1850,8 @@ class _PricingTierCard extends StatelessWidget {
   final List<String> notIncluded;
   final bool featured;
   final ValueChanged<BuildContext>? onPressed;
+  final ValueChanged<BuildContext>? onAnnualPressed;
+  final String? buttonLabel;
 
   const _PricingTierCard({
     required this.name,
@@ -1813,6 +1861,8 @@ class _PricingTierCard extends StatelessWidget {
     this.notIncluded = const [],
     this.featured = false,
     this.onPressed,
+    this.onAnnualPressed,
+    this.buttonLabel,
   });
 
   @override
@@ -1960,14 +2010,27 @@ class _PricingTierCard extends StatelessWidget {
                     onPressed: onPressed == null
                         ? null
                         : () => onPressed!(context),
-                    child: const Text('CHOOSE PRO / EDGE'),
+                    child: Text(buttonLabel ?? 'CHOOSE PRO'),
                   )
                 : OutlinedButton(
                     onPressed: onPressed == null
                         ? null
                         : () => onPressed!(context),
-                    child: const Text('CHOOSE CORE'),
+                    child: Text(buttonLabel ?? 'CHOOSE CORE'),
                   ),
+          ),
+          const SizedBox(height: 6),
+          TextButton(
+            onPressed: onAnnualPressed == null
+                ? null
+                : () => onAnnualPressed!(context),
+            child: const Text('CHOOSE ANNUAL • 7-DAY FREE TRIAL'),
+          ),
+          const Center(
+            child: Text(
+              'Monthly plans start with a 2-day free trial',
+              style: TextStyle(color: _silver60, fontSize: 10),
+            ),
           ),
         ],
       ),

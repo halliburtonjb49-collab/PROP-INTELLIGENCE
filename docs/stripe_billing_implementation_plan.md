@@ -10,6 +10,15 @@ For `app.propsintell.com`, use identified RevenueCat web purchases so the checko
 
 ## Stripe and RevenueCat account setup
 
+## Published pricing contract
+
+- Core monthly: **$24.99**, with a **2-day free trial**.
+- Pro monthly: **$59.99**, with a **2-day free trial**.
+- Founding Pro monthly: **$49.99**, with a **2-day free trial**, limited to the first **100** members while their subscriptions remain continuously active.
+- Every annual package receives a **7-day free trial**. The checkout price comes from its RevenueCat/store package and must be approved before publishing.
+- RevenueCat offering IDs are `core`, `edge`, and `edge_founding`; each must expose explicit monthly and annual packages. All Pro products map to `edge_tier`.
+- The Founding Pro cap must be enforced in the billing platform: stop distributing or archive `edge_founding` as soon as the 100th subscription is claimed. Hiding the offer in Flutter alone is not a billing control.
+
 1. Complete a Stripe sandbox account first, then connect it from RevenueCat as the RevenueCat project owner.
 2. Create one flat-rate recurring Stripe product/price for Core and one for Edge. Use separate products for monthly and annual variants if both intervals are offered; RevenueCat recommends one selected price per imported Stripe product.
 3. Configure invoice branding, customer emails, retry/dunning rules, tax behavior, statement descriptor, and support contact in Stripe.

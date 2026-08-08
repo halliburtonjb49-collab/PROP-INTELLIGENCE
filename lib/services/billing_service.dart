@@ -9,12 +9,15 @@ import '../theme/app_colors.dart' as brand_colors;
 
 enum PurchaseTier {
   core('core', 'core_tier'),
-  edge('edge', 'edge_tier');
+  edge('edge', 'edge_tier'),
+  foundingEdge('edge_founding', 'edge_tier');
 
   const PurchaseTier(this.offeringId, this.entitlementId);
   final String offeringId;
   final String entitlementId;
 }
+
+enum PurchaseInterval { monthly, annual }
 
 @visibleForTesting
 String subscriptionManagementUnavailableMessage({
@@ -82,24 +85,24 @@ class RevenueCatBillingService {
 
   Future<void> processSubscriptionPurchase(
     BuildContext context,
-    PurchaseTier tier,
-  ) async {
+    PurchaseTier tier, {
+    PurchaseInterval interval = PurchaseInterval.monthly,
+  }) async {
     try {
       await initializeBillingEngine();
       final offerings = await Purchases.getOfferings();
       final current = offerings.all[tier.offeringId];
-      final package =
-          current?.monthly ??
-          (current != null && current.availablePackages.isNotEmpty
-              ? current.availablePackages.first
-              : null);
+      final package = switch (interval) {
+        PurchaseInterval.monthly => current?.monthly,
+        PurchaseInterval.annual => current?.annual,
+      };
 
       if (package == null) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'This plan is temporarily unavailable. Please try again shortly.',
+                'This billing option is temporarily unavailable. Please try again shortly.',
               ),
             ),
           );

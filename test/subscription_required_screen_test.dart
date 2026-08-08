@@ -11,8 +11,10 @@ void main() {
     );
 
     expect(find.text('CHOOSE A PLAN TO CONTINUE'), findsOneWidget);
-    expect(find.text('CHOOSE CORE - \$29.99 / MONTH'), findsOneWidget);
-    expect(find.text('CHOOSE PRO / EDGE - \$89.99 / MONTH'), findsOneWidget);
+    expect(find.text('CHOOSE CORE - \$24.99 / MONTH'), findsOneWidget);
+    expect(find.text('CHOOSE PRO - \$59.99 / MONTH'), findsOneWidget);
+    expect(find.text('FOUNDING PRO - \$49.99 / MONTH'), findsOneWidget);
+    expect(find.text('CORE ANNUAL • 7-DAY FREE TRIAL'), findsOneWidget);
     expect(find.text('SIGN OUT'), findsOneWidget);
   });
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_manager.dart';
 import '../services/billing_service.dart';
+import '../services/subscription_pricing.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -24,7 +25,7 @@ class SubscriptionRequiredScreen extends StatelessWidget {
                   const BrandedPaywallModalSheet(
                     heading: 'CHOOSE A PLAN TO CONTINUE',
                     supportingText:
-                    'PROP INTELLIGENCE is your all-in-one sports-prop command center for research, tracking, analytics, and community. An active Core or Pro plan is required. Any promotional trial provides temporary Core access.',
+                        'PROP INTELLIGENCE is your all-in-one sports-prop command center for research, tracking, analytics, and community. Monthly plans start with 2 days free; annual plans start with 7 days free.',
                   ),
                   const SizedBox(height: 12),
                   TextButton.icon(
@@ -136,7 +137,7 @@ class BrandedPaywallModalSheet extends StatelessWidget {
                 ),
               ),
               child: const Text(
-                'CHOOSE CORE - \$29.99 / MONTH',
+                'CHOOSE CORE - ${SubscriptionPricing.coreMonthly}',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.1,
@@ -144,7 +145,15 @@ class BrandedPaywallModalSheet extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          TextButton(
+            onPressed: () => billingService.processSubscriptionPurchase(
+              context,
+              PurchaseTier.core,
+              interval: PurchaseInterval.annual,
+            ),
+            child: const Text('CORE ANNUAL • 7-DAY FREE TRIAL'),
+          ),
+          const SizedBox(height: 4),
           SizedBox(
             width: double.infinity,
             height: 50,
@@ -166,13 +175,48 @@ class BrandedPaywallModalSheet extends StatelessWidget {
                 ),
               ),
               child: const Text(
-                'CHOOSE PRO / EDGE - \$89.99 / MONTH',
+                'CHOOSE PRO - ${SubscriptionPricing.proMonthly}',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.1,
                 ),
               ),
             ),
+          ),
+          TextButton(
+            onPressed: () => billingService.processSubscriptionPurchase(
+              context,
+              PurchaseTier.edge,
+              interval: PurchaseInterval.annual,
+            ),
+            child: const Text('PRO ANNUAL • 7-DAY FREE TRIAL'),
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: OutlinedButton(
+              onPressed: () => billingService.processSubscriptionPurchase(
+                context,
+                PurchaseTier.foundingEdge,
+              ),
+              child: const Text(
+                'FOUNDING PRO - ${SubscriptionPricing.foundingProMonthly}',
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => billingService.processSubscriptionPurchase(
+              context,
+              PurchaseTier.foundingEdge,
+              interval: PurchaseInterval.annual,
+            ),
+            child: const Text('FOUNDING PRO ANNUAL • 7-DAY FREE TRIAL'),
+          ),
+          const Text(
+            'Monthly plans include a 2-day free trial. Founding Pro is limited to the first 100 members.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white70, fontSize: 11),
           ),
           const SizedBox(height: 12),
           TextButton(

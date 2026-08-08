@@ -89,10 +89,12 @@ void main() {
     expect(find.text('FREE'), findsNothing);
     expect(find.text('CORE'), findsOneWidget);
     expect(find.text('PRO'), findsOneWidget);
-    expect(find.text(r'$29.99 / MONTH'), findsOneWidget);
-    expect(find.text(r'$89.99 / MONTH'), findsOneWidget);
+    expect(find.text(r'$24.99 / MONTH'), findsOneWidget);
+    expect(find.text(r'$59.99 / MONTH'), findsOneWidget);
     expect(find.text('CHOOSE CORE'), findsOneWidget);
-    expect(find.text('CHOOSE PRO / EDGE'), findsOneWidget);
+    expect(find.text('CHOOSE PRO'), findsOneWidget);
+    expect(find.text('FOUNDING PRO'), findsOneWidget);
+    expect(find.text(r'$49.99 / MONTH'), findsOneWidget);
     expect(
       find.text('Read and participate in the main Prop Chat room'),
       findsOneWidget,
