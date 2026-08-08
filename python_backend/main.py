@@ -85,6 +85,7 @@ from services.baseline_projection_service import (
 from services.odds_service import sport_coverage
 from services.prop_service import get_props
 from services.daily_briefing_service import build_briefing
+from services.projection_backtest_service import grade_basketball_markets
 from services.selectability_projection_service import (
 	selectability_projection as _selectability_projection,
 )
@@ -1889,6 +1890,23 @@ def _job_queue_summary() -> dict[str, object]:
 		"started": state.get("started"),
 		"failed": state.get("failed"),
 	}
+
+
+@app.get("/api/operations/projection-grade")
+def projection_grade(
+	sport: str = Query(default="WNBA"),
+	_membership: Membership = Depends(require_pro),
+) -> dict[str, object]:
+	"""Grade the projection against outcomes it has already seen.
+
+	The live record is 409 graded picks, 408 of them in the tier nobody
+	should bet, so it cannot say whether the model works. This replays the
+	game logs already stored -- projecting each game from the games before
+	it only -- and reports bias per market, which is what a projection built
+	on the wrong statistic looks like.
+	"""
+
+	return grade_basketball_markets(sport.strip().upper() or "WNBA")
 
 
 @app.get("/api/briefing/today")
