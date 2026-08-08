@@ -81,6 +81,8 @@ void main() {
     });
   });
 
+  group('stale lines', _staleLineTests);
+
   group('data caveats on the card', () {
     test('an unverifiable source is named rather than passed over', () {
       expect(
@@ -119,5 +121,59 @@ void main() {
       // untranslated identifier.
       expect(_prop(reasons: ['brand_new_reason']).dataCaveats, isEmpty);
     });
+  });
+}
+
+// A line that no longer matches the book it came from is the one failure a
+// prop board cannot absorb: every other flaw costs accuracy, this one costs
+// the bet. When an event's odds request fails the sync preserves the last
+// known props and serves them as current, so staleness has to be visible.
+void _staleLineTests() {
+  test('a stale prop reports its age rather than looking current', () {
+    final prop = PropData.fromJson({
+      'id': 's1',
+      'player': 'Drew Romo',
+      'sport': 'MLB',
+      'matchup': 'Detroit Tigers @ Seattle Mariners',
+      'sportsbook': 'PRIZEPICKS',
+      'market': 'Batter Hits',
+      'line': 0.5,
+      'dataStale': true,
+    });
+
+    expect(prop.dataStale, isTrue);
+    expect(prop.freshnessLabel, 'STALE DATA');
+  });
+
+  test('a fresh prop says how recently it was updated', () {
+    final prop = PropData.fromJson({
+      'id': 's2',
+      'player': 'Drew Romo',
+      'sport': 'MLB',
+      'matchup': 'Detroit Tigers @ Seattle Mariners',
+      'sportsbook': 'PRIZEPICKS',
+      'market': 'Batter Hits',
+      'line': 0.5,
+      'dataAgeSeconds': 720,
+    });
+
+    expect(prop.dataStale, isFalse);
+    expect(prop.freshnessLabel, 'UPDATED 12M AGO');
+  });
+
+  test('freshness that cannot be established is not reported as fresh', () {
+    // Failing closed matters here: an unknown age shown as "updated now" is
+    // worse than saying nothing.
+    final prop = PropData.fromJson({
+      'id': 's3',
+      'player': 'Drew Romo',
+      'sport': 'MLB',
+      'matchup': 'Detroit Tigers @ Seattle Mariners',
+      'sportsbook': 'PRIZEPICKS',
+      'market': 'Batter Hits',
+      'line': 0.5,
+    });
+
+    expect(prop.freshnessLabel, 'FRESHNESS UNKNOWN');
   });
 }

@@ -10188,6 +10188,46 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             _PiVerdictBlock(verdict: prop.verdict),
             const SizedBox(height: 11),
           ],
+          // Above the fold, never inside the research fold. When an event's
+          // odds request fails the sync keeps the last known props and serves
+          // them as current, so this line can be hours old while looking
+          // exactly like one fetched a moment ago -- which is how a board
+          // ends up disagreeing with the book it came from.
+          if (prop.dataStale) ...[
+            Container(
+              key: ValueKey('prop-stale-warning-${prop.id}'),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+              decoration: BoxDecoration(
+                color: app_colors.AppColors.warning.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: app_colors.AppColors.warning),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.schedule_rounded,
+                    size: 13,
+                    color: app_colors.AppColors.warning,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${prop.freshnessLabel} — confirm this number on '
+                      '${prop.sportsbook.trim().isEmpty ? 'the book' : prop.sportsbook} '
+                      'before betting it.',
+                      style: TextStyle(
+                        color: app_colors.AppColors.warning,
+                        fontSize: 8,
+                        height: 1.35,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 9),
+          ],
           Row(
             children: [
               metric(
