@@ -21,8 +21,11 @@ for.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Callable, Iterable, Sequence
+
+logger = logging.getLogger(__name__)
 
 # Below this a player's history cannot be walked forward meaningfully: the
 # first projections would be built from almost nothing and would report the
@@ -246,10 +249,23 @@ def record_projection_grade(sports: Sequence[str] = ("WNBA", "NBA")) -> None:
     for sport in sports:
         try:
             report = grade_basketball_markets(sport)
-        except Exception:
+        except Exception as exc:
+            # Reported rather than swallowed. Catching and continuing is how
+            # every failure found today stayed invisible, and a grader that
+            # cannot say why it produced nothing is worse than no grader.
+            logger.warning("projection grade failed sport=%s error=%s", sport, exc)
+            reports[sport] = {
+                "marketsGraded": 0,
+                "error": f"{type(exc).__name__}: {exc}"[:300],
+            }
             continue
         if report.get("marketsGraded"):
             reports[sport] = report
+        else:
+            reports[sport] = {
+                "marketsGraded": 0,
+                "error": "no player had enough stored history to replay",
+            }
     if not reports:
         return
     try:
