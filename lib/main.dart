@@ -5681,8 +5681,13 @@ class _MainDashboardState extends State<MainDashboard> {
                             ),
                           ),
                           const SizedBox(height: 10),*/
-                          _buildVerdictFilter(),
-                          const SizedBox(height: 10),
+                          if (canShowSystemRecommendation(
+                            hasEdgeAccess: AuthManager
+                                .instance.sessionState.value.hasEdgeAccess,
+                          )) ...[
+                            _buildVerdictFilter(),
+                            const SizedBox(height: 10),
+                          ],
                           PropGrid(
                             selections: widget.selections,
                             onSelect: (prop, side) {
@@ -9636,7 +9641,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           // The conclusion first. Everything below it is the working that
           // led here, and a reader who stops at the top should still have
           // the answer rather than six signals to assemble themselves.
-          if (prop.verdict.isPresent) ...[
+          // The verdict is what Pro is for. Everyone sees the prop, the
+          // line, the book and both buttons; only Pro is told what we think
+          // of it. Giving the opinion away leaves nothing to sell.
+          if (hasProAccess && prop.verdict.isPresent) ...[
             _PiVerdictBlock(verdict: prop.verdict),
             const SizedBox(height: 11),
           ],
