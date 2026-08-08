@@ -33,8 +33,23 @@ _quota_state: dict[str, object] = {
 # call. Resets to the primary key on the next deploy/restart.
 _ODDS_API_KEYS = [key for key in (ODDS_API_KEY, ODDS_API_KEY_SECONDARY) if key]
 _QUOTA_EXHAUSTED_STATUS_CODES = {401, 429}
+
+# Keys the provider has refused outright. A deactivated key and an exhausted
+# one both arrive as 401 and were treated identically, which is the worse of
+# the two mistakes: rotation moves onto a dead key and then has nowhere left
+# to go, so a dead backup takes the board down where no backup at all would
+# only have cost the overage.
+#
+# A key recorded here is skipped rather than rotated onto. Cleared on restart,
+# because a key reactivated on the provider's side should not stay dead here.
+_dead_keys: set[int] = set()
 _key_state_lock = Lock()
 _active_key_index = 0
+
+
+def _active_key_index_value() -> int:
+    with _key_state_lock:
+        return _active_key_index
 
 
 def _current_api_key() -> str:
@@ -44,15 +59,36 @@ def _current_api_key() -> str:
         return _ODDS_API_KEYS[_active_key_index]
 
 
+def _mark_key_dead(index: int) -> None:
+    with _key_state_lock:
+        _dead_keys.add(index)
+
+
+def _is_deactivated(response: object) -> bool:
+    """A refusal of the key itself rather than of this request.
+
+    The provider says so in the body: DEACTIVATED_KEY for cancellation or a
+    failed payment, as opposed to a quota that will reset.
+    """
+
+    try:
+        return "DEACTIVATED_KEY" in (getattr(response, "text", "") or "")
+    except Exception:
+        return False
+
+
 def _advance_to_next_key() -> bool:
     """Switches to the next configured key. Returns False if there isn't
     another one to fall back to."""
     global _active_key_index
     with _key_state_lock:
-        if _active_key_index + 1 >= len(_ODDS_API_KEYS):
-            return False
-        _active_key_index += 1
-        return True
+        index = _active_key_index
+        while index + 1 < len(_ODDS_API_KEYS):
+            index += 1
+            if index not in _dead_keys:
+                _active_key_index = index
+                return True
+        return False
 
 
 def active_key_snapshot() -> dict[str, object]:
@@ -60,6 +96,10 @@ def active_key_snapshot() -> dict[str, object]:
         return {
             "activeKeyIndex": _active_key_index,
             "configuredKeyCount": len(_ODDS_API_KEYS),
+            # A key the provider has refused outright. Worth seeing before
+            # the live board is the thing that discovers it.
+            "deadKeyCount": len(_dead_keys),
+            "deadKeyIndexes": sorted(_dead_keys),
         }
 
 
@@ -147,8 +187,11 @@ def _request_with_failover(url: str, params: dict[str, object]) -> requests.Resp
             timeout=HTTP_TIMEOUT_SECONDS,
         )
         record_quota_headers(response.headers)
-        if response.status_code in _QUOTA_EXHAUSTED_STATUS_CODES and _advance_to_next_key():
-            continue
+        if response.status_code in _QUOTA_EXHAUSTED_STATUS_CODES:
+            if response.status_code == 401 and _is_deactivated(response):
+                _mark_key_dead(_active_key_index_value())
+            if _advance_to_next_key():
+                continue
         return response
 
 
