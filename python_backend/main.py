@@ -86,7 +86,7 @@ from services.odds_service import sport_coverage
 from services.prop_service import get_props
 from services.daily_briefing_service import build_briefing
 from services.projection_backtest_service import (
-	grade_basketball_markets,
+	grade_sport,
 	projection_grade_snapshot as _projection_grade_snapshot,
 )
 from services.selectability_projection_service import (
@@ -1909,7 +1909,7 @@ def projection_grade(
 	on the wrong statistic looks like.
 	"""
 
-	return grade_basketball_markets(sport.strip().upper() or "WNBA")
+	return grade_sport(sport.strip().upper() or "WNBA")
 
 
 @app.get("/api/briefing/today")

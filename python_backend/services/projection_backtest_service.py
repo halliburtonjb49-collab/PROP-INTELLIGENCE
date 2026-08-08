@@ -232,11 +232,99 @@ def grade_basketball_markets(sport: str = "WNBA") -> dict[str, object]:
     return summarize(grades)
 
 
+def grade_mlb_markets() -> dict[str, object]:
+    """Grade the MLB markets against the pitch-log history already stored.
+
+    The role split matters: a pitcher's strikeouts and a batter's strikeouts
+    are different markets reading different columns, and grading them as one
+    would hide exactly the kind of defect this is here to find.
+    """
+
+    from services.baseline_projection_service import (
+        _INDEX,
+        compute_baseline_projection,
+    )
+
+    _INDEX.ensure_loaded()
+    by_stat: dict[tuple[str, str], list[list[float]]] = {}
+    for (role_player, stat), values in _INDEX.mlb.items():
+        role = str(role_player).split(":", 1)[0]
+        if len(values) > MINIMUM_HISTORY:
+            by_stat.setdefault((role, stat), []).append([float(v) for v in values])
+
+    grades: list[MarketGrade] = []
+    for (role, stat), histories in sorted(by_stat.items()):
+        market = f"{role}_{stat}"
+
+        def project(past: Sequence[float], _market: str = market) -> float | None:
+            result = compute_baseline_projection(
+                list(past), line=0.0, sport="MLB", market=_market,
+            )
+            return None if result is None else float(result.projection)
+
+        grade = grade_market("MLB", market, histories, project=project)
+        if grade is not None:
+            grades.append(grade)
+    return summarize(grades)
+
+
+def grade_multi_sport_markets(sport: str) -> dict[str, object]:
+    """Grade NFL or NHL against the box-score history already stored.
+
+    Both keep one series per stat rather than a row per game, so the market
+    being graded is the stat itself -- which is the level the defects lived
+    at anyway: power play points read as points, receiving yards read as
+    receptions.
+    """
+
+    from services.baseline_projection_service import (
+        _INDEX,
+        compute_baseline_projection,
+    )
+
+    _INDEX.ensure_loaded()
+    by_stat: dict[str, list[list[float]]] = {}
+    for (row_sport, _player, stat), values in _INDEX.multi_sport.items():
+        if row_sport != sport:
+            continue
+        if len(values) > MINIMUM_HISTORY:
+            by_stat.setdefault(stat, []).append([float(v) for v in values])
+
+    grades: list[MarketGrade] = []
+    for stat, histories in sorted(by_stat.items()):
+
+        def project(past: Sequence[float], _stat: str = stat) -> float | None:
+            result = compute_baseline_projection(
+                list(past), line=0.0, sport=sport, market=_stat,
+            )
+            return None if result is None else float(result.projection)
+
+        grade = grade_market(sport, stat, histories, project=project)
+        if grade is not None:
+            grades.append(grade)
+    return summarize(grades)
+
+
+def grade_sport(sport: str) -> dict[str, object]:
+    """Grade whichever store holds this sport's history."""
+
+    normalized = sport.strip().upper()
+    if normalized in {"WNBA", "NBA"}:
+        return grade_basketball_markets(normalized)
+    if normalized == "MLB":
+        return grade_mlb_markets()
+    if normalized in {"NFL", "NHL"}:
+        return grade_multi_sport_markets(normalized)
+    return {"marketsGraded": 0, "error": f"no history store for {normalized}"}
+
+
 _GRADE_KEY = "diagnostics:projection-grade"
 _GRADE_TTL_SECONDS = 60 * 60 * 24 * 2
 
 
-def record_projection_grade(sports: Sequence[str] = ("WNBA", "NBA")) -> None:
+def record_projection_grade(
+    sports: Sequence[str] = ("WNBA", "NBA", "MLB", "NFL", "NHL"),
+) -> None:
     """Grade during a run that can afford it, never on a request.
 
     Replaying every player's history is far too slow to answer a web request
@@ -248,7 +336,7 @@ def record_projection_grade(sports: Sequence[str] = ("WNBA", "NBA")) -> None:
     reports: dict[str, object] = {}
     for sport in sports:
         try:
-            report = grade_basketball_markets(sport)
+            report = grade_sport(sport)
         except Exception as exc:
             # Reported rather than swallowed. Catching and continuing is how
             # every failure found today stayed invisible, and a grader that

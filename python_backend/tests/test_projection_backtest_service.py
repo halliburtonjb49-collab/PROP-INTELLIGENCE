@@ -104,3 +104,33 @@ def test_a_clean_report_says_so_plainly() -> None:
 
 def test_a_market_with_no_usable_history_is_not_invented() -> None:
     assert grade_market("NFL", "player_sacks", [[1, 2]], project=_mean) is None
+
+
+def test_every_sport_routes_to_a_history_store() -> None:
+    from services.projection_backtest_service import grade_sport
+
+    # A sport with no store must say so rather than report zero markets as
+    # though it had looked and found nothing wrong.
+    report = grade_sport("CRICKET")
+    assert report["marketsGraded"] == 0
+    assert "no history store" in report["error"]
+
+
+def test_mlb_grades_pitchers_and_batters_separately(monkeypatch) -> None:
+    """A pitcher's strikeouts and a batter's strikeouts are different bets.
+
+    Grading them as one market would average a defect in either away.
+    """
+
+    from services import projection_backtest_service as backtest
+    from services.baseline_projection_service import _INDEX
+
+    monkeypatch.setattr(_INDEX, "ensure_loaded", lambda: None)
+    monkeypatch.setattr(_INDEX, "mlb", {
+        ("pitcher:p1", "strikeouts"): [6, 7, 5, 8, 6, 7, 6, 5, 7, 6],
+        ("batter:b1", "batter_strikeouts"): [1, 0, 2, 1, 1, 0, 1, 2, 1, 1],
+    })
+
+    markets = {row["market"] for row in backtest.grade_mlb_markets()["markets"]}
+    assert "pitcher_strikeouts" in markets
+    assert "batter_batter_strikeouts" in markets
