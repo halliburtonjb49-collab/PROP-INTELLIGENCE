@@ -20,6 +20,7 @@ from providers.espn_basketball_statistics import (
     EspnBasketballStatisticsProvider,
 )
 from providers.espn_box_score_statistics import EspnBoxScoreStatisticsProvider
+from providers.nflverse_statistics import NflverseStatisticsProvider
 from providers.espn_soccer_statistics import EspnSoccerStatisticsProvider
 from providers.nhl_official_statistics import NhlOfficialStatisticsProvider
 from providers.sportmonks_statistics import SportmonksStatisticsProvider
@@ -877,6 +878,37 @@ def normalize_espn_box_score_logs(
             "raw": _json_safe(row),
         })
     return normalized
+
+
+def run_nflverse_season_backfill(seasons: tuple[int, ...]) -> dict[str, object]:
+    """Seed NFL history from the nflverse weekly release.
+
+    One request per season against roughly 240 for the same span walked a
+    date at a time through the ESPN scoreboard, and it carries air yards,
+    yards after catch and EPA that a box score does not have at all.
+
+    Each season is isolated: one bad year cannot cost the rest.
+    """
+
+    provider = NflverseStatisticsProvider()
+    repository = HistoricalRepository()
+    results: dict[str, object] = {
+        "startedAt": datetime.now(timezone.utc).isoformat(),
+        "seasons": {},
+    }
+    for season in seasons:
+        try:
+            logs = provider.weekly_logs(season)
+        except Exception as exc:
+            logger.warning("nflverse season %s failed: %s", season, exc)
+            results["seasons"][str(season)] = {
+                "stored": 0, "error": f"{type(exc).__name__}: {exc}"[:200],
+            }
+            continue
+        stored = repository.upsert_player_game_logs(logs) if logs else 0
+        results["seasons"][str(season)] = {"fetched": len(logs), "stored": stored}
+    results["finishedAt"] = datetime.now(timezone.utc).isoformat()
+    return results
 
 
 def run_gridiron_ice_backfill(

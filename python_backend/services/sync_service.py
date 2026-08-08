@@ -14,7 +14,10 @@ from services.odds_service import (
     record_sport_fetch,
 )
 from services.prop_processor import process_and_cache_props
-from services.historical_ingestion_service import run_gridiron_ice_backfill
+from services.historical_ingestion_service import (
+    run_gridiron_ice_backfill,
+    run_nflverse_season_backfill,
+)
 from services.projection_backtest_service import record_projection_grade
 from services.selectability_projection_service import (
     record_projection as record_selectability_projection,
@@ -714,6 +717,30 @@ def run_global_sync_pipeline(
             # the 445 NFL props with no projection stay that way, because
             # nothing was ever going to fetch the season behind them.
             seeded = _last_gridiron_ingest_monotonic is not None
+            if not seeded:
+                # Seed NFL from nflverse rather than walking eight months of
+                # ESPN scoreboard a day at a time: one request per season,
+                # and it carries air yards and EPA the box score lacks. NHL
+                # still comes from the day-by-day walk below.
+                try:
+                    year = datetime.now(timezone.utc).year
+                    seasons = tuple(
+                        int(value)
+                        for value in os.getenv(
+                            "NFLVERSE_SEED_SEASONS", f"{year - 1},{year}"
+                        ).split(",")
+                        if value.strip()
+                    )
+                    nflverse = run_nflverse_season_backfill(seasons)
+                    stored = sum(
+                        int((entry or {}).get("stored") or 0)
+                        for entry in (nflverse.get("seasons") or {}).values()
+                    )
+                    results.append({
+                        "sport": "nflverse_history", "events": 0, "props": stored,
+                    })
+                except Exception as exc:
+                    logger.warning("nflverse seed failed error=%s", exc)
             window = max(
                 1,
                 int(os.getenv("GRIDIRON_INGEST_DAYS", "3"))
