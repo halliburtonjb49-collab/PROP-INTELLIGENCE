@@ -3785,145 +3785,12 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
-  static const Map<String, List<String>> _categoryCatalogBySport = {
-    'NBA': [
-      'POINTS',
-      'REBOUNDS',
-      'ASSISTS',
-      'PRA',
-      'POINTS + REBOUNDS',
-      'POINTS + ASSISTS',
-      'REBOUNDS + ASSISTS',
-      '3-POINTERS MADE',
-      'BLOCKS',
-      'STEALS',
-      'BLOCKS + STEALS',
-      'TURNOVERS',
-      'DOUBLE DOUBLE',
-      'FANTASY SCORE',
-    ],
-    'WNBA': [
-      'POINTS',
-      'REBOUNDS',
-      'ASSISTS',
-      'PRA',
-      'POINTS + REBOUNDS',
-      'POINTS + ASSISTS',
-      'REBOUNDS + ASSISTS',
-      '3-POINTERS MADE',
-      'BLOCKS',
-      'STEALS',
-      'BLOCKS + STEALS',
-      'TURNOVERS',
-      'DOUBLE DOUBLE',
-      'FANTASY SCORE',
-    ],
-    'NFL': [
-      'PASSING YARDS',
-      'PASSING TOUCHDOWNS',
-      'PASS ATTEMPTS',
-      'COMPLETIONS',
-      'RUSHING YARDS',
-      'RUSH ATTEMPTS',
-      'RECEIVING YARDS',
-      'RECEPTIONS',
-      'TOTAL TOUCHDOWNS',
-      'INTERCEPTIONS',
-      'TACKLES',
-      'SACKS',
-    ],
-    'MLB': [
-      'PITCHER STRIKEOUTS',
-      'PITCHER OUTS',
-      'HITS ALLOWED',
-      'EARNED RUNS',
-      'WALKS',
-      'HITS',
-      'TOTAL BASES',
-      'HOME RUNS',
-      'RBIS',
-      'RUNS',
-      'SINGLES',
-      'DOUBLES',
-      'STOLEN BASES',
-    ],
-    'NHL': [
-      'SHOTS ON GOAL',
-      'GOALS',
-      'ASSISTS',
-      'POINTS',
-      'SAVES',
-      'BLOCKED SHOTS',
-    ],
-    'SOCCER': [
-      'SHOTS',
-      'SHOTS ON TARGET',
-      'GOALS',
-      'ASSISTS',
-      'PASSES ATTEMPTED',
-      'SAVES',
-      'TACKLES',
-    ],
-    'TENNIS': [
-      'ACES',
-      'TOTAL GAMES WON',
-      'SETS WON',
-      'BREAK POINTS WON',
-      'DOUBLE FAULTS',
-      'FANTASY SCORE',
-      'MATCH WINNER',
-    ],
-    'PGA': [
-      'BIRDIES OR BETTER',
-      'ROUND SCORE',
-      'FAIRWAYS HIT',
-      'GREENS IN REGULATION',
-      'PARS',
-      'BOGEYS',
-      'HOLES PLAYED',
-      'MAKE CUT',
-    ],
-    'UFC': [
-      'SIGNIFICANT STRIKES',
-      'TOTAL STRIKES',
-      'TAKEDOWNS',
-      'TAKEDOWN ATTEMPTS',
-      'KNOCKDOWNS',
-      'SUBMISSION ATTEMPTS',
-      'CONTROL TIME',
-      'FIGHT TIME',
-    ],
-  };
-
-  String get _activeCategorySport {
-    if (_selectedSite != 'ALL' && _selectedSiteSport.isNotEmpty) {
-      return _selectedSiteSport;
-    }
-    return _normalizeSport(widget.sportFilter);
-  }
-
   List<String> get _currentCategories {
     final dynamicCounts =
         _selectedSite != 'ALL' && _selectedSiteSport.isNotEmpty
         ? _selectedSportCategoryCounts
         : _categoryCounts;
-    final available = dynamicCounts.entries.toList()
-      ..sort((left, right) {
-        final countOrder = right.value.compareTo(left.value);
-        return countOrder != 0 ? countOrder : left.key.compareTo(right.key);
-      });
-    final categories = <String>{
-      ...available.where((entry) => entry.value > 0).map((entry) => entry.key),
-    };
-    final activeSport = _activeCategorySport;
-    if (activeSport.isNotEmpty && activeSport != 'ALL') {
-      categories.addAll(_categoryCatalogBySport[activeSport] ?? const []);
-    }
-    final ordered = <String>[
-      ...available.where((entry) => entry.value > 0).map((entry) => entry.key),
-      ...(_categoryCatalogBySport[activeSport] ?? const <String>[]),
-    ];
-    return ['ALL', ...ordered.where(categories.remove)];
+    return visibleCategoryFilters(dynamicCounts);
   }
 
   List<String> get _availableSiteSports {
@@ -4054,7 +3921,7 @@ class _MainDashboardState extends State<MainDashboard> {
         case 'receptions':
           return 'RECEPTIONS';
         case 'rushing attempts':
-          return 'PASS ATTEMPTS';
+          return 'RUSH ATTEMPTS';
         case 'completions':
           return 'COMPLETIONS';
       }
@@ -5494,9 +5361,11 @@ class _MainDashboardState extends State<MainDashboard> {
                           ),
                           Text(
                             '${categoryCount(category)}',
-                            style: const TextStyle(
-                              color: AppColors.muted,
-                              fontSize: 6,
+                            key: ValueKey('category-count-$category'),
+                            style: TextStyle(
+                              color: selected ? AppColors.gold : Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
                         ],
@@ -8958,7 +8827,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         case 'receptions':
           return 'RECEPTIONS';
         case 'rushing attempts':
-          return 'PASS ATTEMPTS';
+          return 'RUSH ATTEMPTS';
         case 'completions':
           return 'COMPLETIONS';
       }
@@ -13508,6 +13377,21 @@ class _PiVerdictBlock extends StatelessWidget {
 bool _matchesAny(String value, List<String> matches) =>
     matches.any(value.contains);
 
+/// Builds the category rail from the current feed facets.
+///
+/// The counts are already scoped by sport and prop site on the backend. Using
+/// only positive live facets prevents categories from another provider (or a
+/// generic catalog) from appearing with a misleading zero count.
+@visibleForTesting
+List<String> visibleCategoryFilters(Map<String, int> counts) {
+  final available = counts.entries.where((entry) => entry.value > 0).toList()
+    ..sort((left, right) {
+      final countOrder = right.value.compareTo(left.value);
+      return countOrder != 0 ? countOrder : left.key.compareTo(right.key);
+    });
+  return ['ALL', ...available.map((entry) => entry.key)];
+}
+
 @visibleForTesting
 String marketCategoryFor(String sport, String rawMarket) {
   final raw = rawMarket
@@ -13592,6 +13476,9 @@ String marketCategoryFor(String sport, String rawMarket) {
     }
     if (raw.contains('RUSHING YARD')) {
       return 'RUSHING YARDS';
+    }
+    if (_matchesAny(raw, ['RUSHING ATTEMPT', 'RUSH ATTEMPT'])) {
+      return 'RUSH ATTEMPTS';
     }
     if (raw.contains('RECEIVING YARD')) {
       return 'RECEIVING YARDS';
