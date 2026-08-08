@@ -220,9 +220,9 @@ def _publish_probability_sources() -> None:
             payload,
             ttl_seconds=_PROBABILITY_SOURCES_TTL_SECONDS,
         )
-    except Exception:
-        # Diagnostics must never break a snapshot run.
-        pass
+    except Exception as exc:
+        # Never breaks the run, but never silent either.
+        logger.warning("probability source publish failed error=%s", exc)
 
 
 def _read_probability_sources() -> dict[str, object]:

@@ -21,8 +21,11 @@ genuinely profitable.
 
 from __future__ import annotations
 
+import logging
 from threading import Lock
 from typing import Iterable
+
+logger = logging.getLogger(__name__)
 
 # Books that price a slip rather than a single bet. They post no odds per
 # prop, so the break-even has to come from the payout structure instead.
@@ -226,8 +229,16 @@ def record_projection(props: Iterable[object]) -> None:
     global _projection
     try:
         projection = project(props)
-    except Exception:
-        return
+    except Exception as exc:
+        # Reported, not swallowed. Returning silently here is why this read
+        # back as "not finished yet" for twenty minutes while it had in fact
+        # already failed -- the sixth time today a caught exception made a
+        # failure and an absence look identical.
+        logger.warning("selectability projection failed error=%s", exc)
+        projection = {
+            "props": 0,
+            "error": f"{type(exc).__name__}: {exc}"[:300],
+        }
     with _lock:
         _projection = projection
     try:
