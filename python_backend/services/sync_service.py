@@ -14,6 +14,7 @@ from services.odds_service import (
     record_sport_fetch,
 )
 from services.prop_processor import process_and_cache_props
+from services.historical_ingestion_service import run_gridiron_ice_backfill
 from services.selectability_projection_service import (
     record_projection as record_selectability_projection,
 )
@@ -93,6 +94,37 @@ def partition_sync_sports(sports: list[str]) -> tuple[list[str], list[str]]:
         [sport for sport in sports if sport in fast_set],
         [sport for sport in sports if sport not in fast_set],
     )
+
+
+_gridiron_lock = Lock()
+_last_gridiron_ingest_monotonic: float | None = None
+
+
+def _gridiron_ingest_due(now: float | None = None) -> bool:
+    """Whether NFL and NHL game logs are due a top-up.
+
+    Their box-score ingestion was reachable only from an admin endpoint
+    somebody had to remember to POST. Nothing called it on a schedule, so no
+    NFL game logs existed at all, and 445 NFL props sat on the board with no
+    projection behind any of them -- a coverage hole that looked like a model
+    gap. Kept on a long cooldown because a day of box scores does not change
+    between syncs, and walking it every few minutes would spend the request
+    budget for nothing.
+    """
+
+    current = time.monotonic() if now is None else now
+    interval = max(1800, int(os.getenv("GRIDIRON_INGEST_SECONDS", "21600")))
+    with _gridiron_lock:
+        return (
+            _last_gridiron_ingest_monotonic is None
+            or current - _last_gridiron_ingest_monotonic >= interval
+        )
+
+
+def _mark_gridiron_ingested(now: float | None = None) -> None:
+    global _last_gridiron_ingest_monotonic
+    with _gridiron_lock:
+        _last_gridiron_ingest_monotonic = time.monotonic() if now is None else now
 
 
 def _coverage_sync_due(now: float | None = None) -> bool:
@@ -673,6 +705,27 @@ def run_global_sync_pipeline(
         "sport": "cricketdata_probe", "events": 0, "props": 0,
         **cricketdata_probe,
     })
+    if _gridiron_ingest_due():
+        try:
+            window = max(1, int(os.getenv("GRIDIRON_INGEST_DAYS", "3")))
+            gridiron = run_gridiron_ice_backfill(days=window)
+            stored = sum(
+                int((value or {}).get("stored") or 0)
+                for key, value in gridiron.items()
+                if isinstance(value, dict)
+            )
+            results.append({
+                "sport": "gridiron_ice_history", "events": 0, "props": stored,
+            })
+        except Exception as exc:
+            # A history top-up must never take the odds sync down with it.
+            logger.warning("gridiron ingestion failed error=%s", exc)
+            results.append({
+                "sport": "gridiron_ice_history", "events": 0, "props": 0,
+                "error": str(exc),
+            })
+        finally:
+            _mark_gridiron_ingested()
     results.extend(sync_pregame_context())
     snapshot = snapshot_live_predictions()
     results.append({"sport": "prediction_snapshots", "events": 0,

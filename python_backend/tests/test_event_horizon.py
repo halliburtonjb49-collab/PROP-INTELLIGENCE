@@ -124,3 +124,32 @@ def test_no_floor_keeps_the_strict_bound() -> None:
     season = [_event(str(index), days_ahead=30) for index in range(5)]
 
     assert within_horizon(season, days=7, minimum=0) == ([], 5)
+
+
+def test_gridiron_history_is_due_on_a_cold_process() -> None:
+    """The gap that left 445 NFL props with no projection behind them.
+
+    Box-score ingestion was reachable only from an admin endpoint somebody
+    had to remember to POST, so no NFL game logs existed at all.
+    """
+
+    from services import sync_service
+
+    sync_service._last_gridiron_ingest_monotonic = None
+    assert sync_service._gridiron_ingest_due(now=1000.0) is True
+
+
+def test_it_is_not_repeated_between_nearby_syncs() -> None:
+    # A day of box scores does not change between syncs minutes apart.
+    from services import sync_service
+
+    sync_service._mark_gridiron_ingested(now=1000.0)
+    assert sync_service._gridiron_ingest_due(now=1000.0 + 600) is False
+
+
+def test_it_comes_due_again_after_the_cooldown() -> None:
+    from services import sync_service
+
+    sync_service._mark_gridiron_ingested(now=1000.0)
+    assert sync_service._gridiron_ingest_due(now=1000.0 + 21600) is True
+    sync_service._last_gridiron_ingest_monotonic = None
