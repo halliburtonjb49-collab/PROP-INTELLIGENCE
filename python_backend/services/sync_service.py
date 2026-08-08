@@ -273,6 +273,13 @@ def sync_sport(sport_key: str) -> dict[str, object]:
             "sync_sport skipped sport=%s reason=no_markets",
             sport_key,
         )
+        # Recorded rather than returned silently. Without this the sport has
+        # no entry at all and reads back as neverFetched -- the same answer a
+        # sport nobody ever asked for gives, when the truth is that it was
+        # asked for and has no markets configured to ask with.
+        record_sport_fetch(
+            sport_key, events=0, props=0, error="skipped: no markets configured",
+        )
         return {
             "sport": sport_key,
             "events": 0,

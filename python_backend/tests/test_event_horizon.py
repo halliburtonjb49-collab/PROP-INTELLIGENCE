@@ -192,3 +192,22 @@ def test_later_runs_only_top_up() -> None:
 
     assert window == 3
     sync_service._last_gridiron_ingest_monotonic = None
+
+
+def test_a_sport_with_no_markets_records_why() -> None:
+    """Otherwise it reads back as neverFetched.
+
+    Which is the same answer a sport nobody ever asked for gives, when the
+    truth is that it was asked for and has nothing configured to ask with.
+    Three separate diagnostics were misread today for exactly this reason.
+    """
+
+    from services import odds_service, sync_service
+
+    odds_service._sport_results.pop("test_no_markets_sport", None)
+    sync_service.sync_sport("test_no_markets_sport")
+
+    entry = odds_service._sport_results.get("test_no_markets_sport")
+    assert entry is not None
+    assert entry["lastError"].startswith("skipped:")
+    odds_service._sport_results.pop("test_no_markets_sport", None)

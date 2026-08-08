@@ -389,6 +389,14 @@ def sport_coverage() -> dict[str, object]:
         # Requested and never once seen. Distinguishes "out of season" from
         # "we are not actually asking for it".
         "neverFetched": [key for key in configured if key not in results],
+        # Asked for, and the reason nothing came back. A sport on cooldown or
+        # with no markets configured is not the same as one nobody requested,
+        # and neverFetched alone could not tell them apart.
+        "skipped": {
+            key: str(value.get("lastError") or "")
+            for key, value in results.items()
+            if str(value.get("lastError") or "").startswith("skipped:")
+        },
         # Fetched, returned events, and still produced no props: the provider
         # has the games but not the player markets.
         "eventsWithoutProps": [
