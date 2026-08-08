@@ -41,7 +41,7 @@ def test_a_settled_edge_is_a_play_now():
     verdict = compute_verdict(_prop())
 
     assert verdict.decision == PLAY_NOW
-    assert verdict.headline == "PLAY OVER NOW"
+    assert verdict.headline == "PLAY OVER"
     assert verdict.is_actionable
     # A shopper needs to know where the edge ends, not just that it exists.
     assert verdict.maximum_playable_line == 6.7
@@ -177,7 +177,7 @@ def test_the_payload_carries_what_a_card_needs():
     payload = verdict_payload(compute_verdict(_prop()))
 
     assert payload["decision"] == PLAY_NOW
-    assert payload["headline"] == "PLAY OVER NOW"
+    assert payload["headline"] == "PLAY OVER"
     assert payload["actionable"] is True
     assert payload["maximumPlayableLine"] == 6.7
 

@@ -354,9 +354,26 @@ def historical_access_probe(
     echoed, and this exists so nobody has to paste one anywhere to find out.
     """
 
-    key = _current_api_key()
-    if not key:
+    # Every configured key, not just the active one. The first run of this
+    # probe reported "deactivated" and I nearly read that as "no historical
+    # entitlement" -- but rotation had already moved to the backup key, so
+    # the probe was testing whichever key happened to be in use rather than
+    # the one the plan belongs to. A per-key answer cannot be misread that
+    # way, and it also surfaces a dead key before the live board finds it.
+    keys = [key for key in _ODDS_API_KEYS if key]
+    if not keys:
         return {"available": False, "reason": "no odds key configured"}
+    per_key: list[dict[str, object]] = []
+    for index, key in enumerate(keys):
+        per_key.append({"keyIndex": index, **_probe_one_key(key, sport_key, date)})
+    return {
+        "available": any(entry.get("available") for entry in per_key),
+        "keys": per_key,
+        "configuredKeyCount": len(keys),
+    }
+
+
+def _probe_one_key(key: str, sport_key: str, date: str) -> dict[str, object]:
     url = (
         f"{BASE_URL}/historical/sports/{sport_key}/odds"
         f"?apiKey={key}&regions=us&markets=h2h&date={date}"

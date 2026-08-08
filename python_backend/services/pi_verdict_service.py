@@ -31,6 +31,10 @@ from typing import Sequence
 
 from services.selectability_projection_service import break_even_for
 
+# The decision codes are stable; the words on the card are not, and these
+# are the words. A pass is the one that matters most: it is our opinion, and
+# it reads as an invitation to decide rather than a door being closed --
+# people who bet on a read are customers, not mistakes to correct.
 PLAY_NOW = "PLAY_NOW"
 SHOP = "SHOP"
 WAIT = "WAIT"
@@ -177,7 +181,7 @@ def compute_verdict(prop: object) -> Verdict:
         return Verdict(
             decision=PASS,
             side="",
-            headline="PASS",
+            headline="TAKE A CHANCE — NOT BACKED",
             reason=(
                 "We could not verify this one, so there is no read from us. "
                 "Still yours to take if you like it."
@@ -189,7 +193,7 @@ def compute_verdict(prop: object) -> Verdict:
         return Verdict(
             decision=PASS,
             side="",
-            headline="PASS",
+            headline="TAKE A CHANCE — NOT BACKED",
             reason=(
                 "We do not model this market yet, so we have no opinion to "
                 "offer -- not a warning against it. Your read is the better "
@@ -203,7 +207,7 @@ def compute_verdict(prop: object) -> Verdict:
         return Verdict(
             decision=PASS,
             side="",
-            headline="PASS",
+            headline="TAKE A CHANCE — NOT BACKED",
             reason=(
                 "We do not see a lean either way on this one. That means it "
                 "looks close to us, not that it is a bad bet -- your call."
@@ -215,7 +219,7 @@ def compute_verdict(prop: object) -> Verdict:
         return Verdict(
             decision=PASS,
             side=side,
-            headline="PASS",
+            headline="TAKE A CHANCE — NOT BACKED",
             reason=(
                 f"We have {side.title()} at {probability * 100:.0f}% and this "
                 f"price needs {break_even * 100:.0f}% to break even, so we "
@@ -241,7 +245,7 @@ def compute_verdict(prop: object) -> Verdict:
         return Verdict(
             decision=PASS,
             side=side,
-            headline="PASS",
+            headline="TAKE A CHANCE — NOT BACKED",
             reason=(
                 "We land about where the market does on this one, so there is "
                 "no edge we can point to. Nothing wrong with the bet -- we "
@@ -299,7 +303,7 @@ def compute_verdict(prop: object) -> Verdict:
         return Verdict(
             decision=SHOP,
             side=side,
-            headline=f"SHOP {side}",
+            headline=f"CHECK OTHER BOOKS — {side}",
             reason=f"{book} is paying materially better on the same side.",
             confidence=confidence,
             reasons=("better_price_elsewhere",),
@@ -318,7 +322,7 @@ def compute_verdict(prop: object) -> Verdict:
         return Verdict(
             decision=PLAY_NOW,
             side=side,
-            headline=f"PLAY {side} NOW",
+            headline=f"PLAY {side}",
             reason=(
                 f"The model gives {side.title()} {probability * 100:.0f}% "
                 f"against a price that needs {break_even * 100:.0f}%."
