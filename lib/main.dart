@@ -16,6 +16,7 @@ import 'models/prop_data.dart';
 import 'models/saved_slip.dart';
 import 'pages/analytics_page.dart';
 import 'pages/line_movement_page.dart';
+import 'pages/briefing_page.dart';
 import 'pages/track_record_page.dart';
 import 'pages/owner_operations_page.dart';
 import 'pages/prop_chat_page.dart';
@@ -198,6 +199,7 @@ const double cardGap = 12;
 
 enum AppPage {
   board,
+  briefing,
   gameMarkets,
   propBuilder,
   watchlist,
@@ -735,6 +737,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   int _mainPageIndex() {
     switch (_selectedPage) {
       case AppPage.board:
+      case AppPage.briefing:
       case AppPage.gameMarkets:
       case AppPage.evScanner:
       case AppPage.searchPlayers:
@@ -5870,6 +5873,8 @@ class _MainDashboardState extends State<MainDashboard> {
                 ? const LiveScoreboardTickerGridWidget(watchedOnly: true)
                 : widget.selectedPage == AppPage.propAlerts
                 ? PropAlertsPage(alerts: alertsForPage)
+                : widget.selectedPage == AppPage.briefing
+                ? const BriefingPage()
                 : widget.selectedPage == AppPage.trackRecord
                 ? const TrackRecordPage()
                 : widget.selectedPage == AppPage.analytics
@@ -7706,6 +7711,8 @@ class TopNavigation extends StatelessWidget {
       'Join the shared community room using your public username. Keep messages respectful, never post personal information, and use the message menu to report or block abusive content.',
     AppPage.trackRecord =>
       'Every graded pick the model has made, winners and losers, with the sample size beside each number. Rates stay hidden until enough picks have been graded to mean anything.',
+    AppPage.briefing =>
+      "Today's board reduced to what clears the bar, with what the board cannot tell you stated beside it. A day with nothing worth playing says so rather than promoting the best of a thin slate.",
   };
 
   void _showPageHelp(BuildContext context) {
@@ -7751,6 +7758,7 @@ class TopNavigation extends StatelessWidget {
   // then look back at how it went.
   static const List<(String, IconData, List<(String, AppPage)>)> _navGroups = [
     ('RESEARCH', Icons.travel_explore_rounded, [
+      ("Today's Briefing", AppPage.briefing),
       ('Board', AppPage.board),
       ('Search Players', AppPage.searchPlayers),
       ('EV Scanner', AppPage.evScanner),
@@ -7970,6 +7978,7 @@ class TopNavigation extends StatelessWidget {
     AppPage.scoreboard => 'LIVE SCOREBOARD',
     AppPage.scoreboardWatchlist => 'SCOREBOARD WATCHLIST',
     AppPage.analytics => 'PERFORMANCE ANALYTICS',
+    AppPage.briefing => "TODAY'S PI BRIEFING",
     AppPage.trackRecord => 'TRACK RECORD',
     AppPage.lineMovement => 'LINE MOVEMENT',
     AppPage.intelligenceLab => 'INTELLIGENCE LAB',
@@ -7995,6 +8004,7 @@ class TopNavigation extends StatelessWidget {
     AppPage.scoreboardWatchlist =>
       'Quick-view watched games with live score and result alerts',
     AppPage.analytics => 'Analytics and owner data-management workspace',
+    AppPage.briefing => "Today's board in one page, plays and caveats both",
     AppPage.trackRecord => 'Published model record, open to everyone',
     AppPage.lineMovement => 'Monitor number and price changes in real time',
     AppPage.intelligenceLab => 'Stress-test correlation, context and scenarios',

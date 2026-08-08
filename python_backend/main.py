@@ -84,6 +84,7 @@ from services.baseline_projection_service import (
 )
 from services.odds_service import sport_coverage
 from services.prop_service import get_props
+from services.daily_briefing_service import build_briefing
 from services.selectability_projection_service import (
 	selectability_projection as _selectability_projection,
 )
@@ -1888,6 +1889,20 @@ def _job_queue_summary() -> dict[str, object]:
 		"started": state.get("started"),
 		"failed": state.get("failed"),
 	}
+
+
+@app.get("/api/briefing/today")
+def todays_briefing(
+	_membership: Membership = Depends(require_pro),
+) -> dict[str, object]:
+	"""Today's board reduced to what a person needs before deciding anything."""
+
+	coverage = sport_coverage()
+	empty = [
+		str(key).split("_")[-1].upper()
+		for key in (coverage.get("fetchedButEmpty") or [])
+	]
+	return build_briefing(get_props(), empty_sports=empty)
 
 
 @app.get("/api/performance/track-record")

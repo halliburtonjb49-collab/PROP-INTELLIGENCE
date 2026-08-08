@@ -287,17 +287,23 @@ class ApiService {
     throw Exception(lastError ?? 'Intelligence API unavailable');
   }
 
-  /// The model's published record. Deliberately unauthenticated.
+  /// The model's published record.
   ///
-  /// Every number this returns was already computed and already served, but
-  /// only behind the Pro gate -- which meant the evidence was visible to
-  /// people who had already bought and to nobody who was deciding whether to.
+  /// Was briefly unauthenticated so the evidence would reach people deciding
+  /// whether to buy. It went back behind the gate the same day: the first
+  /// numbers it published reported a beat-the-closing-line rate of 6.7%,
+  /// which is not a weak result but a broken measurement, and a record we
+  /// cannot stand behind is wrong to publish in either direction.
   Future<Map<String, dynamic>> fetchTrackRecord() async {
     Object? lastError;
+    final headers = await _authenticatedHeaders(json: false);
     for (final candidate in _candidateBaseUrls) {
       try {
         final response = await http
-            .get(Uri.parse('$candidate/api/performance/track-record'))
+            .get(
+              Uri.parse('$candidate/api/performance/track-record'),
+              headers: headers,
+            )
             .timeout(const Duration(seconds: 15));
         if (response.statusCode >= 200 && response.statusCode < 300) {
           _resolvedBaseUrl = candidate;
@@ -314,6 +320,40 @@ class ApiService {
       }
     }
     throw Exception(lastError ?? 'Track record unavailable');
+  }
+
+  /// Today's board reduced to a briefing.
+  ///
+  /// Returns an unloaded briefing rather than throwing when it cannot be
+  /// reached, because the page must be able to tell "nothing clears the bar"
+  /// apart from "we could not ask" -- those read the same and mean opposite
+  /// things.
+  Future<Map<String, dynamic>> fetchTodaysBriefing() async {
+    Object? lastError;
+    final headers = await _authenticatedHeaders(json: false);
+    for (final candidate in _candidateBaseUrls) {
+      try {
+        final response = await http
+            .get(
+              Uri.parse('$candidate/api/briefing/today'),
+              headers: headers,
+            )
+            .timeout(const Duration(seconds: 15));
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          _resolvedBaseUrl = candidate;
+          final decoded = jsonDecode(response.body);
+          if (decoded is! Map<String, dynamic>) {
+            throw const FormatException('Invalid briefing response.');
+          }
+          return decoded;
+        }
+        lastError = 'Briefing ${response.statusCode}';
+      } catch (error) {
+        if (error is FormatException) rethrow;
+        lastError = error;
+      }
+    }
+    throw Exception(lastError ?? 'Briefing unavailable');
   }
 
   Future<GameMarketFeed> fetchGameMarkets({
