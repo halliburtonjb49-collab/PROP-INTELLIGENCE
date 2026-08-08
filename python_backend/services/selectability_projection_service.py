@@ -109,14 +109,45 @@ def model_probability(prop: object) -> float | None:
     return None
 
 
+def _verdicts_by_sport(props: Iterable[object]) -> dict[str, object]:
+    """Decisions per sport, and the gate behind each pass.
+
+    Imported here so a diagnostic can never be the reason the verdict module
+    fails to load.
+    """
+
+    from services.pi_verdict_service import compute_verdict
+
+    out: dict[str, dict[str, int]] = {}
+    for prop in props:
+        sport = str(getattr(prop, "sport", "") or "UNKNOWN").upper()
+        counts = out.setdefault(sport, {})
+        try:
+            verdict = compute_verdict(prop)
+        except Exception:
+            counts["error"] = counts.get("error", 0) + 1
+            continue
+        counts[verdict.decision] = counts.get(verdict.decision, 0) + 1
+        if verdict.decision == "PASS" and verdict.reasons:
+            gate = f"pass:{verdict.reasons[0]}"
+            counts[gate] = counts.get(gate, 0) + 1
+    return dict(sorted(out.items()))
+
+
 def project(props: Iterable[object]) -> dict[str, object]:
     """Count what each rule would call pickable, and where they differ."""
 
+    props_list = list(props)
+    props = props_list
     total = 0
     modelled = 0
     current = 0
     priced = 0
     both = 0
+    # Per sport, because a board-wide count cannot show a whole sport going
+    # empty. WNBA is almost entirely pick'em, so a bar raised for pick'em
+    # falls on one sport far harder than the total suggests.
+    by_sport: dict[str, dict[str, int]] = {}
     gained: dict[str, int] = {}
     lost: dict[str, int] = {}
     by_source: dict[str, int] = {}
@@ -136,6 +167,13 @@ def project(props: Iterable[object]) -> dict[str, object]:
         priced += 1 if clears_priced else 0
         if clears_current and clears_priced:
             both += 1
+        sport = str(getattr(prop, "sport", "") or "UNKNOWN").upper()
+        counts = by_sport.setdefault(
+            sport, {"props": 0, "current": 0, "priced": 0}
+        )
+        counts["props"] += 1
+        counts["current"] += 1 if clears_current else 0
+        counts["priced"] += 1 if clears_priced else 0
         book = str(getattr(prop, "sportsbook", "") or "UNKNOWN").upper()
         if clears_priced and not clears_current:
             gained[book] = gained.get(book, 0) + 1
@@ -162,6 +200,18 @@ def project(props: Iterable[object]) -> dict[str, object]:
         "gainedByBook": dict(sorted(gained.items(), key=lambda kv: -kv[1])[:8]),
         "lostByBook": dict(sorted(lost.items(), key=lambda kv: -kv[1])[:8]),
         "breakEvenSource": by_source,
+        # A sport with props and no playable ones is a section that renders
+        # empty, which is worse than a smaller board -- it reads as broken.
+        "bySport": dict(sorted(by_sport.items())),
+        # What the verdict actually decided, and for a pass, which gate
+        # stopped it. A count of playable props says a sport is empty; this
+        # says why, and the five pass gates fail for very different reasons.
+        "verdictsBySport": _verdicts_by_sport(props_list),
+        "sportsWithNothingPlayable": sorted(
+            sport
+            for sport, counts in by_sport.items()
+            if counts["props"] >= 25 and counts["priced"] == 0
+        ),
     }
 
 
