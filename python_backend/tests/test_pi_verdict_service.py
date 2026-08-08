@@ -282,32 +282,39 @@ def test_the_stronger_model_side_is_chosen():
     assert under_favoured.side == "UNDER"
 
 
-def test_a_confident_model_at_a_bad_price_is_still_a_pass():
-    """The price decides, not the probability.
+def test_a_confident_model_at_a_bad_price_is_shown_with_the_warning():
+    """The price is a warning the prop carries, not a gate that hides it.
 
     Measured on a live board, props the model liked at a median 68% carried a
     median expected value of -5.6%: the probability was real and the book had
-    already taken it. Playing all of them would lose money slowly while every
-    card looked encouraging.
+    already taken it. That is worth saying on the card. It is not grounds for
+    removing the prop, because a bet that never appears cannot be judged by
+    the person whose money it is -- and making it a gate emptied every
+    actionable section on the board.
     """
 
     verdict = compute_verdict(
         _prop(uncertaintyAdjustedProbability=0.74, evPercentage=-4.0)
     )
 
-    assert verdict.decision == PASS
-    assert "negative_expected_value" in verdict.reasons
-    assert "already in the line" in verdict.reason
+    assert verdict.decision == LEAN
+    assert verdict.is_actionable
+    assert "priced_out" in verdict.reasons
+    # The reader is told exactly what is wrong with it.
+    assert "-4.0%" in verdict.reason
+    assert "Your call" in verdict.reason
+    assert "in the line already" in verdict.reason
 
 
-def test_expected_value_is_checked_before_conviction_is_awarded():
-    # A play, a shop and a lean must each survive the price test; otherwise the
-    # board offers confident-looking bets that lose.
+def test_a_bad_price_demotes_conviction_rather_than_erasing_it():
+    # However much the model likes it, a price that has taken the edge is a
+    # lean and not a play -- but it stays on the board either way.
     for probability in (0.85, 0.66, 0.56):
         verdict = compute_verdict(
             _prop(uncertaintyAdjustedProbability=probability, evPercentage=-1.0)
         )
-        assert verdict.decision == PASS, probability
+        assert verdict.decision != PLAY_NOW, probability
+        assert verdict.is_actionable, probability
 
 
 def test_a_prop_with_no_price_is_judged_on_the_model_alone():

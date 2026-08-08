@@ -217,20 +217,16 @@ def compute_verdict(prop: object) -> Verdict:
     # The price decides, not the probability. A side the model likes at 74%
     # is a losing bet if the book has priced it at 80%, and most of what the
     # model likes is priced that way.
+    # Expected value is a warning the prop carries, not a gate that removes
+    # it. Making it a gate emptied every actionable section on the board,
+    # and a prop that never appears cannot be judged by the person whose
+    # money it is. The rule is to show it, say what is wrong with it, and
+    # leave the choice where it belongs.
     expected_value = _float(getattr(prop, "evPercentage", None))
-    if expected_value is not None and expected_value < MINIMUM_EXPECTED_VALUE_PERCENT:
-        return Verdict(
-            decision=PASS,
-            side=side,
-            headline="PASS",
-            reason=(
-                f"The model likes {side.title()} at {probability * 100:.0f}%, "
-                f"but the price returns {expected_value:+.1f}% -- the number "
-                "is already in the line."
-            ),
-            confidence=confidence,
-            reasons=("negative_expected_value",),
-        )
+    priced_out = (
+        expected_value is not None
+        and expected_value < MINIMUM_EXPECTED_VALUE_PERCENT
+    )
     if edge is not None and edge < MEANINGFUL_PROBABILITY_EDGE:
         return Verdict(
             decision=PASS,
@@ -307,7 +303,7 @@ def compute_verdict(prop: object) -> Verdict:
     # price, which is the stricter pair. Deferring to it as well left 64 props
     # at a median 15% expected value labelled a lean while nine others with
     # the same credentials were called plays.
-    if probability >= play_bar:
+    if probability >= play_bar and not priced_out:
         return Verdict(
             decision=PLAY_NOW,
             side=side,
@@ -318,6 +314,23 @@ def compute_verdict(prop: object) -> Verdict:
             ),
             confidence=confidence,
             reasons=(f"priced_from_{break_even_source}",),
+            maximum_playable_line=maximum_line,
+        )
+    if probability >= play_bar and priced_out:
+        # The model likes it and the price has already taken the edge. Said
+        # plainly, and still offered: it is a judgement about value, not
+        # about whether the bet is allowed.
+        return Verdict(
+            decision=LEAN,
+            side=side,
+            headline=f"LEAN {side}",
+            reason=(
+                f"The model gives {side.title()} {probability * 100:.0f}%, "
+                f"but this price returns {expected_value:+.1f}% -- the number "
+                "is largely in the line already. Your call."
+            ),
+            confidence=confidence,
+            reasons=("priced_out",),
             maximum_playable_line=maximum_line,
         )
     lean_reason = (
