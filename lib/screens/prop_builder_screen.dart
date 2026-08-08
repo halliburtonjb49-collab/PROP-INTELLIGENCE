@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -24,6 +24,11 @@ import 'prop_watchlist_screen.dart';
 import '../theme/app_colors.dart' as brand_colors;
 
 enum SlipExportAction { copyText, saveImage, savePdf, printSlip }
+
+@visibleForTesting
+bool supportsWindowsNotifications(bool isWeb, TargetPlatform platform) {
+  return !isWeb && platform == TargetPlatform.windows;
+}
 
 class PropBuilderScreen extends StatefulWidget {
   const PropBuilderScreen({
@@ -270,7 +275,7 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
   }
 
   Future<void> _initializeLocalNotifications() async {
-    if (!Platform.isWindows) {
+    if (!supportsWindowsNotifications(kIsWeb, defaultTargetPlatform)) {
       return;
     }
     await localNotifier.setup(
@@ -2026,7 +2031,8 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
   Future<void> _showWindowsCriticalToast(
     List<LineMovementAlert> criticalAlerts,
   ) async {
-    if (!Platform.isWindows || criticalAlerts.isEmpty) {
+    if (!supportsWindowsNotifications(kIsWeb, defaultTargetPlatform) ||
+        criticalAlerts.isEmpty) {
       return;
     }
 
