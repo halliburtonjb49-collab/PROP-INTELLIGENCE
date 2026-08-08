@@ -124,11 +124,20 @@ def _maximum_playable_line(prop: object, side: str) -> float | None:
     projection = _float(getattr(prop, "projection", None))
     if projection is None:
         return None
+    current_line = _float(getattr(prop, "line", None))
     # Half a point inside the projection keeps a little of the edge rather
     # than spending all of it, which is where these bets stop being worth it.
     if side == "OVER":
-        return round(projection - 0.5, 2)
-    return round(projection + 0.5, 2)
+        threshold = round(projection - 0.5, 2)
+        if threshold <= 0 or (
+            current_line is not None and threshold < current_line
+        ):
+            return None
+        return threshold
+    threshold = round(projection + 0.5, 2)
+    if current_line is not None and threshold > current_line:
+        return None
+    return threshold
 
 
 def _better_price(prop: object, side: str) -> tuple[str, float]:
@@ -142,6 +151,9 @@ def _better_price(prop: object, side: str) -> tuple[str, float]:
         best = _float(getattr(prop, "bestUnderOdds", None))
         current = _float(getattr(prop, "underDecimalOdds", None))
         book = str(getattr(prop, "bestUnderBook", "") or "")
+    current_book = str(getattr(prop, "sportsbook", "") or "")
+    if book.strip().casefold() == current_book.strip().casefold():
+        return "", 0.0
     if best is None or current is None or not book:
         return "", 0.0
     gain = best - current
@@ -154,6 +166,10 @@ def compute_verdict(prop: object) -> Verdict:
     released = str(getattr(prop, "recommendedSide", "") or "").strip().upper()
     if released not in {"OVER", "UNDER"}:
         released = ""
+    verified_model = bool(
+        getattr(prop, "recommendationAvailable", False)
+    ) and bool(released)
+    signal_source = "The model" if verified_model else "The available projection"
 
     # The release gate blanks recommendedSide on everything it will not put
     # its name to, which is most of the board. Reading only that field made
@@ -223,7 +239,7 @@ def compute_verdict(prop: object) -> Verdict:
             side=side,
             headline=f"LEAN {side}",
             reason=(
-                f"The model leans {side.title()} at {probability * 100:.0f}%, "
+                f"{signal_source} leans {side.title()} at {probability * 100:.0f}%, "
                 f"but this price needs {break_even * 100:.0f}% to break even. "
                 "The direction qualifies as a lean; the posted price is not "
                 "backed, so keep the stake smaller or find a better number."
@@ -283,7 +299,7 @@ def compute_verdict(prop: object) -> Verdict:
             decision=WAIT,
             side=side,
             headline=f"WAIT ON {side}",
-            reason=f"The edge is real, but the player is listed {injury}.",
+            reason=f"{signal_source} favors {side.title()}, but the player is listed {injury}.",
             confidence=confidence,
             reasons=tuple(reasons),
             maximum_playable_line=maximum_line,
@@ -295,7 +311,7 @@ def compute_verdict(prop: object) -> Verdict:
             decision=WAIT,
             side=side,
             headline=f"WAIT ON {side}",
-            reason="The edge is real, but the lineup is not confirmed.",
+            reason=f"{signal_source} favors {side.title()}, but the lineup is not confirmed.",
             confidence=confidence,
             reasons=tuple(reasons),
             maximum_playable_line=maximum_line,
@@ -341,7 +357,7 @@ def compute_verdict(prop: object) -> Verdict:
             side=side,
             headline=f"PLAY {side}",
             reason=(
-                f"The model gives {side.title()} {probability * 100:.0f}% "
+                f"{signal_source} gives {side.title()} {probability * 100:.0f}% "
                 f"against a price that needs {break_even * 100:.0f}%."
             ),
             confidence=confidence,
@@ -357,7 +373,7 @@ def compute_verdict(prop: object) -> Verdict:
             side=side,
             headline=f"LEAN {side}",
             reason=(
-                f"The model gives {side.title()} {probability * 100:.0f}%, "
+                f"{signal_source} gives {side.title()} {probability * 100:.0f}%, "
                 f"but this price returns {expected_value:+.1f}% -- the number "
                 "is largely in the line already. Your call."
             ),
@@ -366,7 +382,7 @@ def compute_verdict(prop: object) -> Verdict:
             maximum_playable_line=maximum_line,
         )
     lean_reason = (
-        f"The model gives {side.title()} {probability * 100:.0f}%, but this "
+        f"{signal_source} gives {side.title()} {probability * 100:.0f}%, but this "
         "has not cleared the release checks for a full play."
         if not released
         else f"A real but modest edge at {probability * 100:.0f}%. Smaller "

@@ -2542,7 +2542,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'TOTAL PROPS',
+                      'CURRENT VIEW',
                       style: TextStyle(
                         color: AppColors.muted,
                         fontSize: 8,

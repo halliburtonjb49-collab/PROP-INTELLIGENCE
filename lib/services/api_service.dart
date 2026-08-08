@@ -249,13 +249,25 @@ class ApiService {
     Object? lastError;
     for (final candidate in _candidateBaseUrls) {
       try {
-        final response = await http
+        var response = await http
             .post(
               Uri.parse('$candidate/api/intelligence/$path'),
-              headers: const {'Content-Type': 'application/json'},
+              headers: await _authenticatedHeaders(json: true),
               body: jsonEncode(payload),
             )
             .timeout(const Duration(seconds: 12));
+        if (response.statusCode == 401) {
+          response = await http
+              .post(
+                Uri.parse('$candidate/api/intelligence/$path'),
+                headers: await _authenticatedHeaders(
+                  json: true,
+                  forceRefresh: true,
+                ),
+                body: jsonEncode(payload),
+              )
+              .timeout(const Duration(seconds: 12));
+        }
         if (response.statusCode >= 200 && response.statusCode < 300) {
           _resolvedBaseUrl = candidate;
           return jsonDecode(response.body) as Map<String, dynamic>;
@@ -277,9 +289,20 @@ class ApiService {
     Object? lastError;
     for (final candidate in _candidateBaseUrls) {
       try {
-        final response = await http
-            .get(Uri.parse('$candidate/api/intelligence/$path'))
+        var response = await http
+            .get(
+              Uri.parse('$candidate/api/intelligence/$path'),
+              headers: await _authenticatedHeaders(),
+            )
             .timeout(const Duration(seconds: 12));
+        if (response.statusCode == 401) {
+          response = await http
+              .get(
+                Uri.parse('$candidate/api/intelligence/$path'),
+                headers: await _authenticatedHeaders(forceRefresh: true),
+              )
+              .timeout(const Duration(seconds: 12));
+        }
         if (response.statusCode >= 200 && response.statusCode < 300) {
           _resolvedBaseUrl = candidate;
           final decoded = jsonDecode(response.body);

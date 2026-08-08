@@ -19,7 +19,9 @@ def _prop(**over):
         selectable=True,
         projection=7.2,
         line=5.5,
+        sportsbook="PrizePicks",
         recommendedSide="OVER",
+        recommendationAvailable=True,
         uncertaintyAdjustedProbability=0.67,
         probabilityEdge=0.09,
         confidence=67,
@@ -98,6 +100,40 @@ def test_a_trivial_price_difference_is_not_worth_a_trip():
     )
 
     assert verdict.decision == PLAY_NOW
+
+
+def test_the_current_best_book_is_not_told_to_shop_itself():
+    verdict = compute_verdict(
+        _prop(
+            sportsbook="Underdog",
+            overDecimalOdds=1.83,
+            bestOverOdds=1.95,
+            bestOverBook="Underdog",
+        )
+    )
+
+    assert verdict.decision == PLAY_NOW
+    assert verdict.better_price_at == ""
+
+
+def test_an_impossible_playable_threshold_is_omitted():
+    verdict = compute_verdict(
+        _prop(
+            projection=0.51,
+            line=0.5,
+            lineupStatus="unconfirmed",
+        )
+    )
+
+    assert verdict.decision == WAIT
+    assert verdict.maximum_playable_line is None
+
+
+def test_fallback_projection_copy_does_not_claim_to_be_a_model_pick():
+    verdict = compute_verdict(_prop(recommendationAvailable=False))
+
+    assert "available projection" in verdict.reason.lower()
+    assert "The model" not in verdict.reason
 
 
 def test_a_modest_edge_is_a_lean_rather_than_a_play():
