@@ -15,6 +15,7 @@ from services.odds_service import (
 )
 from services.prop_processor import process_and_cache_props
 from services.historical_ingestion_service import run_gridiron_ice_backfill
+from services.projection_backtest_service import record_projection_grade
 from services.selectability_projection_service import (
     record_projection as record_selectability_projection,
 )
@@ -759,6 +760,14 @@ def run_global_sync_pipeline(
     # inside a request is what turned the operations endpoint into a 502.
     _board = get_props()
     record_selectability_projection(_board)
+    # Graded on the same long cooldown as the history top-up: replaying
+    # every stored game is expensive and its answer does not change
+    # between syncs minutes apart.
+    if _gridiron_ingest_due():
+        try:
+            record_projection_grade()
+        except Exception as exc:
+            logger.warning("projection grade failed error=%s", exc)
     alert_snapshots = [{
         "propId": prop.id, "player": prop.player, "playerId": prop.playerId,
         "sport": prop.sport, "market": prop.market, "marketKey": prop.marketKey,

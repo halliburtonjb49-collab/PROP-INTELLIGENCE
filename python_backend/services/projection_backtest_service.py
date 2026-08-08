@@ -227,3 +227,47 @@ def grade_basketball_markets(sport: str = "WNBA") -> dict[str, object]:
             grades.append(grade)
 
     return summarize(grades)
+
+
+_GRADE_KEY = "diagnostics:projection-grade"
+_GRADE_TTL_SECONDS = 60 * 60 * 24 * 2
+
+
+def record_projection_grade(sports: Sequence[str] = ("WNBA", "NBA")) -> None:
+    """Grade during a run that can afford it, never on a request.
+
+    Replaying every player's history is far too slow to answer a web request
+    with -- putting a whole-board walk on the operations endpoint is what
+    turned it into a 502 earlier today -- so this runs inside the sync and
+    publishes what it found.
+    """
+
+    reports: dict[str, object] = {}
+    for sport in sports:
+        try:
+            report = grade_basketball_markets(sport)
+        except Exception:
+            continue
+        if report.get("marketsGraded"):
+            reports[sport] = report
+    if not reports:
+        return
+    try:
+        from services.distributed_cache_service import set_json
+
+        set_json(_GRADE_KEY, reports, ttl_seconds=_GRADE_TTL_SECONDS)
+    except Exception:
+        # Diagnostics must never break a sync.
+        pass
+
+
+def projection_grade_snapshot() -> dict[str, object]:
+    """The last grade, from whichever instance produced one."""
+
+    try:
+        from services.distributed_cache_service import get_json
+
+        value = get_json(_GRADE_KEY)
+    except Exception:
+        return {}
+    return value if isinstance(value, dict) else {}

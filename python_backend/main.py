@@ -85,7 +85,10 @@ from services.baseline_projection_service import (
 from services.odds_service import sport_coverage
 from services.prop_service import get_props
 from services.daily_briefing_service import build_briefing
-from services.projection_backtest_service import grade_basketball_markets
+from services.projection_backtest_service import (
+	grade_basketball_markets,
+	projection_grade_snapshot as _projection_grade_snapshot,
+)
 from services.selectability_projection_service import (
 	selectability_projection as _selectability_projection,
 )
@@ -2017,6 +2020,10 @@ def prop_feed_health() -> dict[str, object]:
 		# What a price-aware threshold would call pickable, against the
 		# single global one in use. Measurement only; decides nothing.
 		"selectabilityProjection": _selectability_projection(),
+		# How the projection did on games it had not seen, per market.
+		# Bias is the number to read: a market built on the wrong
+		# statistic is confidently wrong in one direction, not noisy.
+		"projectionGrade": _projection_grade_snapshot(),
 		**metrics,
 	}
 
