@@ -11,4 +11,15 @@ void main() {
     expect(shouldWrapVerdictFilters(600), isFalse);
     expect(shouldWrapVerdictFilters(1200), isFalse);
   });
+
+  test('verdict filters preserve an unloaded count state', () {
+    expect(resolveVerdictFilterCount(const {}, 'PLAY_NOW'), isNull);
+  });
+
+  test('loaded verdict filters expose missing categories as zero', () {
+    const counts = {'ALL': 12, 'PLAY_NOW': 3};
+    expect(resolveVerdictFilterCount(counts, 'PLAY_NOW'), 3);
+    expect(resolveVerdictFilterCount(counts, 'SHOP'), 0);
+    expect(resolveVerdictFilterCount(counts, 'WAIT'), 0);
+  });
 }

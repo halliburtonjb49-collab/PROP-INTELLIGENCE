@@ -80,6 +80,14 @@ bool shouldWrapVerdictFilters(double availableWidth) {
   return availableWidth < 600;
 }
 
+@visibleForTesting
+int? resolveVerdictFilterCount(Map<String, int> counts, String value) {
+  if (counts.isEmpty) {
+    return null;
+  }
+  return counts[value] ?? 0;
+}
+
 Future<void> _configureDesktopWindow() async {
   if (kIsWeb) {
     return;
@@ -5369,9 +5377,9 @@ class _MainDashboardState extends State<MainDashboard> {
           child: Semantics(
             button: true,
             selected: _verdictFilter == value,
-            label: _verdictCounts[value] == null
+            label: resolveVerdictFilterCount(_verdictCounts, value) == null
                 ? 'Show $label'
-                : 'Show $label, ${_verdictCounts[value]} available',
+                : 'Show $label, ${resolveVerdictFilterCount(_verdictCounts, value)} available',
             child: GestureDetector(
               key: ValueKey('verdict-filter-$value'),
               onTap: () => setState(() => _verdictFilter = value),
@@ -5388,9 +5396,9 @@ class _MainDashboardState extends State<MainDashboard> {
                   border: Border.all(color: AppColors.gold),
                 ),
                 child: Text(
-                  _verdictCounts[value] == null
+                  resolveVerdictFilterCount(_verdictCounts, value) == null
                       ? label
-                      : '$label ${_verdictCounts[value]}',
+                      : '$label ${resolveVerdictFilterCount(_verdictCounts, value)}',
                   style: TextStyle(
                     color: _verdictFilter == value
                         ? app_colors.AppColors.bgBase
