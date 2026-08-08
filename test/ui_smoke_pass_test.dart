@@ -67,10 +67,11 @@ void main() {
     await tester.pumpWidget(const PropIntelligenceApp());
     await tester.pump(const Duration(milliseconds: 800));
 
-    expect(find.text('SCOREBOARD'), findsWidgets);
-    expect(find.text('GAME MARKETS'), findsWidgets);
-    expect(find.text('ANALYTICS'), findsOneWidget);
-    expect(find.text('LINE MOVEMENT'), findsOneWidget);
+    // Destinations are grouped now, so the bar carries the five groups
+    // rather than every page at once.
+    for (final group in ['RESEARCH', 'BUILD', 'LIVE', 'HISTORY', 'SPORTS']) {
+      expect(find.byKey(ValueKey('nav-group-$group')), findsOneWidget);
+    }
     expect(
       find.byKey(const ValueKey('top-navigation-scrollbar')),
       findsOneWidget,
@@ -110,25 +111,32 @@ void main() {
     expect(find.byIcon(Icons.volume_off_rounded), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('GAME MARKETS').first);
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byKey(const ValueKey('nav-group-SPORTS')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('nav-entry-gameMarkets')));
+    await tester.pumpAndSettle();
     expect(find.text('MONEYLINE'), findsOneWidget);
     expect(find.text('SPREADS'), findsOneWidget);
     expect(find.text('GAME TOTALS'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('SCOREBOARD').first);
-    await tester.pump(const Duration(seconds: 1));
+    await tester.tap(find.byKey(const ValueKey('nav-group-LIVE')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('nav-entry-scoreboard')));
+    await tester.pumpAndSettle();
     expect(find.text('ALL GAMES'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('ANALYTICS'));
-    await tester.pump(const Duration(seconds: 1));
+    await tester.tap(find.byKey(const ValueKey('nav-group-RESEARCH')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('nav-entry-analytics')));
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
-    await tester.ensureVisible(find.text('LINE MOVEMENT'));
-    await tester.tap(find.text('LINE MOVEMENT'));
-    await tester.pump(const Duration(seconds: 1));
+    await tester.tap(find.byKey(const ValueKey('nav-group-RESEARCH')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('nav-entry-lineMovement')));
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
 
@@ -193,7 +201,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('pop-out-prop-chat')));
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byKey(const ValueKey('floating-prop-chat')), findsOneWidget);
-    expect(find.text('BOARD'), findsWidgets);
+    // The board is still underneath. Asserted on the board's own search
+    // field now that BOARD is a menu entry rather than a bar label.
+    expect(find.byKey(const ValueKey('board-player-search')), findsWidgets);
     final floatingChatSize = tester.getSize(
       find.byKey(const ValueKey('floating-prop-chat')),
     );
@@ -261,7 +271,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('mobile-nav-chat')));
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byKey(const ValueKey('floating-prop-chat')), findsOneWidget);
-    expect(find.text('BOARD'), findsWidgets);
+    expect(find.byKey(const ValueKey('board-player-search')), findsWidgets);
     expect(
       find.byKey(const ValueKey('prop-chat-message-field')),
       findsOneWidget,

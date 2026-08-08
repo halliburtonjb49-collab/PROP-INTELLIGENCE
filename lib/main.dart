@@ -7745,6 +7745,142 @@ class TopNavigation extends StatelessWidget {
     );
   }
 
+  // Features grouped by what someone came to do, rather than the flat row of
+  // eleven destinations this had become by adding one at a time. The order is
+  // the order of a session: find something, build a slip from it, watch it,
+  // then look back at how it went.
+  static const List<(String, IconData, List<(String, AppPage)>)> _navGroups = [
+    ('RESEARCH', Icons.travel_explore_rounded, [
+      ('Board', AppPage.board),
+      ('Search Players', AppPage.searchPlayers),
+      ('EV Scanner', AppPage.evScanner),
+      ('Line Movement', AppPage.lineMovement),
+      ('Analytics', AppPage.analytics),
+      ('Intelligence Lab', AppPage.intelligenceLab),
+      ('Referee Tracker', AppPage.refereeTracker),
+      ('Prop Chat', AppPage.propChat),
+    ]),
+    ('BUILD', Icons.construction_rounded, [
+      ('Prop Builder', AppPage.propBuilder),
+      ('Slip Watcher', AppPage.watchlist),
+      ('Prop Alerts', AppPage.propAlerts),
+      ('Builder Performance', AppPage.builderPerformance),
+      ('Strikeout Pro Gold', AppPage.strikeoutProGold),
+    ]),
+    ('LIVE', Icons.sensors_rounded, [
+      ('Scoreboard', AppPage.scoreboard),
+      ('Score Watch', AppPage.scoreboardWatchlist),
+    ]),
+    ('HISTORY', Icons.history_rounded, [
+      ('Past Slip History', AppPage.pastSlipHistory),
+      ('Track Record', AppPage.trackRecord),
+    ]),
+    ('SPORTS', Icons.sports_rounded, [
+      ('Game Markets', AppPage.gameMarkets),
+    ]),
+  ];
+
+  /// One group of destinations, opened rather than crowded onto the bar.
+  ///
+  /// The group carries the highlight when the current page is inside it, so
+  /// the bar still answers "where am I" without every page being visible at
+  /// once -- which is what made the flat row unreadable on a phone.
+  Widget _buildNavGroup(
+    String label,
+    IconData icon,
+    List<(String, AppPage)> entries,
+  ) {
+    final holdsCurrentPage = entries.any((entry) => entry.$2 == selectedPage);
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: PopupMenuButton<AppPage>(
+        key: ValueKey('nav-group-$label'),
+        tooltip: label,
+        color: app_colors.AppColors.sidebar,
+        position: PopupMenuPosition.under,
+        onSelected: onTabSelected,
+        itemBuilder: (context) => [
+          for (final (entryLabel, page) in entries)
+            PopupMenuItem<AppPage>(
+              key: ValueKey('nav-entry-${page.name}'),
+              value: page,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      entryLabel,
+                      style: TextStyle(
+                        color: page == selectedPage
+                            ? accentColor
+                            : app_colors.AppColors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  if (requiredTierForPage(page) != null) ...[
+                    const SizedBox(width: 8),
+                    _TierBadge(
+                      tier: requiredTierForPage(page)!,
+                      compact: true,
+                      hasProUpgrade: true,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+        ],
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.fromLTRB(11, 15, 11, 13),
+          decoration: BoxDecoration(
+            color: holdsCurrentPage
+                ? accentColor.withValues(alpha: .07)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: holdsCurrentPage ? accentColor : Colors.transparent,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: holdsCurrentPage
+                    ? accentColor
+                    : app_colors.AppColors.textSecondary,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  color: holdsCurrentPage
+                      ? accentColor
+                      : app_colors.AppColors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(width: 5),
+              Icon(
+                Icons.expand_more_rounded,
+                size: 13,
+                color: holdsCurrentPage
+                    ? accentColor
+                    : app_colors.AppColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildNavItem({
     required String label,
     required AppPage page,
@@ -7990,81 +8126,14 @@ class TopNavigation extends StatelessWidget {
               Expanded(
                 child: _TopNavScroller(
                   children: [
-                    _buildNavItem(
-                      label: 'BOARD',
-                      page: AppPage.board,
-                      icon: Icons.dashboard_customize_outlined,
-                    ),
-                    const SizedBox(width: 4),
-                    _buildNavItem(
-                      label: 'SCOREBOARD',
-                      page: AppPage.scoreboard,
-                      icon: Icons.sports_score_rounded,
-                    ),
-                    const SizedBox(width: 4),
-                    _buildNavItem(
-                      label: 'SCORE WATCH',
-                      page: AppPage.scoreboardWatchlist,
-                      icon: Icons.visibility_rounded,
-                      requiredTier: SubscriptionTier.edge,
-                      hasProUpgrade: true,
-                    ),
-                    const SizedBox(width: 4),
-                    ValueListenableBuilder<int>(
-                      valueListenable: PropChatService.unreadCount,
-                      builder: (context, unread, _) => _buildNavItem(
-                        label: unread > 0 ? 'PROP CHAT ($unread)' : 'PROP CHAT',
-                        page: AppPage.propChat,
-                        icon: Icons.forum_rounded,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    _buildNavItem(
-                      label: 'GAME MARKETS',
-                      page: AppPage.gameMarkets,
-                      icon: Icons.sports_rounded,
-                      requiredTier: SubscriptionTier.core,
-                    ),
-                    const SizedBox(width: 4),
-                    _buildNavItem(
-                      label: 'ANALYTICS',
-                      page: AppPage.analytics,
-                      icon: Icons.analytics_outlined,
-                      requiredTier: SubscriptionTier.core,
-                      hasProUpgrade: true,
-                    ),
-                    const SizedBox(width: 4),
-                    _buildNavItem(
-                      label: 'SLIP WATCHER',
-                      page: AppPage.watchlist,
-                      icon: Icons.receipt_long_rounded,
-                      requiredTier: SubscriptionTier.core,
-                      hasProUpgrade: true,
-                    ),
-                    const SizedBox(width: 4),
-                    _buildNavItem(
-                      label: 'PAST SLIP HISTORY',
-                      page: AppPage.pastSlipHistory,
-                      icon: Icons.history_rounded,
-                      requiredTier: SubscriptionTier.core,
-                      hasProUpgrade: true,
-                    ),
-                    const SizedBox(width: 4),
-                    _buildNavItem(
-                      label: 'LINE MOVEMENT',
-                      page: AppPage.lineMovement,
-                      icon: Icons.stacked_line_chart_rounded,
-                      requiredTier: SubscriptionTier.core,
-                      hasProUpgrade: true,
-                    ),
-                    if (AuthManager.instance.sessionState.value.isOwner) ...[
-                      const SizedBox(width: 4),
+                    for (final (label, icon, entries) in _navGroups)
+                      _buildNavGroup(label, icon, entries),
+                    if (AuthManager.instance.sessionState.value.isOwner)
                       _buildNavItem(
                         label: 'OWNER OPS',
                         page: AppPage.ownerOperations,
                         icon: Icons.admin_panel_settings_outlined,
                       ),
-                    ],
                   ],
                 ),
               ),
