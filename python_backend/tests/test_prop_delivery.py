@@ -169,6 +169,15 @@ def test_playable_filter_returns_every_actionable_verdict(monkeypatch) -> None:
     assert response.json()["count"] == 3
     assert len(response.json()["props"]) == 2
     assert all(row["verdict"]["actionable"] for row in response.json()["props"])
+    assert response.json()["verdictCounts"] == {
+        "ACTIONABLE": 3,
+        "ALL": 5,
+        "LEAN": 1,
+        "PASS": 1,
+        "PLAY_NOW": 1,
+        "SHOP": 1,
+        "WAIT": 1,
+    }
 
 def test_prop_id_stays_stable_when_site_line_changes() -> None:
     before = _make_prop_id("event-1", "Player One", "points", 20.5, "FanDuel")
@@ -619,6 +628,41 @@ def test_prop_feed_monitor_reports_payload_and_freshness(monkeypatch) -> None:
     assert health["stale"] is False
     assert health["lastTotalCount"] == 1
     assert health["lastPayloadBytes"] > 0
+
+
+def test_prop_feed_monitor_uses_shared_catalog_after_restart(monkeypatch) -> None:
+    """A new API instance must not call a healthy shared feed empty."""
+
+    from datetime import datetime, timezone
+
+    updated_at = datetime.now(timezone.utc).isoformat()
+    monkeypatch.setattr(
+        main,
+        "get_distributed_json",
+        lambda key: {
+            "count": 4738,
+            "lastDataUpdatedAt": updated_at,
+            "version": "deployed",
+        } if key == main._PROP_CATALOG_SUMMARY_KEY else None,
+    )
+    monkeypatch.setattr(main, "_prop_metrics", {
+        "requests": 0,
+        "errors": 0,
+        "emptyResponses": 0,
+        "lastDurationMs": 0,
+        "lastPayloadBytes": 0,
+        "lastServedAt": None,
+        "lastTotalCount": 0,
+        "lastDataUpdatedAt": None,
+        "lastRequestSucceeded": None,
+    })
+
+    health = TestClient(main.app).get("/api/operations/prop-feed-health").json()
+
+    assert health["status"] == "ok"
+    assert health["latestEmpty"] is False
+    assert health["stale"] is False
+    assert health["lastTotalCount"] == 4738
 
 
 def test_edge_ranking_uses_no_vig_probability_not_stat_units(monkeypatch) -> None:

@@ -53,3 +53,22 @@ def test_a_single_event_payload_is_accepted():
     _reset()
     odds_service.record_bookmakers({"bookmakers": [{"key": "fanduel"}]})
     assert "fanduel" in odds_service.bookmaker_coverage()["seen"]
+
+def test_shared_sightings_survive_process_restart(monkeypatch):
+    _reset()
+    monkeypatch.setattr(
+        odds_service,
+        "_read_bookmakers_seen",
+        lambda: {
+            "prizepicks": {
+                "title": "PrizePicks",
+                "events": 12,
+                "lastSeenAt": "2026-08-08T18:00:00+00:00",
+            },
+        },
+    )
+
+    coverage = odds_service.bookmaker_coverage()
+
+    assert coverage["seen"]["prizepicks"]["events"] == 12
+    assert "prizepicks" not in coverage["requestedButNeverSeen"]

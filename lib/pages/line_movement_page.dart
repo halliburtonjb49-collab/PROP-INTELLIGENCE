@@ -834,7 +834,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
 
   Widget _mobileMovementCard(_LineMovementItem item) {
     final movement =
-        '${item.previousLine?.toStringAsFixed(1) ?? '--'}  â†’  ${item.currentLine?.toStringAsFixed(1) ?? '--'}';
+        '${item.previousLine?.toStringAsFixed(1) ?? '--'}  →  ${item.currentLine?.toStringAsFixed(1) ?? '--'}';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -1178,7 +1178,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
                     const SizedBox(width: 14),
                     Expanded(
                       child: Text(
-                        'Sharp $sharpMoves  â€¢  Other $otherMoves  â€¢  No movement $noMovement',
+                        'Sharp $sharpMoves  •  Other $otherMoves  •  No movement $noMovement',
                         maxLines: 3,
                         style: const TextStyle(
                           color: AppColors.white,

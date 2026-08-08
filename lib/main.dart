@@ -3070,6 +3070,7 @@ class _MainDashboardState extends State<MainDashboard> {
   Map<String, int> _siteSportCounts = const {};
   Map<String, Map<String, int>> _siteSportCategoryCounts = const {};
   Map<String, int> _categoryCounts = const {};
+  Map<String, int> _verdictCounts = const {};
   List<PropData> _evScannerProps = const [];
   final TextEditingController _evSearchController = TextEditingController();
   String _evBook = 'ALL';
@@ -3425,6 +3426,7 @@ class _MainDashboardState extends State<MainDashboard> {
     setState(() {
       _latestProps = props;
       _categoryCounts = categoryCounts;
+      _verdictCounts = _apiService.lastVerdictCounts;
       if (_selectedSite != 'ALL' && _selectedCategory == 'ALL') {
         _siteInventoryProps = props;
         if (_selectedSiteSport.isEmpty) {
@@ -5366,7 +5368,9 @@ class _MainDashboardState extends State<MainDashboard> {
               child: Semantics(
                 button: true,
                 selected: _verdictFilter == value,
-                label: 'Show $label',
+                label: _verdictCounts[value] == null
+                    ? 'Show $label'
+                    : 'Show $label, ${_verdictCounts[value]} available',
                 child: GestureDetector(
                   key: ValueKey('verdict-filter-$value'),
                   onTap: () => setState(() => _verdictFilter = value),
@@ -5383,7 +5387,9 @@ class _MainDashboardState extends State<MainDashboard> {
                       border: Border.all(color: AppColors.gold),
                     ),
                     child: Text(
-                      label,
+                      _verdictCounts[value] == null
+                          ? label
+                          : '$label ${_verdictCounts[value]}',
                       style: TextStyle(
                         color: _verdictFilter == value
                             ? app_colors.AppColors.bgBase

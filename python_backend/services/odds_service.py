@@ -266,6 +266,44 @@ def fetch_game_odds(
 # record what came back.
 _bookmakers_seen: dict[str, dict[str, object]] = {}
 _bookmakers_lock = Lock()
+_BOOKMAKERS_SEEN_KEY = "odds:bookmaker-coverage"
+_BOOKMAKERS_SEEN_TTL_SECONDS = 6 * 60 * 60
+
+
+def _publish_bookmakers_seen(snapshot: dict[str, dict[str, object]]) -> None:
+    try:
+        from services.distributed_cache_service import set_json
+
+        shared = _read_bookmakers_seen()
+        for key, value in shared.items():
+            current = snapshot.get(key)
+            if (
+                isinstance(value, dict)
+                and (
+                    current is None
+                    or int(value.get("events") or 0)
+                    > int(current.get("events") or 0)
+                )
+            ):
+                snapshot[key] = dict(value)
+        set_json(
+            _BOOKMAKERS_SEEN_KEY,
+            snapshot,
+            ttl_seconds=_BOOKMAKERS_SEEN_TTL_SECONDS,
+        )
+    except Exception:
+        # Diagnostics must never break a provider fetch.
+        pass
+
+
+def _read_bookmakers_seen() -> dict[str, dict[str, object]]:
+    try:
+        from services.distributed_cache_service import get_json
+
+        value = get_json(_BOOKMAKERS_SEEN_KEY)
+    except Exception:
+        return {}
+    return value if isinstance(value, dict) else {}
 
 
 def record_bookmakers(events: object) -> None:
@@ -273,6 +311,7 @@ def record_bookmakers(events: object) -> None:
 
     rows = events if isinstance(events, list) else [events]
     now = datetime.now(timezone.utc).isoformat()
+    shared = _read_bookmakers_seen()
     with _bookmakers_lock:
         for event in rows:
             if not isinstance(event, dict):
@@ -283,12 +322,19 @@ def record_bookmakers(events: object) -> None:
                 key = str(bookmaker.get("key") or "").strip().lower()
                 if not key:
                     continue
+                baseline = shared.get(key)
                 entry = _bookmakers_seen.setdefault(
                     key,
-                    {"title": bookmaker.get("title"), "events": 0, "lastSeenAt": None},
+                    dict(baseline) if isinstance(baseline, dict) else {
+                        "title": bookmaker.get("title"),
+                        "events": 0,
+                        "lastSeenAt": None,
+                    },
                 )
                 entry["events"] = int(entry.get("events") or 0) + 1
                 entry["lastSeenAt"] = now
+        snapshot = {key: dict(value) for key, value in _bookmakers_seen.items()}
+    _publish_bookmakers_seen(snapshot)
 
 
 def bookmaker_coverage() -> dict[str, object]:
@@ -296,6 +342,16 @@ def bookmaker_coverage() -> dict[str, object]:
 
     with _bookmakers_lock:
         seen = {key: dict(value) for key, value in _bookmakers_seen.items()}
+    shared = _read_bookmakers_seen()
+    for key, value in shared.items():
+        if not isinstance(value, dict):
+            continue
+        current = seen.get(key)
+        if (
+            current is None
+            or int(value.get("events") or 0) > int(current.get("events") or 0)
+        ):
+            seen[key] = dict(value)
     requested = list(PREFERRED_BOOKMAKERS)
     return {
         "requested": requested,

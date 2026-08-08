@@ -1978,6 +1978,19 @@ def public_performance_track_record(
 def prop_feed_health() -> dict[str, object]:
 	with _prop_metrics_lock:
 		metrics = dict(_prop_metrics)
+	# Request counters are process-local, while the prop catalog is shared by
+	# every API instance. A fresh deploy therefore starts with a zero count and
+	# no timestamp even when Redis already holds a healthy catalog. Use that
+	# fleet-wide summary as the source of truth for catalog health; keep the
+	# local counters for request success/latency diagnostics below.
+	shared_summary = get_distributed_json(_PROP_CATALOG_SUMMARY_KEY)
+	if not isinstance(shared_summary, dict) or int(shared_summary.get("count") or 0) <= 0:
+		shared_summary = _prop_catalog_summary_from_version(
+			get_distributed_json(_PROP_CATALOG_VERSION_KEY)
+		)
+	if isinstance(shared_summary, dict) and int(shared_summary.get("count") or 0) > 0:
+		metrics["lastTotalCount"] = int(shared_summary["count"])
+		metrics["lastDataUpdatedAt"] = shared_summary.get("lastDataUpdatedAt")
 	requests_count = max(1, int(metrics["requests"]))
 	last_data_updated = str(metrics.get("lastDataUpdatedAt") or "")
 	stale_after_minutes = max(
@@ -2355,6 +2368,7 @@ def props(
 			*,
 			apply_category: bool,
 			apply_sportsbook: bool = True,
+			apply_verdict: bool = True,
 		) -> bool:
 			# This predicate runs across the complete live catalog, often more
 			# than 8,000 rows. Reading model attributes directly avoids creating
@@ -2419,7 +2433,7 @@ def props(
 				return False
 			if confidence < min_confidence:
 				return False
-			if verdict_filter != "ALL":
+			if apply_verdict and verdict_filter != "ALL":
 				prop_verdict = (
 					prop.verdict if isinstance(prop.verdict, dict) else {}
 				)
@@ -2464,6 +2478,27 @@ def props(
 			prop for prop in facet_props
 			if _matches_filters(prop, apply_category=True)
 		]
+		verdict_base_props = [
+			prop for prop in prop_list
+			if _matches_filters(
+				prop,
+				apply_category=True,
+				apply_verdict=False,
+			)
+		]
+		verdict_counts = Counter(
+			str(
+				(getattr(prop, "verdict", None) or {}).get("decision")
+				or "UNJUDGED"
+			).upper()
+			for prop in verdict_base_props
+		)
+		verdict_counts["ALL"] = len(verdict_base_props)
+		verdict_counts["ACTIONABLE"] = sum(
+			1
+			for prop in verdict_base_props
+			if bool((getattr(prop, "verdict", None) or {}).get("actionable"))
+		)
 
 		tier_rank = {
 			"premium": 3,
@@ -2576,6 +2611,7 @@ def props(
 			# Lets the board hide a prop site that currently has nothing,
 			# rather than offering a filter that returns an empty screen.
 			"sportsbookCounts": dict(sorted(sportsbook_counts.items())),
+			"verdictCounts": dict(sorted(verdict_counts.items())),
 			"sportCategoryCounts": {
 				sport_key: dict(sorted(counts.items()))
 				for sport_key, counts in sorted(sport_category_counts.items())
