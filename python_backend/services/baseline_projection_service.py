@@ -85,20 +85,59 @@ def _market_text(value: object) -> str:
     return re.sub(r"\s+", " ", str(value or "").lower().replace("_", " ")).strip()
 
 
+# Markets no single ingested stat measures. Tested before the table below,
+# because several of them contain a phrase that would otherwise match.
+#
+# The composites are the important ones: pass+rush yards and rush+reception
+# yards are sums the box score does not store, and matching them on "rush
+# yds" would project one half of the bet against a line covering both. The
+# rest are simply not ingested; leaving them unmatched keeps them honest.
+_UNSUPPORTED_GRIDIRON_ICE_MARKETS: tuple[str, ...] = (
+    "pass rush yds",
+    "rush reception yds",
+    "reception longest",
+    "rush longest",
+    "longest",
+    "anytime td",
+    "anytime touchdown",
+    "sacks",
+    "solo tackles",
+    "tackles assists",
+    "tackles",
+    # A subset of points, not points. Matching the shorter phrase projected a
+    # player's whole scoring rate against a power-play-only line.
+    "power play points",
+)
+
 # Market text to the stat name the box-score ingestion stores. Matched in
 # order, so a longer phrase is tested before a shorter one it contains.
+#
+# Both spellings are listed deliberately. The provider's keys are abbreviated
+# -- player_pass_yds, player_rush_yds, player_reception_tds -- while this
+# table originally held only the written-out forms, so fifteen of nineteen
+# NFL markets matched nothing and every one of them went unprojected. That
+# looked like missing history rather than a mapping that could not see them.
 _NFL_MARKET_STATS: tuple[tuple[str, str], ...] = (
     ("passing yards", "passing_yards"),
+    ("pass yds", "passing_yards"),
     ("pass attempts", "pass_attempts"),
     ("passing attempts", "pass_attempts"),
     ("completions", "completions"),
     ("passing touchdowns", "passing_touchdowns"),
+    ("pass tds", "passing_touchdowns"),
     ("interceptions", "interceptions_thrown"),
     ("receiving yards", "receiving_yards"),
+    ("reception yds", "receiving_yards"),
+    ("receiving touchdowns", "receiving_touchdowns"),
+    ("reception tds", "receiving_touchdowns"),
     ("receptions", "receptions"),
     ("targets", "targets"),
     ("rushing yards", "rushing_yards"),
+    ("rush yds", "rushing_yards"),
+    ("rushing touchdowns", "rushing_touchdowns"),
+    ("rush tds", "rushing_touchdowns"),
     ("rushing attempts", "carries"),
+    ("rush attempts", "carries"),
     ("carries", "carries"),
 )
 
@@ -125,6 +164,9 @@ def _gridiron_ice_stat(sport: str, market: object) -> str | None:
     """
 
     text = _market_text(market)
+    for phrase in _UNSUPPORTED_GRIDIRON_ICE_MARKETS:
+        if phrase in text:
+            return None
     table = _NFL_MARKET_STATS if sport == "NFL" else _NHL_MARKET_STATS
     for phrase, stat in table:
         if phrase in text:
