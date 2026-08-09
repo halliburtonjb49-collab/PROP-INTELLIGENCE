@@ -24,6 +24,13 @@ void main() {
     expect(find.textContaining('PACE ADJUSTMENT'), findsOneWidget);
     expect(find.byIcon(Icons.help_outline_rounded), findsAtLeastNWidgets(2));
 
+    expect(find.byKey(const ValueKey('scenario-minutes')), findsOneWidget);
+    expect(find.byKey(const ValueKey('scenario-usage')), findsOneWidget);
+    expect(find.byKey(const ValueKey('scenario-weather')), findsOneWidget);
+    expect(find.byKey(const ValueKey('scenario-lineup')), findsOneWidget);
+    expect(find.byKey(const ValueKey('scenario-reset')), findsOneWidget);
+    expect(find.textContaining('user-controlled assumptions'), findsOneWidget);
+
     await tester.tap(find.text('QUICK GUIDE'));
     await tester.pumpAndSettle();
     expect(find.text('How to use Intelligence Lab'), findsOneWidget);

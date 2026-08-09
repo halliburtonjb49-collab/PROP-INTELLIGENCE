@@ -97,6 +97,65 @@ def test_game_script_applies_regression_and_pace_controls() -> None:
     assert result["impacts"][0]["adjustedProjection"] == 27.5
 
 
+def test_game_script_exposes_transparent_scenario_factors() -> None:
+    request = GameScriptRequest(
+        script="CLOSE",
+        sport="NFL",
+        props=[
+            PropLegInput(
+                player="Receiver",
+                sport="NFL",
+                market="receiving yards",
+                side="OVER",
+                baseline_projection=100,
+                line=80,
+            )
+        ],
+        simulations=500,
+        minutes_adjustment=.9,
+        usage_adjustment=1.1,
+        weather_adjustment=.95,
+        lineup_status="LIMITED",
+    )
+
+    result = simulate_game_script(request)
+    impact = result["impacts"][0]
+
+    assert result["minutesAdjustment"] == .9
+    assert result["usageAdjustment"] == 1.1
+    assert result["weatherAdjustment"] == .95
+    assert result["lineupStatus"] == "LIMITED"
+    assert impact["factorBreakdown"] == {
+        "script": 1.0,
+        "minutes": .9,
+        "usage": 1.1,
+        "weather": .95,
+        "lineup": .75,
+        "combined": .7054,
+    }
+    assert impact["adjustedProjection"] == 70.54
+
+
+def test_game_script_out_lineup_zeroes_projection() -> None:
+    result = simulate_game_script(GameScriptRequest(
+        script="SHOOTOUT",
+        sport="NFL",
+        props=[PropLegInput(
+            player="Inactive player",
+            sport="NFL",
+            market="receiving yards",
+            side="OVER",
+            baseline_projection=80,
+            line=60,
+        )],
+        simulations=500,
+        lineup_status="OUT",
+    ))
+
+    assert result["impacts"][0]["adjustedProjection"] == 0
+    assert result["impacts"][0]["factorBreakdown"]["lineup"] == 0
+
+
 def test_historical_features_recommend_calibrated_inputs() -> None:
     result = historical_features(HistoricalFeatureRequest(
         values=[18, 20, 21, 23, 24, 26], minutes=[30, 32, 32, 34, 35, 36], window=6))

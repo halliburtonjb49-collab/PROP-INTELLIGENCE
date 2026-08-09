@@ -55,6 +55,10 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
   String _sideB = 'OVER';
   double _regressionWeight = 0;
   double _paceAdjustment = 1;
+  double _minutesAdjustment = 1;
+  double _usageAdjustment = 1;
+  double _weatherAdjustment = 1;
+  String _lineupScenario = 'UNCHANGED';
   bool _busy = false;
   String? _error;
   Map<String, dynamic>? _correlation;
@@ -378,6 +382,21 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
     return _selectedSport;
   }
 
+  bool get _weatherRelevant => {'NFL', 'MLB'}.contains(_analysisSport);
+
+  void _resetScenario() {
+    setState(() {
+      _script = 'CLOSE';
+      _regressionWeight = 0;
+      _paceAdjustment = 1;
+      _minutesAdjustment = 1;
+      _usageAdjustment = 1;
+      _weatherAdjustment = 1;
+      _lineupScenario = 'UNCHANGED';
+      _simulation = null;
+    });
+  }
+
   String get _similarityMarket {
     final sourceMarket = _selectionA?.prop.market.trim();
     return sourceMarket?.isNotEmpty == true ? sourceMarket! : _marketA.text;
@@ -434,6 +453,10 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
           'seed': 42,
           'regression_weight': _regressionWeight,
           'pace_adjustment': _paceAdjustment,
+          'minutes_adjustment': _minutesAdjustment,
+          'usage_adjustment': _usageAdjustment,
+          'weather_adjustment': _weatherRelevant ? _weatherAdjustment : 1.0,
+          'lineup_status': _lineupScenario,
         }),
         _api.fetchPropSentiment(_sentimentPropId),
         _api.postIntelligence('alerts/evaluate', {
@@ -877,13 +900,125 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
                     ? null
                     : (value) => setState(() => _paceAdjustment = value),
               ),
+              Text(
+                'MINUTES  ${(_minutesAdjustment * 100).round()}%',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Slider(
+                key: const ValueKey('scenario-minutes'),
+                value: _minutesAdjustment,
+                min: .5,
+                max: 1.5,
+                divisions: 20,
+                label: '${(_minutesAdjustment * 100).round()}%',
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() => _minutesAdjustment = value),
+              ),
+              Text(
+                'USAGE  ${(_usageAdjustment * 100).round()}%',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Slider(
+                key: const ValueKey('scenario-usage'),
+                value: _usageAdjustment,
+                min: .5,
+                max: 1.5,
+                divisions: 20,
+                label: '${(_usageAdjustment * 100).round()}%',
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() => _usageAdjustment = value),
+              ),
+              Text(
+                _weatherRelevant
+                    ? 'WEATHER / ENVIRONMENT  ${(_weatherAdjustment * 100).round()}%'
+                    : 'WEATHER / ENVIRONMENT  N/A FOR $_analysisSport',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Slider(
+                key: const ValueKey('scenario-weather'),
+                value: _weatherRelevant ? _weatherAdjustment : 1,
+                min: .8,
+                max: 1.2,
+                divisions: 20,
+                label: '${(_weatherAdjustment * 100).round()}%',
+                onChanged: _busy || !_weatherRelevant
+                    ? null
+                    : (value) => setState(() => _weatherAdjustment = value),
+              ),
+              const Text(
+                'LINEUP STATUS',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              DropdownButton<String>(
+                key: const ValueKey('scenario-lineup'),
+                value: _lineupScenario,
+                isExpanded: true,
+                items:
+                    const {
+                          'UNCHANGED': 'Unchanged / unknown',
+                          'CONFIRMED': 'Confirmed role',
+                          'LIMITED': 'Minutes restriction',
+                          'BENCH': 'Moved to bench',
+                          'OUT': 'Ruled out',
+                        }.entries
+                        .map(
+                          (entry) => DropdownMenuItem(
+                            value: entry.key,
+                            child: Text(entry.value),
+                          ),
+                        )
+                        .toList(),
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() => _lineupScenario = value!),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Scenario factors multiply the baseline projection. They are user-controlled assumptions, not new facts.',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 9,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    key: const ValueKey('scenario-reset'),
+                    onPressed: _busy ? null : _resetScenario,
+                    icon: const Icon(Icons.restart_alt, size: 16),
+                    label: const Text('RESET'),
+                  ),
+                ],
+              ),
             ],
           ),
           step: 2,
           description:
-              'Test how the expected game environment changes projections.',
+              'Adjust minutes, usage, weather, lineup status, and game environment to see the projection change.',
           help:
-              'A game script is a hypothetical game environment. A blowout can reduce starter minutes, while a shootout can increase passing or scoring volume.',
+              'Every control is a hypothetical assumption. PI shows the combined multiplier and simulated result so the projection change can be audited.',
         ),
         _card(
           'PGVECTOR SIMILARITY MATCHER',
@@ -947,10 +1082,13 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
                 const SizedBox(height: 8),
                 Text(
                   impacts
-                      .map(
-                        (e) =>
-                            '${e['player']}: ${e['adjustedProjection'] ?? '--'} vs ${e['line'] ?? '--'} | hit ${e['hitProbability'] == null ? '--' : '${((e['hitProbability'] as num) * 100).toStringAsFixed(1)}%'}',
-                      )
+                      .map((e) {
+                        final factors = e['factorBreakdown'] as Map?;
+                        final combined = (factors?['combined'] as num?)
+                            ?.toDouble();
+                        return '${e['player']}: ${e['adjustedProjection'] ?? '--'} vs ${e['line'] ?? '--'} | hit ${e['hitProbability'] == null ? '--' : '${((e['hitProbability'] as num) * 100).toStringAsFixed(1)}%'}\n'
+                            '  combined factor ${combined == null ? '--' : '${(combined * 100).toStringAsFixed(0)}%'} · ${e['reason']}';
+                      })
                       .join('\n'),
                   style: const TextStyle(color: Colors.white),
                 ),

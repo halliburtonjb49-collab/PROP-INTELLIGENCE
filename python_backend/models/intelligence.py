@@ -113,6 +113,10 @@ class GameScriptRequest(BaseModel):
     seed: int = Field(default=42, ge=0, le=2_147_483_647)
     regression_weight: float = Field(default=0.0, ge=0, le=1)
     pace_adjustment: float = Field(default=1.0, ge=0.75, le=1.25)
+    minutes_adjustment: float = Field(default=1.0, ge=0.5, le=1.5)
+    usage_adjustment: float = Field(default=1.0, ge=0.5, le=1.5)
+    weather_adjustment: float = Field(default=1.0, ge=0.8, le=1.2)
+    lineup_status: Literal["UNCHANGED", "CONFIRMED", "LIMITED", "BENCH", "OUT"] = "UNCHANGED"
 
 
 class SimilarityCandidate(BaseModel):

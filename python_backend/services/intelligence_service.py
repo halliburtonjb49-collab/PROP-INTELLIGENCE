@@ -186,7 +186,21 @@ def simulate_game_script(request: GameScriptRequest) -> dict[str, object]:
         elif request.script == "LOW_SCORING":
             multiplier, reason = (.87 if family in {"passing", "receiving", "point", "assist", "three"} else 1.06,
                                   "Low-scoring script suppresses offensive efficiency")
-        hit_shift = (multiplier - 1) * (1 if prop.side == "OVER" else -1)
+        lineup_multiplier = {
+            "UNCHANGED": 1.0,
+            "CONFIRMED": 1.0,
+            "LIMITED": 0.75,
+            "BENCH": 0.70,
+            "OUT": 0.0,
+        }[request.lineup_status]
+        combined_multiplier = (
+            multiplier
+            * request.minutes_adjustment
+            * request.usage_adjustment
+            * request.weather_adjustment
+            * lineup_multiplier
+        )
+        hit_shift = (combined_multiplier - 1) * (1 if prop.side == "OVER" else -1)
         baseline = prop.baseline_projection if prop.baseline_projection is not None else prop.line
         line = prop.line if prop.line is not None else baseline
         if baseline is not None and line is not None:
@@ -202,8 +216,16 @@ def simulate_game_script(request: GameScriptRequest) -> dict[str, object]:
             variance=float(deviation) ** 2,
         )
         impacts.append({"id": prop.id, "player": prop.player, "market": prop.market,
-                        "projectionMultiplier": multiplier, "hitProbabilityShift": round(hit_shift, 3),
-                        "adjustedProjection": round(baseline * multiplier, 2) if baseline is not None else None,
+                        "projectionMultiplier": round(combined_multiplier, 4), "hitProbabilityShift": round(hit_shift, 3),
+                        "adjustedProjection": round(baseline * combined_multiplier, 2) if baseline is not None else None,
+                        "factorBreakdown": {
+                            "script": round(multiplier, 4),
+                            "minutes": request.minutes_adjustment,
+                            "usage": request.usage_adjustment,
+                            "weather": request.weather_adjustment,
+                            "lineup": lineup_multiplier,
+                            "combined": round(combined_multiplier, 4),
+                        },
                         "line": line, "volatility": round(deviation, 3),
                         "distribution": distribution, "reason": reason})
 
@@ -247,6 +269,10 @@ def simulate_game_script(request: GameScriptRequest) -> dict[str, object]:
             "portfolioHitProbability": round(portfolio_hits / request.simulations, 4),
             "seed": request.seed, "regressionWeight": request.regression_weight,
             "paceAdjustment": request.pace_adjustment,
+            "minutesAdjustment": request.minutes_adjustment,
+            "usageAdjustment": request.usage_adjustment,
+            "weatherAdjustment": request.weather_adjustment,
+            "lineupStatus": request.lineup_status,
             "method": "correlated-distribution-copula-monte-carlo"}
 
 

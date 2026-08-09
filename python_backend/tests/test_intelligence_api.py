@@ -38,6 +38,10 @@ def test_integrated_lab_workflow() -> None:
             "script": "SHOOTOUT",
             "sport": "NFL",
             "simulations": 1000,
+            "minutes_adjustment": .9,
+            "usage_adjustment": 1.1,
+            "weather_adjustment": .95,
+            "lineup_status": "CONFIRMED",
             "props": [
                 {**legs[0], "baseline_projection": 280, "line": 265.5},
                 {**legs[1], "baseline_projection": 85, "line": 74.5},
@@ -67,6 +71,8 @@ def test_integrated_lab_workflow() -> None:
     assert len(simulation.json()["impacts"]) == 2
     assert simulation.json()["simulations"] == 1000
     assert simulation.json()["portfolioHitProbability"] is not None
+    assert simulation.json()["minutesAdjustment"] == .9
+    assert simulation.json()["impacts"][0]["factorBreakdown"]["combined"] > 0
     assert sentiment.status_code == 200
     assert sentiment.json()["score"] == 5
     assert alert.status_code == 200
