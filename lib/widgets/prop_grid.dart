@@ -23,6 +23,14 @@ import 'prop_research_controls.dart';
 import 'prop_trust_widgets.dart';
 import 'recommendation_explainability_block.dart';
 
+/// Keeps decision cards wide enough for verdict text, metrics, and pick actions.
+@visibleForTesting
+int propGridColumnCount(double availableWidth) {
+  if (availableWidth >= 1240) return 3;
+  if (availableWidth >= 820) return 2;
+  return 1;
+}
+
 class PropGrid extends StatefulWidget {
   final List<SlipSelection> selections;
   final void Function(PropData prop, PickSide side) onSelect;
@@ -2846,14 +2854,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
 
             return LayoutBuilder(
               builder: (context, constraints) {
-                int columns;
-                if (constraints.maxWidth >= 1050) {
-                  columns = 3;
-                } else if (constraints.maxWidth >= 650) {
-                  columns = 2;
-                } else {
-                  columns = 1;
-                }
+                final columns = propGridColumnCount(constraints.maxWidth);
 
                 final visibleCount = _visiblePropLimit.clamp(
                   0,
