@@ -37,6 +37,7 @@ import 'screens/paywall_screen.dart';
 import 'screens/password_recovery_screen.dart';
 import 'models/slip_selection.dart';
 import 'services/api_service.dart';
+import 'services/user_facing_error.dart';
 import 'services/prop_market_identity.dart';
 import 'services/prop_board_engine.dart';
 export 'services/prop_board_engine.dart';
@@ -9878,6 +9879,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                       ? 'The selected providers have not returned current $normalizedSport props. The board will refresh automatically when an authorized feed posts them.'
                       : describeLoadFailure(snapshot.error),
                   onRetry: _retryLoad,
+                  onSignIn: isAuthenticationLoadError(snapshot.error)
+                      ? () => unawaited(
+                          AuthManager.instance.signOut().catchError((_) {}),
+                        )
+                      : null,
                 ),
               );
             }

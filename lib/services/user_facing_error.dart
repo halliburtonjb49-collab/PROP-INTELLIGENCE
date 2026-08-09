@@ -1,13 +1,19 @@
+bool isAuthenticationLoadError(Object? error) {
+  final message = error?.toString().toLowerCase() ?? '';
+  return message.contains('401') ||
+      message.contains('403') ||
+      message.contains('unauthorized') ||
+      message.contains('forbidden') ||
+      message.contains('sign in before');
+}
+
 String userFacingLoadError(Object? error, {String noun = 'data'}) {
   final message = error?.toString().toLowerCase() ?? '';
 
   if (message.contains('timeout') || message.contains('timed out')) {
     return 'The $noun is taking longer than expected. Please retry in a moment.';
   }
-  if (message.contains('401') ||
-      message.contains('403') ||
-      message.contains('unauthorized') ||
-      message.contains('forbidden')) {
+  if (isAuthenticationLoadError(error)) {
     return 'Your session may have expired. Sign in again, then retry.';
   }
   if (message.contains('clientexception') ||

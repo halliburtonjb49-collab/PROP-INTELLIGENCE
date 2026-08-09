@@ -132,11 +132,13 @@ class PropLoadError extends StatelessWidget {
     this.title = 'Unable to load props',
     required this.message,
     required this.onRetry,
+    this.onSignIn,
   });
 
   final String title;
   final String message;
   final VoidCallback onRetry;
+  final VoidCallback? onSignIn;
 
   @override
   Widget build(BuildContext context) {
@@ -170,15 +172,22 @@ class PropLoadError extends StatelessWidget {
               style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
             ),
             const SizedBox(height: 15),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('RETRY'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.goldHighlight,
-                side: const BorderSide(color: AppColors.gold),
+            if (onSignIn != null)
+              FilledButton.icon(
+                onPressed: onSignIn,
+                icon: const Icon(Icons.login_rounded),
+                label: const Text('SIGN IN AGAIN'),
+              )
+            else
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('RETRY'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.goldHighlight,
+                  side: const BorderSide(color: AppColors.gold),
+                ),
               ),
-            ),
           ],
         ),
       ),

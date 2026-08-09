@@ -311,9 +311,13 @@ class AuthManager {
   Future<void> signOut() async {
     final client = _requireClient();
     _profileRefreshGeneration++;
-    await client.auth.signOut();
-    passwordRecoveryRequested.value = false;
-    sessionState.value = const AuthSessionState.signedOut();
+    try {
+      await client.auth.signOut();
+    } finally {
+      // A failed remote sign-out must not trap an expired user on an screen.
+      passwordRecoveryRequested.value = false;
+      sessionState.value = const AuthSessionState.signedOut();
+    }
   }
 
   void setOwnerAccessPreview(SubscriptionTier? tier) {

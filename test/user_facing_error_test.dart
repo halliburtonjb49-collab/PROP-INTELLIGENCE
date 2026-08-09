@@ -18,6 +18,8 @@ void main() {
       userFacingLoadError('Exception: API returned 401'),
       contains('Sign in again'),
     );
+    expect(isAuthenticationLoadError('Exception: API returned 401'), isTrue);
+    expect(isAuthenticationLoadError('ClientException: failed'), isFalse);
   });
 
   test('unknown failures remain safe and actionable', () {

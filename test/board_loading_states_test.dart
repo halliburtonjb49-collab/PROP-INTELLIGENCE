@@ -92,4 +92,25 @@ void main() {
     await tester.tap(find.text('RETRY'));
     expect(retried, isTrue);
   });
+  testWidgets('expired session presents a sign-in recovery action', (
+    tester,
+  ) async {
+    var signInRequested = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PropLoadError(
+            message: 'Exception: API returned 401',
+            onRetry: () {},
+            onSignIn: () => signInRequested = true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('SIGN IN AGAIN'), findsOneWidget);
+    expect(find.text('RETRY'), findsNothing);
+    await tester.tap(find.text('SIGN IN AGAIN'));
+    expect(signInRequested, isTrue);
+  });
 }
