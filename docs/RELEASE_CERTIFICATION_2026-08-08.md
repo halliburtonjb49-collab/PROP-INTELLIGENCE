@@ -2,7 +2,7 @@
 
 ## Scope
 
-This certificate covers the provider reliability, three-day coverage, Props board simplification, guided onboarding, product observability, and targeted architecture work based on baseline commit `c5e4e9f`.
+This certificate covers the provider reliability, three-day coverage, Props board simplification, guided onboarding, product observability, and targeted architecture work based on baseline commit `c5e4e9f`; deployed release commit `8a73db4`.
 
 ## Product acceptance criteria
 
@@ -27,8 +27,8 @@ This certificate covers the provider reliability, three-day coverage, Props boar
 | Windows release build | PASS | `build/windows/x64/runner/Release/prop_intelligence.exe` |
 | Diff integrity | PASS | `git diff --check` |
 | Phone-width reliability UI | PASS | 360 x 800 widget coverage, included in Flutter suite |
-| Android release build | PENDING HOSTED CI | Local Android SDK/AVD is unavailable |
-| Production smoke test | PENDING DEPLOYMENT | Must be performed against the deployed commit |
+| Android release build | PASS | Hosted CI built and uploaded the release APK |
+| Production smoke test | PASS | Deployed commit, app, API, CORS, props payload, and bundle verified |
 
 The Windows build required a target-scoped compatibility acknowledgement because `flutter_inappwebview_windows` still includes Microsoft's deprecated experimental coroutine header. The release executable builds successfully after the narrowly scoped CMake fix. Remaining compiler output is third-party warning-level output, not a failed gate.
 
@@ -51,7 +51,7 @@ These checks remain required before declaring the product a literal 10/10 releas
 | Android tablet | Portrait and landscape | Rail wrapping, drawers, details sheet, slip workflow | NOT EXECUTED |
 | iPad | Portrait and landscape | Rail wrapping, drawers, details sheet, slip workflow | NOT EXECUTED |
 | Windows desktop | Resizable | Startup, navigation, reliability details, embedded browser paths | BUILD PASS; INTERACTIVE PASS PENDING |
-| Chrome and Edge | 360, 768, 1440 widths | Onboarding, filter density, reliability sheet, empty/error/recovery states | AUTOMATED PASS; PRODUCTION SMOKE PENDING |
+| Chrome and Edge | 360, 768, 1440 widths | Onboarding, filter density, reliability sheet, empty/error/recovery states | AUTOMATED AND PRODUCTION SMOKE PASS |
 
 ## Production smoke checklist
 
@@ -68,6 +68,14 @@ After deployment:
 9. Confirm no provider's missing lines are replaced with another provider's lines.
 10. Run the primary prop-builder and billing-return workflows.
 
+## Deployed production evidence
+
+- Release commit: `8a73db4df8fdfc1556729de085a753406df6832d`
+- Readiness: `ready=true`; database, Redis cache, RQ queue, and PostgreSQL ticket storage available.
+- Hosted CI: PASS, including Android release APK, Flutter analysis/tests/web bundle, backend tests, and hardening checks.
+- Deploy to Production: PASS.
+- Production smoke: PASS.
+- Signed-in visual inspection: PASS for the compact provider selector, reliability strip, three-day details sheet, provider status rows, verdict counts, and verdict decision guide.
 ## Release decision
 
-The change set is certified for automated backend, Flutter, web-release, and Windows-release gates. Final cross-platform certification remains conditional on hosted Android CI, production smoke testing, and physical Android/iOS execution. Those limitations are recorded explicitly rather than being treated as passed.
+The change set is certified for automated backend, Flutter, web-release, and Windows-release gates. The release is deployed and certified by hosted Android CI plus production smoke testing. Final physical-device certification remains conditional on Android/iOS execution. Those limitations are recorded explicitly rather than being treated as passed.
