@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/context_help.dart';
+import '../widgets/personal_edge_profile.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -550,6 +551,8 @@ class _PropBuilderPerformanceScreenState
                 ),
               ],
             ),
+            const SizedBox(height: 14),
+            PersonalEdgeProfileCard(performance: performance),
             const SizedBox(height: 14),
             _howToUsePanel(),
             const SizedBox(height: 10),

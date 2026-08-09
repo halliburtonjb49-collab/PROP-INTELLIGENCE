@@ -92,6 +92,12 @@ class PropBuilderPerformanceResponse(BaseModel):
     leg_performance_by_market: list[LegPerformanceBreakdown] = Field(
         default_factory=list,
     )
+    leg_performance_by_side: list[LegPerformanceBreakdown] = Field(
+        default_factory=list,
+    )
+    leg_performance_by_confidence: list[LegPerformanceBreakdown] = Field(
+        default_factory=list,
+    )
     leg_performance_by_player: list[LegPerformanceBreakdown] = Field(
         default_factory=list,
     )

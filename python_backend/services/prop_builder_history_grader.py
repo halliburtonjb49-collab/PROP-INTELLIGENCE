@@ -54,7 +54,7 @@ def _group_stats_by_game(
     return grouped
 
 
-def grade_prop_builder_history() -> dict[str, int]:
+def grade_prop_builder_history(*, user_id: str = "") -> dict[str, int]:
     initialize_prop_builder_history()
     provider = WnbaPlayerStatsProvider()
     with _connect() as connection:
@@ -62,9 +62,10 @@ def grade_prop_builder_history() -> dict[str, int]:
             """
             SELECT *
             FROM prop_builder_history
-            WHERE status = 'pending'
+            WHERE status = 'pending' AND user_id = ?
             ORDER BY created_at ASC
-            """
+            """,
+            (user_id.strip(),),
         ).fetchall()
 
     histories_checked = 0

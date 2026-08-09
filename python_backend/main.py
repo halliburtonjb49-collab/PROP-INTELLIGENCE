@@ -3413,6 +3413,7 @@ def put_player_availability(
 )
 def prop_builder(
 	request: PropBuilderRequest,
+	user_id: str = Depends(require_user_id),
 ) -> PropBuilderResponse:
 	try:
 		prop_list = get_props()
@@ -3465,7 +3466,8 @@ def prop_builder(
 					],
 					status="pending",
 					legs_pending=result.generated_legs,
-				)
+				),
+				user_id=user_id,
 			)
 
 		return result
@@ -3617,9 +3619,11 @@ def remove_prop_builder_preset(
 )
 def get_builder_history(
 	limit: int = 30,
+	user_id: str = Depends(require_user_id),
 ) -> list[PropBuilderHistory]:
 	return list_prop_builder_history(
 		limit=limit,
+		user_id=user_id,
 	)
 
 
@@ -3634,6 +3638,7 @@ def prop_builder_performance(
 	prop_site: str | None = None,
 	market: str | None = None,
 	player: str | None = None,
+	user_id: str = Depends(require_user_id),
 ) -> PropBuilderPerformanceResponse:
 	safe_days = None
 	if days is not None:
@@ -3652,15 +3657,18 @@ def prop_builder_performance(
 		prop_site=prop_site,
 		market=market,
 		player=player,
+		user_id=user_id,
 	)
 
 
 @app.post(
 	"/api/prop-builder/history/grade",
 )
-def grade_builder_history() -> dict[str, object]:
+def grade_builder_history(
+	user_id: str = Depends(require_user_id),
+) -> dict[str, object]:
 	try:
-		result = grade_prop_builder_history()
+		result = grade_prop_builder_history(user_id=user_id)
 		return {
 			"status": "complete",
 			**result,
@@ -3689,9 +3697,11 @@ def prop_builder_strategy() -> PropBuilderStrategyResponse:
 )
 def get_builder_history_item(
 	history_id: int,
+	user_id: str = Depends(require_user_id),
 ) -> PropBuilderHistory:
 	build = get_prop_builder_history(
-		history_id
+		history_id,
+		user_id=user_id,
 	)
 	if build is None:
 		raise HTTPException(
@@ -3707,9 +3717,11 @@ def get_builder_history_item(
 )
 def remove_builder_history_item(
 	history_id: int,
+	user_id: str = Depends(require_user_id),
 ) -> dict[str, object]:
 	deleted = delete_prop_builder_history(
-		history_id
+		history_id,
+		user_id=user_id,
 	)
 	if not deleted:
 		raise HTTPException(
@@ -3726,8 +3738,10 @@ def remove_builder_history_item(
 @app.delete(
 	"/api/prop-builder/history",
 )
-def remove_all_builder_history() -> dict[str, object]:
-	deleted_count = clear_prop_builder_history()
+def remove_all_builder_history(
+	user_id: str = Depends(require_user_id),
+) -> dict[str, object]:
+	deleted_count = clear_prop_builder_history(user_id=user_id)
 	return {
 		"deleted": True,
 		"deleted_count": deleted_count,

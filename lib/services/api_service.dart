@@ -2220,7 +2220,7 @@ class ApiService {
     final response = await http
         .post(
           uri,
-          headers: const {'Content-Type': 'application/json'},
+          headers: await _authenticatedHeaders(json: true),
           body: jsonEncode({
             'sports': sports,
             'prop_sites': propSites,
@@ -2405,7 +2405,9 @@ class ApiService {
     int limit = 30,
   }) async {
     final uri = Uri.parse('$baseUrl/api/prop-builder/history?limit=$limit');
-    final response = await http.get(uri).timeout(const Duration(seconds: 20));
+    final response = await http
+        .get(uri, headers: await _authenticatedHeaders())
+        .timeout(const Duration(seconds: 20));
     if (response.statusCode != 200) {
       throw Exception('Unable to load builder history: ${response.body}');
     }
@@ -2422,7 +2424,7 @@ class ApiService {
   Future<void> deletePropBuilderHistoryItem(int historyId) async {
     final uri = Uri.parse('$baseUrl/api/prop-builder/history/$historyId');
     final response = await http
-        .delete(uri)
+        .delete(uri, headers: await _authenticatedHeaders())
         .timeout(const Duration(seconds: 20));
     if (response.statusCode != 200) {
       throw Exception('Unable to delete build history: ${response.body}');
@@ -2432,7 +2434,7 @@ class ApiService {
   Future<void> clearPropBuilderHistory() async {
     final uri = Uri.parse('$baseUrl/api/prop-builder/history');
     final response = await http
-        .delete(uri)
+        .delete(uri, headers: await _authenticatedHeaders())
         .timeout(const Duration(seconds: 20));
     if (response.statusCode != 200) {
       throw Exception('Unable to clear build history: ${response.body}');
@@ -2441,7 +2443,9 @@ class ApiService {
 
   Future<Map<String, dynamic>> gradePropBuilderHistory() async {
     final uri = Uri.parse('$baseUrl/api/prop-builder/history/grade');
-    final response = await http.post(uri).timeout(const Duration(seconds: 60));
+    final response = await http
+        .post(uri, headers: await _authenticatedHeaders())
+        .timeout(const Duration(seconds: 60));
     if (response.statusCode != 200) {
       throw Exception('Unable to grade builder history: ${response.body}');
     }
@@ -2479,7 +2483,9 @@ class ApiService {
     final uri = Uri.parse(
       '$baseUrl/api/prop-builder/performance',
     ).replace(queryParameters: query);
-    final response = await http.get(uri).timeout(const Duration(seconds: 30));
+    final response = await http
+        .get(uri, headers: await _authenticatedHeaders())
+        .timeout(const Duration(seconds: 30));
     if (response.statusCode != 200) {
       throw Exception('Unable to load builder performance: ${response.body}');
     }

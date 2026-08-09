@@ -25,6 +25,7 @@ def initialize_prop_builder_history() -> None:
             CREATE TABLE IF NOT EXISTS
             prop_builder_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL,
                 build_mode TEXT NOT NULL,
                 risk_mode TEXT NOT NULL DEFAULT 'BALANCED',
@@ -50,6 +51,7 @@ def initialize_prop_builder_history() -> None:
 
 def _ensure_history_columns() -> None:
     required_columns = {
+        "user_id": "TEXT NOT NULL DEFAULT ''",
         "risk_mode": "TEXT NOT NULL DEFAULT 'BALANCED'",
         "markets_json": "TEXT NOT NULL DEFAULT '[]'",
         "status": "TEXT NOT NULL DEFAULT 'pending'",
@@ -85,6 +87,8 @@ def _ensure_history_columns() -> None:
 
 def create_prop_builder_history(
     build: PropBuilderHistoryCreate,
+    *,
+    user_id: str = "",
 ) -> PropBuilderHistory:
     initialize_prop_builder_history()
     created_at = datetime.now(
@@ -95,6 +99,7 @@ def create_prop_builder_history(
         cursor = connection.execute(
             """
             INSERT INTO prop_builder_history (
+                user_id,
                 created_at,
                 build_mode,
                 risk_mode,
@@ -113,9 +118,10 @@ def create_prop_builder_history(
                 legs_pending,
                 hit_rate
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                user_id.strip(),
                 created_at,
                 build.build_mode,
                 build.risk_mode,
@@ -140,9 +146,9 @@ def create_prop_builder_history(
             """
             SELECT *
             FROM prop_builder_history
-            WHERE id = ?
+            WHERE id = ? AND user_id = ?
             """,
-            (history_id,),
+            (history_id, user_id.strip()),
         ).fetchone()
 
     if row is None:
@@ -156,6 +162,7 @@ def create_prop_builder_history(
 def list_prop_builder_history(
     *,
     limit: int = 30,
+    user_id: str = "",
 ) -> list[PropBuilderHistory]:
     initialize_prop_builder_history()
     safe_limit = max(
@@ -167,10 +174,11 @@ def list_prop_builder_history(
             """
             SELECT *
             FROM prop_builder_history
+            WHERE user_id = ?
             ORDER BY created_at DESC
             LIMIT ?
             """,
-            (safe_limit,),
+            (user_id.strip(), safe_limit),
         ).fetchall()
 
     return [
@@ -181,6 +189,8 @@ def list_prop_builder_history(
 
 def get_prop_builder_history(
     history_id: int,
+    *,
+    user_id: str = "",
 ) -> PropBuilderHistory | None:
     initialize_prop_builder_history()
     with _connect() as connection:
@@ -188,9 +198,9 @@ def get_prop_builder_history(
             """
             SELECT *
             FROM prop_builder_history
-            WHERE id = ?
+            WHERE id = ? AND user_id = ?
             """,
-            (history_id,),
+            (history_id, user_id.strip()),
         ).fetchone()
 
     if row is None:
@@ -201,27 +211,31 @@ def get_prop_builder_history(
 
 def delete_prop_builder_history(
     history_id: int,
+    *,
+    user_id: str = "",
 ) -> bool:
     initialize_prop_builder_history()
     with _connect() as connection:
         cursor = connection.execute(
             """
             DELETE FROM prop_builder_history
-            WHERE id = ?
+            WHERE id = ? AND user_id = ?
             """,
-            (history_id,),
+            (history_id, user_id.strip()),
         )
 
     return cursor.rowcount > 0
 
 
-def clear_prop_builder_history() -> int:
+def clear_prop_builder_history(*, user_id: str = "") -> int:
     initialize_prop_builder_history()
     with _connect() as connection:
         cursor = connection.execute(
             """
             DELETE FROM prop_builder_history
-            """
+            WHERE user_id = ?
+            """,
+            (user_id.strip(),),
         )
 
     return cursor.rowcount

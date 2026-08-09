@@ -174,6 +174,22 @@ def _leg_prop_site(leg: dict[str, object]) -> str:
     )
 
 
+def _leg_side(leg: dict[str, object]) -> str:
+    side = str(leg.get("side") or leg.get("pick") or "UNKNOWN").strip().upper()
+    return side if side in {"OVER", "UNDER"} else "UNKNOWN"
+
+
+def _confidence_range(leg: dict[str, object]) -> str:
+    try:
+        confidence = float(leg.get("confidence", 0) or 0)
+    except (TypeError, ValueError):
+        confidence = 0
+    if confidence >= 70:
+        return "70%+"
+    if confidence >= 60:
+        return "60-69%"
+    return "BELOW 60%"
+
 def _leg_status(leg: dict[str, object]) -> str:
     raw_status = str(
         leg.get(
@@ -261,17 +277,19 @@ def get_prop_builder_performance(
     prop_site: str | None = None,
     market: str | None = None,
     player: str | None = None,
+    user_id: str = "",
 ) -> PropBuilderPerformanceResponse:
     initialize_prop_builder_history()
 
     query = """
     SELECT *
     FROM prop_builder_history
+    WHERE user_id = ?
     """
-    params: list[object] = []
+    params: list[object] = [user_id.strip()]
     if days is not None:
         query += """
-        WHERE datetime(created_at) >= datetime(
+        AND datetime(created_at) >= datetime(
             'now',
             ?
         )
@@ -361,6 +379,8 @@ def get_prop_builder_performance(
     leg_sport_data: dict[str, dict[str, float]] = defaultdict(_empty_leg_breakdown)
     leg_site_data: dict[str, dict[str, float]] = defaultdict(_empty_leg_breakdown)
     leg_market_data: dict[str, dict[str, float]] = defaultdict(_empty_leg_breakdown)
+    leg_side_data: dict[str, dict[str, float]] = defaultdict(_empty_leg_breakdown)
+    leg_confidence_data: dict[str, dict[str, float]] = defaultdict(_empty_leg_breakdown)
     leg_player_data: dict[str, dict[str, float]] = defaultdict(_empty_leg_breakdown)
     trend_data: dict[str, dict[str, int]] = defaultdict(
         lambda: {
@@ -474,6 +494,18 @@ def get_prop_builder_performance(
             )
             _add_leg_to_breakdown(
                 target=leg_market_data[market_name],
+                status=leg_status,
+                edge=leg_edge,
+                confidence=leg_confidence,
+            )
+            _add_leg_to_breakdown(
+                target=leg_side_data[_leg_side(leg)],
+                status=leg_status,
+                edge=leg_edge,
+                confidence=leg_confidence,
+            )
+            _add_leg_to_breakdown(
+                target=leg_confidence_data[_confidence_range(leg)],
                 status=leg_status,
                 edge=leg_edge,
                 confidence=leg_confidence,
@@ -602,6 +634,19 @@ def get_prop_builder_performance(
         ),
         reverse=True,
     )
+    leg_performance_by_side = [
+        _to_leg_breakdown(name=name, values=values)
+        for name, values in leg_side_data.items()
+    ]
+    leg_performance_by_confidence = [
+        _to_leg_breakdown(name=name, values=values)
+        for name, values in leg_confidence_data.items()
+    ]
+    for items in (leg_performance_by_side, leg_performance_by_confidence):
+        items.sort(
+            key=lambda item: (item.leg_hit_rate, item.resolved_legs),
+            reverse=True,
+        )
     leg_performance_by_player = [
         _to_leg_breakdown(name=name, values=values)
         for name, values in leg_player_data.items()
@@ -669,6 +714,8 @@ def get_prop_builder_performance(
         leg_performance_by_sport=leg_performance_by_sport,
         leg_performance_by_prop_site=leg_performance_by_prop_site,
         leg_performance_by_market=leg_performance_by_market,
+        leg_performance_by_side=leg_performance_by_side,
+        leg_performance_by_confidence=leg_performance_by_confidence,
         leg_performance_by_player=leg_performance_by_player,
         recent_builds=recent_builds,
         trend=trend,

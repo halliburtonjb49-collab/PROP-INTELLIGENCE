@@ -56,6 +56,8 @@ import 'widgets/ev_scanner_card.dart';
 import 'widgets/onboarding_dialog.dart';
 import 'widgets/provider_reliability_banner.dart';
 import 'widgets/prop_trust_widgets.dart';
+import 'widgets/injury_impact_alert.dart';
+import 'widgets/prop_research_assistant.dart';
 import 'widgets/verdict_filter_bar.dart';
 import 'widgets/recommendation_explainability_block.dart';
 import 'widgets/scoreboard_view.dart';
@@ -9699,6 +9701,19 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             const SizedBox(height: 10),
             WhyThisPropCapsule(prop: prop),
             const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: PropResearchAiButton(
+                prop: prop,
+                comparisonCandidates: _preparedProps
+                    .map((item) => item.prop)
+                    .toList(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            InjuryImpactAlert(prop: prop),
+            if (buildInjuryImpactSummary(prop).isPresent)
+              const SizedBox(height: 8),
             RecommendationExplainabilityBlock(prop: prop),
             const SizedBox(height: 8),
             const Text(
