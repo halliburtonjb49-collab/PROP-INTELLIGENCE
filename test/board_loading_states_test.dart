@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/main.dart';
 
@@ -14,27 +15,17 @@ void main() {
     });
 
     test('the message escalates as the wait becomes abnormal', () {
-      final early = loadProgressMessage(
-        const Duration(seconds: 1),
-      );
-      final middle = loadProgressMessage(
-        const Duration(seconds: 6),
-      );
-      final late = loadProgressMessage(
-        const Duration(seconds: 14),
-      );
-      final failing = loadProgressMessage(
-        const Duration(seconds: 22),
-      );
+      final early = loadProgressMessage(const Duration(seconds: 1));
+      final middle = loadProgressMessage(const Duration(seconds: 6));
+      final late = loadProgressMessage(const Duration(seconds: 14));
+      final failing = loadProgressMessage(const Duration(seconds: 22));
 
       expect({early, middle, late, failing}.length, 4);
     });
 
     test('a wait that is about to fail says what happens next', () {
       // The reader must not have to guess whether to keep waiting.
-      final failing = loadProgressMessage(
-        const Duration(seconds: 30),
-      );
+      final failing = loadProgressMessage(const Duration(seconds: 30));
 
       expect(failing.toLowerCase(), contains('retry'));
     });
@@ -74,5 +65,31 @@ void main() {
       expect(propFetchTimeout.inSeconds, greaterThanOrEqualTo(15));
       expect(propFetchTimeout.inSeconds, lessThanOrEqualTo(60));
     });
+  });
+
+  testWidgets('loading skeleton exposes progress text', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: PropLoadingSkeleton())),
+    );
+
+    expect(find.byKey(const ValueKey('prop-loading-progress')), findsWidgets);
+  });
+
+  testWidgets('load error presents a working retry action', (tester) async {
+    var retried = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PropLoadError(
+            message: 'Exception: API returned 503',
+            onRetry: () => retried = true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Unable to load props'), findsOneWidget);
+    await tester.tap(find.text('RETRY'));
+    expect(retried, isTrue);
   });
 }

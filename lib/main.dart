@@ -51,7 +51,6 @@ import 'services/slip_manager.dart';
 import 'services/scoreboard_service.dart';
 import 'services/scoreboard_watchlist_service.dart';
 import 'services/supabase_service.dart';
-import 'services/user_facing_error.dart';
 import 'theme/app_scroll_behavior.dart';
 import 'theme/app_colors.dart' as app_colors;
 import 'theme/app_theme.dart';
@@ -64,6 +63,8 @@ import 'widgets/feature_tier_badge.dart';
 import 'widgets/top_navigation.dart';
 export 'widgets/top_navigation.dart';
 import 'widgets/onboarding_dialog.dart';
+import 'widgets/prop_board_loading.dart';
+export 'widgets/prop_board_loading.dart';
 import 'widgets/provider_reliability_banner.dart';
 import 'widgets/prop_trust_widgets.dart';
 import 'widgets/injury_impact_alert.dart';
@@ -10652,7 +10653,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           future: _propsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const _PropLoadingSkeleton();
+              return const PropLoadingSkeleton();
             }
 
             if (snapshot.hasError) {
@@ -10670,7 +10671,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               }
               return Padding(
                 padding: const EdgeInsets.only(top: 24),
-                child: _LoadError(
+                child: PropLoadError(
                   title: specialtyFeedUnavailable
                       ? 'NO CURRENT $normalizedSport PROPS'
                       : 'Unable to load props',
@@ -10717,7 +10718,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               );
               if (!hasFilters && _automaticRetryCount < 3) {
                 _scheduleAutomaticRetry();
-                return const _PropLoadingSkeleton();
+                return const PropLoadingSkeleton();
               }
               return Container(
                 margin: const EdgeInsets.only(top: 18),
@@ -10885,294 +10886,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           },
         ),
       ],
-    );
-  }
-}
-
-// TODO: Reconnect this toolbar when manual feed refresh is exposed to users.
-// ignore: unused_element
-class _PropToolbar extends StatelessWidget {
-  final bool isRefreshing;
-  final String? errorMessage;
-  final Future<void> Function() onRefresh;
-
-  const _PropToolbar({
-    required this.isRefreshing,
-    required this.errorMessage,
-    required this.onRefresh,
-  });
-
-  String _formatStatus(BackendRefreshStatus status) {
-    if (status.lastRefreshAt == null || status.sourceUrl.isEmpty) {
-      return status.message;
-    }
-    final value = status.lastRefreshAt!.toLocal();
-    final hour = value.hour.toString().padLeft(2, '0');
-    final minute = value.minute.toString().padLeft(2, '0');
-    final second = value.second.toString().padLeft(2, '0');
-    return 'Last refresh $hour:$minute:$second via ${status.sourceUrl}';
-  }
-
-  Color _statusColor(BackendRefreshStatus status) {
-    if (status.lastRefreshAt == null || status.sourceUrl.isEmpty) {
-      return app_colors.AppColors.gold;
-    }
-    return app_colors.AppColors.success;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  errorMessage ?? '',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppColors.muted, fontSize: 11),
-                ),
-                ValueListenableBuilder<BackendRefreshStatus>(
-                  valueListenable: ApiService.refreshStatusNotifier,
-                  builder: (context, status, _) {
-                    return Text(
-                      _formatStatus(status),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: _statusColor(status),
-                        fontSize: 10,
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          TextButton.icon(
-            onPressed: isRefreshing ? null : onRefresh,
-            icon: isRefreshing
-                ? const SizedBox(
-                    width: 15,
-                    height: 15,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.goldBright,
-                    ),
-                  )
-                : const Icon(Icons.refresh, size: 18),
-            label: Text(isRefreshing ? 'SYNCING' : 'REFRESH'),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.goldBright,
-              textStyle: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// How long the board waits before it stops claiming to be loading.
-///
-/// Without a bound, a feed that never answers leaves the skeleton on screen
-/// forever: indistinguishable from a slow load, and offering nothing to do
-/// about it. Timing out is what turns that into an error the reader can
-/// retry. Generous on purpose -- a cold backend genuinely takes seconds, and
-/// a bound tight enough to fire on a slow-but-working feed would be a worse
-/// bug than the one it fixes.
-const Duration propFetchTimeout = Duration(seconds: 25);
-
-/// What to say at this point in a wait.
-///
-/// A skeleton alone says "something is happening" and keeps saying it at the
-/// second mark and at the twentieth. This escalates with real elapsed time so
-/// a wait that has become abnormal reads as abnormal, and says what happens
-/// next rather than leaving the reader to guess whether to keep waiting.
-String loadProgressMessage(Duration elapsed) {
-  if (elapsed.inSeconds < 4) return 'Loading live props…';
-  if (elapsed.inSeconds < 10) return 'Pulling the latest lines…';
-  if (elapsed.inSeconds < 18) {
-    return 'Still working. The feed is slower than usual.';
-  }
-  return 'The feed has not answered. This will stop shortly and offer a retry.';
-}
-
-/// What a failed board load should say to the person looking at it.
-///
-/// A timeout arrives as "TimeoutException after 0:00:25.000000", which names
-/// the mechanism and not the situation. The reader needs to know whether to
-/// retry now, and an exception's toString never tells them that.
-String describeLoadFailure(Object? error) {
-  if (error is TimeoutException) {
-    return 'The prop feed did not respond in time. It is usually back within '
-        'a moment -- retry, and the board will reload.';
-  }
-  if (error is SocketException) {
-    return 'No connection to the prop feed. Check your network and retry.';
-  }
-  return error?.toString() ?? 'The board could not be loaded.';
-}
-
-/// Placeholder cards, plus an honest account of how the wait is going.
-class _PropLoadingSkeleton extends StatefulWidget {
-  const _PropLoadingSkeleton();
-
-  @override
-  State<_PropLoadingSkeleton> createState() => _PropLoadingSkeletonState();
-}
-
-class _PropLoadingSkeletonState extends State<_PropLoadingSkeleton> {
-  final Stopwatch _elapsed = Stopwatch()..start();
-  Timer? _ticker;
-
-  @override
-  void initState() {
-    super.initState();
-    // One second is the coarsest tick that still lets each message appear on
-    // the beat it describes.
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    _elapsed.stop();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 1050
-            ? 3
-            : constraints.maxWidth >= 650
-            ? 2
-            : 1;
-        return GridView.builder(
-          shrinkWrap: true,
-          primary: false,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: columns * 2,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            mainAxisExtent: 220,
-          ),
-          itemBuilder: (context, index) => Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppColors.panel,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(height: 16, width: 150, color: AppColors.border),
-                const SizedBox(height: 14),
-                Container(height: 10, width: 210, color: AppColors.border),
-                const Spacer(),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(height: 44, color: AppColors.border),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Container(height: 44, color: AppColors.border),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  loadProgressMessage(_elapsed.elapsed),
-                  key: const ValueKey('prop-loading-progress'),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppColors.muted, fontSize: 10),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _LoadError extends StatelessWidget {
-  final String title;
-  final String message;
-  final VoidCallback onRetry;
-
-  const _LoadError({
-    this.title = 'Unable to load props',
-    required this.message,
-    required this.onRetry,
-  });
-
-  String _friendlyMessage() {
-    return userFacingLoadError(message, noun: 'live prop feed');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: 420,
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          color: AppColors.panel,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.cloud_off_outlined,
-              color: AppColors.goldBright,
-              size: 38,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _friendlyMessage(),
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.muted, fontSize: 10),
-            ),
-            const SizedBox(height: 15),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('RETRY'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.goldBright,
-                side: const BorderSide(color: AppColors.gold),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
