@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:prop_intelligence/main.dart';
+import 'package:prop_intelligence/main.dart' show boardIntelligenceScope;
+import 'package:prop_intelligence/navigation/app_navigation.dart';
 import 'package:prop_intelligence/services/recommendation_access.dart';
 import 'package:prop_intelligence/services/auth_manager.dart';
 import 'package:prop_intelligence/models/prop_data.dart';
@@ -317,5 +318,31 @@ void main() {
 
     expect(scope, hasLength(1));
     expect(scope.single.id, 'selected');
+  });
+
+  test('navigation metadata covers every application page', () {
+    for (final page in AppPage.values) {
+      expect(appPageTitle(page), isNotEmpty, reason: page.name);
+      expect(appPageSubtitle(page), isNotEmpty, reason: page.name);
+      expect(appPageHowTo(page), isNotEmpty, reason: page.name);
+    }
+  });
+
+  test('navigation groups do not repeat destinations', () {
+    final pages = appNavigationGroups
+        .expand((group) => group.$3)
+        .map((entry) => entry.$2)
+        .toList(growable: false);
+    expect(pages.toSet().length, pages.length);
+    expect(
+      pages,
+      containsAll(<AppPage>[
+        AppPage.board,
+        AppPage.propBuilder,
+        AppPage.scoreboard,
+        AppPage.trackRecord,
+        AppPage.gameMarkets,
+      ]),
+    );
   });
 }
