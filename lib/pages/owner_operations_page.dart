@@ -200,6 +200,13 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             _statusGrid(),
             const SizedBox(height: 22),
             _sectionTitle(
+              'PRODUCTION DATA CERTIFICATION',
+              'Automated provider parity, category completeness, freshness, slate, and line-history acceptance checks',
+            ),
+            const SizedBox(height: 10),
+            _dataCertification(),
+            const SizedBox(height: 22),
+            _sectionTitle(
               'PRODUCT OBSERVABILITY',
               'First-party crash, performance, and conversion signals with no raw prop or message content',
             ),
@@ -259,6 +266,65 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             const SizedBox(height: 24),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _dataCertification() {
+    final certification = _map('dataCertification');
+    final checks = (certification['checks'] as List? ?? const [])
+        .whereType<Map>()
+        .toList(growable: false);
+    final status = certification['status']?.toString().toUpperCase() ?? 'FAIL';
+    final summaryColor = status == 'PASS'
+        ? const Color(0xFF8CFFB2)
+        : status == 'WARN'
+        ? AppColors.gold
+        : const Color(0xFFFF7B7B);
+    if (checks.isEmpty) {
+      return _notice(
+        Icons.fact_check_outlined,
+        'CERTIFICATION UNAVAILABLE',
+        certification['error']?.toString() ??
+            'The live catalog could not be certified.',
+        summaryColor,
+      );
+    }
+    return KeyedSubtree(
+      key: const ValueKey('production-data-certification'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _notice(
+            Icons.verified_outlined,
+            '$status | SCORE ${certification['score'] ?? 0}/100',
+            '${certification['passCount'] ?? 0} passed | ${certification['warningCount'] ?? 0} warnings | ${certification['failureCount'] ?? 0} failed',
+            summaryColor,
+            trailing: certification['generatedAtUtc']?.toString(),
+          ),
+          const SizedBox(height: 8),
+          ...checks.map((check) {
+            final checkStatus =
+                check['status']?.toString().toUpperCase() ?? 'FAIL';
+            final color = checkStatus == 'PASS'
+                ? const Color(0xFF8CFFB2)
+                : checkStatus == 'WARN'
+                ? AppColors.gold
+                : const Color(0xFFFF7B7B);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _notice(
+                checkStatus == 'PASS'
+                    ? Icons.check_circle_outline
+                    : Icons.warning_amber_rounded,
+                '$checkStatus | ${check['label'] ?? 'Data check'}',
+                check['detail']?.toString() ?? '',
+                color,
+                trailing: check['value']?.toString(),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }

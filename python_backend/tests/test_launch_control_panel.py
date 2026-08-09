@@ -187,6 +187,14 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
         },
     )
 
+    monkeypatch.setattr(
+        launch_control_service,
+        "production_data_certification",
+        lambda *_args, **_kwargs: {
+            "status": "PASS", "score": 100, "checks": [],
+        },
+    )
+
     result = launch_control_service.launch_control_snapshot()
 
     assert result["api"]["status"] == "ok"
@@ -195,6 +203,7 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
     assert result["providers"]["remainingQuota"] == 420
     assert result["providers"]["errors"] == 1
     assert result["propFreshness"]["ageMinutes"] == 3
+    assert result["dataCertification"]["score"] == 100
     assert result["activeUsers"]["count"] == 4
     assert result["failedLogins"]["count"] is None
     assert result["failedPayments"]["count"] == 0

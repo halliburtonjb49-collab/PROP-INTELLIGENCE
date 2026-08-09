@@ -12,6 +12,30 @@ class _FakeOperationsApi extends ApiService {
     'workers': {'available': true, 'workers': 2, 'queued': 1, 'failed': 0},
     'providers': {'qualityScore': .94, 'errors': 0, 'remainingQuota': 1000},
     'propFreshness': {'healthy': true, 'ageMinutes': 2, 'total': 450},
+    'dataCertification': {
+      'status': 'WARN',
+      'score': 92,
+      'passCount': 5,
+      'warningCount': 1,
+      'failureCount': 0,
+      'generatedAtUtc': '2026-08-09T20:00:00Z',
+      'checks': [
+        {
+          'key': 'catalog',
+          'label': 'Live catalog',
+          'status': 'PASS',
+          'value': 450,
+          'detail': '450 current prop rows are available.',
+        },
+        {
+          'key': 'slate',
+          'label': 'Four-date slate',
+          'status': 'WARN',
+          'value': '3/4',
+          'detail': 'Props are available on 3 of 4 monitored dates.',
+        },
+      ],
+    },
     'scoreboardLatency': {'status': 'ok', 'lastMs': 240, 'p95Ms': 300},
     'activeUsers': {'count': 3, 'instrumented': true},
     'failedPayments': {'count': 0},
@@ -143,10 +167,17 @@ void main() {
       findsOneWidget,
     );
     await tester.scrollUntilVisible(
-      find.text('PRODUCT OBSERVABILITY'),
+      find.text('PRODUCTION DATA CERTIFICATION'),
       400,
       scrollable: find.byType(Scrollable).first,
     );
+    expect(
+      find.byKey(const ValueKey('production-data-certification')),
+      findsOneWidget,
+    );
+    expect(find.text('WARN | SCORE 92/100'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(0, -250));
+    await tester.pumpAndSettle();
     expect(find.text('PRODUCT OBSERVABILITY'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('product-observability-section')),

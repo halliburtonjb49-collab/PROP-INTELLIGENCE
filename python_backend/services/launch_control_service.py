@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import os
 
-from config import DB_PATH
+from config import DB_PATH, PREFERRED_BOOKMAKERS
 from database.cache import PropCache
 from database.postgres import database_is_configured, get_database_pool
 from services.acceptance_service import production_acceptance_snapshot
@@ -20,6 +20,7 @@ from services.model_performance_service import model_performance, operations_sum
 from services.sync_diagnostic_service import ticket_sync_diagnostic_summary
 from services.user_feedback_service import list_feedback
 from services.engagement_service import product_observability
+from services.data_certification_service import production_data_certification
 from services.strikeout_quality_service import (
     get_strikeout_release_controls,
     strikeout_backtest_monitoring,
@@ -329,6 +330,23 @@ def launch_control_snapshot() -> dict[str, object]:
     queue = queue_health()
     market = game_market_health()
     database_counts = _database_counts()
+    try:
+        data_certification = production_data_certification(
+            _prop_cache.load_props(),
+            expected_providers=PREFERRED_BOOKMAKERS,
+        )
+    except Exception as exc:
+        data_certification = {
+            "status": "FAIL",
+            "score": 0,
+            "passCount": 0,
+            "warningCount": 0,
+            "failureCount": 1,
+            "checks": [],
+            "days": [],
+            "parityIssues": [],
+            "error": type(exc).__name__,
+        }
     provider_errors = int(market.get("errors") or 0) + sum(
         len(run.get("errors") or [])
         for run in pipeline_health["activeFailures"]
@@ -485,6 +503,7 @@ def launch_control_snapshot() -> dict[str, object]:
             "qualityScore": provider_score,
         },
         "propFreshness": acceptance["propFeed"],
+        "dataCertification": data_certification,
         "scoreboardLatency": scoreboard_latency_snapshot(),
         "gradingReview": grading_review,
         "modelPerformance": performance,
