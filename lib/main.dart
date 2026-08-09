@@ -61,6 +61,7 @@ import 'theme/app_colors.dart' as app_colors;
 import 'theme/app_theme.dart';
 import 'pages/intelligence_lab_page.dart';
 import 'widgets/auth_account_panel.dart';
+import 'widgets/board_category_chip.dart';
 import 'widgets/ev_scanner_card.dart';
 import 'widgets/feature_tier_badge.dart';
 import 'widgets/top_navigation.dart';
@@ -5312,52 +5313,17 @@ class _MainDashboardState extends State<MainDashboard> {
               itemBuilder: (context, index) {
                 final category = categories[index];
                 final selected = _effectiveSelectedCategory == category;
-                return OutlinedButton(
+                return BoardCategoryChip(
+                  category: category,
+                  count: categoryCount(category),
+                  icon: categoryIcon(category),
+                  selected: selected,
                   onPressed: () => setState(() {
                     _selectedCategory = category;
                     _focusedProp = null;
                     _latestProps = const [];
                     _lastUpdated = null;
                   }),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: selected ? AppColors.gold : Colors.white,
-                    backgroundColor: app_colors.AppColors.sidebar,
-                    side: BorderSide(
-                      color: selected ? AppColors.gold : AppColors.border,
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(7),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(categoryIcon(category), size: 13),
-                      const SizedBox(width: 6),
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            category,
-                            style: const TextStyle(
-                              fontSize: 7.5,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          Text(
-                            '${categoryCount(category)}',
-                            key: ValueKey('category-count-$category'),
-                            style: TextStyle(
-                              color: selected ? AppColors.gold : Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
                 );
               },
             ),
