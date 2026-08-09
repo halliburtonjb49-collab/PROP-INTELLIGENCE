@@ -172,3 +172,36 @@ def test_line_change_preserves_opening_line_and_updates_current_line(tmp_path) -
     assert row["line"] == 21.5
     assert row["opening_line"] == 20.5
     assert row["current_line"] == 21.5
+
+def test_durable_history_restores_opening_line_after_cache_reset(tmp_path, monkeypatch) -> None:
+    cache = PropCache(tmp_path / "restored-line-move.db")
+    monkeypatch.setattr(
+        "services.prop_processor.opening_line_snapshots",
+        lambda **_kwargs: {
+            ("fanduel", "player_points", "player one"): {
+                "opening_line": 20.5,
+                "line_updated_at": "2026-08-01T12:00:00+00:00",
+            },
+        },
+    )
+    payload = {"bookmakers": [{
+        "title": "FanDuel",
+        "markets": [{
+            "key": "player_points",
+            "outcomes": [
+                {"name": "Over", "description": "Player One", "point": 21.5, "price": -105},
+                {"name": "Under", "description": "Player One", "point": 21.5, "price": -115},
+            ],
+        }],
+    }]}
+
+    process_and_cache_props(
+        cache=cache,
+        sport_key="basketball_nba",
+        event={"id": "event-1", "commence_time": "2099-07-18T23:00:00Z"},
+        odds_payload=payload,
+    )
+
+    row = cache.load_props()[0]
+    assert row["opening_line"] == 20.5
+    assert row["current_line"] == 21.5

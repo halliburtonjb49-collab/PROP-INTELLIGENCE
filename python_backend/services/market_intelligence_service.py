@@ -217,3 +217,36 @@ def latest_market_intelligence(
             """, params)
             columns = [description.name for description in cursor.description]
             return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+def opening_line_snapshots(
+    *, sport: str, event_id: str,
+) -> dict[tuple[str, str, str], dict[str, object]]:
+    """Restore the first observed line for a live event from durable history."""
+    if not database_is_configured() or not event_id:
+        return {}
+    try:
+        with get_database_pool().connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    select
+                        lower(bookmaker), lower(market), lower(player),
+                        (array_agg(line order by observed_at asc))[1],
+                        min(observed_at)
+                    from sportsbook_line_snapshots
+                    where sport = %s and event_id = %s
+                    group by lower(bookmaker), lower(market), lower(player)
+                """, (sport, event_id))
+                return {
+                    (str(book), str(market), str(player)): {
+                        "opening_line": float(opening),
+                        "line_updated_at": observed.isoformat(),
+                    }
+                    for book, market, player, opening, observed in cursor.fetchall()
+                    if opening is not None
+                }
+    except Exception:
+        LOGGER.exception(
+            "Unable to restore opening-line history sport=%s event=%s",
+            sport, event_id,
+        )
+        return {}

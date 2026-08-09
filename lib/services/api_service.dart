@@ -1374,6 +1374,7 @@ class ApiService {
             queryParameters: {
               'sport': sport,
               'onlyMoved': 'true',
+              'includeReliability': 'false',
               'sortBy': 'time',
               'limit': '$pageSize',
               'offset': '$offset',

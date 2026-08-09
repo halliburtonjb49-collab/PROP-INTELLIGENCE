@@ -4,6 +4,7 @@ import logging
 
 from calculations.prediction import calculate_prediction
 from database.cache import PropCache
+from services.market_intelligence_service import opening_line_snapshots
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +176,11 @@ def process_and_cache_props(
 
     updated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     previous_snapshots = cache.get_existing_prop_snapshots(game_id=event_id)
+    durable_snapshots = (
+        {}
+        if previous_snapshots
+        else opening_line_snapshots(sport=sport_key, event_id=event_id)
+    )
     inserted = 0
     prop_rows: list[tuple[object, ...]] = []
     skipped_missing_player_or_line = 0
@@ -223,7 +229,10 @@ def process_and_cache_props(
                     market_key.strip().lower(),
                     player_name.strip().lower(),
                 )
-                previous = previous_snapshots.get(snapshot_key)
+                previous = (
+                    previous_snapshots.get(snapshot_key)
+                    or durable_snapshots.get(snapshot_key)
+                )
                 current_line = float(point)
                 opening_line = current_line
                 line_updated_at = updated_at
