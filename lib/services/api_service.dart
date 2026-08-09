@@ -816,6 +816,9 @@ class ApiService {
   Future<http.Response> _downloadPropsPage(Uri uri) async {
     Object? lastError;
     final sport = (uri.queryParameters['sport'] ?? '').trim().toUpperCase();
+    final category = (uri.queryParameters['category'] ?? '')
+        .trim()
+        .toUpperCase();
     final isSpecialtySport = const {
       'PGA',
       'TENNIS',
@@ -831,6 +834,8 @@ class ApiService {
     const maxAttempts = 1;
     final requestTimeout = isSpecialtySport
         ? const Duration(seconds: 4)
+        : category.isNotEmpty && category != 'ALL'
+        ? const Duration(seconds: 12)
         : const Duration(seconds: 6);
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
@@ -1037,6 +1042,10 @@ class ApiService {
               'minConfidence': minConfidence.toString(),
               'sortBy': sortBy,
               'verdict': verdictFilter,
+              'includeReliability':
+                  (offset == 0 &&
+                          selectedCategory.trim().toUpperCase() == 'ALL')
+                      .toString(),
               'limit': requestLimit.toString(),
               'offset': requestOffset.toString(),
             },
@@ -1085,6 +1094,10 @@ class ApiService {
               'minConfidence': minConfidence.toString(),
               'sortBy': sortBy,
               'verdict': verdictFilter,
+              'includeReliability':
+                  (offset == 0 &&
+                          selectedCategory.trim().toUpperCase() == 'ALL')
+                      .toString(),
               'limit': requestLimit.toString(),
               'offset': requestOffset.toString(),
             },
@@ -1114,8 +1127,12 @@ class ApiService {
         _lastFacetCount = facetCount;
         _lastCategoryCounts = categoryCounts;
         _lastVerdictCounts = verdictCounts;
-        _lastProviderCoverage = providerCoverage;
-        _lastProviderReliability = providerReliability;
+        if (providerCoverage.isNotEmpty) {
+          _lastProviderCoverage = providerCoverage;
+        }
+        if (providerReliability.isNotEmpty) {
+          _lastProviderReliability = providerReliability;
+        }
         if (selectedSport.trim().toUpperCase() == 'ALL' &&
             selectedCategory.trim().toUpperCase() == 'ALL') {
           _lastSportCounts = sportCounts;

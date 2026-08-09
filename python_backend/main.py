@@ -2401,6 +2401,7 @@ def props(
 	includeStarted: bool = Query(default=False),
 	includeStale: bool = Query(default=False),
 	onlyMoved: bool = Query(default=False),
+	includeReliability: bool = Query(default=True),
 	limit: int = Query(default=75, ge=1, le=500),
 	offset: int = Query(default=0, ge=0),
 	if_none_match: str | None = Header(default=None, alias="If-None-Match"),
@@ -2592,22 +2593,30 @@ def props(
 			)
 			for prop in coverage_base_props
 		)
-		provider_coverage = _provider_category_coverage(
-			coverage_base_props,
-			selected_site=sportsbook_filter,
+		provider_coverage = (
+			_provider_category_coverage(
+				coverage_base_props,
+				selected_site=sportsbook_filter,
+			)
+			if includeReliability
+			else {}
 		)
-		provider_reliability = build_provider_reliability(
-			prop_list,
-			expected_sites=PREFERRED_BOOKMAKERS,
-			horizon_days=4,
-			stale_after_minutes=stale_after_minutes,
-			day_timezone=_scoreboard_timezone(),
+		provider_reliability = (
+			build_provider_reliability(
+				prop_list,
+				expected_sites=PREFERRED_BOOKMAKERS,
+				horizon_days=4,
+				stale_after_minutes=stale_after_minutes,
+				day_timezone=_scoreboard_timezone(),
+			)
+			if includeReliability
+			else {}
 		)
 		recovery_reason = (
 			"partial_provider_coverage"
-			if provider_coverage.get("limited") is True
+			if includeReliability and provider_coverage.get("limited") is True
 			else "stale_three_day_catalog"
-			if provider_reliability.get("recoveryRecommended") is True
+			if includeReliability and provider_reliability.get("recoveryRecommended") is True
 			else ""
 		)
 		if recovery_reason:
@@ -2629,8 +2638,9 @@ def props(
 				"reason": "",
 				"jobId": "",
 			}
-		provider_reliability["recovery"] = recovery
-		provider_coverage["recovery"] = recovery
+		if includeReliability:
+			provider_reliability["recovery"] = recovery
+			provider_coverage["recovery"] = recovery
 		sport_category_counts: dict[str, Counter[str]] = {}
 		for prop in facet_props:
 			sport_key = str(prop.sport or "other").strip().upper()
@@ -2815,13 +2825,14 @@ def props(
 				"includePastDates": includePastDates,
 				"includeStarted": includeStarted,
 				"onlyMoved": onlyMoved,
+				"includeReliability": includeReliability,
 			},
 			"version": APP_VERSION,
 		}
 		etag_source = (
 			f"{APP_VERSION}|{membership.subscription_tier}|{side}|{tier}|{sportsbook}|{sport}|{category}|"
 			f"{search}|{min_confidence}|{sort_by}|{includePastDates}|"
-			f"{includeStarted}|{onlyMoved}|"
+			f"{includeStarted}|{onlyMoved}|{includeReliability}|"
 			f"{limit}|{offset}|{total_count}|"
 			f"{max((prop.lastUpdatedUtc for prop in page), default='')}"
 		)

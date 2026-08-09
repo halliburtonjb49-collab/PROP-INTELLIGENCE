@@ -327,6 +327,42 @@ def test_category_facets_are_not_reduced_by_selected_category(monkeypatch) -> No
     }
 
 
+def test_narrow_category_can_skip_expensive_reliability_work(monkeypatch) -> None:
+    rows = [
+        FakeProp("reb", "One", "WNBA", "FANDUEL", "REBOUNDS"),
+        FakeProp("ast", "Two", "WNBA", "FANDUEL", "ASSISTS"),
+    ]
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: rows)
+    monkeypatch.setattr(
+        main,
+        "build_provider_reliability",
+        lambda *args, **kwargs: pytest.fail(
+            "narrow category request rebuilt reliability diagnostics"
+        ),
+    )
+    monkeypatch.setattr(
+        main,
+        "_enqueue_prop_refresh",
+        lambda: pytest.fail("narrow category request queued feed recovery"),
+    )
+
+    response = TestClient(main.app).get(
+        "/api/props",
+        params={
+            "sport": "WNBA",
+            "category": "REBOUNDS",
+            "includeReliability": "false",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert [row["id"] for row in payload["props"]] == ["reb"]
+    assert payload["categoryCounts"] == {"ASSISTS": 1, "REBOUNDS": 1}
+    assert payload["providerCoverage"] == {}
+    assert payload["providerReliability"] == {}
+
 def test_site_facets_report_full_sport_and_category_totals(monkeypatch) -> None:
     rows = [
         FakeProp("mlb-hits", "One", "MLB", "PRIZEPICKS", "HITS"),
