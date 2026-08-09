@@ -46,6 +46,15 @@ def _ensure_feedback_table() -> None:
             """create index if not exists user_feedback_messages_status_idx
                on user_feedback_messages(status)"""
         )
+        cursor.execute(
+            "alter table user_feedback_messages enable row level security"
+        )
+        cursor.execute(
+            "alter table user_feedback_messages force row level security"
+        )
+        cursor.execute(
+            "revoke all on user_feedback_messages from anon, authenticated"
+        )
         connection.commit()
 
 

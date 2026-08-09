@@ -66,3 +66,16 @@ def test_function_hardening_removes_anonymous_definer_execution() -> None:
     assert "public.assign_user_role(text,text)" in sql
     assert "public.start_prop_chat_direct_conversation(uuid)" in sql
     assert "public.enforce_prop_chat_message_v4()" not in sql
+
+def test_feedback_table_is_migrated_as_api_only_data() -> None:
+    from scripts.apply_supabase_migrations import MIGRATIONS
+
+    filename = "supabase_user_feedback_messages.sql"
+    assert filename in MIGRATIONS
+    sql = (ROOT / filename).read_text(encoding="utf-8").lower()
+    assert "enable row level security" in sql
+    assert "force row level security" in sql
+    assert (
+        "revoke all on public.user_feedback_messages from anon, authenticated"
+        in sql
+    )
