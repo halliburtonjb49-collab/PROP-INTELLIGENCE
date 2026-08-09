@@ -3082,6 +3082,7 @@ class _MainDashboardState extends State<MainDashboard> {
   List<PropData> _siteInventoryProps = const [];
   Map<String, int> _siteSportCounts = const {};
   Map<String, Map<String, int>> _siteSportCategoryCounts = const {};
+  Map<String, dynamic> _providerCoverage = const {};
   Map<String, int> _categoryCounts = const {};
   Map<String, int> _verdictCounts = const {};
   List<PropData> _evScannerProps = const [];
@@ -3440,6 +3441,7 @@ class _MainDashboardState extends State<MainDashboard> {
       _latestProps = props;
       _categoryCounts = categoryCounts;
       _verdictCounts = _apiService.lastVerdictCounts;
+      _providerCoverage = _apiService.lastProviderCoverage;
       if (_selectedSite != 'ALL' && _selectedCategory == 'ALL') {
         _siteInventoryProps = props;
         if (_selectedSiteSport.isEmpty) {
@@ -4621,6 +4623,7 @@ class _MainDashboardState extends State<MainDashboard> {
         _siteInventoryProps = const [];
         _siteSportCounts = const {};
         _siteSportCategoryCounts = const {};
+        _providerCoverage = const {};
         _focusedProp = null;
         _latestProps = const [];
         _categoryCounts = const {};
@@ -5296,6 +5299,52 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
+  Widget _buildProviderCoverageWarning() {
+    final issue = providerCoverageIssueForSport(
+      _providerCoverage,
+      _selectedSiteSport,
+    );
+    if (_selectedSite == 'ALL' || issue == null) {
+      return const SizedBox.shrink();
+    }
+    final category = issue['category']?.toString() ?? 'this category';
+    final selectedCount = (issue['selectedCount'] as num?)?.toInt() ?? 0;
+    final benchmarkCount = (issue['benchmarkCount'] as num?)?.toInt() ?? 0;
+    return Container(
+      key: const ValueKey('provider-coverage-warning'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2110),
+        border: Border.all(color: AppColors.gold),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.sync_problem_rounded,
+            color: AppColors.gold,
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'LIMITED $_selectedSite FEED • $category: $selectedCount synced; '
+              'comparison coverage has $benchmarkCount for the same games. '
+              'Refreshing automatically.',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                height: 1.25,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBoardCategories() {
     final categories = _currentCategories;
     IconData categoryIcon(String category) => switch (category) {
@@ -5575,7 +5624,16 @@ class _MainDashboardState extends State<MainDashboard> {
                             _buildBoardSports(),
                             const SizedBox(height: 7),
                             _buildBoardCategories(),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 7),
+                            _buildProviderCoverageWarning(),
+                            if (providerCoverageIssueForSport(
+                                  _providerCoverage,
+                                  _selectedSiteSport,
+                                ) !=
+                                null)
+                              const SizedBox(height: 10)
+                            else
+                              const SizedBox(height: 3),
                           ],
                           /*Text(
                             '${visibleProps.length} visible props • $_propCount total loaded',
@@ -13377,11 +13435,27 @@ class _PiVerdictBlock extends StatelessWidget {
 bool _matchesAny(String value, List<String> matches) =>
     matches.any(value.contains);
 
-/// Builds the category rail from the current feed facets.
-///
-/// The counts are already scoped by sport and prop site on the backend. Using
-/// only positive live facets prevents categories from another provider (or a
-/// generic catalog) from appearing with a misleading zero count.
+/// Finds the most important live-feed coverage issue for the active sport.
+@visibleForTesting
+Map<String, dynamic>? providerCoverageIssueForSport(
+  Map<String, dynamic> coverage,
+  String sport,
+) {
+  if (coverage['limited'] != true) return null;
+  final normalizedSport = sport.trim().toUpperCase();
+  final issues = coverage['issues'];
+  if (issues is! List) return null;
+  for (final rawIssue in issues) {
+    if (rawIssue is! Map) continue;
+    final issue = Map<String, dynamic>.from(rawIssue);
+    if (issue['sport']?.toString().trim().toUpperCase() == normalizedSport) {
+      return issue;
+    }
+  }
+  return null;
+}
+
+/// Builds the category rail from positive facets already scoped by site/sport.
 @visibleForTesting
 List<String> visibleCategoryFilters(Map<String, int> counts) {
   final available = counts.entries.where((entry) => entry.value > 0).toList()

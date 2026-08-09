@@ -349,6 +349,51 @@ def test_site_facets_report_full_sport_and_category_totals(monkeypatch) -> None:
     }
 
 
+def test_partial_provider_category_coverage_is_reported(monkeypatch) -> None:
+    rows = [
+        *[
+            FakeProp(
+                f"pp-{index}",
+                f"PrizePicks {index}",
+                "MLB",
+                "PRIZEPICKS",
+                "HITS + RUNS + RBIS",
+            )
+            for index in range(9)
+        ],
+        *[
+            FakeProp(
+                f"dk-{index}",
+                f"DraftKings {index}",
+                "MLB",
+                "DRAFTKINGS",
+                "HITS + RUNS + RBIS",
+            )
+            for index in range(36)
+        ],
+    ]
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: rows)
+
+    payload = TestClient(main.app).get(
+        "/api/props",
+        params={"sportsbook": "PRIZEPICKS", "sport": "MLB", "limit": 75},
+    ).json()
+
+    coverage = payload["providerCoverage"]
+    assert coverage["limited"] is True
+    assert coverage["selectedSite"] == "PRIZEPICKS"
+    assert coverage["issues"] == [
+        {
+            "sport": "MLB",
+            "category": "HITS + RUNS + RBIS",
+            "selectedCount": 9,
+            "benchmarkCount": 36,
+            "benchmarkSite": "DRAFTKINGS",
+            "coverageRatio": 0.25,
+        }
+    ]
+
+
 @pytest.mark.parametrize(
     ("site", "expected_sports", "expected_categories"),
     [

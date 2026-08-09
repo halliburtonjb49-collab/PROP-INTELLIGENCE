@@ -2264,6 +2264,100 @@ def props_readiness(response: Response) -> dict[str, object]:
 	}
 
 
+def _provider_category_coverage(
+	props: list[PropResponse],
+	*,
+	selected_site: str,
+) -> dict[str, object]:
+	"""Detect a partial selected-site payload against the same live events."""
+
+	def site_key(value: object) -> str:
+		normalized = str(value or "").strip().lower()
+		normalized = normalized.replace(" ", "").replace("_", "").replace("-", "")
+		if "betr" in normalized:
+			return "betr"
+		if "pick6" in normalized or "pick06" in normalized:
+			return "pick6"
+		return normalized
+
+	site = site_key(selected_site)
+	if not site or site == "all":
+		return {"limited": False, "selectedSite": site, "issues": []}
+
+	selected_events: dict[str, set[str]] = {}
+	selected_counts: Counter[tuple[str, str]] = Counter()
+	for prop in props:
+		if site_key(getattr(prop, "sportsbook", "")) != site:
+			continue
+		sport = str(getattr(prop, "sport", "") or "").strip().upper()
+		category = str(getattr(prop, "category", "") or "").strip().upper()
+		event = str(
+			getattr(prop, "eventId", "")
+			or getattr(prop, "gameId", "")
+			or getattr(prop, "apiSportsGameId", "")
+			or getattr(prop, "matchup", "")
+		).strip()
+		if not sport or not category or not event:
+			continue
+		selected_events.setdefault(sport, set()).add(event)
+		selected_counts[(sport, category)] += 1
+
+	counts_by_site: dict[str, Counter[tuple[str, str]]] = {}
+	for prop in props:
+		book = site_key(getattr(prop, "sportsbook", ""))
+		sport = str(getattr(prop, "sport", "") or "").strip().upper()
+		category = str(getattr(prop, "category", "") or "").strip().upper()
+		event = str(
+			getattr(prop, "eventId", "")
+			or getattr(prop, "gameId", "")
+			or getattr(prop, "apiSportsGameId", "")
+			or getattr(prop, "matchup", "")
+		).strip()
+		if (
+			not book
+			or not sport
+			or not category
+			or event not in selected_events.get(sport, set())
+		):
+			continue
+		counts_by_site.setdefault(book, Counter())[(sport, category)] += 1
+
+	issues: list[dict[str, object]] = []
+	for (sport, category), selected_count in selected_counts.items():
+		benchmark_site = ""
+		benchmark_count = 0
+		for book, counts in counts_by_site.items():
+			if book == site:
+				continue
+			count = int(counts.get((sport, category), 0))
+			if count > benchmark_count:
+				benchmark_site = book
+				benchmark_count = count
+		if benchmark_count < 12 or selected_count * 2 > benchmark_count:
+			continue
+		issues.append({
+			"sport": sport,
+			"category": category,
+			"selectedCount": selected_count,
+			"benchmarkCount": benchmark_count,
+			"benchmarkSite": benchmark_site.upper(),
+			"coverageRatio": round(selected_count / benchmark_count, 3),
+		})
+
+	issues.sort(
+		key=lambda issue: (
+			float(issue["coverageRatio"]),
+			-int(issue["benchmarkCount"]),
+			str(issue["category"]),
+		),
+	)
+	return {
+		"limited": bool(issues),
+		"selectedSite": site.upper(),
+		"issues": issues[:5],
+	}
+
+
 @app.get("/api/props")
 def props(
 	response: Response,
@@ -2446,6 +2540,12 @@ def props(
 					return False
 			return True
 
+		coverage_base_props = [
+			prop for prop in prop_list
+			if _matches_filters(
+				prop, apply_category=False, apply_sportsbook=False
+			)
+		]
 		facet_props = [
 			prop for prop in prop_list
 			if _matches_filters(prop, apply_category=False)
@@ -2464,10 +2564,11 @@ def props(
 			_normalize_sportsbook_filter_key(
 				str(prop.sportsbook or "other")
 			)
-			for prop in prop_list
-			if _matches_filters(
-				prop, apply_category=False, apply_sportsbook=False
-			)
+			for prop in coverage_base_props
+		)
+		provider_coverage = _provider_category_coverage(
+			coverage_base_props,
+			selected_site=sportsbook_filter,
 		)
 		sport_category_counts: dict[str, Counter[str]] = {}
 		for prop in facet_props:
@@ -2611,6 +2712,7 @@ def props(
 			# Lets the board hide a prop site that currently has nothing,
 			# rather than offering a filter that returns an empty screen.
 			"sportsbookCounts": dict(sorted(sportsbook_counts.items())),
+			"providerCoverage": provider_coverage,
 			"verdictCounts": dict(sorted(verdict_counts.items())),
 			"sportCategoryCounts": {
 				sport_key: dict(sorted(counts.items()))

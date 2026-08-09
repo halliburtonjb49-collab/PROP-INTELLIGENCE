@@ -34,6 +34,33 @@ void main() {
     ]);
   });
 
+  test('coverage warning selects the issue for the active sport', () {
+    final issue = providerCoverageIssueForSport({
+      'limited': true,
+      'issues': [
+        {
+          'sport': 'MLB',
+          'category': 'HITS + RUNS + RBIS',
+          'selectedCount': 9,
+          'benchmarkCount': 36,
+        },
+      ],
+    }, 'mlb');
+
+    expect(issue, isNotNull);
+    expect(issue!['selectedCount'], 9);
+    expect(providerCoverageIssueForSport({'limited': false}, 'MLB'), isNull);
+    expect(
+      providerCoverageIssueForSport({
+        'limited': true,
+        'issues': [
+          {'sport': 'NFL', 'selectedCount': 9},
+        ],
+      }, 'MLB'),
+      isNull,
+    );
+  });
+
   test('NFL rushing attempts keep their own category', () {
     expect(marketCategoryFor('NFL', 'player_rush_attempts'), 'RUSH ATTEMPTS');
     expect(marketCategoryFor('NFL', 'rushing attempts'), 'RUSH ATTEMPTS');
