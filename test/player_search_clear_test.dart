@@ -27,6 +27,8 @@ void main() {
       tester.widget<TextField>(initialField).controller?.text,
       'Brandon Lowe',
     );
+    expect(find.byKey(const ValueKey('active-board-filters')), findsOneWidget);
+    expect(find.text('SEARCH: Brandon Lowe'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Clear player search'));
     await tester.pump();
@@ -35,6 +37,7 @@ void main() {
     expect(clearedField, findsOneWidget);
     semantics.dispose();
     expect(tester.widget<TextField>(clearedField).controller?.text, isEmpty);
+    expect(find.byKey(const ValueKey('active-board-filters')), findsNothing);
     expect(tester.getSemantics(clearedField).value, isEmpty);
     expect(tester.takeException(), isNull);
   });

@@ -79,6 +79,7 @@ import 'widgets/prop_research_assistant.dart';
 import 'widgets/prop_research_controls.dart';
 export 'widgets/prop_research_controls.dart';
 import 'widgets/verdict_filter_bar.dart';
+import 'widgets/active_board_filters.dart';
 import 'widgets/recommendation_explainability_block.dart';
 import 'widgets/scoreboard_view.dart';
 import 'widgets/selected_prop_slip.dart';
@@ -4631,6 +4632,7 @@ class _MainDashboardState extends State<MainDashboard> {
           width: 190,
           child: playerSearchField(),
         ),
+      if (compactLayout) buildAllSitesSelector(_selectedSite == 'ALL'),
       Tooltip(
         message: 'Open PROP CHAT and join the community.',
         child: Stack(
@@ -4640,7 +4642,9 @@ class _MainDashboardState extends State<MainDashboard> {
               key: const ValueKey('board-prop-chat-button'),
               onPressed: () => widget.onSelectPage?.call(AppPage.propChat),
               icon: const Icon(Icons.forum_rounded, size: 17),
-              label: const Text('PROP CHAT'),
+              label: compactLayout
+                  ? const SizedBox.shrink()
+                  : const Text('PROP CHAT'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.gold,
                 backgroundColor: AppColors.gold.withValues(alpha: .08),
@@ -4656,9 +4660,15 @@ class _MainDashboardState extends State<MainDashboard> {
         ),
       ),
       OutlinedButton.icon(
+        key: const ValueKey('board-filter-button'),
         onPressed: _showBoardFilterOptions,
         icon: const Icon(Icons.filter_alt_outlined, size: 14),
-        label: const Text('FILTERS', style: TextStyle(fontSize: 8)),
+        label: Text(
+          _activeBoardFilterLabels().isEmpty
+              ? 'FILTERS'
+              : 'FILTERS ${_activeBoardFilterLabels().length}',
+          style: const TextStyle(fontSize: 8),
+        ),
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.white,
           backgroundColor: app_colors.AppColors.sidebar,
@@ -4666,10 +4676,7 @@ class _MainDashboardState extends State<MainDashboard> {
           padding: const EdgeInsets.symmetric(horizontal: 11),
         ),
       ),
-      if (compactLayout)
-        buildAllSitesSelector(_selectedSite == 'ALL')
-      else
-        ...books.map(buildSiteButton),
+      if (!compactLayout) ...books.map(buildSiteButton),
     ];
 
     return Column(
@@ -5065,6 +5072,56 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
+  List<String> _activeBoardFilterLabels() {
+    final labels = <String>[];
+    if (_searchQuery.isNotEmpty) {
+      labels.add('SEARCH: ${_searchController.text.trim()}');
+    }
+    if (_selectedSite != 'ALL') labels.add(_selectedSite);
+    if (_selectedSiteSport.isNotEmpty) labels.add(_selectedSiteSport);
+    final category = _effectiveSelectedCategory;
+    if (category != 'ALL') labels.add(category);
+    const verdictLabels = {
+      'ACTIONABLE': 'PLAYABLE',
+      'PLAY_NOW': 'PLAY NOW',
+      'SHOP': 'SHOP',
+      'LEAN': 'LEAN',
+      'WAIT': 'WAIT',
+    };
+    final verdict = verdictLabels[_verdictFilter];
+    if (verdict != null) labels.add(verdict);
+    if (_sortBy != 'time') labels.add('SORT: ${_sortBy.toUpperCase()}');
+    if (_minConfidence > 0) labels.add('CONFIDENCE $_minConfidence+');
+    return labels;
+  }
+
+  void _clearBoardFilters() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _searchFieldGeneration += 1;
+      _selectedSite = 'ALL';
+      _selectedSiteSport = '';
+      _selectedCategory = 'ALL';
+      _minConfidence = 0;
+      _sortBy = 'time';
+      _verdictFilter = 'ALL';
+      _siteInventoryProps = const [];
+      _siteSportCounts = const {};
+      _siteSportCategoryCounts = const {};
+      _providerCoverage = const {};
+      _focusedProp = null;
+      _latestProps = const [];
+      _categoryCounts = const {};
+      _lastUpdated = null;
+    });
+  }
+
+  Widget _buildActiveBoardFilters() => ActiveBoardFilters(
+    labels: _activeBoardFilterLabels(),
+    onClearAll: _clearBoardFilters,
+  );
   Future<void> _showBoardFilterOptions() async {
     final selected = await showDialog<String>(
       context: context,
@@ -5442,6 +5499,10 @@ class _MainDashboardState extends State<MainDashboard> {
                                 .hasEdgeAccess,
                           )) ...[
                             _buildVerdictFilter(),
+                            const SizedBox(height: 8),
+                          ],
+                          if (_activeBoardFilterLabels().isNotEmpty) ...[
+                            _buildActiveBoardFilters(),
                             const SizedBox(height: 10),
                           ],
                           PropGrid(
