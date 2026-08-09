@@ -67,6 +67,10 @@ services:
         value: 100
       - key: FOUNDING_PRO_RESERVATION_MINUTES
         value: 30
+      - key: BILLING_CATALOG_VERIFIED
+        sync: false
+      - key: BILLING_CATALOG_VERIFIED_AT
+        sync: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY

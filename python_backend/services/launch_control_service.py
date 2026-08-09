@@ -21,6 +21,7 @@ from services.sync_diagnostic_service import ticket_sync_diagnostic_summary
 from services.user_feedback_service import list_feedback
 from services.engagement_service import product_observability
 from services.data_certification_service import production_data_certification
+from services.billing_certification_service import billing_release_certification
 from services.strikeout_quality_service import (
     get_strikeout_release_controls,
     strikeout_backtest_monitoring,
@@ -330,6 +331,7 @@ def launch_control_snapshot() -> dict[str, object]:
     queue = queue_health()
     market = game_market_health()
     database_counts = _database_counts()
+    billing_certification = billing_release_certification()
     try:
         data_certification = production_data_certification(
             _prop_cache.load_props(),
@@ -504,6 +506,7 @@ def launch_control_snapshot() -> dict[str, object]:
         },
         "propFreshness": acceptance["propFeed"],
         "dataCertification": data_certification,
+        "billingCertification": billing_certification,
         "scoreboardLatency": scoreboard_latency_snapshot(),
         "gradingReview": grading_review,
         "modelPerformance": performance,

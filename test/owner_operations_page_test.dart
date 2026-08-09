@@ -36,6 +36,22 @@ class _FakeOperationsApi extends ApiService {
         },
       ],
     },
+    'billingCertification': {
+      'status': 'WARN',
+      'releaseReady': false,
+      'passCount': 6,
+      'warningCount': 1,
+      'failureCount': 0,
+      'generatedAtUtc': '2026-08-09T20:00:00Z',
+      'checks': [
+        {
+          'key': 'checkout_terms',
+          'label': 'Stripe / RevenueCat checkout terms',
+          'status': 'WARN',
+          'detail': 'External checkout prices and trials require verification.',
+        },
+      ],
+    },
     'scoreboardLatency': {'status': 'ok', 'lastMs': 240, 'p95Ms': 300},
     'activeUsers': {'count': 3, 'instrumented': true},
     'failedPayments': {'count': 0},
@@ -176,6 +192,18 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('WARN | SCORE 92/100'), findsOneWidget);
+    for (var attempt = 0; attempt < 8; attempt++) {
+      if (find.text('BILLING RELEASE CERTIFICATION').evaluate().isNotEmpty) {
+        break;
+      }
+      await tester.drag(find.byType(ListView), const Offset(0, -300));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('BILLING RELEASE CERTIFICATION'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('billing-release-certification')),
+      findsOneWidget,
+    );
     await tester.drag(find.byType(ListView), const Offset(0, -250));
     await tester.pumpAndSettle();
     expect(find.text('PRODUCT OBSERVABILITY'), findsOneWidget);

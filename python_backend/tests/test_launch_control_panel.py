@@ -195,6 +195,11 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
         },
     )
 
+    monkeypatch.setattr(
+        launch_control_service,
+        "billing_release_certification",
+        lambda: {"status": "PASS", "releaseReady": True, "checks": []},
+    )
     result = launch_control_service.launch_control_snapshot()
 
     assert result["api"]["status"] == "ok"
@@ -204,6 +209,7 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
     assert result["providers"]["errors"] == 1
     assert result["propFreshness"]["ageMinutes"] == 3
     assert result["dataCertification"]["score"] == 100
+    assert result["billingCertification"]["releaseReady"] is True
     assert result["activeUsers"]["count"] == 4
     assert result["failedLogins"]["count"] is None
     assert result["failedPayments"]["count"] == 0

@@ -207,6 +207,13 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             _dataCertification(),
             const SizedBox(height: 22),
             _sectionTitle(
+              'BILLING RELEASE CERTIFICATION',
+              'Prices, trials, product mappings, entitlements, webhook delivery, and Founding Pro capacity',
+            ),
+            const SizedBox(height: 10),
+            _billingCertification(),
+            const SizedBox(height: 22),
+            _sectionTitle(
               'PRODUCT OBSERVABILITY',
               'First-party crash, performance, and conversion signals with no raw prop or message content',
             ),
@@ -320,6 +327,64 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                 '$checkStatus | ${check['label'] ?? 'Data check'}',
                 check['detail']?.toString() ?? '',
                 color,
+                trailing: check['value']?.toString(),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _billingCertification() {
+    final certification = _map('billingCertification');
+    final checks = (certification['checks'] as List? ?? const [])
+        .whereType<Map>()
+        .toList(growable: false);
+    final status = certification['status']?.toString().toUpperCase() ?? 'FAIL';
+    final color = status == 'PASS'
+        ? const Color(0xFF8CFFB2)
+        : status == 'WARN'
+        ? AppColors.gold
+        : const Color(0xFFFF7B7B);
+    if (checks.isEmpty) {
+      return _notice(
+        Icons.credit_card_off_outlined,
+        'BILLING CERTIFICATION UNAVAILABLE',
+        'The subscription release gate did not return any checks.',
+        color,
+      );
+    }
+    return KeyedSubtree(
+      key: const ValueKey('billing-release-certification'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _notice(
+            Icons.verified_user_outlined,
+            '$status | ${certification['releaseReady'] == true ? 'READY TO SELL' : 'DO NOT RELEASE'}',
+            '${certification['passCount'] ?? 0} passed | ${certification['warningCount'] ?? 0} warnings | ${certification['failureCount'] ?? 0} failed',
+            color,
+            trailing: certification['generatedAtUtc']?.toString(),
+          ),
+          const SizedBox(height: 8),
+          ...checks.map((check) {
+            final checkStatus =
+                check['status']?.toString().toUpperCase() ?? 'FAIL';
+            final checkColor = checkStatus == 'PASS'
+                ? const Color(0xFF8CFFB2)
+                : checkStatus == 'WARN'
+                ? AppColors.gold
+                : const Color(0xFFFF7B7B);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _notice(
+                checkStatus == 'PASS'
+                    ? Icons.check_circle_outline
+                    : Icons.warning_amber_rounded,
+                '$checkStatus | ${check['label'] ?? 'Billing check'}',
+                check['detail']?.toString() ?? '',
+                checkColor,
                 trailing: check['value']?.toString(),
               ),
             );

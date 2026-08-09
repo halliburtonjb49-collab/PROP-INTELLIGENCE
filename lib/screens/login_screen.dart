@@ -541,7 +541,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               PurchaseTier.edge,
               interval: PurchaseInterval.annual,
             ),
-            annualPrice: SubscriptionPricing.coreAnnual,
+            annualPrice: SubscriptionPricing.proAnnual,
           ),
           const SizedBox(height: 12),
           _PricingTierCard(

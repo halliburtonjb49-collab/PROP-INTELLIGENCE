@@ -91,6 +91,7 @@ void main() {
     expect(find.text('PRO'), findsOneWidget);
     expect(find.text(r'$24.99 / MONTH'), findsOneWidget);
     expect(find.text(r'$59.99 / MONTH'), findsOneWidget);
+    expect(find.textContaining(r'$599.99 / YEAR'), findsOneWidget);
     expect(find.text('CHOOSE CORE'), findsOneWidget);
     expect(find.text('CHOOSE PRO'), findsOneWidget);
     expect(find.text('FOUNDING PRO'), findsOneWidget);
