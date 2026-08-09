@@ -18,7 +18,9 @@ from services.baseline_projection_service import MODEL_VERSION
 from services.api_auth_service import require_pro, require_user_id
 from services.compound_alert_service import create_alert, delete_alert, evaluate_user_alerts, list_alerts, list_deliveries
 from routers.realtime import hub as realtime_hub
-from services.engagement_service import record_engagement, sentiment_rollup
+from services.engagement_service import (
+    product_observability, record_engagement, sentiment_rollup,
+)
 from services.vector_similarity_service import database_similarity
 from services.officiating_profile_service import (
     get_officiating_profile,
@@ -164,13 +166,25 @@ def calculate_sentiment(events: list[SentimentEvent]) -> dict[str, object]:
 def save_engagement(request: SentimentBatchRequest,
                     user_id: str = Depends(require_user_id)) -> dict[str, object]:
     result = record_engagement(user_id, request.events)
-    rollups = [sentiment_rollup(prop_id) for prop_id in result.get("propIds", [])]
+    rollups = [
+        sentiment_rollup(prop_id)
+        for prop_id in result.get("propIds", [])
+        if not str(prop_id).startswith("__")
+    ]
     for rollup in rollups:
         realtime_hub.broadcast_from_thread(
             {"type": "sentiment.updated", "version": 1,
              "eventId": f"sentiment-{rollup['propId']}-{rollup.get('updatedAt', '')}",
              "occurredAt": rollup.get("updatedAt"), "data": rollup}, "sentiment")
     return {**result, "rollups": rollups}
+
+
+@router.get("/observability")
+def get_product_observability(
+    hours: int = 168,
+    _admin: str = Depends(require_admin),
+) -> dict[str, object]:
+    return product_observability(hours)
 
 
 @router.get("/sentiment/{prop_id}")

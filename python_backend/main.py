@@ -26,6 +26,7 @@ from config import (
 	CRICKETDATA_API_KEY,
 	HTTP_TIMEOUT_SECONDS,
 	LIVE_ODDS_SYNC_MIN_SECONDS,
+	PREFERRED_BOOKMAKERS,
 	PLAYER_IMAGE_DIR,
 	SPORTMONKS_CRICKET_API_KEY,
 	SPORTRADAR_API_KEY,
@@ -84,6 +85,7 @@ from services.baseline_projection_service import (
 )
 from services.odds_service import sport_coverage
 from services.prop_service import get_props
+from services.provider_reliability_service import build_provider_reliability
 from services.pi_verdict_service import compute_verdict, verdict_payload
 from services.daily_briefing_service import build_briefing
 from services.projection_backtest_service import (
@@ -2570,6 +2572,41 @@ def props(
 			coverage_base_props,
 			selected_site=sportsbook_filter,
 		)
+		provider_reliability = build_provider_reliability(
+			prop_list,
+			expected_sites=PREFERRED_BOOKMAKERS,
+			horizon_days=3,
+			stale_after_minutes=stale_after_minutes,
+			day_timezone=_scoreboard_timezone(),
+		)
+		recovery_reason = (
+			"partial_provider_coverage"
+			if provider_coverage.get("limited") is True
+			else "stale_three_day_catalog"
+			if provider_reliability.get("recoveryRecommended") is True
+			else ""
+		)
+		if recovery_reason:
+			queued_recovery = _enqueue_prop_refresh()
+			recovery = {
+				"requested": True,
+				"queued": queued_recovery is not None,
+				"reason": recovery_reason,
+				"jobId": (
+					str(queued_recovery.get("id") or "")
+					if isinstance(queued_recovery, dict)
+					else ""
+				),
+			}
+		else:
+			recovery = {
+				"requested": False,
+				"queued": False,
+				"reason": "",
+				"jobId": "",
+			}
+		provider_reliability["recovery"] = recovery
+		provider_coverage["recovery"] = recovery
 		sport_category_counts: dict[str, Counter[str]] = {}
 		for prop in facet_props:
 			sport_key = str(prop.sport or "other").strip().upper()
@@ -2713,6 +2750,7 @@ def props(
 			# rather than offering a filter that returns an empty screen.
 			"sportsbookCounts": dict(sorted(sportsbook_counts.items())),
 			"providerCoverage": provider_coverage,
+			"providerReliability": provider_reliability,
 			"verdictCounts": dict(sorted(verdict_counts.items())),
 			"sportCategoryCounts": {
 				sport_key: dict(sorted(counts.items()))

@@ -373,6 +373,12 @@ def test_partial_provider_category_coverage_is_reported(monkeypatch) -> None:
         ],
     ]
     monkeypatch.setattr(main, "_cached_prop_catalog", lambda: rows)
+    queued = []
+    monkeypatch.setattr(
+        main,
+        "_enqueue_prop_refresh",
+        lambda: queued.append(True) or {"id": "coverage-recovery"},
+    )
 
     payload = TestClient(main.app).get(
         "/api/props",
@@ -382,6 +388,13 @@ def test_partial_provider_category_coverage_is_reported(monkeypatch) -> None:
     coverage = payload["providerCoverage"]
     assert coverage["limited"] is True
     assert coverage["selectedSite"] == "PRIZEPICKS"
+    assert coverage["recovery"] == {
+        "requested": True,
+        "queued": True,
+        "reason": "partial_provider_coverage",
+        "jobId": "coverage-recovery",
+    }
+    assert queued == [True]
     assert coverage["issues"] == [
         {
             "sport": "MLB",

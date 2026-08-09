@@ -28,6 +28,7 @@ class _ParsedPropsPayload {
     required this.sportCounts,
     required this.sportsbookCounts,
     required this.providerCoverage,
+    required this.providerReliability,
     required this.verdictCounts,
     required this.sportCategoryCounts,
     required this.rawMaps,
@@ -44,6 +45,7 @@ class _ParsedPropsPayload {
   /// should not be offered as a filter that returns an empty screen.
   final Map<String, int> sportsbookCounts;
   final Map<String, dynamic> providerCoverage;
+  final Map<String, dynamic> providerReliability;
   final Map<String, int> verdictCounts;
   final Map<String, Map<String, int>> sportCategoryCounts;
   final List<Map<String, dynamic>> rawMaps;
@@ -100,6 +102,10 @@ _ParsedPropsPayload _parsePropsPayload(String body) {
   final providerCoverage = rawProviderCoverage is Map
       ? Map<String, dynamic>.from(rawProviderCoverage)
       : const <String, dynamic>{};
+  final rawProviderReliability = decoded['providerReliability'];
+  final providerReliability = rawProviderReliability is Map
+      ? Map<String, dynamic>.from(rawProviderReliability)
+      : const <String, dynamic>{};
   final rawVerdictCounts = decoded['verdictCounts'];
   final verdictCounts = rawVerdictCounts is Map
       ? {
@@ -134,6 +140,7 @@ _ParsedPropsPayload _parsePropsPayload(String body) {
     sportCounts: sportCounts,
     sportsbookCounts: sportsbookCounts,
     providerCoverage: providerCoverage,
+    providerReliability: providerReliability,
     verdictCounts: verdictCounts,
     sportCategoryCounts: sportCategoryCounts,
     rawMaps: rawMaps,
@@ -187,6 +194,7 @@ class ApiService {
   static Map<String, int> _lastVerdictCounts = const {};
   static Map<String, Map<String, int>> _lastSportCategoryCounts = const {};
   static Map<String, dynamic> _lastProviderCoverage = const {};
+  static Map<String, dynamic> _lastProviderReliability = const {};
   static final ValueNotifier<BackendRefreshStatus> refreshStatusNotifier =
       ValueNotifier<BackendRefreshStatus>(const BackendRefreshStatus.empty());
   int _lastPropsCount = 0;
@@ -212,6 +220,8 @@ class ApiService {
       });
   Map<String, dynamic> get lastProviderCoverage =>
       Map<String, dynamic>.unmodifiable(_lastProviderCoverage);
+  Map<String, dynamic> get lastProviderReliability =>
+      Map<String, dynamic>.unmodifiable(_lastProviderReliability);
 
   Future<Map<String, String>> _authenticatedHeaders({
     bool json = false,
@@ -1048,6 +1058,7 @@ class ApiService {
         var verdictCounts = parsed.verdictCounts;
         var sportCategoryCounts = parsed.sportCategoryCounts;
         var providerCoverage = parsed.providerCoverage;
+        final providerReliability = parsed.providerReliability;
 
         if (sportsbookFilterEnabled) {
           props = props
@@ -1099,6 +1110,7 @@ class ApiService {
         _lastCategoryCounts = categoryCounts;
         _lastVerdictCounts = verdictCounts;
         _lastProviderCoverage = providerCoverage;
+        _lastProviderReliability = providerReliability;
         if (selectedSport.trim().toUpperCase() == 'ALL' &&
             selectedCategory.trim().toUpperCase() == 'ALL') {
           _lastSportCounts = sportCounts;
@@ -1521,6 +1533,7 @@ class ApiService {
               }
             : const {};
         _lastProviderCoverage = const {};
+        _lastProviderReliability = const {};
         final rawVerdictCounts = decoded['verdictCounts'];
         _lastVerdictCounts = rawVerdictCounts is Map
             ? {

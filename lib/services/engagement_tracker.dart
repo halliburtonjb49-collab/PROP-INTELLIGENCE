@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import 'api_service.dart';
 
 class EngagementTracker {
@@ -17,6 +19,25 @@ class EngagementTracker {
     if (_queue.length > 100) _queue.removeAt(0);
     _timer ??= Timer(const Duration(seconds: 5), flush);
     if (_queue.length >= 20) unawaited(flush());
+  }
+
+  void recordProduct(String action) {
+    if (!kReleaseMode) return;
+    final normalized = action.trim().toUpperCase();
+    if (normalized.isEmpty) return;
+    record('__PRODUCT__', normalized);
+  }
+
+  void recordError(Object error) {
+    if (!kReleaseMode) return;
+    final fingerprint = error.runtimeType
+        .toString()
+        .replaceAll(RegExp(r'[^A-Za-z0-9_]'), '')
+        .toUpperCase();
+    record(
+      '__ERROR__:${fingerprint.isEmpty ? 'UNKNOWN' : fingerprint}',
+      'ERROR',
+    );
   }
 
   Future<void> flush() async {

@@ -38,3 +38,50 @@ def sentiment_rollup(prop_id: str, hours: int = 24) -> dict[str, object]:
             "label": "FOLLOW" if score >= 15 else "FADE" if score <= -15 else "NEUTRAL",
             "sampleSize": sum(counts.values()), "uniqueUsers": unique_users,
             "actions": counts, "windowHours": hours, "updatedAt": datetime.now(timezone.utc).isoformat()}
+
+
+def product_observability(hours: int = 168) -> dict[str, object]:
+    """Return aggregate product events without exposing users or raw errors."""
+    window_hours = max(1, min(int(hours), 24 * 90))
+    empty = {
+        "windowHours": window_hours,
+        "events": {},
+        "uniqueUsers": {},
+        "errors": {},
+        "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
+    }
+    if not database_is_configured():
+        return {**empty, "available": False}
+
+    with get_database_pool().connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """select action,count(*),count(distinct user_id)
+               from prop_engagement_events
+               where prop_id='__PRODUCT__'
+                 and created_at >= now()-(%s * interval '1 hour')
+               group by action""",
+            (window_hours,),
+        )
+        event_rows = cursor.fetchall()
+        cursor.execute(
+            """select prop_id,count(*)
+               from prop_engagement_events
+               where prop_id like '__ERROR__:%'
+                 and created_at >= now()-(%s * interval '1 hour')
+               group by prop_id order by count(*) desc limit 20""",
+            (window_hours,),
+        )
+        error_rows = cursor.fetchall()
+
+    return {
+        **empty,
+        "available": True,
+        "events": {str(action): int(count) for action, count, _ in event_rows},
+        "uniqueUsers": {
+            str(action): int(users) for action, _, users in event_rows
+        },
+        "errors": {
+            str(fingerprint).removeprefix("__ERROR__:"): int(count)
+            for fingerprint, count in error_rows
+        },
+    }

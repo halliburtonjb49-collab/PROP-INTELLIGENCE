@@ -35,6 +35,7 @@ import 'services/app_sound_service.dart';
 import 'services/onesignal_service.dart';
 import 'services/auth_manager.dart';
 import 'services/developer_mode_service.dart';
+import 'services/engagement_tracker.dart';
 import 'services/prop_watchlist_service.dart';
 import 'services/player_image_resolver.dart';
 import 'services/prop_chat_service.dart';
@@ -53,6 +54,8 @@ import 'widgets/auth_account_panel.dart';
 import 'widgets/current_slip_panel.dart';
 import 'widgets/ev_scanner_card.dart';
 import 'widgets/onboarding_dialog.dart';
+import 'widgets/provider_reliability_banner.dart';
+import 'widgets/verdict_filter_bar.dart';
 import 'widgets/recommendation_explainability_block.dart';
 import 'widgets/scoreboard_view.dart';
 import 'widgets/selected_prop_slip.dart';
@@ -147,11 +150,13 @@ Future<void> main() async {
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
     _startupLog('FlutterError: ${details.exceptionAsString()}');
+    EngagementTracker.instance.recordError(details.exception);
   };
 
   WidgetsBinding.instance.platformDispatcher.onError =
       (Object error, StackTrace stackTrace) {
         _startupLog('Unhandled async error: $error');
+        EngagementTracker.instance.recordError(error);
         return true;
       };
 
@@ -317,6 +322,7 @@ class _PropIntelligenceAppState extends State<PropIntelligenceApp> {
   @override
   void initState() {
     super.initState();
+    EngagementTracker.instance.recordProduct('APP_OPEN');
     AuthManager.instance.sessionState.addListener(_syncOneSignalIdentity);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       OneSignalService.instance.observeRegistration((subscriptionId) {
@@ -3083,6 +3089,7 @@ class _MainDashboardState extends State<MainDashboard> {
   Map<String, int> _siteSportCounts = const {};
   Map<String, Map<String, int>> _siteSportCategoryCounts = const {};
   Map<String, dynamic> _providerCoverage = const {};
+  Map<String, dynamic> _providerReliability = const {};
   Map<String, int> _categoryCounts = const {};
   Map<String, int> _verdictCounts = const {};
   List<PropData> _evScannerProps = const [];
@@ -3442,6 +3449,7 @@ class _MainDashboardState extends State<MainDashboard> {
       _categoryCounts = categoryCounts;
       _verdictCounts = _apiService.lastVerdictCounts;
       _providerCoverage = _apiService.lastProviderCoverage;
+      _providerReliability = _apiService.lastProviderReliability;
       if (_selectedSite != 'ALL' && _selectedCategory == 'ALL') {
         _siteInventoryProps = props;
         if (_selectedSiteSport.isEmpty) {
@@ -4618,6 +4626,7 @@ class _MainDashboardState extends State<MainDashboard> {
     void selectSite(String book) {
       setState(() {
         _selectedSite = book;
+        EngagementTracker.instance.recordProduct('SITE_FILTER');
         _selectedSiteSport = '';
         _selectedCategory = 'ALL';
         _siteInventoryProps = const [];
@@ -4770,7 +4779,10 @@ class _MainDashboardState extends State<MainDashboard> {
           padding: const EdgeInsets.symmetric(horizontal: 11),
         ),
       ),
-      ...books.map(buildSiteButton),
+      if (compactLayout)
+        buildAllSitesSelector(_selectedSite == 'ALL')
+      else
+        ...books.map(buildSiteButton),
     ];
 
     return Column(
@@ -4785,21 +4797,22 @@ class _MainDashboardState extends State<MainDashboard> {
         ],
         Row(
           children: [
-            IconButton(
-              key: const ValueKey('prop-sites-scroll-left'),
-              tooltip: 'Previous prop sites',
-              onPressed: () => slideSites(-240),
-              style: IconButton.styleFrom(
-                backgroundColor: AppColors.gold.withValues(alpha: .12),
-                side: const BorderSide(color: AppColors.gold),
-                minimumSize: const Size(38, 42),
+            if (!compactLayout)
+              IconButton(
+                key: const ValueKey('prop-sites-scroll-left'),
+                tooltip: 'Previous prop sites',
+                onPressed: () => slideSites(-240),
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.gold.withValues(alpha: .12),
+                  side: const BorderSide(color: AppColors.gold),
+                  minimumSize: const Size(38, 42),
+                ),
+                icon: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: AppColors.gold,
+                  size: 16,
+                ),
               ),
-              icon: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: AppColors.gold,
-                size: 16,
-              ),
-            ),
             Expanded(
               child: SizedBox(
                 height: 48,
@@ -4865,21 +4878,22 @@ class _MainDashboardState extends State<MainDashboard> {
                 ),
               ),
             ),
-            IconButton(
-              key: const ValueKey('prop-sites-scroll-right'),
-              tooltip: 'More prop sites',
-              onPressed: () => slideSites(240),
-              style: IconButton.styleFrom(
-                backgroundColor: AppColors.gold.withValues(alpha: .12),
-                side: const BorderSide(color: AppColors.gold),
-                minimumSize: const Size(38, 42),
+            if (!compactLayout)
+              IconButton(
+                key: const ValueKey('prop-sites-scroll-right'),
+                tooltip: 'More prop sites',
+                onPressed: () => slideSites(240),
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.gold.withValues(alpha: .12),
+                  side: const BorderSide(color: AppColors.gold),
+                  minimumSize: const Size(38, 42),
+                ),
+                icon: const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: AppColors.gold,
+                  size: 16,
+                ),
               ),
-              icon: const Icon(
-                Icons.arrow_forward_ios_rounded,
-                color: AppColors.gold,
-                size: 16,
-              ),
-            ),
           ],
         ),
       ],
@@ -5234,115 +5248,44 @@ class _MainDashboardState extends State<MainDashboard> {
   /// shopping, and leans -- rather than PLAY NOW alone. A reader who only
   /// ever taps this one chip should still see everything actionable.
   Widget _buildVerdictFilter() {
-    const options = <(String, String)>[
-      ('ALL', 'ALL PROPS'),
-      ('ACTIONABLE', 'PLAYABLE'),
-      ('PLAY_NOW', 'PLAY NOW'),
-      ('SHOP', 'SHOP'),
-      ('LEAN', 'LEAN'),
-      ('WAIT', 'WAIT'),
-    ];
-
-    final chips = [
-      for (final (value, label) in options)
-        Padding(
-          padding: const EdgeInsets.only(right: 7),
-          child: Semantics(
-            button: true,
-            selected: _verdictFilter == value,
-            label: resolveVerdictFilterCount(_verdictCounts, value) == null
-                ? 'Show $label'
-                : 'Show $label, ${resolveVerdictFilterCount(_verdictCounts, value)} available',
-            child: GestureDetector(
-              key: ValueKey('verdict-filter-$value'),
-              onTap: () => setState(() => _verdictFilter = value),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: _verdictFilter == value
-                      ? AppColors.gold
-                      : const Color(0xFF07111C),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: AppColors.gold),
-                ),
-                child: Text(
-                  resolveVerdictFilterCount(_verdictCounts, value) == null
-                      ? label
-                      : '$label ${resolveVerdictFilterCount(_verdictCounts, value)}',
-                  style: TextStyle(
-                    color: _verdictFilter == value
-                        ? app_colors.AppColors.bgBase
-                        : Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 9,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (shouldWrapVerdictFilters(constraints.maxWidth)) {
-          return Wrap(runSpacing: 7, children: chips);
-        }
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(children: chips),
-        );
+    return VerdictFilterBar(
+      selected: _verdictFilter,
+      countFor: (value) => resolveVerdictFilterCount(_verdictCounts, value),
+      shouldWrap: shouldWrapVerdictFilters,
+      onSelected: (value) {
+        EngagementTracker.instance.recordProduct('VERDICT_FILTER');
+        setState(() => _verdictFilter = value);
       },
+      onShowGuide: () => ProductOnboarding.showDecisionGuide(context),
     );
   }
 
-  Widget _buildProviderCoverageWarning() {
-    final issue = providerCoverageIssueForSport(
-      _providerCoverage,
-      _selectedSiteSport,
-      _effectiveSelectedCategory,
+  void _showProviderReliabilityDetails() {
+    if (_providerReliability.isEmpty) return;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.background,
+      isScrollControlled: true,
+      builder: (_) =>
+          ProviderReliabilitySheet(reliability: _providerReliability),
     );
-    if (_selectedSite == 'ALL' || issue == null) {
-      return const SizedBox.shrink();
-    }
-    final category = issue['category']?.toString() ?? 'this category';
-    final selectedCount = (issue['selectedCount'] as num?)?.toInt() ?? 0;
-    final benchmarkCount = (issue['benchmarkCount'] as num?)?.toInt() ?? 0;
-    return Container(
-      key: const ValueKey('provider-coverage-warning'),
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A2110),
-        border: Border.all(color: AppColors.gold),
-        borderRadius: BorderRadius.circular(7),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.sync_problem_rounded,
-            color: AppColors.gold,
-            size: 16,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'LIMITED $_selectedSite FEED • $category: $selectedCount synced; '
-              'comparison coverage has $benchmarkCount for the same games. '
-              'Refreshing automatically.',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
-                height: 1.25,
-              ),
-            ),
-          ),
-        ],
-      ),
+  }
+
+  Widget _buildProviderReliabilityBanner() {
+    final issue = _selectedSite == 'ALL'
+        ? null
+        : providerCoverageIssueForSport(
+            _providerCoverage,
+            _selectedSiteSport,
+            _effectiveSelectedCategory,
+          );
+    return ProviderReliabilityBanner(
+      reliability: _providerReliability,
+      selectedSite: _selectedSite,
+      coverageIssue: issue,
+      onDetails: _providerReliability.isEmpty
+          ? null
+          : _showProviderReliabilityDetails,
     );
   }
 
@@ -5620,22 +5563,14 @@ class _MainDashboardState extends State<MainDashboard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildBoardSearchAndBooks(),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
+                          _buildProviderReliabilityBanner(),
+                          const SizedBox(height: 10),
                           if (_selectedSite != 'ALL') ...[
                             _buildBoardSports(),
                             const SizedBox(height: 7),
                             _buildBoardCategories(),
-                            const SizedBox(height: 7),
-                            _buildProviderCoverageWarning(),
-                            if (providerCoverageIssueForSport(
-                                  _providerCoverage,
-                                  _selectedSiteSport,
-                                  _effectiveSelectedCategory,
-                                ) !=
-                                null)
-                              const SizedBox(height: 10)
-                            else
-                              const SizedBox(height: 3),
+                            const SizedBox(height: 10),
                           ],
                           /*Text(
                             '${visibleProps.length} visible props • $_propCount total loaded',
@@ -11276,6 +11211,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     _startupLog(
       'fetchProps() complete in ${fetchTimer.elapsedMilliseconds}ms (${props.length} props)',
     );
+    if (fetchTimer.elapsed > const Duration(seconds: 5)) {
+      EngagementTracker.instance.recordProduct('SLOW_LOAD');
+    }
     final prepareTimer = Stopwatch()..start();
     _preparedProps = _prepareProps(props);
     _startupLog(

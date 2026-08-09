@@ -139,7 +139,11 @@ class DatabaseSimilarityRequest(BaseModel):
 
 class SentimentEvent(BaseModel):
     prop_id: str
-    action: Literal["VIEW", "SEARCH", "CLICK", "WATCHLIST", "PICK_OVER", "PICK_UNDER"]
+    action: Literal[
+        "VIEW", "SEARCH", "CLICK", "WATCHLIST", "PICK_OVER", "PICK_UNDER",
+        "APP_OPEN", "ONBOARDING_COMPLETE", "ONBOARDING_SKIPPED",
+        "SITE_FILTER", "VERDICT_FILTER", "SLOW_LOAD", "ERROR",
+    ]
 
 
 class SentimentBatchRequest(BaseModel):
