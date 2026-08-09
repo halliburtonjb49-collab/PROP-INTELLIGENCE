@@ -40,6 +40,12 @@ void main() {
       'issues': [
         {
           'sport': 'MLB',
+          'category': 'BATTER WALKS',
+          'selectedCount': 2,
+          'benchmarkCount': 36,
+        },
+        {
+          'sport': 'MLB',
           'category': 'HITS + RUNS + RBIS',
           'selectedCount': 9,
           'benchmarkCount': 36,
@@ -48,7 +54,36 @@ void main() {
     }, 'mlb');
 
     expect(issue, isNotNull);
-    expect(issue!['selectedCount'], 9);
+    expect(issue!['selectedCount'], 2);
+    final categoryIssue = providerCoverageIssueForSport(
+      {
+        'limited': true,
+        'issues': [
+          {'sport': 'MLB', 'category': 'BATTER WALKS', 'selectedCount': 2},
+          {
+            'sport': 'MLB',
+            'category': 'HITS + RUNS + RBIS',
+            'selectedCount': 9,
+          },
+        ],
+      },
+      'mlb',
+      'hits + runs + rbis',
+    );
+    expect(categoryIssue?['selectedCount'], 9);
+    expect(
+      providerCoverageIssueForSport(
+        {
+          'limited': true,
+          'issues': [
+            {'sport': 'MLB', 'category': 'BATTER WALKS'},
+          ],
+        },
+        'MLB',
+        'HITS',
+      ),
+      isNull,
+    );
     expect(providerCoverageIssueForSport({'limited': false}, 'MLB'), isNull);
     expect(
       providerCoverageIssueForSport({

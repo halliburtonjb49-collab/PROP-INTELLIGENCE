@@ -5303,6 +5303,7 @@ class _MainDashboardState extends State<MainDashboard> {
     final issue = providerCoverageIssueForSport(
       _providerCoverage,
       _selectedSiteSport,
+      _effectiveSelectedCategory,
     );
     if (_selectedSite == 'ALL' || issue == null) {
       return const SizedBox.shrink();
@@ -5629,6 +5630,7 @@ class _MainDashboardState extends State<MainDashboard> {
                             if (providerCoverageIssueForSport(
                                   _providerCoverage,
                                   _selectedSiteSport,
+                                  _effectiveSelectedCategory,
                                 ) !=
                                 null)
                               const SizedBox(height: 10)
@@ -13439,20 +13441,28 @@ bool _matchesAny(String value, List<String> matches) =>
 @visibleForTesting
 Map<String, dynamic>? providerCoverageIssueForSport(
   Map<String, dynamic> coverage,
-  String sport,
-) {
+  String sport, [
+  String category = 'ALL',
+]) {
   if (coverage['limited'] != true) return null;
   final normalizedSport = sport.trim().toUpperCase();
+  final normalizedCategory = category.trim().toUpperCase();
   final issues = coverage['issues'];
   if (issues is! List) return null;
+  Map<String, dynamic>? sportFallback;
   for (final rawIssue in issues) {
     if (rawIssue is! Map) continue;
     final issue = Map<String, dynamic>.from(rawIssue);
     if (issue['sport']?.toString().trim().toUpperCase() == normalizedSport) {
-      return issue;
+      sportFallback ??= issue;
+      if (normalizedCategory != 'ALL' &&
+          issue['category']?.toString().trim().toUpperCase() ==
+              normalizedCategory) {
+        return issue;
+      }
     }
   }
-  return null;
+  return normalizedCategory == 'ALL' ? sportFallback : null;
 }
 
 /// Builds the category rail from positive facets already scoped by site/sport.
