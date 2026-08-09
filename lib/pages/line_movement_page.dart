@@ -13,15 +13,23 @@ import '../widgets/context_help.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
+typedef LineMovementLoader =
+    Future<List<PropData>> Function({
+      required bool refresh,
+      required String sport,
+    });
+
 class LineMovementPage extends StatefulWidget {
   const LineMovementPage({
     super.key,
     required this.selectedSport,
     required this.hasProAccess,
+    this.loadProps,
   });
 
   final String selectedSport;
   final bool hasProAccess;
+  final LineMovementLoader? loadProps;
 
   @override
   State<LineMovementPage> createState() => _LineMovementPageState();
@@ -153,9 +161,10 @@ class _LineMovementPageState extends State<LineMovementPage> {
     // from what fetchProps() already returns. A refresh just re-fetches;
     // there's no separate "check lines" round trip needed or a stale
     // same-moment comparison to worry about.
-    final props = await _apiService.fetchLineMovementProps(
-      sport: selectedSport.isEmpty ? 'ALL' : selectedSport,
-    );
+    final sport = selectedSport.isEmpty ? 'ALL' : selectedSport;
+    final props = widget.loadProps == null
+        ? await _apiService.fetchLineMovementProps(sport: sport)
+        : await widget.loadProps!(refresh: refresh, sport: sport);
 
     final items = props.map(_LineMovementItem.fromProp).toList()
       ..sort((a, b) => b.movementMagnitude.compareTo(a.movementMagnitude));
@@ -610,6 +619,318 @@ class _LineMovementPageState extends State<LineMovementPage> {
     );
   }
 
+  Color _freshnessColor(_LineMovementItem item) {
+    return switch (item.freshnessStatus) {
+      'STALE' => AppColors.red,
+      'AGING' => AppColors.gold,
+      _ => const Color(0xFF2ECC71),
+    };
+  }
+
+  Widget _freshnessBadge(_LineMovementItem item) {
+    final color = _freshnessColor(item);
+    return Container(
+      key: ValueKey('line-freshness-${item.id}'),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: .55)),
+      ),
+      child: Text(
+        item.freshnessStatus,
+        style: TextStyle(
+          color: color,
+          fontSize: 7,
+          fontWeight: FontWeight.w900,
+          letterSpacing: .5,
+        ),
+      ),
+    );
+  }
+
+  Widget _freshnessWarningBanner(List<_LineMovementItem> items) {
+    final stale = items.where((item) => item.dataStale).length;
+    final aging = items
+        .where((item) => !item.dataStale && item.freshnessWarning)
+        .length;
+    if (stale == 0 && aging == 0) return const SizedBox.shrink();
+    return Container(
+      key: const ValueKey('line-freshness-warning'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.red.withValues(alpha: .09),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: AppColors.red.withValues(alpha: .45)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: AppColors.red,
+            size: 18,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              '$stale stale and $aging aging lines are marked below. Confirm the live provider line before researching or saving a slip.',
+              style: const TextStyle(
+                color: AppColors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _timelinePoint({
+    required String label,
+    required String value,
+    required String detail,
+    required Color color,
+  }) {
+    return Expanded(
+      child: Column(
+        children: [
+          Container(
+            width: 13,
+            height: 13,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: color.withValues(alpha: .35), blurRadius: 8),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .7,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: AppColors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            detail,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 8),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showMovementDetails(_LineMovementItem item) {
+    final delta = item.lineDelta;
+    final gap = item.consensusGap;
+    final age = item.dataAgeSeconds;
+    final ageLabel = age == null
+        ? _relativeTime(item.lastUpdatedAt)
+        : age < 60
+        ? '${age}s old'
+        : age < 3600
+        ? '${(age / 60).floor()}m old'
+        : '${(age / 3600).floor()}h old';
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF09131D),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+          child: Column(
+            key: const ValueKey('line-movement-details'),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.player,
+                          style: const TextStyle(
+                            color: AppColors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${item.market} · ${item.sport.toUpperCase()}',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _freshnessBadge(item),
+                  IconButton(
+                    onPressed: () => Navigator.pop(sheetContext),
+                    icon: const Icon(Icons.close, color: AppColors.white),
+                  ),
+                ],
+              ),
+              if (item.freshnessWarning) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.red.withValues(alpha: .10),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColors.red.withValues(alpha: .45),
+                    ),
+                  ),
+                  child: const Text(
+                    'This line may no longer match the provider. Refresh and verify it before using the movement signal.',
+                    style: TextStyle(color: AppColors.white, fontSize: 9),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 18),
+              const Text(
+                'VERIFIED LINE TIMELINE',
+                style: TextStyle(
+                  color: AppColors.gold,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .8,
+                ),
+              ),
+              const SizedBox(height: 15),
+              Row(
+                children: [
+                  _timelinePoint(
+                    label: 'OPENING',
+                    value: item.previousLine?.toStringAsFixed(1) ?? '--',
+                    detail: 'Recorded opening',
+                    color: AppColors.blue,
+                  ),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Container(height: 2, color: AppColors.borderGold),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(1)}',
+                          style: TextStyle(
+                            color: _statusColor(item.status),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _timelinePoint(
+                    label: 'CURRENT',
+                    value: item.currentLine?.toStringAsFixed(1) ?? '--',
+                    detail: _relativeTime(item.movedAt),
+                    color: AppColors.gold,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                key: const ValueKey('provider-comparison'),
+                padding: const EdgeInsets.all(13),
+                decoration: BoxDecoration(
+                  color: AppColors.panelLight,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'PROVIDER COMPARISON',
+                      style: TextStyle(
+                        color: AppColors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 11),
+                    Row(
+                      children: [
+                        _bookBadge(item.currentBook, AppColors.gold),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Current provider line ${item.currentLine?.toStringAsFixed(1) ?? '--'}',
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      item.consensusLine == null
+                          ? 'Cross-provider median is not available for this market.'
+                          : 'Market median ${item.consensusLine!.toStringAsFixed(1)} across ${item.providerCount} provider${item.providerCount == 1 ? '' : 's'} · gap ${gap! >= 0 ? '+' : ''}${gap.toStringAsFixed(1)}',
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 9,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Feed updated $ageLabel. Timeline points are the provider opening and latest current line; PI does not invent intermediate movements.',
+                style: const TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 8,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _movementTable(List<_LineMovementItem> items) {
     const header = TextStyle(
       color: AppColors.textSecondary,
@@ -690,8 +1011,11 @@ class _LineMovementPageState extends State<LineMovementPage> {
                         child: Text('LINE MOVEMENT', style: header),
                       ),
                       Expanded(flex: 2, child: Text('% CHANGE', style: header)),
-                      Expanded(child: Text('TIME', style: header)),
-                      SizedBox(width: 26),
+                      Expanded(
+                        flex: 2,
+                        child: Text('TIME / FRESHNESS', style: header),
+                      ),
+                      SizedBox(width: 34),
                     ],
                   ),
                 ),
@@ -750,18 +1074,20 @@ class _LineMovementPageState extends State<LineMovementPage> {
                         ),
                         Expanded(
                           flex: 2,
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _bookBadge(p.previousBook, AppColors.blue),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 3),
-                                child: Icon(
-                                  Icons.arrow_forward,
-                                  color: AppColors.white,
-                                  size: 11,
+                              _bookBadge(p.currentBook, AppColors.gold),
+                              const SizedBox(height: 3),
+                              Text(
+                                p.providerCount > 1
+                                    ? '${p.providerCount}-provider median'
+                                    : 'Single provider',
+                                style: const TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontSize: 7,
                                 ),
                               ),
-                              _bookBadge(p.currentBook, AppColors.gold),
                             ],
                           ),
                         ),
@@ -793,20 +1119,37 @@ class _LineMovementPageState extends State<LineMovementPage> {
                           ),
                         ),
                         Expanded(
-                          child: Text(
-                            _relativeTime(p.movedAt),
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 8,
-                            ),
+                          flex: 2,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _relativeTime(p.movedAt),
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 8,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: _freshnessBadge(p),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(
-                          width: 26,
-                          child: Icon(
-                            Icons.show_chart,
-                            color: AppColors.gold,
-                            size: 15,
+                        SizedBox(
+                          width: 34,
+                          child: IconButton(
+                            key: ValueKey('line-details-${p.id}'),
+                            tooltip: 'View verified movement timeline',
+                            padding: EdgeInsets.zero,
+                            onPressed: () => _showMovementDetails(p),
+                            icon: const Icon(
+                              Icons.show_chart,
+                              color: AppColors.gold,
+                              size: 16,
+                            ),
                           ),
                         ),
                       ],
@@ -860,13 +1203,20 @@ class _LineMovementPageState extends State<LineMovementPage> {
                   ),
                 ),
               ),
-              Text(
-                item.sport.toUpperCase(),
-                style: const TextStyle(
-                  color: AppColors.gold,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w900,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    item.sport.toUpperCase(),
+                    style: const TextStyle(
+                      color: AppColors.gold,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  _freshnessBadge(item),
+                ],
               ),
             ],
           ),
@@ -921,6 +1271,23 @@ class _LineMovementPageState extends State<LineMovementPage> {
               Text(
                 _relativeTime(item.movedAt),
                 style: const TextStyle(color: AppColors.textMuted, fontSize: 8),
+              ),
+              const SizedBox(width: 5),
+              IconButton(
+                key: ValueKey('line-details-${item.id}'),
+                tooltip: 'View verified movement timeline',
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 30,
+                  height: 30,
+                ),
+                onPressed: () => _showMovementDetails(item),
+                icon: const Icon(
+                  Icons.insights_rounded,
+                  color: AppColors.gold,
+                  size: 16,
+                ),
               ),
             ],
           ),
@@ -1213,7 +1580,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
           const defaultAlerts = <String>[
             'Line movement monitor online',
             'Gold alerts update as data refreshes',
-            'Interval set to 4 minutes',
+            'Automatic refresh every 60 seconds',
           ];
           if (snapshot.hasError) {
             final message = snapshot.error.toString();
@@ -1274,6 +1641,14 @@ class _LineMovementPageState extends State<LineMovementPage> {
           final top = data.items.toList();
           final movedItems = data.items.where((item) => item.hasMoved).toList();
           final changed = movedItems.length;
+          final freshnessWarnings = data.items
+              .where((item) => item.freshnessWarning)
+              .length;
+          final comparedMarkets = data.items
+              .where(
+                (item) => item.consensusLine != null && item.providerCount > 1,
+              )
+              .length;
           final significantMoves = movedItems
               .where((item) => item.percentChange >= 10)
               .length;
@@ -1304,6 +1679,9 @@ class _LineMovementPageState extends State<LineMovementPage> {
             else
               'No significant line movement detected right now',
             'Changed lines detected: $changed',
+            if (freshnessWarnings > 0)
+              'Freshness warning: $freshnessWarnings line${freshnessWarnings == 1 ? '' : 's'} need verification',
+            'Cross-provider median available: $comparedMarkets',
             widget.selectedSport == 'ALL'
                 ? 'Tracking all sports'
                 : 'Tracking ${widget.selectedSport.toUpperCase()}',
@@ -1334,6 +1712,8 @@ class _LineMovementPageState extends State<LineMovementPage> {
                     lastUpdate: lastUpdate,
                   ),
                 const SizedBox(height: 12),
+                _freshnessWarningBanner(top),
+                if (freshnessWarnings > 0) const SizedBox(height: 10),
                 _movementTable(top),
                 if (widget.hasProAccess)
                   Align(
@@ -1362,7 +1742,12 @@ class _LineMovementPageState extends State<LineMovementPage> {
                   ),
                 if (widget.hasProAccess) ...[
                   const SizedBox(height: 10),
-                  SizedBox(height: 130, child: _insights(top)),
+                  LayoutBuilder(
+                    builder: (context, constraints) =>
+                        constraints.maxWidth < 680
+                        ? _insights(top)
+                        : SizedBox(height: 130, child: _insights(top)),
+                  ),
                 ],
                 const SizedBox(height: 6),
                 _MovementStatusFooter(
@@ -1389,12 +1774,12 @@ class _MovementStatusFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // This page has no auto-refresh timer - it only reloads on-demand (the
-    // REFRESH button, or switching sports), so "Real-time"/a fixed interval
-    // would be a false claim. "Manual" is the honest description.
+    // The page refreshes once per minute and also supports manual refresh.
+    // Freshness badges still come from the provider payload rather than the
+    // client refresh clock.
     final items = [
       (Icons.shield_outlined, 'DATA SOURCES', 'Opening vs. current line'),
-      (Icons.schedule_rounded, 'REFRESH', 'Manual'),
+      (Icons.schedule_rounded, 'REFRESH', 'Every 60 seconds'),
       (
         Icons.notifications_none_rounded,
         'ALERTS',
@@ -1488,6 +1873,7 @@ class _LineMovementViewData {
 }
 
 class _LineMovementItem {
+  final String id;
   final String player;
   final String imagePath;
   final String sport;
@@ -1497,9 +1883,15 @@ class _LineMovementItem {
   final String previousBook;
   final String currentBook;
   final DateTime? movedAt;
+  final DateTime? lastUpdatedAt;
   final String recommendedSide;
+  final double? consensusLine;
+  final int providerCount;
+  final int? dataAgeSeconds;
+  final bool dataStale;
 
   const _LineMovementItem({
+    required this.id,
     required this.player,
     required this.imagePath,
     required this.sport,
@@ -1509,7 +1901,12 @@ class _LineMovementItem {
     required this.previousBook,
     required this.currentBook,
     required this.movedAt,
+    required this.lastUpdatedAt,
     required this.recommendedSide,
+    required this.consensusLine,
+    required this.providerCount,
+    required this.dataAgeSeconds,
+    required this.dataStale,
   });
 
   bool get hasMoved =>
@@ -1517,14 +1914,26 @@ class _LineMovementItem {
       currentLine != null &&
       (currentLine! - previousLine!).abs() >= 0.01;
 
-  double get movementMagnitude {
-    if (!hasMoved) return 0;
-    return (currentLine! - previousLine!).abs();
-  }
+  double get lineDelta => hasMoved ? currentLine! - previousLine! : 0;
+
+  double get movementMagnitude => lineDelta.abs();
 
   double get percentChange {
     if (!hasMoved || previousLine == 0) return 0;
     return (movementMagnitude / previousLine!.abs()) * 100;
+  }
+
+  double? get consensusGap => currentLine == null || consensusLine == null
+      ? null
+      : currentLine! - consensusLine!;
+
+  bool get freshnessWarning =>
+      dataStale || (dataAgeSeconds != null && dataAgeSeconds! > 900);
+
+  String get freshnessStatus {
+    if (dataStale) return 'STALE';
+    if (dataAgeSeconds != null && dataAgeSeconds! > 900) return 'AGING';
+    return 'FRESH';
   }
 
   /// BETTER/WORSE is relative to the model's recommended side: a lower line
@@ -1540,6 +1949,7 @@ class _LineMovementItem {
 
   factory _LineMovementItem.fromProp(PropData p) {
     return _LineMovementItem(
+      id: p.id,
       player: p.player,
       imagePath: p.imagePath,
       sport: p.sport,
@@ -1549,7 +1959,12 @@ class _LineMovementItem {
       previousBook: p.sportsbook,
       currentBook: p.sportsbook,
       movedAt: DateTime.tryParse(p.lineMovedAtUtc),
+      lastUpdatedAt: DateTime.tryParse(p.lastUpdatedUtc),
       recommendedSide: p.recommendedSide,
+      consensusLine: p.marketOriginLine,
+      providerCount: p.marketBookCount,
+      dataAgeSeconds: p.dataAgeSeconds,
+      dataStale: p.dataStale,
     );
   }
 }
