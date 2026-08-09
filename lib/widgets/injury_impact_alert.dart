@@ -30,28 +30,59 @@ InjuryImpactSummary buildInjuryImpactSummary(PropData prop) {
   } else if ({
     'doubtful',
     'questionable',
+    'day to day',
     'day-to-day',
     'game time decision',
+    'probable',
   }.contains(injury)) {
     level = injury == 'doubtful' ? 'HIGH' : 'WATCH';
     details.add(
       '${prop.player} is listed $injury; recheck availability before research is finalized.',
     );
   }
-  if (lineup.isNotEmpty &&
-      !{'confirmed', 'starter', 'starting', 'active'}.contains(lineup)) {
+
+  const unavailableLineups = {'out', 'inactive'};
+  const unreportedLineups = {
+    '',
+    'unknown',
+    'unavailable',
+    'no report',
+    'not reported',
+  };
+  if (unavailableLineups.contains(lineup)) {
+    level = 'CRITICAL';
+    details.add(
+      '${prop.player} has lineup status $lineup; this prop should not be treated as playable.',
+    );
+  } else if (!unreportedLineups.contains(lineup) &&
+      !{
+        'confirmed',
+        'confirmed starter',
+        'starter',
+        'starting',
+        'active',
+      }.contains(lineup)) {
+    if ({
+      'doubtful',
+      'bench',
+      'limited',
+      'minutes restriction',
+    }.contains(lineup)) {
+      level = 'HIGH';
+    }
     details.add(
       'Lineup status is $lineup; role and opportunity can still change.',
     );
   }
   if (prop.roleChange.trim().isNotEmpty &&
-      prop.roleChange.toUpperCase() != 'UNKNOWN') {
+      prop.roleChange.toUpperCase() != 'UNKNOWN' &&
+      prop.roleChange.toUpperCase() != 'STABLE') {
     details.add(
       'Verified role trend: ${prop.roleChange.replaceAll('_', ' ').toLowerCase()}.',
     );
   }
   void addFactor(String label, double? value) {
-    if (value == null || (value - 1).abs() < .005) return;
+    if (value == null || (value - 1).abs() < .02) return;
     final change = (value - 1) * 100;
     details.add(
       '$label context ${change >= 0 ? '+' : ''}${change.toStringAsFixed(1)}%.',

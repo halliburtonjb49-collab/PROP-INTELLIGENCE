@@ -138,6 +138,13 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav-entry-lineMovement')));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const ValueKey('nav-group-RESEARCH')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('nav-entry-injuryImpact')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('injury-impact-page')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   test('smoke: active slip startup and add/remove interactions', () async {

@@ -16,6 +16,7 @@ import 'models/prop_data.dart';
 import 'models/saved_slip.dart';
 import 'pages/analytics_page.dart';
 import 'pages/line_movement_page.dart';
+import 'pages/injury_impact_page.dart';
 import 'pages/briefing_page.dart';
 import 'pages/track_record_page.dart';
 import 'pages/owner_operations_page.dart';
@@ -234,6 +235,7 @@ enum AppPage {
   propAlerts,
   analytics,
   lineMovement,
+  injuryImpact,
   dataAdmin,
   ownerOperations,
   intelligenceLab,
@@ -256,6 +258,7 @@ SubscriptionTier? requiredTierForPage(AppPage page) => switch (page) {
   AppPage.builderPerformance ||
   AppPage.strikeoutProGold ||
   AppPage.evScanner ||
+  AppPage.injuryImpact ||
   AppPage.scoreboardWatchlist ||
   AppPage.propAlerts ||
   AppPage.intelligenceLab ||
@@ -768,6 +771,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       case AppPage.propAlerts:
       case AppPage.analytics:
       case AppPage.lineMovement:
+      case AppPage.injuryImpact:
       case AppPage.dataAdmin:
       case AppPage.ownerOperations:
       case AppPage.intelligenceLab:
@@ -5516,6 +5520,8 @@ class _MainDashboardState extends State<MainDashboard> {
                     hasProAccess:
                         AuthManager.instance.sessionState.value.hasEdgeAccess,
                   )
+                : widget.selectedPage == AppPage.injuryImpact
+                ? InjuryImpactPage(props: _latestProps)
                 : widget.selectedPage == AppPage.dataAdmin
                 ? AnalyticsAdminWorkspace(
                     selectedSport: widget.sportFilter,
@@ -7332,6 +7338,8 @@ class TopNavigation extends StatelessWidget {
       'Choose a date range and filters to review results. Look for repeatable performance across enough settled picks instead of reacting to a short winning or losing streak.',
     AppPage.lineMovement =>
       'Select a sport or tracked prop and compare its opening, current and closing values. Favor current numbers that still preserve the projected edge and avoid chasing a line after the value disappears.',
+    AppPage.injuryImpact =>
+      'Start with blocked and high-severity alerts, then filter by sport. Review only the verified availability, role, usage, opportunity and with/without factors shown; recheck the live lineup before acting.',
     AppPage.intelligenceLab =>
       'Choose a sport, add players or props, then run correlation and scenario tools. Remove individual selections or clear the lab before starting a different game or strategy.',
     AppPage.refereeTracker =>
@@ -7407,6 +7415,7 @@ class TopNavigation extends StatelessWidget {
         ('Search Players', AppPage.searchPlayers),
         ('EV Scanner', AppPage.evScanner),
         ('Line Movement', AppPage.lineMovement),
+        ('Injury Impact', AppPage.injuryImpact),
         ('Analytics', AppPage.analytics),
         ('Intelligence Lab', AppPage.intelligenceLab),
         ('Referee Tracker', AppPage.refereeTracker),
@@ -7566,6 +7575,8 @@ class TopNavigation extends StatelessWidget {
         AppPage.ownerOperations =>
           'Open the private owner production operations center',
         AppPage.lineMovement => 'Track changes across sportsbook lines',
+        AppPage.injuryImpact =>
+          'Review verified availability and role-impact warnings',
         AppPage.intelligenceLab =>
           'Model correlation, scripts, and historical analogs',
         AppPage.refereeTracker => 'Compare NBA and WNBA officiating tendencies',
@@ -7636,6 +7647,7 @@ class TopNavigation extends StatelessWidget {
     AppPage.briefing => "TODAY'S PI BRIEFING",
     AppPage.trackRecord => 'TRACK RECORD',
     AppPage.lineMovement => 'LINE MOVEMENT',
+    AppPage.injuryImpact => 'INJURY IMPACT',
     AppPage.intelligenceLab => 'INTELLIGENCE LAB',
     AppPage.refereeTracker => 'REFEREE TRACKER',
     AppPage.searchPlayers => 'PLAYER SEARCH',
@@ -7662,6 +7674,8 @@ class TopNavigation extends StatelessWidget {
     AppPage.briefing => "Today's board in one page, plays and caveats both",
     AppPage.trackRecord => 'Published model record, open to everyone',
     AppPage.lineMovement => 'Monitor number and price changes in real time',
+    AppPage.injuryImpact =>
+      'Verified availability, role, usage and teammate-context changes',
     AppPage.intelligenceLab => 'Stress-test correlation, context and scenarios',
     AppPage.refereeTracker =>
       'Compare sample-adjusted referee tendencies and assignments',

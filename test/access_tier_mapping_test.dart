@@ -80,6 +80,7 @@ void main() {
       AppPage.evScanner,
       AppPage.strikeoutProGold,
       AppPage.intelligenceLab,
+      AppPage.injuryImpact,
       AppPage.refereeTracker,
     ]) {
       expect(
