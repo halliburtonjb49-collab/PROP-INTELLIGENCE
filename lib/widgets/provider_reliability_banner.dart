@@ -145,6 +145,7 @@ class ProviderReliabilitySheet extends StatefulWidget {
 class _ProviderReliabilitySheetState extends State<ProviderReliabilitySheet> {
   Timer? _timer;
   late DateTime _now;
+  String _selectedSport = 'ALL';
 
   @override
   void initState() {
@@ -199,8 +200,39 @@ class _ProviderReliabilitySheetState extends State<ProviderReliabilitySheet> {
     final health = (reliability['marketHealth'] as List? ?? const [])
         .whereType<Map>()
         .map((row) => Map<String, dynamic>.from(row))
-        .take(18)
-        .toList(growable: false);
+        .toList();
+    health.sort((a, b) {
+      final coverageCompare = ((a['coveragePercent'] as num?)?.toInt() ?? 0)
+          .compareTo((b['coveragePercent'] as num?)?.toInt() ?? 0);
+      if (coverageCompare != 0) return coverageCompare;
+      return ((b['propCount'] as num?)?.toInt() ?? 0).compareTo(
+        (a['propCount'] as num?)?.toInt() ?? 0,
+      );
+    });
+    final sports =
+        health
+            .map((row) => row['sport']?.toString() ?? 'OTHER')
+            .toSet()
+            .toList()
+          ..sort();
+    final activeSport =
+        _selectedSport == 'ALL' || sports.contains(_selectedSport)
+        ? _selectedSport
+        : 'ALL';
+    final filteredHealth = activeSport == 'ALL'
+        ? health
+        : health
+              .where((row) => row['sport']?.toString() == activeSport)
+              .toList(growable: false);
+    final greenCount = health
+        .where((row) => row['status']?.toString().toUpperCase() == 'GREEN')
+        .length;
+    final yellowCount = health
+        .where((row) => row['status']?.toString().toUpperCase() == 'YELLOW')
+        .length;
+    final redCount = health
+        .where((row) => row['status']?.toString().toUpperCase() == 'RED')
+        .length;
 
     return SafeArea(
       child: ConstrainedBox(
@@ -271,20 +303,89 @@ class _ProviderReliabilitySheetState extends State<ProviderReliabilitySheet> {
               const _SectionLabel('MARKET HEALTH MAP'),
               const SizedBox(height: 5),
               const Text(
-                'Coverage across currently connected providers. Red is a research warning, not proof that a provider offers that market.',
+                'Provider coverage by sport and category, weakest markets first. '
+                'Red is a research warning, not proof that every provider offers that market.',
                 style: TextStyle(
                   color: AppColors.silver,
                   fontSize: 9,
                   height: 1.3,
                 ),
               ),
-              const SizedBox(height: 9),
+              const SizedBox(height: 10),
               Wrap(
+                key: const ValueKey('market-health-summary'),
                 spacing: 7,
                 runSpacing: 7,
-                children: health
-                    .map((row) => _MarketHealthChip(row: row))
-                    .toList(),
+                children: [
+                  _HealthSummary(
+                    label: 'HEALTHY',
+                    count: greenCount,
+                    color: const Color(0xFF55D6A3),
+                  ),
+                  _HealthSummary(
+                    label: 'WATCH',
+                    count: yellowCount,
+                    color: AppColors.gold,
+                  ),
+                  _HealthSummary(
+                    label: 'LIMITED',
+                    count: redCount,
+                    color: const Color(0xFFFF8A80),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              SingleChildScrollView(
+                key: const ValueKey('market-health-sport-filters'),
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: ['ALL', ...sports]
+                      .map((sport) {
+                        final selected = sport == activeSport;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 7),
+                          child: ChoiceChip(
+                            label: Text(sport),
+                            selected: selected,
+                            onSelected: (_) =>
+                                setState(() => _selectedSport = sport),
+                            labelStyle: TextStyle(
+                              color: selected ? Colors.black : Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                            ),
+                            selectedColor: AppColors.gold,
+                            backgroundColor: AppColors.panel,
+                            side: const BorderSide(
+                              color: AppColors.gunmetalLight,
+                            ),
+                            showCheckmark: false,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        );
+                      })
+                      .toList(growable: false),
+                ),
+              ),
+              const SizedBox(height: 9),
+              Container(
+                key: const ValueKey('market-health-map'),
+                decoration: BoxDecoration(
+                  color: AppColors.panel,
+                  border: Border.all(color: AppColors.gunmetalLight),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: filteredHealth
+                      .map(
+                        (row) => _MarketHealthRow(
+                          row: row,
+                          showSport: activeSport == 'ALL',
+                          isLast: identical(row, filteredHealth.last),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
               ),
             ],
             const SizedBox(height: 18),
@@ -398,9 +499,58 @@ class _SlateDayRow extends StatelessWidget {
   }
 }
 
-class _MarketHealthChip extends StatelessWidget {
-  const _MarketHealthChip({required this.row});
+class _HealthSummary extends StatelessWidget {
+  const _HealthSummary({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  final String label;
+  final int count;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    constraints: const BoxConstraints(minWidth: 92),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: .08),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: color.withValues(alpha: .65)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 7),
+        Text(
+          '$label $count',
+          style: TextStyle(
+            color: color,
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _MarketHealthRow extends StatelessWidget {
+  const _MarketHealthRow({
+    required this.row,
+    required this.showSport,
+    required this.isLast,
+  });
+
   final Map<String, dynamic> row;
+  final bool showSport;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
@@ -410,22 +560,83 @@ class _MarketHealthChip extends StatelessWidget {
         : status == 'YELLOW'
         ? AppColors.gold
         : const Color(0xFFFF8A80);
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 190),
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: .7)),
-      ),
-      child: Text(
-        '${row['sport']} ${row['category']} | ${row['coveragePercent']}%',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: color,
-          fontSize: 8.5,
-          fontWeight: FontWeight.w900,
+    final coverage = (row['coveragePercent'] as num?)?.toInt() ?? 0;
+    final providers = (row['providerCount'] as num?)?.toInt() ?? 0;
+    final expected =
+        (row['expectedProviderCount'] as num?)?.toInt() ?? providers;
+    final props = (row['propCount'] as num?)?.toInt() ?? 0;
+    return Semantics(
+      label:
+          '${row['sport']} ${row['category']}, $coverage percent provider coverage, $props props',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+        decoration: BoxDecoration(
+          border: isLast
+              ? null
+              : const Border(
+                  bottom: BorderSide(color: AppColors.gunmetalLight),
+                ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 9,
+              height: 9,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${showSport ? '${row['sport']}  |  ' : ''}${row['category']}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '$providers/$expected providers  |  $props props',
+                    style: const TextStyle(
+                      color: AppColors.silver,
+                      fontSize: 9,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '$coverage%',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  status == 'GREEN'
+                      ? 'HEALTHY'
+                      : status == 'YELLOW'
+                      ? 'WATCH'
+                      : 'LIMITED',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

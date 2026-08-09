@@ -31,6 +31,35 @@ void main() {
         'providerCount': 3,
       },
     ],
+    'marketHealth': [
+      {
+        'sport': 'MLB',
+        'category': 'HITS',
+        'status': 'GREEN',
+        'providerCount': 5,
+        'expectedProviderCount': 6,
+        'coveragePercent': 83,
+        'propCount': 42,
+      },
+      {
+        'sport': 'MLB',
+        'category': 'TOTAL BASES',
+        'status': 'RED',
+        'providerCount': 2,
+        'expectedProviderCount': 6,
+        'coveragePercent': 33,
+        'propCount': 12,
+      },
+      {
+        'sport': 'WNBA',
+        'category': 'POINTS',
+        'status': 'YELLOW',
+        'providerCount': 3,
+        'expectedProviderCount': 6,
+        'coveragePercent': 50,
+        'propCount': 18,
+      },
+    ],
     'providers': [
       {
         'provider': 'PRIZEPICKS',
@@ -79,6 +108,42 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('market health map summarizes and filters categories on phone', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ProviderReliabilitySheet(reliability: reliability),
+        ),
+      ),
+    );
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('market-health-summary')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('market-health-summary')), findsOne);
+    expect(find.byKey(const ValueKey('market-health-map')), findsOne);
+    expect(find.text('LIMITED 1'), findsOne);
+    expect(find.textContaining('MLB  |  TOTAL BASES'), findsOne);
+    expect(find.textContaining('WNBA  |  POINTS'), findsOne);
+
+    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'MLB'));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'MLB'));
+    await tester.pump();
+
+    expect(find.text('TOTAL BASES'), findsOne);
+    expect(find.text('HITS'), findsOne);
+    expect(find.textContaining('WNBA  |  POINTS'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('details sheet presents provider and three-day status', (
     tester,
   ) async {
@@ -92,6 +157,12 @@ void main() {
 
     expect(find.text('THREE-DAY SLATE CENTER'), findsOne);
     expect(find.text('TODAY + NEXT THREE DAYS'), findsOne);
+    await tester.scrollUntilVisible(
+      find.text('PROVIDERS'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pump();
     expect(find.text('PROVIDERS'), findsOne);
     expect(find.text('PRIZEPICKS'), findsOne);
     expect(find.text('UNDERDOG'), findsOne);
