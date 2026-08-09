@@ -94,6 +94,8 @@ class _RecordBody extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _header(),
+          const SizedBox(height: 12),
+          _IntegrityBanner(record: record),
           const SizedBox(height: 14),
           if (!record.published) ...[
             _CollectingNotice(record: record),
@@ -125,6 +127,13 @@ class _RecordBody extends StatelessWidget {
                 value: points(record.clv.averageLinePoints),
                 footnote: 'points vs close',
               ),
+              _Stat(
+                label: 'CURRENT STREAK',
+                value: record.currentStreakLength == 0
+                    ? '--'
+                    : '${record.currentStreakType == 'WINNING' ? 'W' : 'L'}${record.currentStreakLength}',
+                footnote: 'shown even when losing',
+              ),
             ],
           ),
           const SizedBox(height: 18),
@@ -141,10 +150,25 @@ class _RecordBody extends StatelessWidget {
           if (record.tiers.isEmpty)
             const Text(
               'No tier has graded results yet.',
-              style: TextStyle(color: app_colors.AppColors.textMuted, fontSize: 11),
+              style: TextStyle(
+                color: app_colors.AppColors.textMuted,
+                fontSize: 11,
+              ),
             )
           else
             for (final tier in record.tiers) _TierRow(tier: tier),
+          if (record.sports.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            _BreakdownSection(title: 'BY SPORT', rows: record.sports),
+          ],
+          if (record.markets.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            _BreakdownSection(title: 'BY MARKET', rows: record.markets),
+          ],
+          if (record.calibration.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            _CalibrationSection(points: record.calibration),
+          ],
           const SizedBox(height: 18),
           _Footnote(record: record),
         ],
@@ -355,7 +379,275 @@ class _Footnote extends StatelessWidget {
         if (record.modelVersion.isNotEmpty) 'model ${record.modelVersion}',
         record.calibrated ? 'calibrated' : 'calibration in progress',
       ].join('  •  '),
-      style: const TextStyle(color: app_colors.AppColors.textMuted, fontSize: 9),
+      style: const TextStyle(
+        color: app_colors.AppColors.textMuted,
+        fontSize: 9,
+      ),
+    );
+  }
+}
+
+class _IntegrityBanner extends StatelessWidget {
+  const _IntegrityBanner({required this.record});
+
+  final TrackRecord record;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('append-only-ledger'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF123226),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF3FCB8B)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.verified_user_outlined,
+            color: Color(0xFF62E6A7),
+            size: 18,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'APPEND-ONLY VERIFIED LEDGER',
+                  style: TextStyle(
+                    color: Color(0xFF62E6A7),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  record.losingPredictionsIncluded
+                      ? 'Graded outcomes are immutable. Losing predictions stay in every published result.'
+                      : 'The ledger includes every graded result and never silently removes a loss.',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 10,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BreakdownSection extends StatelessWidget {
+  const _BreakdownSection({required this.title, required this.rows});
+
+  final String title;
+  final List<TrackRecordBreakdown> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: app_colors.AppColors.gold,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .6,
+          ),
+        ),
+        const SizedBox(height: 8),
+        for (final row in rows.take(10))
+          Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+            decoration: BoxDecoration(
+              color: app_colors.AppColors.panel,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: app_colors.AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    row.label,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Text(
+                  row.published && row.winRate != null
+                      ? '${(row.winRate! * 100).toStringAsFixed(1)}%'
+                      : '--',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 78,
+                  child: Text(
+                    '${row.sampleSize} graded',
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      color: app_colors.AppColors.textMuted,
+                      fontSize: 9,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _CalibrationSection extends StatelessWidget {
+  const _CalibrationSection({required this.points});
+
+  final List<TrackRecordCalibrationPoint> points;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'CALIBRATION: PREDICTED VS ACTUAL',
+          style: TextStyle(
+            color: app_colors.AppColors.gold,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .6,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'A trustworthy 70% forecast should win about 70% of the time. Thin ranges are shown but not judged.',
+          style: TextStyle(
+            color: app_colors.AppColors.textMuted,
+            fontSize: 9,
+            height: 1.3,
+          ),
+        ),
+        const SizedBox(height: 10),
+        for (final point in points)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 58,
+                  child: Text(
+                    point.label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _CalibrationBar(
+                        label: 'P',
+                        value: point.predicted,
+                        color: app_colors.AppColors.gold,
+                      ),
+                      const SizedBox(height: 3),
+                      _CalibrationBar(
+                        label: 'A',
+                        value: point.observed,
+                        color: point.judged
+                            ? const Color(0xFF62E6A7)
+                            : app_colors.AppColors.textMuted,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 48,
+                  child: Text(
+                    'n=${point.sampleSize}',
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      color: app_colors.AppColors.textMuted,
+                      fontSize: 8,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _CalibrationBar extends StatelessWidget {
+  const _CalibrationBar({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final double? value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final safe = (value ?? 0).clamp(0.0, 1.0);
+    return Row(
+      children: [
+        SizedBox(
+          width: 14,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              value: safe,
+              minHeight: 6,
+              backgroundColor: app_colors.AppColors.border,
+              valueColor: AlwaysStoppedAnimation(color),
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        SizedBox(
+          width: 36,
+          child: Text(
+            value == null ? '--' : '${(value! * 100).toStringAsFixed(0)}%',
+            textAlign: TextAlign.right,
+            style: const TextStyle(color: Colors.white70, fontSize: 8),
+          ),
+        ),
+      ],
     );
   }
 }

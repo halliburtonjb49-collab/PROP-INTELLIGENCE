@@ -90,8 +90,8 @@ void main() {
       ),
     );
 
-    expect(find.text('DATA RELIABILITY'), findsOne);
-    expect(find.text('NEXT THREE DAYS'), findsOne);
+    expect(find.text('THREE-DAY SLATE CENTER'), findsOne);
+    expect(find.text('TODAY + NEXT THREE DAYS'), findsOne);
     expect(find.text('PROVIDERS'), findsOne);
     expect(find.text('PRIZEPICKS'), findsOne);
     expect(find.text('UNDERDOG'), findsOne);

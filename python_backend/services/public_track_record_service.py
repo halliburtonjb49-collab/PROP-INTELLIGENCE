@@ -124,6 +124,86 @@ def _tier_results(segments: Sequence[Mapping[str, Any]]) -> list[dict[str, objec
     return results
 
 
+def _breakdown_results(
+    segments: Sequence[Mapping[str, Any]], key: str
+) -> list[dict[str, object]]:
+    """Aggregate already-computed segment results for a public breakdown."""
+    totals: dict[str, dict[str, float]] = {}
+    for segment in segments:
+        raw = str(segment.get(key) or "").strip()
+        if not raw:
+            continue
+        name = raw.upper() if key == "sport" else raw.replace("_", " ").title()
+        bucket = totals.setdefault(
+            name, {"sampleSize": 0, "hits": 0, "roiWeighted": 0.0, "roiSample": 0}
+        )
+        sample = _count(segment.get("sampleSize"))
+        bucket["sampleSize"] += sample
+        bucket["hits"] += _count(segment.get("hits"))
+        roi = _number(segment.get("simulatedRoi"))
+        if roi is not None and sample:
+            bucket["roiWeighted"] += roi * sample
+            bucket["roiSample"] += sample
+
+    rows: list[dict[str, object]] = []
+    for label, bucket in totals.items():
+        sample = int(bucket["sampleSize"])
+        if sample <= 0:
+            continue
+        earned = sample >= MINIMUM_PUBLISHED_SAMPLE
+        roi_sample = int(bucket["roiSample"])
+        rows.append({
+            "key": label,
+            "label": label,
+            "sampleSize": sample,
+            "hits": int(bucket["hits"]),
+            "winRate": round(bucket["hits"] / sample, 4) if earned else None,
+            "simulatedRoi": (
+                round(bucket["roiWeighted"] / roi_sample, 4)
+                if earned and roi_sample else None
+            ),
+            "published": earned,
+        })
+    rows.sort(key=lambda row: (-int(row["sampleSize"]), str(row["label"])))
+    return rows
+
+
+def _calibration_curve(
+    segments: Sequence[Mapping[str, Any]],
+) -> list[dict[str, object]]:
+    """Combine the performance service's confidence ranges into a public curve."""
+    totals: dict[str, dict[str, float]] = {}
+    for segment in segments:
+        label = str(segment.get("confidenceRange") or "").strip()
+        if not label:
+            continue
+        bucket = totals.setdefault(
+            label, {"sampleSize": 0, "hits": 0, "confidenceWeighted": 0.0}
+        )
+        sample = _count(segment.get("sampleSize"))
+        confidence = _number(segment.get("averageConfidence"))
+        bucket["sampleSize"] += sample
+        bucket["hits"] += _count(segment.get("hits"))
+        if confidence is not None:
+            bucket["confidenceWeighted"] += confidence * sample
+
+    order = {"below-60%": 0, "60-69%": 1, "70-79%": 2, "80-100%": 3}
+    rows: list[dict[str, object]] = []
+    for label, bucket in totals.items():
+        sample = int(bucket["sampleSize"])
+        judged = sample >= 30
+        rows.append({
+            "label": label,
+            "sampleSize": sample,
+            "predicted": (
+                round(bucket["confidenceWeighted"] / sample, 4) if sample else None
+            ),
+            "observed": round(bucket["hits"] / sample, 4) if sample else None,
+            "judged": judged,
+        })
+    rows.sort(key=lambda row: order.get(str(row["label"]), 99))
+    return rows
+
 def public_track_record(model_version: str = MODEL_VERSION) -> dict[str, object]:
     """What the model has actually done, for anyone who asks."""
 
@@ -145,6 +225,10 @@ def public_track_record(model_version: str = MODEL_VERSION) -> dict[str, object]
     clv = clv if isinstance(clv, Mapping) else {}
     segments = performance.get("segments")
     segments = segments if isinstance(segments, Sequence) else []
+    quality_segments = performance.get("qualitySegments")
+    quality_segments = quality_segments if isinstance(quality_segments, Sequence) else []
+    streak = performance.get("currentStreak")
+    streak = streak if isinstance(streak, Mapping) else {"type": "NONE", "length": 0}
 
     return {
         # The reader needs to know how old this is before they trust it.
@@ -195,6 +279,16 @@ def public_track_record(model_version: str = MODEL_VERSION) -> dict[str, object]
             "reason": clv.get("reason"),
         },
         "confidenceTiers": _tier_results(segments),
+        "sportBreakdown": _breakdown_results(segments, "sport"),
+        "marketBreakdown": _breakdown_results(segments, "market"),
+        "calibrationCurve": _calibration_curve(quality_segments),
+        "currentStreak": {
+            "type": str(streak.get("type") or "NONE").upper(),
+            "length": _count(streak.get("length")),
+        },
+        "lastGradedAt": performance.get("lastGradedAt"),
+        "historyPolicy": "APPEND_ONLY_GRADED_RESULTS",
+        "losingPredictionsIncluded": True,
         # Kept because a reader who knows what it means can check our
         # calibration claim against it, and one who does not can ignore it.
         "brierScore": _number(performance.get("brierScore")) if published else None,

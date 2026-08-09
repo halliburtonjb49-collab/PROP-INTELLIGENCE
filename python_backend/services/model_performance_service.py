@@ -188,6 +188,28 @@ def _dominant_model_version(cursor) -> str | None:
     return str(row[0]) if row and row[0] else None
 
 
+def _ledger_metadata(rows: list[tuple[object, object]]) -> dict[str, object]:
+    """Describe the latest immutable result run without smoothing it away."""
+    if not rows:
+        return {"lastGradedAt": None, "currentStreak": {"type": "NONE", "length": 0}}
+    latest_outcome = bool(rows[0][0])
+    length = 0
+    for outcome, _graded_at in rows:
+        if bool(outcome) != latest_outcome:
+            break
+        length += 1
+    stamp = rows[0][1]
+    return {
+        "lastGradedAt": stamp.isoformat() if hasattr(stamp, "isoformat") else (
+            str(stamp) if stamp is not None else None
+        ),
+        "currentStreak": {
+            "type": "WINNING" if latest_outcome else "LOSING",
+            "length": length,
+        },
+    }
+
+
 def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
     if not database_is_configured():
         return {"modelVersion": model_version, "sampleSize": 0, "segments": []}
@@ -335,6 +357,9 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
          positive_odds_rate, odds_sample_size, moved_line_count,
          unchanged_line_count) = clv_totals
         rolling_audit = _rolling_audit(cursor, model_version, base)
+        cursor.execute(f"""select hit, graded_at {base}
+            order by graded_at desc nulls last, created_at desc limit 100""", (model_version,))
+        ledger_metadata = _ledger_metadata(cursor.fetchall())
     actionable = [segment for segment in side_segments if segment["actionable"]]
     return {"modelVersion": model_version, "requestedModelVersion": requested_version,
             **overall, "segments": segments,
@@ -348,6 +373,7 @@ def model_performance(model_version: str = MODEL_VERSION) -> dict[str, object]:
                 "collecting": sum(item["status"] == "COLLECTING" for item in side_segments),
             },
             "rollingAudit": rolling_audit,
+            **ledger_metadata,
             "roiClvSegments": roi_clv_segments,
             "minimumCalibrationSample": 100, "calibrated": overall["sampleSize"] >= 100,
             "clv": {

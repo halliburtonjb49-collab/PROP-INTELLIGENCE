@@ -58,6 +58,12 @@ class PropResponse(BaseModel):
     selectable: bool = True
     dataQualityScore: float = Field(default=0.0, ge=0, le=1)
     dataQualityReasons: list[str] = Field(default_factory=list)
+    piTrustScore: int = Field(default=0, ge=0, le=100)
+    piTrustBand: str = 'LIMITED'
+    piTrustResearchReady: bool = False
+    piTrustFactors: list[dict[str, object]] = Field(default_factory=list)
+    piTrustWarnings: list[str] = Field(default_factory=list)
+    researchCapsule: dict[str, object] = Field(default_factory=dict)
     opportunityScore: float = Field(default=0.0, ge=0, le=1)
     opportunityStatus: str = "SYSTEM_LEAN"
     opportunityReasons: list[str] = Field(default_factory=list)

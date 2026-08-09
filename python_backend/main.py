@@ -2575,7 +2575,7 @@ def props(
 		provider_reliability = build_provider_reliability(
 			prop_list,
 			expected_sites=PREFERRED_BOOKMAKERS,
-			horizon_days=3,
+			horizon_days=4,
 			stale_after_minutes=stale_after_minutes,
 			day_timezone=_scoreboard_timezone(),
 		)

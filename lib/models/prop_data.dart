@@ -136,6 +136,12 @@ class PropData {
   final bool selectable;
   final double dataQualityScore;
   final List<String> dataQualityReasons;
+  final int piTrustScore;
+  final String piTrustBand;
+  final bool piTrustResearchReady;
+  final List<Map<String, dynamic>> piTrustFactors;
+  final List<String> piTrustWarnings;
+  final Map<String, dynamic> researchCapsule;
   final double opportunityScore;
   final String opportunityStatus;
   final List<String> opportunityReasons;
@@ -294,6 +300,12 @@ class PropData {
     this.selectable = true,
     this.dataQualityScore = 0,
     this.dataQualityReasons = const [],
+    this.piTrustScore = 0,
+    this.piTrustBand = 'LIMITED',
+    this.piTrustResearchReady = false,
+    this.piTrustFactors = const [],
+    this.piTrustWarnings = const [],
+    this.researchCapsule = const {},
     this.opportunityScore = 0,
     this.opportunityStatus = 'SYSTEM_LEAN',
     this.opportunityReasons = const [],
@@ -701,6 +713,35 @@ class PropData {
                   const [])
               .map((value) => value.toString())
               .toList(growable: false),
+      piTrustScore:
+          (json['piTrustScore'] as num?)?.toInt() ??
+          (json['pi_trust_score'] as num?)?.toInt() ??
+          0,
+      piTrustBand:
+          json['piTrustBand']?.toString() ??
+          json['pi_trust_band']?.toString() ??
+          'LIMITED',
+      piTrustResearchReady:
+          json['piTrustResearchReady'] == true ||
+          json['pi_trust_research_ready'] == true,
+      piTrustFactors:
+          (json['piTrustFactors'] as List? ??
+                  json['pi_trust_factors'] as List? ??
+                  const [])
+              .whereType<Map>()
+              .map((row) => Map<String, dynamic>.from(row))
+              .toList(growable: false),
+      piTrustWarnings:
+          (json['piTrustWarnings'] as List? ??
+                  json['pi_trust_warnings'] as List? ??
+                  const [])
+              .map((value) => value.toString())
+              .toList(growable: false),
+      researchCapsule: json['researchCapsule'] is Map
+          ? Map<String, dynamic>.from(json['researchCapsule'] as Map)
+          : json['research_capsule'] is Map
+          ? Map<String, dynamic>.from(json['research_capsule'] as Map)
+          : const {},
       opportunityScore:
           _safeDoubleOrNull(
             json['opportunityScore'] ?? json['opportunity_score'],

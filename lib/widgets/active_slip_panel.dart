@@ -4,9 +4,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/active_slip_controller.dart';
+import '../models/prop_data.dart';
 import '../services/api_service.dart';
+import '../services/slip_doctor_service.dart';
 import '../services/live_update_service.dart';
 import 'context_help.dart';
+import 'slip_doctor_panel.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -70,6 +73,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   StreamSubscription<dynamic>? _liveTicketSubscription;
   Map<String, dynamic>? _activeTicketPayload;
   bool _hideRemoteActiveTicket = true;
+  bool _improvingSlip = false;
 
   @override
   void initState() {
@@ -380,8 +384,154 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   Widget _buildSlipBody(List<Map<String, dynamic>> legs) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [_buildSiteSpecificSlip(legs)],
+      children: [
+        if (legs.isNotEmpty) ...[
+          SlipDoctorPanel(
+            legs: legs,
+            improving: _improvingSlip,
+            onImprove: () => _improveSlip(legs),
+          ),
+          const SizedBox(height: 9),
+        ],
+        _buildSiteSpecificSlip(legs),
+      ],
     );
+  }
+
+  Future<void> _improveSlip(List<Map<String, dynamic>> legs) async {
+    if (_improvingSlip || legs.isEmpty) return;
+    setState(() => _improvingSlip = true);
+    try {
+      final report = SlipDoctorService.analyze(legs);
+      final site = _activeSlipSite(legs);
+      final candidates = await _apiService.fetchProps(
+        selectedSportsbook: site.isEmpty ? 'All' : site,
+        minConfidence: 55,
+        sortBy: 'confidence',
+        limit: 350,
+      );
+      final existingIds = legs.map(_propId).toSet();
+      final existingPlayers = legs
+          .map(
+            (leg) => (leg['player'] ?? leg['player_name'] ?? '')
+                .toString()
+                .trim()
+                .toLowerCase(),
+          )
+          .where((value) => value.isNotEmpty)
+          .toSet();
+      final existingEvents = legs
+          .map(
+            (leg) => (leg['event_id'] ?? leg['eventId'] ?? leg['matchup'] ?? '')
+                .toString()
+                .trim()
+                .toLowerCase(),
+          )
+          .where((value) => value.isNotEmpty)
+          .toSet();
+      final safer =
+          candidates.where((prop) {
+            final side = prop.proSuggestedSide;
+            final event =
+                (prop.eventId.isNotEmpty ? prop.eventId : prop.matchup)
+                    .trim()
+                    .toLowerCase();
+            return prop.selectable &&
+                prop.piTrustScore >= 70 &&
+                side != null &&
+                !existingIds.contains(prop.id) &&
+                !existingPlayers.contains(prop.player.trim().toLowerCase()) &&
+                (event.isEmpty || !existingEvents.contains(event));
+          }).toList()..sort((a, b) {
+            final trust = b.piTrustScore.compareTo(a.piTrustScore);
+            return trust != 0 ? trust : b.confidence.compareTo(a.confidence);
+          });
+      if (safer.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'No higher-trust replacement is currently available on this prop site.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      final highFinding = report.findings
+          .where(
+            (finding) =>
+                finding.severity == SlipRiskSeverity.high &&
+                finding.propIds.isNotEmpty,
+          )
+          .firstOrNull;
+      final replaceId = highFinding?.propIds.last ?? report.weakestPropId;
+      final replaced = legs
+          .where((leg) => _propId(leg) == replaceId)
+          .firstOrNull;
+      final replacement = safer.first;
+      await widget.controller.removeLeg(replaceId);
+      await widget.controller.addLegs([_replacementLeg(replacement)]);
+      if (mounted) {
+        final oldPlayer =
+            (replaced?['player'] ??
+                    replaced?['player_name'] ??
+                    'the weakest leg')
+                .toString();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Replaced $oldPlayer with ${replacement.player} (PI Trust ${replacement.piTrustScore}).',
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Slip Doctor could not load a verified replacement. Your draft was not changed.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _improvingSlip = false);
+    }
+  }
+
+  Map<String, dynamic> _replacementLeg(PropData prop) {
+    final side = prop.proSuggestedSide ?? 'OVER';
+    final odds = side == 'UNDER' ? prop.underOdds : prop.overOdds;
+    return {
+      'prop_id': prop.id,
+      'id': prop.id,
+      'event_id': prop.eventId,
+      'player': prop.player,
+      'sport': prop.sport,
+      'matchup': prop.matchup,
+      'prop_site': prop.sportsbook,
+      'sportsbook': prop.sportsbook,
+      'market': prop.market,
+      'line': prop.line,
+      'current_line': prop.line,
+      'original_line': prop.line,
+      'side': side,
+      'pick': side,
+      'odds': odds ?? -110,
+      'current_odds': odds ?? -110,
+      'projection': prop.projection,
+      'confidence': prop.displayConfidenceRating,
+      'historical_hit_rate': prop.historicalHitRate,
+      'pi_trust_score': prop.piTrustScore,
+      'pi_trust_band': prop.piTrustBand,
+      'data_quality_score': prop.dataQualityScore,
+      'data_stale': prop.dataStale,
+      'opening_line': prop.openingLine,
+      'line_moved_at_utc': prop.lineMovedAtUtc,
+      'player_image': prop.imagePath,
+    };
   }
 
   String _propId(Map<String, dynamic> leg) {

@@ -232,3 +232,41 @@ def test_the_closing_line_rate_carries_its_denominator(monkeypatch) -> None:
 
     assert clv["movedLineSampleSize"] == 300
     assert clv["unchangedLineCount"] == 4077
+
+
+def test_public_ledger_breaks_results_down_without_publishing_thin_segments(monkeypatch) -> None:
+    _install(monkeypatch, _mature(segments=[
+        {"sport": "MLB", "market": "batter_hits", "confidenceTier": "HIGH", "sampleSize": 120, "hits": 72, "simulatedRoi": 0.08},
+        {"sport": "MLB", "market": "batter_hits", "confidenceTier": "MEDIUM", "sampleSize": 80, "hits": 40, "simulatedRoi": -0.02},
+        {"sport": "WNBA", "market": "player_points", "confidenceTier": "HIGH", "sampleSize": 9, "hits": 8, "simulatedRoi": 0.5},
+    ]))
+
+    record = public_track_record()
+    sports = {row["key"]: row for row in record["sportBreakdown"]}
+    markets = {row["key"]: row for row in record["marketBreakdown"]}
+
+    assert sports["MLB"]["sampleSize"] == 200
+    assert sports["MLB"]["winRate"] == 0.56
+    assert sports["WNBA"]["published"] is False
+    assert sports["WNBA"]["winRate"] is None
+    assert markets["Batter Hits"]["sampleSize"] == 200
+
+
+def test_public_ledger_exposes_calibration_streak_and_history_policy(monkeypatch) -> None:
+    _install(monkeypatch, _mature(
+        qualitySegments=[
+            {"confidenceRange": "60-69%", "sampleSize": 40, "hits": 24, "averageConfidence": 0.64},
+            {"confidenceRange": "70-79%", "sampleSize": 20, "hits": 15, "averageConfidence": 0.73},
+        ],
+        currentStreak={"type": "LOSING", "length": 3},
+        lastGradedAt="2026-08-08T12:00:00+00:00",
+    ))
+
+    record = public_track_record()
+
+    assert record["calibrationCurve"][0]["observed"] == 0.6
+    assert record["calibrationCurve"][0]["judged"] is True
+    assert record["currentStreak"] == {"type": "LOSING", "length": 3}
+    assert record["lastGradedAt"] == "2026-08-08T12:00:00+00:00"
+    assert record["historyPolicy"] == "APPEND_ONLY_GRADED_RESULTS"
+    assert record["losingPredictionsIncluded"] is True

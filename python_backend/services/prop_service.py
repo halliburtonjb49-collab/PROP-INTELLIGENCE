@@ -51,6 +51,7 @@ from services.projection_calibration_service import (
 from services.prop_probability_service import choose_over_under, evaluate_market, shin_method_devig
 from services.market_calibration_service import market_calibration_adjustment
 from services.prop_intelligence_service import analyze_prop
+from services.prop_trust_service import build_prop_trust, build_research_capsule
 
 cache = PropCache(DB_PATH)
 
@@ -935,6 +936,13 @@ def _verified_props(props: list[PropResponse]) -> list[PropResponse]:
 			prop.recommendationUnavailableReason = result.reasons[0]
 		if not result.selectable:
 			prop.recommendationAvailable = False
+		trust = build_prop_trust(prop)
+		prop.piTrustScore = int(trust['score'])
+		prop.piTrustBand = str(trust['band'])
+		prop.piTrustResearchReady = bool(trust['researchReady'])
+		prop.piTrustFactors = list(trust['factors'])
+		prop.piTrustWarnings = list(trust['warnings'])
+		prop.researchCapsule = build_research_capsule(prop, trust)
 		if result.displayable:
 			shown.append(prop)
 		else:

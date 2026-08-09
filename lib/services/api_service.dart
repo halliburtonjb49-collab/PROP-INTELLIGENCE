@@ -736,6 +736,11 @@ class ApiService {
         'projection_volatility': prop.projectionVolatility,
         'projection_calibrated': prop.projectionCalibrated,
         'historical_hit_rate': prop.historicalHitRate,
+        'pi_trust_score': prop.piTrustScore,
+        'pi_trust_band': prop.piTrustBand,
+        'pi_trust_warnings': prop.piTrustWarnings,
+        'data_quality_score': prop.dataQualityScore,
+        'data_stale': prop.dataStale,
         'injury_status': prop.injuryStatus,
         'lineup_status': prop.lineupStatus,
         'calculation_inputs': {

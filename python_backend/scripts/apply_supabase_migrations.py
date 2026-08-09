@@ -49,6 +49,7 @@ MIGRATIONS = (
     "supabase_prop_catalog_snapshots.sql",
     "supabase_owner_runtime_controls.sql",
     "supabase_basketball_advanced_box_score.sql",
+    "supabase_prediction_ledger_append_only.sql",
 )
 
 

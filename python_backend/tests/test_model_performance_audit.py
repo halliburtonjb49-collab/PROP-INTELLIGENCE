@@ -2,6 +2,7 @@ from services.model_performance_service import (
     _audit_recommendation,
     _dominant_model_version,
     _is_quarantined_market,
+    _ledger_metadata,
     _rolling_row,
     _summarize_roi_clv_segments,
 )
@@ -111,3 +112,13 @@ def test_summarizes_roi_and_clv_by_side_and_market() -> None:
     assert result[0]["beatClosingLineRate"] == 0.6
     assert result[1]["side"] == "UNDER"
     assert result[1]["positiveOddsClvRate"] == 0.3
+
+
+def test_ledger_metadata_reports_latest_streak_without_hiding_losses() -> None:
+    result = _ledger_metadata([
+        (False, "2026-08-08T12:00:00+00:00"),
+        (False, "2026-08-08T11:00:00+00:00"),
+        (True, "2026-08-08T10:00:00+00:00"),
+    ])
+    assert result["currentStreak"] == {"type": "LOSING", "length": 2}
+    assert result["lastGradedAt"] == "2026-08-08T12:00:00+00:00"

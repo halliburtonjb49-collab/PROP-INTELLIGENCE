@@ -304,6 +304,11 @@ class ActiveSlipController extends ChangeNotifier {
         leg['under_odds'] = latest.underOdds;
         leg['line_moved_at_utc'] = latest.lineMovedAtUtc;
         leg['last_updated_utc'] = latest.lastUpdatedUtc;
+        leg['pi_trust_score'] = latest.piTrustScore;
+        leg['pi_trust_band'] = latest.piTrustBand;
+        leg['pi_trust_warnings'] = latest.piTrustWarnings;
+        leg['data_quality_score'] = latest.dataQualityScore;
+        leg['data_stale'] = latest.dataStale;
         leg['movement_status'] = 'UPDATED';
         changed = true;
       }

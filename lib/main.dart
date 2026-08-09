@@ -55,6 +55,7 @@ import 'widgets/current_slip_panel.dart';
 import 'widgets/ev_scanner_card.dart';
 import 'widgets/onboarding_dialog.dart';
 import 'widgets/provider_reliability_banner.dart';
+import 'widgets/prop_trust_widgets.dart';
 import 'widgets/verdict_filter_bar.dart';
 import 'widgets/recommendation_explainability_block.dart';
 import 'widgets/scoreboard_view.dart';
@@ -1801,6 +1802,11 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       'projection_volatility': prop.projectionVolatility,
       'projection_calibrated': prop.projectionCalibrated,
       'historical_hit_rate': prop.historicalHitRate,
+      'pi_trust_score': prop.piTrustScore,
+      'pi_trust_band': prop.piTrustBand,
+      'pi_trust_warnings': prop.piTrustWarnings,
+      'data_quality_score': prop.dataQualityScore,
+      'data_stale': prop.dataStale,
       'fair_probability': prop.fairProbability,
       'model_probability': prop.modelProbability,
       'market_probability': prop.marketProbability,
@@ -9554,6 +9560,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               ),
             ),
           ),
+          const SizedBox(height: 8),
+          PiTrustBadge(prop: prop),
           const SizedBox(height: 9),
           // The conclusion first. Everything below it is the working that
           // led here, and a reader who stops at the top should still have
@@ -9689,6 +9697,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               ],
             ),
             const SizedBox(height: 10),
+            WhyThisPropCapsule(prop: prop),
+            const SizedBox(height: 8),
             RecommendationExplainabilityBlock(prop: prop),
             const SizedBox(height: 8),
             const Text(

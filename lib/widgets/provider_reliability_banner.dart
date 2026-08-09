@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
@@ -27,7 +29,10 @@ class ProviderReliabilityBanner extends StatelessWidget {
     final providers = (reliability['providerCount'] as num?)?.toInt() ?? 0;
     final expected =
         (reliability['expectedProviderCount'] as num?)?.toInt() ?? providers;
-    final horizon = (reliability['horizonDays'] as num?)?.toInt() ?? 3;
+    final horizon =
+        (reliability['futureDays'] as num?)?.toInt() ??
+        (reliability['horizonDays'] as num?)?.toInt() ??
+        3;
     final recovering =
         ((reliability['recovery'] as Map?)?['requested'] as bool?) == true;
     final healthy = status == 'HEALTHY';
@@ -127,88 +132,300 @@ class ProviderReliabilityBanner extends StatelessWidget {
   }
 }
 
-class ProviderReliabilitySheet extends StatelessWidget {
+class ProviderReliabilitySheet extends StatefulWidget {
   const ProviderReliabilitySheet({super.key, required this.reliability});
 
   final Map<String, dynamic> reliability;
 
   @override
+  State<ProviderReliabilitySheet> createState() =>
+      _ProviderReliabilitySheetState();
+}
+
+class _ProviderReliabilitySheetState extends State<ProviderReliabilitySheet> {
+  Timer? _timer;
+  late DateTime _now;
+
+  @override
+  void initState() {
+    super.initState();
+    _now = DateTime.now();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _countdown() {
+    final target = DateTime.tryParse(
+      widget.reliability['nextAutoRefreshAtUtc']?.toString() ?? '',
+    )?.toLocal();
+    if (target == null) return 'Refresh schedule unavailable';
+    final remaining = target.difference(_now);
+    if (remaining.isNegative) return 'Automatic refresh due now';
+    final minutes = remaining.inMinutes;
+    final seconds = remaining.inSeconds.remainder(60);
+    return 'Automatic refresh in ${minutes}m ${seconds.toString().padLeft(2, '0')}s';
+  }
+
+  String _clock(Object? raw) {
+    final value = DateTime.tryParse(raw?.toString() ?? '')?.toLocal();
+    if (value == null) return 'not available';
+    final hour = value.hour == 0
+        ? 12
+        : value.hour > 12
+        ? value.hour - 12
+        : value.hour;
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '$hour:$minute ${value.hour >= 12 ? 'PM' : 'AM'}';
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final providers =
-        (reliability['providers'] as List?)
-            ?.whereType<Map>()
-            .map((row) => Map<String, dynamic>.from(row))
-            .toList(growable: false) ??
-        const <Map<String, dynamic>>[];
-    final days =
-        (reliability['days'] as List?)
-            ?.whereType<Map>()
-            .map((row) => Map<String, dynamic>.from(row))
-            .toList(growable: false) ??
-        const <Map<String, dynamic>>[];
+    final reliability = widget.reliability;
+    final providers = (reliability['providers'] as List? ?? const [])
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList(growable: false);
+    final days = (reliability['days'] as List? ?? const [])
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList(growable: false);
+    final health = (reliability['marketHealth'] as List? ?? const [])
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .take(18)
+        .toList(growable: false);
 
     return SafeArea(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 620),
-        child: Padding(
+        constraints: const BoxConstraints(maxHeight: 720),
+        child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              Row(
+          shrinkWrap: true,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'THREE-DAY SLATE CENTER',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const Text(
+              'Today plus the next three dates. Provider gaps and potentially '
+              'missing markets are surfaced; another site\'s lines are never substituted.',
+              style: TextStyle(color: AppColors.silver, height: 1.4),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+              decoration: BoxDecoration(
+                color: AppColors.gold.withValues(alpha: .08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.gold),
+              ),
+              child: Row(
                 children: [
-                  const Expanded(
+                  const Icon(
+                    Icons.sync_rounded,
+                    size: 16,
+                    color: AppColors.gold,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
                     child: Text(
-                      'DATA RELIABILITY',
-                      style: TextStyle(
+                      '${_countdown()} | Last successful sync ${_clock(reliability['latestDataUpdatedAt'])}',
+                      style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Close',
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
                 ],
               ),
-              const Text(
-                'Live provider freshness and upcoming slate coverage. '
-                'Missing rows are never replaced with another site’s lines.',
-                style: TextStyle(color: AppColors.silver, height: 1.4),
-              ),
+            ),
+            const SizedBox(height: 18),
+            const _SectionLabel('TODAY + NEXT THREE DAYS'),
+            const SizedBox(height: 8),
+            ...days.map((day) => _SlateDayRow(day: day, clock: _clock)),
+            if (health.isNotEmpty) ...[
               const SizedBox(height: 18),
-              const _SectionLabel('NEXT THREE DAYS'),
-              const SizedBox(height: 8),
-              ...days.map(
-                (day) => _ReliabilityRow(
-                  title: day['date']?.toString() ?? 'Unknown date',
-                  detail:
-                      '${day['eventCount'] ?? 0} events | '
-                      '${day['propCount'] ?? 0} props | '
-                      '${day['providerCount'] ?? 0} providers',
-                  status: (day['propCount'] as num?)?.toInt() == 0
-                      ? 'WAITING'
-                      : 'READY',
+              const _SectionLabel('MARKET HEALTH MAP'),
+              const SizedBox(height: 5),
+              const Text(
+                'Coverage across currently connected providers. Red is a research warning, not proof that a provider offers that market.',
+                style: TextStyle(
+                  color: AppColors.silver,
+                  fontSize: 9,
+                  height: 1.3,
                 ),
               ),
-              const SizedBox(height: 18),
-              const _SectionLabel('PROVIDERS'),
-              const SizedBox(height: 8),
-              ...providers.map(
-                (provider) => _ReliabilityRow(
-                  title: provider['provider']?.toString() ?? 'UNKNOWN',
-                  detail:
-                      '${provider['propCount'] ?? 0} props | '
-                      '${provider['eventCount'] ?? 0} events | '
-                      '${provider['ageMinutes'] == null ? 'age unknown' : '${provider['ageMinutes']}m old'}',
-                  status: provider['status']?.toString() ?? 'UNKNOWN',
+              const SizedBox(height: 9),
+              Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: health
+                    .map((row) => _MarketHealthChip(row: row))
+                    .toList(),
+              ),
+            ],
+            const SizedBox(height: 18),
+            const _SectionLabel('PROVIDERS'),
+            const SizedBox(height: 8),
+            ...providers.map(
+              (provider) => _ReliabilityRow(
+                title: provider['provider']?.toString() ?? 'UNKNOWN',
+                detail:
+                    '${provider['propCount'] ?? 0} props | '
+                    '${provider['eventCount'] ?? 0} events | '
+                    '${provider['ageMinutes'] == null ? 'age unknown' : '${provider['ageMinutes']}m old'}',
+                status: provider['status']?.toString() ?? 'UNKNOWN',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SlateDayRow extends StatelessWidget {
+  const _SlateDayRow({required this.day, required this.clock});
+  final Map<String, dynamic> day;
+  final String Function(Object?) clock;
+
+  @override
+  Widget build(BuildContext context) {
+    final props = (day['propCount'] as num?)?.toInt() ?? 0;
+    final coverage = (day['providerCoveragePercent'] as num?)?.toInt() ?? 0;
+    final missingProviders = (day['missingProviders'] as List? ?? const [])
+        .map((value) => value.toString())
+        .toList(growable: false);
+    final missingMarkets =
+        (day['potentialMissingMarketCount'] as num?)?.toInt() ?? 0;
+    final status = props == 0
+        ? 'WAITING'
+        : coverage >= 75
+        ? 'READY'
+        : 'PARTIAL';
+    final color = status == 'READY'
+        ? const Color(0xFF55D6A3)
+        : status == 'PARTIAL'
+        ? AppColors.gold
+        : AppColors.silver;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: AppColors.panel,
+        border: Border.all(color: AppColors.gunmetalLight),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  day['date']?.toString() ?? 'Unknown date',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                '$coverage% COVERAGE',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 6),
+          Text(
+            '${day['eventCount'] ?? 0} games | $props props | ${day['providerCount'] ?? 0} providers | ${day['categoryCount'] ?? 0} markets',
+            style: const TextStyle(color: AppColors.silver, fontSize: 10),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Expected lineup window: ${clock(day['expectedLineupsAtUtc'])} | Last sync: ${clock(day['lastSuccessfulSyncAtUtc'])}',
+            style: const TextStyle(color: AppColors.silver, fontSize: 9),
+          ),
+          if (missingProviders.isNotEmpty || missingMarkets > 0) ...[
+            const SizedBox(height: 5),
+            Text(
+              '${missingProviders.isEmpty ? '' : 'Missing providers: ${missingProviders.join(', ')}. '}'
+              '${missingMarkets > 0 ? '$missingMarkets potential market gaps.' : ''}',
+              style: const TextStyle(
+                color: AppColors.gold,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MarketHealthChip extends StatelessWidget {
+  const _MarketHealthChip({required this.row});
+  final Map<String, dynamic> row;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = row['status']?.toString().toUpperCase() ?? 'RED';
+    final color = status == 'GREEN'
+        ? const Color(0xFF55D6A3)
+        : status == 'YELLOW'
+        ? AppColors.gold
+        : const Color(0xFFFF8A80);
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 190),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: .7)),
+      ),
+      child: Text(
+        '${row['sport']} ${row['category']} | ${row['coveragePercent']}%',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: color,
+          fontSize: 8.5,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );

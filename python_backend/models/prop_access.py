@@ -43,6 +43,11 @@ class CorePropResponse(BaseModel):
     dataAgeSeconds: int | None = None
     dataStale: bool = False
     sourceProvider: str = ""
+    piTrustScore: int = 0
+    piTrustBand: str = "LIMITED"
+    piTrustResearchReady: bool = False
+    piTrustFactors: list[dict[str, object]] = []
+    piTrustWarnings: list[str] = []
     injuryStatus: str = "unknown"
     lineupStatus: str = "unknown"
     imagePath: str = ""
