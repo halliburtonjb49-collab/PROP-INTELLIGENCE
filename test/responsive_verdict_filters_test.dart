@@ -12,6 +12,17 @@ void main() {
     expect(shouldWrapVerdictFilters(1200), isFalse);
   });
 
+  test('board controls stay focused on phones and tablets', () {
+    expect(useCompactBoardControls(390), isTrue);
+    expect(useCompactBoardControls(768), isTrue);
+    expect(useCompactBoardControls(899.9), isTrue);
+  });
+
+  test('board controls expose provider shortcuts on wide layouts', () {
+    expect(useCompactBoardControls(900), isFalse);
+    expect(useCompactBoardControls(1440), isFalse);
+  });
+
   test('verdict filters preserve an unloaded count state', () {
     expect(resolveVerdictFilterCount(const {}, 'PLAY_NOW'), isNull);
   });

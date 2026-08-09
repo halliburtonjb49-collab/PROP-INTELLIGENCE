@@ -1544,7 +1544,7 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
-  Widget _buildBoardSearchAndBooks() {
+  Widget _buildBoardSearchAndBooks(double availableWidth) {
     const allBooks = [
       'ALL',
       'PRIZEPICKS',
@@ -1571,7 +1571,7 @@ class _MainDashboardState extends State<MainDashboard> {
                     _selectedSite == book,
               )
               .toList(growable: false);
-    final compactLayout = MediaQuery.sizeOf(context).width < 720;
+    final compactLayout = useCompactBoardControls(availableWidth);
 
     Widget playerSearchField({double? width}) {
       final field = TextField(
@@ -2664,7 +2664,10 @@ class _MainDashboardState extends State<MainDashboard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildBoardSearchAndBooks(),
+                          LayoutBuilder(
+                            builder: (context, constraints) =>
+                                _buildBoardSearchAndBooks(constraints.maxWidth),
+                          ),
                           const SizedBox(height: 8),
                           _buildProviderReliabilityBanner(),
                           const SizedBox(height: 10),
@@ -2802,6 +2805,13 @@ List<String> visibleCategoryFilters(Map<String, int> counts) {
 @visibleForTesting
 bool shouldWrapVerdictFilters(double availableWidth) {
   return availableWidth < 600;
+}
+
+/// Keeps the primary board controls focused until there is enough room for
+/// search, utilities, provider shortcuts, and scroll affordances together.
+@visibleForTesting
+bool useCompactBoardControls(double availableWidth) {
+  return availableWidth < 900;
 }
 
 @visibleForTesting

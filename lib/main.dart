@@ -50,6 +50,7 @@ export 'widgets/main_dashboard.dart'
         providerCoverageIssueForSport,
         resolveVerdictFilterCount,
         shouldWrapVerdictFilters,
+        useCompactBoardControls,
         visibleCategoryFilters;
 export 'widgets/prop_board_loading.dart';
 import 'widgets/lock_slip_dialog.dart';
