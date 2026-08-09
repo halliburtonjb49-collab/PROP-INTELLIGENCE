@@ -2,14 +2,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/models/prop_data.dart';
 import 'package:prop_intelligence/services/prop_market_identity.dart';
 
-PropData _prop(String marketKey) => PropData.fromJson({
+PropData _prop(
+  String marketKey, {
+  String sport = 'WNBA',
+  String category = '',
+}) => PropData.fromJson({
   'id': 'c1',
   'player': 'Angel Reese',
-  'sport': 'WNBA',
+  'sport': sport,
   'matchup': 'Atlanta Dream @ Washington Mystics',
   'sportsbook': 'PRIZEPICKS',
   'market': 'Fantasy Score',
   'marketKey': marketKey,
+  'category': category,
   'line': 36.5,
 });
 
@@ -18,20 +23,37 @@ void main() {
     // This function runs before the rest of the categoriser and returns
     // early, so a defect here is invisible to any test of the fallback --
     // which is exactly how the first fix for this shipped without working.
-    expect(canonicalCategoryFromMarketKey(_prop('player_fantasy_points')),
-        'FANTASY SCORE');
+    expect(
+      canonicalCategoryFromMarketKey(_prop('player_fantasy_points')),
+      'FANTASY SCORE',
+    );
   });
 
   test('the compounds still beat their own components', () {
-    expect(canonicalCategoryFromMarketKey(_prop('player_points_rebounds_assists')), 'PRA');
-    expect(canonicalCategoryFromMarketKey(_prop('player_points_rebounds')), 'POINTS + REBOUNDS');
-    expect(canonicalCategoryFromMarketKey(_prop('player_points_assists')), 'POINTS + ASSISTS');
-    expect(canonicalCategoryFromMarketKey(_prop('player_rebounds_assists')), 'REBOUNDS + ASSISTS');
+    expect(
+      canonicalCategoryFromMarketKey(_prop('player_points_rebounds_assists')),
+      'PRA',
+    );
+    expect(
+      canonicalCategoryFromMarketKey(_prop('player_points_rebounds')),
+      'POINTS + REBOUNDS',
+    );
+    expect(
+      canonicalCategoryFromMarketKey(_prop('player_points_assists')),
+      'POINTS + ASSISTS',
+    );
+    expect(
+      canonicalCategoryFromMarketKey(_prop('player_rebounds_assists')),
+      'REBOUNDS + ASSISTS',
+    );
   });
 
   test('the plain markets are unaffected', () {
     expect(canonicalCategoryFromMarketKey(_prop('player_points')), 'POINTS');
-    expect(canonicalCategoryFromMarketKey(_prop('player_rebounds')), 'REBOUNDS');
+    expect(
+      canonicalCategoryFromMarketKey(_prop('player_rebounds')),
+      'REBOUNDS',
+    );
     expect(canonicalCategoryFromMarketKey(_prop('player_assists')), 'ASSISTS');
   });
 
@@ -41,13 +63,63 @@ void main() {
     expect(canonicalCategoryFromMarketKey(_prop('player_pass_yds')), '');
   });
 
+  test('basketball canonical rules never relabel another sport', () {
+    expect(
+      canonicalCategoryFromMarketKey(
+        _prop('player_power_play_points', sport: 'NHL'),
+      ),
+      '',
+    );
+    expect(
+      canonicalCategoryFromMarketKey(
+        _prop('player_tackles_assists', sport: 'NFL'),
+      ),
+      '',
+    );
+  });
+
+  test('backend subcategories survive for every sport', () {
+    expect(
+      normalizedApiCategory(
+        _prop(
+          'player_power_play_points',
+          sport: 'NHL',
+          category: 'power play points',
+        ),
+      ),
+      'POWER PLAY POINTS',
+    );
+    expect(
+      normalizedApiCategory(
+        _prop(
+          'player_tackles_assists',
+          sport: 'NFL',
+          category: 'tackles + assists',
+        ),
+      ),
+      'TACKLES + ASSISTS',
+    );
+    expect(
+      normalizedApiCategory(
+        _prop('batter_strikeouts', sport: 'MLB', category: 'batter strikeouts'),
+      ),
+      'BATTER STRIKEOUTS',
+    );
+  });
   test('no two basketball markets share a canonical category', () {
     const markets = [
-      'player_points', 'player_rebounds', 'player_assists',
-      'player_blocks', 'player_steals', 'player_fantasy_points',
-      'player_points_rebounds', 'player_points_assists',
-      'player_rebounds_assists', 'player_points_rebounds_assists',
-      'player_double_double', 'player_threes',
+      'player_points',
+      'player_rebounds',
+      'player_assists',
+      'player_blocks',
+      'player_steals',
+      'player_fantasy_points',
+      'player_points_rebounds',
+      'player_points_assists',
+      'player_rebounds_assists',
+      'player_points_rebounds_assists',
+      'player_double_double',
+      'player_threes',
     ];
     final seen = <String, String>{};
     final collisions = <String>[];

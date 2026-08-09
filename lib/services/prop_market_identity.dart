@@ -4,6 +4,9 @@ import '../models/prop_data.dart';
 /// market key. The key is the identity attached to the line and projection,
 /// so it must take precedence over a stale or loosely populated label.
 String canonicalCategoryFromMarketKey(PropData prop) {
+  final sport = prop.sport.trim().toUpperCase();
+  if (sport != 'NBA' && sport != 'WNBA') return '';
+
   final raw = prop.marketKey.trim();
   if (raw.isEmpty) return '';
 
@@ -37,4 +40,41 @@ String canonicalCategoryFromMarketKey(PropData prop) {
   if (has('blocks')) return 'BLOCKS';
   if (has('steals')) return 'STEALS';
   return '';
+}
+
+String normalizedApiCategory(PropData prop) {
+  final canonical = canonicalCategoryFromMarketKey(prop);
+  if (canonical.isNotEmpty) return canonical;
+
+  final normalized = prop.category
+      .trim()
+      .toLowerCase()
+      .replaceAll('_', ' ')
+      .replaceAll(RegExp(r'\s+'), ' ');
+  if (normalized.isEmpty ||
+      const {'other', 'unknown', 'n/a', 'na'}.contains(normalized)) {
+    return '';
+  }
+
+  final sport = prop.sport.trim().toUpperCase();
+  final aliases = switch (sport) {
+    'NBA' || 'WNBA' => const {'3-pointers': '3-POINTERS MADE'},
+    'NFL' => const {
+      'touchdowns': 'TOTAL TOUCHDOWNS',
+      'rushing attempts': 'RUSH ATTEMPTS',
+    },
+    'MLB' => const {
+      'strikeouts': 'PITCHER STRIKEOUTS',
+      'outs recorded': 'PITCHER OUTS',
+    },
+    'TENNIS' => const {'games won': 'TOTAL GAMES WON'},
+    'PGA' => const {
+      'birdies': 'BIRDIES OR BETTER',
+      'fairways': 'FAIRWAYS HIT',
+      'greens': 'GREENS IN REGULATION',
+    },
+    'UFC' => const {'submissions': 'SUBMISSION ATTEMPTS'},
+    _ => const <String, String>{},
+  };
+  return aliases[normalized] ?? normalized.toUpperCase();
 }
