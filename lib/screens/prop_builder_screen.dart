@@ -18,6 +18,7 @@ import '../controllers/active_slip_controller.dart';
 import '../services/api_service.dart';
 import '../services/prop_watchlist_service.dart';
 import '../widgets/context_help.dart';
+import '../widgets/generated_builder_leg_card.dart';
 import '../widgets/recommendation_explainability_block.dart';
 import 'prop_watchlist_screen.dart';
 
@@ -972,347 +973,40 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
     required Map<String, dynamic> leg,
     required int index,
   }) {
-    final isSelected = _isGeneratedLegSelected(leg);
-    final isLocked = _isGeneratedLegLocked(leg);
-    final isWatchlisted = _isPropWatchlisted(leg);
-    final isInActiveSlip = _isInActiveSlip(leg);
     final propId = _propId(leg);
-    final side = leg['side']?.toString() ?? '';
-    final displayedLine =
-        leg['current_line']?.toString() ?? leg['line']?.toString() ?? '';
-    final builtLine =
-        leg['original_line']?.toString() ?? leg['line']?.toString() ?? '';
-    final market = leg['market']?.toString() ?? '';
-    final propSite = leg['prop_site']?.toString() ?? '';
-    final edge = leg['edge']?.toString() ?? '';
-    final confidence = leg['confidence']?.toString() ?? '';
-    final matchup = leg['matchup']?.toString() ?? '';
-    final customLabel = leg['custom_label']?.toString() ?? '';
-    final manualNote = leg['manual_note']?.toString() ?? '';
-    final resultStatus = leg['result_status']?.toString() ?? 'pending';
-    final resultValue = (leg['result_value'] as num?)?.toDouble();
-    final movementStatus =
-        leg['movement_status']?.toString().toUpperCase() ?? 'UNCHANGED';
-    final originalLine = (leg['original_line'] as num?)?.toDouble();
-    final currentLine = (leg['current_line'] as num?)?.toDouble();
-    final originalOdds = (leg['original_odds'] as num?)?.toInt();
-    final currentOdds = (leg['current_odds'] as num?)?.toInt();
-
-    return KeyedSubtree(
-      key: ValueKey(_generatedLegKey(leg, index)),
-      child: Card(
-        key: _cardKeyForProp(propId),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ReorderableDragStartListener(
-                    index: index,
-                    child: const Padding(
-                      padding: EdgeInsets.only(right: 12, top: 4),
-                      child: Icon(Icons.drag_indicator),
-                    ),
-                  ),
-                  Container(
-                    width: 28,
-                    height: 28,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.outlineVariant,
-                      ),
-                    ),
-                    child: Text(
-                      '${index + 1}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                leg['player']?.toString() ?? '',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                            if (isLocked) const Icon(Icons.lock, size: 18),
-                          ],
-                        ),
-                        if (customLabel.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Chip(
-                            avatar: const Icon(Icons.label, size: 16),
-                            label: Text(customLabel),
-                          ),
-                        ],
-                        const SizedBox(height: 5),
-                        Text('Current: $side $displayedLine $market'),
-                        if (builtLine != displayedLine) ...[
-                          const SizedBox(height: 3),
-                          Text('Built at: $side $builtLine'),
-                        ],
-                        if (originalLine != null &&
-                            currentLine != null &&
-                            originalLine != currentLine) ...[
-                          const SizedBox(height: 5),
-                          Text(
-                            'Line moved: ${originalLine.toStringAsFixed(1)} → ${currentLine.toStringAsFixed(1)}',
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                        ],
-                        if (originalOdds != null &&
-                            currentOdds != null &&
-                            originalOdds != currentOdds) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            'Odds moved: ${_formatAmericanOdds(originalOdds)} → ${_formatAmericanOdds(currentOdds)}',
-                          ),
-                        ],
-                        const SizedBox(height: 5),
-                        Text(
-                          '$propSite • Edge $edge% • Confidence $confidence%',
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          matchup,
-                          style: TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSurfaceVariant,
-                            fontSize: 12,
-                          ),
-                        ),
-                        if (resultValue != null) ...[
-                          const SizedBox(height: 5),
-                          Text(
-                            'Final: ${resultValue.toStringAsFixed(1)} • ${resultStatus.toUpperCase()}',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: resultStatus == 'won'
-                                  ? brand_colors.AppColors.blue
-                                  : resultStatus == 'lost'
-                                  ? Colors.redAccent
-                                  : null,
-                            ),
-                          ),
-                        ],
-                        if (manualNote.isNotEmpty) ...[
-                          const SizedBox(height: 10),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.outlineVariant,
-                              ),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  Icons.sticky_note_2_outlined,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(child: Text(manualNote)),
-                              ],
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 7,
-                          runSpacing: 7,
-                          children: [
-                            Chip(label: Text('Edge $edge%')),
-                            Chip(label: Text('Confidence $confidence%')),
-                            if (leg['last_line_check'] != null)
-                              Chip(
-                                avatar: Icon(
-                                  _movementIcon(movementStatus),
-                                  size: 17,
-                                ),
-                                label: Text(_movementLabel(leg)),
-                              ),
-                            if (leg['historical_hit_rate'] != null)
-                              Chip(
-                                label: Text(
-                                  'History ${(leg['historical_hit_rate'] as num).toStringAsFixed(1)}%',
-                                ),
-                              ),
-                            if (isInActiveSlip)
-                              const Chip(
-                                avatar: Icon(Icons.check_circle, size: 16),
-                                label: Text('Active Slip'),
-                              ),
-                          ],
-                        ),
-                        if (movementStatus != 'UNCHANGED') ...[
-                          const SizedBox(height: 10),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: movementStatus == 'BETTER'
-                                    ? brand_colors.AppColors.blue
-                                    : movementStatus == 'WORSE'
-                                    ? Colors.redAccent
-                                    : Theme.of(
-                                        context,
-                                      ).colorScheme.outlineVariant,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(_movementIcon(movementStatus)),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _movementLabel(leg),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: isInActiveSlip
-                            ? () =>
-                                  widget.activeSlipController.removeLeg(propId)
-                            : () {
-                                _toggleGeneratedLeg(leg);
-                              },
-                        icon: Icon(
-                          isInActiveSlip || isSelected
-                              ? Icons.remove_circle_outline
-                              : Icons.add_circle_outline,
-                        ),
-                        label: Text(
-                          isInActiveSlip
-                              ? 'REMOVE FROM SLIP'
-                              : isSelected
-                              ? 'REMOVE'
-                              : 'ADD',
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed: () {
-                          _toggleGeneratedLegLock(leg);
-                        },
-                        icon: Icon(isLocked ? Icons.lock : Icons.lock_open),
-                        label: Text(isLocked ? 'LOCKED' : 'LOCK PICK'),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed: _isLoadingWatchlist
-                            ? null
-                            : () {
-                                _togglePropWatchlist(leg);
-                              },
-                        icon: Icon(
-                          isWatchlisted
-                              ? Icons.visibility
-                              : Icons.visibility_outlined,
-                        ),
-                        label: Text(isWatchlisted ? 'WATCHING' : 'WATCHLIST'),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed: isLocked || _replacingPropId == propId
-                            ? null
-                            : () {
-                                _replaceGeneratedLeg(leg);
-                              },
-                        icon: _replacingPropId == propId
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.refresh),
-                        label: Text(
-                          isLocked
-                              ? 'LOCKED'
-                              : _replacingPropId == propId
-                              ? 'REPLACING'
-                              : 'REPLACE',
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed: _editingNotePropId == propId
-                            ? null
-                            : () {
-                                _editGeneratedLegNote(leg);
-                              },
-                        icon: const Icon(Icons.edit_note),
-                        label: const Text('ADD NOTE'),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed: () {
-                          _showQuickLabelMenu(leg);
-                        },
-                        icon: const Icon(Icons.label_outline),
-                        label: const Text('LABEL'),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed: () {
-                          _toggleExplanation(leg);
-                        },
-                        icon: Icon(
-                          _isExplanationExpanded(leg)
-                              ? Icons.expand_less
-                              : Icons.info_outline,
-                        ),
-                        label: Text(
-                          _isExplanationExpanded(leg)
-                              ? 'HIDE DETAILS'
-                              : 'WHY THIS PICK?',
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              if (_isExplanationExpanded(leg)) _pickExplanationPanel(leg),
-            ],
-          ),
-        ),
-      ),
+    return GeneratedBuilderLegCard(
+      subtreeKey: ValueKey(_generatedLegKey(leg, index)),
+      cardKey: _cardKeyForProp(propId),
+      leg: leg,
+      index: index,
+      propId: propId,
+      isSelected: _isGeneratedLegSelected(leg),
+      isLocked: _isGeneratedLegLocked(leg),
+      isWatchlisted: _isPropWatchlisted(leg),
+      isInActiveSlip: _isInActiveSlip(leg),
+      isLoadingWatchlist: _isLoadingWatchlist,
+      isReplacing: _replacingPropId == propId,
+      isEditingNote: _editingNotePropId == propId,
+      isExplanationExpanded: _isExplanationExpanded(leg),
+      explanationPanel: _pickExplanationPanel(leg),
+      onRemoveFromSlip: () {
+        unawaited(widget.activeSlipController.removeLeg(propId));
+      },
+      onToggleSelection: () => _toggleGeneratedLeg(leg),
+      onToggleLock: () => _toggleGeneratedLegLock(leg),
+      onToggleWatchlist: () {
+        unawaited(_togglePropWatchlist(leg));
+      },
+      onReplace: () {
+        unawaited(_replaceGeneratedLeg(leg));
+      },
+      onEditNote: () {
+        unawaited(_editGeneratedLegNote(leg));
+      },
+      onShowLabelMenu: () {
+        unawaited(_showQuickLabelMenu(leg));
+      },
+      onToggleExplanation: () => _toggleExplanation(leg),
     );
   }
 
@@ -2538,42 +2232,6 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
         _checkLineMovement(refresh: true, showMessage: false);
       }
     });
-  }
-
-  String _movementLabel(Map<String, dynamic> leg) {
-    final status =
-        leg['movement_status']?.toString().toUpperCase() ?? 'UNCHANGED';
-    switch (status) {
-      case 'BETTER':
-        return 'BETTER LINE';
-      case 'WORSE':
-        return 'WORSE LINE';
-      case 'MOVED':
-        return 'LINE MOVED';
-      case 'UNAVAILABLE':
-        return 'LINE UNAVAILABLE';
-      default:
-        return 'NO CHANGE';
-    }
-  }
-
-  IconData _movementIcon(String status) {
-    switch (status.toUpperCase()) {
-      case 'BETTER':
-        return Icons.trending_up;
-      case 'WORSE':
-        return Icons.trending_down;
-      case 'MOVED':
-        return Icons.swap_vert;
-      case 'UNAVAILABLE':
-        return Icons.remove_circle_outline;
-      default:
-        return Icons.horizontal_rule;
-    }
-  }
-
-  String _formatAmericanOdds(int odds) {
-    return odds > 0 ? '+$odds' : '$odds';
   }
 
   Widget _exportHeaderChip(String text) {
