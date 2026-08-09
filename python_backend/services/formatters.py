@@ -95,6 +95,7 @@ CATEGORY_LABELS = {
     "player_pass_yds": "passing yards",
     "player_passing_yards": "passing yards",
     "pass_yds": "passing yards",
+    "player_pass_tds": "passing touchdowns",
     "player_rush_yds": "rushing yards",
     "player_rushing_yards": "rushing yards",
     "rush_yds": "rushing yards",
@@ -166,6 +167,8 @@ CATEGORY_LABELS = {
     # AFL
     "player_disposals_over": "disposals",
     "player_goals_scored_over": "goals",
+    "player_goal_scorer_first": "first goalscorer",
+    "player_goal_scorer_last": "last goalscorer",
     "player_marks_over": "marks",
     "player_tackles_over": "tackles",
     "player_afl_fantasy_points_over": "AFL fantasy points",

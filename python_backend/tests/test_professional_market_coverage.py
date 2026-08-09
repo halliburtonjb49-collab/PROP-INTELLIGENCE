@@ -1,6 +1,10 @@
 from services import formatters
-from services.formatters import format_sport_label, market_to_category
-from services.market_config import markets_for_sport
+from services.formatters import (
+    CATEGORY_LABELS,
+    format_sport_label,
+    market_to_category,
+)
+from services.market_config import SPORT_MARKETS, markets_for_sport
 
 
 def test_professional_sports_have_prop_market_definitions():
@@ -26,6 +30,20 @@ def test_new_markets_have_professional_category_labels():
     assert market_to_category("player_to_receive_card") == "player card"
     assert format_sport_label("icehockey_nhl") == "NHL"
     assert format_sport_label("soccer_epl") == "SOCCER"
+
+
+def test_every_configured_provider_market_has_an_explicit_category_label():
+    missing = {
+        sport: [market for market in markets if market not in CATEGORY_LABELS]
+        for sport, markets in SPORT_MARKETS.items()
+    }
+    assert {sport: markets for sport, markets in missing.items() if markets} == {}
+
+
+def test_touchdown_and_afl_scorer_markets_keep_their_full_meaning():
+    assert market_to_category("player_pass_tds") == "passing touchdowns"
+    assert market_to_category("player_goal_scorer_first") == "first goalscorer"
+    assert market_to_category("player_goal_scorer_last") == "last goalscorer"
 
 
 def test_nfl_props_resolve_through_espn_headshot_provider(monkeypatch):
