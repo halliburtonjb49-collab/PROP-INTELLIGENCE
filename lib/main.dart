@@ -34,6 +34,8 @@ import 'screens/password_recovery_screen.dart';
 import 'models/slip_selection.dart';
 import 'services/api_service.dart';
 import 'services/prop_market_identity.dart';
+import 'services/prop_board_engine.dart';
+export 'services/prop_board_engine.dart';
 import 'services/app_sound_service.dart';
 import 'services/onesignal_service.dart';
 import 'services/live_update_service.dart';
@@ -7951,92 +7953,6 @@ class PropGrid extends StatefulWidget {
   State<PropGrid> createState() => _PropGridState();
 }
 
-class _PreparedProp {
-  final PropData prop;
-  final String normalizedSport;
-  final String normalizedSite;
-  final String searchText;
-
-  const _PreparedProp({
-    required this.prop,
-    required this.normalizedSport,
-    required this.normalizedSite,
-    required this.searchText,
-  });
-}
-
-List<PropData> deprioritizeSoccerForAllSports(
-  List<PropData> props, {
-  required String selectedSport,
-}) {
-  if (selectedSport.trim().toUpperCase() != 'ALL' || props.length < 2) {
-    return props;
-  }
-  final otherSports = <PropData>[];
-  final soccer = <PropData>[];
-  for (final prop in props) {
-    final sport = prop.sport.trim().toUpperCase();
-    if (sport == 'SOCCER' || sport.startsWith('SOCCER_')) {
-      soccer.add(prop);
-    } else {
-      otherSports.add(prop);
-    }
-  }
-  if (otherSports.isEmpty || soccer.isEmpty) return props;
-  return [...otherSports, ...soccer];
-}
-
-List<PropData> pinSelectedPropsFirst(
-  List<PropData> props,
-  Set<String> pinnedPropIds,
-) {
-  if (props.isEmpty || pinnedPropIds.isEmpty) return props;
-  final pinned = <PropData>[];
-  final remaining = <PropData>[];
-  for (final prop in props) {
-    (pinnedPropIds.contains(prop.id) ? pinned : remaining).add(prop);
-  }
-  return [...pinned, ...remaining];
-}
-
-DateTime? propScheduledStart(PropData prop) {
-  final raw = prop.startTimeUtc.isNotEmpty
-      ? prop.startTimeUtc
-      : prop.gameStartTime;
-  return DateTime.tryParse(raw);
-}
-
-List<PropData> activePropsInChronologicalOrder(Iterable<PropData> props) {
-  final active = props.where((prop) => prop.isSelectable).toList();
-  active.sort((left, right) {
-    final leftStart = propScheduledStart(left);
-    final rightStart = propScheduledStart(right);
-    if (leftStart == null && rightStart == null) {
-      final player = left.player.compareTo(right.player);
-      return player != 0 ? player : left.market.compareTo(right.market);
-    }
-    if (leftStart == null) return 1;
-    if (rightStart == null) return -1;
-    final start = leftStart.compareTo(rightStart);
-    if (start != 0) return start;
-    final player = left.player.compareTo(right.player);
-    return player != 0 ? player : left.market.compareTo(right.market);
-  });
-  return active;
-}
-
-bool shouldRenderCachedPropsOnLaunch(
-  List<PropData> props, {
-  required String selectedSport,
-}) {
-  if (props.isEmpty) return false;
-  if (selectedSport.trim().toUpperCase() != 'ALL') return true;
-  return props.any((prop) {
-    final sport = prop.sport.trim().toUpperCase();
-    return sport != 'SOCCER' && !sport.startsWith('SOCCER_');
-  });
-}
-
 class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   static const int _visiblePropStep = 24;
   static final Map<String, List<PropData>> _sessionViewCache =
@@ -8048,7 +7964,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   // stay folded away until asked for.
   final Set<String> _expandedResearch = <String>{};
   late Future<List<PropData>> _propsFuture;
-  List<_PreparedProp> _preparedProps = const [];
+  List<PreparedBoardProp> _preparedProps = const [];
   bool _isRefreshing = false;
   bool _isLoadingMore = false;
   Timer? _autoRetryTimer;
@@ -8087,100 +8003,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     );
   }
 
-  String _normalizeSite(String value) {
-    final normalized = value
-        .trim()
-        .toUpperCase()
-        .replaceAll(' ', '')
-        .replaceAll('_', '')
-        .replaceAll('-', '');
-    if (normalized.contains('PICK6') || normalized.contains('PICK 6')) {
-      return 'PICK6';
-    }
-    if (normalized.contains('PRIZEPICKS')) {
-      return 'PRIZEPICKS';
-    }
-    if (normalized.contains('DRAFTKINGS')) {
-      return 'DRAFTKINGS';
-    }
-    if (normalized.contains('DRAFTPICKS')) {
-      return 'DRAFT PICKS';
-    }
-    if (normalized.contains('FANDUEL')) {
-      return 'FANDUEL';
-    }
-    if (normalized.contains('UNDERDOG')) {
-      return 'UNDERDOG';
-    }
-    if (normalized.contains('BETR')) {
-      return 'BETR';
-    }
-    return normalized;
-  }
-
-  String _normalizeSport(String value) {
-    final normalized = value
-        .trim()
-        .toUpperCase()
-        .replaceAll(' ', '')
-        .replaceAll('_', '')
-        .replaceAll('-', '');
-    if (normalized.contains('UFC') ||
-        normalized.contains('MMA') ||
-        normalized.contains('ULTIMATEFIGHTING')) {
-      return 'UFC';
-    }
-    if (normalized.contains('WNBA')) {
-      return 'WNBA';
-    }
-    if (normalized.contains('NBA')) {
-      return 'NBA';
-    }
-    if (normalized.contains('NFL') || normalized.contains('FOOTBALL')) {
-      return 'NFL';
-    }
-    if (normalized.contains('MLB') || normalized.contains('BASEBALL')) {
-      return 'MLB';
-    }
-    if (normalized.contains('SOCCER') ||
-        normalized.contains('EPL') ||
-        normalized.contains('MLS')) {
-      return 'SOCCER';
-    }
-    if (normalized.contains('TENNIS') ||
-        normalized.contains('ATP') ||
-        normalized.contains('WTA')) {
-      return 'TENNIS';
-    }
-    if (normalized.contains('PGA') || normalized.contains('GOLF')) {
-      return 'PGA';
-    }
-    return normalized;
-  }
-
-  String _propMarket(PropData prop) {
-    final candidates = [
-      prop.market,
-      prop.marketName,
-      prop.statType,
-      prop.category,
-      prop.propType,
-      prop.displayMarket,
-      prop.marketKey,
-    ];
-    return candidates.firstWhere(
-      (value) =>
-          value.trim().isNotEmpty &&
-          !const {
-            'other',
-            'unknown',
-            'n/a',
-            'na',
-          }.contains(value.trim().toLowerCase()),
-      orElse: () => '',
-    );
-  }
-
   String _categoryFromApi(PropData prop) {
     final canonical = canonicalCategoryFromMarketKey(prop);
     if (canonical.isNotEmpty) {
@@ -8191,7 +8013,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       return '';
     }
 
-    final sport = _normalizeSport(prop.sport);
+    final sport = normalizePropSport(prop.sport);
     if (sport == 'NBA' || sport == 'WNBA') {
       switch (normalized) {
         case 'points':
@@ -8298,7 +8120,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     if (backendCategory.isNotEmpty) {
       return backendCategory;
     }
-    return marketCategoryFor(_normalizeSport(prop.sport), _propMarket(prop));
+    return marketCategoryFor(
+      normalizePropSport(prop.sport),
+      propSearchableMarket(prop),
+    );
   }
 
   Widget _playerPlaceholder(String player, {required double size}) {
@@ -10383,7 +10208,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '$lineDisplay ${_propMarket(prop).toUpperCase()}',
+                            '$lineDisplay ${propSearchableMarket(prop).toUpperCase()}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -10494,7 +10319,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       );
       if (active.length == _preparedProps.length) return;
       setState(() {
-        _preparedProps = _prepareProps(active);
+        _preparedProps = prepareBoardProps(active);
         _propsFuture = Future.value(active);
       });
     });
@@ -10558,7 +10383,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     }
 
     final activeCached = activePropsInChronologicalOrder(cached);
-    _preparedProps = _prepareProps(activeCached);
+    _preparedProps = prepareBoardProps(activeCached);
     _propsFuture = Future<List<PropData>>.value(activeCached);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || requestKey != _queryKey) return;
@@ -10568,22 +10393,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
 
   void _rememberCurrentView(String requestKey, List<PropData> props) {
     _sessionViewCache[requestKey] = List<PropData>.unmodifiable(props);
-  }
-
-  List<_PreparedProp> _prepareProps(List<PropData> props) {
-    return props.map((prop) {
-      final market = _propMarket(prop);
-      final searchText = '${prop.player} ${prop.matchup} ${prop.sport} $market'
-          .toLowerCase();
-      return _PreparedProp(
-        prop: prop,
-        normalizedSport: _normalizeSport(prop.sport),
-        normalizedSite: _normalizeSite(
-          '${prop.sportsbook} ${prop.sourceProvider}',
-        ),
-        searchText: searchText,
-      );
-    }).toList();
   }
 
   Future<List<PropData>> _loadProps() async {
@@ -10609,7 +10418,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       _automaticRetryCount = 0;
       final activeCached = activePropsInChronologicalOrder(cached);
       _rememberCurrentView(requestKey, activeCached);
-      _preparedProps = _prepareProps(activeCached);
+      _preparedProps = prepareBoardProps(activeCached);
       widget.onPropsLoaded?.call(
         activeCached,
         _apiService.lastPropsCount,
@@ -10633,7 +10442,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       EngagementTracker.instance.recordProduct('SLOW_LOAD');
     }
     final prepareTimer = Stopwatch()..start();
-    _preparedProps = _prepareProps(props);
+    _preparedProps = prepareBoardProps(props);
     _startupLog(
       'prepareProps() complete in ${prepareTimer.elapsedMilliseconds}ms',
     );
@@ -10686,7 +10495,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       }
       _rememberCurrentView(requestKey, fresh);
       setState(() {
-        _preparedProps = _prepareProps(fresh);
+        _preparedProps = prepareBoardProps(fresh);
         _propsFuture = Future.value(fresh);
       });
       widget.onPropsLoaded?.call(
@@ -10729,7 +10538,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         }.values,
       );
       setState(() {
-        _preparedProps = _prepareProps(merged);
+        _preparedProps = prepareBoardProps(merged);
         _visiblePropLimit = _preparedProps.length;
         _propsFuture = Future.value(merged);
       });
@@ -10788,17 +10597,15 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   /// page is worth keeping. With a sport chosen it is simply the
   /// answer -- basketball in August has no props -- and retrying while
   /// showing another sport's props reads as the filter being ignored.
-  bool get _isNarrowedQuery {
-    bool isAll(String value) => value.trim().toUpperCase() == 'ALL';
-    return !isAll(widget.sportFilter) ||
-        !isAll(widget.selectedSite) ||
-        !isAll(widget.selectedCategory) ||
-        !isAll(widget.selectedSide) ||
-        !isAll(widget.selectedTier) ||
-        widget.searchQuery.trim().isNotEmpty ||
-        widget.minConfidence > 0;
-  }
-
+  bool get _isNarrowedQuery => isNarrowedBoardQuery(
+    sport: widget.sportFilter,
+    site: widget.selectedSite,
+    category: widget.selectedCategory,
+    side: widget.selectedSide,
+    tier: widget.selectedTier,
+    search: widget.searchQuery,
+    minConfidence: widget.minConfidence,
+  );
   void _scheduleAutomaticRetry() {
     if (_autoRetryTimer?.isActive == true || _automaticRetryCount >= 3) return;
     _automaticRetryCount += 1;
@@ -10817,7 +10624,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         throw StateError('The live prop feed is temporarily empty.');
       }
       setState(() {
-        _preparedProps = _prepareProps(props);
+        _preparedProps = prepareBoardProps(props);
         _propsFuture = Future.value(props);
       });
       _rememberCurrentView(requestKey, props);
@@ -10849,7 +10656,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             }
 
             if (snapshot.hasError) {
-              final normalizedSport = _normalizeSport(
+              final normalizedSport = normalizePropSport(
                 widget.displaySportFilter.isEmpty
                     ? widget.sportFilter
                     : widget.displaySportFilter,
@@ -10877,123 +10684,37 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
 
             final allPrepared = _preparedProps.isNotEmpty
                 ? _preparedProps
-                : _prepareProps(snapshot.data ?? []);
-            final normalizedSport = _normalizeSport(
-              widget.displaySportFilter.isEmpty
-                  ? widget.sportFilter
-                  : widget.displaySportFilter,
+                : prepareBoardProps(snapshot.data ?? []);
+            final selectedSport = widget.displaySportFilter.isEmpty
+                ? widget.sportFilter
+                : widget.displaySportFilter;
+            final normalizedSport = normalizePropSport(selectedSport);
+            final sortedProps = filterAndSortBoardProps(
+              allPrepared,
+              selectedSport: selectedSport,
+              selectedSite: widget.selectedSite,
+              searchQuery: widget.searchQuery,
+              verdictFilter: widget.verdictFilter,
+              sortBy: widget.sortBy,
+              pinnedPropIds: _favoritePropIds,
             );
-            final normalizedSite = _normalizeSite(widget.selectedSite);
-            final search = widget.searchQuery;
-
-            final filtered = allPrepared.where((prepared) {
-              final sportMatches =
-                  normalizedSport == 'ALL' ||
-                  prepared.normalizedSport == normalizedSport;
-              final siteMatches =
-                  widget.selectedSite == 'ALL' ||
-                  prepared.normalizedSite == normalizedSite;
-              final searchMatches =
-                  search.isEmpty || prepared.searchText.contains(search);
-              final verdictMatches =
-                  widget.verdictFilter == 'ALL' ||
-                  (widget.verdictFilter == 'ACTIONABLE'
-                      ? prepared.prop.verdict.actionable
-                      : prepared.prop.verdict.decision == widget.verdictFilter);
-              return prepared.prop.isSelectable &&
-                  sportMatches &&
-                  siteMatches &&
-                  verdictMatches &&
-                  searchMatches;
-            }).toList();
-
-            final props = filtered.map((prepared) => prepared.prop).toList();
-
-            int tierRank(String tier) {
-              switch (tier.trim().toLowerCase()) {
-                case 'premium':
-                  return 3;
-                case 'strong':
-                  return 2;
-                case 'lean':
-                  return 1;
-                default:
-                  return 0;
-              }
-            }
-
-            var sortedProps = [...props]
-              ..sort((left, right) {
-                switch (widget.sortBy) {
-                  case 'source':
-                    final leftStart = propScheduledStart(left);
-                    final rightStart = propScheduledStart(right);
-                    if (leftStart == null && rightStart == null) return 0;
-                    if (leftStart == null) return 1;
-                    if (rightStart == null) return -1;
-                    return leftStart.compareTo(rightStart);
-                  case 'edge':
-                    return (right.calculatedEdge ?? 0).compareTo(
-                      left.calculatedEdge ?? 0,
-                    );
-                  case 'premium':
-                    final rankDiff = tierRank(right.tier) - tierRank(left.tier);
-                    if (rankDiff != 0) {
-                      return rankDiff;
-                    }
-                    return (right.displayConfidenceRating ?? -1).compareTo(
-                      left.displayConfidenceRating ?? -1,
-                    );
-                  case 'time':
-                    final leftStart = propScheduledStart(left);
-                    final rightStart = propScheduledStart(right);
-                    if (leftStart == null && rightStart == null) return 0;
-                    if (leftStart == null) return 1;
-                    if (rightStart == null) return -1;
-                    return leftStart.compareTo(rightStart);
-                  case 'verdict':
-                    // Plays first, then the ones worth shopping, then leans.
-                    // Confidence breaks ties so the strongest example of each
-                    // decision leads its own group.
-                    final verdictDiff =
-                        right.verdict.actionRank - left.verdict.actionRank;
-                    if (verdictDiff != 0) return verdictDiff;
-                    return (right.displayConfidenceRating ?? -1).compareTo(
-                      left.displayConfidenceRating ?? -1,
-                    );
-                  case 'confidence':
-                  default:
-                    return (right.displayConfidenceRating ?? -1).compareTo(
-                      left.displayConfidenceRating ?? -1,
-                    );
-                }
-              });
-            sortedProps = deprioritizeSoccerForAllSports(
-              sortedProps,
-              selectedSport: widget.displaySportFilter.isEmpty
-                  ? widget.sportFilter
-                  : widget.displaySportFilter,
-            );
+            final props = sortedProps;
             _favoritePropIds.retainAll(props.map((prop) => prop.id).toSet());
-            sortedProps = pinSelectedPropsFirst(sortedProps, _favoritePropIds);
             if (props.isEmpty) {
               const specialtySports = {'PGA', 'TENNIS', 'SOCCER', 'UFC'};
               final specialtyFeedEmpty = specialtySports.contains(
                 normalizedSport,
               );
-              final hasFilters =
-                  widget.sportFilter.toUpperCase() != 'ALL' ||
-                  widget.selectedSite.toUpperCase() != 'ALL' ||
-                  widget.selectedCategory.toUpperCase() != 'ALL' ||
-                  widget.selectedSide.toUpperCase() != 'ALL' ||
-                  widget.selectedTier.toUpperCase() != 'ALL' ||
-                  widget.minConfidence > 0 ||
-                  // Without this, filtering to a verdict nothing matches
-                  // reads as a board that failed to load: the retry timer
-                  // fires and the skeleton spins forever over a result that
-                  // is simply empty on purpose.
-                  widget.verdictFilter != 'ALL' ||
-                  widget.searchQuery.isNotEmpty;
+              final hasFilters = hasActiveBoardFilters(
+                sport: widget.sportFilter,
+                site: widget.selectedSite,
+                category: widget.selectedCategory,
+                side: widget.selectedSide,
+                tier: widget.selectedTier,
+                verdict: widget.verdictFilter,
+                search: widget.searchQuery,
+                minConfidence: widget.minConfidence,
+              );
               if (!hasFilters && _automaticRetryCount < 3) {
                 _scheduleAutomaticRetry();
                 return const _PropLoadingSkeleton();
