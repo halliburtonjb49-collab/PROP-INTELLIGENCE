@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/models/prop_data.dart';
 import 'package:prop_intelligence/pages/injury_impact_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 PropData impactProp({
   required String id,
@@ -40,6 +41,8 @@ PropData impactProp({
 });
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   test('deduplicates the same affected market across prop sites', () {
     final items = buildInjuryImpactItems([
       impactProp(
@@ -125,15 +128,41 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: InjuryImpactPage(props: props)),
+        home: Scaffold(
+          body: InjuryImpactPage(
+            props: props,
+            alerts: const [
+              {
+                'eventId': 'event-alert-1',
+                'level': 'CRITICAL',
+                'title': 'AVAILABILITY BLOCK',
+                'message': 'Out Player is now out.',
+              },
+            ],
+          ),
+        ),
       ),
     );
 
+    expect(find.byKey(const ValueKey('injury-alert-controls')), findsOne);
+    expect(find.byKey(const ValueKey('recent-injury-alerts')), findsOne);
+    expect(find.textContaining('Out Player is now out'), findsOne);
     expect(find.byKey(const ValueKey('injury-impact-summary')), findsOne);
     expect(find.text('Out Player'), findsOne);
+    await tester.scrollUntilVisible(
+      find.text('Role Player'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pump();
     expect(find.text('Role Player'), findsOne);
     expect(tester.takeException(), isNull);
 
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('injury-filter-CRITICAL')),
+      -250,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.byKey(const ValueKey('injury-filter-CRITICAL')));
     await tester.pump();
 

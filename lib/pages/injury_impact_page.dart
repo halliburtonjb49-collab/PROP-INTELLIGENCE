@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../models/prop_data.dart';
+import '../services/injury_alert_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/injury_impact_alert.dart';
 
 class InjuryImpactPage extends StatefulWidget {
-  const InjuryImpactPage({super.key, required this.props});
+  const InjuryImpactPage({
+    super.key,
+    required this.props,
+    this.alerts = const [],
+  });
 
   final List<PropData> props;
+  final List<Map<String, dynamic>> alerts;
 
   @override
   State<InjuryImpactPage> createState() => _InjuryImpactPageState();
@@ -16,6 +22,23 @@ class InjuryImpactPage extends StatefulWidget {
 class _InjuryImpactPageState extends State<InjuryImpactPage> {
   String _sport = 'ALL';
   String _severity = 'ALL';
+  InjuryAlertPreferences _preferences = const InjuryAlertPreferences();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final preferences = await InjuryAlertPreferences.load();
+    if (mounted) setState(() => _preferences = preferences);
+  }
+
+  Future<void> _setPreferences(InjuryAlertPreferences preferences) async {
+    setState(() => _preferences = preferences);
+    await preferences.save();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +64,15 @@ class _InjuryImpactPageState extends State<InjuryImpactPage> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
       children: [
         const _ImpactHeader(),
+        const SizedBox(height: 10),
+        _LiveAlertControls(
+          preferences: _preferences,
+          onChanged: _setPreferences,
+        ),
+        if (widget.alerts.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _RecentInjuryAlerts(alerts: widget.alerts),
+        ],
         const SizedBox(height: 14),
         _ImpactSummary(impacts: impacts),
         const SizedBox(height: 12),
@@ -59,6 +91,134 @@ class _InjuryImpactPageState extends State<InjuryImpactPage> {
       ],
     );
   }
+}
+
+class _LiveAlertControls extends StatelessWidget {
+  const _LiveAlertControls({
+    required this.preferences,
+    required this.onChanged,
+  });
+
+  final InjuryAlertPreferences preferences;
+  final ValueChanged<InjuryAlertPreferences> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    key: const ValueKey('injury-alert-controls'),
+    color: AppColors.panel,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10),
+      side: const BorderSide(color: AppColors.gunmetalLight),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(
+        children: [
+          SwitchListTile.adaptive(
+            key: const ValueKey('injury-alert-enabled-control'),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: const Text(
+              'LIVE IN-APP ALERTS',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            subtitle: const Text(
+              'Notify when verified availability or a material role factor changes.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 8.5),
+            ),
+            value: preferences.enabled,
+            onChanged: (value) =>
+                onChanged(preferences.copyWith(enabled: value)),
+          ),
+          if (preferences.enabled)
+            SwitchListTile.adaptive(
+              key: const ValueKey('injury-critical-only-control'),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                'URGENT ONLY',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              subtitle: const Text(
+                'Interrupt only for critical and high-severity changes.',
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 8.5),
+              ),
+              value: preferences.criticalOnly,
+              onChanged: (value) =>
+                  onChanged(preferences.copyWith(criticalOnly: value)),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _RecentInjuryAlerts extends StatelessWidget {
+  const _RecentInjuryAlerts({required this.alerts});
+  final List<Map<String, dynamic>> alerts;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    key: const ValueKey('recent-injury-alerts'),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: AppColors.panel,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: AppColors.gold.withValues(alpha: .55)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'RECENT VERIFIED CHANGES',
+          style: TextStyle(
+            color: AppColors.gold,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 7),
+        for (final alert in alerts.take(5))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 7),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  alert['level']?.toString() == 'CLEARED'
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.notification_important_outlined,
+                  size: 14,
+                  color: alert['level']?.toString() == 'CLEARED'
+                      ? AppColors.success
+                      : AppColors.gold,
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    '${alert['title'] ?? 'Injury impact changed'} — '
+                    '${alert['message'] ?? ''}',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 9,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
 }
 
 class InjuryImpactItem {

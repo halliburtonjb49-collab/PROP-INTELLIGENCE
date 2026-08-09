@@ -1700,6 +1700,28 @@ class ApiService {
     );
   }
 
+  Future<List<Map<String, dynamic>>> fetchInjuryAlerts({int limit = 50}) async {
+    final uri = Uri.parse(
+      '$baseUrl/api/injury-alerts',
+    ).replace(queryParameters: {'limit': limit.clamp(1, 100).toString()});
+    final response = await http
+        .get(uri, headers: await _authenticatedHeaders())
+        .timeout(const Duration(seconds: 12));
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load injury alerts: ${response.statusCode}');
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map || decoded['alerts'] is! List) {
+      throw const FormatException(
+        'The backend returned invalid injury alerts.',
+      );
+    }
+    return (decoded['alerts'] as List)
+        .whereType<Map>()
+        .map((raw) => Map<String, dynamic>.from(raw))
+        .toList(growable: false);
+  }
+
   Future<Map<String, dynamic>> fetchIdentityUnresolvedGrouped({
     String sourceProvider = 'odds-api',
     int limit = 5000,

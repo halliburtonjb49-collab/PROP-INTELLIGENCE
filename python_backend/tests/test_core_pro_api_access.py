@@ -178,6 +178,7 @@ def test_pro_gold_retains_strikeout_suggestive_pick(monkeypatch) -> None:
     [
         ("get", "/api/props/ev"),
         ("get", "/api/prop-alerts"),
+        ("get", "/api/injury-alerts"),
         ("get", "/api/props/calibration"),
         ("get", "/api/props-test"),
         ("get", "/api/intelligence/capabilities"),

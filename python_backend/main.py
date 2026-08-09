@@ -109,6 +109,10 @@ from services.distributed_cache_service import (
 	set_json as set_distributed_json,
 )
 from services.job_queue_service import enqueue as enqueue_background_job, health as job_queue_health
+from services.injury_impact_alert_service import (
+	evaluate_injury_impact_changes,
+	injury_alert_history,
+)
 from services.prop_catalog_snapshot_service import (
 	load_catalog_snapshot,
 	catalog_snapshot_status,
@@ -723,7 +727,18 @@ def _refresh_prop_catalog_now() -> None:
 	stale snapshot was last written instead of the sync that just completed.
 	"""
 	_invalidate_prop_catalog()
-	_rebuild_prop_catalog_from_local()
+	props = _rebuild_prop_catalog_from_local()
+	for alert in evaluate_injury_impact_changes(props):
+		realtime_hub.broadcast_from_thread(
+			{
+				"type": "injury.impact.changed",
+				"version": 1,
+				"eventId": alert["eventId"],
+				"occurredAt": alert["occurredAt"],
+				"data": alert,
+			},
+			"alerts",
+		)
 
 _sync_run_lock = Lock()
 _sync_state_lock = Lock()
@@ -2234,6 +2249,15 @@ def prop_alerts(
 		) from exc
 
 
+@app.get("/api/injury-alerts")
+def injury_alerts(
+	response: Response,
+	limit: int = Query(default=50, ge=1, le=100),
+	_membership: Membership = Depends(require_pro),
+) -> dict[str, object]:
+	response.headers["Cache-Control"] = "private, no-store, max-age=0"
+	alerts = injury_alert_history(limit)
+	return {"count": len(alerts), "alerts": alerts}
 @app.get("/api/props/readiness")
 def props_readiness(response: Response) -> dict[str, object]:
 	"""Expose feed health without exposing proprietary prop rows."""

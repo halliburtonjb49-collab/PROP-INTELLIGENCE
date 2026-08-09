@@ -34,6 +34,8 @@ import 'services/api_service.dart';
 import 'services/prop_market_identity.dart';
 import 'services/app_sound_service.dart';
 import 'services/onesignal_service.dart';
+import 'services/live_update_service.dart';
+import 'services/injury_alert_service.dart';
 import 'services/auth_manager.dart';
 import 'services/developer_mode_service.dart';
 import 'services/engagement_tracker.dart';
@@ -3113,11 +3115,29 @@ class _MainDashboardState extends State<MainDashboard> {
   bool _isEvScannerLoading = false;
   String? _evScannerError;
   List<PropAlertData> _propAlerts = const [];
+  final LiveUpdateService _injuryAlertUpdates = LiveUpdateService(
+    channels: const {'alerts'},
+  );
+  StreamSubscription<dynamic>? _injuryAlertSubscription;
+  Timer? _injuryAlertPollTimer;
+  List<Map<String, dynamic>> _injuryAlerts = const [];
+  final Set<String> _seenInjuryAlertIds = <String>{};
 
   @override
   void initState() {
     super.initState();
     unawaited(_loadPropAlerts());
+    if (AuthManager.instance.sessionState.value.hasEdgeAccess) {
+      _injuryAlertSubscription = _injuryAlertUpdates.stream.listen(
+        _handleInjuryAlertEvent,
+        onError: (_) {},
+      );
+      _injuryAlertUpdates.connect();
+      unawaited(_loadInjuryAlerts());
+      _injuryAlertPollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+        unawaited(_loadInjuryAlerts(notifyNew: true));
+      });
+    }
     if (widget.selectedPage == AppPage.evScanner) {
       unawaited(_loadEvScannerProps());
     }
@@ -3126,6 +3146,9 @@ class _MainDashboardState extends State<MainDashboard> {
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    unawaited(_injuryAlertSubscription?.cancel());
+    _injuryAlertPollTimer?.cancel();
+    unawaited(_injuryAlertUpdates.dispose());
     _boardVerticalController.dispose();
     _bookHorizontalController.dispose();
     _categoryHorizontalController.dispose();
@@ -3578,6 +3601,67 @@ class _MainDashboardState extends State<MainDashboard> {
           time: 'now',
         ),
     ];
+  }
+
+  Future<void> _loadInjuryAlerts({bool notifyNew = false}) async {
+    try {
+      final alerts = await _apiService.fetchInjuryAlerts();
+      if (!mounted) return;
+      final newAlerts = alerts
+          .where((alert) {
+            final eventId = alert['eventId']?.toString() ?? '';
+            return eventId.isNotEmpty && !_seenInjuryAlertIds.contains(eventId);
+          })
+          .toList(growable: false);
+      setState(() {
+        _injuryAlerts = alerts;
+        _seenInjuryAlertIds.addAll(
+          alerts.map((alert) => alert['eventId']?.toString() ?? ''),
+        );
+      });
+      if (notifyNew && newAlerts.isNotEmpty) {
+        await _presentInjuryAlert(newAlerts.first);
+      }
+    } catch (_) {
+      // Live alerts remain available even if retained history cannot load.
+    }
+  }
+
+  Future<void> _handleInjuryAlertEvent(dynamic raw) async {
+    final alert = parseInjuryAlertEvent(raw);
+    if (!mounted || alert == null) return;
+    final eventId = alert['eventId']?.toString() ?? '';
+    if (eventId.isEmpty || !_seenInjuryAlertIds.add(eventId)) return;
+    setState(() {
+      _injuryAlerts = [
+        alert,
+        ..._injuryAlerts,
+      ].take(50).toList(growable: false);
+    });
+    await _presentInjuryAlert(alert);
+  }
+
+  Future<void> _presentInjuryAlert(Map<String, dynamic> alert) async {
+    final preferences = await InjuryAlertPreferences.load();
+    if (!mounted || !shouldPresentInjuryAlert(alert, preferences)) return;
+    unawaited(AppSoundService.instance.play(AppSoundEvent.warning));
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          key: const ValueKey('live-injury-alert'),
+          content: Text(
+            '${alert['title'] ?? 'Injury impact changed'}: '
+            '${alert['message'] ?? ''}',
+          ),
+          duration: const Duration(seconds: 8),
+          action: SnackBarAction(
+            label: 'VIEW',
+            onPressed: () => widget.onSelectPage?.call(AppPage.injuryImpact),
+          ),
+        ),
+      );
   }
 
   Future<void> _loadPropAlerts({
@@ -5521,7 +5605,7 @@ class _MainDashboardState extends State<MainDashboard> {
                         AuthManager.instance.sessionState.value.hasEdgeAccess,
                   )
                 : widget.selectedPage == AppPage.injuryImpact
-                ? InjuryImpactPage(props: _latestProps)
+                ? InjuryImpactPage(props: _latestProps, alerts: _injuryAlerts)
                 : widget.selectedPage == AppPage.dataAdmin
                 ? AnalyticsAdminWorkspace(
                     selectedSport: widget.sportFilter,
