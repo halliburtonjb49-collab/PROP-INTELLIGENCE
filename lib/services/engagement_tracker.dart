@@ -12,6 +12,7 @@ class EngagementTracker {
   final List<Map<String, String>> _queue = [];
   Timer? _timer;
   bool _flushing = false;
+  final Map<String, DateTime> _lastProductEvent = {};
 
   void record(String propId, String action) {
     if (propId.trim().isEmpty) return;
@@ -26,6 +27,15 @@ class EngagementTracker {
     final normalized = action.trim().toUpperCase();
     if (normalized.isEmpty) return;
     record('__PRODUCT__', normalized);
+  }
+
+  void recordProductOncePer(String action, Duration window) {
+    final normalized = action.trim().toUpperCase();
+    final now = DateTime.now();
+    final last = _lastProductEvent[normalized];
+    if (last != null && now.difference(last) < window) return;
+    _lastProductEvent[normalized] = now;
+    recordProduct(normalized);
   }
 
   void recordError(Object error) {

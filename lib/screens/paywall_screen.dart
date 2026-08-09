@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_manager.dart';
 import '../services/billing_service.dart';
 import '../services/subscription_pricing.dart';
+import '../services/engagement_tracker.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -56,6 +57,10 @@ class BrandedPaywallModalSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    EngagementTracker.instance.recordProductOncePer(
+      'PAYWALL_VIEW',
+      const Duration(seconds: 30),
+    );
     const primaryYellow = brand_colors.AppColors.goldHighlight;
     final billingService = RevenueCatBillingService();
 

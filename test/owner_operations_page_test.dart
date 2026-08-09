@@ -61,6 +61,44 @@ class _FakeOperationsApi extends ApiService {
       'snapshotsToday': 18,
       'pendingPredictions': 5,
     },
+    'ownerOnlyInsights': {
+      'productObservability': {
+        'available': true,
+        'reliability': {
+          'errorFreeUserRate': .99,
+          'errorUsers': 1,
+          'slowLoadUsers': 2,
+          'checkoutFailures': 0,
+        },
+        'funnels': {
+          'research': [
+            {
+              'label': 'App opened',
+              'uniqueUsers': 100,
+              'conversionFromPrevious': null,
+            },
+            {
+              'label': 'Dashboard ready',
+              'uniqueUsers': 90,
+              'conversionFromPrevious': .9,
+            },
+          ],
+          'subscription': [
+            {
+              'label': 'Paywall viewed',
+              'uniqueUsers': 20,
+              'conversionFromPrevious': null,
+            },
+            {
+              'label': 'Checkout started',
+              'uniqueUsers': 8,
+              'conversionFromPrevious': .4,
+            },
+          ],
+        },
+        'errors': {'StateError': 1},
+      },
+    },
   };
 
   @override
@@ -102,6 +140,16 @@ void main() {
     expect(find.text('OWNER OPERATIONS CENTER'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('owner-operations-refresh')),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.text('PRODUCT OBSERVABILITY'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('PRODUCT OBSERVABILITY'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('product-observability-section')),
       findsOneWidget,
     );
     await tester.scrollUntilVisible(

@@ -53,8 +53,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
 
   void _scheduleRetry() {
     _retryTimer?.cancel();
-    final delay = _retryBackoff[
-        _consecutiveFailures.clamp(0, _retryBackoff.length - 1)];
+    final delay =
+        _retryBackoff[_consecutiveFailures.clamp(0, _retryBackoff.length - 1)];
     _retryTimer = Timer(delay, () {
       if (mounted) unawaited(_refresh());
     });
@@ -200,6 +200,13 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             _statusGrid(),
             const SizedBox(height: 22),
             _sectionTitle(
+              'PRODUCT OBSERVABILITY',
+              'First-party crash, performance, and conversion signals with no raw prop or message content',
+            ),
+            const SizedBox(height: 10),
+            _productObservability(),
+            const SizedBox(height: 22),
+            _sectionTitle(
               'MODEL ACCOUNTABILITY',
               'Out-of-sample accuracy, calibration, closing-line value, and prediction coverage',
             ),
@@ -252,6 +259,101 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             const SizedBox(height: 24),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _productObservability() {
+    final ownerInsights = _control?['ownerOnlyInsights'] as Map? ?? const {};
+    final telemetry = ownerInsights['productObservability'] as Map? ?? const {};
+    if (telemetry['available'] != true) {
+      return _notice(
+        Icons.monitor_heart_outlined,
+        'Product telemetry is warming up',
+        telemetry['reason']?.toString() ??
+            'Release events will appear after authenticated customers use the updated app.',
+        AppColors.gold,
+      );
+    }
+    final reliability = telemetry['reliability'] as Map? ?? const {};
+    final funnels = telemetry['funnels'] as Map? ?? const {};
+    final errors = telemetry['errors'] as Map? ?? const {};
+    final errorFree = (reliability['errorFreeUserRate'] as num?)?.toDouble();
+    final errorRows = errors.entries.toList()
+      ..sort(
+        (a, b) => ((b.value as num?) ?? 0).compareTo((a.value as num?) ?? 0),
+      );
+
+    Widget funnelCard(String label, Object? value) {
+      final stages = (value as List? ?? const []).whereType<Map>().toList(
+        growable: false,
+      );
+      final detail = stages
+          .map((stage) {
+            final conversion = (stage['conversionFromPrevious'] as num?)
+                ?.toDouble();
+            final suffix = conversion == null
+                ? ''
+                : ' (${(conversion * 100).toStringAsFixed(1)}% from prior)';
+            return '${stage['label']}: ${stage['uniqueUsers'] ?? 0} users$suffix';
+          })
+          .join('  |  ');
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: _notice(
+          Icons.filter_alt_outlined,
+          '$label FUNNEL',
+          detail.isEmpty ? 'No release events observed yet.' : detail,
+          AppColors.gold,
+        ),
+      );
+    }
+
+    return KeyedSubtree(
+      key: const ValueKey('product-observability-section'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _status(
+                'Error-free users',
+                errorFree == null
+                    ? '--'
+                    : '${(errorFree * 100).toStringAsFixed(1)}%',
+                errorFree == null || errorFree >= .98,
+                detail: '${reliability['errorUsers'] ?? 0} affected users',
+              ),
+              _status(
+                'Slow-load users',
+                '${reliability['slowLoadUsers'] ?? 0}',
+                (reliability['slowLoadUsers'] as num? ?? 0) == 0,
+                detail: 'Board loads over five seconds',
+              ),
+              _status(
+                'Checkout failures',
+                '${reliability['checkoutFailures'] ?? 0}',
+                (reliability['checkoutFailures'] as num? ?? 0) == 0,
+                detail: 'Canceled or unavailable checkout attempts',
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          funnelCard('RESEARCH', funnels['research']),
+          funnelCard('SUBSCRIPTION', funnels['subscription']),
+          if (errorRows.isNotEmpty)
+            _notice(
+              Icons.bug_report_outlined,
+              'TOP ERROR FINGERPRINTS',
+              errorRows
+                  .take(5)
+                  .map((entry) => '${entry.key}: ${entry.value}')
+                  .join('  |  '),
+              const Color(0xFFFF7B7B),
+            ),
+        ],
       ),
     );
   }

@@ -19,6 +19,7 @@ from services.provider_quality_service import provider_quality_score
 from services.model_performance_service import model_performance, operations_summary
 from services.sync_diagnostic_service import ticket_sync_diagnostic_summary
 from services.user_feedback_service import list_feedback
+from services.engagement_service import product_observability
 from services.strikeout_quality_service import (
     get_strikeout_release_controls,
     strikeout_backtest_monitoring,
@@ -449,6 +450,18 @@ def launch_control_snapshot() -> dict[str, object]:
             },
             "items": [],
         }
+    try:
+        observability = product_observability(168)
+    except Exception as exc:
+        observability = {
+            "available": False,
+            "reason": type(exc).__name__,
+            "events": {},
+            "uniqueUsers": {},
+            "errors": {},
+            "funnels": {},
+            "reliability": {},
+        }
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "api": {
@@ -488,6 +501,7 @@ def launch_control_snapshot() -> dict[str, object]:
             "strikeoutExplainability": strikeout_explainability,
             "strikeoutTrustWeekly": strikeout_trust_weekly,
             "feedbackInbox": feedback_inbox,
+            "productObservability": observability,
             "notes": [
                 "Suggestive strikeout picks are restricted to Pro Gold.",
                 "Owner Operations always shows full strikeout validation diagnostics.",

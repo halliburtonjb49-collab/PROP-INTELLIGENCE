@@ -4,6 +4,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'auth_manager.dart';
 import 'founding_pro_reservation_service.dart';
+import 'engagement_tracker.dart';
 import 'supabase_service.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
@@ -89,10 +90,12 @@ class RevenueCatBillingService {
     PurchaseTier tier, {
     PurchaseInterval interval = PurchaseInterval.monthly,
   }) async {
+    EngagementTracker.instance.recordProduct('CHECKOUT_STARTED');
     try {
       if (tier == PurchaseTier.foundingEdge) {
         final reservation = await FoundingProReservationService().reserve();
         if (reservation != FoundingReservationResult.available) {
+          EngagementTracker.instance.recordProduct('CHECKOUT_FAILED');
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -116,6 +119,7 @@ class RevenueCatBillingService {
       };
 
       if (package == null) {
+        EngagementTracker.instance.recordProduct('CHECKOUT_FAILED');
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -140,6 +144,7 @@ class RevenueCatBillingService {
               .all[tier.entitlementId]
               ?.isActive ==
           true) {
+        EngagementTracker.instance.recordProduct('PURCHASE_COMPLETED');
         await AuthManager.instance.refreshSessionState();
 
         if (context.mounted && Navigator.of(context).canPop()) {
@@ -158,6 +163,7 @@ class RevenueCatBillingService {
         }
       }
     } catch (e) {
+      EngagementTracker.instance.recordProduct('CHECKOUT_FAILED');
       debugPrint('Transaction canceled or failed: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

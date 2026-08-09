@@ -173,6 +173,20 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
         },
     )
 
+    monkeypatch.setattr(
+        launch_control_service,
+        "product_observability",
+        lambda hours=168: {
+            "available": True,
+            "windowHours": hours,
+            "events": {"APP_OPEN": 12},
+            "uniqueUsers": {"APP_OPEN": 8},
+            "errors": {},
+            "funnels": {"research": [], "subscription": []},
+            "reliability": {"errorFreeUserRate": 1.0},
+        },
+    )
+
     result = launch_control_service.launch_control_snapshot()
 
     assert result["api"]["status"] == "ok"
@@ -198,6 +212,7 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
     assert result["ownerOnlyInsights"]["strikeoutExplainability"]["items"][0]["player"] == "Pitcher"
     assert result["ownerOnlyInsights"]["strikeoutTrustWeekly"]["available"] is True
     assert result["ownerOnlyInsights"]["feedbackInbox"]["available"] is True
+    assert result["ownerOnlyInsights"]["productObservability"]["available"] is True
 
 
 def test_scoreboard_latency_snapshot_records_request() -> None:

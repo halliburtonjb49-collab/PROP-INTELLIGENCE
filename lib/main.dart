@@ -562,6 +562,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   @override
   void initState() {
     super.initState();
+    EngagementTracker.instance.recordProduct('DASHBOARD_READY');
     PropChatService.latestNotification.addListener(_showChatNotification);
     ScoreboardWatchlistService.instance.latestAlert.addListener(
       _showScoreboardWatchAlert,
@@ -1427,6 +1428,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       SlipManager.removePropById(removed!.prop.id);
     } else if (upsertedLeg != null) {
       if (shouldAdd) {
+        EngagementTracker.instance.recordProduct('PROP_SELECTED');
         unawaited(_activeSlipController.addLegs([upsertedLeg!]));
       } else {
         unawaited(_activeSlipController.updateLeg(upsertedLeg!));
@@ -2021,6 +2023,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       if (!mounted) return;
       setState(() => _slipSelections.clear());
       SlipManager.reserveActiveSlips(_activeSlipController.recentLockedSlips);
+      EngagementTracker.instance.recordProduct('SLIP_LOCKED');
       _switchToPage(AppPage.watchlist, source: 'slip-locked');
 
       // Show success message
