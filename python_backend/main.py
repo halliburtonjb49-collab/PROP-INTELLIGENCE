@@ -1995,7 +1995,8 @@ def public_performance_track_record(
 
 
 @app.get("/api/operations/prop-feed-health")
-def prop_feed_health() -> dict[str, object]:
+def prop_feed_health(response: Response) -> dict[str, object]:
+	response.headers["Cache-Control"] = "private, no-store, max-age=0"
 	with _prop_metrics_lock:
 		metrics = dict(_prop_metrics)
 	# Request counters are process-local, while the prop catalog is shared by
@@ -2008,6 +2009,11 @@ def prop_feed_health() -> dict[str, object]:
 		shared_summary = _prop_catalog_summary_from_version(
 			get_distributed_json(_PROP_CATALOG_VERSION_KEY)
 		)
+	if not isinstance(shared_summary, dict) or int(shared_summary.get("count") or 0) <= 0:
+		try:
+			shared_summary = _prop_catalog_summary(_cached_prop_catalog())
+		except Exception as exc:
+			logging.warning("Prop feed health catalog fallback failed error=%s", exc)
 	if isinstance(shared_summary, dict) and int(shared_summary.get("count") or 0) > 0:
 		metrics["lastTotalCount"] = int(shared_summary["count"])
 		metrics["lastDataUpdatedAt"] = shared_summary.get("lastDataUpdatedAt")
