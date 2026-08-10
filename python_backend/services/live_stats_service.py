@@ -60,10 +60,15 @@ STAT_MAP = {
     "points": ["Points"],
     "rebounds": ["Rebounds"],
     "assists": ["Assists"],
+    "points rebounds": ["Points", "Rebounds"],
+    "points assists": ["Points", "Assists"],
+    "rebounds assists": ["Rebounds", "Assists"],
+    "points rebounds assists": ["Points", "Rebounds", "Assists"],
     "pra": ["Points", "Rebounds", "Assists"],
     "blocks": ["BlockedShots", "Blocks"],
     "steals": ["Steals"],
     "blocks & steals": ["BlockedShots", "Blocks", "Steals"],
+    "blocks steals": ["BlockedShots", "Blocks", "Steals"],
     "three-pointers made": ["ThreePointersMade"],
     "3-pointers made": ["ThreePointersMade"],
     "pitcher strikeouts": ["PitchingStrikeouts", "Strikeouts"],
@@ -413,7 +418,7 @@ def find_player_match_in_boxscores(
 
 
 def extract_prop_value(player_row: dict[str, Any], prop_type: str) -> float | None:
-    stat_keys = STAT_MAP.get(normalize_prop_type(prop_type))
+    stat_keys = STAT_MAP.get(_normalize_live_stat_market(prop_type))
     if not stat_keys:
         return None
 
@@ -426,6 +431,15 @@ def extract_prop_value(player_row: dict[str, Any], prop_type: str) -> float | No
             total += 0.0
 
     return total
+
+
+def _normalize_live_stat_market(value: object) -> str:
+    market = normalize_prop_type(value)
+    if market.startswith("player "):
+        market = market.removeprefix("player ").strip()
+    market = market.replace("+", " ").replace("&", " ")
+    aliases = {"pts": "points", "rebs": "rebounds", "asts": "assists"}
+    return " ".join(aliases.get(token, token) for token in market.split())
 
 
 def normalize_name(value: object) -> str:

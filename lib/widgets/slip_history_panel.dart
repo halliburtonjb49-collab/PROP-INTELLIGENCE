@@ -2222,10 +2222,17 @@ class GameStatusBadge extends StatelessWidget {
 
     switch (normalized) {
       case 'live':
+      case 'in_progress':
+      case 'in progress':
+      case 'inprogress':
+      case 'ongoing':
         color = brand_colors.AppColors.gold;
         label = '● LIVE';
         break;
       case 'completed':
+      case 'final':
+      case 'finished':
+      case 'closed':
         color = brand_colors.AppColors.textMuted;
         label = 'FINAL';
         break;

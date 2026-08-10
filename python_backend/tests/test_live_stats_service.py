@@ -2,6 +2,7 @@ from services.live_stats_service import (
     SPORT_CONFIG,
     _espn_snapshot_from_logs,
     _golf_round_value,
+    extract_prop_value,
     find_player_match_in_boxscores,
 )
 
@@ -55,6 +56,17 @@ def test_espn_completed_boxscore_grades_combination_and_double_double() -> None:
     assert points_rebounds.value == 26
     assert double_double.value == 1
     assert double_double.completed is True
+
+
+def test_live_boxscore_extracts_prefixed_basketball_markets() -> None:
+    row = {"Points": 10, "Rebounds": 5, "Assists": 3}
+
+    assert extract_prop_value(row, "Player Points") == 10
+    assert extract_prop_value(row, "Player Points Rebounds") == 15
+    assert extract_prop_value(row, "Player Points Assists") == 13
+    assert extract_prop_value(row, "Player Rebounds Assists") == 8
+    assert extract_prop_value(row, "Player Points Rebounds Assists") == 18
+    assert extract_prop_value(row, "PTS+REBS+ASTS") == 18
 
 
 def test_nfl_live_boxscores_are_configured() -> None:
