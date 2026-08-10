@@ -681,6 +681,7 @@ def sync_balldontlie_soccer() -> dict[str, object]:
 
 def run_global_sync_pipeline(
     on_fast_lane_complete: Callable[[list[dict[str, object]]], None] | None = None,
+    on_coverage_complete: Callable[[list[dict[str, object]]], None] | None = None,
 ) -> list[dict[str, object]]:
     sports = configured_sync_sports()
     fast_sports, coverage_sports = partition_sync_sports(sports)
@@ -727,6 +728,11 @@ def run_global_sync_pipeline(
                 "lane": "coverage",
                 "skipped": "coverage cooldown",
             })
+    if on_coverage_complete is not None:
+        try:
+            on_coverage_complete(list(results))
+        except Exception as exc:
+            logger.warning("coverage completion callback failed error=%s", exc)
     results.append(sync_sportsgameodds())
     results.append(sync_balldontlie_soccer())
     try:

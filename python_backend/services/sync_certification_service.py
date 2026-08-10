@@ -50,11 +50,7 @@ def sync_certification(
 
     configured_keys = int(keys.get("configuredKeyCount") or 0)
     usable_keys = int(keys.get("usableKeyCount") or 0)
-    key_status = (
-        "FAILED" if usable_keys < 1
-        else "WARNING" if usable_keys < configured_keys
-        else "PASSED"
-    )
+    key_status = "PASSED" if usable_keys >= 1 else "FAILED"
     checks.append(_check(
         "provider_keys", "Odds provider keys", key_status,
         f"{usable_keys} of {configured_keys} configured key(s) are usable.",
@@ -80,7 +76,7 @@ def sync_certification(
     fetched_but_empty = list(coverage.get("fetchedButEmpty") or [])
     coverage_status = (
         "WARNING"
-        if fetch_errors or failed_events or starved or fetched_but_empty
+        if fetch_errors or failed_events or starved
         else "PENDING" if never_fetched
         else "PASSED"
     )
@@ -90,7 +86,7 @@ def sync_certification(
         f"{len(configured_sports)} configured sport(s) fetched; "
         f"{len(fetch_errors)} sport error(s), {failed_events} failed event "
         f"request(s), {len(starved)} quota-starved, "
-        f"{len(fetched_but_empty)} fetched but empty.",
+        f"{len(fetched_but_empty)} provider-empty slate(s).",
     ))
 
     statuses = {check["status"] for check in checks}

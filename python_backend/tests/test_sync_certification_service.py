@@ -67,6 +67,19 @@ def test_dead_keys_or_unavailable_worker_fail_certification() -> None:
     assert failed == {"queue", "provider_keys"}
 
 
+def test_one_usable_provider_key_is_sufficient() -> None:
+    inputs = _healthy_inputs()
+    inputs["keys"] = {"configuredKeyCount": 2, "usableKeyCount": 1}
+
+    report = sync_certification(**inputs)
+
+    assert report["status"] == "PASSED"
+    provider_keys = next(
+        check for check in report["checks"] if check["key"] == "provider_keys"
+    )
+    assert provider_keys["status"] == "PASSED"
+
+
 def test_exhausted_retries_or_provider_errors_are_warnings() -> None:
     inputs = _healthy_inputs()
     inputs["queue"]["failed"] = 2
@@ -79,7 +92,7 @@ def test_exhausted_retries_or_provider_errors_are_warnings() -> None:
     assert report["status"] == "WARNING"
     assert report["needsAttention"] is True
 
-def test_failed_events_and_fetched_but_empty_sports_are_warnings() -> None:
+def test_failed_events_are_warnings_and_empty_slates_are_labeled() -> None:
     inputs = _healthy_inputs()
     inputs["coverage"]["results"]["baseball_mlb"] = {
         "lastError": "",
@@ -94,4 +107,13 @@ def test_failed_events_and_fetched_but_empty_sports_are_warnings() -> None:
         check for check in report["checks"] if check["key"] == "coverage"
     )
     assert "2 failed event request(s)" in coverage["detail"]
-    assert "1 fetched but empty" in coverage["detail"]
+    assert "1 provider-empty slate(s)" in coverage["detail"]
+
+
+def test_provider_empty_slates_do_not_fail_healthy_coverage() -> None:
+    inputs = _healthy_inputs()
+    inputs["coverage"]["fetchedButEmpty"] = ["basketball_wnba"]
+
+    report = sync_certification(**inputs)
+
+    assert report["status"] == "PASSED"

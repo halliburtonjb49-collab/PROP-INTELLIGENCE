@@ -29,13 +29,20 @@ def test_manual_sync_runs_where_status_is_observable(monkeypatch) -> None:
 
 def test_primary_lane_completes_before_background_coverage(monkeypatch) -> None:
     observed = {}
+    coverage_observed = {}
 
-    def fake_pipeline(callback):
-        callback([{"sport": "primary", "props": 10}])
+    def fake_pipeline(fast_callback, coverage_callback):
+        fast_callback([{"sport": "primary", "props": 10}])
         observed.update(main._sync_state_snapshot())
-        return [
+        coverage_results = [
             {"sport": "primary", "props": 10},
             {"sport": "coverage", "props": 0},
+        ]
+        coverage_callback(coverage_results)
+        coverage_observed.update(main._sync_state_snapshot())
+        return [
+            *coverage_results,
+            {"sport": "model_recalculation", "props": 10},
         ]
 
     monkeypatch.setattr(main, "run_global_sync_pipeline", fake_pipeline)
@@ -49,7 +56,34 @@ def test_primary_lane_completes_before_background_coverage(monkeypatch) -> None:
 
     assert observed["status"] == "complete"
     assert observed["coverageStatus"] == "running"
+    assert observed["postProcessingStatus"] == "pending"
+    assert coverage_observed["coverageStatus"] == "complete"
+    assert coverage_observed["postProcessingStatus"] == "running"
     final = main._sync_state_snapshot()
     assert final["status"] == "complete"
     assert final["coverageStatus"] == "complete"
-    assert len(final["results"]) == 2
+    assert final["postProcessingStatus"] == "complete"
+    assert len(final["coverageResults"]) == 2
+    assert len(final["results"]) == 3
+
+
+def test_post_processing_failure_preserves_completed_coverage(monkeypatch) -> None:
+    def fake_pipeline(fast_callback, coverage_callback):
+        results = [{"sport": "primary", "props": 10}]
+        fast_callback(results)
+        coverage_callback(results)
+        raise RuntimeError("model recalculation failed")
+
+    monkeypatch.setattr(main, "run_global_sync_pipeline", fake_pipeline)
+    monkeypatch.setattr(main, "_invalidate_prop_catalog", lambda: None)
+    monkeypatch.setattr(main, "quota_snapshot", lambda: {"remaining": 1000})
+    main._mark_sync_running()
+
+    main._run_sync_background(release_local_lock=False)
+
+    final = main._sync_state_snapshot()
+    assert final["status"] == "complete"
+    assert final["coverageStatus"] == "complete"
+    assert final["coverageError"] is None
+    assert final["postProcessingStatus"] == "failed"
+    assert final["postProcessingError"] == "model recalculation failed"

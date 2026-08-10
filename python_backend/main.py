@@ -751,6 +751,15 @@ _sync_state: dict[str, object] = {
 	"error": None,
 	"cooldownSeconds": LIVE_ODDS_SYNC_MIN_SECONDS,
 	"nextAllowedAt": None,
+	"fastLaneCompletedAt": None,
+	"fastLaneResults": [],
+	"coverageStatus": "idle",
+	"coverageCompletedAt": None,
+	"coverageResults": [],
+	"coverageError": None,
+	"postProcessingStatus": "idle",
+	"postProcessingCompletedAt": None,
+	"postProcessingError": None,
 }
 
 
@@ -791,7 +800,10 @@ def _mark_sync_running() -> None:
 			status="running", startedAt=datetime.now(timezone.utc).isoformat(),
 			finishedAt=None, results=[], error=None, nextAllowedAt=None,
 			fastLaneCompletedAt=None, fastLaneResults=[],
-			coverageStatus="pending", coverageError=None,
+			coverageStatus="pending", coverageCompletedAt=None,
+			coverageResults=[], coverageError=None,
+			postProcessingStatus="pending", postProcessingCompletedAt=None,
+			postProcessingError=None,
 		)
 
 
@@ -815,8 +827,23 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 					coverageStatus="running",
 				)
 
-		results = run_global_sync_pipeline(mark_fast_lane_complete)
-		_refresh_prop_catalog_now()
+		def mark_coverage_complete(results: list[dict[str, object]]) -> None:
+			_refresh_prop_catalog_now()
+			with _sync_state_lock:
+				finished = datetime.now(timezone.utc)
+				_sync_state.update(
+					coverageStatus="complete",
+					coverageCompletedAt=finished.isoformat(),
+					coverageResults=results,
+					coverageError=None,
+					results=results,
+					postProcessingStatus="running",
+				)
+
+		results = run_global_sync_pipeline(
+			mark_fast_lane_complete,
+			mark_coverage_complete,
+		)
 		clv_capture = capture_closing_lines_from_props(get_props())
 		quota = quota_snapshot()
 		with _sync_state_lock:
@@ -830,14 +857,16 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 				results=results,
 				clvCapture=clv_capture,
 				providerQuota=quota,
-				coverageStatus="complete",
-				coverageError=None,
+				postProcessingStatus="complete",
+				postProcessingCompletedAt=finished.isoformat(),
+				postProcessingError=None,
 				error=None,
 			)
 	except Exception as exc:
 		logging.exception("Background prop sync failed")
 		with _sync_state_lock:
 			primary_complete = bool(_sync_state.get("fastLaneCompletedAt"))
+			coverage_complete = bool(_sync_state.get("coverageCompletedAt"))
 			_sync_state.update(
 				status="complete" if primary_complete else "failed",
 				finishedAt=(
@@ -845,8 +874,18 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 					if primary_complete
 					else datetime.now(timezone.utc).isoformat()
 				),
-				coverageStatus="failed" if primary_complete else "not_started",
-				coverageError=str(exc) if primary_complete else None,
+				coverageStatus=(
+					"complete" if coverage_complete
+					else "failed" if primary_complete
+					else "not_started"
+				),
+				coverageError=(
+					None if coverage_complete or not primary_complete else str(exc)
+				),
+				postProcessingStatus=(
+					"failed" if coverage_complete else "not_started"
+				),
+				postProcessingError=str(exc) if coverage_complete else None,
 				error=None if primary_complete else str(exc),
 			)
 	finally:
