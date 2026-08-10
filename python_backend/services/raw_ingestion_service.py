@@ -255,6 +255,7 @@ def fetch_sport_to_stream(sport: str) -> dict[str, object]:
         fetch_event_odds,
         fetch_events,
         quota_allows,
+        regions_for_sport,
     )
     from services.sync_service import _with_retries, prioritize_events
 
@@ -267,7 +268,10 @@ def fetch_sport_to_stream(sport: str) -> dict[str, object]:
     ))
     published = 0
     skipped_for_quota = 0
-    event_cost = estimate_event_odds_cost(markets)
+    event_cost = estimate_event_odds_cost(
+        markets,
+        regions=regions_for_sport(sport),
+    )
     for event in events:
         event_id = str(event.get("id") or "").strip()
         if not event_id:

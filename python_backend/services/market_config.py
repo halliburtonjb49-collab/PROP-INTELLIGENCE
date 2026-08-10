@@ -111,8 +111,6 @@ SOCCER_PROP_MARKETS = [
     "player_last_goal_scorer",
     "player_to_receive_card",
     "player_to_receive_red_card",
-    "player_goalkeeper_saves",
-    "player_tackles",
 ]
 for _soccer_key in (
     "soccer_epl",

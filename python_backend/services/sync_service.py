@@ -12,7 +12,7 @@ from services.market_config import markets_for_sport
 from services.odds_service import (
     record_historical_access,
     estimate_event_odds_cost, fetch_event_odds, fetch_events, quota_allows,
-    record_sport_fetch,
+    record_sport_fetch, regions_for_sport,
 )
 from services.prop_processor import process_and_cache_props
 from services.historical_ingestion_service import (
@@ -350,7 +350,10 @@ def sync_sport(sport_key: str) -> dict[str, object]:
     # below already records it per event, but nothing outside the process
     # can read those, which left six soccer leagues failing silently.
     first_failure = ""
-    estimated_event_cost = estimate_event_odds_cost(markets)
+    estimated_event_cost = estimate_event_odds_cost(
+        markets,
+        regions=regions_for_sport(sport_key),
+    )
 
     eligible_events: list[dict[str, object]] = []
     for event in events:

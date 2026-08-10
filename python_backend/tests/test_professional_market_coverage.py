@@ -18,6 +18,14 @@ def test_professional_sports_have_prop_market_definitions():
         assert markets_for_sport(sport), sport
 
 
+def test_soccer_odds_api_markets_match_the_supported_provider_catalog():
+    markets = markets_for_sport("soccer_epl")
+    assert "player_shots_on_target" in markets
+    assert "player_shots" in markets
+    assert "player_goalkeeper_saves" not in markets
+    assert "player_tackles" not in markets
+
+
 def test_new_markets_have_professional_category_labels():
     assert market_to_category("pitcher_outs") == "outs recorded"
     assert market_to_category("batter_hits_runs_rbis") == "hits + runs + rbis"

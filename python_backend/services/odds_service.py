@@ -173,9 +173,22 @@ def quota_snapshot() -> dict[str, object]:
         return dict(_quota_state)
 
 
-def estimate_event_odds_cost(markets: list[str]) -> int:
-    regions = [region for region in ODDS_REGIONS.split(",") if region.strip()]
-    return len(set(markets)) * max(1, len(regions))
+def regions_for_sport(sport_key: str) -> str:
+    """Use the bookmaker region where this sport's player props exist."""
+
+    if sport_key in {"aussierules_afl", "rugbyleague_nrl"}:
+        return "au"
+    return ODDS_REGIONS
+
+
+def estimate_event_odds_cost(
+    markets: list[str],
+    *,
+    regions: str | None = None,
+) -> int:
+    region_csv = ODDS_REGIONS if regions is None else regions
+    region_values = [region for region in region_csv.split(",") if region.strip()]
+    return len(set(markets)) * max(1, len(region_values))
 
 
 def quota_allows(estimated_cost: int) -> dict[str, object]:
@@ -251,7 +264,7 @@ def fetch_event_odds(
     response = _request_with_failover(
         f"{BASE_URL}/sports/{sport_key}/events/{event_id}/odds",
         {
-            "regions": ODDS_REGIONS,
+            "regions": regions_for_sport(sport_key),
             "markets": ",".join(markets),
             "bookmakers": PREFERRED_BOOKMAKERS_CSV,
             "oddsFormat": "american",
