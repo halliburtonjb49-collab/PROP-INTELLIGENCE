@@ -23,6 +23,19 @@ void main() {
     expect(useCompactBoardControls(1440), isFalse);
   });
 
+  test('compact primary controls fit without horizontal overflow', () {
+    expect(compactBoardControlWidth(320), closeTo(102.67, .01));
+    expect(compactBoardControlWidth(390), 126);
+    expect(compactBoardControlWidth(768), 160);
+    expect(compactBoardControlWidth(899), 160);
+  });
+
+  test('board framing becomes denser on phones and tablets', () {
+    expect(boardContentPadding(390).horizontal, 20);
+    expect(boardContentPadding(768).horizontal, 24);
+    expect(boardContentPadding(1200).horizontal, 28);
+  });
+
   test('verdict filters preserve an unloaded count state', () {
     expect(resolveVerdictFilterCount(const {}, 'PLAY_NOW'), isNull);
   });

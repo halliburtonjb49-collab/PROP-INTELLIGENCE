@@ -1614,6 +1614,13 @@ class _MainDashboardState extends State<MainDashboard> {
               )
               .toList(growable: false);
     final compactLayout = useCompactBoardControls(availableWidth);
+    final primaryControlWidth = compactLayout
+        ? compactBoardControlWidth(availableWidth)
+        : 160.0;
+    final shortControlLabels = primaryControlWidth < 132;
+    final primaryControlPadding = EdgeInsets.symmetric(
+      horizontal: shortControlLabels ? 6 : 13,
+    );
 
     Widget playerSearchField({double? width}) {
       final field = TextField(
@@ -1781,8 +1788,8 @@ class _MainDashboardState extends State<MainDashboard> {
                     ? app_colors.AppColors.gold
                     : app_colors.AppColors.border,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 13),
-              fixedSize: const Size(160, 48),
+              padding: primaryControlPadding,
+              fixedSize: Size(primaryControlWidth, 48),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(7),
               ),
@@ -1795,7 +1802,11 @@ class _MainDashboardState extends State<MainDashboard> {
                   const SizedBox(width: 6),
                 ],
                 Text(
-                  _selectedSite == 'ALL' ? 'All Prop Sites' : _selectedSite,
+                  _selectedSite == 'ALL'
+                      ? shortControlLabels
+                            ? 'SITES'
+                            : 'All Prop Sites'
+                      : _selectedSite,
                   style: const TextStyle(
                     fontSize: 8,
                     fontWeight: FontWeight.w800,
@@ -1860,10 +1871,16 @@ class _MainDashboardState extends State<MainDashboard> {
             OutlinedButton.icon(
               key: const ValueKey('board-prop-chat-button'),
               onPressed: () => widget.onSelectPage?.call(AppPage.propChat),
-              icon: const Icon(Icons.forum_rounded, size: 17),
-              label: const Text(
-                'PROP CHAT',
-                style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800),
+              icon: Icon(
+                Icons.forum_rounded,
+                size: shortControlLabels ? 14 : 17,
+              ),
+              label: Text(
+                shortControlLabels ? 'CHAT' : 'PROP CHAT',
+                style: const TextStyle(
+                  fontSize: 8,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: app_colors.AppColors.gold,
@@ -1871,8 +1888,8 @@ class _MainDashboardState extends State<MainDashboard> {
                   alpha: .08,
                 ),
                 side: const BorderSide(color: app_colors.AppColors.gold),
-                padding: const EdgeInsets.symmetric(horizontal: 13),
-                fixedSize: const Size(160, 48),
+                padding: primaryControlPadding,
+                fixedSize: Size(primaryControlWidth, 48),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(7),
                 ),
@@ -1885,7 +1902,10 @@ class _MainDashboardState extends State<MainDashboard> {
       OutlinedButton.icon(
         key: const ValueKey('board-filter-button'),
         onPressed: _showBoardFilterOptions,
-        icon: const Icon(Icons.filter_alt_outlined, size: 14),
+        icon: Icon(
+          Icons.filter_alt_outlined,
+          size: shortControlLabels ? 12 : 14,
+        ),
         label: Text(
           _activeBoardFilterLabels().isEmpty
               ? 'FILTERS'
@@ -1896,8 +1916,8 @@ class _MainDashboardState extends State<MainDashboard> {
           foregroundColor: app_colors.AppColors.gold,
           backgroundColor: app_colors.AppColors.gold.withValues(alpha: .10),
           side: const BorderSide(color: app_colors.AppColors.gold),
-          padding: const EdgeInsets.symmetric(horizontal: 13),
-          fixedSize: const Size(160, 48),
+          padding: primaryControlPadding,
+          fixedSize: Size(primaryControlWidth, 48),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
         ),
       ),
@@ -1987,7 +2007,9 @@ class _MainDashboardState extends State<MainDashboard> {
                       child: ListView.separated(
                         key: const ValueKey('prop-sites-scroll-list'),
                         controller: _bookHorizontalController,
-                        physics: const AlwaysScrollableScrollPhysics(),
+                        physics: compactLayout
+                            ? const NeverScrollableScrollPhysics()
+                            : const AlwaysScrollableScrollPhysics(),
                         scrollDirection: Axis.horizontal,
                         padding: EdgeInsets.only(bottom: compactLayout ? 0 : 6),
                         itemCount: siteBarItems.length,
@@ -2707,7 +2729,9 @@ class _MainDashboardState extends State<MainDashboard> {
                       controller: _boardVerticalController,
                       primary: false,
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 22),
+                      padding: boardContentPadding(
+                        MediaQuery.sizeOf(context).width,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -2859,6 +2883,24 @@ bool shouldWrapVerdictFilters(double availableWidth) {
 @visibleForTesting
 bool useCompactBoardControls(double availableWidth) {
   return availableWidth < 900;
+}
+
+/// Keeps the three primary compact controls equal-width and fully visible.
+@visibleForTesting
+double compactBoardControlWidth(double availableWidth) {
+  return ((availableWidth - 12) / 3).clamp(84.0, 160.0).toDouble();
+}
+
+/// Reduces framing on phones and tablets without crowding card content.
+@visibleForTesting
+EdgeInsets boardContentPadding(double viewportWidth) {
+  if (viewportWidth < 600) {
+    return const EdgeInsets.fromLTRB(10, 10, 10, 18);
+  }
+  if (viewportWidth < 1000) {
+    return const EdgeInsets.fromLTRB(12, 10, 12, 20);
+  }
+  return const EdgeInsets.fromLTRB(14, 12, 14, 22);
 }
 
 @visibleForTesting

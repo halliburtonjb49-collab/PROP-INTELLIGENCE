@@ -27,8 +27,15 @@ import 'recommendation_explainability_block.dart';
 @visibleForTesting
 int propGridColumnCount(double availableWidth) {
   if (availableWidth >= 1240) return 3;
-  if (availableWidth >= 820) return 2;
+  if (availableWidth >= 720) return 2;
   return 1;
+}
+
+@visibleForTesting
+double propGridSpacing(double availableWidth) {
+  if (availableWidth < 600) return 8;
+  if (availableWidth < 1000) return 10;
+  return 12;
 }
 
 class PropGrid extends StatefulWidget {
@@ -2855,6 +2862,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             return LayoutBuilder(
               builder: (context, constraints) {
                 final columns = propGridColumnCount(constraints.maxWidth);
+                final cardSpacing = propGridSpacing(constraints.maxWidth);
 
                 final visibleCount = _visiblePropLimit.clamp(
                   0,
@@ -2897,7 +2905,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     if (columns == 1)
                       for (final prop in visibleProps) ...[
                         cardFor(prop, fixedHeight: false),
-                        const SizedBox(height: 12),
+                        SizedBox(height: cardSpacing),
                       ]
                     else
                       GridView.builder(
@@ -2907,8 +2915,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                         itemCount: visibleProps.length,
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: columns,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
+                          crossAxisSpacing: cardSpacing,
+                          mainAxisSpacing: cardSpacing,
                           // Collapsed cards keep only decision-changing details.
                           mainAxisExtent: 380,
                         ),

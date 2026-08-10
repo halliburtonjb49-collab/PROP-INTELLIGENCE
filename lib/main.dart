@@ -47,6 +47,8 @@ import 'widgets/main_dashboard.dart';
 export 'widgets/main_dashboard.dart'
     show
         boardIntelligenceScope,
+        boardContentPadding,
+        compactBoardControlWidth,
         providerCoverageIssueForSport,
         resolveVerdictFilterCount,
         shouldWrapVerdictFilters,

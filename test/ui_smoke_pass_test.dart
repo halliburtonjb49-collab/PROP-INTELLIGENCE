@@ -87,6 +87,35 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('narrow phone board controls fit without horizontal overflow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(const PropIntelligenceApp());
+    await tester.pump(const Duration(milliseconds: 800));
+
+    final siteSelector = find.byKey(const ValueKey('all-prop-sites-menu'));
+    final chatButton = find.byKey(const ValueKey('board-prop-chat-button'));
+    final filterButton = find.byKey(const ValueKey('board-filter-button'));
+    final controlRail = find.byKey(const ValueKey('prop-sites-scroll-list'));
+    expect(siteSelector, findsOneWidget);
+    expect(chatButton, findsOneWidget);
+    expect(filterButton, findsOneWidget);
+    expect(controlRail, findsOneWidget);
+
+    final siteWidth = tester.getSize(siteSelector).width;
+    final railWidth = tester.getSize(controlRail).width;
+    expect(tester.getSize(chatButton).width, closeTo(siteWidth, .01));
+    expect(tester.getSize(filterButton).width, closeTo(siteWidth, .01));
+    expect((siteWidth * 3) + 12, lessThanOrEqualTo(railWidth + .01));
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('smoke: scoreboard, analytics, line movement top navigation', (
     tester,
   ) async {
