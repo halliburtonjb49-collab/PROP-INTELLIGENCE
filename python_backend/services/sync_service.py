@@ -8,7 +8,7 @@ from typing import Callable
 
 from config import DB_PATH
 from database.cache import PropCache
-from services.market_config import markets_for_sport
+from services.market_config import odds_api_markets_for_sport
 from services.odds_service import (
     record_historical_access,
     estimate_event_odds_cost, fetch_event_odds, fetch_events, quota_allows,
@@ -295,7 +295,7 @@ def within_horizon(
 
 def sync_sport(sport_key: str) -> dict[str, object]:
     started_at = time.perf_counter()
-    markets = markets_for_sport(sport_key)
+    markets = odds_api_markets_for_sport(sport_key)
     if not markets:
         logger.warning(
             "sync_sport skipped sport=%s reason=no_markets",

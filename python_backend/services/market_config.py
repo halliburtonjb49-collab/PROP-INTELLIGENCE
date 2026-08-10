@@ -105,6 +105,8 @@ SPORT_MARKETS = {
 SOCCER_PROP_MARKETS = [
     "player_shots_on_target",
     "player_shots",
+    "player_goalkeeper_saves",
+    "player_tackles",
     "player_assists",
     "player_goal_scorer_anytime",
     "player_first_goal_scorer",
@@ -146,3 +148,25 @@ SPORT_MARKETS["rugbyleague_nrl"] = [
 
 def markets_for_sport(sport_key: str) -> list[str]:
     return SPORT_MARKETS.get(sport_key, [])
+
+
+_ODDS_API_UNSUPPORTED_MARKETS = {
+    "_soccer": {"player_goalkeeper_saves", "player_tackles"},
+}
+
+
+def odds_api_markets_for_sport(sport_key: str) -> list[str]:
+    """Return only markets accepted by The Odds API for this sport.
+
+    The shared catalog also covers supplemental providers, which publish a
+    few markets that The Odds API does not accept in an event-odds request.
+    Sending even one unsupported key rejects the entire request with 422.
+    """
+
+    markets = markets_for_sport(sport_key)
+    unsupported = (
+        _ODDS_API_UNSUPPORTED_MARKETS["_soccer"]
+        if sport_key.startswith("soccer_")
+        else set()
+    )
+    return [market for market in markets if market not in unsupported]

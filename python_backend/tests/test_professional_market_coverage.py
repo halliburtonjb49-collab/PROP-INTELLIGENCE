@@ -4,7 +4,11 @@ from services.formatters import (
     format_sport_label,
     market_to_category,
 )
-from services.market_config import SPORT_MARKETS, markets_for_sport
+from services.market_config import (
+    SPORT_MARKETS,
+    markets_for_sport,
+    odds_api_markets_for_sport,
+)
 
 
 def test_professional_sports_have_prop_market_definitions():
@@ -19,11 +23,17 @@ def test_professional_sports_have_prop_market_definitions():
 
 
 def test_soccer_odds_api_markets_match_the_supported_provider_catalog():
-    markets = markets_for_sport("soccer_epl")
+    markets = odds_api_markets_for_sport("soccer_epl")
     assert "player_shots_on_target" in markets
     assert "player_shots" in markets
     assert "player_goalkeeper_saves" not in markets
     assert "player_tackles" not in markets
+
+
+def test_supplemental_soccer_markets_remain_in_the_shared_catalog():
+    markets = markets_for_sport("soccer_epl")
+    assert "player_goalkeeper_saves" in markets
+    assert "player_tackles" in markets
 
 
 def test_new_markets_have_professional_category_labels():

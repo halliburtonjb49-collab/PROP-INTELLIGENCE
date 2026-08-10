@@ -249,7 +249,7 @@ def queue_scheduled_ingestion_pipeline() -> dict[str, object]:
 
 def fetch_sport_to_stream(sport: str) -> dict[str, object]:
     """Fetch provider payloads only; no normalization or database mutations."""
-    from services.market_config import markets_for_sport
+    from services.market_config import odds_api_markets_for_sport
     from services.odds_service import (
         estimate_event_odds_cost,
         fetch_event_odds,
@@ -259,7 +259,7 @@ def fetch_sport_to_stream(sport: str) -> dict[str, object]:
     )
     from services.sync_service import _with_retries, prioritize_events
 
-    markets = markets_for_sport(sport)
+    markets = odds_api_markets_for_sport(sport)
     if not markets:
         return {"sport": sport, "events": 0, "published": 0, "skipped": "no markets"}
     events = prioritize_events(_with_retries(
