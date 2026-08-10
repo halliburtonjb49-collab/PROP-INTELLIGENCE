@@ -16,4 +16,14 @@ void main() {
     );
     expect(find.text('FINAL'), findsOneWidget);
   });
+  testWidgets('shows live quarter and clock with progress status', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: GameStatusBadge(status: 'Live', detail: 'Q3 • 4:21'),
+      ),
+    );
+    expect(find.textContaining('LIVE • Q3 • 4:21'), findsOneWidget);
+  });
 }

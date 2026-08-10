@@ -1833,6 +1833,7 @@ def _graded_slip_legs(slip: SlipResponse, *, season: str) -> list[dict[str, obje
 				"result": result,
 				"result_status": result,
 				"live_stat_status": snapshot.status,
+				"game_detail": snapshot.game_detail,
 				"odds": leg.odds,
 			}
 		)

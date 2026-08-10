@@ -36,6 +36,30 @@ def _attempted(value: object) -> float | None:
     return _number(parts[1]) if len(parts) == 2 else None
 
 
+def _live_game_detail(event: dict[str, object]) -> str:
+    status = event.get("status")
+    if not isinstance(status, dict):
+        return ""
+    status_type = status.get("type")
+    state = (
+        str(status_type.get("state") or "").strip().lower()
+        if isinstance(status_type, dict)
+        else ""
+    )
+    if state != "in":
+        return ""
+    clock = str(status.get("displayClock") or "").strip()
+    try:
+        period = int(status.get("period") or 0)
+    except (TypeError, ValueError):
+        period = 0
+    if period > 4:
+        period_label = "OT" if period == 5 else f"{period - 4}OT"
+    else:
+        period_label = f"Q{period}" if period > 0 else ""
+    return " • ".join(part for part in (period_label, clock) if part)
+
+
 class EspnBasketballStatisticsProvider:
     """Fetch completed daily player box scores from ESPN's site feed."""
 
@@ -78,6 +102,7 @@ class EspnBasketballStatisticsProvider:
             and status_type.get("completed") is True
         )
         game_status = "Final" if completed else "Live"
+        game_detail = _live_game_detail(event)
         rows: list[dict[str, object]] = []
         boxscore = summary.get("boxscore")
         teams = boxscore.get("players", []) if isinstance(boxscore, dict) else []
@@ -154,6 +179,7 @@ class EspnBasketballStatisticsProvider:
                             "SOURCE": "ESPN",
                             "GAME_STATUS": game_status,
                             "GAME_COMPLETED": completed,
+                            "GAME_DETAIL": game_detail,
                         }
                     )
         return rows

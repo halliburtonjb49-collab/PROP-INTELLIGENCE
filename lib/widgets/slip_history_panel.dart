@@ -1318,6 +1318,7 @@ typedef _LiveLegState = ({
   double? current,
   String resultStatus,
   String gameStatus,
+  String gameDetail,
   bool gameCompleted,
 });
 
@@ -1334,6 +1335,7 @@ _LiveLegState _effectiveLegState(
       current: leg.resultValue,
       resultStatus: leg.resultStatus,
       gameStatus: leg.gameStatus,
+      gameDetail: '',
       gameCompleted: leg.gameCompleted,
     );
   }
@@ -1342,6 +1344,7 @@ _LiveLegState _effectiveLegState(
     current: (live['result_value'] as num?)?.toDouble() ?? leg.resultValue,
     resultStatus: live['result_status']?.toString() ?? leg.resultStatus,
     gameStatus: rawGameStatus,
+    gameDetail: live['game_detail']?.toString() ?? '',
     gameCompleted: rawGameStatus.toLowerCase() == 'final',
   );
 }
@@ -1444,7 +1447,10 @@ class _CompactSlipLegRow extends StatelessWidget {
                         ),
                       ),
                     ),
-                    GameStatusBadge(status: live.gameStatus),
+                    GameStatusBadge(
+                      status: live.gameStatus,
+                      detail: live.gameDetail,
+                    ),
                     if (leg.resultVerified) ...[
                       const SizedBox(width: 4),
                       Tooltip(
@@ -1815,7 +1821,10 @@ class _SavedSlipCard extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 6),
-                            GameStatusBadge(status: live.gameStatus),
+                            GameStatusBadge(
+                              status: live.gameStatus,
+                              detail: live.gameDetail,
+                            ),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -2211,8 +2220,9 @@ class _GoldTicketConfetti extends StatelessWidget {
 
 class GameStatusBadge extends StatelessWidget {
   final String status;
+  final String detail;
 
-  const GameStatusBadge({super.key, required this.status});
+  const GameStatusBadge({super.key, required this.status, this.detail = ''});
 
   @override
   Widget build(BuildContext context) {
@@ -2227,7 +2237,10 @@ class GameStatusBadge extends StatelessWidget {
       case 'inprogress':
       case 'ongoing':
         color = brand_colors.AppColors.gold;
-        label = '● LIVE';
+        final gameContext = detail.trim();
+        label = gameContext.isEmpty
+            ? '\u25CF LIVE'
+            : '\u25CF LIVE \u2022 $gameContext';
         break;
       case 'completed':
       case 'final':

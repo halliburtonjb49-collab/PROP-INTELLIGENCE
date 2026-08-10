@@ -121,7 +121,11 @@ def test_espn_basketball_can_include_in_progress_box_scores(
             "events": [{
                 "id": "live-game",
                 "name": "Away at Home",
-                "status": {"type": {"completed": False, "state": "in"}},
+                "status": {
+                    "type": {"completed": False, "state": "in"},
+                    "period": 3,
+                    "displayClock": "4:21",
+                },
             }]
         },
         {
@@ -155,6 +159,7 @@ def test_espn_basketball_can_include_in_progress_box_scores(
     assert rows[0]["PTS"] == 12
     assert rows[0]["GAME_STATUS"] == "Live"
     assert rows[0]["GAME_COMPLETED"] is False
+    assert rows[0]["GAME_DETAIL"] == "Q3 • 4:21"
 
 
 def test_espn_basketball_officiating_assignments_are_stable(

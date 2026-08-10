@@ -102,6 +102,7 @@ class LiveStatSnapshot:
     completed: bool
     status: str = ""
     source: str = ""
+    game_detail: str = ""
 
 
 def get_live_player_stat(
@@ -178,6 +179,7 @@ def get_live_player_stat_snapshot(
                     _game_completed(game),
                     _game_status(game),
                     "sportsdata.io",
+                    _game_detail(game, sport_key),
                 )
 
     if sport_key in {"NBA", "WNBA"}:
@@ -255,6 +257,7 @@ def _espn_snapshot_from_logs(
     row = candidates[0]
     completed = bool(row.get("GAME_COMPLETED", True))
     status = str(row.get("GAME_STATUS") or ("Final" if completed else "Live"))
+    game_detail = str(row.get("GAME_DETAIL") or "")
     market = normalize_prop_type(prop_type)
     if market.startswith("player "):
         market = market.removeprefix("player ").strip()
@@ -286,6 +289,7 @@ def _espn_snapshot_from_logs(
             completed,
             status,
             "espn",
+            game_detail,
         )
     if keys is None:
         return LiveStatSnapshot(None, False, "unsupported_market")
@@ -295,7 +299,7 @@ def _espn_snapshot_from_logs(
             values.append(float(row[key]))
         except (KeyError, TypeError, ValueError):
             return LiveStatSnapshot(None, False, "missing_final_stat")
-    return LiveStatSnapshot(sum(values), completed, status, "espn")
+    return LiveStatSnapshot(sum(values), completed, status, "espn", game_detail)
 
 
 def _normalize_matchup_identity(value: object) -> str:
@@ -494,6 +498,60 @@ def _game_completed(game: dict[str, Any]) -> bool:
     return _game_status(game).strip().lower() in {
         "final", "finished", "completed", "f", "closed",
     }
+
+
+def _game_detail(game: dict[str, Any], sport: str) -> str:
+    source = _game_object(game)
+    if _game_completed(game):
+        return ""
+    clock = str(
+        source.get("Clock")
+        or source.get("TimeRemaining")
+        or source.get("PeriodTimeRemaining")
+        or ""
+    ).strip()
+    if not clock:
+        try:
+            minutes = int(source.get("TimeRemainingMinutes"))
+            seconds = int(source.get("TimeRemainingSeconds") or 0)
+            clock = f"{minutes}:{seconds:02d}"
+        except (TypeError, ValueError):
+            pass
+    try:
+        period = int(
+            source.get("Quarter")
+            or source.get("Period")
+            or source.get("Inning")
+            or 0
+        )
+    except (TypeError, ValueError):
+        period = 0
+    sport_key = str(sport).strip().upper()
+    if sport_key in {"NBA", "WNBA", "NFL"}:
+        label = (
+            "OT"
+            if period == 5
+            else f"{period - 4}OT"
+            if period > 5
+            else f"Q{period}"
+            if period > 0
+            else ""
+        )
+    elif sport_key == "NHL":
+        label = f"P{period}" if period > 0 else ""
+    elif sport_key == "MLB":
+        half = str(
+            source.get("InningHalf") or source.get("HalfInning") or ""
+        ).strip().upper()
+        if half.startswith("T"):
+            label = f"TOP {period}" if period > 0 else "TOP"
+        elif half.startswith("B"):
+            label = f"BOT {period}" if period > 0 else "BOT"
+        else:
+            label = f"INNING {period}" if period > 0 else ""
+    else:
+        label = f"P{period}" if period > 0 else ""
+    return " • ".join(part for part in (label, clock) if part)
 
 
 def _matchup_matches(game: dict[str, Any], matchup: str) -> bool:

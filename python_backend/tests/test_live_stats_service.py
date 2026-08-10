@@ -1,6 +1,7 @@
 from services.live_stats_service import (
     SPORT_CONFIG,
     _espn_snapshot_from_logs,
+    _game_detail,
     _golf_round_value,
     extract_prop_value,
     find_player_match_in_boxscores,
@@ -69,6 +70,7 @@ def test_espn_in_progress_boxscore_updates_combo_market() -> None:
             "AST": 2,
             "GAME_STATUS": "Live",
             "GAME_COMPLETED": False,
+            "GAME_DETAIL": "Q3 • 4:21",
         }],
         player_name="Ariel Atkins",
         prop_type="Player Points Rebounds",
@@ -78,6 +80,26 @@ def test_espn_in_progress_boxscore_updates_combo_market() -> None:
     assert snapshot.value == 12
     assert snapshot.completed is False
     assert snapshot.status == "Live"
+    assert snapshot.game_detail == "Q3 • 4:21"
+
+
+def test_sportsdata_game_detail_normalizes_sport_periods() -> None:
+    assert _game_detail({
+        "Status": "InProgress",
+        "Quarter": 3,
+        "TimeRemainingMinutes": 4,
+        "TimeRemainingSeconds": 7,
+    }, "NFL") == "Q3 • 4:07"
+    assert _game_detail({
+        "Status": "InProgress",
+        "Period": 2,
+        "TimeRemaining": "8:15",
+    }, "NHL") == "P2 • 8:15"
+    assert _game_detail({
+        "Status": "InProgress",
+        "Inning": 6,
+        "InningHalf": "Top",
+    }, "MLB") == "TOP 6"
 
 
 def test_live_boxscore_extracts_prefixed_basketball_markets() -> None:

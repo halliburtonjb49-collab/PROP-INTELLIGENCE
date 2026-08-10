@@ -8,7 +8,9 @@ def test_active_ticket_uses_live_provider_status(monkeypatch) -> None:
     monkeypatch.setattr(
         main,
         "get_live_player_stat_snapshot",
-        lambda **_kwargs: LiveStatSnapshot(14.0, False, "InProgress"),
+        lambda **_kwargs: LiveStatSnapshot(
+            14.0, False, "InProgress", "espn", "Q3 • 4:21"
+        ),
     )
     leg = SimpleNamespace(
         player="Test Player",
@@ -35,6 +37,7 @@ def test_active_ticket_uses_live_provider_status(monkeypatch) -> None:
     assert rows[0]["game_status"] == "Live"
     assert rows[0]["result_status"] == "live"
     assert rows[0]["live_stat_status"] == "InProgress"
+    assert rows[0]["game_detail"] == "Q3 • 4:21"
 
 
 def test_active_ticket_final_snapshot_grades_the_leg(monkeypatch) -> None:
