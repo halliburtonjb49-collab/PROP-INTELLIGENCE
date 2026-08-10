@@ -714,6 +714,7 @@ class _PropChatPageState extends State<PropChatPage> {
                         DateUtils.dateOnly(previous.createdAt) !=
                             DateUtils.dateOnly(message.createdAt);
                     final isOwn = message.userId == _service.currentUserId;
+                    final isDiscord = message.isDiscord;
                     return Column(
                       children: [
                         if (showDate) _DateDivider(date: message.createdAt),
@@ -730,13 +731,23 @@ class _PropChatPageState extends State<PropChatPage> {
                                     )
                                     .firstOrNull,
                           isOwn: isOwn,
-                          onReply: () => setState(() => _replyingTo = message),
-                          onReact: (emoji) =>
-                              _service.toggleReaction(message.id, emoji),
-                          onEdit: isOwn ? () => _edit(message) : null,
-                          onReport: isOwn ? null : () => _report(message),
-                          onBlock: isOwn ? null : () => _block(message),
-                          onDelete: isOwn || canModerate
+                          onReply: isDiscord
+                              ? null
+                              : () => setState(() => _replyingTo = message),
+                          onReact: isDiscord
+                              ? null
+                              : (emoji) =>
+                                    _service.toggleReaction(message.id, emoji),
+                          onEdit: isOwn && !isDiscord
+                              ? () => _edit(message)
+                              : null,
+                          onReport: isOwn || isDiscord
+                              ? null
+                              : () => _report(message),
+                          onBlock: isOwn || isDiscord
+                              ? null
+                              : () => _block(message),
+                          onDelete: !isDiscord && (isOwn || canModerate)
                               ? () => _delete(message)
                               : null,
                           onOpenLink: message.linkUrl == null
@@ -1012,8 +1023,8 @@ class _MessageBubble extends StatelessWidget {
   final PropChatMessage message;
   final PropChatMessage? reply;
   final bool isOwn;
-  final VoidCallback onReply;
-  final ValueChanged<String> onReact;
+  final VoidCallback? onReply;
+  final ValueChanged<String>? onReact;
   final VoidCallback? onEdit;
   final VoidCallback? onReport;
   final VoidCallback? onBlock;
@@ -1066,6 +1077,13 @@ class _MessageBubble extends StatelessWidget {
                             const SizedBox(width: 6),
                             const OfficialOwnerBadge(compact: true),
                           ],
+                          if (message.isDiscord) ...[
+                            const SizedBox(width: 5),
+                            const Chip(
+                              visualDensity: VisualDensity.compact,
+                              label: Text('DISCORD'),
+                            ),
+                          ],
                           if (message.isVerified && !isOfficialOwner) ...[
                             const SizedBox(width: 5),
                             Tooltip(
@@ -1084,47 +1102,53 @@ class _MessageBubble extends StatelessWidget {
                         ],
                       ),
                     ),
-                    PopupMenuButton<String>(
-                      tooltip: 'Message actions',
-                      icon: const Icon(
-                        Icons.more_vert_rounded,
-                        color: AppColors.textMuted,
-                        size: 18,
-                      ),
-                      onSelected: (action) {
-                        if (action == 'reply') onReply();
-                        if (action == 'edit') onEdit?.call();
-                        if (action == 'report') onReport?.call();
-                        if (action == 'block') onBlock?.call();
-                        if (action == 'delete') onDelete?.call();
-                      },
-                      itemBuilder: (_) => [
-                        const PopupMenuItem(
-                          value: 'reply',
-                          child: Text('Reply'),
+                    if (onReply != null ||
+                        onEdit != null ||
+                        onReport != null ||
+                        onBlock != null ||
+                        onDelete != null)
+                      PopupMenuButton<String>(
+                        tooltip: 'Message actions',
+                        icon: const Icon(
+                          Icons.more_vert_rounded,
+                          color: AppColors.textMuted,
+                          size: 18,
                         ),
-                        if (onEdit != null)
-                          const PopupMenuItem(
-                            value: 'edit',
-                            child: Text('Edit message'),
-                          ),
-                        if (onReport != null)
-                          const PopupMenuItem(
-                            value: 'report',
-                            child: Text('Report message'),
-                          ),
-                        if (onBlock != null)
-                          const PopupMenuItem(
-                            value: 'block',
-                            child: Text('Block user'),
-                          ),
-                        if (onDelete != null)
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Text('Delete message'),
-                          ),
-                      ],
-                    ),
+                        onSelected: (action) {
+                          if (action == 'reply') onReply?.call();
+                          if (action == 'edit') onEdit?.call();
+                          if (action == 'report') onReport?.call();
+                          if (action == 'block') onBlock?.call();
+                          if (action == 'delete') onDelete?.call();
+                        },
+                        itemBuilder: (_) => [
+                          if (onReply != null)
+                            const PopupMenuItem(
+                              value: 'reply',
+                              child: Text('Reply'),
+                            ),
+                          if (onEdit != null)
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Text('Edit message'),
+                            ),
+                          if (onReport != null)
+                            const PopupMenuItem(
+                              value: 'report',
+                              child: Text('Report message'),
+                            ),
+                          if (onBlock != null)
+                            const PopupMenuItem(
+                              value: 'block',
+                              child: Text('Block user'),
+                            ),
+                          if (onDelete != null)
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Text('Delete message'),
+                            ),
+                        ],
+                      ),
                   ],
                 ),
                 if (reply != null)
@@ -1229,7 +1253,9 @@ class _MessageBubble extends StatelessWidget {
                         label: Text(
                           '$emoji ${message.reactions[emoji] ?? ''}'.trim(),
                         ),
-                        onPressed: () => onReact(emoji),
+                        onPressed: onReact == null
+                            ? null
+                            : () => onReact?.call(emoji),
                       ),
                     Text(
                       '${_formatTimestamp(message.createdAt)}${message.editedAt == null ? '' : ' · edited'}',

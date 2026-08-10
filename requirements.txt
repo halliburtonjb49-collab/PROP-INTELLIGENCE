@@ -6,6 +6,7 @@ charset-normalizer==3.4.7
 click==8.4.2
 colorama==0.4.6
 duckdb==1.5.4
+discord.py==2.7.1
 fastapi==0.139.0
 h11==0.16.0
 idna==3.18
@@ -27,3 +28,4 @@ typing-inspection==0.4.2
 typing_extensions==4.16.0
 urllib3==2.7.0
 uvicorn==0.50.0
+websockets==17.0.1

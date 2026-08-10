@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'api_service.dart';
 import 'auth_manager.dart';
+import 'live_update_service.dart';
 import 'supabase_service.dart';
 import 'app_sound_service.dart';
 
@@ -74,6 +77,7 @@ class PropChatMessage {
 
   String get normalizedAuthorRole => authorRole.trim().toLowerCase();
   bool get isOfficialOwner => normalizedAuthorRole == 'owner';
+  bool get isDiscord => normalizedAuthorRole == 'discord';
   bool get isVerified => const {
     'owner',
     'admin',
@@ -302,8 +306,61 @@ class PropChatService {
     late final StreamController<List<PropChatMessage>> controller;
     StreamSubscription<List<Map<String, dynamic>>>? messages;
     StreamSubscription<List<Map<String, dynamic>>>? reactions;
+    LiveUpdateService? discordUpdates;
+    StreamSubscription<dynamic>? discordEvents;
+    List<PropChatMessage> storedMessages = const [];
+    final externalMessages = <String, PropChatMessage>{};
     var refreshing = false;
     var refreshQueued = false;
+
+    void emitMessages() {
+      if (controller.isClosed) return;
+      final combined = <PropChatMessage>[
+        ...storedMessages,
+        ...externalMessages.values,
+      ]..sort((left, right) => left.createdAt.compareTo(right.createdAt));
+      controller.add(combined);
+    }
+
+    void handleDiscordEvent(dynamic rawEvent) {
+      try {
+        final decoded = rawEvent is String ? jsonDecode(rawEvent) : rawEvent;
+        if (decoded is! Map || decoded['type'] != 'chat.discord.message') {
+          return;
+        }
+        final event = Map<String, dynamic>.from(decoded);
+        final rawData = event['data'];
+        if (rawData is! Map) return;
+        final data = Map<String, dynamic>.from(rawData);
+        if (data['roomId']?.toString() != roomId) return;
+        final externalId =
+            data['id']?.toString() ?? event['eventId']?.toString();
+        if (externalId == null || externalId.isEmpty) return;
+        final numericId =
+            BigInt.tryParse(externalId) ??
+            BigInt.from(externalId.hashCode.abs());
+        final boundedId = (numericId % BigInt.from(0x7fffffff)).toInt();
+        externalMessages[externalId] = PropChatMessage(
+          id: -(boundedId + 1),
+          userId: data['userId']?.toString() ?? 'discord',
+          username: data['username']?.toString() ?? 'discord_member',
+          body: data['body']?.toString() ?? '',
+          createdAt:
+              DateTime.tryParse(
+                event['occurredAt']?.toString() ?? '',
+              )?.toLocal() ??
+              DateTime.now(),
+          roomId: roomId,
+          authorRole: 'discord',
+        );
+        while (externalMessages.length > 100) {
+          externalMessages.remove(externalMessages.keys.first);
+        }
+        emitMessages();
+      } catch (_) {
+        // Supabase chat remains available if a malformed bridge event arrives.
+      }
+    }
 
     Future<void> refresh() async {
       if (refreshing) {
@@ -318,11 +375,10 @@ class PropChatService {
             .eq('room_id', roomId)
             .order('created_at')
             .limit(200);
-        if (!controller.isClosed) {
-          controller.add(
-            await _attachReactions((rows as List).cast<Map<String, dynamic>>()),
-          );
-        }
+        storedMessages = await _attachReactions(
+          (rows as List).cast<Map<String, dynamic>>(),
+        );
+        emitMessages();
       } catch (error, stackTrace) {
         if (!controller.isClosed) controller.addError(error, stackTrace);
       } finally {
@@ -345,11 +401,21 @@ class PropChatService {
             .from('prop_chat_reactions')
             .stream(primaryKey: ['message_id', 'user_id', 'emoji'])
             .listen((_) => unawaited(refresh()));
+        if (roomId == 'general') {
+          discordUpdates = LiveUpdateService(channels: const {'chat'});
+          discordEvents = discordUpdates!.stream.listen(
+            handleDiscordEvent,
+            onError: (_) {},
+          );
+          discordUpdates!.connect();
+        }
         unawaited(refresh());
       },
       onCancel: () async {
         await messages?.cancel();
         await reactions?.cancel();
+        await discordEvents?.cancel();
+        await discordUpdates?.dispose();
       },
     );
     return controller.stream;
@@ -562,6 +628,9 @@ class PropChatService {
       'link_url': linkUrl,
       'shared_payload': sharedPayload,
     });
+    if (roomId == 'general' && trimmed.isNotEmpty) {
+      unawaited(ApiService().mirrorPropChatToDiscord(trimmed));
+    }
   }
 
   Future<String> createGameThread({

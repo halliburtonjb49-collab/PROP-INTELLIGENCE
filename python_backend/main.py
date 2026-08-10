@@ -237,7 +237,9 @@ from services.api_auth_service import (
 from routers.intelligence import router as intelligence_router
 from routers.billing import router as billing_router
 from routers.realtime import hub as realtime_hub, router as realtime_router
+from routers.discord_chat import router as discord_chat_router
 from routers.operations import router as operations_router
+from services.discord_bridge_service import discord_bridge
 
 logging.basicConfig(
 	level=logging.INFO,
@@ -269,9 +271,14 @@ async def lifespan(_: FastAPI):
 	)
 	startup_sync_task = asyncio.create_task(_ensure_props_available())
 	freshness_watchdog_task = asyncio.create_task(_maintain_prop_freshness())
+	discord_bridge.set_message_handler(
+		lambda event: realtime_hub.broadcast(event, "chat")
+	)
+	await discord_bridge.start()
 	try:
 		yield
 	finally:
+		await discord_bridge.stop()
 		for task in (startup_sync_task, freshness_watchdog_task):
 			task.cancel()
 		for task in (startup_sync_task, freshness_watchdog_task):
@@ -312,6 +319,7 @@ _PROP_CATALOG_SUMMARY_KEY = "props:catalog:summary:v1"
 app.include_router(intelligence_router)
 app.include_router(billing_router)
 app.include_router(realtime_router)
+app.include_router(discord_chat_router)
 app.include_router(operations_router)
 
 app.add_middleware(

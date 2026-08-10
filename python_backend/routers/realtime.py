@@ -111,9 +111,9 @@ hub = LiveHub()
 @router.websocket("/ws")
 async def live_updates(websocket: WebSocket, channels: str = "props") -> None:
     requested = {value.strip().lower() for value in channels.split(",") if value.strip()}
-    allowed = requested & {"props", "scoreboard", "tickets", "alerts", "sentiment"}
+    allowed = requested & {"props", "scoreboard", "tickets", "alerts", "sentiment", "chat"}
     user_id = None
-    if allowed & {"tickets", "alerts"}:
+    if allowed & {"tickets", "alerts", "chat"}:
         await websocket.accept()
         await websocket.send_json({"type": "authentication.required", "version": 1})
         try:

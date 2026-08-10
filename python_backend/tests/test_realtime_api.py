@@ -27,3 +27,17 @@ def test_ticket_channel_requires_and_accepts_authentication(monkeypatch) -> None
         ready = socket.receive_json()
         assert ready["type"] == "connection.ready"
         assert ready["channels"] == ["tickets"]
+
+
+def test_chat_channel_requires_and_accepts_authentication(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "routers.realtime.verify_supabase_token",
+        lambda token: "user-1" if token == "valid" else None,
+    )
+    client = TestClient(app)
+    with client.websocket_connect("/api/realtime/ws?channels=chat") as socket:
+        assert socket.receive_json()["type"] == "authentication.required"
+        socket.send_json({"type": "authenticate", "token": "valid"})
+        ready = socket.receive_json()
+        assert ready["type"] == "connection.ready"
+        assert ready["channels"] == ["chat"]

@@ -1990,6 +1990,22 @@ class ApiService {
     return decoded['diagnosticId']?.toString() ?? 'SYNC-RECEIVED';
   }
 
+  Future<bool> mirrorPropChatToDiscord(String text) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/realtime/discord/messages'),
+            headers: await _authenticatedHeaders(json: true),
+            body: jsonEncode({'text': text, 'roomId': 'general'}),
+          )
+          .timeout(const Duration(seconds: 12));
+      return response.statusCode == 200;
+    } catch (_) {
+      // Discord is an optional mirror; Supabase remains the source of truth.
+      return false;
+    }
+  }
+
   Future<Map<String, double>> previewSlip({
     required List<SlipSelection> selections,
     required double stake,

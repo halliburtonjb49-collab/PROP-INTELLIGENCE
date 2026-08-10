@@ -84,6 +84,24 @@ void main() {
     expect(message.isVerified, isTrue);
   });
 
+  test(
+    'Discord messages are identified as external and not verified staff',
+    () {
+      final message = PropChatMessage.fromJson({
+        'id': -1,
+        'user_id': 'discord:123',
+        'username': 'discord_member',
+        'body': 'Message from the community server.',
+        'author_role': 'discord',
+        'created_at': '2026-08-10T12:00:00Z',
+      });
+
+      expect(message.isDiscord, isTrue);
+      expect(message.isVerified, isFalse);
+      expect(message.isOfficialOwner, isFalse);
+    },
+  );
+
   test('chat messages parse secure attachments and HTTPS links', () {
     final message = PropChatMessage.fromJson({
       'id': 9,
