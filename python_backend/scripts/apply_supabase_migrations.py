@@ -38,6 +38,7 @@ MIGRATIONS = (
     "supabase_slip_postgres_storage.sql",
     "supabase_owner_user_id.sql",
     "supabase_member_identity_roles.sql",
+    "supabase_member_identity_execution_hardening.sql",
     "supabase_performance_indexes.sql",
     "supabase_security_hardening.sql",
     "supabase_function_execution_hardening.sql",

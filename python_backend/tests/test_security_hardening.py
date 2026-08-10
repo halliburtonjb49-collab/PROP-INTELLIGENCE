@@ -93,3 +93,10 @@ def test_member_identity_grants_are_owner_only_and_server_derived() -> None:
     assert "new.author_badge_number :=" in sql
     assert "prevent_member_access_self_assignment" in sql
     assert "revoke all on function public.assign_member_identity_role" in sql
+
+    hardening_filename = "supabase_member_identity_execution_hardening.sql"
+    assert hardening_filename in MIGRATIONS
+    hardening = (ROOT / hardening_filename).read_text(encoding="utf-8").lower()
+    assert "from public, anon, authenticated" in hardening
+    assert "prevent_member_access_self_assignment()" in hardening
+    assert "to authenticated" in hardening
