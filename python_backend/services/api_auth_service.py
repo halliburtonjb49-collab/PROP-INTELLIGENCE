@@ -98,7 +98,7 @@ def _supabase_profile(token: str, user_id: str) -> dict[str, object]:
         f"{url}/rest/v1/user_profiles",
         params={
             "id": f"eq.{user_id}",
-            "select": "subscription_tier,is_premium",
+            "select": "subscription_tier,is_premium,assigned_member_role,founder_number",
             "limit": "1",
         },
         headers={
@@ -159,6 +159,13 @@ def resolve_membership(authorization: str = Header(default="")) -> Membership:
             detail="Membership service unavailable",
         ) from exc
     raw_tier = str(profile.get("subscription_tier") or "free").strip().lower()
+    granted_role = str(profile.get("assigned_member_role") or "").strip().lower()
+    if granted_role in {"pro", "pro_founder"}:
+        return Membership(user_id, AccessLevel.PRO, "pro", granted_role)
+    if granted_role == "core" and raw_tier not in {
+        "edge", "gold", "pro", "pro_gold", "pro-gold"
+    } and profile.get("is_premium") is not True:
+        return Membership(user_id, AccessLevel.CORE, "core", granted_role)
     if raw_tier in {"edge", "gold", "pro", "pro_gold", "pro-gold"} or profile.get("is_premium") is True:
         return Membership(user_id, AccessLevel.PRO, raw_tier or "pro", "user")
     if raw_tier == "core":

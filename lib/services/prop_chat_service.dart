@@ -49,6 +49,7 @@ class PropChatMessage {
     required this.createdAt,
     this.roomId = 'general',
     this.authorRole = 'user',
+    this.authorBadgeNumber,
     this.replyToId,
     this.editedAt,
     this.reactions = const {},
@@ -66,6 +67,7 @@ class PropChatMessage {
   final DateTime createdAt;
   final String roomId;
   final String authorRole;
+  final int? authorBadgeNumber;
   final int? replyToId;
   final DateTime? editedAt;
   final Map<String, int> reactions;
@@ -93,6 +95,7 @@ class PropChatMessage {
       body: json['body']?.toString() ?? '',
       roomId: json['room_id']?.toString() ?? 'general',
       authorRole: json['author_role']?.toString() ?? 'user',
+      authorBadgeNumber: (json['author_badge_number'] as num?)?.toInt(),
       replyToId: (json['reply_to_id'] as num?)?.toInt(),
       editedAt: DateTime.tryParse(json['edited_at']?.toString() ?? ''),
       attachmentPath: json['attachment_path']?.toString(),
@@ -113,6 +116,7 @@ class PropChatMessage {
     createdAt: createdAt,
     roomId: roomId,
     authorRole: authorRole,
+    authorBadgeNumber: authorBadgeNumber,
     replyToId: replyToId,
     editedAt: editedAt,
     reactions: value,
@@ -131,6 +135,7 @@ class PropChatMessage {
     createdAt: createdAt,
     roomId: roomId,
     authorRole: authorRole,
+    authorBadgeNumber: authorBadgeNumber,
     replyToId: replyToId,
     editedAt: editedAt,
     reactions: reactions,

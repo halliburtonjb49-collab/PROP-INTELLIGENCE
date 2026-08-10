@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../models/member_identity.dart';
 import '../screens/paywall_screen.dart';
 import '../services/auth_manager.dart';
 import '../services/auth_service.dart';
 import '../services/billing_service.dart';
 import '../services/prop_watchlist_service.dart';
+import 'member_identity_badge.dart';
 import 'official_identity_badge.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
@@ -132,6 +134,7 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
 
   Future<void> _showRoleManager() async {
     final emailController = TextEditingController();
+    final founderNumberController = TextEditingController();
     var selectedRole = 'admin';
     var saving = false;
 
@@ -158,7 +161,7 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'The user must create an account before a role can be assigned.',
+                  'The user must create an account first. Core, Pro, and Pro Founder grant complimentary access without changing billing.',
                   style: TextStyle(color: Color(0xFFE0E0E0), fontSize: 12),
                 ),
                 const SizedBox(height: 16),
@@ -178,8 +181,16 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
                   items: const [
                     DropdownMenuItem(value: 'admin', child: Text('A - ADMIN')),
                     DropdownMenuItem(
-                      value: 'tester',
-                      child: Text('T - TESTER'),
+                      value: 'core',
+                      child: Text('C - CORE ACCESS'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'pro',
+                      child: Text('P - PRO ACCESS'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'pro_founder',
+                      child: Text('PF - PRO FOUNDER'),
                     ),
                     DropdownMenuItem(value: 'user', child: Text('U - USER')),
                   ],
@@ -191,6 +202,16 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
                           }
                         },
                 ),
+                if (selectedRole == 'pro_founder') ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: founderNumberController,
+                    enabled: !saving,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: _fieldDecoration('Founder number (1-999)'),
+                  ),
+                ],
               ],
             ),
           ),
@@ -209,6 +230,9 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
                             .assignUserRole(
                               email: emailController.text,
                               role: selectedRole,
+                              founderNumber: int.tryParse(
+                                founderNumberController.text.trim(),
+                              ),
                             );
                         if (!dialogContext.mounted) return;
                         Navigator.pop(dialogContext);
@@ -232,6 +256,7 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
       ),
     );
     emailController.dispose();
+    founderNumberController.dispose();
   }
 
   Future<void> _submitChangeRequest() async {
@@ -469,7 +494,9 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
                       state.username ??
                       resolvePublicUsername(userId: state.userId ?? ''),
                   role: state.role,
-                  subscriptionTier: state.subscriptionTier,
+                  assignedMemberRole: state.assignedMemberRole,
+                  founderNumber: state.founderNumber,
+                  subscriptionTier: state.effectiveSubscriptionTier,
                   accessPreviewTier: state.accessPreviewTier,
                   onOwnerPreviewChanged: state.isOwner
                       ? _setOwnerPreview
@@ -614,6 +641,8 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
 class _SignedInView extends StatelessWidget {
   final String username;
   final String role;
+  final String? assignedMemberRole;
+  final int? founderNumber;
   final SubscriptionTier subscriptionTier;
   final SubscriptionTier? accessPreviewTier;
   final ValueChanged<String>? onOwnerPreviewChanged;
@@ -627,6 +656,8 @@ class _SignedInView extends StatelessWidget {
   const _SignedInView({
     required this.username,
     required this.role,
+    required this.assignedMemberRole,
+    required this.founderNumber,
     required this.subscriptionTier,
     required this.accessPreviewTier,
     required this.onOwnerPreviewChanged,
@@ -641,41 +672,25 @@ class _SignedInView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final normalizedRole = role.trim().toLowerCase();
-    final roleLetter = switch (normalizedRole) {
-      'owner' => 'O',
-      'admin' => 'A',
-      'tester' => 'T',
-      _ => 'U',
-    };
-    final roleColor = switch (normalizedRole) {
-      'owner' => brand_colors.AppColors.gold,
-      'admin' => const Color(0xFF6DB8FF),
-      'tester' => const Color(0xFFE0E0E0),
-      _ => brand_colors.AppColors.success,
-    };
+    final identityRole = MemberIdentityRole.fromValues(
+      accountRole: normalizedRole,
+      assignedRole: assignedMemberRole,
+      subscriptionTier: subscriptionTier,
+    );
+    final roleColor = identityRole == MemberIdentityRole.admin
+        ? const Color(0xFF6DB8FF)
+        : brand_colors.AppColors.gold;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           children: [
-            Container(
-              width: 38,
-              height: 38,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: roleColor.withValues(alpha: 0.12),
-                border: Border.all(color: roleColor, width: 1.8),
-              ),
-              child: Text(
-                roleLetter,
-                style: TextStyle(
-                  color: roleColor,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
+            MemberIdentityBadge(
+              username: username,
+              role: identityRole,
+              founderNumber: founderNumber,
+              showUsername: false,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -717,7 +732,7 @@ class _SignedInView extends StatelessWidget {
                   ),
                   const SizedBox(width: 5),
                   Text(
-                    normalizedRole.toUpperCase(),
+                    identityRole.label,
                     key: const ValueKey('account-role-label'),
                     style: TextStyle(
                       color: roleColor,

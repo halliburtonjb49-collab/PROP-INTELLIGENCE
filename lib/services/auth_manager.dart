@@ -103,6 +103,8 @@ class AuthSessionState {
   final String? userId;
   final String? email;
   final String? username;
+  final String? assignedMemberRole;
+  final int? founderNumber;
   final String message;
 
   bool get isOwner => role == 'owner';
@@ -113,16 +115,33 @@ class AuthSessionState {
       !isOwner &&
       !isAdmin &&
       !isTester &&
-      subscriptionTier == SubscriptionTier.free;
+      effectiveSubscriptionTier == SubscriptionTier.free;
   bool get isAccessPreviewActive => isOwner && accessPreviewTier != null;
-  SubscriptionTier get effectiveSubscriptionTier =>
-      isAccessPreviewActive ? accessPreviewTier! : subscriptionTier;
+  SubscriptionTier get grantedSubscriptionTier =>
+      switch (assignedMemberRole?.trim().toLowerCase()) {
+        'core' => SubscriptionTier.core,
+        'pro' || 'pro_founder' || 'edge' => SubscriptionTier.edge,
+        _ => SubscriptionTier.free,
+      };
+  SubscriptionTier get effectiveSubscriptionTier {
+    if (isAccessPreviewActive) return accessPreviewTier!;
+    return subscriptionTier.index >= grantedSubscriptionTier.index
+        ? subscriptionTier
+        : grantedSubscriptionTier;
+  }
+
   bool get hasCoreAccess => isAccessPreviewActive
       ? effectiveSubscriptionTier.hasCoreAccess
-      : subscriptionTier.hasCoreAccess || isOwner || isAdmin || isTester;
+      : effectiveSubscriptionTier.hasCoreAccess ||
+            isOwner ||
+            isAdmin ||
+            isTester;
   bool get hasEdgeAccess => isAccessPreviewActive
       ? effectiveSubscriptionTier.hasEdgeAccess
-      : subscriptionTier.hasEdgeAccess || isOwner || isAdmin || isTester;
+      : effectiveSubscriptionTier.hasEdgeAccess ||
+            isOwner ||
+            isAdmin ||
+            isTester;
 
   const AuthSessionState({
     required this.ready,
@@ -134,6 +153,8 @@ class AuthSessionState {
     required this.userId,
     required this.email,
     this.username,
+    this.assignedMemberRole,
+    this.founderNumber,
     required this.message,
   });
 
@@ -147,6 +168,8 @@ class AuthSessionState {
       userId = null,
       email = null,
       username = null,
+      assignedMemberRole = null,
+      founderNumber = null,
       message = 'Initializing auth...';
 
   const AuthSessionState.unavailable()
@@ -159,6 +182,8 @@ class AuthSessionState {
       userId = null,
       email = null,
       username = null,
+      assignedMemberRole = null,
+      founderNumber = null,
       message = 'Supabase auth is not configured.';
 
   const AuthSessionState.signedOut()
@@ -171,6 +196,8 @@ class AuthSessionState {
       userId = null,
       email = null,
       username = null,
+      assignedMemberRole = null,
+      founderNumber = null,
       message = 'Signed out';
 }
 
@@ -340,6 +367,8 @@ class AuthManager {
       userId: current.userId,
       email: current.email,
       username: current.username,
+      assignedMemberRole: current.assignedMemberRole,
+      founderNumber: current.founderNumber,
       message: current.message,
     );
     debugPrint(
@@ -362,6 +391,8 @@ class AuthManager {
       userId: current.userId,
       email: current.email,
       username: username,
+      assignedMemberRole: current.assignedMemberRole,
+      founderNumber: current.founderNumber,
       message: current.message,
     );
   }
@@ -369,6 +400,7 @@ class AuthManager {
   Future<Map<String, dynamic>> assignUserRole({
     required String email,
     required String role,
+    int? founderNumber,
   }) async {
     if (!sessionState.value.isOwner) {
       throw StateError('Only an owner can assign account roles.');
@@ -379,13 +411,33 @@ class AuthManager {
     if (normalizedEmail.isEmpty) {
       throw ArgumentError('Enter the user email address.');
     }
-    if (!const {'admin', 'tester', 'user'}.contains(normalizedRole)) {
-      throw ArgumentError('Role must be admin, tester, or user.');
+    if (!const {
+      'admin',
+      'core',
+      'pro',
+      'pro_founder',
+      'user',
+    }.contains(normalizedRole)) {
+      throw ArgumentError(
+        'Role must be Admin, Core, Pro, Pro Founder, or User.',
+      );
+    }
+    if (normalizedRole == 'pro_founder' &&
+        (founderNumber == null || founderNumber < 1 || founderNumber > 999)) {
+      throw ArgumentError(
+        'Pro Founder requires a unique number from 1 to 999.',
+      );
     }
 
     final response = await _requireClient().rpc(
-      'assign_user_role',
-      params: {'target_email': normalizedEmail, 'target_role': normalizedRole},
+      'assign_member_identity_role',
+      params: {
+        'target_email': normalizedEmail,
+        'target_role': normalizedRole,
+        'target_founder_number': normalizedRole == 'pro_founder'
+            ? founderNumber
+            : null,
+      },
     );
     if (response is Map<String, dynamic>) {
       return response;
@@ -613,11 +665,16 @@ class AuthManager {
     var isPremium = false;
     var subscriptionTier = SubscriptionTier.free;
     String? profileDisplayName;
+    String? assignedMemberRole;
+    int? founderNumber;
     var profileLoaded = false;
     try {
       final row = await _client
           ?.from('user_profiles')
-          .select('is_premium, subscription_tier, display_name')
+          .select(
+            'is_premium, subscription_tier, display_name, '
+            'assigned_member_role, founder_number',
+          )
           .eq('id', user.id)
           .maybeSingle();
       profileLoaded = true;
@@ -630,6 +687,8 @@ class AuthManager {
         subscriptionTier = SubscriptionTier.fromDatabase(
           row['subscription_tier'],
         );
+        assignedMemberRole = row['assigned_member_role']?.toString();
+        founderNumber = (row['founder_number'] as num?)?.toInt();
         // Preserve full access for legacy premium accounts during migration.
         if (subscriptionTier == SubscriptionTier.free && raw == true) {
           subscriptionTier = SubscriptionTier.edge;
@@ -661,6 +720,8 @@ class AuthManager {
         metadata: user.userMetadata ?? const <String, dynamic>{},
         profileDisplayName: profileDisplayName,
       ),
+      assignedMemberRole: assignedMemberRole,
+      founderNumber: founderNumber,
       message: 'Authenticated',
     );
   }

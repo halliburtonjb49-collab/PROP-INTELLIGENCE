@@ -70,6 +70,20 @@ void main() {
     expect(message.isVerified, isTrue);
   });
 
+  test('numbered founder identity is parsed from trusted chat fields', () {
+    final message = PropChatMessage.fromJson({
+      'id': 11,
+      'user_id': 'founder-user',
+      'username': 'founder_member',
+      'body': 'Founder note.',
+      'author_role': 'pro_founder',
+      'author_badge_number': 7,
+      'created_at': '2026-08-10T12:00:00Z',
+    });
+
+    expect(message.normalizedAuthorRole, 'pro_founder');
+    expect(message.authorBadgeNumber, 7);
+  });
   test('owner role is normalized and marked as official', () {
     final message = PropChatMessage.fromJson({
       'id': 10,
@@ -189,8 +203,11 @@ void main() {
     await tester.pump();
 
     expect(find.text('@prop_owner'), findsOneWidget);
-    expect(find.text('OFFICIAL OWNER'), findsOneWidget);
-    expect(find.byKey(const ValueKey('official-owner-badge')), findsOneWidget);
+    expect(find.text('OWNER'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('member-identity-prop_owner')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('PROP CHAT direct messages use a mobile master-detail flow', (

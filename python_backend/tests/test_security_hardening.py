@@ -79,3 +79,17 @@ def test_feedback_table_is_migrated_as_api_only_data() -> None:
         "revoke all on public.user_feedback_messages from anon, authenticated"
         in sql
     )
+
+def test_member_identity_grants_are_owner_only_and_server_derived() -> None:
+    from scripts.apply_supabase_migrations import MIGRATIONS
+
+    filename = "supabase_member_identity_roles.sql"
+    assert filename in MIGRATIONS
+    sql = (ROOT / filename).read_text(encoding="utf-8").lower()
+    assert "public.effective_account_role() <> 'owner'" in sql
+    assert "revoke update (" in sql
+    assert "assigned_member_role" in sql
+    assert "author_badge_number" in sql
+    assert "new.author_badge_number :=" in sql
+    assert "prevent_member_access_self_assignment" in sql
+    assert "revoke all on function public.assign_member_identity_role" in sql

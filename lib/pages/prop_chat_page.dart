@@ -4,10 +4,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../models/member_identity.dart';
 import '../services/auth_manager.dart';
 import '../services/prop_chat_service.dart';
 import '../theme/app_colors.dart';
-import '../widgets/official_identity_badge.dart';
+import '../widgets/member_identity_badge.dart';
 
 String? _firstSecureLink(String text) {
   final match = RegExp(
@@ -1061,22 +1062,16 @@ class _MessageBubble extends StatelessWidget {
                       child: Row(
                         children: [
                           Flexible(
-                            child: Text(
-                              '@${message.username}',
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: isOwn || isOfficialOwner
-                                    ? AppColors.gold
-                                    : AppColors.silver,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900,
+                            child: MemberIdentityBadge(
+                              username: message.username,
+                              role: MemberIdentityRole.fromValues(
+                                accountRole: message.authorRole,
+                                assignedRole: message.authorRole,
                               ),
+                              founderNumber: message.authorBadgeNumber,
+                              compact: true,
                             ),
                           ),
-                          if (isOfficialOwner) ...[
-                            const SizedBox(width: 6),
-                            const OfficialOwnerBadge(compact: true),
-                          ],
                           if (message.isDiscord) ...[
                             const SizedBox(width: 5),
                             const Chip(

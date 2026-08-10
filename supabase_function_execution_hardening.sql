@@ -44,6 +44,7 @@ begin
   foreach signature in array array[
     'public.acknowledge_prop_chat_notice(bigint)',
     'public.assign_user_role(text,text)',
+    'public.assign_member_identity_role(text,text,integer)',
     'public.can_access_prop_chat_room(text)',
     'public.create_prop_chat_game_thread(text,text,text)',
     'public.effective_account_role()',
