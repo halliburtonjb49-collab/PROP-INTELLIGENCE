@@ -58,9 +58,9 @@ services:
       - key: REVENUECAT_WEBHOOK_SECRET
         sync: false
       - key: REVENUECAT_CORE_PRODUCT_IDS
-        sync: false
+        value: prod_V2I4xt1xOUDKS2,prod_V2I4Nv3ZL9U3tm,prod_V2HtLX7PNEtKou,prod_V2HtvjcyjqiHdK
       - key: REVENUECAT_EDGE_PRODUCT_IDS
-        sync: false
+        value: prod_V2I4HYJ3ktbbvl,prod_V2I4A90mbxjJAQ,prod_V2HtvKsK5v7Cbw,prod_V2Htm4DxpRUbX4
       - key: REVENUECAT_FOUNDING_PRODUCT_IDS
         value: prod_V2I3KIzAuJTE3k,prod_V2I6iiJdrfC1Bm,prod_V2HuAF8pvvncm1,prod_V2HuxzkBqojjLU
       - key: FOUNDING_PRO_MEMBER_LIMIT
@@ -70,7 +70,7 @@ services:
       - key: BILLING_CATALOG_VERIFIED
         value: "true"
       - key: BILLING_CATALOG_VERIFIED_AT
-        value: "2026-08-09T21:45:24Z"
+        value: "2026-08-10T20:02:41Z"
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY

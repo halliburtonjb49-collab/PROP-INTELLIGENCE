@@ -2,12 +2,12 @@
 
 ## Billing and access
 
-- [ ] RevenueCat offerings `core`, `edge`, and `edge_founding` each expose active monthly and annual packages.
-- [ ] Monthly Core/Pro/Founding Pro products use $24.99/$59.99/$49.99 and a 2-day trial; every annual product uses a 7-day trial.
+- [x] RevenueCat offerings `core`, `edge`, and `edge_founding` each expose active monthly and annual packages.
+- [x] Monthly Core/Pro/Founding Pro products use $24.99/$59.99/$49.99 and a 2-day trial; every annual product uses a 7-day trial.
 - [ ] Founding Pro distribution is capped at 100 claims in RevenueCat/Stripe and `edge_founding` is archived immediately after the cap is reached.
-- [ ] Entitlements are named `core_tier` and `edge_tier`.
-- [ ] `REVENUECAT_PUBLIC_API_KEY` is configured on the Render static app.
-- [ ] RevenueCat webhook targets `https://api.propsintell.com/api/billing/revenuecat/webhook` with the configured bearer secret.
+- [x] Entitlements are named `core_tier` and `edge_tier`.
+- [x] `REVENUECAT_PUBLIC_API_KEY` is required by the Vercel production build and configured for the deployed web app.
+- [x] RevenueCat webhook targets `https://api.propsintell.com/api/billing/revenuecat/webhook` with the configured authorization header; both production and sandbox events are enabled.
 - [ ] New Core, Edge, renewal, restore, cancellation, and expiration flows are verified with sandbox accounts.
 
 ## Data and model integrity
