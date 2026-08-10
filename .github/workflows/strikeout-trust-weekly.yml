@@ -26,6 +26,11 @@ jobs:
       - name: Build weekly trust report
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # The report is database-only, but shared config validates provider
+          # variables during import. Explicit non-secret placeholders keep the
+          # offline report from failing before it reaches its own logic.
+          ODDS_API_KEY: offline-report-not-used
+          API_SPORTS_KEY: offline-report-not-used
           STRIKEOUT_TRUST_FAIL_ON_CRITICAL: 'false'
         run: |
           PYTHONPATH=. python scripts/strikeout_trust_weekly_report.py
