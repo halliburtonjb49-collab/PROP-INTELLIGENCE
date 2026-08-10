@@ -31,9 +31,25 @@ void main() {
   });
 
   test('board framing becomes denser on phones and tablets', () {
-    expect(boardContentPadding(390).horizontal, 20);
-    expect(boardContentPadding(768).horizontal, 24);
+    expect(boardContentPadding(390).horizontal, 16);
+    expect(boardContentPadding(768).horizontal, 20);
     expect(boardContentPadding(1200).horizontal, 28);
+  });
+
+  test('board framing and scrollbars adapt to touch layouts', () {
+    expect(boardSectionGap(390), 6);
+    expect(boardSectionGap(768), 8);
+    expect(boardSectionGap(1200), 10);
+    expect(usePersistentBoardScrollbar(390), isFalse);
+    expect(usePersistentBoardScrollbar(768), isFalse);
+    expect(usePersistentBoardScrollbar(1200), isTrue);
+    expect(boardScrollbarThickness(390), 4);
+    expect(boardScrollbarThickness(768), 5);
+    expect(boardScrollbarThickness(1200), 9);
+    expect(boardFilterRailHeight(390), 44);
+    expect(boardFilterRailHeight(768), 49);
+    expect(boardRailArrowWidth(390), 38);
+    expect(boardRailArrowWidth(768), 42);
   });
 
   test('verdict filters preserve an unloaded count state', () {

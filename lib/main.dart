@@ -48,11 +48,16 @@ export 'widgets/main_dashboard.dart'
     show
         boardIntelligenceScope,
         boardContentPadding,
+        boardFilterRailHeight,
+        boardRailArrowWidth,
+        boardScrollbarThickness,
+        boardSectionGap,
         compactBoardControlWidth,
         providerCoverageIssueForSport,
         resolveVerdictFilterCount,
         shouldWrapVerdictFilters,
         useCompactBoardControls,
+        usePersistentBoardScrollbar,
         visibleCategoryFilters;
 export 'widgets/prop_board_loading.dart';
 import 'widgets/lock_slip_dialog.dart';

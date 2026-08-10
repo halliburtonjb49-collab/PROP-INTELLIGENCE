@@ -2492,6 +2492,8 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Widget _buildBoardCategories() {
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final railHeight = boardFilterRailHeight(viewportWidth);
     final categories = _currentCategories;
     IconData categoryIcon(String category) => switch (category) {
       'ALL' => Icons.grid_view_rounded,
@@ -2509,7 +2511,7 @@ class _MainDashboardState extends State<MainDashboard> {
         ? localCounts.values.fold<int>(0, (sum, count) => sum + count)
         : localCounts[category] ?? 0;
     return SizedBox(
-      height: 49,
+      height: railHeight,
       child: Row(
         children: [
           Expanded(
@@ -2538,8 +2540,8 @@ class _MainDashboardState extends State<MainDashboard> {
           ),
           const SizedBox(width: 5),
           SizedBox(
-            width: 42,
-            height: 49,
+            width: boardRailArrowWidth(viewportWidth),
+            height: railHeight,
             child: OutlinedButton(
               onPressed: () {
                 if (!_categoryHorizontalController.hasClients) return;
@@ -2575,6 +2577,7 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Widget _buildBoardSports() {
+    final viewportWidth = MediaQuery.sizeOf(context).width;
     final sports = _availableSiteSports;
     if (sports.isEmpty) {
       return const SizedBox.shrink();
@@ -2599,7 +2602,7 @@ class _MainDashboardState extends State<MainDashboard> {
       _ => Icons.emoji_events_outlined,
     };
     return SizedBox(
-      height: 45,
+      height: boardFilterRailHeight(viewportWidth),
       child: ListView.separated(
         key: const ValueKey('prop-site-sport-tabs'),
         controller: _sportHorizontalController,
@@ -2645,6 +2648,8 @@ class _MainDashboardState extends State<MainDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final boardViewportWidth = MediaQuery.sizeOf(context).width;
+    final sectionGap = boardSectionGap(boardViewportWidth);
     final alertsForPage = _propAlerts.isNotEmpty
         ? _propAlerts
         : _fallbackPropAlertsFromProps(_latestProps);
@@ -2719,19 +2724,23 @@ class _MainDashboardState extends State<MainDashboard> {
                   )
                 : Scrollbar(
                     controller: _boardVerticalController,
-                    thumbVisibility: true,
-                    trackVisibility: true,
-                    interactive: true,
-                    thickness: 9,
+                    thumbVisibility: usePersistentBoardScrollbar(
+                      boardViewportWidth,
+                    ),
+                    trackVisibility: usePersistentBoardScrollbar(
+                      boardViewportWidth,
+                    ),
+                    interactive: usePersistentBoardScrollbar(
+                      boardViewportWidth,
+                    ),
+                    thickness: boardScrollbarThickness(boardViewportWidth),
                     radius: const Radius.circular(8),
                     scrollbarOrientation: ScrollbarOrientation.right,
                     child: SingleChildScrollView(
                       controller: _boardVerticalController,
                       primary: false,
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: boardContentPadding(
-                        MediaQuery.sizeOf(context).width,
-                      ),
+                      padding: boardContentPadding(boardViewportWidth),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -2739,14 +2748,14 @@ class _MainDashboardState extends State<MainDashboard> {
                             builder: (context, constraints) =>
                                 _buildBoardSearchAndBooks(constraints.maxWidth),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: sectionGap),
                           _buildProviderReliabilityBanner(),
-                          const SizedBox(height: 10),
+                          SizedBox(height: sectionGap),
                           if (_selectedSite != 'ALL') ...[
                             _buildBoardSports(),
-                            const SizedBox(height: 7),
+                            SizedBox(height: sectionGap),
                             _buildBoardCategories(),
-                            const SizedBox(height: 10),
+                            SizedBox(height: sectionGap),
                           ],
                           /*Text(
                             '${visibleProps.length} visible props • $_propCount total loaded',
@@ -2764,11 +2773,11 @@ class _MainDashboardState extends State<MainDashboard> {
                                 .hasEdgeAccess,
                           )) ...[
                             _buildVerdictFilter(),
-                            const SizedBox(height: 8),
+                            SizedBox(height: sectionGap),
                           ],
                           if (_activeBoardFilterLabels().isNotEmpty) ...[
                             _buildActiveBoardFilters(),
-                            const SizedBox(height: 10),
+                            SizedBox(height: sectionGap),
                           ],
                           PropGrid(
                             selections: widget.selections,
@@ -2895,13 +2904,38 @@ double compactBoardControlWidth(double availableWidth) {
 @visibleForTesting
 EdgeInsets boardContentPadding(double viewportWidth) {
   if (viewportWidth < 600) {
-    return const EdgeInsets.fromLTRB(10, 10, 10, 18);
+    return const EdgeInsets.fromLTRB(8, 8, 8, 16);
   }
   if (viewportWidth < 1000) {
-    return const EdgeInsets.fromLTRB(12, 10, 12, 20);
+    return const EdgeInsets.fromLTRB(10, 9, 10, 18);
   }
   return const EdgeInsets.fromLTRB(14, 12, 14, 22);
 }
+
+@visibleForTesting
+double boardSectionGap(double viewportWidth) {
+  if (viewportWidth < 600) return 6;
+  if (viewportWidth < 1000) return 8;
+  return 10;
+}
+
+@visibleForTesting
+bool usePersistentBoardScrollbar(double viewportWidth) => viewportWidth >= 1000;
+
+@visibleForTesting
+double boardScrollbarThickness(double viewportWidth) {
+  if (viewportWidth < 600) return 4;
+  if (viewportWidth < 1000) return 5;
+  return 9;
+}
+
+@visibleForTesting
+double boardFilterRailHeight(double viewportWidth) =>
+    viewportWidth < 600 ? 44 : 49;
+
+@visibleForTesting
+double boardRailArrowWidth(double viewportWidth) =>
+    viewportWidth < 600 ? 38 : 42;
 
 @visibleForTesting
 int? resolveVerdictFilterCount(Map<String, int> counts, String value) {

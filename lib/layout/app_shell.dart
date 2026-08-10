@@ -4,6 +4,19 @@ import '../theme/app_colors.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
+double mobileShellInset(double width) => width < 600 ? 5 : 6;
+double mobileShellGap(double width) => width < 600 ? 5 : 6;
+double mobileTopBarHeight(double width) => width < 360
+    ? 56
+    : width < 600
+    ? 58
+    : 60;
+double mobileBottomBarHeight(double width) => width < 360
+    ? 60
+    : width < 600
+    ? 64
+    : 66;
+
 class AppShell extends StatelessWidget {
   const AppShell({
     super.key,
@@ -271,6 +284,8 @@ class _MobileAppShellState extends State<_MobileAppShell> {
     final drawerWidth = screenWidth < 360
         ? (screenWidth * 0.85).clamp(240.0, 300.0)
         : screenWidth.clamp(260.0, 340.0);
+    final shellInset = mobileShellInset(screenWidth);
+    final shellGap = mobileShellGap(screenWidth);
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.background,
@@ -293,11 +308,11 @@ class _MobileAppShellState extends State<_MobileAppShell> {
           const Positioned.fill(child: _FrontPageWorkspaceBackground()),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(7),
+              padding: EdgeInsets.all(shellInset),
               child: Column(
                 children: [
                   Container(
-                    height: screenWidth < 360 ? 56 : 62,
+                    height: mobileTopBarHeight(screenWidth),
                     padding: EdgeInsets.symmetric(
                       horizontal: screenWidth < 360 ? 4 : 7,
                     ),
@@ -310,7 +325,7 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                       children: [Expanded(child: widget.topNavigation)],
                     ),
                   ),
-                  const SizedBox(height: 7),
+                  SizedBox(height: shellGap),
                   Expanded(
                     child: NotificationListener<ScrollNotification>(
                       onNotification: (notification) {
@@ -338,7 +353,7 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 7),
+                  SizedBox(height: shellGap),
                   _MobileBottomNavigation(
                     selectedIndex: widget.selectedIndex,
                     activeSlipCount: widget.activeSlipCount,
@@ -397,7 +412,7 @@ class _MobileBottomNavigation extends StatelessWidget {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isNarrow = screenWidth < 360;
     return Container(
-      height: isNarrow ? 60 : 68,
+      height: mobileBottomBarHeight(screenWidth),
       padding: EdgeInsets.symmetric(
         horizontal: isNarrow ? 3 : 5,
         vertical: isNarrow ? 3 : 5,

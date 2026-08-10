@@ -3,6 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/layout/app_shell.dart';
 
 void main() {
+  test('mobile shell reclaims space without shrinking touch targets', () {
+    expect(mobileShellInset(390), 5);
+    expect(mobileShellGap(390), 5);
+    expect(mobileTopBarHeight(320), 56);
+    expect(mobileTopBarHeight(390), 58);
+    expect(mobileTopBarHeight(768), 60);
+    expect(mobileBottomBarHeight(320), 60);
+    expect(mobileBottomBarHeight(390), 64);
+    expect(mobileBottomBarHeight(768), 66);
+  });
   Widget buildShell({
     int activeSlipCount = 0,
     int watchedSlipCount = 0,
