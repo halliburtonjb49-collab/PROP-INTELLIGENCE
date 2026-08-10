@@ -1890,13 +1890,15 @@ class _MainDashboardState extends State<MainDashboard> {
           _activeBoardFilterLabels().isEmpty
               ? 'FILTERS'
               : 'FILTERS ${_activeBoardFilterLabels().length}',
-          style: const TextStyle(fontSize: 8),
+          style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800),
         ),
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.white,
-          backgroundColor: app_colors.AppColors.sidebar,
-          side: const BorderSide(color: app_colors.AppColors.border),
-          padding: const EdgeInsets.symmetric(horizontal: 11),
+          foregroundColor: app_colors.AppColors.gold,
+          backgroundColor: app_colors.AppColors.gold.withValues(alpha: .10),
+          side: const BorderSide(color: app_colors.AppColors.gold),
+          padding: const EdgeInsets.symmetric(horizontal: 13),
+          fixedSize: const Size(160, 48),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
         ),
       ),
       if (!compactLayout) ...books.map(buildSiteButton),

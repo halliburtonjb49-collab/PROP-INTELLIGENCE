@@ -54,7 +54,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('board chat matches the prop-site control size', (tester) async {
+  testWidgets('board controls match the prop-site control size', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1600, 1000);
     tester.view.devicePixelRatio = 1;
     addTearDown(() {
@@ -67,14 +69,17 @@ void main() {
 
     final siteSelector = find.byKey(const ValueKey('all-prop-sites-menu'));
     final chatButton = find.byKey(const ValueKey('board-prop-chat-button'));
+    final filterButton = find.byKey(const ValueKey('board-filter-button'));
     expect(siteSelector, findsOneWidget);
     expect(chatButton, findsOneWidget);
+    expect(filterButton, findsOneWidget);
     final siteButton = find.descendant(
       of: siteSelector,
       matching: find.byType(OutlinedButton),
     );
     expect(siteButton, findsOneWidget);
     expect(tester.getSize(chatButton), tester.getSize(siteButton));
+    expect(tester.getSize(filterButton), tester.getSize(siteButton));
     expect(
       find.descendant(of: chatButton, matching: find.text('PROP CHAT')),
       findsOneWidget,
