@@ -25,7 +25,7 @@ class MemberIdentityBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageSize = compact ? 24.0 : 38.0;
+    final imageSize = compact ? 29.0 : 44.0;
     return Semantics(
       button: true,
       label: 'View @$username $founderLabel profile',
@@ -93,7 +93,7 @@ class MemberIdentityBadge extends StatelessWidget {
       ),
       title: Row(
         children: [
-          _RoleImage(role: role, size: 58),
+          _RoleImage(role: role, size: 66),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
