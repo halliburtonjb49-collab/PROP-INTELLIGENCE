@@ -33,6 +33,7 @@ RevenueCat offerings `core`, `edge`, and `edge_founding` each contain the expect
 - Stripe sandbox now has six active current products and two archived legacy products. Archived: Core `prod_UuPICla4aEyHMN` ($29.99) and Edge `prod_UuPJXMtrbZQAtU` ($89.99). Existing test subscriptions were preserved.
 - The four archived products were detached from RevenueCat. `core_tier` now contains four current live/sandbox products; `edge_tier` contains eight current Pro/Founding live/sandbox products.
 - The unused `PI PROP INTELLIGENCE Pro` Test Store entitlement (`entl787b5a5265`) was deleted.
+- RevenueCat's stable `edge` offering now displays as `PROP INTELLIGENCE Pro`; its packages display as `Pro monthly` and `Pro annual`, and its web purchase link and checkout messaging use Pro exclusively.
 
 ## Sandbox lifecycle evidence
 

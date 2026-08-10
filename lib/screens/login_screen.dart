@@ -339,7 +339,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
           ),
           _FeatureGroup(
             icon: Icons.auto_awesome_rounded,
-            title: 'ADVANCED EDGE TOOLS',
+            title: 'ADVANCED PRO TOOLS',
             items: [
               'Actionable EV Scanner with fair-price and sportsbook comparison',
               'Strikeout Pro Gold with all-site and individual-site views',

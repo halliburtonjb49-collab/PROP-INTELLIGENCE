@@ -1,4 +1,4 @@
-/// System-generated OVER/UNDER direction is an Edge/Pro entitlement.
+/// System-generated OVER/UNDER direction is a Pro entitlement.
 ///
 /// Core members can still inspect factual lines, odds, schedules, movement,
 /// and player research, and can manually select either side.

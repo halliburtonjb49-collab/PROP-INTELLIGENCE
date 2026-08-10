@@ -8,7 +8,7 @@
 - [x] Entitlements are named `core_tier` and `edge_tier`.
 - [x] `REVENUECAT_PUBLIC_API_KEY` is required by the Vercel production build and configured for the deployed web app.
 - [x] RevenueCat webhook targets `https://api.propsintell.com/api/billing/revenuecat/webhook` with the configured authorization header; both production and sandbox events are enabled.
-- [ ] New Core, Edge, renewal, restore, cancellation, and expiration flows are verified with sandbox accounts.
+- [ ] New Core, Pro, renewal, restore, cancellation, and expiration flows are verified with sandbox accounts.
 
 ## Data and model integrity
 
@@ -22,7 +22,7 @@
 
 - [ ] New account creation and email confirmation work from `app.propsintell.com`.
 - [ ] Sign in, password reset, social auth, purchase, restore, upgrade, and sign out work.
-- [ ] Core and Edge feature gates match the pricing descriptions.
+- [ ] Core and Pro feature gates match the pricing descriptions.
 - [ ] First-run onboarding appears once and can be completed at compact and desktop widths.
 - [ ] Slip creation, saving, alert creation, and history work for the correct tier.
 

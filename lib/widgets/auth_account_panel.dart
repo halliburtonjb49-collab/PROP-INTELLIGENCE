@@ -126,7 +126,7 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
           ? 'Owner access preview disabled.'
           : tier == SubscriptionTier.free
           ? 'Previewing the signed-in experience with no active plan.'
-          : 'Previewing the app as a ${tier.name.toUpperCase()} subscriber.',
+          : 'Previewing the app as a ${tier.displayName.toUpperCase()} subscriber.',
     );
   }
 
@@ -747,7 +747,7 @@ class _SignedInView extends StatelessWidget {
                     child: Text('PREVIEW WITH NO PLAN'),
                   ),
                   PopupMenuItem(value: 'core', child: Text('PREVIEW AS CORE')),
-                  PopupMenuItem(value: 'edge', child: Text('PREVIEW AS EDGE')),
+                  PopupMenuItem(value: 'edge', child: Text('PREVIEW AS PRO')),
                   PopupMenuDivider(),
                   PopupMenuItem(value: 'off', child: Text('EXIT PREVIEW')),
                 ],
@@ -777,7 +777,7 @@ class _SignedInView extends StatelessWidget {
                             ? 'ACCESS PREVIEW'
                             : accessPreviewTier == SubscriptionTier.free
                             ? 'PREVIEW: NO PLAN'
-                            : 'PREVIEW: ${accessPreviewTier!.name.toUpperCase()}',
+                            : 'PREVIEW: ${accessPreviewTier!.displayName.toUpperCase()}',
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,

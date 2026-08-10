@@ -3,6 +3,10 @@ import 'package:prop_intelligence/services/auth_manager.dart';
 import 'package:prop_intelligence/widgets/auth_account_panel.dart';
 
 void main() {
+  test('stored edge tier is displayed to customers as Pro', () {
+    expect(SubscriptionTier.edge.displayName, 'Pro');
+  });
+
   test('free users can discover the plan selector', () {
     expect(
       shouldShowPlanSelector(tier: SubscriptionTier.free, role: 'user'),
@@ -31,7 +35,7 @@ void main() {
     );
   });
 
-  test('Edge users manage their subscription without an upgrade prompt', () {
+  test('Pro users manage their subscription without an upgrade prompt', () {
     expect(
       shouldShowPlanSelector(tier: SubscriptionTier.edge, role: 'user'),
       isFalse,

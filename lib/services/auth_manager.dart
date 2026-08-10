@@ -41,6 +41,11 @@ enum SubscriptionTier {
 
   bool get hasCoreAccess => this == core || this == edge;
   bool get hasEdgeAccess => this == edge;
+  String get displayName => switch (this) {
+    free => 'Free',
+    core => 'Core',
+    edge => 'Pro',
+  };
 
   static SubscriptionTier fromDatabase(Object? value) {
     return switch (value?.toString().trim().toLowerCase()) {

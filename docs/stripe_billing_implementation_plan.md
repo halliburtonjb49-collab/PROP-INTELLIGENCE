@@ -20,7 +20,7 @@ For `app.propsintell.com`, use identified RevenueCat web purchases so the checko
 - The Founding Pro cap must be enforced in the billing platform: stop distributing or archive `edge_founding` as soon as the 100th subscription is claimed. Hiding the offer in Flutter alone is not a billing control.
 
 1. Complete a Stripe sandbox account first, then connect it from RevenueCat as the RevenueCat project owner.
-2. Create one flat-rate recurring Stripe product/price for Core and one for Edge. Use separate products for monthly and annual variants if both intervals are offered; RevenueCat recommends one selected price per imported Stripe product.
+2. Create one flat-rate recurring Stripe product/price for Core and one for Pro. Use separate products for monthly and annual variants if both intervals are offered; RevenueCat recommends one selected price per imported Stripe product.
 3. Configure invoice branding, customer emails, retry/dunning rules, tax behavior, statement descriptor, and support contact in Stripe.
 4. Enable the Stripe Customer Portal for invoices, receipts, payment-method updates, plan changes, and cancellation. Put its URL in the RevenueCat Stripe web config.
 5. Import the Stripe products into RevenueCat and attach them to packages in the existing `core` and `edge` offerings. Map them to `core_tier` and `edge_tier` respectively.
@@ -44,7 +44,7 @@ For `app.propsintell.com`, use identified RevenueCat web purchases so the checko
 
 ## Verification and launch gates
 
-1. In Stripe sandbox, test Core purchase, Edge purchase, upgrade/downgrade, cancel-at-period-end, expiration, failed payment/recovery, refund, and invoice/receipt access.
+1. In Stripe sandbox, test Core purchase, Pro purchase, upgrade/downgrade, cancel-at-period-end, expiration, failed payment/recovery, refund, and invoice/receipt access.
 2. Verify each flow updates the correct RevenueCat entitlement and that duplicate/out-of-order webhook delivery does not regress access.
 3. Confirm a checkout success page alone cannot unlock API features.
 4. Confirm portal access is scoped to the signed-in customer and cannot be supplied by another user.

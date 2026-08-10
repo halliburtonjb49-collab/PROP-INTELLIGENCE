@@ -70,7 +70,7 @@ def production_acceptance_snapshot(now: datetime | None = None) -> dict[str, obj
     if not webhook_configured:
         issues.append({"severity": "critical", "code": "webhook_unconfigured", "message": "RevenueCat webhook authentication is not configured."})
     if not core_configured or not edge_configured:
-        issues.append({"severity": "critical", "code": "products_unconfigured", "message": "Core or Edge billing product mapping is not configured."})
+        issues.append({"severity": "critical", "code": "products_unconfigured", "message": "Core or Pro billing product mapping is not configured."})
     if not founding_configured:
         issues.append({"severity": "critical", "code": "founding_cap_unconfigured", "message": "Founding Pro product mapping is not configured; the member cap cannot be enforced."})
 

@@ -122,7 +122,7 @@ void main() {
     expect(find.text('MODEL INTELLIGENCE'), findsOneWidget);
     expect(find.text('BUILD & TRACK'), findsOneWidget);
     expect(find.text('PROP CHAT & ALERTS'), findsOneWidget);
-    expect(find.text('ADVANCED EDGE TOOLS'), findsOneWidget);
+    expect(find.text('ADVANCED PRO TOOLS'), findsOneWidget);
     expect(
       find.text(
         'Poisson and Monte Carlo modeling with de-vigged market probabilities',

@@ -23,7 +23,7 @@ void main() {
     },
   );
 
-  test('owner receives full Core and Edge access', () {
+  test('owner receives full Core and Pro access', () {
     const state = AuthSessionState(
       ready: true,
       authenticated: true,
@@ -95,7 +95,7 @@ void main() {
     }
   });
 
-  test('user access follows Core and Edge subscription tier', () {
+  test('user access follows Core and Pro subscription tier', () {
     AuthSessionState user(SubscriptionTier tier) => AuthSessionState(
       ready: true,
       authenticated: true,

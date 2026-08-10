@@ -34,7 +34,7 @@
 - Confirm `propsintell@gmail.com` is actively monitored and send a test support
   request through the published customer path.
 - Run one provider-sandbox lifecycle with a disposable account: Core purchase,
-  Edge upgrade, cancellation at period end, billing failure/recovery,
+  Pro upgrade, cancellation at period end, billing failure/recovery,
   expiration, restore purchase, and password recovery. Record the RevenueCat
   event IDs and resulting app access state without storing credentials.
 

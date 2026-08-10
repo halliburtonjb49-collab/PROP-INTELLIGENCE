@@ -410,7 +410,7 @@ class _OwnerAccessPreviewBanner extends StatelessWidget {
                 Flexible(
                   child: Text(
                     'OWNER ACCESS PREVIEW: '
-                    '${tier == SubscriptionTier.free ? 'NO PLAN' : tier.name.toUpperCase()} — '
+                    '${tier == SubscriptionTier.free ? 'NO PLAN' : tier.displayName.toUpperCase()} — '
                     'UI ACCESS ONLY, BILLING UNCHANGED',
                     textAlign: TextAlign.center,
                     style: const TextStyle(

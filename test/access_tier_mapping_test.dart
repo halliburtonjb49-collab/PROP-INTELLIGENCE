@@ -7,7 +7,7 @@ import 'package:prop_intelligence/models/prop_data.dart';
 import 'package:prop_intelligence/models/slip_selection.dart';
 
 void main() {
-  test('system OVER/UNDER direction is available only with Edge access', () {
+  test('system OVER/UNDER direction is available only with Pro access', () {
     expect(canShowSystemRecommendation(hasEdgeAccess: false), isFalse);
     expect(canShowSystemRecommendation(hasEdgeAccess: true), isTrue);
     expect(
