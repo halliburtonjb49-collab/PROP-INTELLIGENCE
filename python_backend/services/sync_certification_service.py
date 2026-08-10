@@ -71,9 +71,16 @@ def sync_certification(
         and str(row.get("lastError") or "")
         and not str(row.get("lastError") or "").startswith("skipped:")
     ]
+    failed_events = sum(
+        int(row.get("failedEvents") or 0)
+        for row in result_rows
+        if isinstance(row, dict)
+    )
     starved = list(coverage.get("starvedByQuota") or [])
+    fetched_but_empty = list(coverage.get("fetchedButEmpty") or [])
     coverage_status = (
-        "WARNING" if fetch_errors or starved
+        "WARNING"
+        if fetch_errors or failed_events or starved or fetched_but_empty
         else "PENDING" if never_fetched
         else "PASSED"
     )
@@ -81,7 +88,9 @@ def sync_certification(
         "coverage", "Broad sport coverage", coverage_status,
         f"{len(configured_sports) - len(never_fetched)} of "
         f"{len(configured_sports)} configured sport(s) fetched; "
-        f"{len(fetch_errors)} error(s), {len(starved)} quota-starved.",
+        f"{len(fetch_errors)} sport error(s), {failed_events} failed event "
+        f"request(s), {len(starved)} quota-starved, "
+        f"{len(fetched_but_empty)} fetched but empty.",
     ))
 
     statuses = {check["status"] for check in checks}

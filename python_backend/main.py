@@ -1931,6 +1931,7 @@ def _job_queue_summary() -> dict[str, object]:
 		"queued": state.get("queued"),
 		"started": state.get("started"),
 		"failed": state.get("failed"),
+		"retryPolicy": state.get("retryPolicy"),
 	}
 
 

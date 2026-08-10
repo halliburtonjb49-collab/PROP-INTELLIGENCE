@@ -21,6 +21,7 @@ def _healthy_inputs() -> dict[str, object]:
             "configured": ["baseball_mlb", "basketball_wnba"],
             "neverFetched": [],
             "starvedByQuota": [],
+            "fetchedButEmpty": [],
             "results": {
                 "baseball_mlb": {"lastError": ""},
                 "basketball_wnba": {"lastError": ""},
@@ -77,3 +78,20 @@ def test_exhausted_retries_or_provider_errors_are_warnings() -> None:
 
     assert report["status"] == "WARNING"
     assert report["needsAttention"] is True
+
+def test_failed_events_and_fetched_but_empty_sports_are_warnings() -> None:
+    inputs = _healthy_inputs()
+    inputs["coverage"]["results"]["baseball_mlb"] = {
+        "lastError": "",
+        "failedEvents": 2,
+    }
+    inputs["coverage"]["fetchedButEmpty"] = ["basketball_wnba"]
+
+    report = sync_certification(**inputs)
+
+    assert report["status"] == "WARNING"
+    coverage = next(
+        check for check in report["checks"] if check["key"] == "coverage"
+    )
+    assert "2 failed event request(s)" in coverage["detail"]
+    assert "1 fetched but empty" in coverage["detail"]
