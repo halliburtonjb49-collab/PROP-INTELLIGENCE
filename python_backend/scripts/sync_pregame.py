@@ -25,7 +25,7 @@ def run_live_api_sync() -> dict[str, object] | None:
     response = requests.post(f"{api_base_url}/api/sync", timeout=30)
     response.raise_for_status()
     payload = response.json()
-    if str(payload.get("status", "")).lower() == "complete":
+    if _full_sync_complete(payload):
         return payload
 
     # Expanded professional coverage can span 150+ events. Keep the monitor
@@ -40,11 +40,25 @@ def run_live_api_sync() -> dict[str, object] | None:
         status_response.raise_for_status()
         payload = status_response.json()
         status = str(payload.get("status", "")).lower()
-        if status == "complete":
+        coverage_status = str(payload.get("coverageStatus", "")).lower()
+        if _full_sync_complete(payload):
             return payload
-        if status == "failed":
-            raise RuntimeError(str(payload.get("error") or "Live API sync failed"))
+        if status == "failed" or coverage_status == "failed":
+            raise RuntimeError(str(
+                payload.get("coverageError")
+                or payload.get("error")
+                or "Live API sync failed"
+            ))
     raise TimeoutError("Live API prop sync did not finish within ten minutes")
+
+
+def _full_sync_complete(payload: dict[str, object]) -> bool:
+    """Only certify success after the broad coverage lane finishes."""
+
+    return (
+        str(payload.get("status", "")).lower() == "complete"
+        and str(payload.get("coverageStatus", "")).lower() == "complete"
+    )
 
 
 def main() -> int:
@@ -73,7 +87,9 @@ def main() -> int:
         errors.append({"stage": "prediction-grading", "error": str(exc)})
     result = finish_pipeline_run(identifier, started, metrics=metrics, errors=errors)
     print(json.dumps(result, indent=2, default=str))
-    return 0 if result["status"] in {"SUCCEEDED", "PARTIAL"} else 1
+    # A partial run contains at least one failed stage. Returning zero made
+    # Render label those executions successful and hid missing coverage.
+    return 0 if result["status"] == "SUCCEEDED" else 1
 
 
 if __name__ == "__main__":

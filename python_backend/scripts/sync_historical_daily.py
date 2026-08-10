@@ -85,7 +85,17 @@ def main() -> int:
             }
         )
     )
-    return other_result
+    # Render should only show green when every chunk and every other stage
+    # completed. Previously failed MLB chunks were printed but ignored if the
+    # final unrelated stage happened to return zero.
+    return _coordinator_exit_code(failed_chunks, other_result)
+
+
+def _coordinator_exit_code(
+    failed_chunks: list[dict[str, str]],
+    other_result: int,
+) -> int:
+    return 0 if not failed_chunks and other_result == 0 else 1
 
 
 if __name__ == "__main__":

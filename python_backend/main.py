@@ -195,6 +195,7 @@ from services.live_stats_service import get_live_player_stat_snapshot
 from services.multi_sport_grading_service import grade_active_slips
 from models.sync_diagnostic import TicketSyncDiagnostic
 from services.sync_diagnostic_service import record_ticket_sync_diagnostic
+from services.sync_certification_service import sync_certification
 from services.result_reconciliation_service import reconcile_user_slips
 from services.prediction_automation_service import prediction_calibration_report
 from services.runtime_readiness_service import runtime_readiness
@@ -2021,12 +2022,22 @@ def prop_feed_health() -> dict[str, object]:
 		stale_after_minutes,
 	)
 	latest_empty = int(metrics.get("lastTotalCount") or 0) == 0
+	feed_status = (
+		"degraded"
+		if metrics.get("lastRequestSucceeded") is False or latest_empty or stale
+		else "ok"
+	)
+	queue_summary = _job_queue_summary()
+	coverage_summary = sport_coverage()
+	key_summary = active_key_snapshot()
+	certification = sync_certification(
+		feed={"latestEmpty": latest_empty, "stale": stale},
+		queue=queue_summary,
+		keys=key_summary,
+		coverage=coverage_summary,
+	)
 	return {
-		"status": (
-			"degraded"
-			if metrics.get("lastRequestSucceeded") is False or latest_empty or stale
-			else "ok"
-		),
+		"status": feed_status,
 		"version": APP_VERSION,
 		"latestEmpty": latest_empty,
 		"stale": stale,
@@ -2045,11 +2056,11 @@ def prop_feed_health() -> dict[str, object]:
 		# owner-authenticated control panel, which is no help when that
 		# panel is the thing failing to load. Counts only, no connection
 		# details.
-		"jobQueue": _job_queue_summary(),
+		"jobQueue": queue_summary,
 		# Which configured sports actually return props. An empty rail has
 		# three very different causes and they are indistinguishable from
 		# outside: out of season, not covered by the plan, or not requested.
-		"sportCoverage": sport_coverage(),
+		"sportCoverage": coverage_summary,
 		# Which bookmakers the provider has actually returned, against those
 		# requested. A key that is asked for and never seen is the difference
 		# between a book with no props today and one the plan does not cover.
@@ -2060,7 +2071,8 @@ def prop_feed_health() -> dict[str, object]:
 		# run can begin on a healthy key and end with none left while the
 		# environment still looks correctly configured. Index and count
 		# only; no key material.
-		"oddsApiKeys": active_key_snapshot(),
+		"oddsApiKeys": key_summary,
+		"syncCertification": certification,
 		# Whether the configured key can read historical odds. Status and
 		# quota only -- the key itself is never returned or logged.
 		"historicalOddsAccess": historical_access(),

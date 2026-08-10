@@ -12,6 +12,19 @@ class _FakeOperationsApi extends ApiService {
     'workers': {'available': true, 'workers': 2, 'queued': 1, 'failed': 0},
     'providers': {'qualityScore': .94, 'errors': 0, 'remainingQuota': 1000},
     'propFreshness': {'healthy': true, 'ageMinutes': 2, 'total': 450},
+    'syncCertification': {
+      'status': 'PENDING',
+      'automaticRetries': true,
+      'generatedAtUtc': '2026-08-10T02:30:00Z',
+      'checks': [
+        {
+          'key': 'coverage',
+          'label': 'Broad sport coverage',
+          'status': 'PENDING',
+          'detail': '4 of 13 configured sports fetched.',
+        },
+      ],
+    },
     'dataCertification': {
       'status': 'WARN',
       'score': 92,
@@ -187,6 +200,11 @@ void main() {
       400,
       scrollable: find.byType(Scrollable).first,
     );
+    expect(
+      find.byKey(const ValueKey('sync-certification')),
+      findsOneWidget,
+    );
+    expect(find.text('PENDING | SYNC CERTIFICATION'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('production-data-certification')),
       findsOneWidget,

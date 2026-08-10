@@ -82,6 +82,10 @@ def health() -> dict[str, object]:
                 connection=queue.connection,
             ).count,
             "workers": len(Worker.all(queue=queue)),
+            "retryPolicy": {
+                "maxAttempts": 4,
+                "retryIntervalsSeconds": [30, 120, 300],
+            },
         }
     except Exception as exc:
         return {

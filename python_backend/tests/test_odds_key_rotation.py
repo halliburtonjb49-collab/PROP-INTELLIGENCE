@@ -64,4 +64,43 @@ def test_the_snapshot_reports_how_many_keys_are_dead() -> None:
 
     assert snapshot["configuredKeyCount"] == 2
     assert snapshot.get("deadKeyCount") == 1
+    assert snapshot["usableKeyCount"] == 1
+    _reset([])
+
+
+def test_a_later_success_restores_a_key_marked_dead(monkeypatch) -> None:
+    class Response:
+        status_code = 200
+        headers = {}
+
+    class Session:
+        @staticmethod
+        def get(*_args, **_kwargs):
+            return Response()
+
+    _reset(["primary"])
+    odds_service._mark_key_dead(0)
+    monkeypatch.setattr(odds_service, "_http_session", lambda: Session())
+
+    odds_service._request_with_failover("https://example.test", {})
+
+    snapshot = odds_service.active_key_snapshot()
+    assert snapshot["status"] == "ok"
+    assert snapshot["usableKeyCount"] == 1
+    assert snapshot["deadKeyCount"] == 0
+    _reset([])
+
+
+def test_quota_guard_does_not_count_a_dead_backup(monkeypatch) -> None:
+    _reset(["primary", "backup"])
+    odds_service._mark_key_dead(1)
+    monkeypatch.setattr(
+        odds_service,
+        "quota_snapshot",
+        lambda: {"remaining": odds_service.ODDS_API_QUOTA_RESERVE},
+    )
+
+    result = odds_service.quota_allows(1)
+
+    assert result["allowed"] is False
     _reset([])

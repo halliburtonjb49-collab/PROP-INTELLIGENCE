@@ -200,6 +200,13 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             _statusGrid(),
             const SizedBox(height: 22),
             _sectionTitle(
+              'SYNC CERTIFICATION',
+              'Feed, worker, provider-key, broad-coverage, and automatic-retry status',
+            ),
+            const SizedBox(height: 10),
+            _syncCertification(),
+            const SizedBox(height: 22),
+            _sectionTitle(
               'PRODUCTION DATA CERTIFICATION',
               'Automated provider parity, category completeness, freshness, slate, and line-history acceptance checks',
             ),
@@ -273,6 +280,68 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             const SizedBox(height: 24),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _syncCertification() {
+    final certification = _map('syncCertification');
+    final checks = (certification['checks'] as List? ?? const [])
+        .whereType<Map>()
+        .toList(growable: false);
+    final status =
+        certification['status']?.toString().toUpperCase() ?? 'PENDING';
+
+    Color statusColor(String value) => switch (value) {
+      'PASSED' => const Color(0xFF8CFFB2),
+      'WARNING' || 'PENDING' => AppColors.gold,
+      _ => const Color(0xFFFF7B7B),
+    };
+
+    if (checks.isEmpty) {
+      return _notice(
+        Icons.sync_problem_outlined,
+        'PENDING | SYNC STATUS UNAVAILABLE',
+        'The synchronization certification has not been reported yet.',
+        AppColors.gold,
+      );
+    }
+
+    return KeyedSubtree(
+      key: const ValueKey('sync-certification'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _notice(
+            status == 'PASSED'
+                ? Icons.sync_outlined
+                : Icons.sync_problem_outlined,
+            '$status | SYNC CERTIFICATION',
+            certification['automaticRetries'] == true
+                ? 'Automatic retries are active.'
+                : 'Automatic retries are not verified.',
+            statusColor(status),
+            trailing: certification['generatedAtUtc']?.toString(),
+          ),
+          const SizedBox(height: 8),
+          ...checks.map((check) {
+            final checkStatus =
+                check['status']?.toString().toUpperCase() ?? 'FAILED';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _notice(
+                checkStatus == 'PASSED'
+                    ? Icons.check_circle_outline
+                    : checkStatus == 'PENDING'
+                    ? Icons.schedule_outlined
+                    : Icons.warning_amber_rounded,
+                '$checkStatus | ${check['label'] ?? 'Sync check'}',
+                check['detail']?.toString() ?? '',
+                statusColor(checkStatus),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }

@@ -32,6 +32,21 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
     )
     monkeypatch.setattr(
         launch_control_service,
+        "active_key_snapshot",
+        lambda: {"configuredKeyCount": 2, "usableKeyCount": 2},
+    )
+    monkeypatch.setattr(
+        launch_control_service,
+        "sport_coverage",
+        lambda: {
+            "configured": ["baseball_mlb"],
+            "results": {"baseball_mlb": {"lastError": ""}},
+            "neverFetched": [],
+            "starvedByQuota": [],
+        },
+    )
+    monkeypatch.setattr(
+        launch_control_service,
         "game_market_health",
         lambda: {"status": "ok", "errors": 1},
     )
@@ -129,6 +144,15 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
     )
     monkeypatch.setattr(
         launch_control_service,
+        "strikeout_calibration_history_report",
+        lambda _controls=None: {
+            "available": True,
+            "weekly": [],
+            "alerts": [],
+        },
+    )
+    monkeypatch.setattr(
+        launch_control_service,
         "strikeout_backtest_monitoring",
         lambda _controls=None: {
             "available": True,
@@ -208,6 +232,7 @@ def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> N
     assert result["providers"]["remainingQuota"] == 420
     assert result["providers"]["errors"] == 1
     assert result["propFreshness"]["ageMinutes"] == 3
+    assert result["syncCertification"]["status"] == "PASSED"
     assert result["dataCertification"]["score"] == 100
     assert result["billingCertification"]["releaseReady"] is True
     assert result["activeUsers"]["count"] == 4

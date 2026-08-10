@@ -64,6 +64,19 @@ def _mark_key_dead(index: int) -> None:
         _dead_keys.add(index)
 
 
+def _mark_key_healthy(index: int) -> None:
+    """Restore a key after the provider accepts it again.
+
+    Key refusals are cached to avoid retrying a deactivated credential on
+    every request. That cache used to be permanent for the process lifetime,
+    so a later successful response could coexist with a health report that
+    claimed every configured key was dead.
+    """
+
+    with _key_state_lock:
+        _dead_keys.discard(index)
+
+
 def _is_deactivated(response: object) -> bool:
     """A refusal of the key itself rather than of this request.
 
@@ -93,9 +106,24 @@ def _advance_to_next_key() -> bool:
 
 def active_key_snapshot() -> dict[str, object]:
     with _key_state_lock:
+        configured = len(_ODDS_API_KEYS)
+        usable_indexes = [
+            index for index in range(configured) if index not in _dead_keys
+        ]
+        active_usable = configured > 0 and _active_key_index in usable_indexes
         return {
+            "status": (
+                "missing"
+                if configured == 0
+                else "ok"
+                if active_usable
+                else "unavailable"
+            ),
             "activeKeyIndex": _active_key_index,
-            "configuredKeyCount": len(_ODDS_API_KEYS),
+            "activeKeyUsable": active_usable,
+            "configuredKeyCount": configured,
+            "usableKeyCount": len(usable_indexes),
+            "usableKeyIndexes": usable_indexes,
             # A key the provider has refused outright. Worth seeing before
             # the live board is the thing that discovers it.
             "deadKeyCount": len(_dead_keys),
@@ -160,7 +188,10 @@ def quota_allows(estimated_cost: int) -> dict[str, object]:
     # _request_with_failover() to move on to it, at no extra cost (the
     # provider doesn't charge for a rejected over-quota call).
     keys = active_key_snapshot()
-    has_backup_key = keys["activeKeyIndex"] + 1 < keys["configuredKeyCount"]
+    has_backup_key = any(
+        int(index) > int(keys["activeKeyIndex"])
+        for index in keys.get("usableKeyIndexes", [])
+    )
 
     allowed = (
         has_backup_key
@@ -187,9 +218,12 @@ def _request_with_failover(url: str, params: dict[str, object]) -> requests.Resp
             timeout=HTTP_TIMEOUT_SECONDS,
         )
         record_quota_headers(response.headers)
+        key_index = _active_key_index_value()
+        if response.status_code < 400:
+            _mark_key_healthy(key_index)
         if response.status_code in _QUOTA_EXHAUSTED_STATUS_CODES:
             if response.status_code == 401 and _is_deactivated(response):
-                _mark_key_dead(_active_key_index_value())
+                _mark_key_dead(key_index)
             if _advance_to_next_key():
                 continue
         return response

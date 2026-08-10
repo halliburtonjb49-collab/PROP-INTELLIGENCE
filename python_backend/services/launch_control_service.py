@@ -18,6 +18,8 @@ from services.grading_review_service import grading_review_queue
 from services.provider_quality_service import provider_quality_score
 from services.model_performance_service import model_performance, operations_summary
 from services.sync_diagnostic_service import ticket_sync_diagnostic_summary
+from services.sync_certification_service import sync_certification
+from services.odds_service import active_key_snapshot, sport_coverage
 from services.user_feedback_service import list_feedback
 from services.engagement_service import product_observability
 from services.data_certification_service import production_data_certification
@@ -329,6 +331,12 @@ def launch_control_snapshot() -> dict[str, object]:
     pipeline_health = summarize_pipeline_health(runs)
     cache = cache_health()
     queue = queue_health()
+    sync_health = sync_certification(
+        feed=acceptance["propFeed"],
+        queue=queue,
+        keys=active_key_snapshot(),
+        coverage=sport_coverage(),
+    )
     market = game_market_health()
     database_counts = _database_counts()
     billing_certification = billing_release_certification()
@@ -505,6 +513,7 @@ def launch_control_snapshot() -> dict[str, object]:
             "qualityScore": provider_score,
         },
         "propFreshness": acceptance["propFeed"],
+        "syncCertification": sync_health,
         "dataCertification": data_certification,
         "billingCertification": billing_certification,
         "scoreboardLatency": scoreboard_latency_snapshot(),
