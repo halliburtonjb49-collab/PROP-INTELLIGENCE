@@ -84,6 +84,54 @@ class ChatUnreadBadge extends StatelessWidget {
   }
 }
 
+SnackBar buildInjuryImpactSnackBar({
+  required Map<String, dynamic> alert,
+  required VoidCallback onView,
+}) {
+  return SnackBar(
+    key: const ValueKey('live-injury-alert'),
+    backgroundColor: const Color(0xFF0B2A42),
+    behavior: SnackBarBehavior.floating,
+    showCloseIcon: true,
+    closeIconColor: app_colors.AppColors.goldLight,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10),
+      side: const BorderSide(color: app_colors.AppColors.gold),
+    ),
+    content: InkWell(
+      key: const ValueKey('injury-impact-alert-view'),
+      onTap: onView,
+      borderRadius: BorderRadius.circular(7),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text:
+                    '${(alert['title'] ?? 'Injury impact changed').toString().toUpperCase()}: ',
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+              TextSpan(text: '${alert['message'] ?? ''}'),
+            ],
+          ),
+          style: const TextStyle(
+            color: app_colors.AppColors.goldLight,
+            fontSize: 14,
+            height: 1.35,
+          ),
+        ),
+      ),
+    ),
+    duration: const Duration(seconds: 8),
+    action: SnackBarAction(
+      label: 'VIEW',
+      textColor: app_colors.AppColors.goldHighlight,
+      onPressed: onView,
+    ),
+  );
+}
+
 class MainDashboard extends StatefulWidget {
   final List<SlipSelection> selections;
   final void Function(PropData prop, PickSide side) onSelect;
@@ -693,21 +741,15 @@ class _MainDashboardState extends State<MainDashboard> {
     if (!mounted || !shouldPresentInjuryAlert(alert, preferences)) return;
     unawaited(AppSoundService.instance.play(AppSoundEvent.warning));
     final messenger = ScaffoldMessenger.maybeOf(context);
+    void openInjuryImpact() {
+      messenger?.hideCurrentSnackBar();
+      widget.onSelectPage?.call(AppPage.injuryImpact);
+    }
+
     messenger
       ?..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          key: const ValueKey('live-injury-alert'),
-          content: Text(
-            '${alert['title'] ?? 'Injury impact changed'}: '
-            '${alert['message'] ?? ''}',
-          ),
-          duration: const Duration(seconds: 8),
-          action: SnackBarAction(
-            label: 'VIEW',
-            onPressed: () => widget.onSelectPage?.call(AppPage.injuryImpact),
-          ),
-        ),
+        buildInjuryImpactSnackBar(alert: alert, onView: openInjuryImpact),
       );
   }
 
@@ -1740,6 +1782,7 @@ class _MainDashboardState extends State<MainDashboard> {
                     : app_colors.AppColors.border,
               ),
               padding: const EdgeInsets.symmetric(horizontal: 13),
+              fixedSize: const Size(160, 48),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(7),
               ),
@@ -1818,9 +1861,10 @@ class _MainDashboardState extends State<MainDashboard> {
               key: const ValueKey('board-prop-chat-button'),
               onPressed: () => widget.onSelectPage?.call(AppPage.propChat),
               icon: const Icon(Icons.forum_rounded, size: 17),
-              label: compactLayout
-                  ? const SizedBox.shrink()
-                  : const Text('PROP CHAT'),
+              label: const Text(
+                'PROP CHAT',
+                style: TextStyle(fontSize: 8, fontWeight: FontWeight.w800),
+              ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: app_colors.AppColors.gold,
                 backgroundColor: app_colors.AppColors.gold.withValues(
@@ -1828,6 +1872,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 ),
                 side: const BorderSide(color: app_colors.AppColors.gold),
                 padding: const EdgeInsets.symmetric(horizontal: 13),
+                fixedSize: const Size(160, 48),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(7),
                 ),
