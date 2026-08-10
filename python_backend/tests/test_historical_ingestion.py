@@ -107,6 +107,56 @@ def test_espn_basketball_box_score_maps_to_projection_columns(
     assert rows[0]["SOURCE"] == "ESPN"
 
 
+def test_espn_basketball_can_include_in_progress_box_scores(
+    monkeypatch,
+) -> None:
+    from datetime import date
+    from providers.espn_basketball_statistics import (
+        EspnBasketballStatisticsProvider,
+    )
+
+    provider = EspnBasketballStatisticsProvider()
+    responses = [
+        {
+            "events": [{
+                "id": "live-game",
+                "name": "Away at Home",
+                "status": {"type": {"completed": False, "state": "in"}},
+            }]
+        },
+        {
+            "boxscore": {
+                "players": [{
+                    "team": {"id": "team-1"},
+                    "statistics": [{
+                        "keys": ["points", "rebounds", "assists"],
+                        "athletes": [{
+                            "athlete": {
+                                "id": "7",
+                                "displayName": "Live Player",
+                            },
+                            "stats": ["12", "5", "3"],
+                        }],
+                    }],
+                }]
+            }
+        },
+    ]
+    monkeypatch.setattr(
+        provider, "_json", lambda *args, **kwargs: responses.pop(0),
+    )
+
+    rows = provider.daily_game_logs(
+        sport="WNBA",
+        target_date=date(2026, 8, 9),
+        include_in_progress=True,
+    )
+
+    assert rows[0]["PTS"] == 12
+    assert rows[0]["GAME_STATUS"] == "Live"
+    assert rows[0]["GAME_COMPLETED"] is False
+
+
 def test_espn_basketball_officiating_assignments_are_stable(
     monkeypatch,
 ) -> None:

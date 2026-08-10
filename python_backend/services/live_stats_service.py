@@ -214,7 +214,9 @@ def _espn_completed_basketball_snapshot(
     else:
         try:
             logs = EspnBasketballStatisticsProvider().daily_game_logs(
-                sport=sport, target_date=target_date,
+                sport=sport,
+                target_date=target_date,
+                include_in_progress=True,
             )
         except (requests.RequestException, KeyError, ValueError):
             return LiveStatSnapshot(None, False, "espn_boxscore_unavailable")
@@ -251,6 +253,8 @@ def _espn_snapshot_from_logs(
         return LiveStatSnapshot(None, False, "espn_player_not_found")
 
     row = candidates[0]
+    completed = bool(row.get("GAME_COMPLETED", True))
+    status = str(row.get("GAME_STATUS") or ("Final" if completed else "Live"))
     market = normalize_prop_type(prop_type)
     if market.startswith("player "):
         market = market.removeprefix("player ").strip()
@@ -279,8 +283,8 @@ def _espn_snapshot_from_logs(
                 return LiveStatSnapshot(None, False, "missing_final_stat")
         return LiveStatSnapshot(
             1.0 if sum(value >= 10 for value in counting_stats) >= 2 else 0.0,
-            True,
-            "Final",
+            completed,
+            status,
             "espn",
         )
     if keys is None:
@@ -291,7 +295,7 @@ def _espn_snapshot_from_logs(
             values.append(float(row[key]))
         except (KeyError, TypeError, ValueError):
             return LiveStatSnapshot(None, False, "missing_final_stat")
-    return LiveStatSnapshot(sum(values), True, "Final", "espn")
+    return LiveStatSnapshot(sum(values), completed, status, "espn")
 
 
 def _normalize_matchup_identity(value: object) -> str:

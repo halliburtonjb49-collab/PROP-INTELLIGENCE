@@ -11,7 +11,7 @@ import requests
 
 from config import HTTP_TIMEOUT_SECONDS
 
-_BASE_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball"
+_BASE_URL = "https://site.web.api.espn.com/apis/site/v2/sports/basketball"
 _LEAGUES = {"NBA": "nba", "WNBA": "wnba"}
 
 
@@ -71,6 +71,13 @@ class EspnBasketballStatisticsProvider:
             f"{_BASE_URL}/{league}/summary",
             params={"event": event_id},
         )
+        status = event.get("status")
+        status_type = status.get("type") if isinstance(status, dict) else {}
+        completed = bool(
+            isinstance(status_type, dict)
+            and status_type.get("completed") is True
+        )
+        game_status = "Final" if completed else "Live"
         rows: list[dict[str, object]] = []
         boxscore = summary.get("boxscore")
         teams = boxscore.get("players", []) if isinstance(boxscore, dict) else []
@@ -145,6 +152,8 @@ class EspnBasketballStatisticsProvider:
                             "OREB": _number(stats.get("offensiveRebounds")),
                             "DREB": _number(stats.get("defensiveRebounds")),
                             "SOURCE": "ESPN",
+                            "GAME_STATUS": game_status,
+                            "GAME_COMPLETED": completed,
                         }
                     )
         return rows
@@ -154,6 +163,7 @@ class EspnBasketballStatisticsProvider:
         *,
         sport: str,
         target_date: date,
+        include_in_progress: bool = False,
     ) -> list[dict[str, object]]:
         normalized_sport = sport.upper()
         league = _LEAGUES[normalized_sport]
@@ -167,7 +177,11 @@ class EspnBasketballStatisticsProvider:
                 continue
             status = event.get("status")
             status_type = status.get("type") if isinstance(status, dict) else {}
-            if not isinstance(status_type, dict) or status_type.get("completed") is not True:
+            if not isinstance(status_type, dict):
+                continue
+            completed = status_type.get("completed") is True
+            state = str(status_type.get("state") or "").strip().lower()
+            if not completed and not (include_in_progress and state == "in"):
                 continue
             rows.extend(
                 self._event_logs(

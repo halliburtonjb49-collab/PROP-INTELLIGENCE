@@ -58,6 +58,28 @@ def test_espn_completed_boxscore_grades_combination_and_double_double() -> None:
     assert double_double.completed is True
 
 
+def test_espn_in_progress_boxscore_updates_combo_market() -> None:
+    snapshot = _espn_snapshot_from_logs(
+        logs=[{
+            "PLAYER_NAME": "Ariel Atkins",
+            "GAME_ID": "live-game",
+            "MATCHUP": "Golden State Valkyries at Los Angeles Sparks",
+            "PTS": 8,
+            "REB": 4,
+            "AST": 2,
+            "GAME_STATUS": "Live",
+            "GAME_COMPLETED": False,
+        }],
+        player_name="Ariel Atkins",
+        prop_type="Player Points Rebounds",
+        event_id="live-game",
+    )
+
+    assert snapshot.value == 12
+    assert snapshot.completed is False
+    assert snapshot.status == "Live"
+
+
 def test_live_boxscore_extracts_prefixed_basketball_markets() -> None:
     row = {"Points": 10, "Rebounds": 5, "Assists": 3}
 
