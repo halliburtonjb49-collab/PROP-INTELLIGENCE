@@ -63,6 +63,28 @@ void main() {
     );
   });
 
+  testWidgets('compact Owner badge uses the full official artwork', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: MemberIdentityBadge(
+            username: 'prop_owner',
+            role: MemberIdentityRole.owner,
+            compact: true,
+          ),
+        ),
+      ),
+    );
+
+    final image = tester.widget<Image>(find.byType(Image));
+    expect(
+      (image.image as AssetImage).assetName,
+      'assets/branding/founder_roles/owner.png',
+    );
+  });
+
   test('complimentary Pro access does not require payment', () {
     const state = AuthSessionState(
       ready: true,

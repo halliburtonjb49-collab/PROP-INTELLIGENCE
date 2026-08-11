@@ -28,7 +28,7 @@ class MemberIdentityBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageSize = compact ? 52.0 : 68.0;
+    final imageSize = compact ? 64.0 : 84.0;
     return Semantics(
       button: true,
       label: 'View @$username $founderLabel profile',
@@ -99,7 +99,7 @@ class MemberIdentityBadge extends StatelessWidget {
       ),
       title: Row(
         children: [
-          _RoleImage(role: role, size: 132),
+          _RoleImage(role: role, size: 160),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -141,9 +141,7 @@ class _RoleImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final asset = role == MemberIdentityRole.owner && size < 100
-        ? 'assets/branding/founder_roles/owner_compact.png'
-        : role.assetPath;
+    final asset = role.assetPath;
     if (asset == null) {
       return Container(
         width: size,
