@@ -18,6 +18,7 @@ from config import (
 )
 from database.postgres import database_is_configured, get_database_pool
 from services.pregame_availability_service import apply_pregame_availability
+from services.sportradar_pregame_service import sync_sportradar_pregame
 
 logger = logging.getLogger(__name__)
 SPORTSDATAIO_MLB = "https://api.sportsdata.io/v3/mlb/projections/json"
@@ -535,8 +536,10 @@ def sync_sportradar_wnba_starters(day: date | None = None) -> dict[str, object]:
 
 
 def sync_pregame_context() -> list[dict[str, object]]:
-    return [sync_official_mlb_context(), sync_sportsdataio_mlb_lineups(), sync_espn_injuries(), sync_sportradar_wnba_injuries(),
-            sync_sportradar_wnba_starters()]
+    results = [sync_official_mlb_context(), sync_sportsdataio_mlb_lineups(), sync_espn_injuries(), sync_sportradar_wnba_injuries(),
+               sync_sportradar_wnba_starters()]
+    results.extend(sync_sportradar_pregame(persist_pregame_observations))
+    return results
 
 
 def _identity(value: object) -> str:
