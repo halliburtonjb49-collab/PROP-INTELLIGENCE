@@ -66,6 +66,7 @@ class PiVerdictBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final treatment = _treatment;
     final accent = treatment.accent;
+    final compact = MediaQuery.sizeOf(context).width < 600;
     final facts = <String>[
       if (verdict.confidence > 0) '${verdict.confidence}% verdict confidence',
       if (verdict.maximumPlayableLine != null)
@@ -76,7 +77,10 @@ class PiVerdictBlock extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 10 : 12,
+        vertical: compact ? 8 : 10,
+      ),
       decoration: BoxDecoration(
         color: accent.withValues(alpha: .07),
         borderRadius: BorderRadius.circular(9),
@@ -114,6 +118,8 @@ class PiVerdictBlock extends StatelessWidget {
           const SizedBox(height: 5),
           Text(
             verdict.reason,
+            maxLines: compact ? 3 : null,
+            overflow: compact ? TextOverflow.ellipsis : TextOverflow.visible,
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 11,
@@ -125,6 +131,8 @@ class PiVerdictBlock extends StatelessWidget {
             Text(
               facts.join('  \u00b7  '),
               key: const ValueKey('pi-verdict-facts'),
+              maxLines: compact ? 1 : null,
+              overflow: compact ? TextOverflow.ellipsis : TextOverflow.visible,
               style: const TextStyle(
                 color: AppColors.textMuted,
                 fontSize: 10,

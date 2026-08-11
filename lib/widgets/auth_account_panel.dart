@@ -685,6 +685,7 @@ class _SignedInView extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             MemberIdentityBadge(
               username: username,
@@ -711,38 +712,45 @@ class _SignedInView extends StatelessWidget {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
+                  const SizedBox(height: 7),
+                  if (normalizedRole == 'owner')
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: OfficialOwnerBadge(compact: true),
+                    )
+                  else
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          normalizedRole == 'admin'
+                              ? Icons.admin_panel_settings_outlined
+                              : normalizedRole == 'tester'
+                              ? Icons.science_outlined
+                              : Icons.person_outline_rounded,
+                          color: roleColor,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            identityRole.label,
+                            key: const ValueKey('account-role-label'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: roleColor,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: .55,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            if (normalizedRole == 'owner')
-              const OfficialOwnerBadge()
-            else
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    normalizedRole == 'admin'
-                        ? Icons.admin_panel_settings_outlined
-                        : normalizedRole == 'tester'
-                        ? Icons.science_outlined
-                        : Icons.person_outline_rounded,
-                    color: roleColor,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    identityRole.label,
-                    key: const ValueKey('account-role-label'),
-                    style: TextStyle(
-                      color: roleColor,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: .55,
-                    ),
-                  ),
-                ],
-              ),
           ],
         ),
         const SizedBox(height: 9),
