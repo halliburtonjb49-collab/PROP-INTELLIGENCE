@@ -361,8 +361,8 @@ class TopNavigation extends StatelessWidget {
                 builder: (context, _) => IconButton(
                   key: const ValueKey('global-sound-toggle'),
                   tooltip: soundService.enabled
-                      ? 'Mute app sounds'
-                      : 'Turn on app sounds',
+                      ? 'Sound: Mouse Click — tap for Silent'
+                      : 'Sound: Silent — tap for Mouse Click',
                   onPressed: () {
                     unawaited(soundService.setEnabled(!soundService.enabled));
                   },
@@ -381,7 +381,7 @@ class TopNavigation extends StatelessWidget {
                   ),
                   icon: Icon(
                     soundService.enabled
-                        ? Icons.volume_up_rounded
+                        ? Icons.mouse_rounded
                         : Icons.volume_off_rounded,
                     size: 19,
                   ),

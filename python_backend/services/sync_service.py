@@ -239,16 +239,24 @@ def _mark_coverage_synced(now: float | None = None) -> None:
         _last_coverage_sync_monotonic = time.monotonic() if now is None else now
 
 
+_DEFAULT_DISABLED_SGO_LEAGUES = {"PGA_MEN"}
+
+
+def _disabled_sgo_leagues() -> set[str]:
+    configured = os.getenv("SPORTSGAMEODDS_DISABLED_LEAGUES")
+    if configured is None:
+        return set(_DEFAULT_DISABLED_SGO_LEAGUES)
+    return {
+        value.strip().upper()
+        for value in configured.split(",")
+        if value.strip()
+    }
+
+
 def next_sgo_leagues(limit: int | None = None) -> list[tuple[str, str]]:
     """Rotate limited provider calls so low rate limits cannot starve leagues."""
     global _sgo_league_cursor
-    disabled = {
-        value.strip().upper()
-        for value in os.getenv(
-            "SPORTSGAMEODDS_DISABLED_LEAGUES", ""
-        ).split(",")
-        if value.strip()
-    }
+    disabled = _disabled_sgo_leagues()
     leagues = [
         item for item in LEAGUE_TO_SPORT.items()
         if item[0].upper() not in disabled
@@ -635,13 +643,7 @@ def sync_sportsgameodds() -> dict[str, object]:
         "accountUsage": account_usage,
         "leagueResults": league_results,
         "attemptedLeagues": [league for league, _ in selected_leagues],
-        "disabledLeagues": sorted({
-            value.strip().upper()
-            for value in os.getenv(
-                "SPORTSGAMEODDS_DISABLED_LEAGUES", ""
-            ).split(",")
-            if value.strip()
-        }),
+        "disabledLeagues": sorted(_disabled_sgo_leagues()),
         "rotationSize": len(LEAGUE_TO_SPORT),
         "durationMs": int((time.perf_counter() - started) * 1000),
         "contribution": _sportsgameodds_contribution(),
@@ -756,6 +758,7 @@ def run_global_sync_pipeline(
     on_coverage_progress: Callable[[dict[str, object]], None] | None = None,
     on_sportsgameodds_started: Callable[[], None] | None = None,
     on_sportsgameodds_complete: Callable[[dict[str, object]], None] | None = None,
+    on_post_processing_progress: Callable[[str], None] | None = None,
 ) -> list[dict[str, object]]:
     sports = configured_sync_sports()
     fast_sports, coverage_sports = partition_sync_sports(sports)
@@ -855,7 +858,17 @@ def run_global_sync_pipeline(
             logger.warning(
                 "sportsgameodds completion callback failed error=%s", exc
             )
+    def report_post_processing(step: str) -> None:
+        if on_post_processing_progress is None:
+            return
+        try:
+            on_post_processing_progress(step)
+        except Exception as exc:
+            logger.warning("post-processing progress callback failed error=%s", exc)
+
+    report_post_processing("supplemental_soccer")
     results.append(sync_balldontlie_soccer())
+    report_post_processing("cricket_probes")
     try:
         cricket_probe = probe_cricket_odds_shape()
     except Exception as exc:
@@ -874,6 +887,7 @@ def run_global_sync_pipeline(
         "sport": "cricketdata_probe", "events": 0, "props": 0,
         **cricketdata_probe,
     })
+    report_post_processing("historical_backfill")
     if _gridiron_ingest_due():
         try:
             # The first run after a deploy reaches back far enough to seed a
@@ -930,7 +944,9 @@ def run_global_sync_pipeline(
             })
         finally:
             _mark_gridiron_ingested()
+    report_post_processing("pregame_context")
     results.extend(sync_pregame_context())
+    report_post_processing("prediction_snapshot")
     snapshot = snapshot_live_predictions()
     results.append({"sport": "prediction_snapshots", "events": 0,
                     "props": int(snapshot.get("created", 0))})
@@ -940,6 +956,7 @@ def run_global_sync_pipeline(
     # evaluated. From outside this looked like two features quietly doing
     # nothing, because the sync itself still reported success for the sports
     # it had already finished.
+    report_post_processing("closing_lines")
     try:
         clv = capture_prediction_closing_lines()
         results.append({"sport": "prediction_clv", "events": 0,
@@ -950,12 +967,14 @@ def run_global_sync_pipeline(
                         "error": str(exc)})
     # Measured here because this walk already holds every prop; doing it
     # inside a request is what turned the operations endpoint into a 502.
+    report_post_processing("board_projection")
     _board = get_props()
     record_selectability_projection(_board)
     # Graded on the same long cooldown as the history top-up: replaying
     # every stored game is expensive and its answer does not change
     # between syncs minutes apart.
     if _grade_due():
+        report_post_processing("historical_grading")
         try:
             record_historical_access()
         except Exception as exc:
@@ -966,6 +985,7 @@ def run_global_sync_pipeline(
             logger.warning("projection grade failed error=%s", exc)
         finally:
             _mark_graded()
+    report_post_processing("alerts")
     alert_snapshots = [{
         "propId": prop.id, "player": prop.player, "playerId": prop.playerId,
         "sport": prop.sport, "market": prop.market, "marketKey": prop.marketKey,

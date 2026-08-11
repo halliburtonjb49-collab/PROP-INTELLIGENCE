@@ -28,12 +28,12 @@ class AppSoundService extends ChangeNotifier {
   static const _selectionKey = 'app_sound_selection';
   static const _alertsKey = 'app_sound_alerts';
 
-  bool _enabled = true;
+  bool _enabled = false;
   bool _navigationEnabled = true;
   bool _selectionEnabled = true;
   bool _alertsEnabled = true;
   AppSoundProfile _profile = AppSoundProfile.balanced;
-  double _volume = .65;
+  double _volume = .35;
   bool _loaded = false;
   final Map<String, Uint8List> _toneCache = {};
   final Map<String, Future<AudioPool>> _poolCache = {};
@@ -48,11 +48,11 @@ class AppSoundService extends ChangeNotifier {
   Future<void> load() async {
     if (_loaded) return;
     final preferences = await SharedPreferences.getInstance();
-    _enabled = preferences.getBool(_enabledKey) ?? true;
+    _enabled = preferences.getBool(_enabledKey) ?? false;
     _navigationEnabled = preferences.getBool(_navigationKey) ?? true;
     _selectionEnabled = preferences.getBool(_selectionKey) ?? true;
     _alertsEnabled = preferences.getBool(_alertsKey) ?? true;
-    _volume = preferences.getDouble(_volumeKey) ?? .65;
+    _volume = preferences.getDouble(_volumeKey) ?? .35;
     final storedProfile = preferences.getString(_profileKey);
     _profile = AppSoundProfile.values.firstWhere(
       (profile) => profile.name == storedProfile,
@@ -105,14 +105,8 @@ class AppSoundService extends ChangeNotifier {
 
   Future<void> play(AppSoundEvent event, {bool force = false}) async {
     if ((!_enabled && !force) || !_eventEnabled(event)) return;
-    if (_profile == AppSoundProfile.subtle &&
-        event != AppSoundEvent.success &&
-        event != AppSoundEvent.warning) {
-      return;
-    }
-
     if (_volume <= 0) return;
-    final cacheKey = '${_profile.name}:${event.name}';
+    const cacheKey = 'mouse-click';
     try {
       final pool = await (_poolCache[cacheKey] ??= AudioPool.create(
         source: BytesSource(
@@ -127,16 +121,8 @@ class AppSoundService extends ChangeNotifier {
     }
   }
 
-  Uint8List _toneFor(AppSoundEvent event) {
-    final duration = switch (event) {
-      AppSoundEvent.button => .065,
-      AppSoundEvent.navigation => .09,
-      AppSoundEvent.selection => .13,
-      AppSoundEvent.success => .28,
-      AppSoundEvent.warning => .24,
-    };
-    return _createSportsWave(event: event, durationSeconds: duration);
-  }
+  Uint8List _toneFor(AppSoundEvent _) =>
+      _createSportsWave(event: AppSoundEvent.button, durationSeconds: .045);
 
   Uint8List _createSportsWave({
     required AppSoundEvent event,
@@ -177,10 +163,12 @@ class AppSoundService extends ChangeNotifier {
       noiseState = (1103515245 * noiseState + 12345) & 0x7fffffff;
       final noise = ((noiseState / 0x7fffffff) * 2) - 1;
       final signal = switch (event) {
-        // Short leather-ball style thump.
+        // Short, restrained mechanical mouse click.
         AppSoundEvent.button =>
-          math.sin(2 * math.pi * (115 - 55 * progress) * time) *
-              math.exp(-progress * 5),
+          ((noise * .38) +
+                  (math.sin(2 * math.pi * (2400 - 1400 * progress) * time) *
+                      .62)) *
+              math.exp(-progress * 16),
         // Quick scoreboard sweep.
         AppSoundEvent.navigation =>
           _harmonic(430 + (progress * 260), time) * .72,
@@ -198,8 +186,8 @@ class AppSoundService extends ChangeNotifier {
                   (math.sin(2 * math.pi * 18 * time) >= 0 ? 1 : .2)) +
               (noise * .06),
       };
-      final profileGain = _profile == AppSoundProfile.energetic ? 1.0 : .82;
-      final value = (signal * envelope * profileGain * 14500).round().clamp(
+
+      final value = (signal * envelope * .72 * 14500).round().clamp(
         -32768,
         32767,
       );

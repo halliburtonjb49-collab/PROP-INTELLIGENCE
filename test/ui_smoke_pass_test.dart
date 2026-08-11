@@ -167,10 +167,10 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.byIcon(Icons.volume_up_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.volume_off_rounded), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('global-sound-toggle')));
     await tester.pump();
-    expect(find.byIcon(Icons.volume_off_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.mouse_rounded), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.byKey(const ValueKey('nav-group-SPORTS')));
