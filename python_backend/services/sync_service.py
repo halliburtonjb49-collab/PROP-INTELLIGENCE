@@ -866,6 +866,10 @@ def run_global_sync_pipeline(
         except Exception as exc:
             logger.warning("post-processing progress callback failed error=%s", exc)
 
+    # Availability is live decision data, so it must not wait behind optional
+    # soccer, cricket, or historical maintenance that can take many minutes.
+    report_post_processing("pregame_context")
+    results.extend(sync_pregame_context())
     report_post_processing("supplemental_soccer")
     results.append(sync_balldontlie_soccer())
     report_post_processing("cricket_probes")
@@ -944,8 +948,6 @@ def run_global_sync_pipeline(
             })
         finally:
             _mark_gridiron_ingested()
-    report_post_processing("pregame_context")
-    results.extend(sync_pregame_context())
     report_post_processing("prediction_snapshot")
     snapshot = snapshot_live_predictions()
     results.append({"sport": "prediction_snapshots", "events": 0,
