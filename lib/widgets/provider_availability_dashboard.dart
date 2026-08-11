@@ -3,9 +3,18 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class ProviderAvailabilityDashboard extends StatelessWidget {
-  const ProviderAvailabilityDashboard({super.key, required this.data});
+  const ProviderAvailabilityDashboard({
+    super.key,
+    required this.data,
+    this.recovery = const <String, dynamic>{},
+    this.onRecover,
+    this.recoverySubmitting = false,
+  });
 
   final Map<String, dynamic> data;
+  final Map<String, dynamic> recovery;
+  final Future<void> Function(String sport)? onRecover;
+  final bool recoverySubmitting;
 
   Color _statusColor(String status) => switch (status.toUpperCase()) {
     'HEALTHY' => const Color(0xFF65E6B4),
@@ -39,6 +48,11 @@ class ProviderAvailabilityDashboard extends StatelessWidget {
         .whereType<Map>()
         .toList(growable: false);
     final overall = '${data['overallStatus'] ?? 'UNAVAILABLE'}'.toUpperCase();
+    final recoverySports = <String, Map>{
+      for (final row
+          in (recovery['sports'] as List? ?? const []).whereType<Map>())
+        '${row['sport']}': row,
+    };
 
     if (sports.isEmpty) {
       return _emptyState();
@@ -99,6 +113,8 @@ class ProviderAvailabilityDashboard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
+          _recoveryPanel(),
+          const SizedBox(height: 10),
           LayoutBuilder(
             builder: (context, constraints) {
               final columns = constraints.maxWidth >= 1080
@@ -114,8 +130,13 @@ class ProviderAvailabilityDashboard extends StatelessWidget {
                 runSpacing: 10,
                 children: sports
                     .map(
-                      (sport) =>
-                          SizedBox(width: width, child: _sportCard(sport)),
+                      (sport) => SizedBox(
+                        width: width,
+                        child: _sportCard(
+                          sport,
+                          recoveryAction: recoverySports['${sport['sport']}'],
+                        ),
+                      ),
                     )
                     .toList(growable: false),
               );
@@ -125,6 +146,125 @@ class ProviderAvailabilityDashboard extends StatelessWidget {
             const SizedBox(height: 10),
             ...alerts.take(6).map(_alert),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _recoveryPanel() {
+    final state = '${recovery['state'] ?? 'IDLE'}'.toUpperCase();
+    final queue = recovery['queue'] as Map? ?? const {};
+    final sync = recovery['sync'] as Map? ?? const {};
+    final recommended = recovery['recoveryRecommended'] == true;
+    final canStart = recovery['canStartRecovery'] == true;
+    final active = state == 'RUNNING' || state == 'QUEUED';
+    final color = switch (state) {
+      'SUCCEEDED' => const Color(0xFF65E6B4),
+      'RUNNING' || 'QUEUED' => const Color(0xFF61BFFF),
+      'RECOMMENDED' => AppColors.gold,
+      'FAILED' => const Color(0xFFFF7474),
+      _ => AppColors.textMuted,
+    };
+    return Container(
+      key: const ValueKey('owner-provider-recovery'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: const Color(0xFF071722),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: color.withValues(alpha: .38)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 9,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    active
+                        ? Icons.sync_rounded
+                        : Icons.health_and_safety_outlined,
+                    color: color,
+                    size: 19,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'AUTOMATIC PROVIDER RECOVERY | $state',
+                          style: TextStyle(
+                            color: color,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${recovery['message'] ?? 'Recovery status is warming up.'}',
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (recommended && onRecover != null)
+                OutlinedButton.icon(
+                  key: const ValueKey('provider-recover-all'),
+                  onPressed: canStart && !recoverySubmitting
+                      ? () => onRecover!('ALL')
+                      : null,
+                  icon: recoverySubmitting
+                      ? const SizedBox.square(
+                          dimension: 13,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded, size: 14),
+                  label: const Text('RUN SAFE RECOVERY'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.gold,
+                    side: BorderSide(
+                      color: AppColors.gold.withValues(alpha: .5),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (active) ...[
+            const SizedBox(height: 10),
+            LinearProgressIndicator(
+              minHeight: 3,
+              color: color,
+              backgroundColor: color.withValues(alpha: .12),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Text(
+            'SYNC ${sync['status'] ?? 'idle'} | COVERAGE ${sync['coverageStatus'] ?? 'idle'} | '
+            'POST ${sync['postProcessingStatus'] ?? 'idle'} | '
+            'WORKERS ${queue['workers'] ?? 0} | QUEUED ${queue['queued'] ?? 0} | '
+            'RETRIES ${((queue['retryPolicy'] as Map?)?['maxAttempts'] ?? '--')}',
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 8,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );
@@ -144,7 +284,7 @@ class ProviderAvailabilityDashboard extends StatelessWidget {
     ),
   );
 
-  Widget _sportCard(Map sport) {
+  Widget _sportCard(Map sport, {Map? recoveryAction}) {
     final status = '${sport['status'] ?? 'UNAVAILABLE'}'.toUpperCase();
     final color = _statusColor(status);
     final missing = (sport['missingData'] as List? ?? const [])
@@ -228,6 +368,28 @@ class ProviderAvailabilityDashboard extends StatelessWidget {
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: color, fontSize: 9, height: 1.35),
+            ),
+          ],
+          if (recoveryAction?['canRecover'] == true && onRecover != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: ValueKey('provider-recover-${sport['sport']}'),
+                onPressed: recoverySubmitting
+                    ? null
+                    : () => onRecover!('${sport['sport']}'),
+                icon: const Icon(Icons.refresh_rounded, size: 14),
+                label: Text('RECOVER ${sport['sport']}'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: color,
+                  side: BorderSide(color: color.withValues(alpha: .5)),
+                  textStyle: const TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
             ),
           ],
         ],

@@ -50,6 +50,23 @@ def enqueue(
         )
         return {"id": job.id, "status": job.get_status(), "queue": QUEUE_NAME}
     except Exception as exc:
+        if job_id:
+            try:
+                existing = queue.fetch_job(job_id)
+                if existing is not None:
+                    status = existing.get_status(refresh=True)
+                    return {
+                        "id": existing.id,
+                        "status": getattr(status, "value", status),
+                        "queue": QUEUE_NAME,
+                        "deduplicated": True,
+                    }
+            except Exception:
+                LOGGER.debug(
+                    "Unable to inspect existing background job id=%s",
+                    job_id,
+                    exc_info=True,
+                )
         LOGGER.warning(
             "Unable to enqueue background job function=%s job_id=%s error=%s: %s",
             function_name,

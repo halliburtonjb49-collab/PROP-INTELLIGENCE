@@ -531,6 +531,126 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> fetchProviderRecovery() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/operations/provider-recovery'),
+      headers: await _authenticatedHeaders(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load provider recovery: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> requestProviderRecovery({
+    String targetSport = 'ALL',
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/operations/provider-recovery'),
+      headers: await _authenticatedHeaders(json: true),
+      body: jsonEncode({'targetSport': targetSport}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to start provider recovery: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> fetchOwnerCommandCenter({
+    String window = 'today',
+    DateTime? start,
+    DateTime? end,
+  }) async {
+    final query = <String, String>{'window': window};
+    if (start != null) query['start'] = start.toUtc().toIso8601String();
+    if (end != null) query['end'] = end.toUtc().toIso8601String();
+    final uri = Uri.parse(
+      '$baseUrl/api/operations/command-center',
+    ).replace(queryParameters: query);
+    final response = await http.get(
+      uri,
+      headers: await _authenticatedHeaders(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load owner command center: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateOwnerPropControl({
+    required Map item,
+    required bool quarantined,
+    required String reason,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/operations/command-center/prop-control'),
+      headers: await _authenticatedHeaders(json: true),
+      body: jsonEncode({
+        'targetKey': '${item['id']}',
+        'quarantined': quarantined,
+        'reason': reason,
+        'snapshot': {
+          'sport': item['sport'],
+          'gameId': item['gameId'],
+          'player': item['player'],
+          'market': item['market'],
+          'provider': item['provider'],
+          'line': item['line'],
+          'matchup': item['matchup'],
+        },
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to update prop control: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateOwnerAlertAcknowledgement({
+    required Map alert,
+    required bool acknowledged,
+    required String reason,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/operations/command-center/alert-acknowledgement'),
+      headers: await _authenticatedHeaders(json: true),
+      body: jsonEncode({
+        'alertKey': '${alert['id']}',
+        'count': alert['count'] ?? 0,
+        'acknowledged': acknowledged,
+        'reason': reason,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Unable to update alert acknowledgement: ${response.body}',
+      );
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> fetchOwnerModelAudit({
+    String window = '30d',
+    DateTime? start,
+    DateTime? end,
+    int limit = 500,
+  }) async {
+    final query = <String, String>{'window': window, 'limit': '$limit'};
+    if (start != null) query['start'] = start.toUtc().toIso8601String();
+    if (end != null) query['end'] = end.toUtc().toIso8601String();
+    final uri = Uri.parse(
+      '$baseUrl/api/operations/model-audit',
+    ).replace(queryParameters: query);
+    final response = await http.get(
+      uri,
+      headers: await _authenticatedHeaders(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load owner model audit: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> fetchOwnerGradingReview() async {
     final response = await http.get(
       Uri.parse('$baseUrl/api/operations/grading-review'),

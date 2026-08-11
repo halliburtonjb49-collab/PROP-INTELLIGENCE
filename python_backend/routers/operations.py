@@ -1,12 +1,22 @@
 """Protected production-readiness and pipeline monitoring endpoints."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from services.api_auth_service import require_admin, require_owner, require_user_id
 from services.operations_detail_service import operations_detail
 from services.pipeline_run_service import recent_pipeline_runs, summarize_pipeline_health
 from services.provider_availability_monitor_service import provider_availability_snapshot
+from services.provider_recovery_service import (
+    provider_recovery_snapshot,
+    request_provider_recovery,
+)
+from services.owner_command_center_service import owner_command_center_snapshot
+from services.owner_model_audit_service import owner_model_audit_snapshot
+from services.owner_action_service import (
+    set_alert_acknowledgement,
+    set_prop_quarantine,
+)
 from services.readiness_service import production_readiness
 from services.acceptance_service import production_acceptance_snapshot
 from services.launch_control_service import launch_control_snapshot
@@ -23,6 +33,24 @@ router = APIRouter(prefix="/api/operations", tags=["operations"])
 
 class StrikeoutControlPatch(BaseModel):
     controls: dict[str, object]
+
+
+class ProviderRecoveryRequest(BaseModel):
+    targetSport: str = "ALL"
+
+
+class OwnerPropControlRequest(BaseModel):
+    targetKey: str
+    quarantined: bool
+    reason: str
+    snapshot: dict[str, object]
+
+
+class OwnerAlertAcknowledgementRequest(BaseModel):
+    alertKey: str
+    count: int = 0
+    acknowledged: bool
+    reason: str
 
 
 class UserFeedbackRequest(BaseModel):
@@ -58,6 +86,78 @@ def pipelines(limit: int = 25) -> dict[str, object]:
 def provider_availability() -> dict[str, object]:
     return provider_availability_snapshot()
 
+
+@router.get("/provider-recovery", dependencies=[Depends(require_owner)])
+def provider_recovery() -> dict[str, object]:
+    return provider_recovery_snapshot()
+
+
+@router.post("/provider-recovery", dependencies=[Depends(require_owner)])
+def start_provider_recovery(payload: ProviderRecoveryRequest) -> dict[str, object]:
+    try:
+        return request_provider_recovery(payload.targetSport)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/command-center", dependencies=[Depends(require_owner)])
+def command_center(
+    window: str = "today",
+    start: str | None = None,
+    end: str | None = None,
+) -> dict[str, object]:
+    try:
+        return owner_command_center_snapshot(window, start=start, end=end)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+@router.post("/command-center/prop-control")
+def command_center_prop_control(
+    payload: OwnerPropControlRequest,
+    owner_id: str = Depends(require_owner),
+) -> dict[str, object]:
+    try:
+        return set_prop_quarantine(
+            target_key=payload.targetKey, quarantined=payload.quarantined,
+            reason=payload.reason, actor_user_id=owner_id,
+            snapshot=payload.snapshot,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post("/command-center/alert-acknowledgement")
+def command_center_alert_acknowledgement(
+    payload: OwnerAlertAcknowledgementRequest,
+    owner_id: str = Depends(require_owner),
+) -> dict[str, object]:
+    try:
+        return set_alert_acknowledgement(
+            alert_key=payload.alertKey, count=payload.count,
+            acknowledged=payload.acknowledged, reason=payload.reason,
+            actor_user_id=owner_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.get("/model-audit", dependencies=[Depends(require_owner)])
+def model_audit(
+    window: str = "30d",
+    start: str | None = None,
+    end: str | None = None,
+    limit: int = 500,
+) -> dict[str, object]:
+    try:
+        return owner_model_audit_snapshot(
+            window, start=start, end=end, limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 @router.get("/control-panel", dependencies=[Depends(require_owner)])
 def control_panel() -> dict[str, object]:
