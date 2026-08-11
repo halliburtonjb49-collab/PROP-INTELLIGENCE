@@ -151,6 +151,12 @@ def build_prop_trust(row: object, *, now_utc: datetime | None = None) -> dict[st
         + (.15 if selectable else 0)
         + (.15 if event_present else 0)
     )
+    pregame = _value(row, "pregameAvailability", "pregame_availability", default={})
+    if isinstance(pregame, Mapping) and pregame:
+        pregame_ratio = max(0.0, min(1.0, (_number(pregame.get("score")) or 0) / 100))
+        verification_ratio = verification_ratio * .7 + pregame_ratio * .3
+        if str(pregame.get("status") or "") != "READY":
+            warnings.append("Sport-specific pregame availability is not fully confirmed.")
     factors.append(_factor(
         "verification",
         "Player and game verification",
@@ -274,6 +280,23 @@ def build_research_capsule(row: object, trust: Mapping[str, object] | None = Non
             "tone": "POSITIVE" if wnba_score >= 80 else "CAUTION",
         })
 
+    pregame = _value(row, "pregameAvailability", "pregame_availability", default={})
+    if isinstance(pregame, dict) and pregame:
+        status = str(pregame.get("status") or "WAIT")
+        score = int(_number(pregame.get("score")) or 0)
+        factors = list(pregame.get("factors") or [])
+        confirmed = sum(
+            str(factor.get("status") or "") in {"CONFIRMED", "CLEAR"}
+            for factor in factors if isinstance(factor, dict)
+        )
+        items.append({
+            "key": "pregame_availability",
+            "label": "Pregame availability",
+            "value": f"{status} | {score}/100",
+            "detail": f"{confirmed} of {len(factors)} sport-specific checks confirmed.",
+            "tone": "POSITIVE" if status == "READY" else "CAUTION",
+        })
+
     injury = str(_value(row, "injuryStatus", "injury_status", default="unknown") or "unknown").strip()
     lineup = str(_value(row, "lineupStatus", "lineup_status", default="unknown") or "unknown").strip()
     if injury.lower() not in {"unknown", "healthy", "no injury reported"} or lineup.lower() not in {"unknown", "confirmed"}:
@@ -304,6 +327,12 @@ def build_research_capsule(row: object, trust: Mapping[str, object] | None = Non
         for value in (_value(row, "wnbaResearchWarnings", default=[]) or [])
         if str(value) not in warnings
     )
+    if isinstance(pregame, dict):
+        warnings.extend(
+            str(value)
+            for value in (pregame.get("warnings") or [])
+            if str(value) not in warnings
+        )
     return {
         "summary": str(_value(row, "recommendationExplanation", "recommendation_explanation", default="") or "").strip(),
         "items": items[:7],

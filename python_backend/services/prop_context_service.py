@@ -26,6 +26,7 @@ from services.context_quality_service import evaluate_context_quality
 from services.wnba_research_service import assess_wnba_research
 from services.mlb_strikeout_enrichment_service import enrich_mlb_strikeout_props
 from services.pregame_context_ingestion_service import apply_latest_pregame_context
+from services.pregame_availability_service import apply_pregame_availability
 from services.strikeout_quality_service import (
     build_explainability_payload,
     build_explainability_snippet,
@@ -120,6 +121,8 @@ def _probability_calibrator(sport: str):
 
 
 def apply_projection_context(prop: object) -> None:
+    if not getattr(prop, "pregameAvailability", None):
+        apply_pregame_availability(prop)
     projection = getattr(prop, "projection", None)
     if projection is None:
         _apply_wnba_research(prop)

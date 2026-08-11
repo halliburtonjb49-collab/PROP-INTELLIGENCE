@@ -77,6 +77,28 @@ def test_wnba_minutes_or_role_uncertainty_makes_a_settled_edge_wait():
         "After minutes, role and lineup evidence are confirmed"
     )
 
+def test_sport_specific_availability_waits_even_when_legacy_lineup_is_confirmed():
+    verdict = compute_verdict(_prop(
+        sport="MLB",
+        pregameAvailability={
+            "status": "WAIT",
+            "warnings": ["Official batting order is not confirmed."],
+            "recheck": "After the official batting order is confirmed",
+        },
+    ))
+    assert verdict.decision == WAIT
+    assert "pregame_availability_unsettled" in verdict.reasons
+    assert verdict.recheck == "After the official batting order is confirmed"
+
+
+def test_ready_sport_specific_assessment_replaces_generic_lineup_gate():
+    verdict = compute_verdict(_prop(
+        sport="NBA",
+        lineupStatus="unknown",
+        pregameAvailability={"status": "READY", "warnings": []},
+    ))
+    assert verdict.decision == PLAY_NOW
+
 def test_a_questionable_player_outranks_an_unconfirmed_lineup():
     # Both are unknowns, but the injury is the one that decides whether the
     # prop exists at all.
