@@ -52,10 +52,6 @@ from providers.balldontlie_soccer import (
     fetch_upcoming_matches as fetch_bdl_matches,
     normalize_match as normalize_bdl_match,
 )
-from providers.sportmonks_cricket import (
-    cricketdata_health_check,
-    probe_cricket_odds_shape,
-)
 
 cache = PropCache(DB_PATH)
 logger = logging.getLogger(__name__)
@@ -867,30 +863,11 @@ def run_global_sync_pipeline(
             logger.warning("post-processing progress callback failed error=%s", exc)
 
     # Availability is live decision data, so it must not wait behind optional
-    # soccer, cricket, or historical maintenance that can take many minutes.
+    # soccer or historical maintenance that can take many minutes.
     report_post_processing("pregame_context")
     results.extend(sync_pregame_context())
     report_post_processing("supplemental_soccer")
     results.append(sync_balldontlie_soccer())
-    report_post_processing("cricket_probes")
-    try:
-        cricket_probe = probe_cricket_odds_shape()
-    except Exception as exc:
-        logger.warning("sportmonks cricket probe crashed error=%s", exc)
-        cricket_probe = {"status": "error", "error": str(exc)}
-    results.append({
-        "sport": "sportmonks_cricket_probe", "events": 0, "props": 0,
-        **cricket_probe,
-    })
-    try:
-        cricketdata_probe = cricketdata_health_check()
-    except Exception as exc:
-        logger.warning("cricketdata.org health check crashed error=%s", exc)
-        cricketdata_probe = {"status": "error", "error": str(exc)}
-    results.append({
-        "sport": "cricketdata_probe", "events": 0, "props": 0,
-        **cricketdata_probe,
-    })
     report_post_processing("historical_backfill")
     if _gridiron_ingest_due():
         try:

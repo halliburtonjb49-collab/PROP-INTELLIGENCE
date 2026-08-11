@@ -520,6 +520,17 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> fetchProviderAvailability() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/operations/provider-availability'),
+      headers: await _authenticatedHeaders(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to load provider availability: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> fetchOwnerGradingReview() async {
     final response = await http.get(
       Uri.parse('$baseUrl/api/operations/grading-review'),

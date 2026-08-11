@@ -228,7 +228,18 @@ def _sync_scheduled_summaries(*, sport: str, target: date, base: str, schedule_p
         if sport in {"NBA", "WNBA"}:
             kwargs["sport"] = sport
         observations.extend(normalizer(summary, **kwargs))
-    return {"provider": f"sportradar-{sport.lower()}-pregame", "games": len(games), "attempted": attempted, "observations": len(observations), "created": persist("SPORTRADAR", observations)}
+    return {
+        "provider": f"sportradar-{sport.lower()}-pregame",
+        "games": len(games),
+        "attempted": attempted,
+        "observations": len(observations),
+        "confirmedPlayers": sum(bool(row.get("confirmed")) for row in observations),
+        "confirmedStarters": sum(
+            str(row.get("status") or "") in {"CONFIRMED_STARTER", "STARTING_XI"}
+            for row in observations
+        ),
+        "created": persist("SPORTRADAR", observations),
+    }
 
 
 def _sync_nfl(persist: Persist) -> dict[str, object]:
@@ -243,7 +254,18 @@ def _sync_nfl(persist: Persist) -> dict[str, object]:
         attempted += 1
         roster = _request_json(f"{base}/games/{game['id']}/roster.json")
         observations.extend(normalize_nfl_roster(roster, event_id=str(game["id"]), event_time=_text(game, "scheduled")))
-    return {"provider": "sportradar-nfl-pregame", "games": len(games), "attempted": attempted, "observations": len(observations), "created": persist("SPORTRADAR", observations)}
+    return {
+        "provider": "sportradar-nfl-pregame",
+        "games": len(games),
+        "attempted": attempted,
+        "observations": len(observations),
+        "confirmedPlayers": sum(bool(row.get("confirmed")) for row in observations),
+        "confirmedStarters": sum(
+            str(row.get("status") or "") == "CONFIRMED_STARTER"
+            for row in observations
+        ),
+        "created": persist("SPORTRADAR", observations),
+    }
 
 
 def _supported_soccer_event(event: dict[str, object]) -> bool:
@@ -268,7 +290,19 @@ def _sync_soccer(target: date, persist: Persist) -> dict[str, object]:
         attempted += 1
         lineup = _request_json(f"{base}/sport_events/{event['id']}/lineups.json")
         observations.extend(normalize_soccer_lineups(lineup, event_id=str(event["id"]), event_time=_text(event, "start_time")))
-    return {"provider": "sportradar-soccer-pregame", "events": len(events), "supportedEvents": len(supported_events), "attempted": attempted, "observations": len(observations), "created": persist("SPORTRADAR", observations)}
+    return {
+        "provider": "sportradar-soccer-pregame",
+        "events": len(events),
+        "supportedEvents": len(supported_events),
+        "attempted": attempted,
+        "observations": len(observations),
+        "confirmedPlayers": sum(bool(row.get("confirmed")) for row in observations),
+        "confirmedStarters": sum(
+            str(row.get("status") or "") == "STARTING_XI"
+            for row in observations
+        ),
+        "created": persist("SPORTRADAR", observations),
+    }
 
 
 def sync_sportradar_pregame(persist: Persist, day: date | None = None) -> list[dict[str, object]]:

@@ -22,10 +22,7 @@ API_SPORTS_BASEBALL_KEY = os.getenv(
     API_SPORTS_KEY,
 ).strip()
 WNBA_LEAGUE_ID = os.getenv("WNBA_LEAGUE_ID", "").strip()
-SPORTMONKS_API_KEY = os.getenv("SPORTMONKS_API_KEY", "").strip()
-SPORTMONKS_CRICKET_API_KEY = os.getenv("SPORTMONKS_CRICKET_API_KEY", "").strip()
 SPORTSDATAIO_API_KEY = os.getenv("SPORTSDATAIO_API_KEY", "").strip()
-CRICKETDATA_API_KEY = os.getenv("CRICKETDATA_API_KEY", "").strip()
 BALLDONTLIE_API_KEY = os.getenv("BALLDONTLIE_API_KEY", "").strip()
 SPORTRADAR_WNBA_API_KEY = os.getenv("SPORTRADAR_WNBA_API_KEY", "").strip()
 SPORTRADAR_API_KEY = os.getenv(
@@ -141,22 +138,6 @@ _default_cache_path = (
     else BASE_DIR / "prop_intelligence_cache.db"
 )
 DB_PATH = Path(os.getenv("PROP_CACHE_DB_PATH", str(_default_cache_path))).expanduser()
-
-_render_sportmonks_headshot_path = Path(
-    "/var/data/sportmonks_headshot_map.json"
-)
-_default_sportmonks_headshot_path = (
-    _render_sportmonks_headshot_path
-    if os.getenv("RENDER", "").lower() == "true"
-    and _render_sportmonks_headshot_path.parent.is_dir()
-    else BASE_DIR / "data" / "sportmonks_headshot_map.json"
-)
-SPORTMONKS_HEADSHOT_MAP_PATH = Path(
-    os.getenv(
-        "SPORTMONKS_HEADSHOT_MAP_PATH",
-        str(_default_sportmonks_headshot_path),
-    )
-).expanduser()
 
 _render_espn_headshot_path = Path("/var/data/espn_headshot_map.json")
 _default_espn_headshot_path = (

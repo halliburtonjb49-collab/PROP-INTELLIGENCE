@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_colors.dart' as brand_colors;
+import '../widgets/provider_availability_dashboard.dart';
 
 class OwnerOperationsPage extends StatefulWidget {
   const OwnerOperationsPage({super.key, this.apiService});
@@ -19,6 +20,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   late final ApiService _api = widget.apiService ?? ApiService();
   Map<String, dynamic>? _control;
   Map<String, dynamic>? _review;
+  Map<String, dynamic>? _providerAvailability;
   Map<String, dynamic> _strikeoutControlsDraft = const {};
   bool _savingStrikeoutControls = false;
   bool _loading = true;
@@ -71,11 +73,13 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       final results = await Future.wait([
         _api.fetchLaunchControlPanel(),
         _api.fetchOwnerGradingReview(),
+        _api.fetchProviderAvailability(),
       ]);
       if (!mounted) return;
       setState(() {
         _control = results[0];
         _review = results[1];
+        _providerAvailability = results[2];
         final ownerInsights =
             _control?['ownerOnlyInsights'] as Map? ?? const {};
         final controlPayload =
@@ -200,6 +204,13 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             _statusGrid(),
             const SizedBox(height: 22),
             _sectionTitle(
+              'PROVIDER AVAILABILITY',
+              'Official lineup coverage, authorization, freshness, and missing-data alerts',
+            ),
+            const SizedBox(height: 10),
+            _providerAvailabilityDashboard(),
+            const SizedBox(height: 22),
+            _sectionTitle(
               'SYNC CERTIFICATION',
               'Feed, worker, provider-key, broad-coverage, and automatic-retry status',
             ),
@@ -284,6 +295,9 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     );
   }
 
+  Widget _providerAvailabilityDashboard() => ProviderAvailabilityDashboard(
+    data: _providerAvailability ?? const <String, dynamic>{},
+  );
   Widget _syncCertification() {
     final certification = _map('syncCertification');
     final checks = (certification['checks'] as List? ?? const [])

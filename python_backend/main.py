@@ -23,12 +23,10 @@ from threading import Lock, Thread
 from config import (
 	BALLDONTLIE_API_KEY,
 	CORS_ALLOWED_ORIGINS,
-	CRICKETDATA_API_KEY,
 	HTTP_TIMEOUT_SECONDS,
 	LIVE_ODDS_SYNC_MIN_SECONDS,
 	PREFERRED_BOOKMAKERS,
 	PLAYER_IMAGE_DIR,
-	SPORTMONKS_CRICKET_API_KEY,
 	SPORTRADAR_API_KEY,
 	SPORTRADAR_WNBA_API_KEY,
 	WNBA_LEAGUE_ID,
@@ -129,13 +127,8 @@ from services.espn_headshot_service import (
 	refresh_espn_headshot_map,
 	espn_headshot_cache_health,
 )
-from services.sportmonks_headshot_service import (
-	refresh_sportmonks_headshot_map,
-	sportmonks_headshot_cache_health,
-)
 from services.historical_ingestion_service import (
 	run_gridiron_ice_backfill,
-	run_soccer_historical_backfill,
 )
 from services.sportsdataio_golf_service import refresh_golf_roster_map
 from services.prop_builder_service import (
@@ -2077,8 +2070,6 @@ def health() -> dict[str, object]:
 		"providers": {
 			"sportradarMultiSportConfigured": bool(SPORTRADAR_API_KEY),
 			"sportradarWnbaConfigured": bool(SPORTRADAR_WNBA_API_KEY),
-			"sportmonksCricketConfigured": bool(SPORTMONKS_CRICKET_API_KEY),
-			"cricketDataConfigured": bool(CRICKETDATA_API_KEY),
 			"ballDontLieConfigured": bool(BALLDONTLIE_API_KEY),
 		},
 	}
@@ -2339,7 +2330,6 @@ def provider_health() -> dict[str, object]:
 			**quota,
 		},
 		"sportsGameOdds": sportsgameodds,
-		"sportmonksHeadshots": sportmonks_headshot_cache_health(),
 		"espnHeadshots": espn_headshot_cache_health(),
 	}
 
@@ -4462,8 +4452,6 @@ class _BackgroundJob:
 
 _mlb_headshot_job = _BackgroundJob()
 _espn_headshot_job = _BackgroundJob()
-_sportmonks_headshot_job = _BackgroundJob()
-_sportmonks_history_job = _BackgroundJob()
 _gridiron_ice_history_job = _BackgroundJob()
 _golf_roster_job = _BackgroundJob()
 
@@ -4494,29 +4482,6 @@ def refresh_espn_headshots_status(_admin: str = Depends(require_admin)) -> dict[
 	return _espn_headshot_job.snapshot()
 
 
-@app.post("/api/admin/refresh-sportmonks-headshots")
-def refresh_sportmonks_headshots(
-	background_tasks: BackgroundTasks,
-	_admin: str = Depends(require_admin),
-) -> dict[str, object]:
-	return _sportmonks_headshot_job.start(background_tasks, refresh_sportmonks_headshot_map)
-
-
-@app.get("/api/admin/refresh-sportmonks-headshots/status")
-def refresh_sportmonks_headshots_status(_admin: str = Depends(require_admin)) -> dict[str, object]:
-	return _sportmonks_headshot_job.snapshot()
-
-
-@app.post("/api/admin/refresh-sportmonks-history")
-def refresh_sportmonks_history(
-	background_tasks: BackgroundTasks,
-	_admin: str = Depends(require_admin),
-) -> dict[str, object]:
-	return _sportmonks_history_job.start(
-		background_tasks,
-		lambda: run_soccer_historical_backfill(days=365),
-	)
-
 
 @app.post("/api/admin/refresh-gridiron-ice-history")
 def refresh_gridiron_ice_history(
@@ -4538,12 +4503,6 @@ def refresh_gridiron_ice_history_status(
 ) -> dict[str, object]:
 	return _gridiron_ice_history_job.snapshot()
 
-
-@app.get("/api/admin/refresh-sportmonks-history/status")
-def refresh_sportmonks_history_status(
-	_admin: str = Depends(require_admin),
-) -> dict[str, object]:
-	return _sportmonks_history_job.snapshot()
 
 
 @app.post("/api/admin/refresh-golf-roster")
