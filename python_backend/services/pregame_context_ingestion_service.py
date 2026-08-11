@@ -17,6 +17,7 @@ from config import (
     SPORTRADAR_WNBA_API_KEY,
 )
 from database.postgres import database_is_configured, get_database_pool
+from services.pregame_availability_service import apply_pregame_availability
 
 logger = logging.getLogger(__name__)
 SPORTSDATAIO_MLB = "https://api.sportsdata.io/v3/mlb/projections/json"
@@ -619,6 +620,7 @@ def apply_latest_pregame_context(props: list[object]) -> None:
             # perfect health; it means the league report lists no current injury.
             prop.injuryStatus = "no injury reported"
         if not matches:
+            apply_pregame_availability(prop)
             continue
         latest = max(
             lineup_matches or matches,
@@ -631,14 +633,17 @@ def apply_latest_pregame_context(props: list[object]) -> None:
         status = str(latest["status"] or "").upper()
         if sport == "WNBA" and lineup_matches:
             prop.lineupStatus = "confirmed"
+        event_rows = by_event.get((sport, str(latest["eventId"])), [])
         if sport != "MLB" or latest["entityType"] != "LINEUP":
+            apply_pregame_availability(
+                prop, observations=matches, event_observations=event_rows,
+            )
             continue
         prop.lineupStatus = (
             "confirmed" if latest["confirmed"] and "STARTER" in status
             else "projected" if "STARTER" in status
             else "bench"
         )
-        event_rows = by_event.get((sport, str(latest["eventId"])), [])
         opponent_team = str(latest["opponent"] or "")
         opposing = [row for row in event_rows if row["entityType"] == "LINEUP"
                     and (not opponent_team or str(row["team"]) == opponent_team)
@@ -661,3 +666,6 @@ def apply_latest_pregame_context(props: list[object]) -> None:
                                   "confirmed": row["confirmed"]} for row in ordered],
             "observedAt": latest["observedAt"].isoformat(),
         }
+        apply_pregame_availability(
+            prop, observations=matches, event_observations=event_rows,
+        )

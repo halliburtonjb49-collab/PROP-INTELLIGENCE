@@ -305,7 +305,26 @@ def compute_verdict(prop: object) -> Verdict:
             maximum_playable_line=maximum_line,
             recheck="After the injury report is final",
         )
-    if lineup in _UNSETTLED_LINEUPS:
+    pregame = getattr(prop, "pregameAvailability", {})
+    has_pregame_assessment = isinstance(pregame, dict) and bool(pregame)
+    if has_pregame_assessment and str(pregame.get("status") or "") != "READY":
+        reasons.append("pregame_availability_unsettled")
+        warnings = list(pregame.get("warnings") or [])
+        return Verdict(
+            decision=WAIT,
+            side=side,
+            headline=f"WAIT ON {side}",
+            reason=(
+                str(warnings[0])
+                if warnings
+                else f"{signal_source} favors {side.title()}, but pregame availability is not settled."
+            ),
+            confidence=confidence,
+            reasons=tuple(reasons),
+            maximum_playable_line=maximum_line,
+            recheck=str(pregame.get("recheck") or "After official pregame availability is confirmed"),
+        )
+    if not has_pregame_assessment and lineup in _UNSETTLED_LINEUPS:
         reasons.append("lineup_unconfirmed")
         return Verdict(
             decision=WAIT,

@@ -89,6 +89,8 @@ class PropResponse(BaseModel):
     sourceProvider: str = "odds-api"
     injuryStatus: str = "unknown"
     lineupStatus: str = "unknown"
+    # Normalized sport-specific participation evidence and readiness.
+    pregameAvailability: dict[str, object] = Field(default_factory=dict)
     imagePath: str = ""
     overOdds: float | None = None
     underOdds: float | None = None
