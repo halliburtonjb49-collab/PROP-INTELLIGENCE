@@ -83,6 +83,7 @@ from services.baseline_projection_service import (
 )
 from services.odds_service import sport_coverage
 from services.prop_service import get_props
+from services.owner_action_service import filter_owner_quarantined_props
 from services.provider_reliability_service import build_provider_reliability
 from services.pi_verdict_service import compute_verdict, verdict_payload
 from services.daily_briefing_service import build_briefing
@@ -552,7 +553,7 @@ def _cached_prop_catalog() -> list[PropResponse]:
 			and cached
 			and now - version_checked_at < 10
 		):
-			return cached
+			return filter_owner_quarantined_props(cached)
 	shared_version = get_distributed_json(_PROP_CATALOG_VERSION_KEY)
 	if isinstance(cached, list) and cached:
 		if (
@@ -561,7 +562,7 @@ def _cached_prop_catalog() -> list[PropResponse]:
 		) or shared_version == cached_version:
 			with _prop_catalog_lock:
 				_prop_catalog["versionCheckedAt"] = now
-			return cached
+			return filter_owner_quarantined_props(cached)
 	shared = get_distributed_json(_PROP_CATALOG_KEY)
 	if isinstance(shared, list) and shared:
 		try:
@@ -585,7 +586,7 @@ def _cached_prop_catalog() -> list[PropResponse]:
 					version=shared_version or "unversioned",
 					props=props,
 				)
-			return props
+			return filter_owner_quarantined_props(props)
 		except Exception:
 			delete_distributed_cache(_PROP_CATALOG_KEY)
 	durable = load_catalog_snapshot()
@@ -601,10 +602,12 @@ def _cached_prop_catalog() -> list[PropResponse]:
 					version="postgres-snapshot",
 					props=props,
 				)
-			return props
+			return filter_owner_quarantined_props(props)
 		except Exception:
 			logging.exception("Durable prop catalog snapshot was invalid")
-	return _rebuild_prop_catalog_from_local(fallback_version=shared_version)
+	return filter_owner_quarantined_props(
+		_rebuild_prop_catalog_from_local(fallback_version=shared_version)
+	)
 
 
 def _rebuild_prop_catalog_from_local(

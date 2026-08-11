@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_colors.dart' as brand_colors;
+import '../widgets/owner_command_center_overview.dart';
+import '../widgets/owner_model_audit_panel.dart';
 import '../widgets/provider_availability_dashboard.dart';
 
 class OwnerOperationsPage extends StatefulWidget {
@@ -19,8 +21,12 @@ class OwnerOperationsPage extends StatefulWidget {
 class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   late final ApiService _api = widget.apiService ?? ApiService();
   Map<String, dynamic>? _control;
+  Map<String, dynamic>? _commandCenter;
+  Map<String, dynamic>? _modelAudit;
   Map<String, dynamic>? _review;
   Map<String, dynamic>? _providerAvailability;
+  Map<String, dynamic>? _providerRecovery;
+  bool _recoverySubmitting = false;
   Map<String, dynamic> _strikeoutControlsDraft = const {};
   bool _savingStrikeoutControls = false;
   bool _loading = true;
@@ -28,7 +34,10 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   DateTime? _lastChecked;
 
   Timer? _retryTimer;
+  Timer? _liveRefreshTimer;
   int _consecutiveFailures = 0;
+  String _selectedWindow = 'today';
+  DateTimeRange? _customRange;
 
   // A deploy or a brief network fault used to leave this screen showing dashes
   // until somebody reloaded the page. It now retries on its own, backing off
@@ -45,11 +54,15 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   void initState() {
     super.initState();
     unawaited(_refresh());
+    _liveRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted && !_loading) unawaited(_refresh(showLoading: false));
+    });
   }
 
   @override
   void dispose() {
     _retryTimer?.cancel();
+    _liveRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -62,8 +75,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     });
   }
 
-  Future<void> _refresh() async {
-    if (mounted) {
+  Future<void> _refresh({bool showLoading = true}) async {
+    if (mounted && showLoading) {
       setState(() {
         _loading = true;
         _error = null;
@@ -72,14 +85,28 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     try {
       final results = await Future.wait([
         _api.fetchLaunchControlPanel(),
+        _api.fetchOwnerCommandCenter(
+          window: _selectedWindow,
+          start: _customRange?.start,
+          end: _customRange?.end.add(const Duration(days: 1)),
+        ),
+        _api.fetchOwnerModelAudit(
+          window: _selectedWindow,
+          start: _customRange?.start,
+          end: _customRange?.end.add(const Duration(days: 1)),
+        ),
         _api.fetchOwnerGradingReview(),
         _api.fetchProviderAvailability(),
+        _api.fetchProviderRecovery(),
       ]);
       if (!mounted) return;
       setState(() {
         _control = results[0];
-        _review = results[1];
-        _providerAvailability = results[2];
+        _commandCenter = results[1];
+        _modelAudit = results[2];
+        _review = results[3];
+        _providerAvailability = results[4];
+        _providerRecovery = results[5];
         final ownerInsights =
             _control?['ownerOnlyInsights'] as Map? ?? const {};
         final controlPayload =
@@ -99,8 +126,30 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         _scheduleRetry();
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && showLoading) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _selectWindow(String value) async {
+    if (value == 'custom') {
+      final selected = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime.now().subtract(const Duration(days: 366)),
+        lastDate: DateTime.now(),
+        initialDateRange: _customRange,
+      );
+      if (selected == null || !mounted) return;
+      setState(() {
+        _selectedWindow = value;
+        _customRange = selected;
+      });
+    } else {
+      setState(() {
+        _selectedWindow = value;
+        _customRange = null;
+      });
+    }
+    await _refresh();
   }
 
   /// Opens the rows behind a tile.
@@ -170,6 +219,95 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     }
   }
 
+  Future<String?> _ownerActionReason(String title) async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF0C1823),
+        title: Text(title, style: const TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 2,
+          maxLines: 4,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'Required audit reason (at least 5 characters)',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final reason = controller.text.trim();
+              if (reason.length >= 5) Navigator.pop(dialogContext, reason);
+            },
+            child: const Text('CONFIRM'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return result;
+  }
+
+  Future<void> _updatePropControl(Map item, bool quarantined) async {
+    final reason = await _ownerActionReason(
+      quarantined ? 'Quarantine this prop?' : 'Restore this prop?',
+    );
+    if (reason == null) return;
+    try {
+      await _api.updateOwnerPropControl(
+        item: item,
+        quarantined: quarantined,
+        reason: reason,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            quarantined
+                ? 'Prop quarantined and hidden.'
+                : 'Prop restored to the live feed.',
+          ),
+        ),
+      );
+      await _refresh(showLoading: false);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Owner action failed: $error')));
+      }
+    }
+  }
+
+  Future<void> _updateAlertAcknowledgement(Map alert, bool acknowledged) async {
+    final reason = await _ownerActionReason(
+      acknowledged ? 'Acknowledge this alert?' : 'Reopen this alert?',
+    );
+    if (reason == null) return;
+    try {
+      await _api.updateOwnerAlertAcknowledgement(
+        alert: alert,
+        acknowledged: acknowledged,
+        reason: reason,
+      );
+      if (!mounted) return;
+      await _refresh(showLoading: false);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Alert action failed: $error')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final reviewItems = (_review?['items'] as List? ?? const [])
@@ -181,11 +319,13 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     return ColoredBox(
       color: AppColors.background,
       child: RefreshIndicator(
-        onRefresh: _refresh,
+        onRefresh: () => _refresh(),
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
             _header(),
+            const SizedBox(height: 12),
+            _timeFilter(),
             if (_error != null) ...[
               const SizedBox(height: 12),
               _notice(
@@ -196,6 +336,28 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
               ),
             ],
             const SizedBox(height: 16),
+            _sectionTitle(
+              'COMMAND OVERVIEW',
+              'Users, memberships, inventory, model activity, and live platform services',
+            ),
+            const SizedBox(height: 10),
+            OwnerCommandCenterOverview(
+              data: _commandCenter ?? const <String, dynamic>{},
+            ),
+            const SizedBox(height: 22),
+            _sectionTitle(
+              'PROP INVENTORY & DATA QUALITY',
+              'Search the live catalog, inspect warnings, and drill into each provider',
+            ),
+            const SizedBox(height: 10),
+            OwnerPropInventoryPanel(
+              onPropControl: _updatePropControl,
+              onAlertAcknowledgement: _updateAlertAcknowledgement,
+              data:
+                  _commandCenter?['inventory'] as Map<String, dynamic>? ??
+                  const <String, dynamic>{},
+            ),
+            const SizedBox(height: 22),
             _sectionTitle(
               'SYSTEM STATUS',
               'Live production health and capacity',
@@ -239,10 +401,23 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             _productObservability(),
             const SizedBox(height: 22),
             _sectionTitle(
-              'MODEL ACCOUNTABILITY',
-              'Out-of-sample accuracy, calibration, closing-line value, and prediction coverage',
+              'PREDICTION & MODEL AUDIT',
+              'Verified outcomes, confidence calibration, Over/Under performance, model versions, and pick-level inspection',
             ),
             const SizedBox(height: 10),
+            OwnerModelAuditPanel(
+              data: _modelAudit ?? const <String, dynamic>{},
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'RELEASE ACCOUNTABILITY',
+              style: TextStyle(
+                color: AppColors.gold,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
             _modelAccountability(),
             const SizedBox(height: 22),
             _sectionTitle(
@@ -295,8 +470,41 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     );
   }
 
+  Future<void> _requestProviderRecovery(String sport) async {
+    if (_recoverySubmitting) return;
+    setState(() => _recoverySubmitting = true);
+    try {
+      final response = await _api.requestProviderRecovery(targetSport: sport);
+      if (!mounted) return;
+      setState(() => _providerRecovery = response);
+      final request = response['request'] as Map? ?? const {};
+      final accepted = request['accepted'] == true;
+      final reason =
+          '${request['reason'] ?? response['message'] ?? 'Recovery status updated.'}';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(reason),
+          backgroundColor: accepted
+              ? const Color(0xFF12634F)
+              : const Color(0xFF8A3F3F),
+        ),
+      );
+      await _refresh(showLoading: false);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to start provider recovery: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _recoverySubmitting = false);
+    }
+  }
+
   Widget _providerAvailabilityDashboard() => ProviderAvailabilityDashboard(
     data: _providerAvailability ?? const <String, dynamic>{},
+    recovery: _providerRecovery ?? const <String, dynamic>{},
+    recoverySubmitting: _recoverySubmitting,
+    onRecover: _requestProviderRecovery,
   );
   Widget _syncCertification() {
     final certification = _map('syncCertification');
@@ -634,7 +842,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'OWNER OPERATIONS CENTER',
+              'OWNER COMMAND CENTER',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 20,
@@ -644,14 +852,14 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             ),
             SizedBox(height: 5),
             Text(
-              'Private production controls, health signals, and review queues',
+              'Live platform health, model activity, accounts, and production controls',
               style: TextStyle(color: AppColors.textMuted, fontSize: 11),
             ),
           ],
         ),
         FilledButton.icon(
           key: const ValueKey('owner-operations-refresh'),
-          onPressed: _loading ? null : _refresh,
+          onPressed: _loading ? null : () => unawaited(_refresh()),
           icon: _loading
               ? const SizedBox(
                   width: 14,
@@ -671,6 +879,40 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
           ),
       ],
+    );
+  }
+
+  Widget _timeFilter() {
+    const windows = <String, String>{
+      'live': 'LIVE',
+      'today': 'TODAY',
+      'yesterday': 'YESTERDAY',
+      '7d': '7 DAYS',
+      '30d': '30 DAYS',
+      'custom': 'CUSTOM',
+    };
+    return Wrap(
+      spacing: 7,
+      runSpacing: 7,
+      children: windows.entries
+          .map((entry) {
+            final selected = _selectedWindow == entry.key;
+            return ChoiceChip(
+              key: ValueKey('owner-window-${entry.key}'),
+              selected: selected,
+              onSelected: (_) => unawaited(_selectWindow(entry.key)),
+              label: Text(entry.value),
+              selectedColor: AppColors.gold,
+              backgroundColor: const Color(0xFF0C1823),
+              side: BorderSide(color: AppColors.gold.withValues(alpha: .5)),
+              labelStyle: TextStyle(
+                color: selected ? const Color(0xFF07121C) : AppColors.gold,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+              ),
+            );
+          })
+          .toList(growable: false),
     );
   }
 

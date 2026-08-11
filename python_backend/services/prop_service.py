@@ -52,6 +52,7 @@ from services.prop_probability_service import choose_over_under, evaluate_market
 from services.market_calibration_service import market_calibration_adjustment
 from services.prop_intelligence_service import analyze_prop
 from services.prop_trust_service import build_prop_trust, build_research_capsule
+from services.owner_action_service import filter_owner_quarantined_props
 
 cache = PropCache(DB_PATH)
 
@@ -960,4 +961,4 @@ def _verified_props(props: list[PropResponse]) -> list[PropResponse]:
 			quarantined,
 			len(props),
 		)
-	return shown
+	return filter_owner_quarantined_props(shown)

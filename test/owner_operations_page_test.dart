@@ -5,6 +5,7 @@ import 'package:prop_intelligence/pages/owner_operations_page.dart';
 import 'package:prop_intelligence/services/api_service.dart';
 
 class _FakeOperationsApi extends ApiService {
+  int recoveryRequests = 0;
   @override
   Future<Map<String, dynamic>> fetchLaunchControlPanel() async => {
     'api': {'status': 'ok', 'version': 'abc123'},
@@ -155,6 +156,188 @@ class _FakeOperationsApi extends ApiService {
   };
 
   @override
+  Future<Map<String, dynamic>> fetchOwnerCommandCenter({
+    String window = 'today',
+    DateTime? start,
+    DateTime? end,
+  }) async => {
+    'generatedAt': '2026-08-11T14:01:00Z',
+    'window': {'key': window, 'label': 'Today'},
+    'overview': [
+      {
+        'key': 'activeUsers',
+        'label': 'Active users',
+        'value': 3,
+        'detail': 'Last 15 minutes',
+        'status': 'healthy',
+      },
+      {
+        'key': 'propsAvailable',
+        'label': 'Props available',
+        'value': 450,
+        'detail': 'Current cache inventory',
+        'status': 'healthy',
+      },
+    ],
+    'services': [
+      {
+        'service': 'API',
+        'status': 'HEALTHY',
+        'lastUpdate': '2026-08-11T14:01:00Z',
+        'latencyMs': 120,
+        'records': 'online',
+      },
+    ],
+    'alerts': <Map<String, dynamic>>[],
+    'inventory': {
+      'total': 1,
+      'returned': 1,
+      'truncated': false,
+      'healthy': 0,
+      'flagged': 1,
+      'facets': {
+        'sports': ['WNBA'],
+        'providers': ['PrizePicks'],
+        'markets': ['Points'],
+        'statuses': ['scheduled'],
+        'quality': ['stale_line'],
+      },
+      'alerts': [
+        {'key': 'stale_line', 'count': 1, 'severity': 'GOLD'},
+      ],
+      'providers': [
+        {
+          'provider': 'PrizePicks',
+          'status': 'PARTIAL',
+          'props': 1,
+          'sports': ['WNBA'],
+          'stale': 1,
+          'suspicious': 0,
+          'missingProjection': 0,
+          'lastUpdate': '2026-08-11T12:00:00Z',
+        },
+      ],
+      'items': [
+        {
+          'id': 'game-1|Test Player|Points|PrizePicks',
+          'gameId': 'game-1',
+          'sport': 'WNBA',
+          'matchup': 'Away vs Home',
+          'player': 'Test Player',
+          'market': 'Points',
+          'provider': 'PrizePicks',
+          'line': 20.5,
+          'openingLine': 19.5,
+          'lineMovement': 1.0,
+          'prediction': 'OVER',
+          'confidence': .72,
+          'gameStatus': 'scheduled',
+          'lastUpdate': '2026-08-11T12:00:00Z',
+          'warnings': ['stale_line'],
+          'qualityStatus': 'WARNING',
+        },
+      ],
+    },
+  };
+  @override
+  Future<Map<String, dynamic>> fetchOwnerModelAudit({
+    String window = '30d',
+    DateTime? start,
+    DateTime? end,
+    int limit = 500,
+  }) async => {
+    'available': true,
+    'generatedAt': '2026-08-11T14:01:00Z',
+    'window': {'key': window, 'label': 'Today'},
+    'truncated': false,
+    'returned': 1,
+    'summary': {
+      'graded': 1,
+      'decisions': 1,
+      'hits': 1,
+      'losses': 0,
+      'pushes': 0,
+      'accuracy': 1.0,
+      'brierScore': .0784,
+      'simulatedRoi': .91,
+      'oddsSampleSize': 1,
+    },
+    'calibration': [
+      {
+        'tier': '70-79%',
+        'sampleSize': 1,
+        'hits': 1,
+        'accuracy': 1.0,
+        'averageConfidence': .72,
+        'calibrationGap': -.28,
+      },
+    ],
+    'sidePerformance': [
+      {
+        'side': 'OVER',
+        'sampleSize': 1,
+        'hits': 1,
+        'pushes': 0,
+        'accuracy': 1.0,
+      },
+    ],
+    'dimensions': {
+      'sports': ['WNBA'],
+      'markets': ['Points'],
+      'sides': ['OVER'],
+      'modelVersions': ['wnba-v2'],
+    },
+    'predictions': [
+      {
+        'id': 'prediction-1',
+        'propId': 'prop-1',
+        'player': 'Audit Player',
+        'sport': 'WNBA',
+        'market': 'Points',
+        'side': 'OVER',
+        'line': 20.5,
+        'projection': 23.1,
+        'actualValue': 24,
+        'hitProbability': .72,
+        'hit': true,
+        'modelVersion': 'wnba-v2',
+        'createdAt': '2026-08-11T12:00:00Z',
+        'eventTime': '2026-08-11T13:00:00Z',
+        'gradedAt': '2026-08-11T14:00:00Z',
+        'provider': 'PrizePicks',
+        'entryOdds': -110,
+        'closingLine': 21.5,
+        'lineClvPoints': 1.0,
+        'explanation': {
+          'summary': 'Projection cleared the line with a confirmed role.',
+          'modelVersion': 'wnba-v2',
+          'sourceVersions': {'projection': 'wnba-v2'},
+          'warnings': ['Closing line source was delayed.'],
+          'sections': [
+            {
+              'key': 'projection',
+              'label': 'Projection vs line',
+              'value': '23.10 vs 20.50',
+              'detail': 'Model difference +2.60.',
+              'status': 'AVAILABLE',
+            },
+            {
+              'key': 'availability',
+              'label': 'Injury and lineup',
+              'value': 'Injury: healthy | Lineup: confirmed starter',
+              'detail': 'Starter confirmed before tip.',
+              'status': 'AVAILABLE',
+            },
+          ],
+        },
+        'confidenceTier': '70-79%',
+        'push': false,
+        'correct': true,
+        'profitUnits': .9091,
+      },
+    ],
+  };
+  @override
   Future<Map<String, dynamic>> fetchProviderAvailability() async => {
     'overallStatus': 'ATTENTION',
     'generatedAt': '2026-08-11T14:00:00Z',
@@ -164,15 +347,16 @@ class _FakeOperationsApi extends ApiService {
       {
         'sport': 'WNBA',
         'provider': 'Sportradar WNBA',
-        'status': 'HEALTHY',
+        'status': 'PARTIAL',
         'authorizationStatus': 'AUTHORIZED',
+        'stale': true,
         'gamesChecked': 2,
         'playersConfirmed': 20,
         'startersConfirmed': 10,
         'observationsCreated': 18,
         'lastSuccessfulSync': '2026-08-11T14:00:00Z',
         'nextRefreshAt': '2026-08-11T14:10:00Z',
-        'missingData': <String>[],
+        'missingData': ['Latest availability data is stale.'],
       },
       {
         'sport': 'NFL',
@@ -196,6 +380,66 @@ class _FakeOperationsApi extends ApiService {
       },
     ],
   };
+  @override
+  Future<Map<String, dynamic>> fetchProviderRecovery() async => {
+    'state': 'RECOMMENDED',
+    'message': 'One safe global recovery can refresh WNBA.',
+    'recoveryRecommended': true,
+    'canStartRecovery': true,
+    'actionableSports': ['WNBA'],
+    'sports': [
+      {
+        'sport': 'WNBA',
+        'status': 'PARTIAL',
+        'authorizationStatus': 'AUTHORIZED',
+        'stale': true,
+        'needsRecovery': true,
+        'canRecover': true,
+        'reason': 'Latest availability data is stale.',
+      },
+      {
+        'sport': 'NFL',
+        'status': 'NOT_ENTITLED',
+        'authorizationStatus': 'NOT_ENTITLED',
+        'stale': false,
+        'needsRecovery': false,
+        'canRecover': false,
+        'reason': 'Provider plan does not include this sport.',
+      },
+    ],
+    'queue': {
+      'available': true,
+      'workers': 1,
+      'queued': 0,
+      'started': 0,
+      'retryPolicy': {'maxAttempts': 4},
+    },
+    'sync': {
+      'status': 'idle',
+      'coverageStatus': 'idle',
+      'sportsGameOddsStatus': 'idle',
+      'postProcessingStatus': 'idle',
+    },
+  };
+
+  @override
+  Future<Map<String, dynamic>> requestProviderRecovery({
+    String targetSport = 'ALL',
+  }) async {
+    recoveryRequests += 1;
+    return {
+      ...(await fetchProviderRecovery()),
+      'state': 'QUEUED',
+      'canStartRecovery': false,
+      'message': 'Provider recovery is queued on the background worker.',
+      'request': {
+        'accepted': true,
+        'status': 'QUEUED',
+        'reason': 'Provider recovery queued with automatic retries.',
+      },
+    };
+  }
+
   @override
   Future<Map<String, dynamic>> fetchOwnerGradingReview() async => {
     'items': [
@@ -223,20 +467,46 @@ void main() {
   testWidgets('owner operations page shows controls and review queue', (
     tester,
   ) async {
+    final api = _FakeOperationsApi();
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: OwnerOperationsPage(apiService: _FakeOperationsApi()),
-        ),
+        home: Scaffold(body: OwnerOperationsPage(apiService: api)),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('OWNER OPERATIONS CENTER'), findsOneWidget);
+    expect(find.text('OWNER COMMAND CENTER'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('owner-command-center-overview')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('owner-window-today')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('owner-operations-refresh')),
       findsOneWidget,
     );
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('owner-prop-inventory')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.byKey(const ValueKey('owner-prop-inventory')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('owner-inventory-search')),
+      findsOneWidget,
+    );
+    expect(find.text('PROVIDER DRILLDOWNS'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('owner-inventory-search')),
+      'missing player',
+    );
+    await tester.pump();
+    expect(find.text('No props match these owner filters.'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('owner-inventory-search')),
+      '',
+    );
+    await tester.pump();
     await tester.scrollUntilVisible(
       find.text('PROVIDER AVAILABILITY'),
       300,
@@ -244,6 +514,20 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey('provider-availability-dashboard')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('owner-provider-recovery')),
+      findsOneWidget,
+    );
+    final recoveryButton = tester.widget<OutlinedButton>(
+      find.byKey(const ValueKey('provider-recover-all')),
+    );
+    recoveryButton.onPressed!();
+    await tester.pumpAndSettle();
+    expect(api.recoveryRequests, 1);
+    expect(
+      find.text('Provider recovery queued with automatic retries.'),
       findsOneWidget,
     );
     await tester.scrollUntilVisible(
@@ -258,37 +542,82 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('WARN | SCORE 92/100'), findsOneWidget);
-    for (var attempt = 0; attempt < 8; attempt++) {
-      if (find.text('BILLING RELEASE CERTIFICATION').evaluate().isNotEmpty) {
-        break;
-      }
-      await tester.drag(find.byType(ListView), const Offset(0, -300));
-      await tester.pumpAndSettle();
-    }
-    expect(find.text('BILLING RELEASE CERTIFICATION'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('billing-release-certification')),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(
       find.byKey(const ValueKey('billing-release-certification')),
       findsOneWidget,
     );
-    await tester.drag(find.byType(ListView), const Offset(0, -250));
-    await tester.pumpAndSettle();
-    expect(find.text('PRODUCT OBSERVABILITY'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('product-observability-section')),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(
       find.byKey(const ValueKey('product-observability-section')),
       findsOneWidget,
     );
     await tester.scrollUntilVisible(
-      find.text('MODEL ACCOUNTABILITY'),
+      find.byKey(const ValueKey('owner-model-audit')),
       400,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('MODEL ACCOUNTABILITY'), findsOneWidget);
+    expect(find.byKey(const ValueKey('owner-model-audit')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('owner-model-audit-search')),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('owner-model-audit-search')),
+      'missing prediction',
+    );
+    await tester.pump();
+    expect(
+      find.text('No verified predictions match these audit filters.'),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('owner-model-audit-search')),
+      '',
+    );
+    await tester.pump();
     await tester.scrollUntilVisible(
       find.text('OVER / UNDER AUDIT'),
       400,
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('OVER / UNDER AUDIT'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('owner-prediction-prediction-1')),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('owner-prediction-prediction-1')),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('owner-why-pi-prediction-1')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const ValueKey('owner-why-pi-prediction-1')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('owner-why-pi-dialog')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('owner-why-pi-dialog')),
+        matching: find.text('WHY DID PI CHOOSE THIS?'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('23.10 vs 20.50'), findsOneWidget);
+    expect(find.text('DATA WARNINGS'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('owner-why-pi-close')));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.textContaining('Test Player'),
       400,
@@ -303,16 +632,20 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
+    final api = _FakeOperationsApi();
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: OwnerOperationsPage(apiService: _FakeOperationsApi()),
-        ),
+        home: Scaffold(body: OwnerOperationsPage(apiService: api)),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('OWNER OPERATIONS CENTER'), findsOneWidget);
+    expect(find.text('OWNER COMMAND CENTER'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('owner-command-center-overview')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('owner-window-today')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('owner-operations-refresh')),
       findsOneWidget,
@@ -324,6 +657,10 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey('provider-availability-dashboard')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('owner-provider-recovery')),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
