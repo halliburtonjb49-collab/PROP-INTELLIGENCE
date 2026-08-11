@@ -18,6 +18,7 @@ from config import (
 )
 from database.postgres import database_is_configured, get_database_pool
 from services.pregame_availability_service import apply_pregame_availability
+from services.provider_availability_monitor_service import record_provider_availability
 from services.sportradar_pregame_service import sync_sportradar_pregame
 
 logger = logging.getLogger(__name__)
@@ -412,8 +413,16 @@ def sync_sportsdataio_mlb_lineups(day: date | None = None) -> dict[str, object]:
             )
             fallback.raise_for_status()
             observations = normalize_sportsdataio_mlb_lineups(fallback.json())
-        return {"provider": "sportsdataio-mlb", "observations": len(observations),
-                "created": persist_pregame_observations("SPORTSDATAIO", observations)}
+        return {
+            "provider": "sportsdataio-mlb",
+            "observations": len(observations),
+            "confirmedPlayers": sum(bool(row.get("confirmed")) for row in observations),
+            "confirmedStarters": sum(
+                str(row.get("status") or "") == "CONFIRMED_STARTER"
+                for row in observations
+            ),
+            "created": persist_pregame_observations("SPORTSDATAIO", observations),
+        }
     except Exception as exc:
         logger.warning("SportsDataIO MLB lineup sync failed: %s", exc)
         return {"provider": "sportsdataio-mlb", "created": 0, "error": str(exc)}
@@ -432,12 +441,14 @@ def sync_official_mlb_context(day: date | None = None) -> dict[str, object]:
         observations = normalize_official_mlb_schedule(payload)
         games = [game for day_row in payload.get("dates", [])
                  for game in day_row.get("games", []) if isinstance(game, dict)]
+        attempted = 0
         for game in games:
             game_pk = str(game.get("gamePk") or "")
             if not game_pk:
                 continue
             if not _inside_mlb_lineup_window(game.get("gameDate")):
                 continue
+            attempted += 1
             boxscore = requests.get(f"{MLB_STATS_API}/v1/game/{game_pk}/boxscore", timeout=15)
             if boxscore.status_code in {404, 503}:
                 continue
@@ -445,8 +456,18 @@ def sync_official_mlb_context(day: date | None = None) -> dict[str, object]:
             observations.extend(normalize_official_mlb_boxscore(
                 boxscore.json(), event_id=game_pk, event_time=_text(game, "gameDate"),
             ))
-        return {"provider": "mlb-stats-api", "observations": len(observations),
-                "created": persist_pregame_observations("MLB_STATS_API", observations)}
+        return {
+            "provider": "mlb-stats-api",
+            "games": len(games),
+            "attempted": attempted,
+            "observations": len(observations),
+            "confirmedPlayers": sum(bool(row.get("confirmed")) for row in observations),
+            "confirmedStarters": sum(
+                str(row.get("status") or "") in {"CONFIRMED_STARTER", "BATTING_ORDER"}
+                for row in observations
+            ),
+            "created": persist_pregame_observations("MLB_STATS_API", observations),
+        }
     except Exception as exc:
         logger.warning("Official MLB pregame sync failed: %s", exc)
         return {"provider": "mlb-stats-api", "created": 0, "error": str(exc)}
@@ -513,11 +534,13 @@ def sync_sportradar_wnba_starters(day: date | None = None) -> dict[str, object]:
         schedule.raise_for_status()
         games = schedule.json().get("games", [])
         observations: list[dict[str, object]] = []
+        attempted = 0
         for game in games if isinstance(games, list) else []:
             if not isinstance(game, dict) or not game.get("id"):
                 continue
             if not _inside_starter_window(game.get("scheduled")):
                 continue
+            attempted += 1
             summary = requests.get(
                 f"{SPORTRADAR_WNBA}/games/{game['id']}/summary.json",
                 params={"api_key": SPORTRADAR_WNBA_API_KEY}, timeout=20,
@@ -528,8 +551,18 @@ def sync_sportradar_wnba_starters(day: date | None = None) -> dict[str, object]:
             observations.extend(normalize_sportradar_wnba_starters(
                 summary.json(), str(game["id"]), _text(game, "scheduled"),
             ))
-        return {"provider": "sportradar-wnba-starters", "observations": len(observations),
-                "created": persist_pregame_observations("SPORTRADAR", observations)}
+        return {
+            "provider": "sportradar-wnba-starters",
+            "games": len(games) if isinstance(games, list) else 0,
+            "attempted": attempted,
+            "observations": len(observations),
+            "confirmedPlayers": sum(bool(row.get("confirmed")) for row in observations),
+            "confirmedStarters": sum(
+                str(row.get("status") or "") == "CONFIRMED_STARTER"
+                for row in observations
+            ),
+            "created": persist_pregame_observations("SPORTRADAR", observations),
+        }
     except Exception as exc:
         logger.warning("Sportradar WNBA starter sync failed: %s", exc)
         return {"provider": "sportradar-wnba-starters", "created": 0, "error": str(exc)}
@@ -539,6 +572,7 @@ def sync_pregame_context() -> list[dict[str, object]]:
     results = [sync_official_mlb_context(), sync_sportsdataio_mlb_lineups(), sync_espn_injuries(), sync_sportradar_wnba_injuries(),
                sync_sportradar_wnba_starters()]
     results.extend(sync_sportradar_pregame(persist_pregame_observations))
+    record_provider_availability(results)
     return results
 
 

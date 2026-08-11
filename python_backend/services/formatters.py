@@ -4,7 +4,6 @@ import re
 from config import PLAYER_IMAGE_DIR
 from services.mlb_headshot_service import mlb_headshot_url
 from services.espn_headshot_service import espn_headshot_url
-from services.sportmonks_headshot_service import sportmonks_headshot_url
 
 _ESPN_COVERED_SPORTS = {"NFL", "NBA", "WNBA", "NHL", "PGA", "UFC"}
 
@@ -288,7 +287,7 @@ def resolve_player_image(player_name: str, sport: str) -> str:
     """Picks the best available photo for a prop: an official league
     headshot when we have one, otherwise whatever locally bundled asset
     exists. NFL, NBA, WNBA, NHL, PGA and UFC use ESPN's roster/event cache;
-    MLB uses MLB's official player directory; soccer also checks Sportmonks.
+    MLB uses MLB's official player directory; soccer uses ESPN.
     Returns "" when no provider has a photo so the frontend can safely use
     its initials placeholder.
     """
@@ -301,9 +300,6 @@ def resolve_player_image(player_name: str, sport: str) -> str:
         if headshot:
             return headshot
     elif sport == "SOCCER":
-        headshot = sportmonks_headshot_url(player_name)
-        if headshot:
-            return headshot
         headshot = espn_headshot_url(player_name, sport)
         if headshot:
             return headshot

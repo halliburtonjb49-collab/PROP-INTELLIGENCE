@@ -29,19 +29,11 @@ services:
         sync: false
       - key: API_SPORTS_KEY
         sync: false
-      - key: SPORTMONKS_API_KEY
-        sync: false
       - key: API_SPORTS_BASEBALL_KEY
         sync: false
-      - key: SPORTMONKS_HEADSHOT_MAP_PATH
-        value: /tmp/sportmonks_headshot_map.json
       - key: ESPN_HEADSHOT_MAP_PATH
         value: /tmp/espn_headshot_map.json
       - key: SPORTSDATAIO_API_KEY
-        sync: false
-      - key: CRICKETDATA_API_KEY
-        sync: false
-      - key: SPORTMONKS_CRICKET_API_KEY
         sync: false
       - key: BALLDONTLIE_API_KEY
         sync: false
@@ -188,15 +180,9 @@ services:
         sync: false
       - key: API_SPORTS_KEY
         sync: false
-      - key: SPORTMONKS_API_KEY
-        sync: false
       - key: API_SPORTS_BASEBALL_KEY
         sync: false
       - key: SPORTSDATAIO_API_KEY
-        sync: false
-      - key: CRICKETDATA_API_KEY
-        sync: false
-      - key: SPORTMONKS_CRICKET_API_KEY
         sync: false
       - key: BALLDONTLIE_API_KEY
         sync: false
@@ -254,8 +240,6 @@ services:
         sync: false
       - key: API_SPORTS_KEY
         sync: false
-      - key: SPORTMONKS_API_KEY
-        sync: false
       - key: SPORTRADAR_API_KEY
         sync: false
       - key: SPORTRADAR_ACCESS_LEVEL
@@ -285,10 +269,6 @@ services:
       - key: API_SPORTS_BASEBALL_KEY
         sync: false
       - key: SPORTSDATAIO_API_KEY
-        sync: false
-      - key: CRICKETDATA_API_KEY
-        sync: false
-      - key: SPORTMONKS_CRICKET_API_KEY
         sync: false
       - key: BALLDONTLIE_API_KEY
         sync: false

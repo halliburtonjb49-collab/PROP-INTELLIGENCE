@@ -3,7 +3,6 @@ from services.historical_ingestion_service import (
     build_official_assignments,
     normalize_basketball_logs,
     normalize_espn_soccer_fixtures,
-    normalize_sportmonks_fixtures,
     normalize_statcast,
     run_mlb_historical_backfill,
     run_daily_historical_sync,
@@ -310,8 +309,7 @@ def test_daily_basketball_sync_falls_back_to_espn(monkeypatch) -> None:
                 }
             ]
 
-    class SportmonksProvider:
-        def completed_fixtures(self, *, target_date):
+        def completed_fixtures(self, *, start_date, end_date):
             return []
 
     class Repository:
@@ -330,8 +328,8 @@ def test_daily_basketball_sync_falls_back_to_espn(monkeypatch) -> None:
         EspnProvider,
     )
     monkeypatch.setattr(
-        "services.historical_ingestion_service.SportmonksStatisticsProvider",
-        SportmonksProvider,
+        "services.historical_ingestion_service.EspnSoccerStatisticsProvider",
+        EspnProvider,
     )
     monkeypatch.setattr(
         "services.historical_ingestion_service.HistoricalRepository",
@@ -355,32 +353,6 @@ def test_normalizes_statcast_pitch() -> None:
     assert len(rows) == 1
     assert rows[0]["pitcher_id"] == "9"
     assert rows[0]["plate_x"] == .2
-
-
-def test_normalizes_sportmonks_player_fixture_stats() -> None:
-    rows = normalize_sportmonks_fixtures([{
-        "id": 55,
-        "league_id": 8,
-        "starting_at": "2026-07-24 19:00:00",
-        "lineups": [{
-            "player_id": 7,
-            "player_name": "Test Striker",
-            "team_id": 9,
-            "details": [
-                {"type_id": 42, "data": {"value": 4}},
-                {"type_id": 86, "data": {"value": 2}},
-                {"type_id": 52, "data": {"value": 1}},
-            ],
-        }],
-    }])
-
-    assert len(rows) == 1
-    assert rows[0]["sport"] == "SOCCER"
-    assert rows[0]["league"] == "8"
-    assert rows[0]["stats"]["shots"] == 4
-    assert rows[0]["stats"]["shots_on_target"] == 2
-    assert rows[0]["stats"]["assists"] == 0
-    assert rows[0]["stats"]["received_card"] == 0
 
 
 def test_normalizes_espn_soccer_player_fixture_stats() -> None:
@@ -557,15 +529,10 @@ def test_mlb_backfill_can_isolate_each_statcast_chunk(monkeypatch) -> None:
     assert result["upserted"] == 18
 
 
-def test_soccer_backfill_defaults_to_full_season_and_adds_espn_fallback(
+def test_soccer_backfill_defaults_to_full_season_from_espn(
     monkeypatch,
 ) -> None:
     calls = {}
-
-    class SportmonksProvider:
-        def completed_fixtures(self, *, target_date):
-            calls.setdefault("sportmonks_dates", []).append(target_date)
-            return []
 
     class EspnProvider:
         def completed_fixtures(self, *, start_date, end_date):
@@ -589,11 +556,6 @@ def test_soccer_backfill_defaults_to_full_season_and_adds_espn_fallback(
     class Repository:
         def upsert_player_game_logs(self, rows):
             return len(rows)
-
-    monkeypatch.setattr(
-        "services.historical_ingestion_service.SportmonksStatisticsProvider",
-        SportmonksProvider,
-    )
     monkeypatch.setattr(
         "services.historical_ingestion_service.EspnSoccerStatisticsProvider",
         EspnProvider,
@@ -608,12 +570,10 @@ def test_soccer_backfill_defaults_to_full_season_and_adds_espn_fallback(
     )
 
     expected_start = __import__("datetime").date(2025, 7, 25)
-    assert calls["sportmonks_dates"][0] == expected_start
-    assert len(calls["sportmonks_dates"]) == 365
     assert calls["espn_range"] == (
         expected_start,
         __import__("datetime").date(2026, 7, 24),
     )
     assert result["fetched"] == 1
     assert result["upserted"] == 1
-    assert result["sources"] == {"Sportmonks": 0, "ESPN": 1}
+    assert result["sources"] == {"ESPN": 1}

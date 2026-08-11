@@ -1,7 +1,7 @@
 """Historical soccer player statistics from ESPN's public site feed.
 
 This is a coverage fallback for leagues that are not included in the
-configured Sportmonks subscription. It intentionally fetches only completed
+configured primary-provider subscription. It intentionally fetches only completed
 events and only the counting statistics used by the baseline projection model.
 """
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer"
 
-# MLS is the known gap in the current Sportmonks subscription. Additional
+# MLS is the known gap in the current primary-provider subscription. Additional
 # leagues can be added here only after their ESPN roster-stat payloads are
 # verified against the normalizer.
 FALLBACK_LEAGUES: dict[str, tuple[str, str]] = {
@@ -52,7 +52,7 @@ class EspnSoccerStatisticsProvider:
         self,
         *,
         espn_league: str,
-        sportmonks_league_id: str,
+        provider_league_id: str,
         event: dict,
     ) -> dict | None:
         event_id = str(event.get("id") or "").strip()
@@ -71,7 +71,7 @@ class EspnSoccerStatisticsProvider:
             return None
         return {
             "id": event_id,
-            "league_id": sportmonks_league_id,
+            "league_id": provider_league_id,
             "starting_at": event.get("date") or competition.get("date"),
             "rosters": payload.get("rosters") or [],
         }
@@ -88,7 +88,7 @@ class EspnSoccerStatisticsProvider:
             league = FALLBACK_LEAGUES.get(league_key)
             if league is None:
                 continue
-            espn_league, sportmonks_league_id = league
+            espn_league, provider_league_id = league
             payload = self._json(
                 f"{_BASE_URL}/{espn_league}/scoreboard",
                 params={
@@ -118,7 +118,7 @@ class EspnSoccerStatisticsProvider:
                     executor.submit(
                         self._event_summary,
                         espn_league=espn_league,
-                        sportmonks_league_id=sportmonks_league_id,
+                        provider_league_id=provider_league_id,
                         event=event,
                     )
                     for event in events

@@ -155,6 +155,48 @@ class _FakeOperationsApi extends ApiService {
   };
 
   @override
+  Future<Map<String, dynamic>> fetchProviderAvailability() async => {
+    'overallStatus': 'ATTENTION',
+    'generatedAt': '2026-08-11T14:00:00Z',
+    'checkedAt': '2026-08-11T14:01:00Z',
+    'refreshIntervalMinutes': 10,
+    'sports': [
+      {
+        'sport': 'WNBA',
+        'provider': 'Sportradar WNBA',
+        'status': 'HEALTHY',
+        'authorizationStatus': 'AUTHORIZED',
+        'gamesChecked': 2,
+        'playersConfirmed': 20,
+        'startersConfirmed': 10,
+        'observationsCreated': 18,
+        'lastSuccessfulSync': '2026-08-11T14:00:00Z',
+        'nextRefreshAt': '2026-08-11T14:10:00Z',
+        'missingData': <String>[],
+      },
+      {
+        'sport': 'NFL',
+        'provider': 'Sportradar NFL',
+        'status': 'NOT_ENTITLED',
+        'authorizationStatus': 'NOT_ENTITLED',
+        'gamesChecked': 0,
+        'playersConfirmed': 0,
+        'startersConfirmed': 0,
+        'observationsCreated': 0,
+        'lastSuccessfulSync': null,
+        'nextRefreshAt': '2026-08-11T14:10:00Z',
+        'missingData': ['Provider plan does not include this sport.'],
+      },
+    ],
+    'alerts': [
+      {
+        'sport': 'NFL',
+        'status': 'NOT_ENTITLED',
+        'message': 'Provider plan does not include this sport.',
+      },
+    ],
+  };
+  @override
   Future<Map<String, dynamic>> fetchOwnerGradingReview() async => {
     'items': [
       {
@@ -196,14 +238,20 @@ void main() {
       findsOneWidget,
     );
     await tester.scrollUntilVisible(
+      find.text('PROVIDER AVAILABILITY'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      find.byKey(const ValueKey('provider-availability-dashboard')),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
       find.text('PRODUCTION DATA CERTIFICATION'),
       400,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(
-      find.byKey(const ValueKey('sync-certification')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('sync-certification')), findsOneWidget);
     expect(find.text('PENDING | SYNC CERTIFICATION'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('production-data-certification')),
@@ -265,6 +313,19 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('OWNER OPERATIONS CENTER'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('owner-operations-refresh')),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
+      find.text('PROVIDER AVAILABILITY'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      find.byKey(const ValueKey('provider-availability-dashboard')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 }

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from services.api_auth_service import require_admin, require_owner, require_user_id
 from services.operations_detail_service import operations_detail
 from services.pipeline_run_service import recent_pipeline_runs, summarize_pipeline_health
+from services.provider_availability_monitor_service import provider_availability_snapshot
 from services.readiness_service import production_readiness
 from services.acceptance_service import production_acceptance_snapshot
 from services.launch_control_service import launch_control_snapshot
@@ -51,6 +52,11 @@ def pipelines(limit: int = 25) -> dict[str, object]:
     bounded_limit = max(1, min(limit, 100))
     runs = recent_pipeline_runs(bounded_limit)
     return {"runs": runs, **summarize_pipeline_health(runs)}
+
+
+@router.get("/provider-availability", dependencies=[Depends(require_owner)])
+def provider_availability() -> dict[str, object]:
+    return provider_availability_snapshot()
 
 
 @router.get("/control-panel", dependencies=[Depends(require_owner)])

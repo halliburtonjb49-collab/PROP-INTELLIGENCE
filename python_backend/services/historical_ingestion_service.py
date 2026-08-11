@@ -23,7 +23,6 @@ from providers.espn_box_score_statistics import EspnBoxScoreStatisticsProvider
 from providers.nflverse_statistics import NflverseStatisticsProvider
 from providers.espn_soccer_statistics import EspnSoccerStatisticsProvider
 from providers.nhl_official_statistics import NhlOfficialStatisticsProvider
-from providers.sportmonks_statistics import SportmonksStatisticsProvider
 from services.vector_similarity_service import upsert_basketball_stretches
 from services.officiating_profile_service import (calculate_mlb_umpire_profiles,
     persist_basketball_assignments, persist_officiating_profiles, refresh_basketball_profiles)
@@ -180,87 +179,6 @@ def normalize_statcast(rows: Iterable[dict[str, object]]) -> list[dict[str, obje
             "home_team": str(row.get("home_team") or ""), "away_team": str(row.get("away_team") or ""),
             "raw": _json_safe(row),
         })
-    return normalized
-
-
-_SOCCER_STAT_CODES = {
-    41: "shots_off_target",
-    42: "shots",
-    52: "goals",
-    79: "assists",
-    83: "red_cards",
-    84: "yellow_cards",
-    85: "yellow_red_cards",
-    86: "shots_on_target",
-}
-
-
-def _stat_value(value: object) -> float | None:
-    if isinstance(value, dict):
-        value = value.get("total", value.get("value"))
-    return _number(value)
-
-
-def normalize_sportmonks_fixtures(
-    fixtures: Iterable[dict[str, object]],
-) -> list[dict[str, object]]:
-    normalized: list[dict[str, object]] = []
-    for fixture in fixtures:
-        event_id = str(fixture.get("id") or "")
-        game_date = _as_date(fixture.get("starting_at"))
-        league_id = str(fixture.get("league_id") or "")
-        if not event_id or not game_date:
-            continue
-        lineups = fixture.get("lineups")
-        if not isinstance(lineups, list):
-            continue
-        for lineup in lineups:
-            if not isinstance(lineup, dict):
-                continue
-            player_id = str(lineup.get("player_id") or "")
-            player_name = str(
-                lineup.get("player_name")
-                or (lineup.get("player") or {}).get("display_name")
-                or (lineup.get("player") or {}).get("name")
-                or ""
-            ).strip()
-            if not player_id or not player_name:
-                continue
-            stats: dict[str, float] = {}
-            details = lineup.get("details")
-            for detail in details if isinstance(details, list) else []:
-                if not isinstance(detail, dict):
-                    continue
-                code = _SOCCER_STAT_CODES.get(detail.get("type_id"))
-                value = _stat_value(detail.get("data", detail.get("value")))
-                if code and value is not None:
-                    stats[code] = value
-            # A player appearance with no covered stats is still meaningful:
-            # the supported counting stats were zero in that completed fixture.
-            for code in _SOCCER_STAT_CODES.values():
-                stats.setdefault(code, 0.0)
-            stats["received_card"] = float(
-                any(
-                    stats[code] > 0
-                    for code in ("red_cards", "yellow_cards", "yellow_red_cards")
-                )
-            )
-            stats["received_red_card"] = float(
-                stats["red_cards"] > 0 or stats["yellow_red_cards"] > 0
-            )
-            normalized.append({
-                "id": _stable_id("SOCCER", event_id, player_id),
-                "sport": "SOCCER",
-                "league": league_id,
-                "event_id": event_id,
-                "player_id": player_id,
-                "player_name": player_name,
-                "team_id": str(lineup.get("team_id") or ""),
-                "game_date": game_date,
-                "stats": stats,
-                "source": "Sportmonks",
-                "raw": _json_safe(lineup),
-            })
     return normalized
 
 
@@ -526,72 +444,38 @@ def run_soccer_historical_backfill(
     end_date: date | None = None,
     days: int = 365,
 ) -> dict[str, object]:
-    """Backfill soccer history, using ESPN for uncovered leagues such as MLS."""
+    """Backfill supported soccer history from ESPN only."""
     end = end_date or (datetime.now(timezone.utc).date() - timedelta(days=1))
     start = end - timedelta(days=max(1, days) - 1)
     repository = HistoricalRepository()
-    provider = SportmonksStatisticsProvider()
-    fetched = upserted = failed_days = 0
-    sportmonks_leagues: set[str] = set()
-    errors: list[dict[str, str]] = []
-    current = start
-    while current <= end:
-        try:
-            rows = normalize_sportmonks_fixtures(
-                provider.completed_fixtures(target_date=current)
-            )
-            fetched += len(rows)
-            sportmonks_leagues.update(str(row["league"]) for row in rows)
-            upserted += repository.upsert_player_game_logs(rows)
-        except Exception as exc:
-            failed_days += 1
-            errors.append({"date": current.isoformat(), "error": str(exc)})
-            logger.warning("Historical soccer backfill failed for %s", current, exc_info=True)
-        current += timedelta(days=1)
-    if failed_days == days:
-        raise RuntimeError(errors[0]["error"] if errors else "Soccer backfill failed")
-    espn_fetched = 0
-    espn_error: str | None = None
-    espn_skipped = "779" in sportmonks_leagues
-    try:
-        fixture_batch: list[dict] = []
-        fallback_fixtures = (
-            ()
-            if espn_skipped
-            else EspnSoccerStatisticsProvider().completed_fixtures(
-                start_date=start,
-                end_date=end,
-            )
-        )
-        for fixture in fallback_fixtures:
-            fixture_batch.append(fixture)
-            if len(fixture_batch) < 20:
-                continue
-            rows = normalize_espn_soccer_fixtures(fixture_batch)
-            upserted += repository.upsert_player_game_logs(rows)
-            espn_fetched += len(rows)
-            fixture_batch.clear()
-        if fixture_batch:
-            rows = normalize_espn_soccer_fixtures(fixture_batch)
-            upserted += repository.upsert_player_game_logs(rows)
-            espn_fetched += len(rows)
-        fetched += espn_fetched
-    except Exception as exc:
-        espn_error = str(exc)
-        logger.warning("Historical ESPN soccer fallback failed", exc_info=True)
+    fetched = upserted = 0
+    fixtures = EspnSoccerStatisticsProvider().completed_fixtures(
+        start_date=start,
+        end_date=end,
+    )
+    batch: list[dict] = []
+    for fixture in fixtures:
+        batch.append(fixture)
+        if len(batch) < 20:
+            continue
+        rows = normalize_espn_soccer_fixtures(batch)
+        fetched += len(rows)
+        upserted += repository.upsert_player_game_logs(rows)
+        batch.clear()
+    if batch:
+        rows = normalize_espn_soccer_fixtures(batch)
+        fetched += len(rows)
+        upserted += repository.upsert_player_game_logs(rows)
     return {
         "startDate": start.isoformat(),
         "endDate": end.isoformat(),
         "fetched": fetched,
         "upserted": upserted,
-        "failedDays": failed_days,
-        "errors": errors[:5],
-        "sources": {
-            "Sportmonks": fetched - espn_fetched,
-            "ESPN": espn_fetched,
-        },
-        "espnError": espn_error,
-        "espnSkipped": espn_skipped,
+        "failedDays": 0,
+        "errors": [],
+        "sources": {"ESPN": fetched},
+        "espnError": None,
+        "espnSkipped": False,
     }
 
 
@@ -723,16 +607,19 @@ def run_daily_historical_sync(
             logger.exception("Historical MLB sync failed")
             results["MLB"] = {"error": str(exc)}
     try:
-        soccer_rows = normalize_sportmonks_fixtures(
-            SportmonksStatisticsProvider().completed_fixtures(target_date=target)
+        soccer_rows = normalize_espn_soccer_fixtures(
+            EspnSoccerStatisticsProvider().completed_fixtures(
+                start_date=target,
+                end_date=target,
+            )
         )
         results["SOCCER"] = {
             "fetched": len(soccer_rows),
             "upserted": repository.upsert_player_game_logs(soccer_rows),
-            "source": "Sportmonks",
+            "source": "ESPN",
         }
     except Exception as exc:
-        logger.exception("Historical soccer sync failed")
+        logger.exception("Historical ESPN soccer sync failed")
         results["SOCCER"] = {"error": str(exc)}
     results["finishedAt"] = datetime.now(timezone.utc).isoformat()
     return results
