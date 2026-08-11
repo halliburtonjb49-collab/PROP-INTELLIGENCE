@@ -17,6 +17,7 @@ from config import (
     SPORTSGAMEODDS_API_KEY,
     SPORTSGAMEODDS_API_KEY_SECONDARY,
 )
+from services.distributed_cache_service import get_json, set_json
 
 LOGGER = logging.getLogger(__name__)
 BASE_URL = "https://api.sportsgameodds.com/v2"
@@ -152,6 +153,8 @@ def _api_keys() -> tuple[str, ...]:
 
 _http_local = local()
 _usage_lock = Lock()
+_USAGE_CACHE_KEY = "provider:sportsgameodds:usage:v1"
+_USAGE_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30
 _usage: dict[str, object] = {
     "configured": bool(_api_keys()),
     "keyCount": len(_api_keys()),
@@ -179,7 +182,44 @@ def _session() -> requests.Session:
     return session
 
 
+def _hydrate_usage() -> None:
+    """Merge the latest shared counters into this process."""
+    persisted = get_json(_USAGE_CACHE_KEY)
+    if not isinstance(persisted, dict):
+        return
+    with _usage_lock:
+        local_last = str(_usage.get("lastResponseAt") or "")
+        persisted_last = str(persisted.get("lastResponseAt") or "")
+        if (
+            int(persisted.get("requests") or 0) < int(_usage.get("requests") or 0)
+            and persisted_last <= local_last
+        ):
+            return
+        for key in (
+            "requests",
+            "lastResponseAt",
+            "lastStatus",
+            "lastError",
+            "rateLimitedResponses",
+            "consecutiveRateLimits",
+            "cooldownUntil",
+        ):
+            if key in persisted:
+                _usage[key] = persisted[key]
+        _usage["configured"] = bool(_api_keys())
+        _usage["keyCount"] = len(_api_keys())
+
+
+def _persist_usage(snapshot: dict[str, object]) -> None:
+    set_json(
+        _USAGE_CACHE_KEY,
+        snapshot,
+        ttl_seconds=_USAGE_CACHE_TTL_SECONDS,
+    )
+
+
 def usage_snapshot() -> dict[str, object]:
+    _hydrate_usage()
     with _usage_lock:
         snapshot = dict(_usage)
     cooldown_until = snapshot.get("cooldownUntil")
@@ -205,6 +245,7 @@ def _record(
     rate_limited: bool = False,
     cooldown_until: datetime | None = None,
 ) -> None:
+    _hydrate_usage()
     with _usage_lock:
         consecutive = int(_usage["consecutiveRateLimits"])
         if rate_limited:
@@ -228,6 +269,8 @@ def _record(
                 else _usage.get("cooldownUntil")
             ),
         )
+        snapshot = dict(_usage)
+    _persist_usage(snapshot)
 
 
 def _retry_after_seconds(response: requests.Response) -> int:
