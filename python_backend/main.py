@@ -756,6 +756,9 @@ _SYNC_STATE_CACHE_TTL_SECONDS = 60 * 60 * 24
 _COVERAGE_STALL_SECONDS = max(
 	300, int(os.getenv("PROP_COVERAGE_STALL_SECONDS", "900"))
 )
+_POST_PROCESSING_STALL_SECONDS = max(
+	300, int(os.getenv("PROP_POST_PROCESSING_STALL_SECONDS", "900"))
+)
 _sync_state: dict[str, object] = {
 	"status": "idle",
 	"startedAt": None,
@@ -778,6 +781,8 @@ _sync_state: dict[str, object] = {
 	"sportsGameOddsResult": None,
 	"sportsGameOddsError": None,
 	"postProcessingStatus": "idle",
+	"postProcessingStep": None,
+	"postProcessingUpdatedAt": None,
 	"postProcessingCompletedAt": None,
 	"postProcessingError": None,
 }
@@ -829,6 +834,33 @@ def _sync_state_snapshot() -> dict[str, object]:
 	else:
 		local["coverageStallSeconds"] = 0
 		local["coverageStalled"] = False
+	if local.get("postProcessingStatus") == "running":
+		last_update = (
+			local.get("postProcessingUpdatedAt")
+			or local.get("sportsGameOddsCompletedAt")
+			or local.get("startedAt")
+		)
+		stall_seconds = 0
+		if last_update:
+			try:
+				parsed = datetime.fromisoformat(
+					str(last_update).replace("Z", "+00:00")
+				)
+				if parsed.tzinfo is None:
+					parsed = parsed.replace(tzinfo=timezone.utc)
+				stall_seconds = max(
+					0,
+					int((datetime.now(timezone.utc) - parsed).total_seconds()),
+				)
+			except ValueError:
+				stall_seconds = 0
+		local["postProcessingStallSeconds"] = stall_seconds
+		local["postProcessingStalled"] = (
+			stall_seconds >= _POST_PROCESSING_STALL_SECONDS
+		)
+	else:
+		local["postProcessingStallSeconds"] = 0
+		local["postProcessingStalled"] = False
 	return local
 
 
@@ -868,7 +900,8 @@ def _mark_sync_running() -> None:
 		sportsGameOddsStatus="pending", sportsGameOddsStartedAt=None,
 		sportsGameOddsCompletedAt=None, sportsGameOddsResult=None,
 		sportsGameOddsError=None,
-		postProcessingStatus="pending", postProcessingCompletedAt=None,
+		postProcessingStatus="pending", postProcessingStep=None,
+		postProcessingUpdatedAt=None, postProcessingCompletedAt=None,
 		postProcessingError=None,
 	)
 
@@ -919,13 +952,23 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 			)
 
 		def mark_sportsgameodds_complete(result: dict[str, object]) -> None:
-			_refresh_prop_catalog_now()
 			failed = bool(result.get("error"))
 			_set_sync_state(
 				sportsGameOddsStatus="failed" if failed else "complete",
 				sportsGameOddsCompletedAt=datetime.now(timezone.utc).isoformat(),
 				sportsGameOddsResult=result,
 				sportsGameOddsError=str(result.get("error")) if failed else None,
+				postProcessingStatus="running",
+				postProcessingStep="catalog_refresh",
+				postProcessingUpdatedAt=datetime.now(timezone.utc).isoformat(),
+			)
+			_refresh_prop_catalog_now()
+
+		def mark_post_processing_progress(step: str) -> None:
+			_set_sync_state(
+				postProcessingStatus="running",
+				postProcessingStep=step,
+				postProcessingUpdatedAt=datetime.now(timezone.utc).isoformat(),
 			)
 
 		results = run_global_sync_pipeline(
@@ -934,8 +977,13 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 			mark_coverage_progress,
 			mark_sportsgameodds_started,
 			mark_sportsgameodds_complete,
+			mark_post_processing_progress,
 		)
-		_set_sync_state(postProcessingStatus="running")
+		_set_sync_state(
+			postProcessingStatus="running",
+			postProcessingStep="closing_line_capture",
+			postProcessingUpdatedAt=datetime.now(timezone.utc).isoformat(),
+		)
 		clv_capture = capture_closing_lines_from_props(get_props())
 		quota = quota_snapshot()
 		finished = datetime.now(timezone.utc)
@@ -949,6 +997,8 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 			clvCapture=clv_capture,
 			providerQuota=quota,
 			postProcessingStatus="complete",
+			postProcessingStep="complete",
+			postProcessingUpdatedAt=finished.isoformat(),
 			postProcessingCompletedAt=finished.isoformat(),
 			postProcessingError=None,
 			error=None,
@@ -984,6 +1034,8 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 				else str(exc) if coverage_complete else None
 			),
 			postProcessingStatus="failed" if provider_complete else "not_started",
+			postProcessingStep="failed" if provider_complete else None,
+			postProcessingUpdatedAt=datetime.now(timezone.utc).isoformat(),
 			postProcessingError=str(exc) if provider_complete else None,
 			error=None if primary_complete else str(exc),
 		)

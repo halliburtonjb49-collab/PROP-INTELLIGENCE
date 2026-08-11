@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/member_identity.dart';
+import '../services/app_sound_service.dart';
 import '../theme/app_colors.dart';
 
 class MemberIdentityBadge extends StatelessWidget {
@@ -25,14 +28,17 @@ class MemberIdentityBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageSize = compact ? 36.0 : 52.0;
+    final imageSize = compact ? 52.0 : 68.0;
     return Semantics(
       button: true,
       label: 'View @$username $founderLabel profile',
       child: InkWell(
         key: ValueKey('member-identity-$username'),
         borderRadius: BorderRadius.circular(10),
-        onTap: () => _showProfile(context),
+        onTap: () {
+          unawaited(AppSoundService.instance.play(AppSoundEvent.button));
+          _showProfile(context);
+        },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
           child: Row(
@@ -93,7 +99,7 @@ class MemberIdentityBadge extends StatelessWidget {
       ),
       title: Row(
         children: [
-          _RoleImage(role: role, size: 92),
+          _RoleImage(role: role, size: 132),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -135,7 +141,9 @@ class _RoleImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final asset = role.assetPath;
+    final asset = role == MemberIdentityRole.owner && size < 100
+        ? 'assets/branding/founder_roles/owner_compact.png'
+        : role.assetPath;
     if (asset == null) {
       return Container(
         width: size,
