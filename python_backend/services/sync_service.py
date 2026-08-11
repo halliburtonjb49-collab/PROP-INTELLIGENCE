@@ -1,6 +1,8 @@
 import logging
 import os
+import re
 import time
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from threading import Lock
@@ -57,6 +59,67 @@ from providers.sportmonks_cricket import (
 
 cache = PropCache(DB_PATH)
 logger = logging.getLogger(__name__)
+
+
+def _identity_token(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
+
+
+def _cached_prop_identity(row: object) -> tuple[object, ...]:
+    """Provider-neutral identity for unique-versus-overlapping market rows."""
+    teams = sorted((
+        _identity_token(row["home_team"]),
+        _identity_token(row["away_team"]),
+    ))
+    commence = str(row["commence_time"] or "")[:16]
+    return (
+        _identity_token(row["sport"]),
+        tuple(teams),
+        commence,
+        _identity_token(row["player_name"]),
+        _identity_token(row["prop_type"]),
+        float(row["line"]),
+        _identity_token(row["bookmaker"]),
+    )
+
+
+def _sportsgameodds_contribution() -> dict[str, object]:
+    """Measure SGO rows that add coverage versus rows other feeds confirm."""
+    try:
+        rows = cache.load_props()
+        baseline_keys = {
+            _cached_prop_identity(row)
+            for row in rows
+            if not str(row["game_id"] or "").startswith("sgo:")
+        }
+        sgo_rows = [
+            row for row in rows
+            if str(row["game_id"] or "").startswith("sgo:")
+        ]
+        unique_by_sport: Counter[str] = Counter()
+        overlapping_by_sport: Counter[str] = Counter()
+        for row in sgo_rows:
+            sport = str(row["sport"] or "unknown")
+            if _cached_prop_identity(row) in baseline_keys:
+                overlapping_by_sport[sport] += 1
+            else:
+                unique_by_sport[sport] += 1
+        board_props = get_props()
+        board_count = sum(
+            1 for prop in board_props
+            if prop.sourceProvider == "sportsgameodds"
+        )
+        return {
+            "cachedRows": len(sgo_rows),
+            "uniqueMarketRows": sum(unique_by_sport.values()),
+            "overlappingMarketRows": sum(overlapping_by_sport.values()),
+            "boardProps": board_count,
+            "uniqueBySport": dict(sorted(unique_by_sport.items())),
+            "overlappingBySport": dict(sorted(overlapping_by_sport.items())),
+        }
+    except Exception as exc:
+        logger.warning("sportsgameodds contribution measurement failed error=%s", exc)
+        return {"status": "unavailable", "error": str(exc)}
 
 DEFAULT_SYNC_SPORTS = (
     "baseball_mlb",
@@ -450,12 +513,15 @@ def sync_sport(sport_key: str) -> dict[str, object]:
 
 def sync_sportsgameodds() -> dict[str, object]:
     """Sync the supplemental multi-book player-prop feed."""
+    started = time.perf_counter()
     if not (SPORTSGAMEODDS_API_KEY or SPORTSGAMEODDS_API_KEY_SECONDARY):
         return {
             "sport": "sportsgameodds",
             "events": 0,
             "props": 0,
             "skipped": "not configured",
+            "durationMs": int((time.perf_counter() - started) * 1000),
+            "contribution": _sportsgameodds_contribution(),
         }
     total_events = 0
     total_props = 0
@@ -471,6 +537,8 @@ def sync_sportsgameodds() -> dict[str, object]:
             "skipped": "monthly entity quota exhausted",
             "attemptedLeagues": [], "rotationSize": len(LEAGUE_TO_SPORT),
             "providerUsage": sgo_usage_snapshot(), "accountUsage": account_usage,
+            "durationMs": int((time.perf_counter() - started) * 1000),
+            "contribution": _sportsgameodds_contribution(),
         }
     selected_leagues = next_sgo_leagues()
     def fetch_league(item: tuple[str, str]):
@@ -575,6 +643,8 @@ def sync_sportsgameodds() -> dict[str, object]:
             if value.strip()
         }),
         "rotationSize": len(LEAGUE_TO_SPORT),
+        "durationMs": int((time.perf_counter() - started) * 1000),
+        "contribution": _sportsgameodds_contribution(),
     }
 
 
@@ -683,15 +753,21 @@ def sync_balldontlie_soccer() -> dict[str, object]:
 def run_global_sync_pipeline(
     on_fast_lane_complete: Callable[[list[dict[str, object]]], None] | None = None,
     on_coverage_complete: Callable[[list[dict[str, object]]], None] | None = None,
+    on_coverage_progress: Callable[[dict[str, object]], None] | None = None,
+    on_sportsgameodds_started: Callable[[], None] | None = None,
+    on_sportsgameodds_complete: Callable[[dict[str, object]], None] | None = None,
 ) -> list[dict[str, object]]:
     sports = configured_sync_sports()
     fast_sports, coverage_sports = partition_sync_sports(sports)
     results: list[dict[str, object]] = []
 
-    def sync_lane(lane_sports: list[str]) -> None:
-        for sport_key in lane_sports:
+    def sync_lane(
+        lane_sports: list[str],
+        progress_callback: Callable[[dict[str, object]], None] | None = None,
+    ) -> None:
+        for index, sport_key in enumerate(lane_sports, start=1):
             try:
-                results.append(sync_sport(sport_key))
+                lane_result = sync_sport(sport_key)
             except Exception as exc:
                 logger.exception("sync_sport failed sport=%s", sport_key)
                 # Recorded here as well as on success. The recorder used to
@@ -704,7 +780,21 @@ def run_global_sync_pipeline(
                     props=0,
                     error=f"{type(exc).__name__}: {exc}"[:200],
                 )
-                results.append({"sport": sport_key, "events": 0, "props": 0, "error": str(exc)})
+                lane_result = {
+                    "sport": sport_key, "events": 0, "props": 0,
+                    "error": str(exc),
+                }
+            results.append(lane_result)
+            if progress_callback is not None:
+                try:
+                    progress_callback({
+                        "currentSport": sport_key,
+                        "completedSports": index,
+                        "totalSports": len(lane_sports),
+                        "latestResult": lane_result,
+                    })
+                except Exception as exc:
+                    logger.warning("coverage progress callback failed error=%s", exc)
 
     sync_lane(fast_sports)
     if on_fast_lane_complete is not None:
@@ -714,10 +804,10 @@ def run_global_sync_pipeline(
             logger.warning("fast lane completion callback failed error=%s", exc)
 
     if _coverage_sync_due():
-        sync_lane(coverage_sports)
+        sync_lane(coverage_sports, on_coverage_progress)
         _mark_coverage_synced()
     else:
-        for sport_key in coverage_sports:
+        for index, sport_key in enumerate(coverage_sports, start=1):
             # A cooldown is not a failure and not an absence; say which.
             record_sport_fetch(
                 sport_key, events=0, props=0, error="skipped: coverage cooldown"
@@ -729,12 +819,42 @@ def run_global_sync_pipeline(
                 "lane": "coverage",
                 "skipped": "coverage cooldown",
             })
+            if on_coverage_progress is not None:
+                try:
+                    on_coverage_progress({
+                        "currentSport": sport_key,
+                        "completedSports": index,
+                        "totalSports": len(coverage_sports),
+                        "latestResult": results[-1],
+                    })
+                except Exception as exc:
+                    logger.warning("coverage progress callback failed error=%s", exc)
     if on_coverage_complete is not None:
         try:
             on_coverage_complete(list(results))
         except Exception as exc:
             logger.warning("coverage completion callback failed error=%s", exc)
-    results.append(sync_sportsgameodds())
+    if on_sportsgameodds_started is not None:
+        on_sportsgameodds_started()
+    try:
+        sportsgameodds_result = sync_sportsgameodds()
+    except Exception as exc:
+        logger.exception("sportsgameodds phase crashed")
+        sportsgameodds_result = {
+            "sport": "sportsgameodds",
+            "events": 0,
+            "props": 0,
+            "error": str(exc),
+            "providerUsage": sgo_usage_snapshot(),
+        }
+    results.append(sportsgameodds_result)
+    if on_sportsgameodds_complete is not None:
+        try:
+            on_sportsgameodds_complete(sportsgameodds_result)
+        except Exception as exc:
+            logger.warning(
+                "sportsgameodds completion callback failed error=%s", exc
+            )
     results.append(sync_balldontlie_soccer())
     try:
         cricket_probe = probe_cricket_odds_shape()

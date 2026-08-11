@@ -124,3 +124,21 @@ def test_official_mlb_boxscore_marks_submitted_batting_order_confirmed() -> None
     assert rows[0]["confirmed"] is True
     assert rows[0]["payload"]["battingOrder"] == 1
     assert rows[0]["payload"]["bats"] == "R"
+
+
+def test_latest_context_lookup_index_is_registered_and_matches_query_order() -> None:
+    from pathlib import Path
+
+    from scripts.apply_supabase_migrations import MIGRATIONS
+
+    filename = "supabase_pregame_context_lookup_index.sql"
+    sql = (Path(__file__).resolve().parents[2] / filename).read_text(
+        encoding="utf-8"
+    ).lower()
+
+    assert filename in MIGRATIONS
+    assert "pregame_context_latest_lookup_idx" in sql
+    assert (
+        "provider,\n    entity_type,\n    event_id,\n"
+        "    lower(player_name),\n    observed_at desc"
+    ) in sql

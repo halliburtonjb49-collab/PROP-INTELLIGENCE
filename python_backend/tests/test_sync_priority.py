@@ -321,3 +321,54 @@ def test_complete_event_cycle_refreshes_lines_and_removes_expired_props(
     assert replacement["props"] == 1
     assert [row["game_id"] for row in rows] == ["new-event"]
     assert rows[0]["line"] == 21.5
+
+
+def test_sportsgameodds_contribution_separates_unique_and_overlap(monkeypatch) -> None:
+    shared = {
+        "sport": "basketball_wnba",
+        "home_team": "Chicago Sky",
+        "away_team": "Phoenix Mercury",
+        "commence_time": "2026-08-11T00:00:00Z",
+        "player_name": "Example Player",
+        "line": 18.5,
+        "bookmaker": "draftkings",
+    }
+    rows = [
+        {
+            **shared,
+            "game_id": "odds-api-event",
+            "prop_type": "player_points",
+        },
+        {
+            **shared,
+            "game_id": "sgo:event-overlap",
+            "prop_type": "player_points",
+        },
+        {
+            **shared,
+            "game_id": "sgo:event-unique",
+            "prop_type": "player_assists",
+            "line": 4.5,
+        },
+    ]
+
+    class FakeCache:
+        def load_props(self):
+            return rows
+
+    class BoardProp:
+        sourceProvider = "sportsgameodds"
+
+    monkeypatch.setattr(sync_service, "cache", FakeCache())
+    monkeypatch.setattr(sync_service, "get_props", lambda: [BoardProp()])
+
+    contribution = sync_service._sportsgameodds_contribution()
+
+    assert contribution == {
+        "cachedRows": 2,
+        "uniqueMarketRows": 1,
+        "overlappingMarketRows": 1,
+        "boardProps": 1,
+        "uniqueBySport": {"basketball_wnba": 1},
+        "overlappingBySport": {"basketball_wnba": 1},
+    }

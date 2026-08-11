@@ -31,15 +31,24 @@ def test_primary_lane_completes_before_background_coverage(monkeypatch) -> None:
     observed = {}
     coverage_observed = {}
 
-    def fake_pipeline(fast_callback, coverage_callback):
+    def fake_pipeline(
+        fast_callback,
+        coverage_callback,
+        progress_callback,
+        sportsgameodds_started,
+        sportsgameodds_complete,
+    ):
         fast_callback([{"sport": "primary", "props": 10}])
         observed.update(main._sync_state_snapshot())
+        progress_callback({"currentSport": "coverage", "completedSports": 1, "totalSports": 1})
         coverage_results = [
             {"sport": "primary", "props": 10},
             {"sport": "coverage", "props": 0},
         ]
         coverage_callback(coverage_results)
         coverage_observed.update(main._sync_state_snapshot())
+        sportsgameodds_started()
+        sportsgameodds_complete({"sport": "sportsgameodds", "events": 1, "props": 4})
         return [
             *coverage_results,
             {"sport": "model_recalculation", "props": 10},
@@ -58,20 +67,30 @@ def test_primary_lane_completes_before_background_coverage(monkeypatch) -> None:
     assert observed["coverageStatus"] == "running"
     assert observed["postProcessingStatus"] == "pending"
     assert coverage_observed["coverageStatus"] == "complete"
-    assert coverage_observed["postProcessingStatus"] == "running"
+    assert coverage_observed["postProcessingStatus"] == "pending"
+    assert coverage_observed["sportsGameOddsStatus"] == "pending"
     final = main._sync_state_snapshot()
     assert final["status"] == "complete"
     assert final["coverageStatus"] == "complete"
+    assert final["sportsGameOddsStatus"] == "complete"
     assert final["postProcessingStatus"] == "complete"
     assert len(final["coverageResults"]) == 2
     assert len(final["results"]) == 3
 
 
 def test_post_processing_failure_preserves_completed_coverage(monkeypatch) -> None:
-    def fake_pipeline(fast_callback, coverage_callback):
+    def fake_pipeline(
+        fast_callback,
+        coverage_callback,
+        _progress_callback,
+        sportsgameodds_started,
+        sportsgameodds_complete,
+    ):
         results = [{"sport": "primary", "props": 10}]
         fast_callback(results)
         coverage_callback(results)
+        sportsgameodds_started()
+        sportsgameodds_complete({"sport": "sportsgameodds", "events": 1, "props": 4})
         raise RuntimeError("model recalculation failed")
 
     monkeypatch.setattr(main, "run_global_sync_pipeline", fake_pipeline)
@@ -84,6 +103,7 @@ def test_post_processing_failure_preserves_completed_coverage(monkeypatch) -> No
     final = main._sync_state_snapshot()
     assert final["status"] == "complete"
     assert final["coverageStatus"] == "complete"
+    assert final["sportsGameOddsStatus"] == "complete"
     assert final["coverageError"] is None
     assert final["postProcessingStatus"] == "failed"
     assert final["postProcessingError"] == "model recalculation failed"

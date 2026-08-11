@@ -751,6 +751,11 @@ def _refresh_prop_catalog_now() -> None:
 
 _sync_run_lock = Lock()
 _sync_state_lock = Lock()
+_SYNC_STATE_CACHE_KEY = "sync:global:state:v2"
+_SYNC_STATE_CACHE_TTL_SECONDS = 60 * 60 * 24
+_COVERAGE_STALL_SECONDS = max(
+	300, int(os.getenv("PROP_COVERAGE_STALL_SECONDS", "900"))
+)
 _sync_state: dict[str, object] = {
 	"status": "idle",
 	"startedAt": None,
@@ -765,21 +770,71 @@ _sync_state: dict[str, object] = {
 	"coverageCompletedAt": None,
 	"coverageResults": [],
 	"coverageError": None,
+	"coverageProgress": None,
+	"coverageLastProgressAt": None,
+	"sportsGameOddsStatus": "idle",
+	"sportsGameOddsStartedAt": None,
+	"sportsGameOddsCompletedAt": None,
+	"sportsGameOddsResult": None,
+	"sportsGameOddsError": None,
 	"postProcessingStatus": "idle",
 	"postProcessingCompletedAt": None,
 	"postProcessingError": None,
 }
 
 
-def _sync_state_snapshot() -> dict[str, object]:
+def _set_sync_state(**changes: object) -> None:
 	with _sync_state_lock:
-		return dict(_sync_state)
+		_sync_state.update(changes)
+		snapshot = dict(_sync_state)
+	set_distributed_json(
+		_SYNC_STATE_CACHE_KEY,
+		snapshot,
+		ttl_seconds=_SYNC_STATE_CACHE_TTL_SECONDS,
+	)
+
+
+def _sync_state_snapshot() -> dict[str, object]:
+	shared = get_distributed_json(_SYNC_STATE_CACHE_KEY)
+	with _sync_state_lock:
+		local = dict(_sync_state)
+		if isinstance(shared, dict):
+			shared_started = str(shared.get("startedAt") or "")
+			local_started = str(local.get("startedAt") or "")
+			if shared_started >= local_started:
+				local.update(shared)
+				_sync_state.update(shared)
+	if local.get("coverageStatus") == "running":
+		last_progress = (
+			local.get("coverageLastProgressAt")
+			or local.get("fastLaneCompletedAt")
+			or local.get("startedAt")
+		)
+		stall_seconds = 0
+		if last_progress:
+			try:
+				parsed = datetime.fromisoformat(
+					str(last_progress).replace("Z", "+00:00")
+				)
+				if parsed.tzinfo is None:
+					parsed = parsed.replace(tzinfo=timezone.utc)
+				stall_seconds = max(
+					0,
+					int((datetime.now(timezone.utc) - parsed).total_seconds()),
+				)
+			except ValueError:
+				stall_seconds = 0
+		local["coverageStallSeconds"] = stall_seconds
+		local["coverageStalled"] = stall_seconds >= _COVERAGE_STALL_SECONDS
+	else:
+		local["coverageStallSeconds"] = 0
+		local["coverageStalled"] = False
+	return local
 
 
 def _sync_is_fresh(now: datetime | None = None) -> bool:
 	current = now or datetime.now(timezone.utc)
-	with _sync_state_lock:
-		finished_raw = _sync_state.get("finishedAt")
+	finished_raw = _sync_state_snapshot().get("finishedAt")
 	if not finished_raw:
 		return False
 	try:
@@ -803,99 +858,135 @@ def _effective_sync_cooldown_seconds() -> int:
 
 
 def _mark_sync_running() -> None:
-	with _sync_state_lock:
-		_sync_state.update(
-			status="running", startedAt=datetime.now(timezone.utc).isoformat(),
-			finishedAt=None, results=[], error=None, nextAllowedAt=None,
-			fastLaneCompletedAt=None, fastLaneResults=[],
-			coverageStatus="pending", coverageCompletedAt=None,
-			coverageResults=[], coverageError=None,
-			postProcessingStatus="pending", postProcessingCompletedAt=None,
-			postProcessingError=None,
-		)
+	_set_sync_state(
+		status="running", startedAt=datetime.now(timezone.utc).isoformat(),
+		finishedAt=None, results=[], error=None, nextAllowedAt=None,
+		fastLaneCompletedAt=None, fastLaneResults=[],
+		coverageStatus="pending", coverageCompletedAt=None,
+		coverageResults=[], coverageError=None,
+		coverageProgress=None, coverageLastProgressAt=None,
+		sportsGameOddsStatus="pending", sportsGameOddsStartedAt=None,
+		sportsGameOddsCompletedAt=None, sportsGameOddsResult=None,
+		sportsGameOddsError=None,
+		postProcessingStatus="pending", postProcessingCompletedAt=None,
+		postProcessingError=None,
+	)
 
 
 def _run_sync_background(*, release_local_lock: bool = True) -> None:
 	try:
 		def mark_fast_lane_complete(results: list[dict[str, object]]) -> None:
 			_refresh_prop_catalog_now()
-			with _sync_state_lock:
-				finished = datetime.now(timezone.utc)
-				cooldown = _effective_sync_cooldown_seconds()
-				_sync_state.update(
-					status="complete",
-					finishedAt=finished.isoformat(),
-					cooldownSeconds=cooldown,
-					nextAllowedAt=(
-						finished + timedelta(seconds=cooldown)
-					).isoformat(),
-					fastLaneCompletedAt=finished.isoformat(),
-					fastLaneResults=results,
-					results=results,
-					coverageStatus="running",
-				)
-
-		def mark_coverage_complete(results: list[dict[str, object]]) -> None:
-			_refresh_prop_catalog_now()
-			with _sync_state_lock:
-				finished = datetime.now(timezone.utc)
-				_sync_state.update(
-					coverageStatus="complete",
-					coverageCompletedAt=finished.isoformat(),
-					coverageResults=results,
-					coverageError=None,
-					results=results,
-					postProcessingStatus="running",
-				)
-
-		results = run_global_sync_pipeline(
-			mark_fast_lane_complete,
-			mark_coverage_complete,
-		)
-		clv_capture = capture_closing_lines_from_props(get_props())
-		quota = quota_snapshot()
-		with _sync_state_lock:
 			finished = datetime.now(timezone.utc)
 			cooldown = _effective_sync_cooldown_seconds()
-			_sync_state.update(
+			_set_sync_state(
 				status="complete",
 				finishedAt=finished.isoformat(),
 				cooldownSeconds=cooldown,
 				nextAllowedAt=(finished + timedelta(seconds=cooldown)).isoformat(),
+				fastLaneCompletedAt=finished.isoformat(),
+				fastLaneResults=results,
 				results=results,
-				clvCapture=clv_capture,
-				providerQuota=quota,
-				postProcessingStatus="complete",
-				postProcessingCompletedAt=finished.isoformat(),
-				postProcessingError=None,
-				error=None,
+				coverageStatus="running",
+				coverageLastProgressAt=finished.isoformat(),
 			)
+
+		def mark_coverage_progress(progress: dict[str, object]) -> None:
+			now = datetime.now(timezone.utc).isoformat()
+			_set_sync_state(
+				coverageStatus="running",
+				coverageProgress=progress,
+				coverageLastProgressAt=now,
+			)
+
+		def mark_coverage_complete(results: list[dict[str, object]]) -> None:
+			_refresh_prop_catalog_now()
+			finished = datetime.now(timezone.utc)
+			_set_sync_state(
+				coverageStatus="complete",
+				coverageCompletedAt=finished.isoformat(),
+				coverageResults=results,
+				coverageError=None,
+				results=results,
+				sportsGameOddsStatus="pending",
+			)
+
+		def mark_sportsgameodds_started() -> None:
+			_set_sync_state(
+				sportsGameOddsStatus="running",
+				sportsGameOddsStartedAt=datetime.now(timezone.utc).isoformat(),
+				sportsGameOddsError=None,
+			)
+
+		def mark_sportsgameodds_complete(result: dict[str, object]) -> None:
+			_refresh_prop_catalog_now()
+			failed = bool(result.get("error"))
+			_set_sync_state(
+				sportsGameOddsStatus="failed" if failed else "complete",
+				sportsGameOddsCompletedAt=datetime.now(timezone.utc).isoformat(),
+				sportsGameOddsResult=result,
+				sportsGameOddsError=str(result.get("error")) if failed else None,
+			)
+
+		results = run_global_sync_pipeline(
+			mark_fast_lane_complete,
+			mark_coverage_complete,
+			mark_coverage_progress,
+			mark_sportsgameodds_started,
+			mark_sportsgameodds_complete,
+		)
+		_set_sync_state(postProcessingStatus="running")
+		clv_capture = capture_closing_lines_from_props(get_props())
+		quota = quota_snapshot()
+		finished = datetime.now(timezone.utc)
+		cooldown = _effective_sync_cooldown_seconds()
+		_set_sync_state(
+			status="complete",
+			finishedAt=finished.isoformat(),
+			cooldownSeconds=cooldown,
+			nextAllowedAt=(finished + timedelta(seconds=cooldown)).isoformat(),
+			results=results,
+			clvCapture=clv_capture,
+			providerQuota=quota,
+			postProcessingStatus="complete",
+			postProcessingCompletedAt=finished.isoformat(),
+			postProcessingError=None,
+			error=None,
+		)
 	except Exception as exc:
 		logging.exception("Background prop sync failed")
-		with _sync_state_lock:
-			primary_complete = bool(_sync_state.get("fastLaneCompletedAt"))
-			coverage_complete = bool(_sync_state.get("coverageCompletedAt"))
-			_sync_state.update(
-				status="complete" if primary_complete else "failed",
-				finishedAt=(
-					_sync_state.get("finishedAt")
-					if primary_complete
-					else datetime.now(timezone.utc).isoformat()
-				),
-				coverageStatus=(
-					"complete" if coverage_complete
-					else "failed" if primary_complete
-					else "not_started"
-				),
-				coverageError=(
-					None if coverage_complete or not primary_complete else str(exc)
-				),
-				postProcessingStatus=(
-					"failed" if coverage_complete else "not_started"
-				),
-				postProcessingError=str(exc) if coverage_complete else None,
-				error=None if primary_complete else str(exc),
-			)
+		state = _sync_state_snapshot()
+		primary_complete = bool(state.get("fastLaneCompletedAt"))
+		coverage_complete = bool(state.get("coverageCompletedAt"))
+		provider_complete = bool(state.get("sportsGameOddsCompletedAt"))
+		_set_sync_state(
+			status="complete" if primary_complete else "failed",
+			finishedAt=(
+				state.get("finishedAt")
+				if primary_complete
+				else datetime.now(timezone.utc).isoformat()
+			),
+			coverageStatus=(
+				"complete" if coverage_complete
+				else "failed" if primary_complete
+				else "not_started"
+			),
+			coverageError=(
+				None if coverage_complete or not primary_complete else str(exc)
+			),
+			sportsGameOddsStatus=(
+				str(state.get("sportsGameOddsStatus")) if provider_complete
+				else "failed" if coverage_complete
+				else "not_started"
+			),
+			sportsGameOddsError=(
+				state.get("sportsGameOddsError") if provider_complete
+				else str(exc) if coverage_complete else None
+			),
+			postProcessingStatus="failed" if provider_complete else "not_started",
+			postProcessingError=str(exc) if provider_complete else None,
+			error=None if primary_complete else str(exc),
+		)
 	finally:
 		if release_local_lock and _sync_run_lock.locked():
 			_sync_run_lock.release()
@@ -2181,12 +2272,21 @@ def storage_health() -> dict[str, object]:
 @app.get("/health/providers")
 def provider_health() -> dict[str, object]:
 	quota = quota_snapshot()
+	sync_state = _sync_state_snapshot()
+	sportsgameodds = sportsgameodds_usage()
+	sportsgameodds.update({
+		"syncStatus": sync_state.get("sportsGameOddsStatus"),
+		"syncStartedAt": sync_state.get("sportsGameOddsStartedAt"),
+		"syncCompletedAt": sync_state.get("sportsGameOddsCompletedAt"),
+		"latestSync": sync_state.get("sportsGameOddsResult"),
+		"syncError": sync_state.get("sportsGameOddsError"),
+	})
 	return {
 		"oddsApi": {
 			"status": "low_quota" if quota["lowQuota"] else "ok",
 			**quota,
 		},
-		"sportsGameOdds": sportsgameodds_usage(),
+		"sportsGameOdds": sportsgameodds,
 		"sportmonksHeadshots": sportmonks_headshot_cache_health(),
 		"espnHeadshots": espn_headshot_cache_health(),
 	}

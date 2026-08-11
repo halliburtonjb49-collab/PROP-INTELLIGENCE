@@ -238,3 +238,44 @@ def test_rejected_primary_credential_uses_secondary(monkeypatch) -> None:
     assert snapshot["lastStatus"] == 200
     assert snapshot["coolingDown"] is False
     _reset_usage()
+
+
+def test_usage_snapshot_hydrates_shared_counters(monkeypatch) -> None:
+    _reset_usage()
+    monkeypatch.setattr(
+        sportsgameodds,
+        "get_json",
+        lambda _key: {
+            "requests": 17,
+            "lastResponseAt": "2026-08-11T01:00:00+00:00",
+            "lastStatus": 200,
+            "lastError": None,
+            "rateLimitedResponses": 2,
+            "consecutiveRateLimits": 0,
+            "cooldownUntil": None,
+        },
+    )
+
+    snapshot = sportsgameodds.usage_snapshot()
+
+    assert snapshot["requests"] == 17
+    assert snapshot["lastStatus"] == 200
+    assert snapshot["rateLimitedResponses"] == 2
+    _reset_usage()
+
+
+def test_record_persists_shared_counters(monkeypatch) -> None:
+    _reset_usage()
+    writes = []
+    monkeypatch.setattr(sportsgameodds, "get_json", lambda _key: None)
+    monkeypatch.setattr(
+        sportsgameodds,
+        "set_json",
+        lambda key, value, *, ttl_seconds: writes.append(
+            (key, value, ttl_seconds)
+        ),
+    )
+
+    sportsgameodds._record(200)
+
+    assert writes[-1][0] == sportsgameodds._USAGE_CACHE_KEY
