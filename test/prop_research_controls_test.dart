@@ -73,4 +73,38 @@ void main() {
     expect(find.byKey(const ValueKey('pi-verdict-facts')), findsNothing);
     expect(find.text('PASS'), findsOneWidget);
   });
+
+  testWidgets('phone verdict keeps a concise visible summary', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    const reason =
+        'The projection clears the current line, but users should confirm '
+        'availability and recent lineup news before making a decision.';
+    const verdict = PropVerdict(
+      decision: 'LEAN',
+      headline: 'LEAN OVER',
+      reason: reason,
+      confidence: 67,
+      maximumPlayableLine: 17.5,
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: PiVerdictBlock(verdict: verdict)),
+      ),
+    );
+
+    expect(tester.widget<Text>(find.text(reason)).maxLines, 3);
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('pi-verdict-facts')))
+          .maxLines,
+      1,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
