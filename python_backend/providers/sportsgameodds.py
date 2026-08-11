@@ -12,7 +12,11 @@ from typing import Any
 import requests
 from requests.adapters import HTTPAdapter
 
-from config import HTTP_TIMEOUT_SECONDS, SPORTSGAMEODDS_API_KEY
+from config import (
+    HTTP_TIMEOUT_SECONDS,
+    SPORTSGAMEODDS_API_KEY,
+    SPORTSGAMEODDS_API_KEY_SECONDARY,
+)
 
 LOGGER = logging.getLogger(__name__)
 BASE_URL = "https://api.sportsgameodds.com/v2"
@@ -135,10 +139,22 @@ _STAT_MARKETS = {
     "shotsontarget": "player_shots_on_target",
 }
 
+
+def _api_keys() -> tuple[str, ...]:
+    """Configured credentials in failover order, without duplicates."""
+    keys: list[str] = []
+    for value in (SPORTSGAMEODDS_API_KEY, SPORTSGAMEODDS_API_KEY_SECONDARY):
+        candidate = str(value or "").strip()
+        if candidate and candidate not in keys:
+            keys.append(candidate)
+    return tuple(keys)
+
+
 _http_local = local()
 _usage_lock = Lock()
 _usage: dict[str, object] = {
-    "configured": bool(SPORTSGAMEODDS_API_KEY),
+    "configured": bool(_api_keys()),
+    "keyCount": len(_api_keys()),
     "requests": 0,
     "lastResponseAt": None,
     "lastStatus": None,
@@ -244,42 +260,62 @@ def _enforce_cooldown() -> None:
 
 
 def _get(path: str, params: dict[str, object]) -> dict[str, Any]:
-    if not SPORTSGAMEODDS_API_KEY:
+    keys = _api_keys()
+    if not keys:
         raise RuntimeError("SPORTSGAMEODDS_API_KEY is not configured")
     _enforce_cooldown()
     try:
-        response = _session().get(
-            f"{BASE_URL}/{path.lstrip('/')}",
-            params=params,
-            headers={"x-api-key": SPORTSGAMEODDS_API_KEY},
-            timeout=HTTP_TIMEOUT_SECONDS,
-        )
-        if response.status_code == 429:
-            delay = _retry_after_seconds(response)
-            cooldown_until = datetime.now(timezone.utc) + timedelta(seconds=delay)
-            error = f"HTTP 429 rate limited; retry after {delay} seconds"
-            _record(
-                429,
-                error,
-                rate_limited=True,
-                cooldown_until=cooldown_until,
+        for index, api_key in enumerate(keys):
+            response = _session().get(
+                f"{BASE_URL}/{path.lstrip('/')}",
+                params=params,
+                headers={"x-api-key": api_key},
+                timeout=HTTP_TIMEOUT_SECONDS,
             )
-            raise ProviderCooldownError(error)
-        if response.status_code >= 400:
-            body = response.text.strip()[:500]
-            raise requests.HTTPError(
-                f"{response.status_code} error for url: {response.url} body: {body or '<empty>'}",
-                response=response,
-            )
-        payload = response.json()
-        if not isinstance(payload, dict) or payload.get("success") is False:
-            raise RuntimeError(str(payload.get("error") or "invalid response"))
-        _record(response.status_code)
-        return payload
+            has_fallback = index < len(keys) - 1
+            if response.status_code == 429:
+                delay = _retry_after_seconds(response)
+                error = f"HTTP 429 rate limited; retry after {delay} seconds"
+                _record(
+                    429,
+                    error,
+                    rate_limited=True,
+                    cooldown_until=(
+                        None
+                        if has_fallback
+                        else datetime.now(timezone.utc)
+                        + timedelta(seconds=delay)
+                    ),
+                )
+                if has_fallback:
+                    continue
+                raise ProviderCooldownError(error)
+            if response.status_code in {401, 403} and has_fallback:
+                _record(
+                    response.status_code,
+                    "Primary credential rejected; trying configured fallback",
+                )
+                continue
+            if response.status_code >= 400:
+                body = response.text.strip()[:500]
+                raise requests.HTTPError(
+                    f"{response.status_code} error for url: {response.url} "
+                    f"body: {body or '<empty>'}",
+                    response=response,
+                )
+            payload = response.json()
+            if not isinstance(payload, dict) or payload.get("success") is False:
+                raise RuntimeError(str(payload.get("error") or "invalid response"))
+            _record(response.status_code)
+            return payload
+        raise RuntimeError("SportsGameOdds credentials were rejected")
     except ProviderCooldownError:
         raise
     except requests.HTTPError as exc:
-        _record(exc.response.status_code if exc.response is not None else None, str(exc))
+        _record(
+            exc.response.status_code if exc.response is not None else None,
+            str(exc),
+        )
         raise
     except Exception as exc:
         _record(None, str(exc))

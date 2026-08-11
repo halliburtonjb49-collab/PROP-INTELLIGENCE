@@ -304,10 +304,13 @@ def fetch_sport_to_stream(sport: str) -> dict[str, object]:
 
 def fetch_sportsgameodds_to_stream() -> dict[str, object]:
     """Fetch raw SportsGameOdds events; convert them only in normalization jobs."""
-    from config import SPORTSGAMEODDS_API_KEY
+    from config import (
+        SPORTSGAMEODDS_API_KEY,
+        SPORTSGAMEODDS_API_KEY_SECONDARY,
+    )
     from providers.sportsgameodds import LEAGUE_TO_SPORT, fetch_upcoming_events
 
-    if not SPORTSGAMEODDS_API_KEY:
+    if not (SPORTSGAMEODDS_API_KEY or SPORTSGAMEODDS_API_KEY_SECONDARY):
         return {"provider": "sportsgameodds", "published": 0, "skipped": "not configured"}
     published = 0
     failures: list[str] = []

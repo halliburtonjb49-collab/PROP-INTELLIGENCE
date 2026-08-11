@@ -33,6 +33,9 @@ SPORTRADAR_API_KEY = os.getenv(
 ).strip()
 SPORTRADAR_ACCESS_LEVEL = os.getenv("SPORTRADAR_ACCESS_LEVEL", "trial").strip() or "trial"
 SPORTSGAMEODDS_API_KEY = os.getenv("SPORTSGAMEODDS_API_KEY", "").strip()
+SPORTSGAMEODDS_API_KEY_SECONDARY = os.getenv(
+    "SPORTSGAMEODDS_API_KEY_SECONDARY", ""
+).strip()
 DATABASE_URL = (os.getenv("DATABASE_URL") or "").strip()
 DATABASE_SSLMODE = os.getenv("DATABASE_SSLMODE", "require").strip() or "require"
 CORS_ALLOWED_ORIGINS = [

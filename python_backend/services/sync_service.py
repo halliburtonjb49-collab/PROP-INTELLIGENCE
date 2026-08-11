@@ -35,6 +35,7 @@ from config import (
     ODDS_EVENT_HORIZON_DAYS,
     ODDS_MINIMUM_EVENTS_PER_SPORT,
     SPORTSGAMEODDS_API_KEY,
+    SPORTSGAMEODDS_API_KEY_SECONDARY,
 )
 from providers.sportsgameodds import (
     LEAGUE_TO_SPORT,
@@ -449,7 +450,7 @@ def sync_sport(sport_key: str) -> dict[str, object]:
 
 def sync_sportsgameodds() -> dict[str, object]:
     """Sync the supplemental multi-book player-prop feed."""
-    if not SPORTSGAMEODDS_API_KEY:
+    if not (SPORTSGAMEODDS_API_KEY or SPORTSGAMEODDS_API_KEY_SECONDARY):
         return {
             "sport": "sportsgameodds",
             "events": 0,

@@ -518,6 +518,38 @@ class PropData {
     return null;
   }
 
+  /// The model's central probability estimate for the selected side.
+  ///
+  /// This stays separate from [displayConfidenceRating], which is the
+  /// conservative uncertainty-adjusted value used by release gates.
+  int? get displayModelEstimateRating {
+    int? probabilityPercent(double? value) {
+      if (value == null || !value.isFinite || value <= 0) return null;
+      final percent = value <= 1 ? value * 100 : value;
+      if (percent > 100) return null;
+      return percent.round().clamp(0, 100);
+    }
+
+    return probabilityPercent(fairProbability) ??
+        probabilityPercent(modelProbability) ??
+        probabilityPercent(winProbability) ??
+        displayConfidenceRating;
+  }
+
+  /// Conservative probability after statistical uncertainty is subtracted.
+  int? get displayRiskFloorRating {
+    if (uncertaintyAdjustedProbability == null ||
+        !uncertaintyAdjustedProbability!.isFinite ||
+        uncertaintyAdjustedProbability! <= 0) {
+      return null;
+    }
+    final value = uncertaintyAdjustedProbability! <= 1
+        ? uncertaintyAdjustedProbability! * 100
+        : uncertaintyAdjustedProbability!;
+    if (value > 100) return null;
+    return value.round().clamp(0, 100);
+  }
+
   String get displayConfidenceLabel => displayConfidenceRating == null
       ? 'NOT RATED'
       : '${displayConfidenceRating!}%';

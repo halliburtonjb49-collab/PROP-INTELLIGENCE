@@ -353,7 +353,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final signalConflict =
         !noPiPick && rawFallbackSide != null && rawFallbackSide != suggested;
     final specialLineBadge = _specialLineBadge(prop, advisedSide);
-    final signalRating = prop.displayConfidenceRating;
+    // Keep the same presentation across every sport: the card shows the
+    // central model estimate while release/filter logic stays conservative.
+    final signalRating = hasModelPick
+        ? prop.displayModelEstimateRating
+        : prop.displayConfidenceRating;
     // Keep the two visible metric values consistent on every card. Evidence
     // provenance is shown separately below rather than appended to the value.
     final signalRatingLabel = signalRating == null
@@ -890,7 +894,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                       ? suggested ?? '--'
                       : prop.displayModelValue.toStringAsFixed(2),
                 ),
-                if (!noPiPick) metric('CONFIDENCE', signalRatingLabel),
+                if (!noPiPick)
+                  metric(
+                    hasModelPick ? 'MODEL ESTIMATE' : 'CONFIDENCE',
+                    signalRatingLabel,
+                  ),
               ],
             ),
             const SizedBox(height: 8),
@@ -937,6 +945,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 chip('LINEUP ${prop.lineupStatus.toUpperCase()}'),
                 chip(prop.injuryDisplayLabel),
                 if (hasModelPick) chip('EVIDENCE: VERIFIED MODEL'),
+                if (hasModelPick && prop.displayModelEstimateRating != null)
+                  chip('MODEL ESTIMATE ${prop.displayModelEstimateRating}%'),
+                if (hasModelPick && prop.displayRiskFloorRating != null)
+                  chip('RISK FLOOR ${prop.displayRiskFloorRating}%'),
                 if (!hasModelPick && prop.proSuggestionUsesHistoricalStats)
                   chip('EVIDENCE: RECENT RESULTS'),
                 if (!hasModelPick && prop.proSuggestionUsesMarket)

@@ -197,4 +197,24 @@ void main() {
     expect(prop.displayConfidenceRating, 64);
     expect(prop.displayConfidenceLabel, '64%');
   });
+
+  test('separates the model estimate from the conservative risk floor', () {
+    final prop = PropData.fromJson({
+      'id': 'wnba-model-estimate',
+      'player': 'Test Guard',
+      'sport': 'WNBA',
+      'sportsbook': 'PrizePicks',
+      'market': 'Fantasy Score',
+      'line': 30.5,
+      'recommendedSide': 'UNDER',
+      'recommendationAvailable': true,
+      'fairProbability': 0.62,
+      'uncertaintyAdjustedProbability': 0.42,
+      'confidence': 42,
+    });
+
+    expect(prop.displayModelEstimateRating, 62);
+    expect(prop.displayRiskFloorRating, 42);
+    expect(prop.displayConfidenceRating, 42);
+  });
 }

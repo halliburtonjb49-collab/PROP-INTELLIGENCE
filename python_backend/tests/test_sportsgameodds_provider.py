@@ -174,6 +174,7 @@ def test_429_starts_cooldown_and_blocks_followup_network_call(monkeypatch) -> No
     session = FakeSession()
     monkeypatch.setattr(sportsgameodds, "SPORTSGAMEODDS_API_KEY", "test-key")
     monkeypatch.setattr(sportsgameodds, "_session", lambda: session)
+    monkeypatch.setattr(sportsgameodds, "SPORTSGAMEODDS_API_KEY_SECONDARY", "")
 
     try:
         sportsgameodds._get("events", {})
@@ -195,4 +196,45 @@ def test_429_starts_cooldown_and_blocks_followup_network_call(monkeypatch) -> No
     else:
         raise AssertionError("Expected active cooldown")
     assert session.calls == 1
+    _reset_usage()
+
+
+def test_rejected_primary_credential_uses_secondary(monkeypatch) -> None:
+    class FakeResponse:
+        headers = {}
+        text = ""
+        url = "https://api.sportsgameodds.com/v2/events"
+
+        def __init__(self, status_code: int) -> None:
+            self.status_code = status_code
+
+        def json(self):
+            return {"success": True, "data": []}
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.keys: list[str] = []
+
+        def get(self, *_args, **kwargs):
+            self.keys.append(kwargs["headers"]["x-api-key"])
+            return FakeResponse(401 if len(self.keys) == 1 else 200)
+
+    _reset_usage()
+    session = FakeSession()
+    monkeypatch.setattr(sportsgameodds, "SPORTSGAMEODDS_API_KEY", "bad-primary")
+    monkeypatch.setattr(
+        sportsgameodds,
+        "SPORTSGAMEODDS_API_KEY_SECONDARY",
+        "working-secondary",
+    )
+    monkeypatch.setattr(sportsgameodds, "_session", lambda: session)
+
+    payload = sportsgameodds._get("events", {})
+
+    assert payload["success"] is True
+    assert session.keys == ["bad-primary", "working-secondary"]
+    snapshot = sportsgameodds.usage_snapshot()
+    assert snapshot["requests"] == 2
+    assert snapshot["lastStatus"] == 200
+    assert snapshot["coolingDown"] is False
     _reset_usage()

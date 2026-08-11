@@ -25,7 +25,7 @@ class MemberIdentityBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageSize = compact ? 29.0 : 44.0;
+    final imageSize = compact ? 36.0 : 52.0;
     return Semantics(
       button: true,
       label: 'View @$username $founderLabel profile',
@@ -93,7 +93,7 @@ class MemberIdentityBadge extends StatelessWidget {
       ),
       title: Row(
         children: [
-          _RoleImage(role: role, size: 66),
+          _RoleImage(role: role, size: 92),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -148,13 +148,17 @@ class _RoleImage extends StatelessWidget {
         child: Icon(Icons.person_outline_rounded, size: size * .55),
       );
     }
-    return ClipOval(
-      child: Image.asset(
-        asset,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        filterQuality: FilterQuality.medium,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(size * .16),
+      child: SizedBox.square(
+        dimension: size,
+        child: Image.asset(
+          asset,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
+          isAntiAlias: true,
+          gaplessPlayback: true,
+        ),
       ),
     );
   }
