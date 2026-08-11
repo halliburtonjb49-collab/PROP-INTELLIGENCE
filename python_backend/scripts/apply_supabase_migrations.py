@@ -45,6 +45,7 @@ MIGRATIONS = (
     "supabase_model_research_pipeline.sql",
     "supabase_pregame_context_observations.sql",
     "supabase_pregame_context_lookup_index.sql",
+    "supabase_pregame_context_sport_lookup_index.sql",
     "supabase_defender_matchup_history.sql",
     "supabase_historical_odds_backfill.sql",
     "supabase_smartstake_backtest.sql",

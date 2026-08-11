@@ -542,24 +542,42 @@ def _identity(value: object) -> str:
     return re.sub(r"[^a-z0-9]", "", str(value or "").lower())
 
 
+def _current_injury_matches(
+    matches: list[dict[str, object]],
+    current_espn_event_id: str,
+) -> list[dict[str, object]]:
+    return [
+        item
+        for item in matches
+        if item["entityType"] == "INJURY"
+        and (
+            item["provider"] != "ESPN"
+            or (
+                current_espn_event_id
+                and item["eventId"] == current_espn_event_id
+            )
+        )
+    ]
+
+
 def apply_latest_pregame_context(props: list[object]) -> None:
     if not props or not database_is_configured():
         return
     try:
         with get_database_pool().connection() as connection, connection.cursor() as cursor:
-            cursor.execute("""select distinct on(provider,entity_type,event_id,lower(player_name))
+            cursor.execute("""select distinct on(sport,provider,entity_type,event_id,lower(player_name))
                 sport,event_id,provider,entity_type,provider_player_id,player_name,team,opponent,event_time,
                 status,confirmed,fingerprint,payload,observed_at
                 from pregame_context_observations
                 where observed_at>=now()-interval '3 days'
-                order by provider,entity_type,event_id,lower(player_name),observed_at desc""")
+                order by sport,provider,entity_type,event_id,lower(player_name),observed_at desc""")
             rows = cursor.fetchall()
     except Exception as exc:
         logger.warning("pregame context lookup unavailable: %s", exc)
         return
     by_player: dict[tuple[str, str], list[dict[str, object]]] = {}
     by_event: dict[tuple[str, str], list[dict[str, object]]] = {}
-    current_espn_injury_reports: set[str] = set()
+    current_espn_injury_reports: dict[str, tuple[str, object]] = {}
     for row in rows:
         item = {"sport": row[0], "eventId": row[1], "provider": row[2],
             "entityType": row[3], "providerPlayerId": row[4],
@@ -570,11 +588,20 @@ def apply_latest_pregame_context(props: list[object]) -> None:
         by_player.setdefault((str(row[0]), _identity(row[5])), []).append(item)
         by_event.setdefault((str(row[0]), str(row[1])), []).append(item)
         if row[2] == "ESPN" and row[3] == "INJURY_FEED":
-            current_espn_injury_reports.add(str(row[0]).upper())
+            report_sport = str(row[0]).upper()
+            current = current_espn_injury_reports.get(report_sport)
+            if current is None or row[13] > current[1]:
+                current_espn_injury_reports[report_sport] = (
+                    str(row[1]), row[13]
+                )
     for prop in props:
         sport = str(getattr(prop, "sport", "")).upper()
         matches = by_player.get((sport, _identity(getattr(prop, "player", ""))), [])
-        injury_matches = [item for item in matches if item["entityType"] == "INJURY"]
+        current_report = current_espn_injury_reports.get(sport)
+        injury_matches = _current_injury_matches(
+            matches,
+            current_report[0] if current_report else "",
+        )
         lineup_matches = [item for item in matches if item["entityType"] == "LINEUP"]
         if injury_matches:
             injury = max(injury_matches, key=lambda item: item["observedAt"])
@@ -587,7 +614,7 @@ def apply_latest_pregame_context(props: list[object]) -> None:
                 else "probable" if "PROBABLE" in injury_status
                 else "injury reported"
             )
-        elif sport in current_espn_injury_reports:
+        elif current_report is not None:
             # Absence from a freshly retrieved report is not a medical claim of
             # perfect health; it means the league report lists no current injury.
             prop.injuryStatus = "no injury reported"

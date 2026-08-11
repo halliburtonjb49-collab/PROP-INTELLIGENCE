@@ -330,6 +330,27 @@ def compute_verdict(prop: object) -> Verdict:
             recheck="After the next odds refresh",
         )
 
+    if (
+        str(getattr(prop, "sport", "") or "").strip().upper() == "WNBA"
+        and not bool(getattr(prop, "wnbaResearchReady", False))
+    ):
+        reasons.append("wnba_minutes_or_role_uncertain")
+        warnings = list(getattr(prop, "wnbaResearchWarnings", []) or [])
+        return Verdict(
+            decision=WAIT,
+            side=side,
+            headline=f"WAIT ON {side}",
+            reason=(
+                warnings[0]
+                if warnings
+                else "WNBA minutes or role evidence is not settled yet."
+            ),
+            confidence=confidence,
+            reasons=tuple(reasons),
+            maximum_playable_line=maximum_line,
+            recheck="After minutes, role and lineup evidence are confirmed",
+        )
+
     # --- SHOP: the edge is real, the price here is not the best. ----------
     book, gain = _better_price(prop, side)
     if book:

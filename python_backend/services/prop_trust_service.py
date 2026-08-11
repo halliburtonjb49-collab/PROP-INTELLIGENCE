@@ -228,6 +228,12 @@ def build_research_capsule(row: object, trust: Mapping[str, object] | None = Non
         })
 
     minutes = _number(_value(row, "projectedMinutes", "projected_minutes"))
+    if (
+        minutes is None
+        and str(_value(row, "opportunityUnit", default="") or "").upper()
+        == "MINUTES"
+    ):
+        minutes = _number(_value(row, "projectedOpportunity"))
     usage = _number(_value(row, "usageMultiplier", "usage_multiplier"))
     role_change = str(_value(row, "roleChange", "role_change", default="") or "").strip()
     if minutes is not None or usage is not None or role_change not in {"", "UNKNOWN"}:
@@ -244,6 +250,28 @@ def build_research_capsule(row: object, trust: Mapping[str, object] | None = Non
             "value": " | ".join(pieces[:2]),
             "detail": "Current workload and role assumptions used by the projection.",
             "tone": "NEUTRAL",
+        })
+
+    wnba_score = _number(_value(row, "wnbaResearchScore"))
+    if (
+        str(_value(row, "sport", default="") or "").upper() == "WNBA"
+        and wnba_score is not None
+    ):
+        minutes_certainty = int(
+            _number(_value(row, "wnbaMinutesCertainty")) or 0
+        )
+        role_clarity = int(
+            _number(_value(row, "wnbaRoleClarity")) or 0
+        )
+        items.append({
+            "key": "wnba_research",
+            "label": "WNBA evidence quality",
+            "value": f"{int(wnba_score)}/100",
+            "detail": (
+                f"Minutes certainty {minutes_certainty}/100; "
+                f"role clarity {role_clarity}/100."
+            ),
+            "tone": "POSITIVE" if wnba_score >= 80 else "CAUTION",
         })
 
     injury = str(_value(row, "injuryStatus", "injury_status", default="unknown") or "unknown").strip()
@@ -271,10 +299,15 @@ def build_research_capsule(row: object, trust: Mapping[str, object] | None = Non
 
     trust_payload = dict(trust or build_prop_trust(row))
     warnings = [str(value) for value in trust_payload.get("warnings", [])]
+    warnings.extend(
+        str(value)
+        for value in (_value(row, "wnbaResearchWarnings", default=[]) or [])
+        if str(value) not in warnings
+    )
     return {
         "summary": str(_value(row, "recommendationExplanation", "recommendation_explanation", default="") or "").strip(),
         "items": items[:7],
-        "warnings": warnings,
+        "warnings": warnings[:7],
         "trustScore": trust_payload.get("score", 0),
         "trustBand": trust_payload.get("band", "LIMITED"),
     }

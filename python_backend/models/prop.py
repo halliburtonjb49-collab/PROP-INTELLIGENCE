@@ -192,6 +192,13 @@ class PropResponse(BaseModel):
     contextDataQualityScore: float = Field(default=0.0, ge=0, le=1)
     contextPresentFields: list[str] = Field(default_factory=list)
     contextMissingFields: list[str] = Field(default_factory=list)
+    wnbaResearchScore: int = Field(default=0, ge=0, le=100)
+    wnbaResearchBand: str = "NOT_APPLICABLE"
+    wnbaResearchReady: bool = False
+    wnbaMinutesCertainty: int = Field(default=0, ge=0, le=100)
+    wnbaRoleClarity: int = Field(default=0, ge=0, le=100)
+    wnbaResearchFactors: list[dict[str, object]] = Field(default_factory=list)
+    wnbaResearchWarnings: list[str] = Field(default_factory=list)
     officiatingContext: str = ""
     officiatingAdjustment: float | None = None
     sentimentLabel: str = ""

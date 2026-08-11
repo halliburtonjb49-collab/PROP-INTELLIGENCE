@@ -64,6 +64,19 @@ def test_an_unsettled_lineup_makes_it_wait_even_with_a_strong_edge():
     assert verdict.maximum_playable_line == 6.7
 
 
+def test_wnba_minutes_or_role_uncertainty_makes_a_settled_edge_wait():
+    verdict = compute_verdict(_prop(
+        sport="WNBA",
+        wnbaResearchReady=False,
+        wnbaResearchWarnings=["Recent minutes are too volatile."],
+    ))
+
+    assert verdict.decision == WAIT
+    assert "wnba_minutes_or_role_uncertain" in verdict.reasons
+    assert verdict.recheck == (
+        "After minutes, role and lineup evidence are confirmed"
+    )
+
 def test_a_questionable_player_outranks_an_unconfirmed_lineup():
     # Both are unknowns, but the injury is the one that decides whether the
     # prop exists at all.

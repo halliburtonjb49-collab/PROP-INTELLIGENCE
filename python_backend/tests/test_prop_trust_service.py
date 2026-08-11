@@ -59,6 +59,30 @@ def test_research_capsule_uses_only_available_evidence() -> None:
     assert capsule["summary"] == row["recommendationExplanation"]
 
 
+def test_wnba_capsule_surfaces_minutes_role_and_quality_warnings() -> None:
+    now = datetime(2026, 8, 8, 18, tzinfo=timezone.utc)
+    row = _row(now)
+    row.update({
+        "sport": "WNBA",
+        "projectedMinutes": None,
+        "projectedOpportunity": 32.5,
+        "opportunityUnit": "MINUTES",
+        "wnbaResearchScore": 72,
+        "wnbaMinutesCertainty": 85,
+        "wnbaRoleClarity": 65,
+        "wnbaResearchWarnings": ["Wait for confirmed starters."],
+    })
+    capsule = build_research_capsule(row)
+    quality = next(
+        item for item in capsule["items"]
+        if item["key"] == "wnba_research"
+    )
+    role = next(item for item in capsule["items"] if item["key"] == "role")
+    assert quality["value"] == "72/100"
+    assert "85/100" in quality["detail"]
+    assert "32.5 projected minutes" in role["value"]
+    assert "Wait for confirmed starters." in capsule["warnings"]
+
 def test_research_capsule_does_not_invent_missing_history() -> None:
     row = {"line": 10, "player": "A", "sport": "MLB", "market": "Hits"}
     capsule = build_research_capsule(row)

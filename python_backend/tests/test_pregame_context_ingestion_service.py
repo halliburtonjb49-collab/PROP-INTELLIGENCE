@@ -1,6 +1,7 @@
 from datetime import date
 
 from services.pregame_context_ingestion_service import (
+    _current_injury_matches,
     _inside_starter_window,
     _inside_mlb_lineup_window,
     normalize_official_mlb_boxscore,
@@ -76,6 +77,30 @@ def test_normalizes_espn_injury_report_and_freshness_marker() -> None:
     assert rows[1]["payload"]["injuryType"] == "Ankle"
 
 
+def test_only_latest_espn_report_can_keep_an_injury_active() -> None:
+    matches = [
+        {
+            "provider": "ESPN",
+            "entityType": "INJURY",
+            "eventId": "2026-08-10",
+        },
+        {
+            "provider": "ESPN",
+            "entityType": "INJURY",
+            "eventId": "2026-08-11",
+        },
+        {
+            "provider": "SPORTRADAR",
+            "entityType": "INJURY",
+            "eventId": "game-1",
+        },
+    ]
+    current = _current_injury_matches(matches, "2026-08-11")
+    assert [item["eventId"] for item in current] == [
+        "2026-08-11",
+        "game-1",
+    ]
+
 def test_normalizes_confirmed_wnba_starters() -> None:
     rows = normalize_sportradar_wnba_starters({
         "home": {"alias": "IND", "players": [
@@ -137,6 +162,14 @@ def test_latest_context_lookup_index_is_registered_and_matches_query_order() -> 
     ).lower()
 
     assert filename in MIGRATIONS
+    sport_filename = "supabase_pregame_context_sport_lookup_index.sql"
+    sport_sql = (
+        Path(__file__).resolve().parents[2] / sport_filename
+    ).read_text(encoding="utf-8")
+    assert sport_filename in MIGRATIONS
+    assert "sport," in sport_sql.lower()
+    assert "provider," in sport_sql.lower()
+    assert "entity_type," in sport_sql.lower()
     assert "pregame_context_latest_lookup_idx" in sql
     assert (
         "provider,\n    entity_type,\n    event_id,\n"
