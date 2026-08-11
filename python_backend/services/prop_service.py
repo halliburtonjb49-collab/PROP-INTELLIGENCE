@@ -120,6 +120,23 @@ def market_snapshot(rows: list[object], fallback_line: float) -> dict[str, objec
 	}
 
 
+def canonical_market_group_key(row: object) -> tuple[str, str, str, str, str, str]:
+	"""Join the same market across providers without trusting provider event ids."""
+	start_time_utc = parse_to_utc_iso(row["commence_time"])
+	start_slot = start_time_utc[:16] if start_time_utc else str(row["game_id"] or "")
+	home = display_team_name(row["home_team"]) or str(row["home_team"] or "")
+	away = display_team_name(row["away_team"]) or str(row["away_team"] or "")
+	normalize = lambda value: re.sub(r"[^a-z0-9]+", "", str(value or "").lower())
+	return (
+		normalize(row["sport"]),
+		normalize(away),
+		normalize(home),
+		start_slot,
+		normalize(row["player_name"]),
+		normalize(row["prop_type"]),
+	)
+
+
 def _make_prop_id(
 	event_id: str,
 	player: str,
@@ -296,7 +313,7 @@ def get_props() -> list[PropResponse]:
 	rows = cache.load_props()
 	results: list[PropResponse] = []
 	matchup_key_games: dict[str, set[str]] = defaultdict(set)
-	market_groups: dict[tuple[str, str, str, str], list[object]] = defaultdict(list)
+	market_groups: dict[tuple[str, str, str, str, str, str], list[object]] = defaultdict(list)
 	local_tz = app_timezone()
 
 	for row in rows:
@@ -324,12 +341,7 @@ def get_props() -> list[PropResponse]:
 		game_id = str(row["game_id"] or "")
 		if game_id:
 			matchup_key_games[matchup_key].add(game_id)
-		market_groups[(
-			str(row["sport"]).strip().lower(),
-			game_id,
-			str(row["player_name"]).strip().lower(),
-			str(row["prop_type"]).strip().lower(),
-		)].append(row)
+		market_groups[canonical_market_group_key(row)].append(row)
 
 	for row in rows:
 		player = str(row["player_name"])
@@ -658,12 +670,7 @@ def get_props() -> list[PropResponse]:
 
 		updated_at = str(row["updated_at"] or "")
 		data_age_seconds, data_stale = data_freshness(updated_at)
-		market_rows = market_groups.get((
-			str(row["sport"]).strip().lower(),
-			str(row["game_id"] or ""),
-			player.strip().lower(),
-			raw_market.strip().lower(),
-		), [])
+		market_rows = market_groups.get(canonical_market_group_key(row), [])
 		snapshot = market_snapshot(market_rows, line)
 		market_origin_line = float(snapshot["origin_line"])
 		book_count = int(snapshot["book_count"])

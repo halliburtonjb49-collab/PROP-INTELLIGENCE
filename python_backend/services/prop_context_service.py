@@ -23,6 +23,7 @@ from services.opportunity_gate_service import evaluate_opportunity_gate
 from services.opportunity_projection_service import basketball_opportunities
 from services.basketball_matchup_ingestion_service import enrich_basketball_matchups
 from services.context_quality_service import evaluate_context_quality
+from services.wnba_research_service import assess_wnba_research
 from services.mlb_strikeout_enrichment_service import enrich_mlb_strikeout_props
 from services.pregame_context_ingestion_service import apply_latest_pregame_context
 from services.strikeout_quality_service import (
@@ -34,6 +35,21 @@ from services.strikeout_quality_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _apply_wnba_research(prop: object) -> None:
+    if str(getattr(prop, "sport", "")).strip().upper() != "WNBA":
+        return
+    wnba = assess_wnba_research(prop)
+    prop.wnbaResearchScore = wnba.score
+    prop.wnbaResearchBand = wnba.band
+    prop.wnbaResearchReady = wnba.research_ready
+    prop.wnbaMinutesCertainty = wnba.minutes_certainty
+    prop.wnbaRoleClarity = wnba.role_clarity
+    prop.wnbaResearchFactors = list(wnba.factors)
+    prop.wnbaResearchWarnings = list(wnba.warnings)
+    if prop.confidence > 0:
+        prop.confidence = min(prop.confidence, wnba.score)
 
 
 def _apply_strikeout_release_gate(prop: object) -> bool:
@@ -106,6 +122,7 @@ def _probability_calibrator(sport: str):
 def apply_projection_context(prop: object) -> None:
     projection = getattr(prop, "projection", None)
     if projection is None:
+        _apply_wnba_research(prop)
         return
     strikeout_analysis: dict[str, object] | None = None
     market_key_text = " ".join((
@@ -387,6 +404,7 @@ def apply_projection_context(prop: object) -> None:
         prop.pickText = "No Pick"
         prop.tier = "No Pick"
         prop.confidence = 0
+    _apply_wnba_research(prop)
     _apply_strikeout_release_gate(prop)
     # Last, so the verdict reads the finished prop rather than a half-built
     # one: the probability, the lineup and the price are all settled by now.
@@ -400,6 +418,7 @@ def enrich_props(props: list[object]) -> None:
     if not database_is_configured():
         for prop in props:
             apply_projection_context(prop)
+            _apply_wnba_research(prop)
         return
     apply_latest_pregame_context(props)
     enrich_mlb_strikeout_props(props)
@@ -436,6 +455,7 @@ def enrich_props(props: list[object]) -> None:
         logger.warning("prop context unavailable: %s", exc)
         for prop in props:
             apply_projection_context(prop)
+            _apply_wnba_research(prop)
         return
 
     for prop in props:
@@ -481,3 +501,4 @@ def enrich_props(props: list[object]) -> None:
             prop.sentimentScore = round(score, 1)
             prop.sentimentLabel = "FOLLOW" if score >= 15 else "FADE" if score <= -15 else "NEUTRAL"
         apply_projection_context(prop)
+        _apply_wnba_research(prop)
