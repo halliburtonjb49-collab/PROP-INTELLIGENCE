@@ -145,6 +145,53 @@ class PropChatMessage {
     attachmentUrl: value,
     sharedPayload: sharedPayload,
   );
+
+  PropChatMessage withAuthorIdentity({
+    required String role,
+    int? badgeNumber,
+  }) => PropChatMessage(
+    id: id,
+    userId: userId,
+    username: username,
+    body: body,
+    createdAt: createdAt,
+    roomId: roomId,
+    authorRole: role,
+    authorBadgeNumber: badgeNumber,
+    replyToId: replyToId,
+    editedAt: editedAt,
+    reactions: reactions,
+    attachmentPath: attachmentPath,
+    attachmentKind: attachmentKind,
+    linkUrl: linkUrl,
+    attachmentUrl: attachmentUrl,
+    sharedPayload: sharedPayload,
+  );
+}
+
+PropChatMessage resolveCurrentUserMessageIdentity(
+  PropChatMessage message,
+  AuthSessionState session,
+) {
+  if (!session.authenticated ||
+      session.userId == null ||
+      message.userId != session.userId) {
+    return message;
+  }
+  final accountRole = session.role.trim().toLowerCase();
+  final assignedRole = session.assignedMemberRole?.trim().toLowerCase();
+  final role = switch (accountRole) {
+    'owner' || 'admin' => accountRole,
+    _ when const {'core', 'pro', 'pro_founder'}.contains(assignedRole) =>
+      assignedRole!,
+    _ when session.effectiveSubscriptionTier == SubscriptionTier.edge => 'pro',
+    _ when session.effectiveSubscriptionTier == SubscriptionTier.core => 'core',
+    _ => message.authorRole,
+  };
+  final badgeNumber = role == 'pro_founder'
+      ? session.founderNumber
+      : message.authorBadgeNumber;
+  return message.withAuthorIdentity(role: role, badgeNumber: badgeNumber);
 }
 
 class PropChatMember {
@@ -547,7 +594,11 @@ class PropChatService {
   Future<List<PropChatMessage>> _attachReactions(
     List<Map<String, dynamic>> rows,
   ) async {
-    final messages = rows.map(PropChatMessage.fromJson).toList(growable: false);
+    final session = AuthManager.instance.sessionState.value;
+    final messages = rows
+        .map(PropChatMessage.fromJson)
+        .map((message) => resolveCurrentUserMessageIdentity(message, session))
+        .toList(growable: false);
     if (messages.isEmpty || _client == null) return messages;
     final ids = messages.map((message) => message.id).toList();
     final reactionRows = await _client!
@@ -755,11 +806,18 @@ class PropChatService {
         .stream(primaryKey: ['id'])
         .eq('conversation_id', conversationId)
         .order('created_at')
-        .asyncMap(
-          (rows) => _attachSignedUrls(
-            rows.map(PropChatMessage.fromJson).toList(growable: false),
-          ),
-        );
+        .asyncMap((rows) {
+          final session = AuthManager.instance.sessionState.value;
+          return _attachSignedUrls(
+            rows
+                .map(PropChatMessage.fromJson)
+                .map(
+                  (message) =>
+                      resolveCurrentUserMessageIdentity(message, session),
+                )
+                .toList(growable: false),
+          );
+        });
   }
 
   Future<void> sendDirectMessage(
