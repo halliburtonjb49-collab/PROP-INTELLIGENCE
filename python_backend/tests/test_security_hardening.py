@@ -80,6 +80,22 @@ def test_feedback_table_is_migrated_as_api_only_data() -> None:
         in sql
     )
 
+
+def test_owner_operations_tables_are_migrated_as_api_only_data() -> None:
+    from scripts.apply_supabase_migrations import MIGRATIONS
+
+    filename = "supabase_owner_operations_security.sql"
+    assert filename in MIGRATIONS
+    sql = (ROOT / filename).read_text(encoding="utf-8").lower()
+    for table in (
+        "owner_prop_quarantines",
+        "owner_alert_acknowledgements",
+        "owner_operations_audit",
+    ):
+        assert f"alter table if exists public.{table} enable row level security" in sql
+        assert f"alter table if exists public.{table} force row level security" in sql
+        assert f"revoke all on table public.{table} from anon, authenticated" in sql
+
 def test_member_identity_grants_are_owner_only_and_server_derived() -> None:
     from scripts.apply_supabase_migrations import MIGRATIONS
 
