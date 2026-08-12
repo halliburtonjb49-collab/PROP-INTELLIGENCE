@@ -55,6 +55,7 @@ MIGRATIONS = (
     "supabase_basketball_advanced_box_score.sql",
     "supabase_prediction_ledger_append_only.sql",
     "supabase_user_feedback_messages.sql",
+    "supabase_owner_operations_security.sql",
 )
 
 
