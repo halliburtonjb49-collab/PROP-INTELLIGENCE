@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/pages/prop_chat_page.dart';
+import 'package:prop_intelligence/services/auth_manager.dart';
 import 'package:prop_intelligence/services/prop_chat_service.dart';
 
 class _FakeChatService extends PropChatService {
@@ -96,6 +97,33 @@ void main() {
 
     expect(message.isOfficialOwner, isTrue);
     expect(message.isVerified, isTrue);
+  });
+
+  test('current owner identity corrects older chat rows saved as user', () {
+    final message = PropChatMessage.fromJson({
+      'id': 12,
+      'user_id': 'owner-user',
+      'username': 'prop_owner',
+      'body': 'Older owner message.',
+      'author_role': 'user',
+      'created_at': '2026-08-10T12:00:00Z',
+    });
+    const session = AuthSessionState(
+      ready: true,
+      authenticated: true,
+      isPremium: true,
+      subscriptionTier: SubscriptionTier.edge,
+      role: 'owner',
+      userId: 'owner-user',
+      email: 'owner@example.com',
+      username: 'prop_owner',
+      message: 'Authenticated',
+    );
+
+    final corrected = resolveCurrentUserMessageIdentity(message, session);
+
+    expect(corrected.normalizedAuthorRole, 'owner');
+    expect(corrected.isOfficialOwner, isTrue);
   });
 
   test(
