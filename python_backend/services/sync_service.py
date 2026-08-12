@@ -1,3 +1,4 @@
+import gc
 import logging
 import os
 import re
@@ -211,6 +212,27 @@ def _gridiron_ingest_due(now: float | None = None) -> bool:
             _last_gridiron_ingest_monotonic is None
             or current - _last_gridiron_ingest_monotonic >= interval
         )
+
+
+def _live_history_seed_enabled() -> bool:
+    """Keep bulk history seeding out of the latency-sensitive live sync.
+
+    Render process restarts clear the in-memory ingestion timestamp. Treating
+    every cold process as an empty database made each restart launch two full
+    nflverse seasons and a 240-day ESPN/NHL walk. On a 2 GB web instance that
+    can create a restart loop before the live sync completes. Operators can
+    still opt in deliberately, but routine live syncs only perform a bounded
+    top-up; the admin backfill endpoint remains the preferred seed path.
+    """
+    return os.getenv("LIVE_SYNC_SEED_HISTORY", "false").strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+
+
+def _gridiron_backfill_window(*, cold_process: bool) -> int:
+    if cold_process and _live_history_seed_enabled():
+        return max(1, int(os.getenv("GRIDIRON_SEED_DAYS", "240")))
+    return max(1, int(os.getenv("GRIDIRON_INGEST_DAYS", "3")))
 
 
 def _mark_gridiron_ingested(now: float | None = None) -> None:
@@ -876,8 +898,9 @@ def run_global_sync_pipeline(
             # Without this the schedule keeps three days current forever and
             # the 445 NFL props with no projection stay that way, because
             # nothing was ever going to fetch the season behind them.
-            seeded = _last_gridiron_ingest_monotonic is not None
-            if not seeded:
+            cold_process = _last_gridiron_ingest_monotonic is None
+            bulk_seed = cold_process and _live_history_seed_enabled()
+            if bulk_seed:
                 # Seed NFL from nflverse rather than walking eight months of
                 # ESPN scoreboard a day at a time: one request per season,
                 # and it carries air yards and EPA the box score lacks. NHL
@@ -901,12 +924,7 @@ def run_global_sync_pipeline(
                     })
                 except Exception as exc:
                     logger.warning("nflverse seed failed error=%s", exc)
-            window = max(
-                1,
-                int(os.getenv("GRIDIRON_INGEST_DAYS", "3"))
-                if seeded
-                else int(os.getenv("GRIDIRON_SEED_DAYS", "240")),
-            )
+            window = _gridiron_backfill_window(cold_process=cold_process)
             gridiron = run_gridiron_ice_backfill(days=window)
             stored = sum(
                 int((value or {}).get("stored") or 0)
@@ -925,6 +943,10 @@ def run_global_sync_pipeline(
             })
         finally:
             _mark_gridiron_ingested()
+            # Provider clients and dataframe/parquet readers can leave large
+            # object graphs for cyclic GC. Reclaim them before building the
+            # complete prop board and alert snapshot in this same process.
+            gc.collect()
     report_post_processing("prediction_snapshot")
     snapshot = snapshot_live_predictions()
     results.append({"sport": "prediction_snapshots", "events": 0,

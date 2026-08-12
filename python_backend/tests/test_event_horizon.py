@@ -155,42 +155,28 @@ def test_it_comes_due_again_after_the_cooldown() -> None:
     sync_service._last_gridiron_ingest_monotonic = None
 
 
-def test_the_first_run_seeds_a_season_rather_than_three_days() -> None:
-    """445 NFL props had no projection and nothing was going to fix it.
-
-    A three-day top-up keeps a history current; it cannot create one. The
-    first run after a restart therefore reaches back far enough to seed.
-    """
-
-    import os
+def test_a_cold_live_process_only_runs_the_bounded_top_up(monkeypatch) -> None:
+    """A web-process restart must not silently launch a bulk history seed."""
     from services import sync_service
 
+    monkeypatch.delenv("LIVE_SYNC_SEED_HISTORY", raising=False)
     sync_service._last_gridiron_ingest_monotonic = None
-    seeded = sync_service._last_gridiron_ingest_monotonic is not None
-    window = max(
-        1,
-        int(os.getenv("GRIDIRON_INGEST_DAYS", "3"))
-        if seeded
-        else int(os.getenv("GRIDIRON_SEED_DAYS", "240")),
-    )
-
-    assert window >= 240
+    assert sync_service._gridiron_backfill_window(cold_process=True) == 3
 
 
-def test_later_runs_only_top_up() -> None:
-    import os
+def test_bulk_seed_requires_an_explicit_operator_opt_in(monkeypatch) -> None:
     from services import sync_service
 
-    sync_service._mark_gridiron_ingested(now=1000.0)
-    seeded = sync_service._last_gridiron_ingest_monotonic is not None
-    window = max(
-        1,
-        int(os.getenv("GRIDIRON_INGEST_DAYS", "3"))
-        if seeded
-        else int(os.getenv("GRIDIRON_SEED_DAYS", "240")),
-    )
+    monkeypatch.setenv("LIVE_SYNC_SEED_HISTORY", "true")
+    monkeypatch.setenv("GRIDIRON_SEED_DAYS", "240")
+    assert sync_service._gridiron_backfill_window(cold_process=True) == 240
 
-    assert window == 3
+
+def test_later_runs_only_top_up(monkeypatch) -> None:
+    from services import sync_service
+
+    monkeypatch.setenv("LIVE_SYNC_SEED_HISTORY", "true")
+    assert sync_service._gridiron_backfill_window(cold_process=False) == 3
     sync_service._last_gridiron_ingest_monotonic = None
 
 
