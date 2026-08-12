@@ -7,6 +7,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_colors.dart' as brand_colors;
 import '../widgets/owner_command_center_overview.dart';
 import '../widgets/owner_model_audit_panel.dart';
+import '../widgets/owner_user_account_controls.dart';
 import '../widgets/provider_availability_dashboard.dart';
 
 class OwnerOperationsPage extends StatefulWidget {
@@ -344,6 +345,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             OwnerCommandCenterOverview(
               data: _commandCenter ?? const <String, dynamic>{},
             ),
+            const SizedBox(height: 14),
+            const OwnerUserAccountControls(),
             const SizedBox(height: 22),
             _sectionTitle(
               'PROP INVENTORY & DATA QUALITY',

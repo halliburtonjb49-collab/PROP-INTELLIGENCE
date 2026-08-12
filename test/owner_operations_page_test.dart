@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/main.dart';
 import 'package:prop_intelligence/pages/owner_operations_page.dart';
 import 'package:prop_intelligence/services/api_service.dart';
+import 'package:prop_intelligence/widgets/owner_user_account_controls.dart';
 
 class _FakeOperationsApi extends ApiService {
   int recoveryRequests = 0;
@@ -480,6 +481,11 @@ void main() {
       find.byKey(const ValueKey('owner-command-center-overview')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey('owner-user-account-controls')),
+      findsOneWidget,
+    );
+    expect(find.text('MANAGE USER ACCOUNTS'), findsOneWidget);
     expect(find.byKey(const ValueKey('owner-window-today')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('owner-operations-refresh')),
@@ -663,6 +669,32 @@ void main() {
       find.byKey(const ValueKey('owner-provider-recovery')),
       findsOneWidget,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('owner can open account-role controls on a phone', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ListView(children: const [OwnerUserAccountControls()]),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('owner-manage-user-roles')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('O  MANAGE USER ROLE'), findsOneWidget);
+    expect(find.byKey(const ValueKey('owner-role-email')), findsOneWidget);
+    expect(find.byKey(const ValueKey('owner-role-select')), findsOneWidget);
+    expect(find.byKey(const ValueKey('owner-assign-role')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
