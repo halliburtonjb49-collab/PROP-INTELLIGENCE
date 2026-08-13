@@ -107,7 +107,12 @@ from services.distributed_cache_service import (
 	health as distributed_cache_health,
 	set_json as set_distributed_json,
 )
-from services.job_queue_service import enqueue as enqueue_background_job, health as job_queue_health
+from services.job_queue_service import (
+	acquire_global_sync_lock,
+	enqueue as enqueue_background_job,
+	health as job_queue_health,
+	release_global_sync_lock,
+)
 from services.injury_impact_alert_service import (
 	evaluate_injury_impact_changes,
 	injury_alert_history,
@@ -1051,8 +1056,15 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 
 def run_queued_prop_sync() -> None:
 	"""RQ worker entrypoint; retries are managed by the durable queue."""
-	_mark_sync_running()
-	_run_sync_background(release_local_lock=False)
+	lock_token = acquire_global_sync_lock()
+	if lock_token is None:
+		logging.info("Skipping duplicate queued prop sync; another run is active")
+		return
+	try:
+		_mark_sync_running()
+		_run_sync_background(release_local_lock=False)
+	finally:
+		release_global_sync_lock(lock_token)
 
 
 def _reconcile_catalog_snapshot() -> bool:
