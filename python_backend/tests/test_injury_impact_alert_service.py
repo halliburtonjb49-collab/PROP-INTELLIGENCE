@@ -85,7 +85,11 @@ def test_catalog_refresh_broadcasts_detected_change_once(monkeypatch) -> None:
         "level": "CRITICAL",
     }
     monkeypatch.setattr(main, "_invalidate_prop_catalog", lambda: None)
-    monkeypatch.setattr(main, "_rebuild_prop_catalog_from_local", lambda: [prop()])
+    monkeypatch.setattr(
+        main,
+        "_rebuild_prop_catalog_from_local",
+        lambda **_kwargs: [prop()],
+    )
     monkeypatch.setattr(main, "evaluate_injury_impact_changes", lambda _: [alert])
     monkeypatch.setattr(
         main.realtime_hub,

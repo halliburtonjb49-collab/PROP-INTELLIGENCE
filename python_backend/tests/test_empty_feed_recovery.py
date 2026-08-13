@@ -169,6 +169,22 @@ def test_a_fresh_local_sync_persists_the_durable_snapshot(monkeypatch):
     assert saved and saved[0] == [{"id": "p1"}]
 
 
+def test_intermediate_catalog_refresh_does_not_start_snapshot_write(monkeypatch):
+    saved = []
+    prop = SimpleNamespace(
+        lastUpdatedUtc=datetime.now(timezone.utc).isoformat(),
+        model_dump=lambda mode=None: {"id": "p1"},
+    )
+    monkeypatch.setattr(main, "get_props", lambda: [prop])
+    monkeypatch.setattr(main, "set_distributed_json", lambda *a, **k: True)
+    monkeypatch.setattr(main, "_publish_prop_catalog_summary", lambda _props: None)
+    monkeypatch.setattr(main, "save_catalog_snapshot", lambda rows: saved.append(rows))
+
+    main._rebuild_prop_catalog_from_local(persist_snapshot=False)
+
+    assert saved == []
+
+
 def test_an_empty_sync_does_not_overwrite_a_good_snapshot(monkeypatch):
     saved = []
     monkeypatch.setattr(main, "get_props", lambda: [])

@@ -59,7 +59,12 @@ def test_primary_lane_completes_before_background_coverage(monkeypatch) -> None:
         ]
 
     monkeypatch.setattr(main, "run_global_sync_pipeline", fake_pipeline)
-    monkeypatch.setattr(main, "_invalidate_prop_catalog", lambda: None)
+    refreshes = []
+    monkeypatch.setattr(
+        main,
+        "_refresh_prop_catalog_now",
+        lambda **kwargs: refreshes.append(kwargs),
+    )
     monkeypatch.setattr(main, "get_props", lambda: [])
     monkeypatch.setattr(main, "capture_closing_lines_from_props", lambda _props: {})
     monkeypatch.setattr(main, "quota_snapshot", lambda: {"remaining": 1000})
@@ -83,6 +88,10 @@ def test_primary_lane_completes_before_background_coverage(monkeypatch) -> None:
     assert final["postProcessingStatus"] == "complete"
     assert len(final["coverageResults"]) == 2
     assert len(final["results"]) == 3
+    assert refreshes == [
+        {"persist_snapshot": False},
+        {"persist_snapshot": True},
+    ]
 
 
 def test_post_processing_failure_preserves_completed_coverage(monkeypatch) -> None:
@@ -104,7 +113,7 @@ def test_post_processing_failure_preserves_completed_coverage(monkeypatch) -> No
 
     monkeypatch.setattr(main, "run_global_sync_pipeline", fake_pipeline)
     monkeypatch.setattr(main, "_invalidate_prop_catalog", lambda: None)
-    monkeypatch.setattr(main, "_refresh_prop_catalog_now", lambda: [])
+    monkeypatch.setattr(main, "_refresh_prop_catalog_now", lambda **_kwargs: [])
     monkeypatch.setattr(main, "quota_snapshot", lambda: {"remaining": 1000})
     main._mark_sync_running()
 
