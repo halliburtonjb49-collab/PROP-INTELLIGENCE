@@ -612,6 +612,7 @@ def _cached_prop_catalog() -> list[PropResponse]:
 
 def _rebuild_prop_catalog_from_local(
 	*, fallback_version: object = None,
+	persist_snapshot: bool = True,
 ) -> list[PropResponse]:
 	"""Recompute props from this instance's local cache and republish.
 
@@ -655,11 +656,12 @@ def _rebuild_prop_catalog_from_local(
 		# old the next time it restarted. This is the path with genuinely
 		# fresh data, so it persists too, off the request thread because a
 		# live request must never block on a Postgres write.
-		Thread(
-			target=_persist_catalog_snapshot_background,
-			args=(props,),
-			daemon=True,
-		).start()
+		if persist_snapshot:
+			Thread(
+				target=_persist_catalog_snapshot_background,
+				args=(props,),
+				daemon=True,
+			).start()
 	return props
 
 
@@ -719,7 +721,7 @@ def _invalidate_prop_catalog() -> None:
 	delete_distributed_cache(_PROP_CATALOG_SUMMARY_KEY)
 
 
-def _refresh_prop_catalog_now() -> None:
+def _refresh_prop_catalog_now(*, persist_snapshot: bool = True) -> None:
 	"""Invalidate and immediately rebuild+republish the shared catalog.
 
 	Render runs multiple API instances with separate local disks. Deleting
@@ -732,7 +734,9 @@ def _refresh_prop_catalog_now() -> None:
 	stale snapshot was last written instead of the sync that just completed.
 	"""
 	_invalidate_prop_catalog()
-	props = _rebuild_prop_catalog_from_local()
+	props = _rebuild_prop_catalog_from_local(
+		persist_snapshot=persist_snapshot,
+	)
 	for alert in evaluate_injury_impact_changes(props):
 		realtime_hub.broadcast_from_thread(
 			{
@@ -905,7 +909,11 @@ def _mark_sync_running() -> None:
 def _run_sync_background(*, release_local_lock: bool = True) -> None:
 	try:
 		def mark_fast_lane_complete(results: list[dict[str, object]]) -> None:
-			_refresh_prop_catalog_now()
+			# Publish the first useful board quickly, but defer the expensive
+			# durable snapshot until all providers are finished. Starting a
+			# full serialization thread at every lane boundary retained several
+			# complete catalogs at once and exhausted Render's 2 GB instance.
+			_refresh_prop_catalog_now(persist_snapshot=False)
 			finished = datetime.now(timezone.utc)
 			cooldown = _effective_sync_cooldown_seconds()
 			_set_sync_state(
@@ -929,7 +937,6 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 			)
 
 		def mark_coverage_complete(results: list[dict[str, object]]) -> None:
-			_refresh_prop_catalog_now()
 			finished = datetime.now(timezone.utc)
 			_set_sync_state(
 				coverageStatus="complete",
@@ -958,7 +965,9 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 				postProcessingStep="catalog_refresh",
 				postProcessingUpdatedAt=datetime.now(timezone.utc).isoformat(),
 			)
-			_refresh_prop_catalog_now()
+			# One final rebuild includes coverage and SportsGameOdds, and is the
+			# only refresh in this run that starts a durable snapshot write.
+			_refresh_prop_catalog_now(persist_snapshot=True)
 
 		def mark_post_processing_progress(step: str) -> None:
 			_set_sync_state(
