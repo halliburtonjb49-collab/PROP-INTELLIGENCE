@@ -32,9 +32,9 @@ class _PropBuilderPerformanceScreenState
     'NFL',
     'NHL',
     'SOCCER',
-    'CRICKET',
-    'AFL',
-    'NRL',
+    'NCAAF',
+    'NCAAB',
+    'CFL',
   ];
   static const List<String> _propSites = [
     'ALL',

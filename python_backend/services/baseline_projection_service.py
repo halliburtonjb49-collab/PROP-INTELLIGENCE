@@ -167,7 +167,11 @@ def _gridiron_ice_stat(sport: str, market: object) -> str | None:
     for phrase in _UNSUPPORTED_GRIDIRON_ICE_MARKETS:
         if phrase in text:
             return None
-    table = _NFL_MARKET_STATS if sport == "NFL" else _NHL_MARKET_STATS
+    table = (
+        _NFL_MARKET_STATS
+        if sport in {"NFL", "NCAAF", "CFL"}
+        else _NHL_MARKET_STATS
+    )
     for phrase, stat in table:
         if phrase in text:
             return stat
@@ -697,7 +701,7 @@ class _HistoricalProjectionIndex:
     ) -> BaselineProjection | None:
         self.ensure_loaded()
         normalized_sport = sport.upper()
-        if normalized_sport in {"NBA", "WNBA"}:
+        if normalized_sport in {"NBA", "WNBA", "NCAAB"}:
             rows = self.basketball.get((normalized_sport, _normalized(player)), [])
             values = [
                 value
@@ -752,7 +756,7 @@ class _HistoricalProjectionIndex:
                 ),
             )
 
-        if normalized_sport in {"NFL", "NHL"}:
+        if normalized_sport in {"NFL", "NCAAF", "CFL", "NHL"}:
             stat = _gridiron_ice_stat(normalized_sport, market)
             if stat is None:
                 return None

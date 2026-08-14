@@ -42,10 +42,10 @@ class _LeftSidebarState extends State<LeftSidebar> {
         return '🏀';
       case 'WNBA':
         return '🏀';
+      case 'NCAAB':
+        return '\u{1F3C0}';
       case 'SOCCER':
         return '⚽';
-      case 'NRL':
-        return '🏉';
       default:
         return '•';
     }
@@ -57,12 +57,14 @@ class _LeftSidebarState extends State<LeftSidebar> {
     switch (sport) {
       case 'NFL':
         return 'assets/branding/sport_icons/nfl.png';
+      case 'NCAAF':
+        return 'assets/branding/sport_icons/ncaaf.png';
+      case 'NCAAB':
+        return 'assets/branding/sport_icons/ncaab.png';
+      case 'CFL':
+        return 'assets/branding/sport_icons/cfl.png';
       case 'NHL':
         return 'assets/branding/sport_icons/nhl.png';
-      case 'CRICKET':
-        return 'assets/branding/sport_icons/cricket.png';
-      case 'AFL':
-        return 'assets/branding/sport_icons/afl.png';
       default:
         return null;
     }
@@ -88,9 +90,9 @@ class _LeftSidebarState extends State<LeftSidebar> {
       'WNBA',
       'NHL',
       'SOCCER',
-      'CRICKET',
-      'AFL',
-      'NRL',
+      'NCAAF',
+      'NCAAB',
+      'CFL',
     ];
 
     return Container(

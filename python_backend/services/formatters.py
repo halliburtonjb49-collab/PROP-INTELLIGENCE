@@ -164,12 +164,14 @@ CATEGORY_LABELS = {
     "player_tackles": "tackles",
 
     # AFL
+    "player_disposals": "disposals",
     "player_disposals_over": "disposals",
     "player_goals_scored_over": "goals",
     "player_goal_scorer_first": "first goalscorer",
     "player_goal_scorer_last": "last goalscorer",
     "player_marks_over": "marks",
     "player_tackles_over": "tackles",
+    "player_afl_fantasy_points": "AFL fantasy points",
     "player_afl_fantasy_points_over": "AFL fantasy points",
     "player_clearances_over": "clearances",
     "player_kicks_over": "kicks",
@@ -219,11 +221,12 @@ def format_sport_label(sport_key: str) -> str:
         "basketball_nba": "NBA",
         "basketball_wnba": "WNBA",
         "americanfootball_nfl": "NFL",
+        "americanfootball_ncaaf": "NCAAF",
+        "americanfootball_cfl": "CFL",
+        "basketball_ncaab": "NCAAB",
         "baseball_mlb": "MLB",
         "icehockey_nhl": "NHL",
         "mma_mixed_martial_arts": "UFC",
-        "aussierules_afl": "AFL",
-        "rugbyleague_nrl": "NRL",
     }
 
     if sport_key in mappings:

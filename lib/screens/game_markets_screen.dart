@@ -19,7 +19,19 @@ class GameMarketsScreen extends StatefulWidget {
 }
 
 class _GameMarketsScreenState extends State<GameMarketsScreen> {
-  static const _sports = ['MLB', 'WNBA', 'NBA', 'NFL', 'NHL', 'EPL', 'MLS'];
+  static const _sports = [
+    'MLB',
+    'WNBA',
+    'NBA',
+    'NFL',
+    'NFL PRESEASON',
+    'NCAAF',
+    'NCAAB',
+    'CFL',
+    'NHL',
+    'EPL',
+    'MLS',
+  ];
   static const _marketLabels = {
     'h2h': 'MONEYLINE',
     'spreads': 'SPREADS',

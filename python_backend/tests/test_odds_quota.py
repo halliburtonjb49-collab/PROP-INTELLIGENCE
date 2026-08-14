@@ -69,3 +69,4 @@ def test_afl_event_request_uses_the_australian_region(monkeypatch) -> None:
     )
 
     assert captured["regions"] == "au"
+    assert captured["bookmakers"] == odds_service.PREFERRED_BOOKMAKERS_CSV

@@ -79,3 +79,40 @@ def test_game_markets_reject_unknown_sport():
         assert "Unsupported sport" in str(exc)
     else:
         raise AssertionError("unsupported sport should fail")
+
+
+def test_nfl_preseason_uses_the_provider_preseason_sport_key():
+    game_market_service._cache.clear()
+    captured = {}
+
+    def fetcher(**kwargs):
+        captured.update(kwargs)
+        return []
+
+    result = game_market_service.get_game_markets(
+        "NFL PRESEASON", force=True, fetcher=fetcher
+    )
+
+    assert captured["sport_key"] == "americanfootball_nfl_preseason"
+    assert result["sport"] == "NFL PRESEASON"
+
+
+@pytest.mark.parametrize(
+    ("sport", "sport_key"),
+    [
+        ("NCAAF", "americanfootball_ncaaf"),
+        ("NCAAB", "basketball_ncaab"),
+        ("CFL", "americanfootball_cfl"),
+    ],
+)
+def test_replacement_leagues_use_their_own_provider_keys(sport, sport_key):
+    game_market_service._cache.clear()
+    captured = {}
+
+    def fetcher(**kwargs):
+        captured.update(kwargs)
+        return []
+
+    game_market_service.get_game_markets(sport, force=True, fetcher=fetcher)
+
+    assert captured["sport_key"] == sport_key

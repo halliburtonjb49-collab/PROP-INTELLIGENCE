@@ -112,9 +112,9 @@ class SidebarButton extends StatelessWidget {
                   child: ClipOval(
                     child: Image.asset(
                       leadingImagePath!,
-                      width: 16,
-                      height: 16,
-                      fit: BoxFit.cover,
+                      width: 18,
+                      height: 18,
+                      fit: BoxFit.contain,
                     ),
                   ),
                 ),

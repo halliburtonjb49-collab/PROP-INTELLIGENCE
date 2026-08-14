@@ -966,9 +966,9 @@ class _LineMovementPageState extends State<LineMovementPage> {
                         'WNBA',
                         'NHL',
                         'SOCCER',
-                        'CRICKET',
-                        'AFL',
-                        'NRL',
+                        'NCAAF',
+                        'NCAAB',
+                        'CFL',
                       ].map((sport) {
                         final selected = sport == _tableSport;
                         return InkWell(

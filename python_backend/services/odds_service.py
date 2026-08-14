@@ -290,7 +290,7 @@ def fetch_game_odds(
     response = _request_with_failover(
         f"{BASE_URL}/sports/{sport_key}/odds",
         {
-            "regions": ODDS_REGIONS,
+            "regions": regions_for_sport(sport_key),
             "markets": ",".join(requested_markets),
             "bookmakers": PREFERRED_BOOKMAKERS_CSV,
             "oddsFormat": "american",
