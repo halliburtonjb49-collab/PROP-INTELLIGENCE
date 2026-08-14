@@ -20,6 +20,7 @@ GAME_SPORTS: dict[str, str] = {
     "WNBA": "basketball_wnba",
     "MLB": "baseball_mlb",
     "NFL": "americanfootball_nfl",
+    "NFL PRESEASON": "americanfootball_nfl_preseason",
     "NHL": "icehockey_nhl",
     "EPL": "soccer_epl",
     "MLS": "soccer_usa_mls",

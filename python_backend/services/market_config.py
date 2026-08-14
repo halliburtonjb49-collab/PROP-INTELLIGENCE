@@ -125,6 +125,8 @@ for _soccer_key in (
     SPORT_MARKETS[_soccer_key] = SOCCER_PROP_MARKETS
 
 SPORT_MARKETS["aussierules_afl"] = [
+    "player_disposals",
+    "player_afl_fantasy_points",
     "player_disposals_over",
     "player_goal_scorer_anytime",
     "player_goal_scorer_first",

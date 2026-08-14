@@ -79,3 +79,19 @@ def test_game_markets_reject_unknown_sport():
         assert "Unsupported sport" in str(exc)
     else:
         raise AssertionError("unsupported sport should fail")
+
+
+def test_nfl_preseason_uses_the_provider_preseason_sport_key():
+    game_market_service._cache.clear()
+    captured = {}
+
+    def fetcher(**kwargs):
+        captured.update(kwargs)
+        return []
+
+    result = game_market_service.get_game_markets(
+        "NFL PRESEASON", force=True, fetcher=fetcher
+    )
+
+    assert captured["sport_key"] == "americanfootball_nfl_preseason"
+    assert result["sport"] == "NFL PRESEASON"

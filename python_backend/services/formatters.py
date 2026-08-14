@@ -164,12 +164,14 @@ CATEGORY_LABELS = {
     "player_tackles": "tackles",
 
     # AFL
+    "player_disposals": "disposals",
     "player_disposals_over": "disposals",
     "player_goals_scored_over": "goals",
     "player_goal_scorer_first": "first goalscorer",
     "player_goal_scorer_last": "last goalscorer",
     "player_marks_over": "marks",
     "player_tackles_over": "tackles",
+    "player_afl_fantasy_points": "AFL fantasy points",
     "player_afl_fantasy_points_over": "AFL fantasy points",
     "player_clearances_over": "clearances",
     "player_kicks_over": "kicks",

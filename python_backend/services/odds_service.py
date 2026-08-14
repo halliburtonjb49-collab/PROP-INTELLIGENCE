@@ -6,6 +6,7 @@ import requests
 from requests.adapters import HTTPAdapter
 
 from config import (
+    AU_PROP_BOOKMAKERS_CSV,
     BASE_URL,
     HTTP_TIMEOUT_SECONDS,
     ODDS_API_KEY,
@@ -181,6 +182,14 @@ def regions_for_sport(sport_key: str) -> str:
     return ODDS_REGIONS
 
 
+def bookmakers_for_sport(sport_key: str) -> str:
+    """Use the books that actually publish props in the sport's region."""
+
+    if sport_key in {"aussierules_afl", "rugbyleague_nrl"}:
+        return AU_PROP_BOOKMAKERS_CSV
+    return PREFERRED_BOOKMAKERS_CSV
+
+
 def estimate_event_odds_cost(
     markets: list[str],
     *,
@@ -266,7 +275,7 @@ def fetch_event_odds(
         {
             "regions": regions_for_sport(sport_key),
             "markets": ",".join(markets),
-            "bookmakers": PREFERRED_BOOKMAKERS_CSV,
+            "bookmakers": bookmakers_for_sport(sport_key),
             "oddsFormat": "american",
             "dateFormat": "iso",
         },
@@ -290,9 +299,9 @@ def fetch_game_odds(
     response = _request_with_failover(
         f"{BASE_URL}/sports/{sport_key}/odds",
         {
-            "regions": ODDS_REGIONS,
+            "regions": regions_for_sport(sport_key),
             "markets": ",".join(requested_markets),
-            "bookmakers": PREFERRED_BOOKMAKERS_CSV,
+            "bookmakers": bookmakers_for_sport(sport_key),
             "oddsFormat": "american",
             "dateFormat": "iso",
         },

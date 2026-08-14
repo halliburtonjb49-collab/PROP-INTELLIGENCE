@@ -118,6 +118,19 @@ def _resolve_bookmakers(raw: str) -> tuple[list[str], list[str], list[str]]:
     MISSING_BOOKMAKERS_RESTORED,
 ) = _resolve_bookmakers(os.getenv("PREFERRED_BOOKMAKERS", _DEFAULT_BOOKMAKERS))
 PREFERRED_BOOKMAKERS_CSV = ",".join(PREFERRED_BOOKMAKERS)
+# AFL and NRL player props are published by Australian books, not by the
+# US/DFS catalogue used by the rest of the product. Keep this separate so a
+# request cannot ask for the correct AU region while filtering every useful
+# bookmaker out of the response.
+AU_PROP_BOOKMAKERS = tuple(
+    bookmaker.strip().lower()
+    for bookmaker in os.getenv(
+        "AU_PROP_BOOKMAKERS",
+        "sportsbet,ladbrokes_au,tab,pointsbetau,betr_au",
+    ).split(",")
+    if bookmaker.strip()
+)
+AU_PROP_BOOKMAKERS_CSV = ",".join(AU_PROP_BOOKMAKERS)
 DEFAULT_LOOKAHEAD_HOURS = 72
 NEXT_AVAILABLE_MAX_DAYS = 7
 HTTP_TIMEOUT_SECONDS = 12

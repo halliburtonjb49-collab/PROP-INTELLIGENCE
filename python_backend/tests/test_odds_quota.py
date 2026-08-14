@@ -41,6 +41,15 @@ def test_afl_and_nrl_props_use_the_australian_bookmaker_region() -> None:
     assert odds_service.estimate_event_odds_cost(
         ["one", "two"], regions="au"
     ) == 2
+    assert odds_service.bookmakers_for_sport("aussierules_afl") == (
+        odds_service.AU_PROP_BOOKMAKERS_CSV
+    )
+    assert odds_service.bookmakers_for_sport("rugbyleague_nrl") == (
+        odds_service.AU_PROP_BOOKMAKERS_CSV
+    )
+    assert odds_service.bookmakers_for_sport("americanfootball_nfl") == (
+        odds_service.PREFERRED_BOOKMAKERS_CSV
+    )
 
 
 def test_afl_event_request_uses_the_australian_region(monkeypatch) -> None:
@@ -69,3 +78,4 @@ def test_afl_event_request_uses_the_australian_region(monkeypatch) -> None:
     )
 
     assert captured["regions"] == "au"
+    assert captured["bookmakers"] == odds_service.AU_PROP_BOOKMAKERS_CSV
