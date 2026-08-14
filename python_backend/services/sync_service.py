@@ -150,7 +150,31 @@ _sgo_league_cursor = 0
 def configured_sync_sports() -> list[str]:
     configured = os.getenv("PROP_SYNC_SPORTS", "").strip()
     candidates = configured.split(",") if configured else DEFAULT_SYNC_SPORTS
-    return list(dict.fromkeys(value.strip() for value in candidates if value.strip()))
+    normalized = [value.strip() for value in candidates if value.strip()]
+    retired_configured = any(
+        value in {"aussierules_afl", "rugbyleague_nrl"}
+        or value.startswith("cricket_")
+        for value in normalized
+    )
+    if retired_configured:
+        normalized = [
+            value
+            for value in normalized
+            if value not in {"aussierules_afl", "rugbyleague_nrl"}
+            and not value.startswith("cricket_")
+        ]
+        # Render environment variables intentionally override repository
+        # defaults and can outlive the code that introduced them. Migrate the
+        # retired production leagues as a group so an old override cannot keep
+        # the replacement feeds disabled after a deploy.
+        normalized.extend(
+            (
+                "americanfootball_ncaaf",
+                "basketball_ncaab",
+                "americanfootball_cfl",
+            )
+        )
+    return list(dict.fromkeys(normalized))
 
 
 def partition_sync_sports(sports: list[str]) -> tuple[list[str], list[str]]:

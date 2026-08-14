@@ -57,6 +57,20 @@ def test_sync_sports_override_is_trimmed_and_deduplicated(monkeypatch) -> None:
     assert configured_sync_sports() == ["basketball_nba", "baseball_mlb"]
 
 
+def test_stale_production_override_migrates_retired_leagues(monkeypatch) -> None:
+    monkeypatch.setenv(
+        "PROP_SYNC_SPORTS",
+        "baseball_mlb,aussierules_afl,rugbyleague_nrl,cricket_big_bash",
+    )
+
+    assert configured_sync_sports() == [
+        "baseball_mlb",
+        "americanfootball_ncaaf",
+        "basketball_ncaab",
+        "americanfootball_cfl",
+    ]
+
+
 def test_productive_sports_are_partitioned_into_fast_lane(monkeypatch) -> None:
     monkeypatch.delenv("PROP_FAST_SYNC_SPORTS", raising=False)
     fast, coverage = partition_sync_sports(list(sync_service.DEFAULT_SYNC_SPORTS))
