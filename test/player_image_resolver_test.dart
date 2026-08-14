@@ -35,6 +35,23 @@ void main() {
     );
   });
 
+  test('can use the CORS-enabled sports CDN directly on web', () {
+    const url = 'https://a.espncdn.com/i/headshots/nba/players/full/1.png';
+
+    final resolved = Uri.parse(
+      resolvePlayerImagePath(url, useApiProxyForRemoteImages: false),
+    );
+
+    expect(resolved.origin, 'https://a.espncdn.com');
+    expect(resolved.path, '/combiner/i');
+    expect(
+      resolved.queryParameters['img'],
+      '/i/headshots/nba/players/full/1.png',
+    );
+    expect(resolved.queryParameters['w'], '160');
+    expect(resolved.queryParameters['h'], '160');
+  });
+
   test('does not proxy unknown image hosts', () {
     expect(
       resolvePlayerImagePath(

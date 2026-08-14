@@ -1,9 +1,20 @@
+import 'package:flutter/foundation.dart';
+
 import 'api_service.dart';
 
-String resolvePlayerImagePath(String rawPath, {String? apiBaseUrl}) {
+String resolvePlayerImagePath(
+  String rawPath, {
+  String? apiBaseUrl,
+  bool? useApiProxyForRemoteImages,
+}) {
   final trimmed = rawPath.trim();
   if (trimmed.isEmpty) return '';
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    // Browser image requests can use these CORS-enabled sports CDNs directly,
+    // avoiding a second network hop through Render for every player card.
+    if (!(useApiProxyForRemoteImages ?? !kIsWeb)) {
+      return _optimizedWebPlayerImage(trimmed);
+    }
     return _proxySupportedPlayerImage(
       trimmed,
       apiBaseUrl: apiBaseUrl ?? ApiService.baseUrl,
@@ -23,6 +34,25 @@ String resolvePlayerImagePath(String rawPath, {String? apiBaseUrl}) {
 
   final normalizedPath = trimmed.startsWith('/') ? trimmed : '/$trimmed';
   return '$normalizedBase$normalizedPath';
+}
+
+String _optimizedWebPlayerImage(String imageUrl) {
+  final imageUri = Uri.tryParse(imageUrl);
+  if (imageUri == null ||
+      imageUri.host.toLowerCase() != 'a.espncdn.com' ||
+      !imageUri.path.startsWith('/i/headshots/')) {
+    return imageUrl;
+  }
+  // ESPN originals can exceed 300 KB. The official combiner returns a
+  // card-sized CORS-enabled image, cutting first-paint transfer dramatically.
+  return Uri.https('a.espncdn.com', '/combiner/i', {
+    'img': imageUri.path,
+    'w': '160',
+    'h': '160',
+    'scale': 'crop',
+    'cquality': '80',
+    'location': 'origin',
+  }).toString();
 }
 
 String _proxySupportedPlayerImage(

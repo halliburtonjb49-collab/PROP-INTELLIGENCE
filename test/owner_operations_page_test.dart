@@ -457,12 +457,48 @@ class _FakeOperationsApi extends ApiService {
   };
 }
 
+class _PartialFailureOperationsApi extends _FakeOperationsApi {
+  @override
+  Future<Map<String, dynamic>> fetchProviderRecovery() async {
+    throw Exception('temporary provider recovery failure');
+  }
+}
+
 void main() {
   test('owner operations access is role-specific', () {
     expect(canAccessOwnerOperations('owner'), isTrue);
     expect(canAccessOwnerOperations('admin'), isFalse);
     expect(canAccessOwnerOperations('tester'), isFalse);
     expect(canAccessOwnerOperations('user'), isFalse);
+  });
+
+  testWidgets('certifications survive a secondary panel failure', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OwnerOperationsPage(apiService: _PartialFailureOperationsApi()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('production-data-certification')),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('WARN | SCORE 92/100'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('billing-release-certification')),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      find.byKey(const ValueKey('billing-release-certification')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('owner operations page shows controls and review queue', (

@@ -282,18 +282,20 @@ def _mark_coverage_synced(now: float | None = None) -> None:
         _last_coverage_sync_monotonic = time.monotonic() if now is None else now
 
 
-_DEFAULT_DISABLED_SGO_LEAGUES = {"PGA_MEN"}
+_DEFAULT_DISABLED_SGO_LEAGUES = {"ATP", "WTA", "PGA_MEN", "UFC"}
 
 
 def _disabled_sgo_leagues() -> set[str]:
     configured = os.getenv("SPORTSGAMEODDS_DISABLED_LEAGUES")
-    if configured is None:
-        return set(_DEFAULT_DISABLED_SGO_LEAGUES)
-    return {
+    additionally_disabled = {
         value.strip().upper()
-        for value in configured.split(",")
+        for value in (configured or "").split(",")
         if value.strip()
     }
+    # Specialty sports removed from the product stay disabled even when a
+    # stale Render variable is present but empty. Operators can add more
+    # exclusions without accidentally re-enabling unsupported leagues.
+    return set(_DEFAULT_DISABLED_SGO_LEAGUES) | additionally_disabled
 
 
 def next_sgo_leagues(limit: int | None = None) -> list[tuple[str, str]]:

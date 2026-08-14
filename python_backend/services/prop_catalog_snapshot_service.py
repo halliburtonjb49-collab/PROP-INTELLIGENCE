@@ -165,7 +165,7 @@ def catalog_snapshot_metadata() -> dict[str, object]:
     }
 
 
-def snapshot_is_behind(rows: list[dict[str, object]]) -> bool:
+def snapshot_is_behind(rows: list[object]) -> bool:
     """Whether these props are newer than what is stored.
 
     Fresh props in memory do not imply a fresh snapshot on disk. Comparing the
@@ -174,11 +174,23 @@ def snapshot_is_behind(rows: list[dict[str, object]]) -> bool:
 
     if not rows:
         return False
-    stored = catalog_snapshot_metadata()
+    try:
+        stored = catalog_snapshot_metadata()
+    except Exception:
+        # If metadata cannot be inspected, preserve durability by writing.
+        return True
     if not stored.get("exists"):
         return True
     stored_at = str(stored.get("dataUpdatedAt") or "")
-    latest = max((str(row.get("lastUpdatedUtc") or "") for row in rows), default="")
+    def _last_updated(row: object) -> str:
+        if isinstance(row, dict):
+            return str(row.get("lastUpdatedUtc") or "")
+        return str(getattr(row, "lastUpdatedUtc", "") or "")
+
+    # Callers may pass the in-memory Pydantic models directly. Converting a
+    # 10k-row catalog to dictionaries just to compare one timestamp caused a
+    # large, avoidable allocation before every no-op reconciliation.
+    latest = max((_last_updated(row) for row in rows), default="")
     if not latest:
         return False
     if not stored_at:
