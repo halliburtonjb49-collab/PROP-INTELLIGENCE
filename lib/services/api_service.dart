@@ -967,7 +967,7 @@ class ApiService {
         ? const Duration(seconds: 4)
         : category.isNotEmpty && category != 'ALL'
         ? const Duration(seconds: 12)
-        : const Duration(seconds: 6);
+        : const Duration(seconds: 15);
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         var response = await http
