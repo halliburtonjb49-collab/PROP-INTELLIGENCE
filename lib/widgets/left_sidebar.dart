@@ -56,9 +56,13 @@ class _LeftSidebarState extends State<LeftSidebar> {
   String? _sportImagePath(String sport) {
     switch (sport) {
       case 'NFL':
-      case 'NCAAF':
-      case 'CFL':
         return 'assets/branding/sport_icons/nfl.png';
+      case 'NCAAF':
+        return 'assets/branding/sport_icons/ncaaf.png';
+      case 'NCAAB':
+        return 'assets/branding/sport_icons/ncaab.png';
+      case 'CFL':
+        return 'assets/branding/sport_icons/cfl.png';
       case 'NHL':
         return 'assets/branding/sport_icons/nhl.png';
       default:
