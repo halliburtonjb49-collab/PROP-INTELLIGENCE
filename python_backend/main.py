@@ -293,6 +293,7 @@ app = FastAPI(
 
 APP_VERSION = os.getenv("RENDER_GIT_COMMIT", os.getenv("APP_VERSION", "development"))
 _prop_catalog_lock = Lock()
+_prop_catalog_load_lock = Lock()
 _prop_catalog: dict[str, object] = {
 	"loadedAt": 0.0,
 	"versionCheckedAt": 0.0,
@@ -525,6 +526,8 @@ def player_image_proxy(url: str = Query(..., max_length=2048)) -> Response:
 
 def _persist_catalog_snapshot_background(props: list[PropResponse]) -> None:
 	try:
+		if not snapshot_is_behind(props):
+			return
 		save_catalog_snapshot([prop.model_dump(mode="json") for prop in props])
 	except Exception:
 		logging.exception("Background prop catalog snapshot persist failed")
@@ -545,6 +548,14 @@ def _recompute_runtime_verdicts(
 
 
 def _cached_prop_catalog() -> list[PropResponse]:
+	# Only the cache lookup/hydration is serialized; callers release this lock
+	# before filtering or building their response. This prevents concurrent
+	# cold-start requests from each decoding and validating the full catalog.
+	with _prop_catalog_load_lock:
+		return _cached_prop_catalog_singleflight()
+
+
+def _cached_prop_catalog_singleflight() -> list[PropResponse]:
 	now = time.monotonic()
 	with _prop_catalog_lock:
 		loaded_at = float(_prop_catalog["loadedAt"] or 0.0)
@@ -1082,9 +1093,9 @@ def _reconcile_catalog_snapshot() -> bool:
 		props = get_props()
 		if not props:
 			return False
-		rows = [prop.model_dump(mode='json') for prop in props]
-		if not snapshot_is_behind(rows):
+		if not snapshot_is_behind(props):
 			return False
+		rows = [prop.model_dump(mode='json') for prop in props]
 		return save_catalog_snapshot(rows)
 	except Exception:
 		logging.exception("Catalog snapshot reconciliation failed")
@@ -4048,7 +4059,12 @@ def save_slip(request: SlipCreate, user_id: str = Depends(require_user_id)) -> d
 	try:
 		# Reconcile the client snapshot with the current authoritative feed before
 		# enforcing the server-side start-time lock.
-		current_props = {prop.id: prop for prop in get_props()}
+		requested_prop_ids = {leg.prop_id for leg in request.legs}
+		current_props = {
+			prop.id: prop
+			for prop in _cached_prop_catalog()
+			if prop.id in requested_prop_ids
+		}
 		for leg in request.legs:
 			current = current_props.get(leg.prop_id)
 			if current is None:

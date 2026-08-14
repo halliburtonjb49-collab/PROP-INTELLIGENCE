@@ -1,4 +1,7 @@
 from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
+import time
 
 from fastapi.testclient import TestClient
 import pytest
@@ -936,3 +939,84 @@ def test_team_identifiers_never_reach_a_card() -> None:
     assert display_matchup(
         "CLEVELAND_GUARDIANS_MLB @ CHICAGO_WHITE_SOX_MLB"
     ) == "Cleveland Guardians @ Chicago White Sox"
+
+
+def test_catalog_cold_load_is_single_flight(monkeypatch) -> None:
+    active = 0
+    max_active = 0
+    guard = Lock()
+    result = [object()]
+
+    def fake_load():
+        nonlocal active, max_active
+        with guard:
+            active += 1
+            max_active = max(max_active, active)
+        time.sleep(0.02)
+        with guard:
+            active -= 1
+        return result
+
+    monkeypatch.setattr(main, "_cached_prop_catalog_singleflight", fake_load)
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        responses = list(executor.map(lambda _: main._cached_prop_catalog(), range(8)))
+
+    assert responses == [result] * 8
+    assert max_active == 1
+
+
+def test_save_slip_reuses_cached_catalog_instead_of_rebuilding_feed(
+    monkeypatch,
+) -> None:
+    class CurrentProp:
+        id = "prop-1"
+        gameStatus = "scheduled"
+        startTimeUtc = "2099-07-20T20:00:00Z"
+        gameStartTime = ""
+
+    class SavedSlip:
+        id = "slip-1"
+
+        @staticmethod
+        def model_dump(mode=None):
+            return {"id": "slip-1", "status": "active", "legs": []}
+
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [CurrentProp()])
+    monkeypatch.setattr(
+        main,
+        "get_props",
+        lambda: pytest.fail("ticket lock rebuilt the full raw prop catalog"),
+    )
+    monkeypatch.setattr(
+        main,
+        "create_slip",
+        lambda request, user_id: SavedSlip(),
+    )
+    monkeypatch.setattr(
+        main.realtime_hub,
+        "broadcast_user_from_thread",
+        lambda *args, **kwargs: None,
+    )
+
+    request = main.SlipCreate(
+        legs=[
+            {
+                "prop_id": "prop-1",
+                "player": "Example Player",
+                "sport": "MLB",
+                "matchup": "Away @ Home",
+                "sportsbook": "PrizePicks",
+                "market": "Hits",
+                "line": 1.5,
+                "side": "OVER",
+            },
+        ],
+        stake=10,
+        client_request_id="ticket-cache-test",
+    )
+
+    response = main.save_slip(request, user_id="test-user")
+
+    assert response["status"] == "saved"
+    assert request.legs[0].game_start_time == "2099-07-20T20:00:00Z"

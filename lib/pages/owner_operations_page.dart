@@ -76,6 +76,16 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     });
   }
 
+  Future<Map<String, dynamic>> _optionalSnapshot(
+    Future<Map<String, dynamic>> request,
+  ) async {
+    try {
+      return await request;
+    } catch (_) {
+      return const {};
+    }
+  }
+
   Future<void> _refresh({bool showLoading = true}) async {
     if (mounted && showLoading) {
       setState(() {
@@ -86,19 +96,23 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     try {
       final results = await Future.wait([
         _api.fetchLaunchControlPanel(),
-        _api.fetchOwnerCommandCenter(
-          window: _selectedWindow,
-          start: _customRange?.start,
-          end: _customRange?.end.add(const Duration(days: 1)),
+        _optionalSnapshot(
+          _api.fetchOwnerCommandCenter(
+            window: _selectedWindow,
+            start: _customRange?.start,
+            end: _customRange?.end.add(const Duration(days: 1)),
+          ),
         ),
-        _api.fetchOwnerModelAudit(
-          window: _selectedWindow,
-          start: _customRange?.start,
-          end: _customRange?.end.add(const Duration(days: 1)),
+        _optionalSnapshot(
+          _api.fetchOwnerModelAudit(
+            window: _selectedWindow,
+            start: _customRange?.start,
+            end: _customRange?.end.add(const Duration(days: 1)),
+          ),
         ),
-        _api.fetchOwnerGradingReview(),
-        _api.fetchProviderAvailability(),
-        _api.fetchProviderRecovery(),
+        _optionalSnapshot(_api.fetchOwnerGradingReview()),
+        _optionalSnapshot(_api.fetchProviderAvailability()),
+        _optionalSnapshot(_api.fetchProviderRecovery()),
       ]);
       if (!mounted) return;
       setState(() {

@@ -99,17 +99,17 @@ def test_supplemental_leagues_rotate_without_starvation(monkeypatch) -> None:
     third = next_sgo_leagues(limit=1)
     fourth = next_sgo_leagues(limit=1)
     assert [first[0][0], second[0][0], third[0][0], fourth[0][0]] == [
-        "ATP", "WTA", "PGA_MEN", "UFC",
+        "MLB", "NBA", "WNBA", "NFL",
     ]
 
 
-def test_golf_is_disabled_by_default(monkeypatch) -> None:
+def test_removed_specialty_sports_are_disabled_by_default(monkeypatch) -> None:
     monkeypatch.delenv("SPORTSGAMEODDS_DISABLED_LEAGUES", raising=False)
     monkeypatch.setattr(sync_service, "_sgo_league_cursor", 0)
 
     selected = next_sgo_leagues(limit=4)
 
-    assert [league for league, _ in selected] == ["ATP", "WTA", "UFC", "MLB"]
+    assert [league for league, _ in selected] == ["MLB", "NBA", "WNBA", "NFL"]
 
 
 def test_default_supplemental_sync_attempts_every_enabled_league(monkeypatch) -> None:
@@ -121,7 +121,7 @@ def test_default_supplemental_sync_attempts_every_enabled_league(monkeypatch) ->
 
     assert [league for league, _ in selected] == [
         league for league in sync_service.LEAGUE_TO_SPORT
-        if league != "PGA_MEN"
+        if league not in {"ATP", "WTA", "PGA_MEN", "UFC"}
     ]
 
 
@@ -152,7 +152,7 @@ def test_unavailable_supplemental_leagues_are_not_retried(monkeypatch) -> None:
 
     selected = next_sgo_leagues(limit=4)
 
-    assert [league for league, _ in selected] == ["UFC", "MLB", "NBA", "WNBA"]
+    assert [league for league, _ in selected] == ["MLB", "NBA", "WNBA", "NFL"]
 
 
 def test_supplemental_entity_quota_is_detected() -> None:
