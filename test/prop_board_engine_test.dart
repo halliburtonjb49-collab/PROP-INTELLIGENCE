@@ -62,6 +62,9 @@ void main() {
     expect(normalizePropSite('DraftKings Pick6'), 'PICK6');
     expect(normalizePropSport('soccer_usa_mls'), 'SOCCER');
     expect(normalizePropSport('basketball_wnba'), 'WNBA');
+    expect(normalizePropSport('basketball_ncaab'), 'NCAAB');
+    expect(normalizePropSport('americanfootball_ncaaf'), 'NCAAF');
+    expect(normalizePropSport('americanfootball_cfl'), 'CFL');
   });
 
   test('filters by site, sport and search and excludes unsafe props', () {

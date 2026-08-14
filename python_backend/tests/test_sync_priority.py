@@ -36,6 +36,9 @@ def test_default_sync_covers_every_configured_prop_sport(monkeypatch) -> None:
         "basketball_wnba",
         "basketball_nba",
         "americanfootball_nfl",
+        "americanfootball_ncaaf",
+        "basketball_ncaab",
+        "americanfootball_cfl",
         "icehockey_nhl",
         "soccer_epl",
         "soccer_usa_mls",
@@ -43,8 +46,6 @@ def test_default_sync_covers_every_configured_prop_sport(monkeypatch) -> None:
         "soccer_germany_bundesliga",
         "soccer_italy_serie_a",
         "soccer_spain_la_liga",
-        "aussierules_afl",
-        "rugbyleague_nrl",
     ]
 
 

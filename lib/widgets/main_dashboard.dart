@@ -857,8 +857,17 @@ class _MainDashboardState extends State<MainDashboard> {
     if (normalized.contains('WNBA')) {
       return 'WNBA';
     }
+    if (normalized.contains('NCAAB')) {
+      return 'NCAAB';
+    }
     if (normalized.contains('NBA')) {
       return 'NBA';
+    }
+    if (normalized.contains('NCAAF')) {
+      return 'NCAAF';
+    }
+    if (normalized.contains('CFL')) {
+      return 'CFL';
     }
     if (normalized.contains('NFL') || normalized.contains('FOOTBALL')) {
       return 'NFL';
@@ -1010,9 +1019,9 @@ class _MainDashboardState extends State<MainDashboard> {
       'WNBA',
       'NHL',
       'SOCCER',
-      'CRICKET',
-      'AFL',
-      'NRL',
+      'NCAAF',
+      'NCAAB',
+      'CFL',
     ];
     sports.sort((left, right) {
       final leftRank = order.indexOf(left);

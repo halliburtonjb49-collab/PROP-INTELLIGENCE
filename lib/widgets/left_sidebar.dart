@@ -42,10 +42,10 @@ class _LeftSidebarState extends State<LeftSidebar> {
         return '🏀';
       case 'WNBA':
         return '🏀';
+      case 'NCAAB':
+        return '\u{1F3C0}';
       case 'SOCCER':
         return '⚽';
-      case 'NRL':
-        return '🏉';
       default:
         return '•';
     }
@@ -56,13 +56,11 @@ class _LeftSidebarState extends State<LeftSidebar> {
   String? _sportImagePath(String sport) {
     switch (sport) {
       case 'NFL':
+      case 'NCAAF':
+      case 'CFL':
         return 'assets/branding/sport_icons/nfl.png';
       case 'NHL':
         return 'assets/branding/sport_icons/nhl.png';
-      case 'CRICKET':
-        return 'assets/branding/sport_icons/cricket.png';
-      case 'AFL':
-        return 'assets/branding/sport_icons/afl.png';
       default:
         return null;
     }
@@ -88,9 +86,9 @@ class _LeftSidebarState extends State<LeftSidebar> {
       'WNBA',
       'NHL',
       'SOCCER',
-      'CRICKET',
-      'AFL',
-      'NRL',
+      'NCAAF',
+      'NCAAB',
+      'CFL',
     ];
 
     return Container(

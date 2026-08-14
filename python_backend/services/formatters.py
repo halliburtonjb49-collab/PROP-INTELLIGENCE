@@ -221,11 +221,12 @@ def format_sport_label(sport_key: str) -> str:
         "basketball_nba": "NBA",
         "basketball_wnba": "WNBA",
         "americanfootball_nfl": "NFL",
+        "americanfootball_ncaaf": "NCAAF",
+        "americanfootball_cfl": "CFL",
+        "basketball_ncaab": "NCAAB",
         "baseball_mlb": "MLB",
         "icehockey_nhl": "NHL",
         "mma_mixed_martial_arts": "UFC",
-        "aussierules_afl": "AFL",
-        "rugbyleague_nrl": "NRL",
     }
 
     if sport_key in mappings:

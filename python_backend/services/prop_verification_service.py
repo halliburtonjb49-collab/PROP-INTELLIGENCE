@@ -42,12 +42,15 @@ _SPORT_KEYS: Mapping[str, str] = {
     "WNBA": "basketball_wnba",
     "MLB": "baseball_mlb",
     "NFL": "americanfootball_nfl",
+    "NCAAF": "americanfootball_ncaaf",
+    "NCAAB": "basketball_ncaab",
+    "CFL": "americanfootball_cfl",
     "NHL": "icehockey_nhl",
 }
 
 # League suffixes the odds feeds append to team identifiers.
 _LEAGUE_SUFFIXES = (
-    "MLB", "NBA", "WNBA", "NFL", "NHL", "NCAAF", "NCAAB", "EPL", "MLS",
+    "MLB", "NBA", "WNBA", "NFL", "NHL", "NCAAF", "NCAAB", "CFL", "EPL", "MLS",
 )
 
 # Words that keep their casing when a team identifier is humanised.

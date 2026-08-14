@@ -14,7 +14,9 @@ from services.market_config import (
 def test_professional_sports_have_prop_market_definitions():
     for sport in (
         "baseball_mlb", "basketball_nba", "basketball_wnba",
-        "americanfootball_nfl", "icehockey_nhl", "soccer_epl",
+        "americanfootball_nfl", "americanfootball_ncaaf",
+        "americanfootball_cfl", "basketball_ncaab",
+        "icehockey_nhl", "soccer_epl",
         "soccer_usa_mls", "soccer_france_ligue_one",
         "soccer_germany_bundesliga", "soccer_italy_serie_a",
         "soccer_spain_la_liga",
@@ -48,6 +50,9 @@ def test_new_markets_have_professional_category_labels():
     assert market_to_category("player_to_receive_card") == "player card"
     assert format_sport_label("icehockey_nhl") == "NHL"
     assert format_sport_label("soccer_epl") == "SOCCER"
+    assert format_sport_label("americanfootball_ncaaf") == "NCAAF"
+    assert format_sport_label("basketball_ncaab") == "NCAAB"
+    assert format_sport_label("americanfootball_cfl") == "CFL"
 
 
 def test_every_configured_provider_market_has_an_explicit_category_label():

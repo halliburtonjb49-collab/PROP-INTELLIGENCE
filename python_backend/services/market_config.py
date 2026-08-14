@@ -124,28 +124,13 @@ for _soccer_key in (
 ):
     SPORT_MARKETS[_soccer_key] = SOCCER_PROP_MARKETS
 
-SPORT_MARKETS["aussierules_afl"] = [
-    "player_disposals",
-    "player_afl_fantasy_points",
-    "player_disposals_over",
-    "player_goal_scorer_anytime",
-    "player_goal_scorer_first",
-    "player_goal_scorer_last",
-    "player_goals_scored_over",
-    "player_marks_over",
-    "player_tackles_over",
-    "player_afl_fantasy_points_over",
-    "player_clearances_over",
-    "player_kicks_over",
-    "player_handballs_over",
-]
-
-SPORT_MARKETS["rugbyleague_nrl"] = [
-    "player_try_scorer_anytime",
-    "player_try_scorer_first",
-    "player_try_scorer_last",
-    "player_try_scorer_over",
-]
+SPORT_MARKETS["americanfootball_ncaaf"] = list(
+    SPORT_MARKETS["americanfootball_nfl"]
+)
+SPORT_MARKETS["americanfootball_cfl"] = list(
+    SPORT_MARKETS["americanfootball_nfl"]
+)
+SPORT_MARKETS["basketball_ncaab"] = list(SPORT_MARKETS["basketball_nba"])
 
 
 def markets_for_sport(sport_key: str) -> list[str]:

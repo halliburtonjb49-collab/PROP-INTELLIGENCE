@@ -553,8 +553,17 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     if (normalized.contains('WNBA')) {
       return 'WNBA';
     }
+    if (normalized.contains('NCAAB')) {
+      return 'NCAAB';
+    }
     if (normalized.contains('NBA')) {
       return 'NBA';
+    }
+    if (normalized.contains('NCAAF')) {
+      return 'NCAAF';
+    }
+    if (normalized.contains('CFL')) {
+      return 'CFL';
     }
     if (normalized.contains('NFL') || normalized.contains('FOOTBALL')) {
       return 'NFL';

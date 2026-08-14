@@ -33,7 +33,8 @@ def test_a_configured_sport_never_fetched_is_distinguished():
 
     # Configured and never once asked for is a different fault from asked for
     # and empty.
-    assert "aussierules_afl" in coverage["neverFetched"]
+    assert "americanfootball_ncaaf" in coverage["neverFetched"]
+    assert "aussierules_afl" not in coverage["configured"]
     assert "baseball_mlb" not in coverage["neverFetched"]
 
 
