@@ -17,6 +17,8 @@ def authenticated_pro_dependencies():
     main.app.dependency_overrides[require_pro] = lambda: membership
     api_auth_service.clear_membership_cache()
     rate_limit_service._memory_buckets.clear()
+    with main._prop_response_cache_lock:
+        main._prop_response_cache.clear()
     yield
     if previous_core is None:
         main.app.dependency_overrides.pop(require_core, None)
@@ -27,6 +29,8 @@ def authenticated_pro_dependencies():
     else:
         main.app.dependency_overrides[require_pro] = previous_pro
     api_auth_service.clear_membership_cache()
+    with main._prop_response_cache_lock:
+        main._prop_response_cache.clear()
 
 
 @pytest.fixture

@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import json
 import logging
 import os
 import time
@@ -248,6 +249,24 @@ logging.basicConfig(
 )
 
 
+async def _warm_prop_catalog_before_ready() -> int:
+	"""Hydrate the durable catalog before Render routes customer traffic."""
+	try:
+		warm_props = await asyncio.wait_for(
+			asyncio.to_thread(_cached_prop_catalog),
+			timeout=20,
+		)
+		logging.info("Startup prop catalog warm props=%s", len(warm_props))
+		return len(warm_props)
+	except TimeoutError:
+		logging.warning("Startup prop catalog warm timed out; continuing safely")
+	except Exception:
+		logging.exception(
+			"Startup prop catalog warm failed; durable fallback remains available"
+		)
+	return 0
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
 	seed_default_prop_builder_presets()
@@ -267,6 +286,10 @@ async def lifespan(_: FastAPI):
 		"Legacy ticket import result=%s",
 		migrate_legacy_sqlite_slips(),
 	)
+	# Hydrate the saved catalog before Render marks this instance ready. A cold
+	# request otherwise becomes the thread that decodes and validates 10k+ rows,
+	# leaving a signed-in customer on skeleton cards for several seconds.
+	await _warm_prop_catalog_before_ready()
 	startup_sync_task = asyncio.create_task(_ensure_props_available())
 	freshness_watchdog_task = asyncio.create_task(_maintain_prop_freshness())
 	discord_bridge.set_message_handler(
@@ -310,10 +333,56 @@ _prop_metrics: dict[str, object] = {
 	"lastTotalCount": 0,
 	"lastDataUpdatedAt": None,
 	"lastRequestSucceeded": None,
+	"cacheHits": 0,
 }
 _PROP_CATALOG_KEY = "props:catalog:v1"
 _PROP_CATALOG_VERSION_KEY = "props:catalog:version:v1"
 _PROP_CATALOG_SUMMARY_KEY = "props:catalog:summary:v1"
+_PROP_RESPONSE_CACHE_TTL_SECONDS = 20
+_PROP_RESPONSE_CACHE_MAX_ENTRIES = 256
+_prop_response_cache_lock = Lock()
+_prop_response_cache: dict[str, tuple[float, str, dict[str, object]]] = {}
+
+
+def _cached_prop_response(
+	cache_key: str,
+) -> tuple[str, dict[str, object]] | None:
+	now = time.monotonic()
+	with _prop_response_cache_lock:
+		cached = _prop_response_cache.get(cache_key)
+		if cached is None:
+			return None
+		expires_at, etag, payload = cached
+		if expires_at <= now:
+			_prop_response_cache.pop(cache_key, None)
+			return None
+		return etag, payload
+
+
+def _remember_prop_response(
+	cache_key: str,
+	*,
+	etag: str,
+	payload: dict[str, object],
+) -> None:
+	now = time.monotonic()
+	with _prop_response_cache_lock:
+		if len(_prop_response_cache) >= _PROP_RESPONSE_CACHE_MAX_ENTRIES:
+			expired = [
+				key
+				for key, (expires_at, _etag, _payload) in _prop_response_cache.items()
+				if expires_at <= now
+			]
+			for key in expired:
+				_prop_response_cache.pop(key, None)
+			if len(_prop_response_cache) >= _PROP_RESPONSE_CACHE_MAX_ENTRIES:
+				_prop_response_cache.clear()
+		_prop_response_cache[cache_key] = (
+			now + _PROP_RESPONSE_CACHE_TTL_SECONDS,
+			etag,
+			payload,
+		)
+
 
 app.include_router(intelligence_router)
 app.include_router(billing_router)
@@ -2734,6 +2803,66 @@ def props(
 			5,
 			int(os.getenv("PROP_FEED_STALE_MINUTES", "180")),
 		)
+		catalog_updated_at = max(
+			(prop.lastUpdatedUtc for prop in prop_list),
+			default="",
+		)
+		with _prop_catalog_lock:
+			catalog_version = str(_prop_catalog.get("version") or "")
+		cache_signature = json.dumps(
+			[
+				APP_VERSION,
+				len(prop_list),
+				catalog_updated_at,
+				catalog_version,
+				membership.user_id,
+				int(membership.level),
+				subscription_tier,
+				side_filter,
+				tier_filter,
+				sportsbook_filter,
+				sport_filter,
+				category_filter,
+				search_filter,
+				min_confidence,
+				sort_by,
+				verdict_filter,
+				includePastDates,
+				includeStarted,
+				includeStale,
+				onlyMoved,
+				includeReliability,
+				limit,
+				offset,
+			],
+			separators=(",", ":"),
+		)
+		cache_key = hashlib.sha256(cache_signature.encode()).hexdigest()
+		etag = f'"{cache_key[:24]}"'
+		cached_response = _cached_prop_response(cache_key)
+		if cached_response is not None:
+			cached_etag, cached_payload = cached_response
+			response.headers["ETag"] = cached_etag
+			response.headers["Cache-Control"] = "private, no-store, max-age=0"
+			response.headers["Vary"] = "Authorization"
+			response.headers["X-App-Version"] = APP_VERSION
+			payload = cached_payload
+			if if_none_match == cached_etag:
+				response.status_code = 304
+				payload = {}
+			duration_ms = int((time.perf_counter() - started_at) * 1000)
+			with _prop_metrics_lock:
+				_prop_metrics.update(
+					requests=int(_prop_metrics["requests"]) + 1,
+					cacheHits=int(_prop_metrics.get("cacheHits") or 0) + 1,
+					lastDurationMs=duration_ms,
+					lastPayloadBytes=len(str(payload).encode("utf-8")),
+					lastServedAt=datetime.now(timezone.utc).isoformat(),
+					lastTotalCount=len(prop_list),
+					lastDataUpdatedAt=catalog_updated_at or None,
+					lastRequestSucceeded=True,
+				)
+			return payload
 
 		def _is_mlb_strikeout_prop(prop: PropResponse) -> bool:
 			sport_text = str(getattr(prop, "sport", "") or "").strip().upper()
@@ -3123,14 +3252,11 @@ def props(
 			},
 			"version": APP_VERSION,
 		}
-		etag_source = (
-			f"{APP_VERSION}|{membership.subscription_tier}|{side}|{tier}|{sportsbook}|{sport}|{category}|"
-			f"{search}|{min_confidence}|{sort_by}|{includePastDates}|"
-			f"{includeStarted}|{onlyMoved}|{includeReliability}|"
-			f"{limit}|{offset}|{total_count}|"
-			f"{max((prop.lastUpdatedUtc for prop in page), default='')}"
+		_remember_prop_response(
+			cache_key,
+			etag=etag,
+			payload=payload,
 		)
-		etag = f'"{hashlib.sha256(etag_source.encode()).hexdigest()[:24]}"'
 		response.headers["ETag"] = etag
 		response.headers["Cache-Control"] = "private, no-store, max-age=0"
 		response.headers["Vary"] = "Authorization"
@@ -3148,10 +3274,7 @@ def props(
 				lastPayloadBytes=payload_bytes,
 				lastServedAt=datetime.now(timezone.utc).isoformat(),
 				lastTotalCount=len(prop_list),
-				lastDataUpdatedAt=max(
-					(prop.lastUpdatedUtc for prop in prop_list),
-					default=None,
-				),
+				lastDataUpdatedAt=catalog_updated_at or None,
 				lastRequestSucceeded=True,
 			)
 		return payload

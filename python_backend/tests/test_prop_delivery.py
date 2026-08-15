@@ -13,8 +13,12 @@ from services.prop_service import _make_prop_id
 @pytest.fixture(autouse=True)
 def authenticated_prop_feed():
     main.app.dependency_overrides[main.require_user_id] = lambda: "test-user"
+    with main._prop_response_cache_lock:
+        main._prop_response_cache.clear()
     yield
     main.app.dependency_overrides.pop(main.require_user_id, None)
+    with main._prop_response_cache_lock:
+        main._prop_response_cache.clear()
 
 
 @dataclass
@@ -620,6 +624,79 @@ def test_prop_page_honors_etag(monkeypatch) -> None:
         headers={"If-None-Match": first.headers["etag"]},
     )
     assert second.status_code == 304
+
+
+def test_prop_page_reuses_verified_user_response_cache(monkeypatch) -> None:
+    row = FakeProp("cached-prop", "One", "MLB", "PRIZEPICKS", "HITS")
+    reliability_calls = []
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [row])
+    monkeypatch.setattr(
+        main,
+        "build_provider_reliability",
+        lambda *_args, **_kwargs: reliability_calls.append(True) or {},
+    )
+    before_hits = int(main._prop_metrics.get("cacheHits") or 0)
+    client = TestClient(main.app)
+
+    first = client.get("/api/props")
+    second = client.get("/api/props")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json() == first.json()
+    assert reliability_calls == [True]
+    assert int(main._prop_metrics["cacheHits"]) == before_hits + 1
+
+
+def test_prop_response_cache_is_isolated_by_verified_user(monkeypatch) -> None:
+    row = FakeProp("isolated-prop", "One", "MLB", "PRIZEPICKS", "HITS")
+    reliability_calls = []
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [row])
+    monkeypatch.setattr(
+        main,
+        "build_provider_reliability",
+        lambda *_args, **_kwargs: reliability_calls.append(True) or {},
+    )
+    client = TestClient(main.app)
+    main.app.dependency_overrides[main.require_core] = lambda: main.Membership(
+        "cache-user-one",
+        main.AccessLevel.PRO,
+        "pro",
+        "user",
+    )
+    try:
+        first = client.get("/api/props")
+        main.app.dependency_overrides[main.require_core] = lambda: main.Membership(
+            "cache-user-two",
+            main.AccessLevel.PRO,
+            "pro",
+            "user",
+        )
+        second = client.get("/api/props")
+    finally:
+        main.app.dependency_overrides.pop(main.require_core, None)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert reliability_calls == [True, True]
+
+
+def test_prop_response_cache_changes_with_catalog_timestamp(monkeypatch) -> None:
+    row = FakeProp("versioned-prop", "One", "MLB", "PRIZEPICKS", "HITS")
+    reliability_calls = []
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [row])
+    monkeypatch.setattr(
+        main,
+        "build_provider_reliability",
+        lambda *_args, **_kwargs: reliability_calls.append(True) or {},
+    )
+    client = TestClient(main.app)
+
+    assert client.get("/api/props").status_code == 200
+    row.lastUpdatedUtc = "2099-07-20T19:56:00Z"
+    assert client.get("/api/props").status_code == 200
+
+    assert reliability_calls == [True, True]
 
 
 def test_prop_filtering_serializes_only_the_requested_page(monkeypatch) -> None:
