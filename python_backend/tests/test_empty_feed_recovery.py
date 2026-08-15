@@ -6,6 +6,15 @@ from types import SimpleNamespace
 import main
 
 
+def test_startup_readiness_prewarms_saved_catalog(monkeypatch):
+    props = [SimpleNamespace(id="one"), SimpleNamespace(id="two")]
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: props)
+
+    warmed = asyncio.run(main._warm_prop_catalog_before_ready())
+
+    assert warmed == 2
+
+
 def test_startup_recovery_skips_sync_when_props_exist(monkeypatch):
     fresh = SimpleNamespace(lastUpdatedUtc=datetime.now(timezone.utc).isoformat())
     monkeypatch.setattr(main, "get_props", lambda: [fresh])
