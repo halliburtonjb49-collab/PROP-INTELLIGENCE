@@ -84,7 +84,7 @@ def test_catalog_refresh_broadcasts_detected_change_once(monkeypatch) -> None:
         "occurredAt": "2026-08-09T15:00:00Z",
         "level": "CRITICAL",
     }
-    monkeypatch.setattr(main, "_invalidate_prop_catalog", lambda: None)
+    monkeypatch.setattr(main, "_invalidate_prop_catalog", lambda **_kwargs: None)
     monkeypatch.setattr(
         main,
         "_rebuild_prop_catalog_from_local",

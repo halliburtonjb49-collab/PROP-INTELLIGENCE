@@ -292,7 +292,7 @@ def test_post_processing_failure_preserves_completed_coverage(monkeypatch) -> No
         raise RuntimeError("model recalculation failed")
 
     monkeypatch.setattr(main, "run_global_sync_pipeline", fake_pipeline)
-    monkeypatch.setattr(main, "_invalidate_prop_catalog", lambda: None)
+    monkeypatch.setattr(main, "_invalidate_prop_catalog", lambda **_kwargs: None)
     monkeypatch.setattr(main, "_refresh_prop_catalog_now", lambda **_kwargs: [])
     monkeypatch.setattr(main, "quota_snapshot", lambda: {"remaining": 1000})
     main._mark_sync_running()

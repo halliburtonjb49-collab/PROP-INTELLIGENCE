@@ -15,7 +15,9 @@ REDIS_URL = os.getenv("REDIS_URL", "").strip()
 QUEUE_NAME = os.getenv("BACKGROUND_QUEUE_NAME", "prop-intelligence")
 LOGGER = logging.getLogger(__name__)
 SYNC_LOCK_KEY = "lock:prop-intelligence:global-sync"
-SYNC_LOCK_TTL_SECONDS = 1800
+SYNC_LOCK_TTL_SECONDS = max(
+    120, int(os.getenv("SYNC_LOCK_TTL_SECONDS", "180"))
+)
 BACKGROUND_JOB_TIMEOUT_SECONDS = max(
     1800, int(os.getenv("BACKGROUND_JOB_TIMEOUT_SECONDS", "1800"))
 )
