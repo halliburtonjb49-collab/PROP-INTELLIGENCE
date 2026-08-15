@@ -1,26 +1,26 @@
-"""Trigger the web service to refresh its MLB name -> headshot-id cache.
+"""Refresh MLB headshots in this isolated cron process and publish to Redis.
 
-This cron job and the API service are separate Render deployments with no
-shared filesystem, so the refresh has to happen inside the API process via
-an authenticated HTTP call - see main.py's /api/admin/refresh-mlb-headshots
-and services/mlb_headshot_service.py. Roster changes are infrequent
-(trades, call-ups), so this only needs to run on a daily-ish schedule.
+No provider requests execute in the web service.
 """
 
 import logging
+import sys
+from pathlib import Path
 
-from _admin_refresh_utils import trigger_and_await_refresh
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from services.mlb_headshot_service import refresh_mlb_headshot_map
 
 
 def main() -> int:
     logging.basicConfig(level=logging.INFO)
     try:
-        payload = trigger_and_await_refresh("/api/admin/refresh-mlb-headshots")
+        players = refresh_mlb_headshot_map()
     except Exception:
         logging.exception("MLB headshot roster sync failed")
         return 1
 
-    logging.info("Cached headshot ids for %s MLB players", payload.get("result"))
+    logging.info("Cached headshot ids for %s MLB players", players)
     return 0
 
 

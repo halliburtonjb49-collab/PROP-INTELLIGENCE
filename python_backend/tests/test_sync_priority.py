@@ -1,9 +1,13 @@
+from datetime import date
 import threading
 import time
 
 from services import sync_service
 from services.sync_service import (
-    configured_sync_sports, next_sgo_leagues, partition_sync_sports,
+    configured_sync_sports,
+    next_sgo_leagues,
+    partition_seasonal_sync_sports,
+    partition_sync_sports,
     prioritize_events,
     sgo_entity_quota_exhausted,
 )
@@ -49,7 +53,34 @@ def test_default_sync_covers_every_configured_prop_sport(monkeypatch) -> None:
     ]
 
 
+def test_college_sports_only_sync_near_and_during_their_seasons() -> None:
+    sports = [
+        "baseball_mlb",
+        "americanfootball_ncaaf",
+        "basketball_ncaab",
+    ]
+
+    active, off_season = partition_seasonal_sync_sports(
+        sports, today=date(2026, 8, 15)
+    )
+    assert active == ["baseball_mlb"]
+    assert off_season == ["americanfootball_ncaaf", "basketball_ncaab"]
+
+    active, off_season = partition_seasonal_sync_sports(
+        sports, today=date(2026, 8, 24)
+    )
+    assert active == ["baseball_mlb", "americanfootball_ncaaf"]
+    assert off_season == ["basketball_ncaab"]
+
+    active, off_season = partition_seasonal_sync_sports(
+        sports, today=date(2026, 11, 1)
+    )
+    assert active == sports
+    assert off_season == []
+
+
 def test_sync_sports_override_is_trimmed_and_deduplicated(monkeypatch) -> None:
+
     monkeypatch.setenv(
         "PROP_SYNC_SPORTS",
         "basketball_nba, baseball_mlb,basketball_nba",

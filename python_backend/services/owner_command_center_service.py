@@ -366,6 +366,20 @@ def owner_command_center_snapshot(
     inventory = _inventory_snapshot(rows, now=current)
     redis = cache_health()
     workers = queue_health()
+    worker_online = bool(
+        workers.get("available")
+        and int(workers.get("workers") or 0) > 0
+    )
+    worker_alerts = [] if worker_online else [{
+        "key": "worker_unavailable",
+        "title": "Background worker unavailable",
+        "message": (
+            "Saved props remain available, but provider refreshes and "
+            "headshot updates are paused until a worker is online."
+        ),
+        "severity": "RED",
+        "count": 1,
+    }]
     scoreboard = scoreboard_latency_snapshot()
     pipeline = summarize_pipeline_health(recent_pipeline_runs(25))
     availability = provider_availability_snapshot(now=current)
@@ -385,13 +399,13 @@ def owner_command_center_snapshot(
         _metric("apiRequests", "Tracked API activity", database.get("apiRequests"), range_label, "healthy" if database.get("apiRequests") is not None else "unavailable"),
         _metric("averageConfidence", "Average confidence", prop_metrics.get("averageConfidence"), "Across current props"),
         _metric("recommendedPicks", "Recommended picks", prop_metrics.get("recommendedPicks"), "Current non-wait predictions"),
-        _metric("openAlerts", "Open alerts", len(provider_alerts) + len(active_failures), "Provider and pipeline alerts", "healthy" if not provider_alerts and not active_failures else "warning"),
+        _metric("openAlerts", "Open alerts", len(worker_alerts) + len(provider_alerts) + len(active_failures), "Worker, provider, and pipeline alerts", "healthy" if not worker_alerts and not provider_alerts and not active_failures else "warning"),
     ]
 
     services = [
         {"service": "API", "status": "HEALTHY", "lastUpdate": current.isoformat(), "latencyMs": None, "records": "online", "action": "View"},
         {"service": "Redis", "status": "HEALTHY" if redis.get("available") else "UNAVAILABLE", "lastUpdate": current.isoformat(), "latencyMs": None, "records": redis.get("mode") or "--", "action": "Inspect"},
-        {"service": "Workers", "status": "HEALTHY" if workers.get("available") and not workers.get("failed") else "PARTIAL", "lastUpdate": current.isoformat(), "latencyMs": None, "records": f"{workers.get('workers', 0)} online / {workers.get('queued', 0)} queued", "action": "Inspect"},
+        {"service": "Workers", "status": "HEALTHY" if worker_online and not workers.get("failed") else "UNAVAILABLE", "lastUpdate": current.isoformat(), "latencyMs": None, "records": f"{workers.get('workers', 0)} online / {workers.get('queued', 0)} queued", "action": "Inspect"},
         {"service": "Scoreboard", "status": "HEALTHY" if scoreboard.get("status") == "ok" else "PARTIAL", "lastUpdate": current.isoformat(), "latencyMs": scoreboard.get("lastMs"), "records": f"{scoreboard.get('sampleCount', 0)} samples", "action": "View"},
         {"service": "Prop inventory", "status": "HEALTHY" if prop_metrics.get("propsAvailable") else "PARTIAL", "lastUpdate": current.isoformat(), "latencyMs": None, "records": prop_metrics.get("propsAvailable", 0), "action": "View"},
         {"service": "Model engine", "status": "HEALTHY" if database.get("predictionsGenerated") is not None else "UNAVAILABLE", "lastUpdate": current.isoformat(), "latencyMs": None, "records": database.get("predictionsGenerated"), "action": "Audit"},
@@ -414,7 +428,7 @@ def owner_command_center_snapshot(
         "window": {"key": window, "label": range_label, "start": range_start.isoformat(), "end": range_end.isoformat()},
         "overview": overview,
         "services": services,
-        "alerts": [*provider_alerts, *active_failures],
+        "alerts": [*worker_alerts, *provider_alerts, *active_failures],
         "database": database,
         "propInventory": prop_metrics,
         "inventory": inventory,

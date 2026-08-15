@@ -8,6 +8,7 @@ synchronously per request.
 
 import json
 import re
+import time
 import unicodedata
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -15,6 +16,10 @@ from functools import lru_cache
 import requests
 
 from config import BASE_DIR, HTTP_TIMEOUT_SECONDS
+from services.distributed_cache_service import (
+    get_json as get_distributed_json,
+    set_json as set_distributed_json,
+)
 
 HEADSHOT_MAP_PATH = BASE_DIR / "data" / "mlb_headshot_map.json"
 
@@ -25,6 +30,10 @@ _HEADSHOT_URL_TEMPLATE = (
     "v1/people/{mlb_id}/headshot/67/current"
 )
 
+_DISTRIBUTED_CACHE_KEY = "headshots:mlb:v1"
+_DISTRIBUTED_CACHE_TTL_SECONDS = 8 * 24 * 60 * 60
+_last_map_refresh_check = 0.0
+_MAP_REFRESH_CHECK_SECONDS = 300
 
 def _normalize_name(value: str) -> str:
     normalized = unicodedata.normalize("NFKD", value)
@@ -35,16 +44,28 @@ def _normalize_name(value: str) -> str:
 
 @lru_cache(maxsize=1)
 def _load_map() -> dict[str, int]:
-    if not HEADSHOT_MAP_PATH.exists():
-        return {}
-    try:
-        payload = json.loads(HEADSHOT_MAP_PATH.read_text(encoding="utf-8"))
-        players = payload.get("players") if isinstance(payload, dict) else None
-        if isinstance(players, dict):
-            return {str(name): int(mlb_id) for name, mlb_id in players.items()}
-    except Exception:
-        pass
+    shared = get_distributed_json(_DISTRIBUTED_CACHE_KEY)
+    players = shared.get("players") if isinstance(shared, dict) else None
+    if isinstance(players, dict):
+        return {str(name): int(mlb_id) for name, mlb_id in players.items()}
+
+    if HEADSHOT_MAP_PATH.exists():
+        try:
+            payload = json.loads(HEADSHOT_MAP_PATH.read_text(encoding="utf-8"))
+            players = payload.get("players") if isinstance(payload, dict) else None
+            if isinstance(players, dict):
+                return {str(name): int(mlb_id) for name, mlb_id in players.items()}
+        except Exception:
+            pass
     return {}
+
+
+def _ensure_map_fresh() -> None:
+    global _last_map_refresh_check
+    now = time.monotonic()
+    if now - _last_map_refresh_check >= _MAP_REFRESH_CHECK_SECONDS:
+        _load_map.cache_clear()
+        _last_map_refresh_check = now
 
 
 def mlb_headshot_url(player_name: str) -> str | None:
@@ -55,6 +76,7 @@ def mlb_headshot_url(player_name: str) -> str | None:
 
 
 def mlb_player_id(player_name: str) -> int | None:
+    _ensure_map_fresh()
     return _load_map().get(_normalize_name(player_name))
 
 
@@ -81,18 +103,19 @@ def refresh_mlb_headshot_map(season: int | None = None) -> int:
             continue
         players[_normalize_name(str(full_name))] = person_id
 
+    payload = {
+        "season": year,
+        "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+        "players": players,
+    }
+    set_distributed_json(
+        _DISTRIBUTED_CACHE_KEY,
+        payload,
+        ttl_seconds=_DISTRIBUTED_CACHE_TTL_SECONDS,
+    )
     HEADSHOT_MAP_PATH.parent.mkdir(parents=True, exist_ok=True)
     HEADSHOT_MAP_PATH.write_text(
-        json.dumps(
-            {
-                "season": year,
-                "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
-                "players": players,
-            },
-            indent=2,
-            sort_keys=True,
-        ),
-        encoding="utf-8",
+        json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
     )
     _load_map.cache_clear()
     return len(players)

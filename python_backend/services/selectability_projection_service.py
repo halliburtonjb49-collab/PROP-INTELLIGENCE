@@ -140,7 +140,9 @@ def _verdicts_by_sport(props: Iterable[object]) -> dict[str, object]:
 def project(props: Iterable[object]) -> dict[str, object]:
     """Count what each rule would call pickable, and where they differ."""
 
-    props_list = list(props)
+    # The sync already owns a complete board list. Reuse it rather than
+    # retaining a second 10,000+ item catalog during post-processing.
+    props_list = props if isinstance(props, list) else list(props)
     props = props_list
     total = 0
     modelled = 0

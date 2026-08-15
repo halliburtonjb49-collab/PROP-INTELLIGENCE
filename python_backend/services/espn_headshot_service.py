@@ -13,6 +13,7 @@ job populates a local cache; get_props() and friends only ever read it.
 """
 
 import json
+import time
 import re
 import unicodedata
 from datetime import datetime, timezone
@@ -32,6 +33,8 @@ HEADSHOT_MAP_PATH = ESPN_HEADSHOT_MAP_PATH
 _BUNDLED_MAP_PATH = Path(__file__).resolve().parents[1] / "data" / "espn_headshot_map.json"
 _DISTRIBUTED_CACHE_KEY = "headshots:espn:v1"
 _DISTRIBUTED_CACHE_TTL_SECONDS = 8 * 24 * 60 * 60
+_last_map_refresh_check = 0.0
+_MAP_REFRESH_CHECK_SECONDS = 300
 
 # App sport label (services.formatters.format_sport_label output) ->
 # (ESPN sport slug, ESPN league slug).
@@ -119,7 +122,16 @@ def _load_payload() -> tuple[dict[str, object] | None, str]:
     )
 
 
+def _ensure_map_fresh() -> None:
+    global _last_map_refresh_check
+    now = time.monotonic()
+    if now - _last_map_refresh_check >= _MAP_REFRESH_CHECK_SECONDS:
+        _load_map.cache_clear()
+        _last_map_refresh_check = now
+
+
 def espn_headshot_url(player_name: str, sport: str) -> str | None:
+    _ensure_map_fresh()
     players = _load_map().get(sport)
     if not players:
         return None

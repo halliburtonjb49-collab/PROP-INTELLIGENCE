@@ -50,6 +50,8 @@ void main() {
     );
     expect(resolved.queryParameters['w'], '160');
     expect(resolved.queryParameters['h'], '160');
+    expect(resolved.queryParameters['scale'], 'fit');
+    expect(resolved.queryParameters.containsKey('location'), isFalse);
   });
 
   test('does not proxy unknown image hosts', () {

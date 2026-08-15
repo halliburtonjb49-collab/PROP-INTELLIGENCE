@@ -5,7 +5,7 @@ import re
 import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from threading import Lock
 from typing import Callable
 
@@ -30,6 +30,7 @@ from services.prediction_automation_service import (
     capture_prediction_closing_lines,
     snapshot_live_predictions,
 )
+from services.memory_telemetry_service import record_memory_checkpoint
 from services.compound_alert_service import evaluate_all_alerts
 from services.prop_service import get_props
 from services.pregame_context_ingestion_service import sync_pregame_context
@@ -141,6 +142,35 @@ DEFAULT_FAST_SYNC_SPORTS = (
     "basketball_nba",
     "americanfootball_nfl",
 )
+
+# Expensive college prop requests are disabled outside their playing seasons.
+# The starts are three days before the first expected games so the board's
+# three-day slate can populate without polling these feeds all summer.
+_SEASONAL_SYNC_WINDOWS = {
+    "americanfootball_ncaaf": ((8, 24), (1, 31)),
+    "basketball_ncaab": ((10, 31), (4, 15)),
+}
+
+
+def sport_sync_is_active(sport_key: str, *, today: date | None = None) -> bool:
+    window = _SEASONAL_SYNC_WINDOWS.get(sport_key)
+    if window is None:
+        return True
+    current = today or datetime.now(timezone.utc).date()
+    month_day = (current.month, current.day)
+    start, end = window
+    return month_day >= start or month_day <= end
+
+
+def partition_seasonal_sync_sports(
+    sports: list[str], *, today: date | None = None
+) -> tuple[list[str], list[str]]:
+    active: list[str] = []
+    off_season: list[str] = []
+    for sport in sports:
+        target = active if sport_sync_is_active(sport, today=today) else off_season
+        target.append(sport)
+    return active, off_season
 _coverage_lock = Lock()
 _last_coverage_sync_monotonic: float | None = None
 _sgo_cursor_lock = Lock()
@@ -805,9 +835,15 @@ def run_global_sync_pipeline(
     on_sportsgameodds_complete: Callable[[dict[str, object]], None] | None = None,
     on_post_processing_progress: Callable[[str], None] | None = None,
 ) -> list[dict[str, object]]:
-    sports = configured_sync_sports()
+    sports, off_season_sports = partition_seasonal_sync_sports(
+        configured_sync_sports()
+    )
     fast_sports, coverage_sports = partition_sync_sports(sports)
-    results: list[dict[str, object]] = []
+    results: list[dict[str, object]] = [
+        {"sport": sport, "events": 0, "props": 0, "status": "off_season"}
+        for sport in off_season_sports
+    ]
+    record_memory_checkpoint("sync_start")
 
     def sync_lane(
         lane_sports: list[str],
@@ -850,6 +886,7 @@ def run_global_sync_pipeline(
             on_fast_lane_complete(list(results))
         except Exception as exc:
             logger.warning("fast lane completion callback failed error=%s", exc)
+    record_memory_checkpoint("fast_lane_complete")
 
     if _coverage_sync_due():
         sync_lane(coverage_sports, on_coverage_progress)
@@ -882,6 +919,7 @@ def run_global_sync_pipeline(
             on_coverage_complete(list(results))
         except Exception as exc:
             logger.warning("coverage completion callback failed error=%s", exc)
+    record_memory_checkpoint("coverage_complete")
     if on_sportsgameodds_started is not None:
         on_sportsgameodds_started()
     try:
@@ -903,6 +941,7 @@ def run_global_sync_pipeline(
             logger.warning(
                 "sportsgameodds completion callback failed error=%s", exc
             )
+    record_memory_checkpoint("sportsgameodds_complete")
     def report_post_processing(step: str) -> None:
         if on_post_processing_progress is None:
             return
@@ -975,6 +1014,7 @@ def run_global_sync_pipeline(
             # complete prop board and alert snapshot in this same process.
             gc.collect()
     report_post_processing("prediction_snapshot")
+    record_memory_checkpoint("historical_backfill_complete")
     snapshot = snapshot_live_predictions()
     results.append({"sport": "prediction_snapshots", "events": 0,
                     "props": int(snapshot.get("created", 0))})
@@ -998,6 +1038,7 @@ def run_global_sync_pipeline(
     report_post_processing("board_projection")
     _board = get_props()
     record_selectability_projection(_board)
+    record_memory_checkpoint("board_projection_complete")
     # Graded on the same long cooldown as the history top-up: replaying
     # every stored game is expensive and its answer does not change
     # between syncs minutes apart.
@@ -1014,15 +1055,23 @@ def run_global_sync_pipeline(
         finally:
             _mark_graded()
     report_post_processing("alerts")
-    alert_snapshots = [{
-        "propId": prop.id, "player": prop.player, "playerId": prop.playerId,
-        "sport": prop.sport, "market": prop.market, "marketKey": prop.marketKey,
-        "line": prop.line, "side": prop.recommendedSide, "confidence": prop.confidence,
-        "edge": prop.recommendationEdge, "injuryStatus": prop.injuryStatus,
-        "lineupStatus": prop.lineupStatus, "gameId": prop.gameId,
-    } for prop in _board]
-    deliveries = evaluate_all_alerts(alert_snapshots)
-    results.append({"sport": "compound_alerts", "events": len(alert_snapshots), "props": len(deliveries)})
+    alert_snapshots = (
+        {
+            "propId": prop.id, "player": prop.player, "playerId": prop.playerId,
+            "sport": prop.sport, "market": prop.market, "marketKey": prop.marketKey,
+            "line": prop.line, "side": prop.recommendedSide,
+            "confidence": prop.confidence, "edge": prop.recommendationEdge,
+            "injuryStatus": prop.injuryStatus, "lineupStatus": prop.lineupStatus,
+            "gameId": prop.gameId,
+        }
+        for prop in _board
+    )
+    deliveries = evaluate_all_alerts(
+        alert_snapshots,
+        batch_size=int(os.getenv("PROP_ALERT_BATCH_SIZE", "250")),
+    )
+    results.append({"sport": "compound_alerts", "events": len(_board), "props": len(deliveries)})
+    record_memory_checkpoint("alerts_complete")
     logger.info(
         "sync_global fast=%s coverage=%s",
         ",".join(fast_sports),

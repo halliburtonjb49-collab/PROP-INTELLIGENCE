@@ -14,6 +14,20 @@ def run_prop_sync() -> None:
     )
 
 
+def refresh_mlb_headshots() -> dict[str, object]:
+    """Refresh MLB photos from a non-web worker or cron process."""
+    from services.mlb_headshot_service import refresh_mlb_headshot_map
+
+    return {"players": refresh_mlb_headshot_map()}
+
+
+def refresh_espn_headshots() -> dict[str, object]:
+    """Refresh ESPN photos from a non-web worker or cron process."""
+    from services.espn_headshot_service import refresh_espn_headshot_map
+
+    return {"leagues": refresh_espn_headshot_map()}
+
+
 def fetch_sport_raw(sport: str) -> dict[str, object]:
     from services.raw_ingestion_service import fetch_sport_to_stream
 

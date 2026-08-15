@@ -83,6 +83,7 @@ from services.baseline_projection_service import (
 )
 from services.odds_service import sport_coverage
 from services.prop_service import get_props
+from services.formatters import resolve_player_image
 from services.owner_action_service import filter_owner_quarantined_props
 from services.provider_reliability_service import build_provider_reliability
 from services.pi_verdict_service import compute_verdict, verdict_payload
@@ -128,9 +129,7 @@ from services.rate_limit_service import allow_request
 from services.security_event_service import record_security_event
 from services.scoreboard_metrics_service import record_scoreboard_request
 from services.market_intelligence_service import latest_market_intelligence
-from services.mlb_headshot_service import refresh_mlb_headshot_map
 from services.espn_headshot_service import (
-	refresh_espn_headshot_map,
 	espn_headshot_cache_health,
 )
 from services.historical_ingestion_service import (
@@ -1116,17 +1115,9 @@ async def _ensure_props_available() -> None:
 	queue_state = await asyncio.to_thread(job_queue_health)
 	if int(queue_state.get("workers") or 0) < 1:
 		logging.error(
-			"No RQ worker is active; running one startup recovery in the API "
-			"process so the customer board is not empty"
+			"No RQ worker is active; preserving the durable catalog instead of "
+			"running a memory-intensive provider sync in the API process"
 		)
-		if _sync_run_lock.acquire(blocking=False):
-			_mark_sync_running()
-			await asyncio.to_thread(_run_sync_background)
-			recovered = await asyncio.to_thread(_cached_prop_catalog)
-			await asyncio.to_thread(
-				save_catalog_snapshot,
-				[prop.model_dump(mode="json") for prop in recovered],
-			)
 		return
 	if queued is None:
 		logging.warning(
@@ -2728,6 +2719,12 @@ def props(
 				})
 			return payload
 
+		def _prop_payload(prop: PropResponse) -> dict[str, object]:
+			payload = _pro_payload(prop) if is_pro else core_prop_payload(prop)
+			if not str(payload.get("imagePath") or "").strip():
+				payload["imagePath"] = resolve_player_image(prop.player, prop.sport)
+			return payload
+
 		def _matches_filters(
 			prop: PropResponse,
 			*,
@@ -3052,10 +3049,7 @@ def props(
 				"pending": max(0, total_count - system_pick_count),
 				"total": total_count,
 			} if is_pro else {"total": total_count},
-			"props": [
-				_pro_payload(prop) if is_pro else core_prop_payload(prop)
-				for prop in page
-			],
+			"props": [_prop_payload(prop) for prop in page],
 			"filters": {
 				"side": side,
 				"tier": tier,
@@ -4490,36 +4484,59 @@ class _BackgroundJob:
 		return {**self.snapshot(), "message": "Refresh started in the background."}
 
 
-_mlb_headshot_job = _BackgroundJob()
-_espn_headshot_job = _BackgroundJob()
 _gridiron_ice_history_job = _BackgroundJob()
 _golf_roster_job = _BackgroundJob()
 
 
 @app.post("/api/admin/refresh-mlb-headshots")
 def refresh_mlb_headshots(
-	background_tasks: BackgroundTasks,
 	_admin: str = Depends(require_admin),
 ) -> dict[str, object]:
-	return _mlb_headshot_job.start(background_tasks, refresh_mlb_headshot_map)
+	bucket = int(time.time() // 300)
+	queued = enqueue_background_job(
+		"jobs.refresh_mlb_headshots",
+		job_id=f"headshots:mlb:{bucket}",
+	)
+	if queued is None:
+		raise HTTPException(
+			status_code=503,
+			detail="Background worker unavailable; MLB refresh was not started",
+		)
+	return {**queued, "message": "MLB headshot refresh queued on the worker."}
 
 
 @app.get("/api/admin/refresh-mlb-headshots/status")
 def refresh_mlb_headshots_status(_admin: str = Depends(require_admin)) -> dict[str, object]:
-	return _mlb_headshot_job.snapshot()
+	return {
+		"status": "worker-owned",
+		"queue": job_queue_health(),
+	}
 
 
 @app.post("/api/admin/refresh-espn-headshots")
 def refresh_espn_headshots(
-	background_tasks: BackgroundTasks,
 	_admin: str = Depends(require_admin),
 ) -> dict[str, object]:
-	return _espn_headshot_job.start(background_tasks, refresh_espn_headshot_map)
+	bucket = int(time.time() // 300)
+	queued = enqueue_background_job(
+		"jobs.refresh_espn_headshots",
+		job_id=f"headshots:espn:{bucket}",
+	)
+	if queued is None:
+		raise HTTPException(
+			status_code=503,
+			detail="Background worker unavailable; ESPN refresh was not started",
+		)
+	return {**queued, "message": "ESPN headshot refresh queued on the worker."}
 
 
 @app.get("/api/admin/refresh-espn-headshots/status")
 def refresh_espn_headshots_status(_admin: str = Depends(require_admin)) -> dict[str, object]:
-	return _espn_headshot_job.snapshot()
+	return {
+		"status": "worker-owned",
+		"queue": job_queue_health(),
+		"cache": espn_headshot_cache_health(),
+	}
 
 
 

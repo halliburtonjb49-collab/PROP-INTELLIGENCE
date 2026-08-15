@@ -38,6 +38,7 @@ class PlayerImageWidget extends StatelessWidget {
         width: width,
         height: height,
         fit: fit,
+        alignment: Alignment.center,
         // Enhanced rendering quality
         filterQuality: FilterQuality.high,
         fadeInDuration: const Duration(milliseconds: 300),
