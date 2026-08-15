@@ -1,8 +1,7 @@
 """Resolves athlete headshot URLs via ESPN's public site APIs.
 
-Covers roster-based NBA, WNBA, and NHL, event-based PGA and UFC, and an
-athlete-detail fallback for MLS. Soccer roster responses omit embedded
-headshots, so MLS athlete ids are hydrated through ESPN's core API.
+Covers roster-based football, basketball, and hockey leagues plus athlete-
+detail fallbacks for leagues whose roster responses omit embedded headshots.
 
 ESPN's own stats sites for some leagues block traffic from cloud/datacenter
 IPs (e.g. stats.nba.com resets connections outright), which is why this
@@ -38,22 +37,22 @@ _DISTRIBUTED_CACHE_TTL_SECONDS = 8 * 24 * 60 * 60
 # (ESPN sport slug, ESPN league slug).
 LEAGUES: dict[str, tuple[str, str]] = {
     "NFL": ("football", "nfl"),
+    "NCAAF": ("football", "college-football"),
     "NBA": ("basketball", "nba"),
     "WNBA": ("basketball", "wnba"),
+    "NCAAB": ("basketball", "mens-college-basketball"),
     "NHL": ("hockey", "nhl"),
 }
 
 # Individual sports expose athletes through current-event scoreboards rather
 # than team rosters.
-EVENT_LEAGUES: dict[str, tuple[str, str]] = {
-    "PGA": ("golf", "pga"),
-    "UFC": ("mma", "ufc"),
-}
+EVENT_LEAGUES: dict[str, tuple[str, str]] = {}
 
 # Team rosters expose athlete ids but require one core-athlete request to
 # retrieve each available headshot.
 DETAIL_ROSTER_LEAGUES: dict[str, tuple[str, str]] = {
     "SOCCER": ("soccer", "usa.1"),
+    "CFL": ("football", "cfl"),
 }
 
 
@@ -172,7 +171,7 @@ def espn_headshot_cache_health() -> dict[str, object]:
 def _fetch_team_ids(espn_sport: str, espn_league: str) -> list[str]:
     response = requests.get(
         f"https://site.api.espn.com/apis/site/v2/sports/{espn_sport}/{espn_league}/teams",
-        params={"limit": 200},
+        params={"limit": 500},
         timeout=HTTP_TIMEOUT_SECONDS,
     )
     response.raise_for_status()
@@ -209,6 +208,31 @@ def _fetch_team_roster(espn_sport: str, espn_league: str, team_id: str) -> dict[
         if not full_name or not href:
             continue
         players[_normalize_name(str(full_name))] = href
+    return players
+
+
+def _fetch_league_roster_headshots(
+    espn_sport: str,
+    espn_league: str,
+) -> dict[str, str]:
+    """Fetch a league's team rosters concurrently without failing the refresh."""
+    players: dict[str, str] = {}
+    team_ids = _fetch_team_ids(espn_sport, espn_league)
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {
+            executor.submit(
+                _fetch_team_roster,
+                espn_sport,
+                espn_league,
+                team_id,
+            )
+            for team_id in team_ids
+        }
+        for future in as_completed(futures):
+            try:
+                players.update(future.result())
+            except requests.RequestException:
+                continue
     return players
 
 
@@ -327,12 +351,9 @@ def refresh_espn_headshot_map() -> dict[str, int]:
     }
     counts: dict[str, int] = {}
     for sport_label, (espn_sport, espn_league) in LEAGUES.items():
-        players: dict[str, str] = {}
-        for team_id in _fetch_team_ids(espn_sport, espn_league):
-            try:
-                players.update(_fetch_team_roster(espn_sport, espn_league, team_id))
-            except requests.RequestException:
-                continue
+        players = _fetch_league_roster_headshots(
+            espn_sport, espn_league
+        )
         if players:
             leagues[sport_label] = players
         counts[sport_label] = len(leagues.get(sport_label, {}))

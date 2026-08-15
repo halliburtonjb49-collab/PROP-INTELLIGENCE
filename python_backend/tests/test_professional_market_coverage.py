@@ -82,3 +82,24 @@ def test_nfl_props_resolve_through_espn_headshot_provider(monkeypatch):
         "/nfl/players/full/1.png"
     )
     assert calls == [("Josh Allen", "NFL")]
+
+
+def test_replacement_sports_resolve_through_espn_headshot_provider(monkeypatch):
+    calls: list[tuple[str, str]] = []
+
+    def fake_espn_headshot(player_name: str, sport: str) -> str:
+        calls.append((player_name, sport))
+        return f"https://a.espncdn.com/i/headshots/{sport.lower()}/1.png"
+
+    monkeypatch.setattr(formatters, "espn_headshot_url", fake_espn_headshot)
+
+    for sport in ("NCAAF", "NCAAB", "CFL"):
+        assert formatters.resolve_player_image("Test Player", sport).endswith(
+            f"/{sport.lower()}/1.png"
+        )
+
+    assert calls == [
+        ("Test Player", "NCAAF"),
+        ("Test Player", "NCAAB"),
+        ("Test Player", "CFL"),
+    ]

@@ -8,6 +8,7 @@ import '../models/prop_data.dart';
 import '../services/api_service.dart';
 import '../services/slip_doctor_service.dart';
 import '../services/live_update_service.dart';
+import '../services/player_image_resolver.dart';
 import 'context_help.dart';
 import 'slip_doctor_panel.dart';
 
@@ -601,21 +602,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   }
 
   String _resolveImageUrl(String value) {
-    if (value.isEmpty) {
-      return '';
-    }
-    if (value.startsWith('assets/')) {
-      return value;
-    }
-    if (value.startsWith('http://') || value.startsWith('https://')) {
-      return value;
-    }
-    final baseUrl = ApiService.baseUrl;
-    final normalizedBase = baseUrl.endsWith('/')
-        ? baseUrl.substring(0, baseUrl.length - 1)
-        : baseUrl;
-    final normalizedPath = value.startsWith('/') ? value : '/$value';
-    return '$normalizedBase$normalizedPath';
+    return resolvePlayerImagePath(value);
   }
 
   String _playerImageUrl(Map<String, dynamic> prop) {

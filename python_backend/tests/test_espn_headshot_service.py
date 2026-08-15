@@ -14,6 +14,23 @@ def test_default_team_leagues_include_nfl_headshots():
     assert espn_headshot_service.LEAGUES["NFL"] == ("football", "nfl")
 
 
+def test_replacement_sports_are_included_without_removed_specialty_sports():
+    assert espn_headshot_service.LEAGUES["NCAAF"] == (
+        "football",
+        "college-football",
+    )
+    assert espn_headshot_service.LEAGUES["NCAAB"] == (
+        "basketball",
+        "mens-college-basketball",
+    )
+    assert espn_headshot_service.DETAIL_ROSTER_LEAGUES["CFL"] == (
+        "football",
+        "cfl",
+    )
+    assert "PGA" not in espn_headshot_service.EVENT_LEAGUES
+    assert "UFC" not in espn_headshot_service.EVENT_LEAGUES
+
+
 def test_espn_cache_resolves_pga_and_ufc_headshots(monkeypatch, tmp_path):
     path = tmp_path / "espn_headshot_map.json"
     path.write_text(
