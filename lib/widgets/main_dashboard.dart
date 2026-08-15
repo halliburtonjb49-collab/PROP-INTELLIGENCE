@@ -2355,7 +2355,11 @@ class _MainDashboardState extends State<MainDashboard> {
       'LEAN': 'LEAN',
       'WAIT': 'WAIT',
     };
-    final verdict = verdictLabels[_verdictFilter];
+    // PLAYABLE is the board's normal starting state, so the selected tab is
+    // enough feedback; repeating it here makes the default look like a filter.
+    final verdict = _verdictFilter == 'ACTIONABLE'
+        ? null
+        : verdictLabels[_verdictFilter];
     if (verdict != null) labels.add(verdict);
     if (_sortBy != 'time') labels.add('SORT: ${_sortBy.toUpperCase()}');
     if (_minConfidence > 0) labels.add('CONFIDENCE $_minConfidence+');

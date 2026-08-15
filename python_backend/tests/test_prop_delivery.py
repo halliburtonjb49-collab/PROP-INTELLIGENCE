@@ -771,6 +771,35 @@ def test_cached_catalog_verdicts_are_recomputed_for_the_running_release(
     assert prop.verdict == {"decision": "LEAN", "actionable": True}
 
 
+def test_cached_catalog_upgrades_local_player_photo_to_official_headshot(
+    monkeypatch,
+) -> None:
+    prop = FakeProp("wnba-photo", "Breanna Stewart", "WNBA", "FANDUEL", "POINTS")
+    prop.imagePath = "/player-images/breanna_stewart.png"
+    official = "https://a.espncdn.com/i/headshots/wnba/players/full/2998928.png"
+    monkeypatch.setattr(main, "resolve_player_image", lambda *_args: official)
+
+    main._recompute_runtime_verdicts([prop])
+
+    assert prop.imagePath == official
+
+
+def test_cached_catalog_preserves_valid_remote_player_photo(monkeypatch) -> None:
+    prop = FakeProp("remote-photo", "Player", "WNBA", "FANDUEL", "POINTS")
+    prop.imagePath = "https://images.example.com/current.png"
+    calls = []
+    monkeypatch.setattr(
+        main,
+        "resolve_player_image",
+        lambda *_args: calls.append(True) or "https://replacement.invalid/image.png",
+    )
+
+    main._recompute_runtime_verdicts([prop])
+
+    assert prop.imagePath == "https://images.example.com/current.png"
+    assert calls == []
+
+
 def test_positive_ev_route_returns_only_calculated_positive_rows(monkeypatch) -> None:
     positive = FakeProp("positive", "One", "MLB", "FANDUEL", "HITS")
     positive.evPercentage = 4.25
