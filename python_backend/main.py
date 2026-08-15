@@ -19,7 +19,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from brotli_asgi import BrotliMiddleware
 import requests
-from threading import Lock, Thread
+from threading import Event, Lock, Thread
 
 from config import (
 	BALLDONTLIE_API_KEY,
@@ -113,6 +113,8 @@ from services.job_queue_service import (
 	acquire_global_sync_lock,
 	enqueue as enqueue_background_job,
 	health as job_queue_health,
+	job_status as background_job_status,
+	refresh_global_sync_lock,
 	release_global_sync_lock,
 )
 from services.injury_impact_alert_service import (
@@ -860,6 +862,10 @@ _COVERAGE_STALL_SECONDS = max(
 _POST_PROCESSING_STALL_SECONDS = max(
 	300, int(os.getenv("PROP_POST_PROCESSING_STALL_SECONDS", "900"))
 )
+_SYNC_JOB_STALL_SECONDS = max(
+	120, int(os.getenv("PROP_SYNC_JOB_STALL_SECONDS", "600"))
+)
+_SYNC_JOB_HEARTBEAT_SECONDS = 30
 _sync_state: dict[str, object] = {
 	"status": "idle",
 	"startedAt": None,
@@ -867,6 +873,8 @@ _sync_state: dict[str, object] = {
 	"results": [],
 	"error": None,
 	"queuedJobId": None,
+	"jobHeartbeatAt": None,
+	"syncLockHealthy": None,
 	"cooldownSeconds": LIVE_ODDS_SYNC_MIN_SECONDS,
 	"nextAllowedAt": None,
 	"fastLaneCompletedAt": None,
@@ -991,10 +999,12 @@ def _effective_sync_cooldown_seconds() -> int:
 	return LIVE_ODDS_SYNC_MIN_SECONDS
 
 
-def _mark_sync_running() -> None:
+def _mark_sync_running(job_id: str | None = None) -> None:
+	now = datetime.now(timezone.utc).isoformat()
 	_set_sync_state(
-		status="running", startedAt=datetime.now(timezone.utc).isoformat(),
-		finishedAt=None, results=[], error=None, queuedJobId=None, nextAllowedAt=None,
+		status="running", startedAt=now,
+		finishedAt=None, results=[], error=None, queuedJobId=job_id,
+		jobHeartbeatAt=now, syncLockHealthy=True, nextAllowedAt=None,
 		fastLaneCompletedAt=None, fastLaneResults=[],
 		coverageStatus="pending", coverageCompletedAt=None,
 		coverageResults=[], coverageError=None,
@@ -1151,16 +1161,47 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 			_sync_run_lock.release()
 
 
-def run_queued_prop_sync() -> None:
+def run_queued_prop_sync(job_id: str | None = None) -> None:
 	"""RQ worker entrypoint; retries are managed by the durable queue."""
 	lock_token = acquire_global_sync_lock()
 	if lock_token is None:
 		logging.info("Skipping duplicate queued prop sync; another run is active")
 		return
+	heartbeat_stop = Event()
+	heartbeat_thread: Thread | None = None
 	try:
-		_mark_sync_running()
+		_mark_sync_running(job_id)
+
+		def maintain_sync_lease() -> None:
+			while not heartbeat_stop.wait(_SYNC_JOB_HEARTBEAT_SECONDS):
+				now = datetime.now(timezone.utc).isoformat()
+				lock_healthy = refresh_global_sync_lock(lock_token)
+				_set_sync_state(
+					queuedJobId=job_id,
+					jobHeartbeatAt=now,
+					syncLockHealthy=lock_healthy,
+				)
+				if not lock_healthy:
+					logging.error(
+						"Queued prop sync lost its distributed lock job_id=%s",
+						job_id,
+					)
+
+		heartbeat_thread = Thread(
+			target=maintain_sync_lease,
+			name="prop-sync-heartbeat",
+			daemon=True,
+		)
+		heartbeat_thread.start()
 		_run_sync_background(release_local_lock=False)
 	finally:
+		heartbeat_stop.set()
+		if heartbeat_thread is not None:
+			heartbeat_thread.join(timeout=2)
+		_set_sync_state(
+			jobHeartbeatAt=datetime.now(timezone.utc).isoformat(),
+			syncLockHealthy=False,
+		)
 		release_global_sync_lock(lock_token)
 
 
@@ -1295,6 +1336,7 @@ def _enqueue_requested_prop_sync() -> dict[str, object] | None:
 	state = _sync_state_snapshot()
 	status = str(state.get("status") or "").lower()
 	if status in {"queued", "running"}:
+		job_id = str(state.get("queuedJobId") or "").strip() or None
 		started_at = state.get("startedAt")
 		age_seconds: float | None = None
 		if started_at:
@@ -1309,22 +1351,53 @@ def _enqueue_requested_prop_sync() -> dict[str, object] | None:
 				).total_seconds()
 			except ValueError:
 				age_seconds = None
-		queue_state = job_queue_health() if (age_seconds or 0) >= 60 else {}
-		queue_has_job = (
-			int(queue_state.get("queued") or 0) > 0
-			or int(queue_state.get("started") or 0) > 0
+		heartbeat_age: float | None = None
+		heartbeat_at = state.get("jobHeartbeatAt")
+		if heartbeat_at:
+			try:
+				parsed = datetime.fromisoformat(
+					str(heartbeat_at).replace("Z", "+00:00")
+				)
+				if parsed.tzinfo is None:
+					parsed = parsed.replace(tzinfo=timezone.utc)
+				heartbeat_age = (
+					datetime.now(timezone.utc) - parsed
+				).total_seconds()
+			except ValueError:
+				heartbeat_age = None
+		job = (
+			background_job_status(job_id)
+			if (age_seconds or 0) >= 60 and job_id
+			else {}
 		)
-		orphaned = age_seconds is not None and age_seconds >= 60 and not queue_has_job
+		exact_status = str(job.get("status") or "").lower()
+		active_statuses = {"queued", "started", "deferred", "scheduled"}
+		stalled = (
+			status == "running"
+			and (heartbeat_age if heartbeat_age is not None else age_seconds or 0)
+			>= _SYNC_JOB_STALL_SECONDS
+		)
+		job_missing = bool(job) and job.get("available") is True and not job.get("found")
+		job_inactive = bool(job) and job.get("found") is True and exact_status not in active_statuses
+		orphaned = bool(
+			age_seconds is not None
+			and age_seconds >= 60
+			and (not job_id or job_missing or job_inactive or stalled)
+		)
 		if not orphaned:
 			return {
-				"id": str(state.get("queuedJobId") or "active-prop-sync"),
+				"id": str(job_id or "active-prop-sync"),
 				"status": status,
 				"deduplicated": True,
 			}
 		logging.warning(
-			"Recovering orphaned sync state status=%s age_seconds=%s",
+			"Recovering orphaned sync state status=%s job_id=%s "
+			"job_status=%s age_seconds=%s heartbeat_age=%s",
 			status,
+			job_id,
+			exact_status or "missing",
 			int(age_seconds),
+			int(heartbeat_age) if heartbeat_age is not None else None,
 		)
 	bucket = int(time.time() // 120)
 	queued = enqueue_background_job(
@@ -1338,6 +1411,8 @@ def _enqueue_requested_prop_sync() -> dict[str, object] | None:
 			finishedAt=None,
 			error=None,
 			queuedJobId=queued.get("id"),
+			jobHeartbeatAt=None,
+			syncLockHealthy=None,
 			coverageStatus="pending",
 			sportsGameOddsStatus="pending",
 			postProcessingStatus="pending",

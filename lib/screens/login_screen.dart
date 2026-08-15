@@ -1718,7 +1718,7 @@ class _HeroBrand extends StatelessWidget {
               width: dense ? 108 : 120,
               icon: Icons.verified_user_outlined,
               title: 'MULTI-SPORT',
-              detail: 'NBA, NFL, MLB, WNBA,\nNHL, UFC & more',
+              detail: 'NBA, NFL, MLB, WNBA,\nNHL, Soccer & more',
             ),
           ],
         ),

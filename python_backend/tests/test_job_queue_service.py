@@ -16,7 +16,10 @@ class _FakeLockRedis:
         type(self).value = value
         return True
 
-    def eval(self, _script, _keys, _key, token):
+    def eval(self, _script, _keys, _key, token, *args):
+        if args:
+            assert args == (queue_service.SYNC_LOCK_TTL_SECONDS,)
+            return int(type(self).value == token)
         if type(self).value == token:
             type(self).value = None
             return 1
@@ -37,6 +40,16 @@ def test_global_sync_lock_prevents_overlapping_workers(monkeypatch) -> None:
 
     queue_service.release_global_sync_lock(owner)
     assert queue_service.acquire_global_sync_lock()
+
+
+def test_global_sync_lock_renews_only_for_owner(monkeypatch) -> None:
+    _FakeLockRedis.value = None
+    monkeypatch.setattr(queue_service, "REDIS_URL", "redis://example")
+    monkeypatch.setattr(queue_service, "Redis", _FakeLockRedis)
+
+    owner = queue_service.acquire_global_sync_lock()
+    assert queue_service.refresh_global_sync_lock(owner) is True
+    assert queue_service.refresh_global_sync_lock("not-the-owner") is False
 
 
 class _Status:
@@ -103,3 +116,28 @@ def test_enqueue_normalizes_rq_reserved_colons(monkeypatch) -> None:
     assert _CaptureQueue.received["job_id"] == "headshots-espn-456"
     assert result["id"] == "headshots-espn-456"
     assert result["status"] == "queued"
+    assert _CaptureQueue.received["timeout"] == queue_service.BACKGROUND_JOB_TIMEOUT_SECONDS
+
+
+class _StartedJob:
+    id = "prop-request-release-456"
+
+    def get_status(self, *, refresh=False):
+        assert refresh is True
+        return type("_StartedStatus", (), {"value": "started"})()
+
+
+class _StatusQueue:
+    def fetch_job(self, job_id):
+        assert job_id == _StartedJob.id
+        return _StartedJob()
+
+
+def test_job_status_looks_up_exact_normalized_job(monkeypatch) -> None:
+    monkeypatch.setattr(queue_service, "_queue", lambda: _StatusQueue())
+
+    result = queue_service.job_status("prop-request:release:456")
+
+    assert result["found"] is True
+    assert result["id"] == _StartedJob.id
+    assert result["status"] == "started"
