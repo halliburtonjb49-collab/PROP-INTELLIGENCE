@@ -534,7 +534,13 @@ def sync_sport(sport_key: str) -> dict[str, object]:
         except Exception as exc:
             return event, None, exc
 
-    configured_workers = max(1, int(os.getenv("PROP_SYNC_EVENT_WORKERS", "6")))
+    # The Render dashboard can retain an older environment value after a
+    # blueprint deploy. Keep the memory-safe ceiling in code so a stale value
+    # cannot return the 2 GB service to six concurrent event payloads.
+    configured_workers = min(
+        3,
+        max(1, int(os.getenv("PROP_SYNC_EVENT_WORKERS", "3"))),
+    )
     worker_count = min(configured_workers, max(1, len(eligible_events)))
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
         fetched_payloads = executor.map(fetch_one, eligible_events)
@@ -639,7 +645,8 @@ def sync_sportsgameodds() -> dict[str, object]:
     # Provider reads are independent and safe to overlap. Cache mutation stays
     # serialized below so SQLite/Postgres writes remain deterministic.
     league_workers = min(
-        max(1, int(os.getenv("SPORTSGAMEODDS_LEAGUE_WORKERS", "4"))),
+        2,
+        max(1, int(os.getenv("SPORTSGAMEODDS_LEAGUE_WORKERS", "2"))),
         max(1, len(selected_leagues)),
     )
     with ThreadPoolExecutor(max_workers=league_workers) as executor:

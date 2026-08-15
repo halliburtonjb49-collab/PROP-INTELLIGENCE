@@ -780,6 +780,7 @@ _sync_state: dict[str, object] = {
 	"finishedAt": None,
 	"results": [],
 	"error": None,
+	"queuedJobId": None,
 	"cooldownSeconds": LIVE_ODDS_SYNC_MIN_SECONDS,
 	"nextAllowedAt": None,
 	"fastLaneCompletedAt": None,
@@ -907,7 +908,7 @@ def _effective_sync_cooldown_seconds() -> int:
 def _mark_sync_running() -> None:
 	_set_sync_state(
 		status="running", startedAt=datetime.now(timezone.utc).isoformat(),
-		finishedAt=None, results=[], error=None, nextAllowedAt=None,
+		finishedAt=None, results=[], error=None, queuedJobId=None, nextAllowedAt=None,
 		fastLaneCompletedAt=None, fastLaneResults=[],
 		coverageStatus="pending", coverageCompletedAt=None,
 		coverageResults=[], coverageError=None,
@@ -1201,6 +1202,36 @@ def _enqueue_prop_refresh() -> dict[str, object] | None:
 		"jobs.run_prop_sync",
 		job_id=f"prop-freshness:{APP_VERSION[:12]}:{bucket}",
 	)
+
+
+def _enqueue_requested_prop_sync() -> dict[str, object] | None:
+	"""Queue an explicit refresh while deduplicating an active shared run."""
+	state = _sync_state_snapshot()
+	status = str(state.get("status") or "").lower()
+	if status in {"queued", "running"}:
+		return {
+			"id": str(state.get("queuedJobId") or "active-prop-sync"),
+			"status": status,
+			"queue": "prop-intelligence",
+			"deduplicated": True,
+		}
+	bucket = int(time.time() // 120)
+	queued = enqueue_background_job(
+		"jobs.run_prop_sync",
+		job_id=f"prop-request:{APP_VERSION[:12]}:{bucket}",
+	)
+	if queued is not None:
+		_set_sync_state(
+			status="queued",
+			startedAt=datetime.now(timezone.utc).isoformat(),
+			finishedAt=None,
+			error=None,
+			queuedJobId=queued.get("id"),
+			coverageStatus="pending",
+			sportsGameOddsStatus="pending",
+			postProcessingStatus="pending",
+		)
+	return queued
 
 
 SCOREBOARD_SPORT_KEYS: list[tuple[str, str]] = [
@@ -3228,22 +3259,24 @@ def props_test(
 
 
 @app.post("/api/sync")
-def sync_props(background_tasks: BackgroundTasks) -> dict[str, object]:
+def sync_props() -> dict[str, object]:
 	if _sync_is_fresh():
 		return {**_sync_state_snapshot(), "reusedFreshData": True,
 			"message": "Current odds are still inside the server freshness window."}
-	if not _sync_run_lock.acquire(blocking=False):
-		return _sync_state_snapshot()
-	if _sync_is_fresh():
-		_sync_run_lock.release()
-		return {**_sync_state_snapshot(), "reusedFreshData": True,
-			"message": "Current odds are still inside the server freshness window."}
-	_mark_sync_running()
-
-	background_tasks.add_task(_run_sync_background)
+	queued = _enqueue_requested_prop_sync()
+	if queued is None:
+		raise HTTPException(
+			status_code=503,
+			detail=(
+				"The dedicated sync worker is unavailable. The saved catalog "
+				"remains online and no provider work was started in the API."
+			),
+		)
 	return {
 		**_sync_state_snapshot(),
-		"message": "Global sports sync started with directly observable status.",
+		"status": "queued",
+		"job": queued,
+		"message": "Global sports sync queued on the dedicated worker.",
 	}
 
 
@@ -3814,10 +3847,10 @@ def check_builder_lines(
 	request: PropLineMovementRequest,
 	refresh: bool = False,
 ) -> PropLineMovementResponse:
-	if refresh:
-		if not _sync_is_fresh() and _sync_run_lock.acquire(blocking=False):
-			_mark_sync_running()
-			_run_sync_background()
+	if refresh and not _sync_is_fresh():
+		# A line check must never run provider ingestion in the web process.
+		# Queue a refresh and evaluate the saved catalog immediately.
+		_enqueue_prop_refresh()
 
 	prop_list = get_props()
 	rows: list[dict[str, object]] = []
