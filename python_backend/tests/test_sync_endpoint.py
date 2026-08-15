@@ -117,6 +117,96 @@ def test_requested_sync_recovers_orphaned_shared_state(monkeypatch) -> None:
 	assert state_updates[0]["status"] == "queued"
 
 
+def test_requested_sync_recovers_when_exact_job_is_missing_despite_other_started_jobs(
+    monkeypatch,
+) -> None:
+    state_updates = []
+    started_at = datetime.now(timezone.utc) - timedelta(minutes=5)
+    monkeypatch.setattr(
+        main,
+        "_sync_state_snapshot",
+        lambda: {
+            "status": "running",
+            "queuedJobId": "missing-job",
+            "startedAt": started_at.isoformat(),
+            "jobHeartbeatAt": started_at.isoformat(),
+        },
+    )
+    monkeypatch.setattr(
+        main,
+        "background_job_status",
+        lambda _job_id: {
+            "available": True,
+            "found": False,
+            "id": "missing-job",
+        },
+    )
+    # This is the production regression: unrelated stale started jobs must not
+    # make the missing exact job look alive.
+    monkeypatch.setattr(
+        main,
+        "job_queue_health",
+        lambda: {"queued": 0, "started": 12, "workers": 13},
+    )
+    monkeypatch.setattr(
+        main,
+        "enqueue_background_job",
+        lambda *_args, **_kwargs: {"id": "replacement-job", "status": "queued"},
+    )
+    monkeypatch.setattr(
+        main,
+        "_set_sync_state",
+        lambda **changes: state_updates.append(changes),
+    )
+
+    queued = main._enqueue_requested_prop_sync()
+
+    assert queued["id"] == "replacement-job"
+    assert state_updates[0]["queuedJobId"] == "replacement-job"
+
+
+def test_requested_sync_keeps_exact_started_job_with_fresh_heartbeat(
+    monkeypatch,
+) -> None:
+    started_at = datetime.now(timezone.utc) - timedelta(minutes=5)
+    heartbeat_at = datetime.now(timezone.utc) - timedelta(seconds=15)
+    monkeypatch.setattr(
+        main,
+        "_sync_state_snapshot",
+        lambda: {
+            "status": "running",
+            "queuedJobId": "healthy-job",
+            "startedAt": started_at.isoformat(),
+            "jobHeartbeatAt": heartbeat_at.isoformat(),
+        },
+    )
+    monkeypatch.setattr(
+        main,
+        "background_job_status",
+        lambda _job_id: {
+            "available": True,
+            "found": True,
+            "id": "healthy-job",
+            "status": "started",
+        },
+    )
+    enqueue_calls = []
+    monkeypatch.setattr(
+        main,
+        "enqueue_background_job",
+        lambda *_args, **_kwargs: enqueue_calls.append(True),
+    )
+
+    queued = main._enqueue_requested_prop_sync()
+
+    assert queued == {
+        "id": "healthy-job",
+        "status": "running",
+        "deduplicated": True,
+    }
+    assert enqueue_calls == []
+
+
 def test_primary_lane_completes_before_background_coverage(monkeypatch) -> None:
     observed = {}
     coverage_observed = {}

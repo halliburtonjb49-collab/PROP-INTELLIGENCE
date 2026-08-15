@@ -3,9 +3,12 @@
 
 def run_prop_sync() -> None:
     """Run and publish recovery entirely on the dedicated RQ worker."""
+    from rq import get_current_job
+
     import main
 
-    main.run_queued_prop_sync()
+    current_job = get_current_job()
+    main.run_queued_prop_sync(current_job.id if current_job is not None else None)
     # The worker and API have separate ephemeral disks. Publish the worker's
     # completed local catalog to Redis so API instances and devices can read it.
     props = main._cached_prop_catalog()

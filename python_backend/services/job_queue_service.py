@@ -8,7 +8,7 @@ import uuid
 from typing import Any
 
 from redis import Redis
-from rq import Queue, Retry, Worker
+from rq import Queue, Retry, Worker, worker_registration
 from rq.registry import FailedJobRegistry, StartedJobRegistry
 
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
@@ -16,6 +16,9 @@ QUEUE_NAME = os.getenv("BACKGROUND_QUEUE_NAME", "prop-intelligence")
 LOGGER = logging.getLogger(__name__)
 SYNC_LOCK_KEY = "lock:prop-intelligence:global-sync"
 SYNC_LOCK_TTL_SECONDS = 1800
+BACKGROUND_JOB_TIMEOUT_SECONDS = max(
+    1800, int(os.getenv("BACKGROUND_JOB_TIMEOUT_SECONDS", "1800"))
+)
 
 
 def _queue() -> Queue | None:
@@ -90,6 +93,36 @@ def release_global_sync_lock(token: str) -> None:
         LOGGER.warning("Unable to release global sync lock error=%s", exc)
 
 
+def refresh_global_sync_lock(token: str) -> bool:
+    """Renew the sync lease only while the token still owns it."""
+    if not REDIS_URL or token == "local-no-redis":
+        return True
+    try:
+        connection = Redis.from_url(
+            REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=2,
+            socket_timeout=2,
+            health_check_interval=30,
+        )
+        renewed = connection.eval(
+            """
+            if redis.call('get', KEYS[1]) == ARGV[1] then
+              return redis.call('expire', KEYS[1], ARGV[2])
+            end
+            return 0
+            """,
+            1,
+            SYNC_LOCK_KEY,
+            token,
+            SYNC_LOCK_TTL_SECONDS,
+        )
+        return bool(renewed)
+    except Exception as exc:
+        LOGGER.warning("Unable to refresh global sync lock error=%s", exc)
+        return False
+
+
 def _rq_safe_job_id(job_id: str | None) -> str | None:
     """Normalize application IDs for RQ, which reserves colons for Redis keys."""
     if job_id is None:
@@ -114,7 +147,7 @@ def enqueue(
             args=args,
             kwargs=kwargs or {},
             job_id=job_id,
-            timeout=1800,
+            timeout=BACKGROUND_JOB_TIMEOUT_SECONDS,
             result_ttl=86400,
             failure_ttl=604800,
             retry=Retry(max=3, interval=[30, 120, 300]),
@@ -149,27 +182,73 @@ def enqueue(
         return None
 
 
+def job_status(job_id: str | None) -> dict[str, object]:
+    """Return the status of one exact RQ job instead of aggregate counts."""
+    queue = _queue()
+    normalized = _rq_safe_job_id(job_id)
+    if queue is None or not normalized:
+        return {
+            "configured": queue is not None,
+            "available": queue is not None,
+            "found": False,
+            "id": normalized,
+        }
+    try:
+        job = queue.fetch_job(normalized)
+        if job is None:
+            return {
+                "configured": True,
+                "available": True,
+                "found": False,
+                "id": normalized,
+            }
+        status = job.get_status(refresh=True)
+        return {
+            "configured": True,
+            "available": True,
+            "found": True,
+            "id": job.id,
+            "status": getattr(status, "value", status),
+        }
+    except Exception as exc:
+        LOGGER.warning("Unable to inspect background job id=%s error=%s", normalized, exc)
+        return {
+            "configured": True,
+            "available": False,
+            "found": False,
+            "id": normalized,
+            "error": str(exc),
+        }
+
+
 def health() -> dict[str, object]:
     queue = _queue()
     if queue is None:
         return {"configured": False, "available": False, "mode": "in-process"}
     try:
         queue.connection.ping()
+        # Expired started jobs become retries or failures; invalid worker
+        # registrations are removed so old Render instances do not masquerade
+        # as live workers.
+        started_registry = StartedJobRegistry(
+            queue.name,
+            connection=queue.connection,
+        )
+        started_registry.cleanup()
+        worker_registration.clean_worker_registry(queue)
+        workers = Worker.all(queue=queue)
         return {
             "configured": True,
             "available": True,
             "mode": "rq",
             "queue": QUEUE_NAME,
             "queued": queue.count,
-            "started": StartedJobRegistry(
-                queue.name,
-                connection=queue.connection,
-            ).count,
+            "started": started_registry.count,
             "failed": FailedJobRegistry(
                 queue.name,
                 connection=queue.connection,
             ).count,
-            "workers": len(Worker.all(queue=queue)),
+            "workers": len(workers),
             "retryPolicy": {
                 "maxAttempts": 4,
                 "retryIntervalsSeconds": [30, 120, 300],
