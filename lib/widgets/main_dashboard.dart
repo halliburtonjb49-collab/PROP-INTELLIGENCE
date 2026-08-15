@@ -189,9 +189,9 @@ class _MainDashboardState extends State<MainDashboard> {
   final String _selectedTier = 'All';
   int _minConfidence = 0;
   String _sortBy = 'time';
-  // Which verdicts the board shows. ALL is the default so nothing
-  // is hidden until the reader asks for it.
-  String _verdictFilter = 'ALL';
+  // Open on the smaller, decision-ready set. This keeps the first request and
+  // first render focused while ALL PROPS remains one tap away.
+  String _verdictFilter = 'ACTIONABLE';
   DateTime? _lastUpdated;
   List<PropData> _latestProps = const [];
   List<PropData> _siteInventoryProps = const [];
