@@ -90,6 +90,13 @@ def release_global_sync_lock(token: str) -> None:
         LOGGER.warning("Unable to release global sync lock error=%s", exc)
 
 
+def _rq_safe_job_id(job_id: str | None) -> str | None:
+    """Normalize application IDs for RQ, which reserves colons for Redis keys."""
+    if job_id is None:
+        return None
+    return job_id.replace(":", "-")
+
+
 def enqueue(
     function_name: str,
     *,
@@ -100,6 +107,7 @@ def enqueue(
     queue = _queue()
     if queue is None:
         return None
+    job_id = _rq_safe_job_id(job_id)
     try:
         job = queue.enqueue_call(
             func=function_name,
