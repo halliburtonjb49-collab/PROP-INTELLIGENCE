@@ -151,6 +151,7 @@ def test_a_fresh_local_sync_persists_the_durable_snapshot(monkeypatch):
 
     monkeypatch.setattr(main, "get_props", lambda: [prop])
     monkeypatch.setattr(main, "set_distributed_json", lambda *a, **k: True)
+    monkeypatch.setattr(main, "set_distributed_json_streaming_list", lambda *a, **k: True)
     monkeypatch.setattr(main, "_publish_prop_catalog_summary", lambda _props: None)
     monkeypatch.setattr(main, "save_catalog_snapshot", lambda rows: saved.append(rows))
 
@@ -180,6 +181,7 @@ def test_intermediate_catalog_refresh_does_not_start_snapshot_write(monkeypatch)
     )
     monkeypatch.setattr(main, "get_props", lambda: [prop])
     monkeypatch.setattr(main, "set_distributed_json", lambda *a, **k: True)
+    monkeypatch.setattr(main, "set_distributed_json_streaming_list", lambda *a, **k: True)
     monkeypatch.setattr(main, "_publish_prop_catalog_summary", lambda _props: None)
     monkeypatch.setattr(main, "save_catalog_snapshot", lambda rows: saved.append(rows))
 

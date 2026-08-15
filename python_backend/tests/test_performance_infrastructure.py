@@ -104,3 +104,59 @@ def test_large_responses_support_brotli() -> None:
 
     assert response.status_code == 200
     assert response.headers.get("content-encoding") == "br"
+
+
+class _StreamingRedis:
+    def __init__(self) -> None:
+        self.values = {"catalog": "[{\"old\":true}]"}
+        self.append_calls = 0
+        self.previous_visible_at_rename = False
+
+    def set(self, key, value):
+        self.values[key] = value
+
+    def append(self, key, value):
+        self.append_calls += 1
+        self.values[key] += value
+
+    def expire(self, _key, _ttl):
+        return True
+
+    def rename(self, source, destination):
+        self.previous_visible_at_rename = self.values[destination] == "[{\"old\":true}]"
+        self.values[destination] = self.values.pop(source)
+
+    def delete(self, key):
+        self.values.pop(key, None)
+
+
+def test_large_json_list_is_published_in_bounded_atomic_chunks(monkeypatch) -> None:
+    client = _StreamingRedis()
+    monkeypatch.setattr(distributed_cache_service, "_client", lambda: client)
+
+    published = distributed_cache_service.set_json_streaming_list(
+        "catalog",
+        ({"id": index, "name": "x" * 20} for index in range(5)),
+        ttl_seconds=60,
+        chunk_chars=30,
+    )
+
+    assert published is True
+    assert client.previous_visible_at_rename is True
+    assert client.append_calls > 2
+    assert distributed_cache_service.json.loads(client.values["catalog"]) == [
+        {"id": index, "name": "x" * 20} for index in range(5)
+    ]
+
+
+def test_streaming_publish_preserves_previous_value_on_failure(monkeypatch) -> None:
+    client = _StreamingRedis()
+    client.append = lambda *_args: (_ for _ in ()).throw(RuntimeError("oom"))
+    monkeypatch.setattr(distributed_cache_service, "_client", lambda: client)
+
+    published = distributed_cache_service.set_json_streaming_list(
+        "catalog", [{"id": 1}], ttl_seconds=60
+    )
+
+    assert published is False
+    assert client.values["catalog"] == "[{\"old\":true}]"

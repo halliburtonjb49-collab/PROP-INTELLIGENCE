@@ -108,6 +108,7 @@ from services.distributed_cache_service import (
 	get_json as get_distributed_json,
 	health as distributed_cache_health,
 	set_json as set_distributed_json,
+	set_json_streaming_list as set_distributed_json_streaming_list,
 )
 from services.job_queue_service import (
 	acquire_global_sync_lock,
@@ -738,11 +739,16 @@ def _rebuild_prop_catalog_from_local(
 			f"{max((prop.lastUpdatedUtc for prop in props), default='')}:"
 			f"{len(props)}"
 		)
-		set_distributed_json(
+		catalog_published = set_distributed_json_streaming_list(
 			_PROP_CATALOG_KEY,
-			[prop.model_dump(mode="json") for prop in props],
+			props,
 			ttl_seconds=86400,
+			encode_item=lambda prop: prop.model_dump(mode="json"),
 		)
+		if not catalog_published:
+			raise RuntimeError(
+				"Fresh prop catalog could not be published to Redis"
+			)
 		set_distributed_json(
 			_PROP_CATALOG_VERSION_KEY,
 			catalog_version,
@@ -811,7 +817,7 @@ def _publish_prop_catalog_summary(props: list[PropResponse]) -> None:
 	)
 
 
-def _invalidate_prop_catalog() -> None:
+def _invalidate_prop_catalog(*, delete_shared: bool = True) -> None:
 	with _prop_catalog_lock:
 		_prop_catalog.update(
 			loadedAt=0.0,
@@ -819,9 +825,10 @@ def _invalidate_prop_catalog() -> None:
 			version=None,
 			props=[],
 		)
-	delete_distributed_cache(_PROP_CATALOG_KEY)
-	delete_distributed_cache(_PROP_CATALOG_VERSION_KEY)
-	delete_distributed_cache(_PROP_CATALOG_SUMMARY_KEY)
+	if delete_shared:
+		delete_distributed_cache(_PROP_CATALOG_KEY)
+		delete_distributed_cache(_PROP_CATALOG_VERSION_KEY)
+		delete_distributed_cache(_PROP_CATALOG_SUMMARY_KEY)
 
 
 def _refresh_prop_catalog_now(*, persist_snapshot: bool = True) -> None:
@@ -836,7 +843,9 @@ def _refresh_prop_catalog_now(*, persist_snapshot: bool = True) -> None:
 	snapshot before ever recomputing, which would just hand back whatever
 	stale snapshot was last written instead of the sync that just completed.
 	"""
-	_invalidate_prop_catalog()
+	# Keep the previous catalog until the streaming publisher atomically
+	# renames the complete replacement into place.
+	_invalidate_prop_catalog(delete_shared=False)
 	props = _rebuild_prop_catalog_from_local(
 		persist_snapshot=persist_snapshot,
 	)
