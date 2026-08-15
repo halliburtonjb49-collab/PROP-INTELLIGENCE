@@ -872,7 +872,7 @@ _POST_PROCESSING_STALL_SECONDS = max(
 	300, int(os.getenv("PROP_POST_PROCESSING_STALL_SECONDS", "900"))
 )
 _SYNC_JOB_STALL_SECONDS = max(
-	120, int(os.getenv("PROP_SYNC_JOB_STALL_SECONDS", "600"))
+	120, int(os.getenv("PROP_SYNC_JOB_STALL_SECONDS", "180"))
 )
 _SYNC_JOB_HEARTBEAT_SECONDS = 30
 _sync_state: dict[str, object] = {
