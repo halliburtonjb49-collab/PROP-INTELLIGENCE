@@ -609,9 +609,26 @@ def _recompute_runtime_verdicts(
 	Redis and the durable snapshot store complete prop payloads, including the
 	verdict produced by the release that wrote them. Reusing that field after a
 	deploy leaves new verdict formulas invisible until the next odds sync.
+	The same snapshots can retain old bundled action photos even after an
+	official headshot becomes available. Upgrade only empty/local image paths;
+	a valid remote provider image is preserved.
 	"""
+	resolved_images: dict[tuple[str, str], str] = {}
 	for prop in props:
 		prop.verdict = verdict_payload(compute_verdict(prop))
+		current_image = str(getattr(prop, "imagePath", "") or "").strip()
+		uses_local_image = (
+			not current_image
+			or current_image.startswith("/player-images/")
+			or current_image.startswith("assets/players/")
+		)
+		if uses_local_image:
+			key = (prop.player.strip().lower(), prop.sport.strip().upper())
+			if key not in resolved_images:
+				resolved_images[key] = resolve_player_image(prop.player, prop.sport)
+			resolved = resolved_images[key]
+			if resolved:
+				prop.imagePath = resolved
 	return props
 
 
