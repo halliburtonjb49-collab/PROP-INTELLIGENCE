@@ -251,6 +251,32 @@ def test_membership_resolver_honors_verified_privileged_roles(
     assert api_auth_service.resolve_membership("Bearer verified").level == expected
 
 
+def test_membership_resolver_reuses_recent_verified_result(monkeypatch) -> None:
+    calls = {"user": 0, "profile": 0}
+
+    def user(_token):
+        calls["user"] += 1
+        return {
+            "id": "cached-member-id",
+            "email": "cached@example.com",
+            "app_metadata": {},
+        }
+
+    def profile(_token, _user_id):
+        calls["profile"] += 1
+        return {"subscription_tier": "pro", "is_premium": True}
+
+    monkeypatch.setattr(api_auth_service, "_supabase_user", user)
+    monkeypatch.setattr(api_auth_service, "_supabase_profile", profile)
+
+    first = api_auth_service.resolve_membership("Bearer cache-test-token")
+    second = api_auth_service.resolve_membership("Bearer cache-test-token")
+
+    assert first == second
+    assert first.level == AccessLevel.PRO
+    assert calls == {"user": 1, "profile": 1}
+
+
 def test_require_core_rejects_free_and_require_pro_rejects_core(
     monkeypatch,
 ) -> None:

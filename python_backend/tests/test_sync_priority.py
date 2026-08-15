@@ -231,7 +231,7 @@ def test_event_odds_fetches_overlap_but_cache_processing_is_serial(monkeypatch) 
     assert peak > 1
     assert result["fetchedEvents"] == 6
     assert result["props"] == 6
-    assert result["eventWorkers"] == 4
+    assert result["eventWorkers"] == 3
 
 
 def test_sync_prunes_expired_events_and_populates_the_new_slate(

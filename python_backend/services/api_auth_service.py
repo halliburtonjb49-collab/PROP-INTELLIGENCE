@@ -1,9 +1,12 @@
 """Validate Supabase access tokens for private API resources."""
 import base64
+import hashlib
 import json
 import os
+import time
 from dataclasses import dataclass
 from enum import IntEnum
+from threading import Lock
 
 import requests
 from fastapi import Header, HTTPException
@@ -35,6 +38,56 @@ class Membership:
     @property
     def has_pro_access(self) -> bool:
         return self.level >= AccessLevel.PRO
+
+
+_MEMBERSHIP_CACHE_TTL_SECONDS = max(
+    0.0,
+    min(60.0, float(os.getenv("MEMBERSHIP_CACHE_TTL_SECONDS", "30"))),
+)
+_MEMBERSHIP_CACHE_MAX_ENTRIES = 2048
+_membership_cache_lock = Lock()
+_membership_cache: dict[str, tuple[float, Membership]] = {}
+
+
+def clear_membership_cache() -> None:
+    """Clear the short-lived access cache (primarily for tests and revocation)."""
+    with _membership_cache_lock:
+        _membership_cache.clear()
+
+
+def _membership_cache_key(token: str) -> str:
+    # Never retain bearer tokens in process memory longer than the request.
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _cached_membership(token: str) -> Membership | None:
+    if _MEMBERSHIP_CACHE_TTL_SECONDS <= 0:
+        return None
+    key = _membership_cache_key(token)
+    now = time.monotonic()
+    with _membership_cache_lock:
+        cached = _membership_cache.get(key)
+        if cached is None:
+            return None
+        expires_at, membership = cached
+        if expires_at <= now:
+            _membership_cache.pop(key, None)
+            return None
+        return membership
+
+
+def _remember_membership(token: str, membership: Membership) -> Membership:
+    if _MEMBERSHIP_CACHE_TTL_SECONDS <= 0:
+        return membership
+    key = _membership_cache_key(token)
+    with _membership_cache_lock:
+        if len(_membership_cache) >= _MEMBERSHIP_CACHE_MAX_ENTRIES:
+            _membership_cache.clear()
+        _membership_cache[key] = (
+            time.monotonic() + _MEMBERSHIP_CACHE_TTL_SECONDS,
+            membership,
+        )
+    return membership
 
 
 def _owner_emails() -> set[str]:
@@ -117,7 +170,7 @@ def _supabase_profile(token: str, user_id: str) -> dict[str, object]:
     return row if isinstance(row, dict) else {}
 
 
-def resolve_membership(authorization: str = Header(default="")) -> Membership:
+def _resolve_membership_uncached(authorization: str) -> Membership:
     """Resolve identity and access from Supabase-verified server-side data."""
     token = authorization.removeprefix("Bearer ").strip()
     try:
@@ -171,6 +224,20 @@ def resolve_membership(authorization: str = Header(default="")) -> Membership:
     if raw_tier == "core":
         return Membership(user_id, AccessLevel.CORE, "core", "user")
     return Membership(user_id, AccessLevel.FREE, "free", "user")
+
+
+def resolve_membership(authorization: str = Header(default="")) -> Membership:
+    """Resolve access once per short session window instead of per API call."""
+    token = authorization.removeprefix("Bearer ").strip()
+    if not token:
+        return _resolve_membership_uncached(authorization)
+    cached = _cached_membership(token)
+    if cached is not None:
+        return cached
+    return _remember_membership(
+        token,
+        _resolve_membership_uncached(authorization),
+    )
 
 
 def require_core(authorization: str = Header(default="")) -> Membership:

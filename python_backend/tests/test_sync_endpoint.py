@@ -1,30 +1,81 @@
+import pytest
+from fastapi import HTTPException
+
 import main
 
 
-class CapturedTasks:
-    def __init__(self) -> None:
-        self.tasks: list[tuple[object, tuple[object, ...], dict[str, object]]] = []
-
-    def add_task(self, function, *args, **kwargs) -> None:
-        self.tasks.append((function, args, kwargs))
-
-
-def test_manual_sync_runs_where_status_is_observable(monkeypatch) -> None:
-    tasks = CapturedTasks()
+def test_manual_sync_runs_on_dedicated_worker(monkeypatch) -> None:
     monkeypatch.setattr(main, "_sync_is_fresh", lambda: False)
-    if main._sync_run_lock.locked():
-        main._sync_run_lock.release()
+    monkeypatch.setattr(
+        main,
+        "_enqueue_requested_prop_sync",
+        lambda: {"id": "prop-refresh-1", "status": "queued"},
+    )
 
-    try:
-        payload = main.sync_props(tasks)
+    payload = main.sync_props()
 
-        assert payload["status"] == "running"
-        assert "observable status" in payload["message"]
-        assert len(tasks.tasks) == 1
-        assert tasks.tasks[0][0] is main._run_sync_background
-    finally:
-        if main._sync_run_lock.locked():
-            main._sync_run_lock.release()
+    assert payload["status"] == "queued"
+    assert payload["job"]["id"] == "prop-refresh-1"
+    assert "dedicated worker" in payload["message"]
+
+
+def test_manual_sync_never_falls_back_to_web_process(monkeypatch) -> None:
+    monkeypatch.setattr(main, "_sync_is_fresh", lambda: False)
+    monkeypatch.setattr(main, "_enqueue_requested_prop_sync", lambda: None)
+    ran_in_web = []
+    monkeypatch.setattr(
+        main,
+        "_run_sync_background",
+        lambda: ran_in_web.append(True),
+    )
+
+    with pytest.raises(HTTPException) as error:
+        main.sync_props()
+
+    assert error.value.status_code == 503
+    assert ran_in_web == []
+
+
+def test_requested_sync_publishes_queued_state(monkeypatch) -> None:
+    state_updates = []
+    monkeypatch.setattr(main, "_sync_state_snapshot", lambda: {"status": "complete"})
+    monkeypatch.setattr(
+        main,
+        "enqueue_background_job",
+        lambda *_args, **_kwargs: {"id": "requested-job", "status": "queued"},
+    )
+    monkeypatch.setattr(main, "_set_sync_state", lambda **changes: state_updates.append(changes))
+
+    queued = main._enqueue_requested_prop_sync()
+
+    assert queued["id"] == "requested-job"
+    assert state_updates[0]["status"] == "queued"
+    assert state_updates[0]["queuedJobId"] == "requested-job"
+    assert state_updates[0]["finishedAt"] is None
+
+
+def test_requested_sync_deduplicates_active_shared_run(monkeypatch) -> None:
+    enqueue_calls = []
+    monkeypatch.setattr(
+        main,
+        "_sync_state_snapshot",
+        lambda: {"status": "running", "queuedJobId": "active-job"},
+    )
+    monkeypatch.setattr(
+        main,
+        "enqueue_background_job",
+        lambda *_args, **_kwargs: enqueue_calls.append(True),
+    )
+
+    queued = main._enqueue_requested_prop_sync()
+
+    assert queued == {
+        "id": "active-job",
+        "status": "running",
+        "queue": "prop-intelligence",
+        "deduplicated": True,
+    }
+    assert enqueue_calls == []
 
 
 def test_primary_lane_completes_before_background_coverage(monkeypatch) -> None:
