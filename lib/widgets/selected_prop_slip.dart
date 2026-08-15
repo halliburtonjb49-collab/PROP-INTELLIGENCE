@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/active_slip_controller.dart';
+import '../services/player_image_resolver.dart';
 import '../theme/app_colors.dart' as brand_colors;
 
 class SelectedProp {
@@ -422,18 +423,19 @@ class _SelectedPropCard extends StatelessWidget {
   String formatOdds(int odds) => odds > 0 ? '+$odds' : '$odds';
 
   Widget _playerImage() {
-    if (prop.imageUrl.startsWith('assets/')) {
+    final imageUrl = resolvePlayerImagePath(prop.imageUrl);
+    if (imageUrl.startsWith('assets/')) {
       return Image.asset(
-        prop.imageUrl,
+        imageUrl,
         fit: BoxFit.cover,
         filterQuality: FilterQuality.high,
         errorBuilder: (_, _, _) =>
             const Icon(Icons.person, color: Colors.white54),
       );
     }
-    if (prop.imageUrl.isNotEmpty) {
+    if (imageUrl.isNotEmpty) {
       return CachedNetworkImage(
-        imageUrl: prop.imageUrl,
+        imageUrl: imageUrl,
         fit: BoxFit.cover,
         filterQuality: FilterQuality.high,
         errorWidget: (_, _, _) =>

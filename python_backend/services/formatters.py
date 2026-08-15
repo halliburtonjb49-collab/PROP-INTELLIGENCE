@@ -5,7 +5,15 @@ from config import PLAYER_IMAGE_DIR
 from services.mlb_headshot_service import mlb_headshot_url
 from services.espn_headshot_service import espn_headshot_url
 
-_ESPN_COVERED_SPORTS = {"NFL", "NBA", "WNBA", "NHL", "PGA", "UFC"}
+_ESPN_COVERED_SPORTS = {
+    "NFL",
+    "NCAAF",
+    "CFL",
+    "NBA",
+    "WNBA",
+    "NCAAB",
+    "NHL",
+}
 
 MARKET_LABELS = {
     "POINTS": "Points",
