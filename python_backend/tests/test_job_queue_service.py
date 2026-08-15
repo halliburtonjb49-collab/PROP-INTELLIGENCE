@@ -44,7 +44,7 @@ class _Status:
 
 
 class _ExistingJob:
-    id = "prop-freshness:release:123"
+    id = "prop-freshness-release-123"
 
     def get_status(self, *, refresh=False):
         assert refresh is True
@@ -65,7 +65,7 @@ def test_enqueue_returns_existing_deduplicated_job(monkeypatch) -> None:
 
     result = queue_service.enqueue(
         "jobs.run_prop_sync",
-        job_id=_ExistingJob.id,
+        job_id="prop-freshness:release:123",
     )
 
     assert result == {
@@ -74,3 +74,32 @@ def test_enqueue_returns_existing_deduplicated_job(monkeypatch) -> None:
         "queue": queue_service.QUEUE_NAME,
         "deduplicated": True,
     }
+
+
+class _QueuedJob:
+    id = "headshots-espn-456"
+
+    def get_status(self):
+        return "queued"
+
+
+class _CaptureQueue:
+    received = None
+
+    def enqueue_call(self, **kwargs):
+        type(self).received = kwargs
+        return _QueuedJob()
+
+
+def test_enqueue_normalizes_rq_reserved_colons(monkeypatch) -> None:
+    _CaptureQueue.received = None
+    monkeypatch.setattr(queue_service, "_queue", lambda: _CaptureQueue())
+
+    result = queue_service.enqueue(
+        "jobs.refresh_espn_headshots",
+        job_id="headshots:espn:456",
+    )
+
+    assert _CaptureQueue.received["job_id"] == "headshots-espn-456"
+    assert result["id"] == "headshots-espn-456"
+    assert result["status"] == "queued"
