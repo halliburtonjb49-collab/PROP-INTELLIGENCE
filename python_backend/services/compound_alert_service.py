@@ -1,7 +1,9 @@
 """Persistent user-owned compound alert rules and deduplicated delivery."""
 import hashlib
+from itertools import islice
 import json
 from uuid import UUID
+from typing import Iterable
 
 from database.postgres import database_is_configured, get_database_pool
 from models.intelligence import AlertCondition, CompoundAlertRequest
@@ -74,34 +76,55 @@ def evaluate_user_alerts(user_id: str, snapshot: dict[str, object]) -> list[dict
     return deliveries
 
 
-def evaluate_all_alerts(snapshots: list[dict[str, object]]) -> list[dict[str, object]]:
-    """Evaluate every enabled rule after a live refresh and persist deduplicated deliveries."""
-    if not database_is_configured() or not snapshots:
+def evaluate_all_alerts(
+    snapshots: Iterable[dict[str, object]], *, batch_size: int = 250
+) -> list[dict[str, object]]:
+    """Evaluate alerts in bounded batches without copying the full prop board."""
+    if not database_is_configured():
         return []
     with get_database_pool().connection() as connection, connection.cursor() as cursor:
         cursor.execute("""select id,user_id,name,logic,conditions from compound_prop_alerts
             where enabled=true order by created_at""")
-        rules = cursor.fetchall()
+        rules = [
+            (alert_id, user_id, name, logic,
+             [AlertCondition.model_validate(value) for value in conditions])
+            for alert_id, user_id, name, logic, conditions in cursor.fetchall()
+        ]
+    if not rules:
+        return []
     deliveries: list[dict[str, object]] = []
-    for alert_id, user_id, name, logic, conditions in rules:
-        for snapshot in snapshots:
-            request = CompoundAlertRequest(name=name, logic=logic,
-                conditions=[AlertCondition.model_validate(value) for value in conditions], snapshot=snapshot)
-            result = evaluate_alert(request)
-            if not result["triggered"]:
-                continue
-            fingerprint = alert_fingerprint(alert_id, snapshot)
-            with get_database_pool().connection() as connection, connection.cursor() as cursor:
-                cursor.execute("""insert into alert_deliveries(alert_id,user_id,fingerprint,snapshot)
-                    values (%s,%s,%s,%s::jsonb) on conflict(fingerprint) do nothing returning id,delivered_at""",
-                    (alert_id, user_id, fingerprint, json.dumps(snapshot)))
-                delivery = cursor.fetchone()
-                if delivery:
-                    cursor.execute("update compound_prop_alerts set last_triggered_at=now() where id=%s", (alert_id,))
-                    connection.commit()
-            if delivery:
-                deliveries.append({"id": str(delivery[0]), "alertId": str(alert_id), "userId": str(user_id),
-                    "name": name, "snapshot": snapshot, "deliveredAt": delivery[1].isoformat()})
+    iterator = iter(snapshots)
+    size = max(1, min(int(batch_size), 1000))
+    while chunk := list(islice(iterator, size)):
+        with get_database_pool().connection() as connection, connection.cursor() as cursor:
+            for snapshot in chunk:
+                for alert_id, user_id, name, logic, conditions in rules:
+                    request = CompoundAlertRequest(
+                        name=name, logic=logic, conditions=conditions, snapshot=snapshot)
+                    result = evaluate_alert(request)
+                    if not result["triggered"]:
+                        continue
+                    fingerprint = alert_fingerprint(alert_id, snapshot)
+                    cursor.execute(
+                        """insert into alert_deliveries(alert_id,user_id,fingerprint,snapshot)
+                        values (%s,%s,%s,%s::jsonb) on conflict(fingerprint) do nothing
+                        returning id,delivered_at""",
+                        (alert_id, user_id, fingerprint, json.dumps(snapshot)),
+                    )
+                    delivery = cursor.fetchone()
+                    if not delivery:
+                        continue
+                    cursor.execute(
+                        "update compound_prop_alerts set last_triggered_at=now() where id=%s",
+                        (alert_id,),
+                    )
+                    deliveries.append({
+                        "id": str(delivery[0]), "alertId": str(alert_id),
+                        "userId": str(user_id), "name": name,
+                        "snapshot": snapshot,
+                        "deliveredAt": delivery[1].isoformat(),
+                    })
+            connection.commit()
     return deliveries
 
 

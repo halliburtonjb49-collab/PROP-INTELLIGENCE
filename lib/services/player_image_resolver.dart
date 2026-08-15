@@ -49,9 +49,11 @@ String _optimizedWebPlayerImage(String imageUrl) {
     'img': imageUri.path,
     'w': '160',
     'h': '160',
-    'scale': 'crop',
+    // ESPN portraits use transparent landscape canvases; a crop anchored at
+    // the origin shifts the athlete out of a circular avatar.
+    // Fit preserves the full portrait on a centered square canvas.
+    'scale': 'fit',
     'cquality': '80',
-    'location': 'origin',
   }).toString();
 }
 

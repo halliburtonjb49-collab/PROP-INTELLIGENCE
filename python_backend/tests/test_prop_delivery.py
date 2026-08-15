@@ -65,6 +65,30 @@ def test_missing_player_image_returns_not_found() -> None:
     assert response.status_code == 404
 
 
+def test_prop_feed_repairs_missing_image_from_current_headshot_cache(
+    monkeypatch,
+) -> None:
+    row = FakeProp(
+        "wnba-photo", "Breanna Stewart", "WNBA", "FANDUEL", "POINTS"
+    )
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [row])
+    monkeypatch.setattr(
+        main,
+        "resolve_player_image",
+        lambda player, sport: (
+            "https://a.espncdn.com/i/headshots/wnba/players/full/2998928.png"
+        ),
+    )
+
+    response = TestClient(main.app).get("/api/props")
+
+    assert response.status_code == 200
+    assert response.json()["props"][0]["imagePath"] == (
+        "https://a.espncdn.com/i/headshots/wnba/players/full/2998928.png"
+    )
+
+
+
 def test_player_image_proxy_rejects_unapproved_hosts() -> None:
     response = TestClient(main.app).get(
         "/player-image-proxy",
