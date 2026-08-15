@@ -2820,6 +2820,37 @@ def props(
 			5,
 			int(os.getenv("PROP_FEED_STALE_MINUTES", "180")),
 		)
+		stale_fallback_minutes = max(
+			stale_after_minutes + 30,
+			int(os.getenv("PROP_FEED_STALE_FALLBACK_MINUTES", "360")),
+		)
+		catalog_has_fresh_row = any(
+			not bool(getattr(prop, "dataStale", False))
+			and not _is_stale_timestamp(
+				str(getattr(prop, "lastUpdatedUtc", "") or ""),
+				now_utc,
+				stale_after_minutes,
+			)
+			for prop in prop_list
+		)
+		catalog_has_grace_row = False
+		recovery_active = False
+		if not includeStale and not catalog_has_fresh_row:
+			catalog_has_grace_row = any(
+				not bool(getattr(prop, "dataStale", False))
+				and not _is_stale_timestamp(
+					str(getattr(prop, "lastUpdatedUtc", "") or ""),
+					now_utc,
+					stale_fallback_minutes,
+				)
+				for prop in prop_list
+			)
+			if catalog_has_grace_row:
+				sync_state = _sync_state_snapshot()
+				recovery_active = str(sync_state.get("status") or "").lower() in {
+					"queued", "running"
+				}
+		serve_stale_fallback = catalog_has_grace_row and recovery_active
 		catalog_updated_at = max(
 			(prop.lastUpdatedUtc for prop in prop_list),
 			default="",
@@ -2847,6 +2878,7 @@ def props(
 				includePastDates,
 				includeStarted,
 				includeStale,
+				serve_stale_fallback,
 				onlyMoved,
 				includeReliability,
 				limit,
@@ -2923,6 +2955,12 @@ def props(
 
 		def _prop_payload(prop: PropResponse) -> dict[str, object]:
 			payload = _pro_payload(prop) if is_pro else core_prop_payload(prop)
+			if serve_stale_fallback and _is_stale_timestamp(
+				str(getattr(prop, "lastUpdatedUtc", "") or ""),
+				now_utc,
+				stale_after_minutes,
+			):
+				payload["dataStale"] = True
 			if not str(payload.get("imagePath") or "").strip():
 				payload["imagePath"] = resolve_player_image(prop.player, prop.sport)
 			return payload
@@ -2948,15 +2986,15 @@ def props(
 					return False
 			if not includeStarted and start_time is not None and start_time <= now_utc:
 				return False
-			if not includeStale and (
-				bool(getattr(prop, "dataStale", False))
-				or _is_stale_timestamp(
+			if not includeStale:
+				if bool(getattr(prop, "dataStale", False)):
+					return False
+				if not serve_stale_fallback and _is_stale_timestamp(
 					str(getattr(prop, "lastUpdatedUtc", "") or ""),
 					now_utc,
 					stale_after_minutes,
-				)
-			):
-				return False
+				):
+					return False
 			if onlyMoved:
 				opening = float(getattr(prop, "openingLine", 0) or 0)
 				current = float(getattr(prop, "currentLine", 0) or 0)
@@ -3237,6 +3275,12 @@ def props(
 			"offset": offset,
 			"limit": limit,
 			"hasMore": offset + len(page) < total_count,
+			"staleFallback": {
+				"active": serve_stale_fallback,
+				"reason": "recovery_running" if serve_stale_fallback else None,
+				"normalFreshnessMinutes": stale_after_minutes,
+				"maximumAgeMinutes": stale_fallback_minutes,
+			},
 			"recommendationCoverage": {
 				"modelPicks": model_pick_count,
 				"baselinePicks": baseline_pick_count,

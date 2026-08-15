@@ -575,6 +575,44 @@ def test_stale_props_are_hidden_from_the_actionable_feed(monkeypatch) -> None:
     assert {row["id"] for row in audit["props"]} == {"stale", "fresh"}
 
 
+def test_recent_saved_catalog_remains_visible_while_recovery_runs(monkeypatch) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    recovering = FakeProp("recovering", "One", "MLB", "FANDUEL", "HITS")
+    recovering.lastUpdatedUtc = (
+        datetime.now(timezone.utc) - timedelta(minutes=200)
+    ).isoformat()
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [recovering])
+    monkeypatch.setattr(
+        main,
+        "_sync_state_snapshot",
+        lambda: {"status": "running"},
+    )
+
+    payload = TestClient(main.app).get("/api/props").json()
+
+    assert [row["id"] for row in payload["props"]] == ["recovering"]
+    assert payload["props"][0]["dataStale"] is True
+    assert payload["staleFallback"]["active"] is True
+    assert payload["staleFallback"]["reason"] == "recovery_running"
+
+
+def test_recent_saved_catalog_stays_hidden_without_active_recovery(monkeypatch) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    stale = FakeProp("stale-idle", "One", "MLB", "FANDUEL", "HITS")
+    stale.lastUpdatedUtc = (
+        datetime.now(timezone.utc) - timedelta(minutes=200)
+    ).isoformat()
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [stale])
+    monkeypatch.setattr(main, "_sync_state_snapshot", lambda: {"status": "idle"})
+
+    payload = TestClient(main.app).get("/api/props").json()
+
+    assert payload["props"] == []
+    assert payload["staleFallback"]["active"] is False
+
+
 def test_prop_feed_reports_recommendation_coverage(monkeypatch) -> None:
     model = FakeProp("model", "One", "MLB", "FANDUEL", "HITS")
     model.recommendationAvailable = True
