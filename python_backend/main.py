@@ -1209,12 +1209,37 @@ def _enqueue_requested_prop_sync() -> dict[str, object] | None:
 	state = _sync_state_snapshot()
 	status = str(state.get("status") or "").lower()
 	if status in {"queued", "running"}:
-		return {
-			"id": str(state.get("queuedJobId") or "active-prop-sync"),
-			"status": status,
-			"queue": "prop-intelligence",
-			"deduplicated": True,
-		}
+		started_at = state.get("startedAt")
+		age_seconds: float | None = None
+		if started_at:
+			try:
+				parsed = datetime.fromisoformat(
+					str(started_at).replace("Z", "+00:00")
+				)
+				if parsed.tzinfo is None:
+					parsed = parsed.replace(tzinfo=timezone.utc)
+				age_seconds = (
+					datetime.now(timezone.utc) - parsed
+				).total_seconds()
+			except ValueError:
+				age_seconds = None
+		queue_state = job_queue_health() if (age_seconds or 0) >= 60 else {}
+		queue_has_job = (
+			int(queue_state.get("queued") or 0) > 0
+			or int(queue_state.get("started") or 0) > 0
+		)
+		orphaned = age_seconds is not None and age_seconds >= 60 and not queue_has_job
+		if not orphaned:
+			return {
+				"id": str(state.get("queuedJobId") or "active-prop-sync"),
+				"status": status,
+				"deduplicated": True,
+			}
+		logging.warning(
+			"Recovering orphaned sync state status=%s age_seconds=%s",
+			status,
+			int(age_seconds),
+		)
 	bucket = int(time.time() // 120)
 	queued = enqueue_background_job(
 		"jobs.run_prop_sync",

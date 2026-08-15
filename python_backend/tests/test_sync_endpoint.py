@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from fastapi import HTTPException
 
@@ -59,7 +61,11 @@ def test_requested_sync_deduplicates_active_shared_run(monkeypatch) -> None:
     monkeypatch.setattr(
         main,
         "_sync_state_snapshot",
-        lambda: {"status": "running", "queuedJobId": "active-job"},
+		lambda: {
+			"status": "running",
+			"queuedJobId": "active-job",
+			"startedAt": datetime.now(timezone.utc).isoformat(),
+		},
     )
     monkeypatch.setattr(
         main,
@@ -72,10 +78,43 @@ def test_requested_sync_deduplicates_active_shared_run(monkeypatch) -> None:
     assert queued == {
         "id": "active-job",
         "status": "running",
-        "queue": "prop-intelligence",
         "deduplicated": True,
     }
     assert enqueue_calls == []
+
+
+def test_requested_sync_recovers_orphaned_shared_state(monkeypatch) -> None:
+	state_updates = []
+	started_at = datetime.now(timezone.utc) - timedelta(minutes=5)
+	monkeypatch.setattr(
+		main,
+		"_sync_state_snapshot",
+		lambda: {
+			"status": "running",
+			"startedAt": started_at.isoformat(),
+		},
+	)
+	monkeypatch.setattr(
+		main,
+		"job_queue_health",
+		lambda: {"queued": 0, "started": 0, "workers": 1},
+	)
+	monkeypatch.setattr(
+		main,
+		"enqueue_background_job",
+		lambda *_args, **_kwargs: {"id": "recovery-job", "status": "queued"},
+	)
+	monkeypatch.setattr(
+		main,
+		"_set_sync_state",
+		lambda **changes: state_updates.append(changes),
+	)
+
+	queued = main._enqueue_requested_prop_sync()
+
+	assert queued["id"] == "recovery-job"
+	assert state_updates[0]["queuedJobId"] == "recovery-job"
+	assert state_updates[0]["status"] == "queued"
 
 
 def test_primary_lane_completes_before_background_coverage(monkeypatch) -> None:
