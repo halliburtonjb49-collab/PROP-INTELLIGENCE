@@ -117,6 +117,7 @@ class PropData {
   final double? projectionPreMarket;
   final double projectionMarketWeight;
   final int? historicalHitRate;
+  final int? recentHitRate;
   final String recommendedSide;
   final int confidence;
   final double recommendationEdge;
@@ -212,6 +213,16 @@ class PropData {
   final double? pitcherCsw;
   final double? lineupCswAgainst;
   final double? temperatureF;
+  final double? apparentTemperatureF;
+  final double? precipitationProbability;
+  final double? windSpeedMph;
+  final double? windGustMph;
+  final int? weatherCode;
+  final double weatherMultiplier;
+  final String weatherStatus;
+  final String weatherVenue;
+  final String weatherSource;
+  final String weatherForecastForUtc;
   final double? umpireKBoost;
   final double? parkKFactor;
   final String strikeoutModelMethod;
@@ -285,6 +296,7 @@ class PropData {
     this.projectionPreMarket,
     this.projectionMarketWeight = 0,
     this.historicalHitRate,
+    this.recentHitRate,
     this.recommendedSide = 'N/A',
     this.confidence = 0,
     this.recommendationEdge = 0,
@@ -376,6 +388,16 @@ class PropData {
     this.pitcherCsw,
     this.lineupCswAgainst,
     this.temperatureF,
+    this.apparentTemperatureF,
+    this.precipitationProbability,
+    this.windSpeedMph,
+    this.windGustMph,
+    this.weatherCode,
+    this.weatherMultiplier = 1,
+    this.weatherStatus = '',
+    this.weatherVenue = '',
+    this.weatherSource = '',
+    this.weatherForecastForUtc = '',
     this.umpireKBoost,
     this.parkKFactor,
     this.strikeoutModelMethod = '',
@@ -439,9 +461,9 @@ class PropData {
   /// The strongest honest directional suggestion available to Pro members.
   ///
   /// Verified model output takes precedence. When a verified projection is not
-  /// available, an unqualified historical projection may be shown as an
-  /// informational lean. Sportsbook pricing is the final fallback. Neither
-  /// fallback is a validated model pick.
+  /// available, an historical projection may provide a definite Pro PI Pick.
+  /// Sportsbook pricing remains a clearly labelled market lean and never
+  /// masquerades as a model-backed pick.
   String? get proSuggestedSide {
     // The PI verdict is the final decision after probability, price, lineup,
     // freshness, and book comparison are weighed together. When it exists,
@@ -689,6 +711,9 @@ class PropData {
       historicalHitRate:
           (json['historicalHitRate'] as num?)?.toInt() ??
           int.tryParse('${json['historical_hit_rate']}'),
+      recentHitRate:
+          (json['recentHitRate'] as num?)?.toInt() ??
+          int.tryParse(json['recent_hit_rate']?.toString() ?? ''),
       recommendedSide:
           json['recommendedSide']?.toString() ??
           json['recommended_side']?.toString() ??
@@ -1008,6 +1033,42 @@ class PropData {
       temperatureF: _safeDoubleOrNull(
         json['temperatureF'] ?? json['temperature_f'],
       ),
+      apparentTemperatureF: _safeDoubleOrNull(
+        json['apparentTemperatureF'] ?? json['apparent_temperature_f'],
+      ),
+      precipitationProbability: _safeDoubleOrNull(
+        json['precipitationProbability'] ?? json['precipitation_probability'],
+      ),
+      windSpeedMph: _safeDoubleOrNull(
+        json['windSpeedMph'] ?? json['wind_speed_mph'],
+      ),
+      windGustMph: _safeDoubleOrNull(
+        json['windGustMph'] ?? json['wind_gust_mph'],
+      ),
+      weatherCode:
+          (json['weatherCode'] as num?)?.toInt() ??
+          int.tryParse(json['weather_code']?.toString() ?? ''),
+      weatherMultiplier:
+          _safeDoubleOrNull(
+            json['weatherMultiplier'] ?? json['weather_multiplier'],
+          ) ??
+          1,
+      weatherStatus:
+          json['weatherStatus']?.toString() ??
+          json['weather_status']?.toString() ??
+          '',
+      weatherVenue:
+          json['weatherVenue']?.toString() ??
+          json['weather_venue']?.toString() ??
+          '',
+      weatherSource:
+          json['weatherSource']?.toString() ??
+          json['weather_source']?.toString() ??
+          '',
+      weatherForecastForUtc:
+          json['weatherForecastForUtc']?.toString() ??
+          json['weather_forecast_for_utc']?.toString() ??
+          '',
       umpireKBoost: _safeDoubleOrNull(
         json['umpireKBoost'] ?? json['umpire_k_boost'],
       ),

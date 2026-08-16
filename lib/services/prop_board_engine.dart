@@ -159,42 +159,57 @@ List<PropData> filterAndSortBoardProps(
       .toList(growable: true);
 
   props.sort((left, right) {
+    final leftStart = propScheduledStart(left);
+    final rightStart = propScheduledStart(right);
+    if (leftStart == null && rightStart != null) return 1;
+    if (leftStart != null && rightStart == null) return -1;
+    if (leftStart != null && rightStart != null) {
+      final start = leftStart.compareTo(rightStart);
+      if (start != 0) return start;
+    }
+
+    final leftPinned = pinnedPropIds.contains(left.id);
+    final rightPinned = pinnedPropIds.contains(right.id);
+    if (leftPinned != rightPinned) return leftPinned ? -1 : 1;
+
+    var rank = 0;
     switch (sortBy.trim().toLowerCase()) {
       case 'source':
       case 'time':
-        final leftStart = propScheduledStart(left);
-        final rightStart = propScheduledStart(right);
-        if (leftStart == null && rightStart == null) return 0;
-        if (leftStart == null) return 1;
-        if (rightStart == null) return -1;
-        return leftStart.compareTo(rightStart);
+        break;
       case 'edge':
-        return (right.calculatedEdge ?? 0).compareTo(left.calculatedEdge ?? 0);
+        rank = (right.calculatedEdge ?? 0).compareTo(left.calculatedEdge ?? 0);
+        break;
       case 'premium':
         final rankDiff = _tierRank(right.tier) - _tierRank(left.tier);
-        if (rankDiff != 0) return rankDiff;
-        return (right.displayConfidenceRating ?? -1).compareTo(
-          left.displayConfidenceRating ?? -1,
-        );
+        rank = rankDiff != 0
+            ? rankDiff
+            : (right.displayConfidenceRating ?? -1).compareTo(
+                left.displayConfidenceRating ?? -1,
+              );
+        break;
       case 'verdict':
         final verdictDiff = right.verdict.actionRank - left.verdict.actionRank;
-        if (verdictDiff != 0) return verdictDiff;
-        return (right.displayConfidenceRating ?? -1).compareTo(
-          left.displayConfidenceRating ?? -1,
-        );
+        rank = verdictDiff != 0
+            ? verdictDiff
+            : (right.displayConfidenceRating ?? -1).compareTo(
+                left.displayConfidenceRating ?? -1,
+              );
+        break;
       case 'confidence':
       default:
-        return (right.displayConfidenceRating ?? -1).compareTo(
+        rank = (right.displayConfidenceRating ?? -1).compareTo(
           left.displayConfidenceRating ?? -1,
         );
+        break;
     }
+    if (rank != 0) return rank;
+    final player = left.player.compareTo(right.player);
+    if (player != 0) return player;
+    final market = left.market.compareTo(right.market);
+    return market != 0 ? market : left.id.compareTo(right.id);
   });
-
-  final soccerDeprioritized = deprioritizeSoccerForAllSports(
-    props,
-    selectedSport: selectedSport,
-  );
-  return pinSelectedPropsFirst(soccerDeprioritized, pinnedPropIds);
+  return props;
 }
 
 List<PropData> deprioritizeSoccerForAllSports(

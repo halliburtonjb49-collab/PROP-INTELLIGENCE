@@ -209,6 +209,14 @@ def test_playable_filter_returns_every_actionable_verdict(monkeypatch) -> None:
         "SHOP": 1,
         "WAIT": 1,
     }
+    assert response.json()["totalCategoryCounts"] == {"HITS": 5}
+    assert response.json()["playableCategoryCounts"] == {"HITS": 3}
+    assert response.json()["totalSportCategoryCounts"] == {
+        "MLB": {"HITS": 5}
+    }
+    assert response.json()["playableSportCategoryCounts"] == {
+        "MLB": {"HITS": 3}
+    }
 
 def test_prop_id_stays_stable_when_site_line_changes() -> None:
     before = _make_prop_id("event-1", "Player One", "points", 20.5, "FanDuel")
@@ -985,6 +993,26 @@ def test_edge_ranking_uses_no_vig_probability_not_stat_units(monkeypatch) -> Non
     assert [row["id"] for row in response.json()["props"]] == [
         "strikeouts",
         "yards",
+    ]
+
+def test_edge_ranking_keeps_earlier_games_before_later_games(monkeypatch) -> None:
+    earlier = FakeProp("earlier", "Early", "MLB", "FANDUEL", "STRIKEOUTS")
+    earlier.startTimeUtc = "2099-07-20T20:00:00Z"
+    earlier.probabilityEdge = .01
+    later = FakeProp("later", "Late", "MLB", "FANDUEL", "STRIKEOUTS")
+    later.startTimeUtc = "2099-07-21T20:00:00Z"
+    later.probabilityEdge = .20
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [later, earlier])
+
+    response = TestClient(main.app).get(
+        "/api/props",
+        params={"sport": "All", "sortBy": "edge"},
+    )
+
+    assert response.status_code == 200
+    assert [row["id"] for row in response.json()["props"]] == [
+        "earlier",
+        "later",
     ]
 
 

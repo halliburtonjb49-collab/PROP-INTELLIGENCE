@@ -171,7 +171,7 @@ void main() {
     expect(prop.proSuggestionUsesModel, isTrue);
   });
 
-  test('unqualified historical projection is an informational stats lean', () {
+  test('historical projection provides a definite Pro PI Pick direction', () {
     const prop = PropData(
       id: 'historical-lean',
       eventId: '',
@@ -202,7 +202,7 @@ void main() {
     expect(prop.proSuggestionUsesMarket, isFalse);
   });
 
-  test('PI verdict side overrides a conflicting fallback projection lean', () {
+  test('PI verdict side overrides a conflicting fallback projection pick', () {
     final prop = PropData.fromJson(const {
       'id': 'verdict-wins',
       'player': 'Player',
@@ -269,6 +269,17 @@ void main() {
       'projectionCalibrated': false,
       'projectionLabel': 'Baseline historical model',
       'historicalHitRate': 67,
+      'temperatureF': 72,
+      'apparentTemperatureF': 68,
+      'precipitationProbability': 35,
+      'windSpeedMph': 12,
+      'windGustMph': 18,
+      'weatherCode': 3,
+      'weatherMultiplier': 0.98,
+      'weatherStatus': 'outdoor',
+      'weatherVenue': 'Buffalo Bills stadium',
+      'weatherSource': 'open-meteo',
+      'weatherForecastForUtc': '2026-08-16T17:25:00+00:00',
     });
 
     expect(prop.projectionModelVersion, 'baseline-v1');
@@ -276,6 +287,17 @@ void main() {
     expect(prop.projectionVolatility, 4.2);
     expect(prop.projectionCalibrated, isFalse);
     expect(prop.historicalHitRate, 67);
+    expect(prop.temperatureF, 72);
+    expect(prop.apparentTemperatureF, 68);
+    expect(prop.precipitationProbability, 35);
+    expect(prop.windSpeedMph, 12);
+    expect(prop.windGustMph, 18);
+    expect(prop.weatherCode, 3);
+    expect(prop.weatherMultiplier, 0.98);
+    expect(prop.weatherStatus, 'outdoor');
+    expect(prop.weatherVenue, 'Buffalo Bills stadium');
+    expect(prop.weatherSource, 'open-meteo');
+    expect(prop.weatherForecastForUtc, '2026-08-16T17:25:00+00:00');
   });
 
   test('board intelligence follows active selections before card focus', () {

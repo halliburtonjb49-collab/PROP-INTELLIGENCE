@@ -10,6 +10,7 @@ from services.projection_calibration_service import (
     contextual_projection,
     exponentially_weighted_mean,
     recency_weighted_baseline,
+    recency_weighted_hit_rate,
     shrink_toward_prior,
     shrinkage_weight,
 )
@@ -67,6 +68,22 @@ def test_recency_baseline_handles_logs_shorter_than_every_window() -> None:
     assert recency_weighted_baseline([4, 5, 6]) == approx(5)
 
 
+def test_recent_hit_rate_uses_5_10_20_and_full_sample_windows() -> None:
+    values = ([8] * 20) + ([12] * 5)
+
+    rate = recency_weighted_hit_rate(values, line=10, side="OVER")
+
+    assert rate == approx(0.40 + (0.25 / 2) + (0.20 / 4) + (0.15 / 5))
+
+
+def test_recent_hit_rate_does_not_turn_one_hot_game_into_high_confidence() -> None:
+    values = ([8] * 19) + [12]
+
+    rate = recency_weighted_hit_rate(values, line=10, side="OVER")
+
+    assert rate < 0.15
+
+
 def test_shrinkage_gives_the_player_more_weight_as_games_accumulate() -> None:
     assert shrinkage_weight(0, k=8) == 0
     assert shrinkage_weight(8, k=8) == .5
@@ -97,6 +114,13 @@ def test_context_multiplier_is_bounded() -> None:
         10,
         ProjectionContext(workload_multiplier=2, opponent_multiplier=2),
     ) == 13.5
+
+
+def test_context_projection_applies_weather_multiplier() -> None:
+    assert contextual_projection(
+        100,
+        ProjectionContext(weather_multiplier=.94),
+    ) == 94
 
 
 def test_prop_context_recalculates_projection_probability_and_side() -> None:

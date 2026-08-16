@@ -25,12 +25,16 @@ class _ParsedPropsPayload {
     required this.count,
     required this.facetCount,
     required this.categoryCounts,
+    required this.totalCategoryCounts,
+    required this.playableCategoryCounts,
     required this.sportCounts,
     required this.sportsbookCounts,
     required this.providerCoverage,
     required this.providerReliability,
     required this.verdictCounts,
     required this.sportCategoryCounts,
+    required this.totalSportCategoryCounts,
+    required this.playableSportCategoryCounts,
     required this.rawMaps,
   });
 
@@ -38,6 +42,8 @@ class _ParsedPropsPayload {
   final int count;
   final int facetCount;
   final Map<String, int> categoryCounts;
+  final Map<String, int> totalCategoryCounts;
+  final Map<String, int> playableCategoryCounts;
   final Map<String, int> sportCounts;
 
   /// Props available per prop site, counted before the sportsbook
@@ -48,6 +54,8 @@ class _ParsedPropsPayload {
   final Map<String, dynamic> providerReliability;
   final Map<String, int> verdictCounts;
   final Map<String, Map<String, int>> sportCategoryCounts;
+  final Map<String, Map<String, int>> totalSportCategoryCounts;
+  final Map<String, Map<String, int>> playableSportCategoryCounts;
   final List<Map<String, dynamic>> rawMaps;
 }
 
@@ -82,6 +90,19 @@ _ParsedPropsPayload _parsePropsPayload(String body) {
                 (entry.value as num?)?.toInt() ?? 0,
         }
       : const <String, int>{};
+  Map<String, int> intCounts(Object? raw) => raw is Map
+      ? {
+          for (final entry in raw.entries)
+            entry.key.toString().trim().toUpperCase():
+                (entry.value as num?)?.toInt() ?? 0,
+        }
+      : const <String, int>{};
+  final totalCategoryCounts = intCounts(
+    decoded['totalCategoryCounts'] ?? rawCategoryCounts,
+  );
+  final playableCategoryCounts = intCounts(
+    decoded['playableCategoryCounts'] ?? rawCategoryCounts,
+  );
   final rawSportCounts = decoded['sportCounts'];
   final sportCounts = rawSportCounts is Map
       ? {
@@ -132,17 +153,34 @@ _ParsedPropsPayload _parsePropsPayload(String body) {
         }
       : const <String, Map<String, int>>{};
 
+  Map<String, Map<String, int>> nestedIntCounts(Object? raw) => raw is Map
+      ? {
+          for (final outer in raw.entries)
+            outer.key.toString().trim().toUpperCase(): intCounts(outer.value),
+        }
+      : const <String, Map<String, int>>{};
+  final totalSportCategoryCounts = nestedIntCounts(
+    decoded['totalSportCategoryCounts'] ?? rawSportCategoryCounts,
+  );
+  final playableSportCategoryCounts = nestedIntCounts(
+    decoded['playableSportCategoryCounts'] ?? rawSportCategoryCounts,
+  );
+
   return _ParsedPropsPayload(
     props: propsById.values.toList(growable: false),
     count: totalCount,
     facetCount: facetCount,
     categoryCounts: categoryCounts,
+    totalCategoryCounts: totalCategoryCounts,
+    playableCategoryCounts: playableCategoryCounts,
     sportCounts: sportCounts,
     sportsbookCounts: sportsbookCounts,
     providerCoverage: providerCoverage,
     providerReliability: providerReliability,
     verdictCounts: verdictCounts,
     sportCategoryCounts: sportCategoryCounts,
+    totalSportCategoryCounts: totalSportCategoryCounts,
+    playableSportCategoryCounts: playableSportCategoryCounts,
     rawMaps: rawMaps,
   );
 }
@@ -190,9 +228,14 @@ class ApiService {
       <String, List<PropData>>{};
   static int _lastFacetCount = 0;
   static Map<String, int> _lastCategoryCounts = const {};
+  static Map<String, int> _lastTotalCategoryCounts = const {};
+  static Map<String, int> _lastPlayableCategoryCounts = const {};
   static Map<String, int> _lastSportCounts = const {};
   static Map<String, int> _lastVerdictCounts = const {};
   static Map<String, Map<String, int>> _lastSportCategoryCounts = const {};
+  static Map<String, Map<String, int>> _lastTotalSportCategoryCounts = const {};
+  static Map<String, Map<String, int>> _lastPlayableSportCategoryCounts =
+      const {};
   static Map<String, dynamic> _lastProviderCoverage = const {};
   static Map<String, dynamic> _lastProviderReliability = const {};
   static final ValueNotifier<BackendRefreshStatus> refreshStatusNotifier =
@@ -204,6 +247,10 @@ class ApiService {
   int get lastFacetCount => _lastFacetCount;
   Map<String, int> get lastCategoryCounts =>
       Map.unmodifiable(_lastCategoryCounts);
+  Map<String, int> get lastTotalCategoryCounts =>
+      Map.unmodifiable(_lastTotalCategoryCounts);
+  Map<String, int> get lastPlayableCategoryCounts =>
+      Map.unmodifiable(_lastPlayableCategoryCounts);
   Map<String, int> get lastSportCounts => Map.unmodifiable(_lastSportCounts);
   Map<String, int> get lastVerdictCounts =>
       Map.unmodifiable(_lastVerdictCounts);
@@ -216,6 +263,16 @@ class ApiService {
   Map<String, Map<String, int>> get lastSportCategoryCounts =>
       Map<String, Map<String, int>>.unmodifiable({
         for (final entry in _lastSportCategoryCounts.entries)
+          entry.key: Map<String, int>.unmodifiable(entry.value),
+      });
+  Map<String, Map<String, int>> get lastTotalSportCategoryCounts =>
+      Map<String, Map<String, int>>.unmodifiable({
+        for (final entry in _lastTotalSportCategoryCounts.entries)
+          entry.key: Map<String, int>.unmodifiable(entry.value),
+      });
+  Map<String, Map<String, int>> get lastPlayableSportCategoryCounts =>
+      Map<String, Map<String, int>>.unmodifiable({
+        for (final entry in _lastPlayableSportCategoryCounts.entries)
           entry.key: Map<String, int>.unmodifiable(entry.value),
       });
   Map<String, dynamic> get lastProviderCoverage =>
@@ -1199,9 +1256,13 @@ class ApiService {
         var totalCount = parsed.count;
         var facetCount = parsed.facetCount;
         var categoryCounts = parsed.categoryCounts;
+        var totalCategoryCounts = parsed.totalCategoryCounts;
+        var playableCategoryCounts = parsed.playableCategoryCounts;
         var sportCounts = parsed.sportCounts;
         var verdictCounts = parsed.verdictCounts;
         var sportCategoryCounts = parsed.sportCategoryCounts;
+        var totalSportCategoryCounts = parsed.totalSportCategoryCounts;
+        var playableSportCategoryCounts = parsed.playableSportCategoryCounts;
         var providerCoverage = parsed.providerCoverage;
         final providerReliability = parsed.providerReliability;
 
@@ -1248,15 +1309,25 @@ class ApiService {
             totalCount = fallbackProps.length;
             facetCount = fallbackProps.length;
             categoryCounts = _categoryCountsFromProps(fallbackProps);
+            totalCategoryCounts = categoryCounts;
+            playableCategoryCounts = _categoryCountsFromProps(
+              fallbackProps.where((prop) => prop.verdict.actionable).toList(),
+            );
             sportCounts = _sportCountsFromProps(fallbackProps);
             verdictCounts = _verdictCountsFromProps(fallbackProps);
             sportCategoryCounts = _sportCategoryCountsFromProps(fallbackProps);
+            totalSportCategoryCounts = sportCategoryCounts;
+            playableSportCategoryCounts = _sportCategoryCountsFromProps(
+              fallbackProps.where((prop) => prop.verdict.actionable).toList(),
+            );
             providerCoverage = const <String, dynamic>{};
           }
         }
 
         _lastFacetCount = facetCount;
         _lastCategoryCounts = categoryCounts;
+        _lastTotalCategoryCounts = totalCategoryCounts;
+        _lastPlayableCategoryCounts = playableCategoryCounts;
         _lastVerdictCounts = verdictCounts;
         if (providerCoverage.isNotEmpty) {
           _lastProviderCoverage = providerCoverage;
@@ -1269,6 +1340,8 @@ class ApiService {
           _lastSportCounts = sportCounts;
           _lastSportsbookCounts = parsed.sportsbookCounts;
           _lastSportCategoryCounts = sportCategoryCounts;
+          _lastTotalSportCategoryCounts = totalSportCategoryCounts;
+          _lastPlayableSportCategoryCounts = playableSportCategoryCounts;
         }
         _resolvedBaseUrl = candidate;
         _lastPropsCount = totalCount > 0 ? totalCount : props.length;
@@ -1310,9 +1383,13 @@ class ApiService {
               _lastPropsCount,
               _lastFacetCount,
               _lastCategoryCounts,
+              _lastTotalCategoryCounts,
+              _lastPlayableCategoryCounts,
               sportCounts,
               verdictCounts,
               sportCategoryCounts,
+              _lastTotalSportCategoryCounts,
+              _lastPlayableSportCategoryCounts,
             ).catchError((_) {
               // A storage quota or private-browsing restriction must not turn
               // a successful live response into a failed board load.
@@ -1589,9 +1666,13 @@ class ApiService {
     int total,
     int facetTotal,
     Map<String, int> categoryCounts,
+    Map<String, int> totalCategoryCounts,
+    Map<String, int> playableCategoryCounts,
     Map<String, int> sportCounts,
     Map<String, int> verdictCounts,
     Map<String, Map<String, int>> sportCategoryCounts,
+    Map<String, Map<String, int>> totalSportCategoryCounts,
+    Map<String, Map<String, int>> playableSportCategoryCounts,
   ) async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(
@@ -1601,9 +1682,13 @@ class ApiService {
         'total': total,
         'facetTotal': facetTotal,
         'categoryCounts': categoryCounts,
+        'totalCategoryCounts': totalCategoryCounts,
+        'playableCategoryCounts': playableCategoryCounts,
         'sportCounts': sportCounts,
         'verdictCounts': verdictCounts,
         'sportCategoryCounts': sportCategoryCounts,
+        'totalSportCategoryCounts': totalSportCategoryCounts,
+        'playableSportCategoryCounts': playableSportCategoryCounts,
         'props': rawProps,
       }),
     );
@@ -1678,6 +1763,22 @@ class ApiService {
                       (entry.value as num?)?.toInt() ?? 0,
               }
             : const {};
+        Map<String, int> cachedCounts(Object? raw, Map<String, int> fallback) =>
+            raw is Map
+            ? {
+                for (final entry in raw.entries)
+                  entry.key.toString().trim().toUpperCase():
+                      (entry.value as num?)?.toInt() ?? 0,
+              }
+            : fallback;
+        _lastTotalCategoryCounts = cachedCounts(
+          decoded['totalCategoryCounts'],
+          _lastCategoryCounts,
+        );
+        _lastPlayableCategoryCounts = cachedCounts(
+          decoded['playableCategoryCounts'],
+          _lastCategoryCounts,
+        );
         final rawSportCounts = decoded['sportCounts'];
         _lastSportCounts = rawSportCounts is Map
             ? {
@@ -1713,6 +1814,26 @@ class ApiService {
                       : <String, int>{},
               }
             : const {};
+        Map<String, Map<String, int>> cachedNestedCounts(
+          Object? raw,
+          Map<String, Map<String, int>> fallback,
+        ) => raw is Map
+            ? {
+                for (final outer in raw.entries)
+                  outer.key.toString().trim().toUpperCase(): cachedCounts(
+                    outer.value,
+                    const <String, int>{},
+                  ),
+              }
+            : fallback;
+        _lastTotalSportCategoryCounts = cachedNestedCounts(
+          decoded['totalSportCategoryCounts'],
+          _lastSportCategoryCounts,
+        );
+        _lastPlayableSportCategoryCounts = cachedNestedCounts(
+          decoded['playableSportCategoryCounts'],
+          _lastSportCategoryCounts,
+        );
         refreshStatusNotifier.value = BackendRefreshStatus(
           lastRefreshAt: DateTime.tryParse(
             decoded['savedAt']?.toString() ?? '',

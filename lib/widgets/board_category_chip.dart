@@ -7,6 +7,7 @@ class BoardCategoryChip extends StatelessWidget {
     super.key,
     required this.category,
     required this.count,
+    required this.playableCount,
     required this.icon,
     required this.selected,
     required this.onPressed,
@@ -16,6 +17,7 @@ class BoardCategoryChip extends StatelessWidget {
 
   final String category;
   final int count;
+  final int playableCount;
   final IconData icon;
   final bool selected;
   final VoidCallback onPressed;
@@ -26,13 +28,13 @@ class BoardCategoryChip extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: 'Show $category, $count available',
+      label: 'Show $category, $count total, $playableCount playable',
       child: OutlinedButton.icon(
         key: ValueKey('category-filter-$category'),
         onPressed: onPressed,
         icon: Icon(icon, size: 14),
         label: Text(
-          '$category $count',
+          '$category $count · PLAYABLE $playableCount',
           key: ValueKey('category-count-$category'),
           style: labelStyle,
         ),

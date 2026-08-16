@@ -28,6 +28,7 @@ from services.basketball_projection_service import (
 from services.projection_calibration_service import (
     confidence_from_probability,
     recency_weighted_baseline,
+    recency_weighted_hit_rate,
     recency_weights_for,
     shrink_toward_prior,
     shrinkage_k_for,
@@ -64,6 +65,7 @@ class BaselineProjection:
     sample_size: int
     volatility: float
     historical_hit_rate: int
+    recent_hit_rate: int
     hit_probability: float
     model_version: str = MODEL_VERSION
     source: str = "historical-game-logs"
@@ -325,6 +327,12 @@ def compute_baseline_projection(
         if (value > float(line) if side_is_over else value < float(line))
     )
     historical_hit_rate = round(hits / len(ordered) * 100)
+    recent_hit_rate = recency_weighted_hit_rate(
+        ordered,
+        line=line,
+        side="OVER" if side_is_over else "UNDER",
+        weights=recency_weights_for(sport, market),
+    )
     evaluation = evaluate_market(
         projection=projection,
         line=line,
@@ -334,7 +342,7 @@ def compute_baseline_projection(
         sport=sport,
         market=market,
         model_calibrated=False,
-        empirical_hit_rate=historical_hit_rate / 100,
+        empirical_hit_rate=recent_hit_rate,
         sharp_probability=None,
         decimal_odds=None,
         # The observed share of blanked games is what distinguishes a player
@@ -349,6 +357,7 @@ def compute_baseline_projection(
         sample_size=len(ordered),
         volatility=round(volatility, 3),
         historical_hit_rate=historical_hit_rate,
+        recent_hit_rate=round(recent_hit_rate * 100),
         hit_probability=hit_probability,
         prior=None if prior is None else round(float(prior), 3),
         prior_weight=round(own_weight, 4),

@@ -205,13 +205,26 @@ class _ElitePropCardState extends State<ElitePropCard> {
     return null;
   }
 
+  String? _resolvedDirection() {
+    final raw = _text(const [
+      'recommended_side',
+      'recommendedSide',
+      'pick',
+    ])?.toLowerCase();
+    if (raw != null) {
+      if (raw.contains('under') || raw.contains('less')) return 'under';
+      if (raw.contains('over') || raw.contains('more')) return 'over';
+    }
+    final gap =
+        widget.aiProjection.toDouble() - widget.sportsbookLine.toDouble();
+    if (gap.abs() < .05) return null;
+    return gap > 0 ? 'over' : 'under';
+  }
+
   List<({String text, bool positive})> _decisionSignals(List<double> history) {
     final signals = <({String text, bool positive})>[];
-    final direction =
-        (_text(const ['recommended_side', 'recommendedSide', 'pick']) ?? 'over')
-            .toLowerCase();
-    final recommendsUnder =
-        direction.contains('under') || direction.contains('less');
+    final direction = _resolvedDirection();
+    final recommendsUnder = direction == 'under';
     final projectionGap =
         widget.aiProjection.toDouble() - widget.sportsbookLine.toDouble();
     if (projectionGap.abs() >= .05) {
@@ -403,10 +416,9 @@ class _ElitePropCardState extends State<ElitePropCard> {
   List<({String book, double? line, int odds})> _bookOffers() {
     final raw = widget.propData['odds_data'] ?? widget.propData['oddsData'];
     if (raw is! List) return const [];
-    final direction =
-        (_text(const ['recommended_side', 'recommendedSide', 'pick']) ?? 'over')
-            .toLowerCase();
-    final under = direction.contains('under') || direction.contains('less');
+    final direction = _resolvedDirection();
+    if (direction == null) return const [];
+    final under = direction == 'under';
     final offers = <({String book, double? line, int odds})>[];
     for (final item in raw.whereType<Map>()) {
       final book = (item['bookmaker'] ?? item['sportsbook'] ?? item['book'])

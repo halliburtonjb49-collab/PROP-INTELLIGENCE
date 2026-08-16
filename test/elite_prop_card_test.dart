@@ -108,4 +108,37 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('missing direction never defaults line shopping to OVER', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ElitePropCard(
+              playerName: 'Neutral Player',
+              propType: 'Points',
+              sportsbookLine: 20.5,
+              americanOdds: -110,
+              aiProjection: 20.5,
+              edgePercentage: 0,
+              isUserPremium: true,
+              propData: {
+                'odds_data': [
+                  {'bookmaker': 'Book A', 'line': 20.5, 'over_odds': 105},
+                ],
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Neutral Player'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('LINE SHOP'), findsNothing);
+    expect(find.textContaining('Projection is'), findsNothing);
+  });
 }

@@ -1,7 +1,9 @@
 from datetime import date
+import services.pregame_context_ingestion_service as ingestion
 
 from services.pregame_context_ingestion_service import (
     _current_injury_matches,
+    _event_scoped_lineups,
     _inside_starter_window,
     _inside_mlb_lineup_window,
     normalize_official_mlb_boxscore,
@@ -175,3 +177,87 @@ def test_latest_context_lookup_index_is_registered_and_matches_query_order() -> 
         "provider,\n    entity_type,\n    event_id,\n"
         "    lower(player_name),\n    observed_at desc"
     ) in sql
+
+
+def test_reconfirmed_lineup_refreshes_observation_timestamp(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class Cursor:
+        rowcount = 1
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def executemany(self, statement, rows):
+            captured["statement"] = statement
+            captured["rows"] = rows
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def cursor(self):
+            return Cursor()
+
+        def commit(self):
+            captured["committed"] = True
+
+    class Pool:
+        def connection(self):
+            return Connection()
+
+    monkeypatch.setattr(ingestion, "database_is_configured", lambda: True)
+    monkeypatch.setattr(ingestion, "get_database_pool", lambda: Pool())
+
+    persisted = ingestion.persist_pregame_observations(
+        "MLB_STATS_API",
+        [{
+            "sport": "MLB",
+            "event_id": "77",
+            "entity_type": "LINEUP",
+            "provider_player_id": "1",
+            "player_name": "Fresh Batter",
+            "team": "CHC",
+            "opponent": "CIN",
+            "event_time": "2026-08-15T19:00:00Z",
+            "status": "CONFIRMED_STARTER",
+            "confirmed": True,
+            "payload": {"battingOrder": 1},
+        }],
+    )
+
+    assert persisted == 1
+    assert captured["committed"] is True
+    statement = str(captured["statement"]).lower()
+    assert "on conflict(provider,fingerprint) do update" in statement
+    assert "observed_at=now()" in statement
+
+def test_lineup_context_prefers_the_prop_event_over_older_confirmation() -> None:
+    class Prop:
+        eventId = "today"
+        startTimeUtc = "2026-08-15T19:00:00Z"
+
+    rows = [
+        {
+            "entityType": "LINEUP",
+            "eventId": "yesterday",
+            "eventTime": "2026-08-14T19:00:00Z",
+            "confirmed": True,
+        },
+        {
+            "entityType": "LINEUP",
+            "eventId": "today",
+            "eventTime": "2026-08-15T19:00:00Z",
+            "confirmed": False,
+        },
+    ]
+
+    scoped = _event_scoped_lineups(Prop(), rows)
+
+    assert [row["eventId"] for row in scoped] == ["today"]

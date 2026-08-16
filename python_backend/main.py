@@ -2857,7 +2857,7 @@ def props(
 	category: str = Query(default="All"),
 	search: str = Query(default=""),
 	minConfidence: int = Query(default=0),
-	sortBy: str = Query(default="confidence"),
+	sortBy: str = Query(default="time"),
 	verdict: str = Query(default="All"),
 	includePastDates: bool = Query(default=False),
 	includeStarted: bool = Query(default=False),
@@ -3139,10 +3139,31 @@ def props(
 				prop, apply_category=False, apply_sportsbook=False
 			)
 		]
+		# Category rails must distinguish inventory from props the model is
+		# prepared to recommend. These counts deliberately ignore the selected
+		# verdict tab while honoring every other active board filter.
+		total_facet_props = [
+			prop for prop in prop_list
+			if _matches_filters(
+				prop, apply_category=False, apply_verdict=False
+			)
+		]
+		playable_facet_props = [
+			prop for prop in total_facet_props
+			if bool((getattr(prop, "verdict", None) or {}).get("actionable"))
+		]
 		facet_props = [
 			prop for prop in prop_list
 			if _matches_filters(prop, apply_category=False)
 		]
+		total_category_counts = Counter(
+			str(prop.category or "other").strip().upper()
+			for prop in total_facet_props
+		)
+		playable_category_counts = Counter(
+			str(prop.category or "other").strip().upper()
+			for prop in playable_facet_props
+		)
 		category_counts = Counter(
 			str(prop.category or "other").strip().upper()
 			for prop in facet_props
@@ -3212,6 +3233,18 @@ def props(
 			sport_key = str(prop.sport or "other").strip().upper()
 			category_key = str(prop.category or "other").strip().upper()
 			sport_category_counts.setdefault(sport_key, Counter())[category_key] += 1
+		total_sport_category_counts: dict[str, Counter[str]] = {}
+		for prop in total_facet_props:
+			sport_key = str(prop.sport or "other").strip().upper()
+			category_key = str(prop.category or "other").strip().upper()
+			total_sport_category_counts.setdefault(sport_key, Counter())[category_key] += 1
+		playable_sport_category_counts: dict[str, Counter[str]] = {}
+		for prop in playable_facet_props:
+			sport_key = str(prop.sport or "other").strip().upper()
+			category_key = str(prop.category or "other").strip().upper()
+			playable_sport_category_counts.setdefault(
+				sport_key, Counter()
+			)[category_key] += 1
 		filtered_props = [
 			prop for prop in facet_props
 			if _matches_filters(prop, apply_category=True)
@@ -3252,6 +3285,18 @@ def props(
 			sport_label = str(row.sport or "").strip().upper()
 			return 1 if sport_label == "SOCCER" or sport_label.startswith("SOCCER_") else 0
 
+		def _start_time(row: PropResponse) -> datetime:
+			return _parse_start_time(row.startTimeUtc) or datetime.max.replace(
+				tzinfo=timezone.utc
+			)
+
+		def _stable_identity(row: PropResponse) -> tuple[str, str, str]:
+			return (
+				str(row.player or "").casefold(),
+				str(row.market or "").casefold(),
+				str(row.id or ""),
+			)
+
 		if sort_by == "edge":
 			# Rank on probability, not stat units. A 3.0 edge on passing yards
 			# and a 0.8 edge on strikeouts are not comparable quantities, and
@@ -3263,6 +3308,7 @@ def props(
 			# stat-unit edge only orders props with no priced market at all.
 			filtered_props.sort(
 				key=lambda row: (
+					_start_time(row),
 					_all_sports_priority(row),
 					-float(
 						row.probabilityEdge
@@ -3271,32 +3317,37 @@ def props(
 					),
 					-float(row.evPercentage or 0),
 					-float(row.edge or 0),
+					*_stable_identity(row),
 				),
 			)
 		elif sort_by == "premium":
 			filtered_props.sort(
 				key=lambda row: (
+					_start_time(row),
 					_all_sports_priority(row),
 					-tier_rank.get(
 						_visible_recommendation_tier(row) or "no pick",
 						0,
 					),
 					-int(row.confidence or 0),
+					*_stable_identity(row),
 				),
 			)
 		elif sort_by == "time":
 			filtered_props.sort(
 				key=lambda row: (
+					_start_time(row),
 					_all_sports_priority(row),
-					_parse_start_time(row.startTimeUtc)
-					or datetime.max.replace(tzinfo=timezone.utc)
+					*_stable_identity(row),
 				),
 			)
 		else:
 			filtered_props.sort(
 				key=lambda row: (
+					_start_time(row),
 					_all_sports_priority(row),
 					-int(row.confidence or 0),
+					*_stable_identity(row),
 				),
 			)
 			sort_by = "confidence"
@@ -3345,6 +3396,10 @@ def props(
 			"count": total_count,
 			"facetCount": len(facet_props),
 			"categoryCounts": dict(sorted(category_counts.items())),
+			"totalCategoryCounts": dict(sorted(total_category_counts.items())),
+			"playableCategoryCounts": dict(
+				sorted(playable_category_counts.items())
+			),
 			"sportCounts": dict(sorted(sport_counts.items())),
 			# Lets the board hide a prop site that currently has nothing,
 			# rather than offering a filter that returns an empty screen.
@@ -3355,6 +3410,14 @@ def props(
 			"sportCategoryCounts": {
 				sport_key: dict(sorted(counts.items()))
 				for sport_key, counts in sorted(sport_category_counts.items())
+			},
+			"totalSportCategoryCounts": {
+				sport_key: dict(sorted(counts.items()))
+				for sport_key, counts in sorted(total_sport_category_counts.items())
+			},
+			"playableSportCategoryCounts": {
+				sport_key: dict(sorted(counts.items()))
+				for sport_key, counts in sorted(playable_sport_category_counts.items())
 			},
 			"returned": len(page),
 			"offset": offset,

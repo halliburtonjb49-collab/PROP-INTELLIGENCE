@@ -14,6 +14,7 @@ class ProjectionContext:
     opponent_multiplier: float = 1.0
     availability_multiplier: float = 1.0
     venue_multiplier: float = 1.0
+    weather_multiplier: float = 1.0
 
     @property
     def combined_multiplier(self) -> float:
@@ -22,6 +23,7 @@ class ProjectionContext:
             * self.opponent_multiplier
             * self.availability_multiplier
             * self.venue_multiplier
+            * self.weather_multiplier
         )
         return max(0.65, min(1.35, value))
 
@@ -171,6 +173,29 @@ def recency_weighted_baseline(
     )
     return blended / total
 
+
+def recency_weighted_hit_rate(
+    values: Sequence[float],
+    *,
+    line: float,
+    side: str,
+    weights: tuple[float, float, float, float] | None = None,
+) -> float:
+    """Blend last-5, last-10, last-20 and full-sample hit rates."""
+
+    normalized_side = str(side or "").strip().upper()
+    if normalized_side not in {"OVER", "UNDER"}:
+        raise ValueError("Side must be OVER or UNDER")
+    threshold = float(line)
+    if normalized_side == "OVER":
+        outcomes = [1.0 if float(value) > threshold else 0.0 for value in values]
+    else:
+        outcomes = [1.0 if float(value) < threshold else 0.0 for value in values]
+    if not outcomes:
+        raise ValueError("At least one value is required")
+    # One short hot streak remains constrained by the longer windows and the
+    # full sample. Confidence rises only when the recent evidence persists.
+    return recency_weighted_baseline(outcomes, weights=weights)
 
 # Small-sample shrinkage
 # ----------------------

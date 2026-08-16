@@ -1208,8 +1208,12 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 
   List<SelectedProp> _selectedPropModels() {
     return _activeSlipController.legs
+        .where((leg) {
+          final side = (leg['side'] ?? leg['pick'])?.toString().toUpperCase();
+          return side == 'OVER' || side == 'UNDER';
+        })
         .map((leg) {
-          final side = (leg['side'] ?? leg['pick'] ?? 'OVER').toString();
+          final side = (leg['side'] ?? leg['pick']).toString().toUpperCase();
           final selectedOdds = leg['current_odds'] ?? leg['odds'];
           final bestRaw = side.toUpperCase() == 'UNDER'
               ? leg['under_odds'] ?? selectedOdds
@@ -1768,111 +1772,124 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   }
 
   List<SlipSelection> _activeSlipSelections() {
-    return _activeSlipController.legs.map((rawLeg) {
-      final leg = Map<String, dynamic>.from(rawLeg);
-      final propId = leg['prop_id']?.toString() ?? leg['id']?.toString() ?? '';
-      final sideText =
-          (leg['side']?.toString() ?? leg['pick']?.toString() ?? 'OVER')
-              .toUpperCase();
-      final side = sideText == 'UNDER' ? PickSide.under : PickSide.over;
-      final oddsValue = ((leg['current_odds'] as num?) ?? (leg['odds'] as num?))
-          ?.toDouble();
+    return _activeSlipController.legs
+        .map<SlipSelection?>((rawLeg) {
+          final leg = Map<String, dynamic>.from(rawLeg);
+          final propId =
+              leg['prop_id']?.toString() ?? leg['id']?.toString() ?? '';
+          final sideText =
+              (leg['side']?.toString() ?? leg['pick']?.toString() ?? '')
+                  .toUpperCase();
+          if (sideText != 'OVER' && sideText != 'UNDER') return null;
+          final side = sideText == 'UNDER' ? PickSide.under : PickSide.over;
+          final oddsValue =
+              ((leg['current_odds'] as num?) ?? (leg['odds'] as num?))
+                  ?.toDouble();
 
-      final prop = PropData(
-        id: propId,
-        eventId: leg['event_id']?.toString() ?? '',
-        apiSportsGameId: leg['api_sports_game_id']?.toString() ?? '',
-        playerId: leg['player_id']?.toString() ?? '',
-        player: leg['player']?.toString() ?? 'Unknown Player',
-        sport: leg['sport']?.toString() ?? '',
-        matchup: leg['matchup']?.toString() ?? '',
-        sportsbook:
-            leg['prop_site']?.toString() ?? leg['sportsbook']?.toString() ?? '',
-        market: leg['market']?.toString() ?? '',
-        gameStartTime: leg['game_start_time']?.toString() ?? '',
-        line:
-            ((leg['current_line'] as num?) ?? (leg['line'] as num?))
-                ?.toDouble() ??
-            0,
-        pick: sideText,
-        recommendedSide:
-            leg['recommended_side']?.toString() ??
-            leg['recommendedSide']?.toString() ??
-            (sideText == 'UNDER' ? 'Under' : 'Over'),
-        pickText:
-            leg['pick_text']?.toString() ??
-            leg['pickText']?.toString() ??
-            '${sideText == 'UNDER' ? 'Under' : 'Over'} ${((leg['current_line'] as num?) ?? (leg['line'] as num?) ?? 0).toString()}',
-        recommendationAvailable: leg['recommendation_available'] == true,
-        recommendationUnavailableReason:
-            leg['recommendation_unavailable_reason']?.toString() ?? '',
-        edge: (leg['edge'] as num?)?.toDouble() ?? 0,
-        recommendationEdge:
-            (leg['recommendation_edge'] as num?)?.toDouble() ?? 0,
-        confidence: (leg['confidence'] as num?)?.toInt() ?? 0,
-        projection: (leg['projection'] as num?)?.toDouble(),
-        projectionSource: leg['projection_source']?.toString() ?? '',
-        projectionModelVersion:
-            leg['projection_model_version']?.toString() ?? '',
-        projectionSampleSize:
-            (leg['projection_sample_size'] as num?)?.toInt() ?? 0,
-        projectionVolatility: (leg['projection_volatility'] as num?)
-            ?.toDouble(),
-        projectionCalibrated: leg['projection_calibrated'] == true,
-        historicalHitRate: (leg['historical_hit_rate'] as num?)?.toInt(),
-        fairProbability: (leg['fair_probability'] as num?)?.toDouble(),
-        modelProbability: (leg['model_probability'] as num?)?.toDouble(),
-        marketProbability: (leg['market_probability'] as num?)?.toDouble(),
-        pushProbability: (leg['push_probability'] as num?)?.toDouble() ?? 0,
-        lossProbability: (leg['loss_probability'] as num?)?.toDouble(),
-        fairDecimalOdds: (leg['fair_decimal_odds'] as num?)?.toDouble(),
-        probabilityMethod: leg['probability_method']?.toString() ?? '',
-        probabilityMarketWeight:
-            (leg['probability_market_weight'] as num?)?.toDouble() ?? 0,
-        probabilityUncertainty: (leg['probability_uncertainty'] as num?)
-            ?.toDouble(),
-        probabilityCalibrationAdjustment:
-            (leg['probability_calibration_adjustment'] as num?)?.toDouble() ??
-            0,
-        probabilityCalibrationSampleSize:
-            (leg['probability_calibration_sample_size'] as num?)?.toInt() ?? 0,
-        evPercentage: (leg['ev_percentage'] as num?)?.toDouble(),
-        injuryStatus: leg['injury_status']?.toString() ?? 'unknown',
-        lineupStatus: leg['lineup_status']?.toString() ?? 'unknown',
-        openingLine: (leg['opening_line'] as num?)?.toDouble() ?? 0,
-        lineMovedAtUtc: leg['line_moved_at_utc']?.toString() ?? '',
-        sourcePlayerId: leg['source_player_id']?.toString() ?? '',
-        canonicalPlayerId: leg['canonical_player_id']?.toString() ?? '',
-        playerIdentityConfidence:
-            (leg['player_identity_confidence'] as num?)?.toDouble() ?? 0,
-        fatigueMultiplier: (leg['fatigue_multiplier'] as num?)?.toDouble(),
-        restDays: (leg['rest_days'] as num?)?.toDouble(),
-        paceMultiplier: (leg['pace_multiplier'] as num?)?.toDouble(),
-        opponentDefenseMultiplier: (leg['opponent_defense_multiplier'] as num?)
-            ?.toDouble(),
-        usageMultiplier: (leg['usage_multiplier'] as num?)?.toDouble(),
-        homeAwayMultiplier: (leg['home_away_multiplier'] as num?)?.toDouble(),
-        matchupMultiplier: (leg['matchup_multiplier'] as num?)?.toDouble(),
-        matchupContext: leg['matchup_context']?.toString() ?? '',
-        officiatingAdjustment: (leg['officiating_adjustment'] as num?)
-            ?.toDouble(),
-        imagePath:
-            leg['image_path']?.toString() ?? leg['imagePath']?.toString() ?? '',
-        customLabel: leg['custom_label']?.toString() ?? '',
-        manualNote: leg['manual_note']?.toString() ?? '',
-        multiplier: (leg['multiplier'] as num?)?.toDouble(),
-        winProbability: (leg['win_probability'] as num?)?.toDouble(),
-        overOdds: side == PickSide.over ? oddsValue : null,
-        underOdds: side == PickSide.under ? oddsValue : null,
-      );
+          final prop = PropData(
+            id: propId,
+            eventId: leg['event_id']?.toString() ?? '',
+            apiSportsGameId: leg['api_sports_game_id']?.toString() ?? '',
+            playerId: leg['player_id']?.toString() ?? '',
+            player: leg['player']?.toString() ?? 'Unknown Player',
+            sport: leg['sport']?.toString() ?? '',
+            matchup: leg['matchup']?.toString() ?? '',
+            sportsbook:
+                leg['prop_site']?.toString() ??
+                leg['sportsbook']?.toString() ??
+                '',
+            market: leg['market']?.toString() ?? '',
+            gameStartTime: leg['game_start_time']?.toString() ?? '',
+            line:
+                ((leg['current_line'] as num?) ?? (leg['line'] as num?))
+                    ?.toDouble() ??
+                0,
+            pick: sideText,
+            recommendedSide:
+                leg['recommended_side']?.toString() ??
+                leg['recommendedSide']?.toString() ??
+                (sideText == 'UNDER' ? 'Under' : 'Over'),
+            pickText:
+                leg['pick_text']?.toString() ??
+                leg['pickText']?.toString() ??
+                '${sideText == 'UNDER' ? 'Under' : 'Over'} ${((leg['current_line'] as num?) ?? (leg['line'] as num?) ?? 0).toString()}',
+            recommendationAvailable: leg['recommendation_available'] == true,
+            recommendationUnavailableReason:
+                leg['recommendation_unavailable_reason']?.toString() ?? '',
+            edge: (leg['edge'] as num?)?.toDouble() ?? 0,
+            recommendationEdge:
+                (leg['recommendation_edge'] as num?)?.toDouble() ?? 0,
+            confidence: (leg['confidence'] as num?)?.toInt() ?? 0,
+            projection: (leg['projection'] as num?)?.toDouble(),
+            projectionSource: leg['projection_source']?.toString() ?? '',
+            projectionModelVersion:
+                leg['projection_model_version']?.toString() ?? '',
+            projectionSampleSize:
+                (leg['projection_sample_size'] as num?)?.toInt() ?? 0,
+            projectionVolatility: (leg['projection_volatility'] as num?)
+                ?.toDouble(),
+            projectionCalibrated: leg['projection_calibrated'] == true,
+            historicalHitRate: (leg['historical_hit_rate'] as num?)?.toInt(),
+            fairProbability: (leg['fair_probability'] as num?)?.toDouble(),
+            modelProbability: (leg['model_probability'] as num?)?.toDouble(),
+            marketProbability: (leg['market_probability'] as num?)?.toDouble(),
+            pushProbability: (leg['push_probability'] as num?)?.toDouble() ?? 0,
+            lossProbability: (leg['loss_probability'] as num?)?.toDouble(),
+            fairDecimalOdds: (leg['fair_decimal_odds'] as num?)?.toDouble(),
+            probabilityMethod: leg['probability_method']?.toString() ?? '',
+            probabilityMarketWeight:
+                (leg['probability_market_weight'] as num?)?.toDouble() ?? 0,
+            probabilityUncertainty: (leg['probability_uncertainty'] as num?)
+                ?.toDouble(),
+            probabilityCalibrationAdjustment:
+                (leg['probability_calibration_adjustment'] as num?)
+                    ?.toDouble() ??
+                0,
+            probabilityCalibrationSampleSize:
+                (leg['probability_calibration_sample_size'] as num?)?.toInt() ??
+                0,
+            evPercentage: (leg['ev_percentage'] as num?)?.toDouble(),
+            injuryStatus: leg['injury_status']?.toString() ?? 'unknown',
+            lineupStatus: leg['lineup_status']?.toString() ?? 'unknown',
+            openingLine: (leg['opening_line'] as num?)?.toDouble() ?? 0,
+            lineMovedAtUtc: leg['line_moved_at_utc']?.toString() ?? '',
+            sourcePlayerId: leg['source_player_id']?.toString() ?? '',
+            canonicalPlayerId: leg['canonical_player_id']?.toString() ?? '',
+            playerIdentityConfidence:
+                (leg['player_identity_confidence'] as num?)?.toDouble() ?? 0,
+            fatigueMultiplier: (leg['fatigue_multiplier'] as num?)?.toDouble(),
+            restDays: (leg['rest_days'] as num?)?.toDouble(),
+            paceMultiplier: (leg['pace_multiplier'] as num?)?.toDouble(),
+            opponentDefenseMultiplier:
+                (leg['opponent_defense_multiplier'] as num?)?.toDouble(),
+            usageMultiplier: (leg['usage_multiplier'] as num?)?.toDouble(),
+            homeAwayMultiplier: (leg['home_away_multiplier'] as num?)
+                ?.toDouble(),
+            matchupMultiplier: (leg['matchup_multiplier'] as num?)?.toDouble(),
+            matchupContext: leg['matchup_context']?.toString() ?? '',
+            officiatingAdjustment: (leg['officiating_adjustment'] as num?)
+                ?.toDouble(),
+            imagePath:
+                leg['image_path']?.toString() ??
+                leg['imagePath']?.toString() ??
+                '',
+            customLabel: leg['custom_label']?.toString() ?? '',
+            manualNote: leg['manual_note']?.toString() ?? '',
+            multiplier: (leg['multiplier'] as num?)?.toDouble(),
+            winProbability: (leg['win_probability'] as num?)?.toDouble(),
+            overOdds: side == PickSide.over ? oddsValue : null,
+            underOdds: side == PickSide.under ? oddsValue : null,
+          );
 
-      return SlipSelection(
-        prop: prop,
-        side: side,
-        customSideLabel: sideText,
-        customOdds: oddsValue,
-      );
-    }).toList();
+          return SlipSelection(
+            prop: prop,
+            side: side,
+            customSideLabel: sideText,
+            customOdds: oddsValue,
+          );
+        })
+        .whereType<SlipSelection>()
+        .toList();
   }
 
   Future<void> _openLockSlipDialog() async {

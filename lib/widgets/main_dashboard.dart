@@ -197,9 +197,13 @@ class _MainDashboardState extends State<MainDashboard> {
   List<PropData> _siteInventoryProps = const [];
   Map<String, int> _siteSportCounts = const {};
   Map<String, Map<String, int>> _siteSportCategoryCounts = const {};
+  Map<String, Map<String, int>> _siteTotalSportCategoryCounts = const {};
+  Map<String, Map<String, int>> _sitePlayableSportCategoryCounts = const {};
   Map<String, dynamic> _providerCoverage = const {};
   Map<String, dynamic> _providerReliability = const {};
   Map<String, int> _categoryCounts = const {};
+  Map<String, int> _totalCategoryCounts = const {};
+  Map<String, int> _playableCategoryCounts = const {};
   Map<String, int> _verdictCounts = const {};
   List<PropData> _evScannerProps = const [];
   final TextEditingController _evSearchController = TextEditingController();
@@ -262,6 +266,8 @@ class _MainDashboardState extends State<MainDashboard> {
         _focusedProp = null;
         _latestProps = const [];
         _categoryCounts = const {};
+        _totalCategoryCounts = const {};
+        _playableCategoryCounts = const {};
         _lastUpdated = null;
       });
       if (widget.selectedPage == AppPage.evScanner) {
@@ -311,16 +317,12 @@ class _MainDashboardState extends State<MainDashboard> {
     }
   }
 
-  PickSide _evSide(PropData prop) {
-    final signal = '${prop.recommendedSide} ${prop.pick} ${prop.pickText}'
-        .toLowerCase();
-    if (signal.contains('under') || signal.contains('less')) {
-      return PickSide.under;
-    }
-    if (prop.projection != null && prop.projection! < prop.line) {
-      return PickSide.under;
-    }
-    return PickSide.over;
+  PickSide? _evSide(PropData prop) {
+    final side = prop.proSuggestedSide;
+    if (side == 'OVER') return PickSide.over;
+    if (side == 'UNDER') return PickSide.under;
+    if (prop.projection == null || prop.projection == prop.line) return null;
+    return prop.projection! > prop.line ? PickSide.over : PickSide.under;
   }
 
   List<String> get _evBooks {
@@ -345,7 +347,10 @@ class _MainDashboardState extends State<MainDashboard> {
           '${prop.player} ${prop.market} ${prop.sport} ${prop.sportsbook}'
               .toLowerCase()
               .contains(query);
-      return ev >= _evMinimum && matchesBook && matchesQuery;
+      return _evSide(prop) != null &&
+          ev >= _evMinimum &&
+          matchesBook &&
+          matchesQuery;
     }).toList();
     props.sort(
       (a, b) => switch (_evSort) {
@@ -364,6 +369,7 @@ class _MainDashboardState extends State<MainDashboard> {
     final fairDecimal =
         prop.fairDecimalOdds ?? (probability > 0 ? 1 / probability : 0);
     final side = _evSide(prop);
+    if (side == null) return;
     final availableOdds = side == PickSide.over
         ? prop.overOdds
         : prop.underOdds;
@@ -406,7 +412,7 @@ class _MainDashboardState extends State<MainDashboard> {
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
-              widget.onSelect(prop, _evSide(prop));
+              widget.onSelect(prop, side);
             },
             child: const Text('ADD TO SLIP'),
           ),
@@ -537,21 +543,20 @@ class _MainDashboardState extends State<MainDashboard> {
           else
             ...visible.map((prop) {
               final market = _propMarket(prop);
+              final side = _evSide(prop)!;
               return PositiveEvScannerCard(
                 player: prop.player,
                 propType: market.isEmpty ? prop.market : market,
                 lineValue: prop.line,
                 slowBookmaker: prop.sportsbook,
                 slowBookOdds:
-                    ((_evSide(prop) == PickSide.over
-                                ? prop.overOdds
-                                : prop.underOdds) ??
+                    ((side == PickSide.over ? prop.overOdds : prop.underOdds) ??
                             -110)
                         .round(),
                 evPercentage: prop.evPercentage ?? 0,
                 fairProbability: (prop.fairProbability ?? 0) * 100,
                 onInspect: () => _showEvDetails(prop),
-                onAdd: () => widget.onSelect(prop, _evSide(prop)),
+                onAdd: () => widget.onSelect(prop, side),
               );
             }),
         ],
@@ -577,6 +582,8 @@ class _MainDashboardState extends State<MainDashboard> {
     setState(() {
       _latestProps = props;
       _categoryCounts = categoryCounts;
+      _totalCategoryCounts = _apiService.lastTotalCategoryCounts;
+      _playableCategoryCounts = _apiService.lastPlayableCategoryCounts;
       _verdictCounts = _apiService.lastVerdictCounts;
       _providerCoverage = _apiService.lastProviderCoverage;
       _providerReliability = _apiService.lastProviderReliability;
@@ -604,6 +611,10 @@ class _MainDashboardState extends State<MainDashboard> {
           }
           _siteSportCounts = normalizedSportCounts;
           _siteSportCategoryCounts = normalizedCategoryCounts;
+          _siteTotalSportCategoryCounts =
+              _apiService.lastTotalSportCategoryCounts;
+          _sitePlayableSportCategoryCounts =
+              _apiService.lastPlayableSportCategoryCounts;
         }
         final sports = _availableSiteSports;
         if (sports.isNotEmpty && !sports.contains(_selectedSiteSport)) {
@@ -1045,6 +1056,37 @@ class _MainDashboardState extends State<MainDashboard> {
     final counts = <String, int>{};
     for (final prop in _siteInventoryProps) {
       if (!prop.isSelectable ||
+          _normalizeSport(prop.sport) != _selectedSiteSport) {
+        continue;
+      }
+      final category = _marketCategory(prop);
+      counts[category] = (counts[category] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  Map<String, int> get _selectedSportTotalCategoryCounts {
+    if (_selectedSite == 'ALL' || _selectedSiteSport.isEmpty) {
+      return _totalCategoryCounts.isNotEmpty
+          ? _totalCategoryCounts
+          : _categoryCounts;
+    }
+    return _siteTotalSportCategoryCounts[_selectedSiteSport] ??
+        _selectedSportCategoryCounts;
+  }
+
+  Map<String, int> get _selectedSportPlayableCategoryCounts {
+    if (_selectedSite == 'ALL' || _selectedSiteSport.isEmpty) {
+      return _playableCategoryCounts.isNotEmpty
+          ? _playableCategoryCounts
+          : _categoryCounts;
+    }
+    final backendCounts = _sitePlayableSportCategoryCounts[_selectedSiteSport];
+    if (backendCounts != null) return backendCounts;
+    final counts = <String, int>{};
+    for (final prop in _siteInventoryProps) {
+      if (!prop.isSelectable ||
+          !prop.verdict.actionable ||
           _normalizeSport(prop.sport) != _selectedSiteSport) {
         continue;
       }
@@ -1746,10 +1788,14 @@ class _MainDashboardState extends State<MainDashboard> {
         _siteInventoryProps = const [];
         _siteSportCounts = const {};
         _siteSportCategoryCounts = const {};
+        _siteTotalSportCategoryCounts = const {};
+        _sitePlayableSportCategoryCounts = const {};
         _providerCoverage = const {};
         _focusedProp = null;
         _latestProps = const [];
         _categoryCounts = const {};
+        _totalCategoryCounts = const {};
+        _playableCategoryCounts = const {};
         _lastUpdated = null;
       });
     }
@@ -2203,7 +2249,7 @@ class _MainDashboardState extends State<MainDashboard> {
             (
               'PROP',
               _marketCategory(focusedProp),
-              '${focusedProp.line.toStringAsFixed(1)} • ${focusedProp.recommendedSide}',
+              '${focusedProp.line.toStringAsFixed(1)} • ${focusedProp.proSuggestedSide ?? 'NO PICK'}',
             ),
             (
               'LAST UPDATED',
@@ -2519,10 +2565,14 @@ class _MainDashboardState extends State<MainDashboard> {
       '3PT MADE' => Icons.adjust_rounded,
       _ => Icons.apps,
     };
-    final localCounts = _selectedSportCategoryCounts;
-    int categoryCount(String category) => category == 'ALL'
-        ? localCounts.values.fold<int>(0, (sum, count) => sum + count)
-        : localCounts[category] ?? 0;
+    final totalCounts = _selectedSportTotalCategoryCounts;
+    final playableCounts = _selectedSportPlayableCategoryCounts;
+    int totalCount(String category) => category == 'ALL'
+        ? totalCounts.values.fold<int>(0, (sum, count) => sum + count)
+        : totalCounts[category] ?? 0;
+    int playableCount(String category) => category == 'ALL'
+        ? playableCounts.values.fold<int>(0, (sum, count) => sum + count)
+        : playableCounts[category] ?? 0;
     return SizedBox(
       height: railHeight,
       child: Row(
@@ -2538,7 +2588,8 @@ class _MainDashboardState extends State<MainDashboard> {
                 final selected = _effectiveSelectedCategory == category;
                 return BoardCategoryChip(
                   category: category,
-                  count: categoryCount(category),
+                  count: totalCount(category),
+                  playableCount: playableCount(category),
                   icon: categoryIcon(category),
                   selected: selected,
                   onPressed: () => setState(() {
@@ -2767,9 +2818,9 @@ class _MainDashboardState extends State<MainDashboard> {
                           if (_selectedSite != 'ALL') ...[
                             _buildBoardSports(),
                             SizedBox(height: sectionGap),
-                            _buildBoardCategories(),
-                            SizedBox(height: sectionGap),
                           ],
+                          _buildBoardCategories(),
+                          SizedBox(height: sectionGap),
                           /*Text(
                             '${visibleProps.length} visible props • $_propCount total loaded',
                             style: const TextStyle(

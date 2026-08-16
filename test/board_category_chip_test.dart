@@ -12,7 +12,8 @@ void main() {
         home: Scaffold(
           body: BoardCategoryChip(
             category: 'REBOUNDS',
-            count: 18,
+            count: 96,
+            playableCount: 0,
             icon: Icons.sports_basketball,
             selected: true,
             onPressed: () => selected = true,
@@ -21,7 +22,7 @@ void main() {
       ),
     );
 
-    final text = tester.widget<Text>(find.text('REBOUNDS 18'));
+    final text = tester.widget<Text>(find.text('REBOUNDS 96 · PLAYABLE 0'));
     expect(text.style?.fontSize, 9);
     expect(text.style?.fontWeight, FontWeight.w900);
 
