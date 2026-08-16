@@ -603,6 +603,20 @@ def sync_sport(sport_key: str) -> dict[str, object]:
 def sync_sportsgameodds() -> dict[str, object]:
     """Sync the supplemental multi-book player-prop feed."""
     started = time.perf_counter()
+    stage_timeout = max(
+        30,
+        int(os.getenv("SPORTSGAMEODDS_STAGE_TIMEOUT_SECONDS", "90")),
+    )
+    deadline = started + stage_timeout
+
+    def remaining_seconds() -> float:
+        remaining = deadline - time.perf_counter()
+        if remaining <= 0:
+            raise TimeoutError(
+                f"SportsGameOdds stage exceeded {stage_timeout} seconds"
+            )
+        return remaining
+
     if not (SPORTSGAMEODDS_API_KEY or SPORTSGAMEODDS_API_KEY_SECONDARY):
         return {
             "sport": "sportsgameodds",
@@ -617,9 +631,22 @@ def sync_sportsgameodds() -> dict[str, object]:
     failures: list[dict[str, str]] = []
     account_usage: dict[str, object] | None = None
     try:
-        account_usage = fetch_sgo_account_usage()
+        account_usage = fetch_sgo_account_usage(
+            timeout_seconds=remaining_seconds(),
+        )
     except Exception as exc:
         logger.info("sportsgameodds usage unavailable error=%s", exc)
+        if time.perf_counter() >= deadline:
+            return {
+                "sport": "sportsgameodds",
+                "events": 0,
+                "props": 0,
+                "partial": True,
+                "error": str(exc),
+                "providerUsage": sgo_usage_snapshot(),
+                "durationMs": int((time.perf_counter() - started) * 1000),
+                "contribution": _sportsgameodds_contribution(),
+            }
     if sgo_entity_quota_exhausted(account_usage):
         return {
             "sport": "sportsgameodds", "events": 0, "props": 0,
@@ -634,7 +661,10 @@ def sync_sportsgameodds() -> dict[str, object]:
         league_id, sport_key = item
         try:
             raw_events = _with_retries(
-                lambda league_id=league_id: fetch_sgo_events(league_id),
+                lambda league_id=league_id: fetch_sgo_events(
+                    league_id,
+                    request_timeout_seconds=remaining_seconds(),
+                ),
                 label=f"sportsgameodds events {league_id}",
                 attempts=2,
             )
@@ -654,6 +684,18 @@ def sync_sportsgameodds() -> dict[str, object]:
 
     league_results: list[dict[str, object]] = []
     for league_id, sport_key, raw_events, fetch_error in fetched_leagues:
+        if time.perf_counter() >= deadline:
+            timeout_error = (
+                f"SportsGameOdds stage exceeded {stage_timeout} seconds"
+            )
+            failures.append({"league": league_id, "error": timeout_error})
+            league_results.append({
+                "league": league_id,
+                "events": 0,
+                "props": 0,
+                "error": timeout_error,
+            })
+            continue
         if fetch_error is not None:
             logger.warning(
                 "sportsgameodds sync failed league=%s error=%s",
@@ -716,7 +758,7 @@ def sync_sportsgameodds() -> dict[str, object]:
                 "league": league_id, "events": len(raw_events), "props": 0,
                 "error": str(exc),
             })
-    return {
+    result = {
         "sport": "sportsgameodds",
         "events": total_events,
         "props": total_props,
@@ -730,6 +772,11 @@ def sync_sportsgameodds() -> dict[str, object]:
         "durationMs": int((time.perf_counter() - started) * 1000),
         "contribution": _sportsgameodds_contribution(),
     }
+    if failures:
+        result["partial"] = True
+        if total_events == 0:
+            result["error"] = "SportsGameOdds returned no usable league coverage"
+    return result
 
 
 def sync_balldontlie_soccer() -> dict[str, object]:

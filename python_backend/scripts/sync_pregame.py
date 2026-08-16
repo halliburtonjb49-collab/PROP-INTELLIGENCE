@@ -71,7 +71,8 @@ def _full_sync_complete(payload: dict[str, object]) -> bool:
     return (
         str(payload.get("status", "")).lower() == "complete"
         and str(payload.get("coverageStatus", "")).lower() == "complete"
-        and str(payload.get("sportsGameOddsStatus", "")).lower() == "complete"
+        and str(payload.get("sportsGameOddsStatus", "")).lower()
+        in {"complete", "partial"}
         and str(payload.get("postProcessingStatus", "")).lower() == "complete"
     )
 
