@@ -1,5 +1,68 @@
 """Entrypoints executed by the durable RQ worker."""
 
+from __future__ import annotations
+
+import logging
+import os
+from datetime import datetime, timezone
+
+
+LOGGER = logging.getLogger(__name__)
+_ESPN_REFRESH_AFTER_HOURS = max(
+    2.0,
+    float(os.getenv("ESPN_HEADSHOT_REFRESH_AFTER_HOURS", "8")),
+)
+_ESPN_REFRESH_BUCKET_HOURS = max(
+    1,
+    int(os.getenv("ESPN_HEADSHOT_REFRESH_BUCKET_HOURS", "4")),
+)
+
+
+def _enqueue_espn_headshot_refresh_if_due(
+    *,
+    now: datetime | None = None,
+) -> dict[str, object] | None:
+    """Queue a separate photo job when the shared cache is aging.
+
+    Render cron remains the primary scheduler. This worker-side check is a
+    safety net for a paused or missed cron and deliberately queues separate
+    work so a prop sync never downloads thousands of photos in-process.
+    """
+
+    from services.espn_headshot_service import espn_headshot_cache_health
+    from services.job_queue_service import enqueue
+
+    health = espn_headshot_cache_health(now=now)
+    age_hours = health.get("ageHours")
+    refresh_due = health.get("status") != "ok" or not isinstance(
+        age_hours,
+        (int, float),
+    ) or float(age_hours) >= _ESPN_REFRESH_AFTER_HOURS
+    if not refresh_due:
+        return None
+
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    bucket_seconds = _ESPN_REFRESH_BUCKET_HOURS * 60 * 60
+    bucket = int(current.timestamp() // bucket_seconds)
+    queued = enqueue(
+        "jobs.refresh_espn_headshots",
+        job_id=f"headshots:espn:auto:{bucket}",
+    )
+    if queued is None:
+        LOGGER.warning(
+            "ESPN headshot refresh is due but could not be queued age_hours=%s",
+            age_hours,
+        )
+    else:
+        LOGGER.info(
+            "Queued ESPN headshot refresh age_hours=%s job_id=%s",
+            age_hours,
+            queued.get("id"),
+        )
+    return queued
+
 
 def run_prop_sync() -> None:
     """Run and publish recovery entirely on the dedicated RQ worker."""
@@ -15,6 +78,7 @@ def run_prop_sync() -> None:
     main.save_catalog_snapshot(
         [prop.model_dump(mode="json") for prop in props]
     )
+    _enqueue_espn_headshot_refresh_if_due()
 
 
 def refresh_mlb_headshots() -> dict[str, object]:
