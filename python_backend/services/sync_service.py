@@ -547,28 +547,37 @@ def sync_sport(sport_key: str) -> dict[str, object]:
     )
     worker_count = min(configured_workers, max(1, len(eligible_events)))
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
-        fetched_payloads = executor.map(fetch_one, eligible_events)
-        # Cache mutations stay serialized while network requests overlap.
-        for event, odds_payload, error in fetched_payloads:
-            event_id = str(event.get("id", ""))
-            if error is not None or odds_payload is None:
-                failed_events += 1
-                if not first_failure and error is not None:
-                    first_failure = f"{type(error).__name__}: {error}"[:200]
-                logger.error(
-                    "sync_event failed; preserving cached props sport=%s event=%s error=%s",
-                    sport_key,
-                    event_id,
-                    error,
+        # ThreadPoolExecutor.map eagerly submits the complete iterable and
+        # completed futures retain their expanded odds payloads until they are
+        # consumed. On a 20-24 event slate that pushed the 512 MB worker to
+        # 500+ MB. Submit only one worker-sized window at a time, write it,
+        # then release it before the next network window begins.
+        for batch_start in range(0, len(eligible_events), worker_count):
+            event_batch = eligible_events[batch_start:batch_start + worker_count]
+            fetched_payloads = executor.map(fetch_one, event_batch)
+            # Cache mutations stay serialized while network requests overlap.
+            for event, odds_payload, error in fetched_payloads:
+                event_id = str(event.get("id", ""))
+                if error is not None or odds_payload is None:
+                    failed_events += 1
+                    if not first_failure and error is not None:
+                        first_failure = f"{type(error).__name__}: {error}"[:200]
+                    logger.error(
+                        "sync_event failed; preserving cached props sport=%s event=%s error=%s",
+                        sport_key,
+                        event_id,
+                        error,
+                    )
+                    continue
+                fetched_events += 1
+                prop_count += process_and_cache_props(
+                    cache=cache,
+                    sport_key=sport_key,
+                    event=event,
+                    odds_payload=odds_payload,
                 )
-                continue
-            fetched_events += 1
-            prop_count += process_and_cache_props(
-                cache=cache,
-                sport_key=sport_key,
-                event=event,
-                odds_payload=odds_payload,
-            )
+            del fetched_payloads, event_batch
+            gc.collect()
 
     elapsed_ms = int((time.perf_counter() - started_at) * 1000)
     logger.info(
@@ -937,6 +946,7 @@ def run_global_sync_pipeline(
                     "error": str(exc),
                 }
             results.append(lane_result)
+            record_memory_checkpoint(f"sync_sport_complete_{sport_key}")
             if progress_callback is not None:
                 try:
                     progress_callback({
