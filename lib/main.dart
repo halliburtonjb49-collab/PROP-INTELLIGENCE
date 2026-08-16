@@ -1076,32 +1076,6 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     );
   }
 
-  Widget _buildChatRestoreButton() {
-    return Positioned(
-      right: 18,
-      bottom: 92,
-      child: SafeArea(
-        minimum: const EdgeInsets.all(4),
-        child: Material(
-          key: const ValueKey('restore-prop-chat-bubble'),
-          elevation: 14,
-          color: app_colors.AppColors.bgPanel,
-          shape: const CircleBorder(
-            side: BorderSide(color: app_colors.AppColors.gold, width: 1.5),
-          ),
-          child: IconButton(
-            tooltip: 'Bring back PROP CHAT bubble',
-            onPressed: _showChatBubble,
-            icon: const Icon(
-              Icons.add_comment_rounded,
-              color: app_colors.AppColors.gold,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildLeftSidebar() {
     return AnimatedBuilder(
       animation: _activeSlipController,
@@ -2120,10 +2094,6 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
               !_chatFloating &&
               _selectedPage != AppPage.propChat)
             _buildChatBubble(constraints),
-          if (!_chatBubbleVisible &&
-              !_chatFloating &&
-              _selectedPage != AppPage.propChat)
-            _buildChatRestoreButton(),
         ],
       ),
     );
