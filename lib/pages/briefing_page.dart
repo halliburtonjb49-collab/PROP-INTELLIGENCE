@@ -30,6 +30,16 @@ class _BriefingPageState extends State<BriefingPage> {
   bool _loading = true;
   String _error = '';
 
+  String _freshnessLabel() {
+    final updated = DateTime.tryParse(_briefing.sourceUpdatedAt)?.toLocal();
+    if (updated == null) return '';
+    final age = DateTime.now().difference(updated);
+    if (age.isNegative || age.inMinutes < 1) return 'DATA UPDATED JUST NOW';
+    if (age.inHours < 1) return 'DATA UPDATED ${age.inMinutes}M AGO';
+    if (age.inDays < 1) return 'DATA UPDATED ${age.inHours}H AGO';
+    return 'DATA UPDATED ${age.inDays}D AGO';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -142,7 +152,10 @@ class _BriefingPageState extends State<BriefingPage> {
                 runSpacing: 6,
                 children: [
                   _Stat(label: 'ON BOARD', value: '${_briefing.propsOnBoard}'),
-                  _Stat(label: 'CLEAR THE BAR', value: '${_briefing.actionable}'),
+                  _Stat(
+                    label: 'CLEAR THE BAR',
+                    value: '${_briefing.actionable}',
+                  ),
                   _Stat(
                     label: 'SPORTS',
                     value: _briefing.sportsCovered.isEmpty
@@ -154,7 +167,8 @@ class _BriefingPageState extends State<BriefingPage> {
               if (_briefing.generatedAt.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Text(
-                  'Generated ${_briefing.generatedAt}',
+                  'BOARD ${_briefing.boardDate.isEmpty ? 'TODAY' : _briefing.boardDate}'
+                  '${_freshnessLabel().isEmpty ? '' : '  •  ${_freshnessLabel()}'}',
                   style: const TextStyle(
                     color: app_colors.AppColors.textMuted,
                     fontSize: 9,
@@ -165,6 +179,19 @@ class _BriefingPageState extends State<BriefingPage> {
           ),
         ),
         const SizedBox(height: 12),
+        if (_briefing.sportsToResearch.isNotEmpty) ...[
+          const _SectionTitle('SPORTS TO RESEARCH'),
+          const SizedBox(height: 8),
+          for (final sport in _briefing.sportsToResearch) ...[
+            _SportCard(sport: sport),
+            const SizedBox(height: 8),
+          ],
+          const SizedBox(height: 4),
+        ],
+        if (_briefing.leadPlays.isNotEmpty) ...[
+          const _SectionTitle('LEADING RESEARCH'),
+          const SizedBox(height: 8),
+        ],
         if (_briefing.leadPlays.isEmpty)
           _Panel(
             key: const ValueKey('briefing-quiet-day'),
@@ -252,9 +279,9 @@ class _PlayCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (play.confidence > 0)
+              if (play.piTrustScore > 0)
                 Text(
-                  '${play.confidence}%',
+                  'PI TRUST ${play.piTrustScore}',
                   style: TextStyle(
                     color: colour,
                     fontSize: 12,
@@ -285,6 +312,104 @@ class _PlayCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _SportCard extends StatelessWidget {
+  const _SportCard({required this.sport});
+
+  final BriefingSport sport;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  sport.sport,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                '${sport.playable} RESEARCH-READY',
+                style: const TextStyle(
+                  color: app_colors.AppColors.success,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          Wrap(
+            spacing: 14,
+            runSpacing: 8,
+            children: [
+              _MiniStat(label: 'ALL', value: sport.total),
+              _MiniStat(label: 'PLAY NOW', value: sport.playNow),
+              _MiniStat(label: 'SHOP', value: sport.shop),
+              _MiniStat(label: 'LEAN', value: sport.lean),
+              _MiniStat(label: 'WAIT', value: sport.wait),
+              _MiniStat(label: 'AVG PI TRUST', value: sport.averagePiTrust),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  const _MiniStat({required this.label, required this.value});
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        text: '$label ',
+        style: const TextStyle(
+          color: app_colors.AppColors.textMuted,
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+        ),
+        children: [
+          TextSpan(
+            text: '$value',
+            style: const TextStyle(color: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: app_colors.AppColors.gold,
+        fontSize: 11,
+        fontWeight: FontWeight.w900,
+        letterSpacing: .5,
       ),
     );
   }
