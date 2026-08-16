@@ -329,7 +329,7 @@ def _disabled_sgo_leagues() -> set[str]:
 
 
 def next_sgo_leagues(limit: int | None = None) -> list[tuple[str, str]]:
-    """Rotate limited provider calls so low rate limits cannot starve leagues."""
+    """Rotate bounded provider calls so one worker run stays memory-safe."""
     global _sgo_league_cursor
     disabled = _disabled_sgo_leagues()
     leagues = [
@@ -338,11 +338,15 @@ def next_sgo_leagues(limit: int | None = None) -> list[tuple[str, str]]:
     ]
     if not leagues:
         return []
-    # The product promises coverage across every enabled league. A stale
-    # Render environment value previously limited each process to four and
-    # repeatedly starved specialty sports after deploys. Explicit test/admin
-    # limits still work, but normal production syncs always cover the catalog.
-    configured_limit = limit if limit is not None else len(leagues)
+    # This feed is supplemental to the primary board. Processing every league
+    # in one 512 MB worker retained multiple large provider payloads and could
+    # terminate the worker before post-processing. Rotation preserves coverage
+    # across successive ten-minute runs without a single memory spike.
+    configured_limit = (
+        limit
+        if limit is not None
+        else int(os.getenv("SPORTSGAMEODDS_LEAGUES_PER_SYNC", "3"))
+    )
     count = max(1, min(configured_limit, len(leagues)))
     with _sgo_cursor_lock:
         selected = [
@@ -663,6 +667,7 @@ def sync_sportsgameodds() -> dict[str, object]:
             raw_events = _with_retries(
                 lambda league_id=league_id: fetch_sgo_events(
                     league_id,
+                    limit=15,
                     request_timeout_seconds=remaining_seconds(),
                 ),
                 label=f"sportsgameodds events {league_id}",
@@ -709,10 +714,10 @@ def sync_sportsgameodds() -> dict[str, object]:
             })
             continue
         try:
-            normalized = [
-                normalize_sgo_event(raw, sport_key=sport_key)
-                for raw in raw_events
-            ]
+            normalized = []
+            for raw in raw_events:
+                remaining_seconds()
+                normalized.append(normalize_sgo_event(raw, sport_key=sport_key))
             valid_ids = [
                 str(event.get("id") or "")
                 for event, _ in normalized
@@ -734,6 +739,7 @@ def sync_sportsgameodds() -> dict[str, object]:
                 )
             league_props = 0
             for event, odds_payload in normalized:
+                remaining_seconds()
                 league_props += process_and_cache_props(
                     cache=cache,
                     sport_key=sport_key,
@@ -747,6 +753,9 @@ def sync_sportsgameodds() -> dict[str, object]:
                 "events": len(normalized),
                 "props": league_props,
             })
+            record_memory_checkpoint(
+                f"sportsgameodds_league_{league_id.lower()}"
+            )
         except Exception as exc:
             logger.warning(
                 "sportsgameodds sync failed league=%s error=%s",

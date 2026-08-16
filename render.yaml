@@ -98,7 +98,7 @@ services:
       - key: ODDS_COVERAGE_REFRESH_SECONDS
         value: 1800
       - key: SPORTSGAMEODDS_LEAGUES_PER_SYNC
-        value: 11
+        value: 3
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES
         value: ""
       - key: RAW_PROP_STREAM
@@ -213,7 +213,7 @@ services:
       - key: ODDS_COVERAGE_REFRESH_SECONDS
         value: 1800
       - key: SPORTSGAMEODDS_LEAGUES_PER_SYNC
-        value: 11
+        value: 3
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES
         value: ""
       - key: RAW_PROP_STREAM
