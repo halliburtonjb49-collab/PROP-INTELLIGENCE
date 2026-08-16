@@ -90,7 +90,7 @@ services:
       - key: PROP_SYNC_EVENT_WORKERS
         value: 3
       - key: SPORTSGAMEODDS_LEAGUE_WORKERS
-        value: 2
+        value: 1
       - key: ODDS_FAST_REFRESH_SECONDS
         value: 120
       - key: ODDS_SUPPLEMENTAL_REFRESH_SECONDS
@@ -98,6 +98,8 @@ services:
       - key: ODDS_COVERAGE_REFRESH_SECONDS
         value: 1800
       - key: SPORTSGAMEODDS_LEAGUES_PER_SYNC
+        value: 1
+      - key: SPORTSGAMEODDS_EVENTS_PER_LEAGUE
         value: 3
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES
         value: ""
@@ -205,7 +207,7 @@ services:
       - key: PROP_SYNC_EVENT_WORKERS
         value: 3
       - key: SPORTSGAMEODDS_LEAGUE_WORKERS
-        value: 2
+        value: 1
       - key: ODDS_FAST_REFRESH_SECONDS
         value: 120
       - key: ODDS_SUPPLEMENTAL_REFRESH_SECONDS
@@ -213,6 +215,8 @@ services:
       - key: ODDS_COVERAGE_REFRESH_SECONDS
         value: 1800
       - key: SPORTSGAMEODDS_LEAGUES_PER_SYNC
+        value: 1
+      - key: SPORTSGAMEODDS_EVENTS_PER_LEAGUE
         value: 3
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES
         value: ""
