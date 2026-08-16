@@ -41,11 +41,24 @@ def run_live_api_sync() -> dict[str, object] | None:
         payload = status_response.json()
         status = str(payload.get("status", "")).lower()
         coverage_status = str(payload.get("coverageStatus", "")).lower()
+        sports_game_odds_status = str(
+            payload.get("sportsGameOddsStatus", "")
+        ).lower()
+        post_processing_status = str(
+            payload.get("postProcessingStatus", "")
+        ).lower()
         if _full_sync_complete(payload):
             return payload
-        if status == "failed" or coverage_status == "failed":
+        if "failed" in {
+            status,
+            coverage_status,
+            sports_game_odds_status,
+            post_processing_status,
+        }:
             raise RuntimeError(str(
-                payload.get("coverageError")
+                payload.get("postProcessingError")
+                or payload.get("sportsGameOddsError")
+                or payload.get("coverageError")
                 or payload.get("error")
                 or "Live API sync failed"
             ))
@@ -53,11 +66,13 @@ def run_live_api_sync() -> dict[str, object] | None:
 
 
 def _full_sync_complete(payload: dict[str, object]) -> bool:
-    """Only certify success after the broad coverage lane finishes."""
+    """Certify success only after every downstream sync lane finishes."""
 
     return (
         str(payload.get("status", "")).lower() == "complete"
         and str(payload.get("coverageStatus", "")).lower() == "complete"
+        and str(payload.get("sportsGameOddsStatus", "")).lower() == "complete"
+        and str(payload.get("postProcessingStatus", "")).lower() == "complete"
     )
 
 

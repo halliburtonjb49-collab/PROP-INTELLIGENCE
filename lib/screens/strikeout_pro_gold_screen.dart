@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../models/prop_data.dart';
 import '../models/slip_selection.dart';
 import '../services/api_service.dart';
-import '../services/player_image_resolver.dart';
 import '../theme/app_colors.dart';
 import '../widgets/player_image_widget.dart';
 import '../widgets/recommendation_explainability_block.dart';
@@ -631,7 +630,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   border: Border.all(color: AppColors.gold),
                 ),
                 child: PlayerAvatarWidget(
-                  imageUrl: resolvePlayerImagePath(prop.imagePath),
+                  imageUrl: prop.imagePath,
                   radius: 26,
                   fallbackIcon: Icons.person_rounded,
                 ),

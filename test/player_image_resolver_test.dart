@@ -63,4 +63,26 @@ void main() {
       'https://cdn.example.com/player.png',
     );
   });
+
+  test('provides a PI proxy retry for supported remote photos', () {
+    const url = 'https://a.espncdn.com/i/headshots/wnba/players/full/1.png';
+
+    final retry = Uri.parse(
+      resolvePlayerImageFallbackPath(
+        url,
+        apiBaseUrl: 'https://api.propsintell.com',
+      ),
+    );
+
+    expect(retry.origin, 'https://api.propsintell.com');
+    expect(retry.path, '/player-image-proxy');
+    expect(retry.queryParameters['url'], url);
+  });
+
+  test('does not invent a retry for unsupported image hosts', () {
+    expect(
+      resolvePlayerImageFallbackPath('https://cdn.example.com/player.png'),
+      isEmpty,
+    );
+  });
 }

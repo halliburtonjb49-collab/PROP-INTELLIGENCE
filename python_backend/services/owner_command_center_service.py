@@ -10,6 +10,7 @@ from config import DB_PATH
 from database.cache import PropCache
 from database.postgres import database_is_configured, get_database_pool
 from services.distributed_cache_service import health as cache_health
+from services.espn_headshot_service import espn_headshot_cache_health
 from services.job_queue_service import health as queue_health
 from services.pipeline_run_service import recent_pipeline_runs, summarize_pipeline_health
 from services.provider_availability_monitor_service import provider_availability_snapshot
@@ -385,6 +386,21 @@ def owner_command_center_snapshot(
     availability = provider_availability_snapshot(now=current)
     provider_alerts = list(availability.get("alerts") or [])
     active_failures = list(pipeline.get("activeFailures") or [])
+    headshots = espn_headshot_cache_health(now=current)
+    headshot_alerts = []
+    if headshots.get("status") != "ok" or headshots.get("stale") is True:
+        age = headshots.get("ageHours")
+        age_detail = f" ({age}h old)" if age is not None else ""
+        headshot_alerts.append({
+            "key": "headshot_cache_stale",
+            "title": "Athlete photo refresh needs attention",
+            "message": (
+                "The ESPN athlete-photo cache missed its expected daily "
+                f"refresh{age_detail}. Existing portraits remain protected."
+            ),
+            "severity": "YELLOW",
+            "count": 1,
+        })
 
     overview = [
         _metric("activeUsers", "Active users", database.get("activeUsers"), "Authenticated activity in the last 15 minutes", "healthy" if database.get("activeUsers") is not None else "unavailable"),
@@ -399,7 +415,7 @@ def owner_command_center_snapshot(
         _metric("apiRequests", "Tracked API activity", database.get("apiRequests"), range_label, "healthy" if database.get("apiRequests") is not None else "unavailable"),
         _metric("averageConfidence", "Average confidence", prop_metrics.get("averageConfidence"), "Across current props"),
         _metric("recommendedPicks", "Recommended picks", prop_metrics.get("recommendedPicks"), "Current non-wait predictions"),
-        _metric("openAlerts", "Open alerts", len(worker_alerts) + len(provider_alerts) + len(active_failures), "Worker, provider, and pipeline alerts", "healthy" if not worker_alerts and not provider_alerts and not active_failures else "warning"),
+        _metric("openAlerts", "Open alerts", len(worker_alerts) + len(provider_alerts) + len(active_failures) + len(headshot_alerts), "Worker, provider, pipeline, and photo-refresh alerts", "healthy" if not worker_alerts and not provider_alerts and not active_failures and not headshot_alerts else "warning"),
     ]
 
     services = [
@@ -408,6 +424,7 @@ def owner_command_center_snapshot(
         {"service": "Workers", "status": "HEALTHY" if worker_online and not workers.get("failed") else "UNAVAILABLE", "lastUpdate": current.isoformat(), "latencyMs": None, "records": f"{workers.get('workers', 0)} online / {workers.get('queued', 0)} queued", "action": "Inspect"},
         {"service": "Scoreboard", "status": "HEALTHY" if scoreboard.get("status") == "ok" else "PARTIAL", "lastUpdate": current.isoformat(), "latencyMs": scoreboard.get("lastMs"), "records": f"{scoreboard.get('sampleCount', 0)} samples", "action": "View"},
         {"service": "Prop inventory", "status": "HEALTHY" if prop_metrics.get("propsAvailable") else "PARTIAL", "lastUpdate": current.isoformat(), "latencyMs": None, "records": prop_metrics.get("propsAvailable", 0), "action": "View"},
+        {"service": "Athlete photos", "status": "PARTIAL" if headshots.get("stale") else "HEALTHY", "lastUpdate": headshots.get("updatedAtUtc"), "latencyMs": None, "records": headshots.get("playerCount", 0), "action": "Refresh" if headshots.get("stale") else "Inspect"},
         {"service": "Model engine", "status": "HEALTHY" if database.get("predictionsGenerated") is not None else "UNAVAILABLE", "lastUpdate": current.isoformat(), "latencyMs": None, "records": database.get("predictionsGenerated"), "action": "Audit"},
     ]
     for sport in availability.get("sports") or []:
@@ -428,8 +445,9 @@ def owner_command_center_snapshot(
         "window": {"key": window, "label": range_label, "start": range_start.isoformat(), "end": range_end.isoformat()},
         "overview": overview,
         "services": services,
-        "alerts": [*worker_alerts, *provider_alerts, *active_failures],
+        "alerts": [*worker_alerts, *provider_alerts, *headshot_alerts, *active_failures],
         "database": database,
         "propInventory": prop_metrics,
         "inventory": inventory,
+        "headshots": headshots,
     }

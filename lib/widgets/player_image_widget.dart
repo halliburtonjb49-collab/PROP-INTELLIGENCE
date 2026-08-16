@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../services/player_image_resolver.dart';
+
 /// Professional player image widget with enhanced rendering quality,
 /// progressive loading, and improved error handling
 class PlayerImageWidget extends StatelessWidget {
@@ -31,10 +33,13 @@ class PlayerImageWidget extends StatelessWidget {
       return _buildFallback();
     }
 
+    final primaryUrl = resolvePlayerImagePath(imageUrl);
+    final retryUrl = resolvePlayerImageFallbackPath(imageUrl);
+
     return ClipRRect(
       borderRadius: borderRadius ?? BorderRadius.zero,
       child: CachedNetworkImage(
-        imageUrl: imageUrl,
+        imageUrl: primaryUrl,
         width: width,
         height: height,
         fit: fit,
@@ -43,11 +48,32 @@ class PlayerImageWidget extends StatelessWidget {
         filterQuality: FilterQuality.high,
         fadeInDuration: const Duration(milliseconds: 300),
         fadeOutDuration: const Duration(milliseconds: 200),
+        useOldImageOnUrlChange: true,
         // Progressive loading placeholder
         placeholder: (context, url) =>
             showShimmer ? _buildShimmerPlaceholder() : _buildFallback(),
         // Enhanced error handling
-        errorWidget: (context, url, error) => _buildFallback(),
+        errorWidget: (context, url, error) {
+          if (retryUrl.isEmpty || retryUrl == primaryUrl) {
+            return _buildFallback();
+          }
+          return CachedNetworkImage(
+            imageUrl: retryUrl,
+            width: width,
+            height: height,
+            fit: fit,
+            alignment: Alignment.center,
+            filterQuality: FilterQuality.high,
+            fadeInDuration: Duration.zero,
+            useOldImageOnUrlChange: true,
+            memCacheWidth: width != null ? (width! * 2).toInt() : null,
+            memCacheHeight: height != null ? (height! * 2).toInt() : null,
+            maxWidthDiskCache: 800,
+            maxHeightDiskCache: 800,
+            placeholder: (_, _) => _buildShimmerPlaceholder(),
+            errorWidget: (_, _, _) => _buildFallback(),
+          );
+        },
         // Memory cache configuration
         memCacheWidth: width != null ? (width! * 2).toInt() : null,
         memCacheHeight: height != null ? (height! * 2).toInt() : null,

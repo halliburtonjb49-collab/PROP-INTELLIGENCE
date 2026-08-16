@@ -174,6 +174,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
 
   Widget _fastPlayerPhoto(PropData prop, {double size = 44}) {
     final imagePath = resolvePlayerImagePath(prop.imagePath);
+    final retryImagePath = resolvePlayerImageFallbackPath(prop.imagePath);
     final pixelRatio = MediaQuery.devicePixelRatioOf(context).clamp(1.0, 3.0);
     final cacheSize = (size * pixelRatio * 2.0).round().clamp(128, 512);
     final isNetwork =
@@ -213,12 +214,29 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       filterQuality: FilterQuality.high,
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,
+      useOldImageOnUrlChange: true,
       memCacheWidth: cacheSize,
       memCacheHeight: cacheSize,
       placeholder: (context, url) {
         return _playerPlaceholder(prop.player, size: size);
       },
       errorWidget: (context, url, error) {
+        if (retryImagePath.isNotEmpty && retryImagePath != imagePath) {
+          return CachedNetworkImage(
+            imageUrl: retryImagePath,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            filterQuality: FilterQuality.high,
+            fadeInDuration: Duration.zero,
+            useOldImageOnUrlChange: true,
+            memCacheWidth: cacheSize,
+            memCacheHeight: cacheSize,
+            placeholder: (_, _) =>
+                _playerPlaceholder(prop.player, size: size),
+            errorWidget: (_, _, _) =>
+                _playerPlaceholder(prop.player, size: size),
+          );
+        }
         return _playerPlaceholder(prop.player, size: size);
       },
     );

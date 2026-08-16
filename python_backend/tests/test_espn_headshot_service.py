@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from services import espn_headshot_service
@@ -59,6 +60,28 @@ def test_espn_cache_resolves_pga_and_ufc_headshots(monkeypatch, tmp_path):
     assert health["status"] == "ok"
     assert health["playerCount"] == 2
     assert health["leagueCounts"] == {"PGA": 1, "UFC": 1}
+
+
+def test_espn_cache_reports_missed_daily_refresh(monkeypatch, tmp_path):
+    path = tmp_path / "espn_headshot_map.json"
+    path.write_text(
+        json.dumps({
+            "updatedAtUtc": "2026-08-15T09:15:00+00:00",
+            "leagues": {
+                "WNBA": {"player": "https://cdn.example/player.png"},
+            },
+        }),
+        encoding="utf-8",
+    )
+    _use_map(monkeypatch, path)
+
+    health = espn_headshot_service.espn_headshot_cache_health(
+        now=datetime(2026, 8, 16, 12, 0, tzinfo=timezone.utc),
+    )
+
+    assert health["status"] == "ok"
+    assert health["stale"] is True
+    assert health["ageHours"] == 26.8
 
 
 def test_espn_player_id_is_recovered_from_cached_headshot(monkeypatch, tmp_path):
@@ -201,6 +224,44 @@ def test_espn_refresh_includes_team_and_event_leagues(monkeypatch, tmp_path):
     assert counts == {"NBA": 1, "PGA": 1, "UFC": 1, "SOCCER": 1}
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert set(payload["leagues"]) == {"NBA", "PGA", "UFC", "SOCCER"}
+
+
+def test_partial_refresh_preserves_last_known_good_players(monkeypatch, tmp_path):
+    path = tmp_path / "espn_headshot_map.json"
+    path.write_text(
+        json.dumps({
+            "leagues": {
+                "WNBA": {
+                    "existing player": "https://cdn.example/existing.png",
+                }
+            }
+        }),
+        encoding="utf-8",
+    )
+    _use_map(monkeypatch, path)
+    monkeypatch.setattr(
+        espn_headshot_service,
+        "LEAGUES",
+        {"WNBA": ("basketball", "wnba")},
+    )
+    monkeypatch.setattr(espn_headshot_service, "EVENT_LEAGUES", {})
+    monkeypatch.setattr(espn_headshot_service, "DETAIL_ROSTER_LEAGUES", {})
+    monkeypatch.setattr(
+        espn_headshot_service,
+        "_fetch_league_roster_headshots",
+        lambda *_args: {
+            "new player": "https://cdn.example/new.png",
+        },
+    )
+
+    counts = espn_headshot_service.refresh_espn_headshot_map()
+
+    assert counts == {"WNBA": 2}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["leagues"]["WNBA"] == {
+        "existing player": "https://cdn.example/existing.png",
+        "new player": "https://cdn.example/new.png",
+    }
 
 
 def test_var_data_espn_cache_reports_persistent_mode(monkeypatch):

@@ -5,10 +5,26 @@ def test_fast_lane_completion_is_not_full_sync_success() -> None:
     assert sync_pregame._full_sync_complete({
         "status": "complete",
         "coverageStatus": "running",
+        "sportsGameOddsStatus": "pending",
+        "postProcessingStatus": "pending",
     }) is False
     assert sync_pregame._full_sync_complete({
         "status": "complete",
         "coverageStatus": "complete",
+        "sportsGameOddsStatus": "running",
+        "postProcessingStatus": "pending",
+    }) is False
+    assert sync_pregame._full_sync_complete({
+        "status": "complete",
+        "coverageStatus": "complete",
+        "sportsGameOddsStatus": "complete",
+        "postProcessingStatus": "running",
+    }) is False
+    assert sync_pregame._full_sync_complete({
+        "status": "complete",
+        "coverageStatus": "complete",
+        "sportsGameOddsStatus": "complete",
+        "postProcessingStatus": "complete",
     }) is True
 
 

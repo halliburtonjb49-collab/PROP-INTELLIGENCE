@@ -83,6 +83,37 @@ def test_requested_sync_deduplicates_active_shared_run(monkeypatch) -> None:
     assert enqueue_calls == []
 
 
+def test_requested_sync_deduplicates_active_downstream_run(monkeypatch) -> None:
+    enqueue_calls = []
+    monkeypatch.setattr(
+        main,
+        "_sync_state_snapshot",
+        lambda: {
+            "status": "complete",
+            "queuedJobId": "active-downstream-job",
+            "startedAt": datetime.now(timezone.utc).isoformat(),
+            "jobHeartbeatAt": datetime.now(timezone.utc).isoformat(),
+            "coverageStatus": "complete",
+            "sportsGameOddsStatus": "running",
+            "postProcessingStatus": "pending",
+        },
+    )
+    monkeypatch.setattr(
+        main,
+        "enqueue_background_job",
+        lambda *_args, **_kwargs: enqueue_calls.append(True),
+    )
+
+    queued = main._enqueue_requested_prop_sync()
+
+    assert queued == {
+        "id": "active-downstream-job",
+        "status": "running",
+        "deduplicated": True,
+    }
+    assert enqueue_calls == []
+
+
 def test_requested_sync_recovers_orphaned_shared_state(monkeypatch) -> None:
 	state_updates = []
 	started_at = datetime.now(timezone.utc) - timedelta(minutes=5)

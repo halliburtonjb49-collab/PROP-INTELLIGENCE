@@ -625,7 +625,11 @@ def _recompute_runtime_verdicts(
 			or current_image.startswith("/player-images/")
 			or current_image.startswith("assets/players/")
 		)
-		if uses_local_image:
+		uses_refreshable_provider_image = current_image.startswith((
+			"https://a.espncdn.com/",
+			"https://img.mlbstatic.com/",
+		))
+		if uses_local_image or uses_refreshable_provider_image:
 			key = (prop.player.strip().lower(), prop.sport.strip().upper())
 			if key not in resolved_images:
 				resolved_images[key] = resolve_player_image(prop.player, prop.sport)
@@ -1345,7 +1349,15 @@ def _enqueue_requested_prop_sync() -> dict[str, object] | None:
 	"""Queue an explicit refresh while deduplicating an active shared run."""
 	state = _sync_state_snapshot()
 	status = str(state.get("status") or "").lower()
-	if status in {"queued", "running"}:
+	downstream_active = any(
+		str(state.get(key) or "").lower() in {"pending", "running"}
+		for key in (
+			"coverageStatus",
+			"sportsGameOddsStatus",
+			"postProcessingStatus",
+		)
+	)
+	if status in {"queued", "running"} or downstream_active:
 		job_id = str(state.get("queuedJobId") or "").strip() or None
 		started_at = state.get("startedAt")
 		age_seconds: float | None = None
@@ -1383,7 +1395,7 @@ def _enqueue_requested_prop_sync() -> dict[str, object] | None:
 		exact_status = str(job.get("status") or "").lower()
 		active_statuses = {"queued", "started", "deferred", "scheduled"}
 		stalled = (
-			status == "running"
+			(status == "running" or downstream_active)
 			and (heartbeat_age if heartbeat_age is not None else age_seconds or 0)
 			>= _SYNC_JOB_STALL_SECONDS
 		)
@@ -1397,7 +1409,7 @@ def _enqueue_requested_prop_sync() -> dict[str, object] | None:
 		if not orphaned:
 			return {
 				"id": str(job_id or "active-prop-sync"),
-				"status": status,
+				"status": "running" if downstream_active else status,
 				"deduplicated": True,
 			}
 		logging.warning(
