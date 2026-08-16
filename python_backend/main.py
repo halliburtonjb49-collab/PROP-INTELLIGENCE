@@ -2416,7 +2416,19 @@ def todays_briefing(
 		str(key).split("_")[-1].upper()
 		for key in (coverage.get("fetchedButEmpty") or [])
 	]
-	return build_briefing(get_props(), empty_sports=empty)
+	now_utc = datetime.now(timezone.utc)
+	local_timezone = _scoreboard_timezone()
+	return build_briefing(
+		_cached_prop_catalog(),
+		empty_sports=empty,
+		target_date=now_utc.astimezone(local_timezone).date(),
+		local_timezone=local_timezone,
+		now=now_utc,
+		stale_after_minutes=max(
+			5,
+			int(os.getenv("PROP_FEED_STALE_MINUTES", "180")),
+		),
+	)
 
 
 @app.get("/api/performance/track-record")
@@ -3336,6 +3348,15 @@ def props(
 					),
 					-float(row.evPercentage or 0),
 					-float(row.edge or 0),
+					*_stable_identity(row),
+				),
+			)
+		elif sort_by == "trust":
+			filtered_props.sort(
+				key=lambda row: (
+					_start_time(row),
+					_all_sports_priority(row),
+					-int(row.piTrustScore or 0),
 					*_stable_identity(row),
 				),
 			)

@@ -1896,13 +1896,13 @@ class _SavedSlipCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        if (leg.projection != null || leg.confidence != null)
+                        if (leg.projection != null || leg.piTrustScore > 0)
                           Text(
                             [
                               if (leg.projection != null)
                                 'ENTRY MODEL ${leg.projection!.toStringAsFixed(2)}',
-                              if (leg.confidence != null)
-                                'CONFIDENCE ${leg.confidence}%',
+                              if (leg.piTrustScore > 0)
+                                'PI TRUST ${leg.piTrustScore}/100',
                               if (leg.projectionSource.trim().isNotEmpty)
                                 leg.projectionSource.trim().toUpperCase(),
                               if (leg.projectionModelVersion.trim().isNotEmpty)
@@ -1917,7 +1917,7 @@ class _SavedSlipCard extends StatelessWidget {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                        if (leg.projection != null || leg.confidence != null)
+                        if (leg.projection != null || leg.piTrustScore > 0)
                           const SizedBox(height: 6),
                         if (showDetails && leg.closingLine == null)
                           const Text(

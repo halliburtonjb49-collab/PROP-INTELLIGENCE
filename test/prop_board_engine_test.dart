@@ -15,6 +15,7 @@ PropData _prop(
   bool actionable = false,
   bool selectable = true,
   int confidence = 50,
+  int piTrustScore = 0,
 }) {
   return PropData.fromJson({
     'id': id,
@@ -27,6 +28,7 @@ PropData _prop(
     'category': market,
     'startTimeUtc': startTimeUtc,
     'confidence': confidence,
+    'piTrustScore': piTrustScore,
     'selectable': selectable,
     'verdict': {
       'decision': decision,
@@ -133,6 +135,16 @@ void main() {
       'wait',
       'pass',
     ]);
+  });
+
+  test('PI Trust sorting uses the reliability score', () {
+    final result = _query([
+      _prop('limited', piTrustScore: 42),
+      _prop('excellent', piTrustScore: 91),
+      _prop('strong', piTrustScore: 76),
+    ], sortBy: 'trust');
+
+    expect(result.map((prop) => prop.id), ['excellent', 'strong', 'limited']);
   });
 
   test('time sorting keeps undated props last', () {

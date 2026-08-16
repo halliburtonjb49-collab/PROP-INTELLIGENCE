@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
 from services.daily_briefing_service import MAX_LEAD_PLAYS, build_briefing
@@ -13,6 +13,10 @@ def _prop(decision="PASS", *, confidence=50, projection=6.9, sport="MLB", **over
         line=6.5,
         sportsbook="PrizePicks",
         projection=projection,
+        piTrustScore=confidence,
+        piTrustBand="STRONG",
+        selectable=True,
+        dataStale=False,
         evPercentage=4.0,
         verdict={
             "decision": decision,
@@ -54,13 +58,14 @@ def test_plays_lead_over_shops_and_leans() -> None:
     assert order == ["PLAY_NOW", "SHOP", "LEAN"]
 
 
-def test_confidence_orders_within_one_decision() -> None:
+def test_pi_trust_orders_within_one_decision() -> None:
     briefing = build_briefing([
         _prop("PLAY_NOW", confidence=61),
         _prop("PLAY_NOW", confidence=74),
     ])
 
-    assert [play["confidence"] for play in briefing["leadPlays"]] == [74, 61]
+    assert [play["piTrustScore"] for play in briefing["leadPlays"]] == [74, 61]
+    assert all("confidence" not in play for play in briefing["leadPlays"])
 
 
 def test_the_briefing_stops_listing_and_starts_summarising() -> None:
@@ -124,3 +129,43 @@ def test_sports_covered_are_listed_for_the_reader() -> None:
     briefing = build_briefing([_prop("PASS", sport="MLB"), _prop("PASS", sport="WNBA")])
 
     assert briefing["sportsCovered"] == ["MLB", "WNBA"]
+
+
+def test_sports_to_research_rank_real_playable_opportunities() -> None:
+    briefing = build_briefing([
+        _prop("LEAN", sport="WNBA", confidence=91),
+        _prop("PLAY_NOW", sport="MLB", confidence=78),
+        _prop("SHOP", sport="MLB", confidence=74),
+        _prop("PASS", sport="NFL", confidence=99),
+    ])
+
+    sports = briefing["sportsToResearch"]
+    assert [row["sport"] for row in sports] == ["MLB", "WNBA"]
+    assert sports[0]["playable"] == 2
+    assert sports[0]["playNow"] == 1
+    assert sports[0]["averagePiTrust"] == 76
+
+
+def test_unselectable_prop_is_not_presented_as_playable() -> None:
+    briefing = build_briefing([
+        _prop("PLAY_NOW", sport="MLB", selectable=False),
+    ])
+
+    assert briefing["actionable"] == 0
+    assert briefing["leadPlays"] == []
+    assert briefing["sportsToResearch"] == []
+
+
+def test_today_filter_excludes_started_future_and_stale_rows() -> None:
+    now = datetime(2026, 8, 16, 16, 0, tzinfo=timezone.utc)
+    fresh = (now.replace(minute=55) if now.minute >= 55 else now).isoformat()
+    briefing = build_briefing([
+        _prop("PLAY_NOW", id="today", startTimeUtc="2026-08-16T20:00:00Z", lastUpdatedUtc=fresh),
+        _prop("PLAY_NOW", id="started", startTimeUtc="2026-08-16T15:00:00Z", lastUpdatedUtc=fresh),
+        _prop("PLAY_NOW", id="tomorrow", startTimeUtc="2026-08-17T20:00:00Z", lastUpdatedUtc=fresh),
+        _prop("PLAY_NOW", id="stale", startTimeUtc="2026-08-16T21:00:00Z", lastUpdatedUtc="2026-08-16T10:00:00Z"),
+    ], target_date=date(2026, 8, 16), now=now, stale_after_minutes=180)
+
+    assert briefing["propsOnBoard"] == 1
+    assert [play["propId"] for play in briefing["leadPlays"]] == ["today"]
+    assert briefing["boardDate"] == "2026-08-16"

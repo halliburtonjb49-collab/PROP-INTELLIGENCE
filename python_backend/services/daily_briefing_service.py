@@ -19,7 +19,7 @@ promoting the best of a bad slate.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone, tzinfo
 from typing import Iterable, Sequence
 
 # How many plays the briefing will name before it stops listing and starts
@@ -46,6 +46,29 @@ def _verdict_of(prop: object) -> dict[str, object]:
     return verdict if isinstance(verdict, dict) else {}
 
 
+def _timestamp(value: object) -> datetime | None:
+    raw = _text(value)
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _trust_score(prop: object) -> int:
+    return max(0, min(100, int(_number(getattr(prop, "piTrustScore", 0)) or 0)))
+
+
+def _is_researchable(prop: object) -> bool:
+    return bool(getattr(prop, "selectable", True)) and not bool(
+        getattr(prop, "dataStale", False)
+    )
+
+
 def _lead_play(prop: object) -> dict[str, object]:
     verdict = _verdict_of(prop)
     return {
@@ -58,7 +81,8 @@ def _lead_play(prop: object) -> dict[str, object]:
         "decision": _text(verdict.get("decision")),
         "headline": _text(verdict.get("headline")),
         "reason": _text(verdict.get("reason")),
-        "confidence": int(_number(verdict.get("confidence")) or 0),
+        "piTrustScore": _trust_score(prop),
+        "piTrustBand": _text(getattr(prop, "piTrustBand", "")),
         "sportsbook": _text(getattr(prop, "sportsbook", "")),
         "expectedValuePercent": _number(getattr(prop, "evPercentage", None)),
     }
@@ -68,7 +92,7 @@ def _rank(prop: object) -> tuple[int, float]:
     verdict = _verdict_of(prop)
     decision = _text(verdict.get("decision"))
     order = {"PLAY_NOW": 3, "SHOP": 2, "LEAN": 1}.get(decision, 0)
-    return (order, _number(verdict.get("confidence")) or 0.0)
+    return (order, float(_trust_score(prop)))
 
 
 def build_briefing(
@@ -76,33 +100,111 @@ def build_briefing(
     *,
     empty_sports: Sequence[str] = (),
     generated_at: datetime | None = None,
+    target_date: date | None = None,
+    local_timezone: tzinfo = timezone.utc,
+    now: datetime | None = None,
+    stale_after_minutes: int | None = None,
 ) -> dict[str, object]:
     """Today's board reduced to what a person needs before deciding anything."""
 
-    board = list(props)
+    generated = generated_at or now or datetime.now(timezone.utc)
+    if generated.tzinfo is None:
+        generated = generated.replace(tzinfo=timezone.utc)
+    current = now or generated
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    current = current.astimezone(timezone.utc)
+
+    board: list[object] = []
+    for prop in props:
+        start = _timestamp(getattr(prop, "startTimeUtc", ""))
+        if target_date is not None:
+            if start is None or start.astimezone(local_timezone).date() != target_date:
+                continue
+            if start <= current:
+                continue
+        if stale_after_minutes is not None:
+            updated = _timestamp(getattr(prop, "lastUpdatedUtc", ""))
+            if updated is None or (
+                current - updated
+            ).total_seconds() > stale_after_minutes * 60:
+                continue
+        if bool(getattr(prop, "dataStale", False)):
+            continue
+        board.append(prop)
     counts: dict[str, int] = {}
     without_projection = 0
     unsettled = 0
     sports: set[str] = set()
     candidates: list[object] = []
+    sport_rows: dict[str, dict[str, object]] = {}
+    latest_update: datetime | None = None
 
     for prop in board:
         sport = _text(getattr(prop, "sport", ""))
         if sport:
-            sports.add(sport.upper())
+            sport = sport.upper()
+            sports.add(sport)
+            sport_rows.setdefault(sport, {
+                "sport": sport,
+                "total": 0,
+                "playable": 0,
+                "playNow": 0,
+                "shop": 0,
+                "lean": 0,
+                "wait": 0,
+                "trustTotal": 0,
+                "trustSamples": 0,
+                "topPiTrust": 0,
+            })
+        updated = _timestamp(getattr(prop, "lastUpdatedUtc", ""))
+        if updated is not None and (latest_update is None or updated > latest_update):
+            latest_update = updated
         if getattr(prop, "projection", None) is None:
             without_projection += 1
         decision = _text(_verdict_of(prop).get("decision")) or "UNJUDGED"
         counts[decision] = counts.get(decision, 0) + 1
-        if decision == "WAIT":
+        searchable = _is_researchable(prop)
+        if sport:
+            row = sport_rows[sport]
+            row["total"] = int(row["total"]) + 1
+            if searchable:
+                trust = _trust_score(prop)
+                row["trustTotal"] = int(row["trustTotal"]) + trust
+                row["trustSamples"] = int(row["trustSamples"]) + 1
+                row["topPiTrust"] = max(int(row["topPiTrust"]), trust)
+            if searchable and decision in _LEAD_DECISIONS:
+                row["playable"] = int(row["playable"]) + 1
+                key = {"PLAY_NOW": "playNow", "SHOP": "shop", "LEAN": "lean"}[decision]
+                row[key] = int(row[key]) + 1
+            elif searchable and decision == "WAIT":
+                row["wait"] = int(row["wait"]) + 1
+        if searchable and decision == "WAIT":
             unsettled += 1
-        if decision in _LEAD_DECISIONS:
+        if searchable and decision in _LEAD_DECISIONS:
             candidates.append(prop)
 
     candidates.sort(key=_rank, reverse=True)
     leads = [_lead_play(prop) for prop in candidates[:MAX_LEAD_PLAYS]]
 
-    actionable = sum(counts.get(decision, 0) for decision in _LEAD_DECISIONS)
+    sports_to_research: list[dict[str, object]] = []
+    for row in sport_rows.values():
+        samples = int(row.pop("trustSamples"))
+        trust_total = int(row.pop("trustTotal"))
+        row["averagePiTrust"] = round(trust_total / samples) if samples else 0
+        if int(row["playable"]) > 0:
+            sports_to_research.append(row)
+    sports_to_research.sort(
+        key=lambda row: (
+            int(row["playable"]),
+            int(row["playNow"]),
+            int(row["shop"]),
+            int(row["averagePiTrust"]),
+        ),
+        reverse=True,
+    )
+
+    actionable = sum(int(row["playable"]) for row in sport_rows.values())
     caveats: list[str] = []
     if without_projection:
         caveats.append(
@@ -118,12 +220,15 @@ def build_briefing(
         caveats.append(f"No {sport} props are available on today's board.")
 
     return {
-        "generatedAt": (generated_at or datetime.now(timezone.utc)).isoformat(),
+        "generatedAt": generated.isoformat(),
+        "sourceUpdatedAt": latest_update.isoformat() if latest_update else None,
+        "boardDate": target_date.isoformat() if target_date else None,
         "propsOnBoard": len(board),
         "sportsCovered": sorted(sports),
         "verdictCounts": counts,
         "actionable": actionable,
         "leadPlays": leads,
+        "sportsToResearch": sports_to_research,
         # Said plainly rather than implied by a short list. A quiet day is a
         # finding, and dressing one up as a slate is how a reader ends up
         # betting the best of nothing.

@@ -218,11 +218,7 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
     final side =
         suggestedSide ??
         (prop.recommendedSide.trim().isEmpty ? 'N/A' : prop.recommendedSide);
-    final tierLabel =
-        suggestedSide != null && prop.proSuggestionUsesHistoricalStats
-        ? 'Projection Pick'
-        : (prop.tier.trim().isEmpty ? 'No Pick' : prop.tier);
-    final confidenceLabel = '${prop.displayConfidenceLabel} (Tier: $tierLabel)';
+    final trustLabel = '${prop.piTrustScore}/100 (${prop.piTrustBand})';
     final riskFlags =
         'Fallback ${_fallbackCount()}/3 | Freshness ${_lineupFreshness()} | Coverage ${_coverageSummary()}';
     final factors = _topFactors();
@@ -276,7 +272,7 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
           ),
           const SizedBox(height: 9),
           _row('Pick', '$side ${prop.line.toStringAsFixed(1)} ${prop.market}'),
-          _row('Confidence', confidenceLabel),
+          _row('PI Trust', trustLabel),
           _row(
             'Model',
             '${_modelLabel()} | Calibration: ${(prop.probabilityCalibrationAdjustment * 100).toStringAsFixed(1)} pts',

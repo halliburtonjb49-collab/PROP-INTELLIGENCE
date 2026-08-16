@@ -659,13 +659,9 @@ class _MainDashboardState extends State<MainDashboard> {
     }
 
     final sortedByEdge = [...props]
-      ..sort(
-        (a, b) => (b.displayConfidenceRating ?? -1).compareTo(
-          a.displayConfidenceRating ?? -1,
-        ),
-      );
+      ..sort((a, b) => b.piTrustScore.compareTo(a.piTrustScore));
     final top = sortedByEdge.first;
-    final topConfidence = top.displayConfidenceRating;
+    final topTrust = top.piTrustScore;
     final bySport = <String, int>{};
     for (final prop in props) {
       final sport = _normalizeSport(prop.sport);
@@ -673,18 +669,15 @@ class _MainDashboardState extends State<MainDashboard> {
     }
     final topSport =
         (bySport.entries.toList()..sort((a, b) => b.value - a.value)).first;
-    final hot = props
-        .where((p) => (p.displayConfidenceRating ?? 0) >= 90)
-        .length;
+    final hot = props.where((p) => p.piTrustScore >= 90).length;
 
     return [
       PropAlertData(
         sport: _normalizeSport(top.sport),
         title: 'Best Edge Alert',
-        message: topConfidence == null
-            ? '${top.player} has the strongest currently rated ${_propMarket(top)} prop.'
-            : '${top.player} has $topConfidence% confidence on ${_propMarket(top)}.',
-        edge: topConfidence ?? 0,
+        message:
+            '${top.player} has PI Trust $topTrust/100 on ${_propMarket(top)}.',
+        edge: topTrust,
         book: top.sportsbook,
         time: 'now',
       ),
@@ -693,7 +686,7 @@ class _MainDashboardState extends State<MainDashboard> {
         title: 'Most Active Sport',
         message:
             '${topSport.key} has ${topSport.value} props visible right now.',
-        edge: topConfidence ?? 0,
+        edge: topTrust,
         book: 'All Books',
         time: 'now',
       ),
@@ -701,7 +694,7 @@ class _MainDashboardState extends State<MainDashboard> {
         PropAlertData(
           sport: 'ALL',
           title: 'High Edge Cluster',
-          message: '$hot props are at 90%+ edge right now.',
+          message: '$hot props have PI Trust of 90+ right now.',
           edge: 90,
           book: 'All Books',
           time: 'now',
@@ -2484,10 +2477,10 @@ class _MainDashboardState extends State<MainDashboard> {
                   ),
                 ),
                 RadioListTile<String>(
-                  value: 'confidence',
+                  value: 'trust',
                   activeColor: app_colors.AppColors.gold,
                   title: Text(
-                    'Highest confidence',
+                    'Highest PI Trust',
                     style: TextStyle(color: Colors.white, fontSize: 11),
                   ),
                 ),
@@ -2594,6 +2587,12 @@ class _MainDashboardState extends State<MainDashboard> {
                   selected: selected,
                   onPressed: () => setState(() {
                     _selectedCategory = category;
+                    // Category chips represent the complete market inventory.
+                    // Do not carry the board's default PLAYABLE filter into a
+                    // category such as STRIKEOUTS, otherwise valid Lean, Wait,
+                    // and No Pick props disappear even though the chip count
+                    // correctly includes them.
+                    _verdictFilter = 'ALL';
                     _focusedProp = null;
                     _latestProps = const [];
                     _lastUpdated = null;

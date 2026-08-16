@@ -231,8 +231,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             useOldImageOnUrlChange: true,
             memCacheWidth: cacheSize,
             memCacheHeight: cacheSize,
-            placeholder: (_, _) =>
-                _playerPlaceholder(prop.player, size: size),
+            placeholder: (_, _) => _playerPlaceholder(prop.player, size: size),
             errorWidget: (_, _, _) =>
                 _playerPlaceholder(prop.player, size: size),
           );
@@ -371,16 +370,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final signalConflict =
         !noPiPick && rawFallbackSide != null && rawFallbackSide != suggested;
     final specialLineBadge = _specialLineBadge(prop, advisedSide);
-    // Keep the same presentation across every sport: the card shows the
-    // central model estimate while release/filter logic stays conservative.
-    final signalRating = hasModelPick
-        ? prop.displayModelEstimateRating
-        : prop.displayConfidenceRating;
-    // Keep the two visible metric values consistent on every card. Evidence
-    // provenance is shown separately below rather than appended to the value.
-    final signalRatingLabel = signalRating == null
-        ? 'INFO ONLY'
-        : '$signalRating%';
     final market = _marketCategory(prop);
     final signalLabel = hasModelPick
         ? 'MODEL PICK'
@@ -400,7 +389,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         : signalConflict
         ? 'PI SIGNAL: the final verdict direction after probability and price checks differs from the raw fallback lean. The PI Verdict is the action guide.'
         : prop.proSuggestionUsesHistoricalStats
-        ? 'PI PICK: the projection suggests a definite OVER or UNDER direction using the available evidence. Evidence source and confidence remain visible.'
+        ? 'PI PICK: the projection suggests a definite OVER or UNDER direction using the available evidence. Evidence source and PI Trust remain visible.'
         : 'MARKET LEAN: direction inferred from sportsbook pricing, not a released model pick. Follow the PI Verdict for the action decision.';
     final signalColor = noPiPick
         ? app_colors.AppColors.textMuted
@@ -912,11 +901,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                       ? suggested ?? '--'
                       : prop.displayModelValue.toStringAsFixed(2),
                 ),
-                if (!noPiPick)
-                  metric(
-                    hasModelPick ? 'MODEL ESTIMATE' : 'CONFIDENCE',
-                    signalRatingLabel,
-                  ),
+                metric('PI TRUST', '${prop.piTrustScore}/100'),
               ],
             ),
             const SizedBox(height: 8),
@@ -1404,10 +1389,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                       ? prop.projection!.toStringAsFixed(1)
                       : '--',
                 ),
-                intelligenceMetric(
-                  'HIT RATE',
-                  hasProAccess ? prop.displayConfidenceLabel : '--',
-                ),
+                intelligenceMetric('PI TRUST', '${prop.piTrustScore}/100'),
                 intelligenceMetric(
                   'PICK GRADE',
                   hasProAccess ? prop.pickGrade.toUpperCase() : '--',
@@ -1913,9 +1895,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     ),
                     Expanded(
                       child: _compactMetric(
-                        'HIT RATE',
-                        prop.displayConfidenceLabel,
-                        (prop.displayConfidenceRating ?? 0) >= 75
+                        'PI TRUST',
+                        '${prop.piTrustScore}/100',
+                        prop.piTrustScore >= 75
                             ? const Color(0xFF61E34D)
                             : Colors.white,
                       ),
@@ -2164,15 +2146,15 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   onTap: () {
                     unawaited(
                       _showMetricMeaningOverlay(
-                        title: 'Confidence Meaning',
+                        title: 'PI Trust Meaning',
                         description:
-                            'Confidence is a 0-100 model score representing relative strength of the pick given current inputs. Higher confidence means stronger model alignment, but it is not a win probability guarantee.',
-                        icon: Icons.insights,
+                            'PI Trust is a 0-100 reliability score for the underlying prop data. It measures freshness, completeness, confirming sources, line stability, verification, and sample quality—not whether a pick is guaranteed to win.',
+                        icon: Icons.shield_outlined,
                       ),
                     );
                   },
                   child: Text(
-                    'Confidence: ${prop.displayConfidenceLabel}',
+                    'PI Trust: ${prop.piTrustScore}/100',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 8.5,

@@ -32,6 +32,9 @@ class SlipLeg(BaseModel):
     projection: float | None = None
     hit_probability: float | None = Field(default=None, ge=0, le=1)
     confidence: int | None = Field(default=None, ge=0, le=100)
+    pi_trust_score: int = Field(default=0, ge=0, le=100)
+    pi_trust_band: str = "LIMITED"
+    pi_trust_warnings: list[str] = Field(default_factory=list)
     recommendation_edge: float | None = None
     projection_source: str = ""
     projection_model_version: str = ""

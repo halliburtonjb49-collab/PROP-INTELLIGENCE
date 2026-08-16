@@ -61,7 +61,7 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
       icon: Icons.query_stats_rounded,
       title: 'Understand the evidence',
       body:
-          'Projection is the model estimate. Edge compares it with the current line. Confidence is an estimate, not a guarantee. Open a card to see the reasoning.',
+          'Projection is the model estimate. Edge compares it with the current line. PI Trust measures the reliability of the supporting data. Open a card to see the reasoning.',
     ),
     (
       icon: Icons.receipt_long_outlined,

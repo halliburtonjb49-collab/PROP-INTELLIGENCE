@@ -298,13 +298,11 @@ void main() {
     expect(find.byKey(const ValueKey('floating-prop-chat')), findsNothing);
     expect(
       find.byKey(const ValueKey('restore-prop-chat-bubble')),
-      findsOneWidget,
+      findsNothing,
     );
-    await tester.tap(find.byKey(const ValueKey('restore-prop-chat-bubble')));
-    await tester.pump(const Duration(milliseconds: 300));
     expect(
-      find.byKey(const ValueKey('prop-chat-bubble-launcher')),
-      findsOneWidget,
+      find.byKey(const ValueKey('close-prop-chat-bubble')),
+      findsNothing,
     );
     await openWorkspace('PROP BUILDER', 'PROP BUILDER');
     await openWorkspace('BUILD\nPERFORM', null);

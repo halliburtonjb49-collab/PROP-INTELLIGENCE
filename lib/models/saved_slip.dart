@@ -18,6 +18,8 @@ class SavedSlipLeg {
   final double? odds;
   final double? projection;
   final int? confidence;
+  final int piTrustScore;
+  final String piTrustBand;
   final String projectionSource;
   final String projectionModelVersion;
   final bool projectionCalibrated;
@@ -51,6 +53,8 @@ class SavedSlipLeg {
     this.odds,
     this.projection,
     this.confidence,
+    this.piTrustScore = 0,
+    this.piTrustBand = 'LIMITED',
     this.projectionSource = '',
     this.projectionModelVersion = '',
     this.projectionCalibrated = false,
@@ -89,6 +93,8 @@ class SavedSlipLeg {
       odds: (json['odds'] as num?)?.toDouble(),
       projection: (json['projection'] as num?)?.toDouble(),
       confidence: (json['confidence'] as num?)?.toInt(),
+      piTrustScore: (json['pi_trust_score'] as num?)?.toInt() ?? 0,
+      piTrustBand: json['pi_trust_band']?.toString() ?? 'LIMITED',
       projectionSource: json['projection_source']?.toString() ?? '',
       projectionModelVersion:
           json['projection_model_version']?.toString() ?? '',

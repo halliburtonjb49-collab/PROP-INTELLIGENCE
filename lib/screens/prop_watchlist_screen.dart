@@ -692,7 +692,7 @@ class _PropWatchlistScreenState extends State<PropWatchlistScreen> {
     final label = prop['custom_label']?.toString() ?? '';
     final note = prop['manual_note']?.toString() ?? '';
     final edge = (prop['edge'] as num?)?.toDouble() ?? 0;
-    final confidence = (prop['confidence'] as num?)?.toDouble() ?? 0;
+    final piTrust = (prop['pi_trust_score'] as num?)?.toInt() ?? 0;
 
     return Card(
       child: Padding(
@@ -746,11 +746,7 @@ class _PropWatchlistScreenState extends State<PropWatchlistScreen> {
                     children: [
                       Chip(label: Text(site)),
                       Chip(label: Text('Edge ${edge.toStringAsFixed(1)}%')),
-                      Chip(
-                        label: Text(
-                          'Confidence ${confidence.toStringAsFixed(1)}%',
-                        ),
-                      ),
+                      Chip(label: Text('PI Trust $piTrust/100')),
                       Chip(
                         avatar: Icon(_movementIcon(prop), size: 16),
                         label: Text(_movementLabel(prop)),

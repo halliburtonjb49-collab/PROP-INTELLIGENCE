@@ -52,7 +52,7 @@ void main() {
     expect(find.text('PI VERDICT'), findsOneWidget);
     expect(find.text('PLAY OVER'), findsOneWidget);
     expect(find.text('Projection clears the current line.'), findsOneWidget);
-    expect(find.textContaining('82% verdict confidence'), findsOneWidget);
+    expect(find.textContaining('verdict confidence'), findsNothing);
     expect(find.textContaining('playable to 24.5'), findsOneWidget);
     expect(find.textContaining('better at PRIZEPICKS'), findsOneWidget);
     expect(find.text('Recheck after lineups'), findsOneWidget);

@@ -147,10 +147,8 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
         if (right == null) return -1;
         final time = left.compareTo(right);
         if (time != 0) return time;
-        final confidence = (b.displayConfidenceRating ?? -1).compareTo(
-          a.displayConfidenceRating ?? -1,
-        );
-        return confidence != 0 ? confidence : _edge(b).compareTo(_edge(a));
+        final trust = b.piTrustScore.compareTo(a.piTrustScore);
+        return trust != 0 ? trust : _edge(b).compareTo(_edge(a));
       });
       if (expiredIds.isNotEmpty) {
         await widget.onPropsExpired?.call(expiredIds);
@@ -793,9 +791,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                 ),
               ),
               Expanded(child: _datum('LINE', prop.line.toStringAsFixed(1))),
-              Expanded(
-                child: _datum('CONFIDENCE', prop.displayConfidenceLabel),
-              ),
+              Expanded(child: _datum('PI TRUST', '${prop.piTrustScore}/100')),
               Expanded(
                 child: _datum(
                   'EDGE',
