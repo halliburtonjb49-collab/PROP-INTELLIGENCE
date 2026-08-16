@@ -407,8 +407,8 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
       final site = _activeSlipSite(legs);
       final candidates = await _apiService.fetchProps(
         selectedSportsbook: site.isEmpty ? 'All' : site,
-        minConfidence: 55,
-        sortBy: 'confidence',
+        minConfidence: 0,
+        sortBy: 'trust',
         limit: 350,
       );
       final existingIds = legs.map(_propId).toSet();
@@ -445,7 +445,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 (event.isEmpty || !existingEvents.contains(event));
           }).toList()..sort((a, b) {
             final trust = b.piTrustScore.compareTo(a.piTrustScore);
-            return trust != 0 ? trust : b.confidence.compareTo(a.confidence);
+            return trust;
           });
       if (safer.isEmpty) {
         if (mounted) {
@@ -997,7 +997,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     final site =
         leg['prop_site']?.toString() ?? leg['sportsbook']?.toString() ?? '';
     final edge = (leg['edge'] as num?)?.toDouble() ?? 0;
-    final confidence = (leg['confidence'] as num?)?.toDouble() ?? 0;
+    final piTrust = (leg['pi_trust_score'] as num?)?.toInt() ?? 0;
     final recommendationAvailable =
         leg['recommendation_available'] == true ||
         leg['recommendationAvailable'] == true;
@@ -1078,9 +1078,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      recommendationAvailable
-                          ? 'Model ${confidence.toStringAsFixed(0)}%'
-                          : 'Model unavailable',
+                      'PI Trust $piTrust/100',
                       style: const TextStyle(
                         color: Color(0xFFB8C1CC),
                         fontSize: 9,
@@ -3042,7 +3040,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 ContextHelp(
                   title: 'Active tracking slip',
                   message:
-                      'Your active tracking slip is a research workspace. Drag legs to reorder them, review edge and model confidence, remove unwanted props, then save the tracking ticket when your selections and live lines are confirmed.',
+                      'Your active tracking slip is a research workspace. Drag legs to reorder them, review edge and PI Trust, remove unwanted props, then save the tracking ticket when your selections and live lines are confirmed.',
                 ),
               ],
             ),

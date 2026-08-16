@@ -12,7 +12,7 @@ PropData? bestResearchComparison(PropData prop, Iterable<PropData> candidates) {
       .toList();
   peers.sort((a, b) {
     final trust = b.piTrustScore.compareTo(a.piTrustScore);
-    return trust != 0 ? trust : b.confidence.compareTo(a.confidence);
+    return trust;
   });
   return peers.isEmpty ? null : peers.first;
 }
@@ -30,13 +30,10 @@ String answerPropResearchQuestion(
     final trustWinner = prop.piTrustScore >= comparison.piTrustScore
         ? prop
         : comparison;
-    final confidenceWinner = prop.confidence >= comparison.confidence
-        ? prop
-        : comparison;
-    return '${prop.player} ${prop.displayMarket} has Trust ${prop.piTrustScore} and confidence ${prop.confidence}%. '
-        '${comparison.player} ${comparison.displayMarket} has Trust ${comparison.piTrustScore} and confidence ${comparison.confidence}%. '
-        '${trustWinner.player} has the stronger data foundation; ${confidenceWinner.player} has the stronger model confidence. '
-        'Those measure different things, so confirm both live lines before choosing.';
+    return '${prop.player} ${prop.displayMarket} has PI Trust ${prop.piTrustScore}/100. '
+        '${comparison.player} ${comparison.displayMarket} has PI Trust ${comparison.piTrustScore}/100. '
+        '${trustWinner.player} has the stronger data foundation based on verified inputs. '
+        'Confirm both live lines before choosing.';
   }
   if (query.contains('injur') ||
       query.contains('lineup') ||
@@ -81,8 +78,8 @@ String answerPropResearchQuestion(
         : 'Projection ${prop.projection!.toStringAsFixed(1)} versus line ${prop.line.toStringAsFixed(1)}.';
     return '${prop.verdict.headline.isEmpty ? prop.pickText : prop.verdict.headline}. $projection $reason Trust ${prop.piTrustScore}/100.';
   }
-  return '${prop.player} ${prop.displayMarket}: line ${prop.line.toStringAsFixed(1)}, Trust ${prop.piTrustScore}/100, '
-      'confidence ${prop.confidence}%, injury ${prop.injuryStatus}, lineup ${prop.lineupStatus}. '
+  return '${prop.player} ${prop.displayMarket}: line ${prop.line.toStringAsFixed(1)}, PI Trust ${prop.piTrustScore}/100, '
+      'injury ${prop.injuryStatus}, lineup ${prop.lineupStatus}. '
       'Ask why it is a lean, what could change, whether the data is reliable, about line movement, or to compare it.';
 }
 

@@ -45,6 +45,21 @@ def test_ticket_create_retry_is_idempotent(tmp_path, monkeypatch) -> None:
     assert len(slip_service.get_slips(user_id="user-1")) == 1
 
 
+def test_ticket_preserves_entry_time_pi_trust(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(slip_service, "DATABASE_PATH", tmp_path / "slips.db")
+    request = _request("trust-snapshot-prop")
+    request.legs[0].pi_trust_score = 84
+    request.legs[0].pi_trust_band = "STRONG"
+    request.legs[0].pi_trust_warnings = ["Confirm the current line."]
+
+    saved = slip_service.create_slip(request, user_id="user-1")
+    leg = saved.legs[0]
+
+    assert leg.pi_trust_score == 84
+    assert leg.pi_trust_band == "STRONG"
+    assert leg.pi_trust_warnings == ["Confirm the current line."]
+
+
 def test_idempotency_key_is_scoped_to_owner(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(slip_service, "DATABASE_PATH", tmp_path / "slips.db")
     first_request = _request("owner-one-prop")

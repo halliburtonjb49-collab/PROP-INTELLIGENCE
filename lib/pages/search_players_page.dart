@@ -149,7 +149,7 @@ class _SearchPlayersPageState extends State<SearchPlayersPage> {
                       ),
                     ),
                     trailing: Text(
-                      prop.displayConfidenceLabel,
+                      'PI ${prop.piTrustScore}',
                       style: const TextStyle(
                         color: AppColors.gold,
                         fontSize: 11,

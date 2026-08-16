@@ -68,7 +68,6 @@ class PiVerdictBlock extends StatelessWidget {
     final accent = treatment.accent;
     final compact = MediaQuery.sizeOf(context).width < 600;
     final facts = <String>[
-      if (verdict.confidence > 0) '${verdict.confidence}% verdict confidence',
       if (verdict.maximumPlayableLine != null)
         'playable to ${verdict.maximumPlayableLine!.toStringAsFixed(1)}',
       if (verdict.betterPriceAt.isNotEmpty)

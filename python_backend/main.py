@@ -3339,6 +3339,15 @@ def props(
 					*_stable_identity(row),
 				),
 			)
+		elif sort_by == "trust":
+			filtered_props.sort(
+				key=lambda row: (
+					_start_time(row),
+					_all_sports_priority(row),
+					-int(row.piTrustScore or 0),
+					*_stable_identity(row),
+				),
+			)
 		elif sort_by == "premium":
 			filtered_props.sort(
 				key=lambda row: (

@@ -180,6 +180,9 @@ List<PropData> filterAndSortBoardProps(
       case 'edge':
         rank = (right.calculatedEdge ?? 0).compareTo(left.calculatedEdge ?? 0);
         break;
+      case 'trust':
+        rank = right.piTrustScore.compareTo(left.piTrustScore);
+        break;
       case 'premium':
         final rankDiff = _tierRank(right.tier) - _tierRank(left.tier);
         rank = rankDiff != 0
