@@ -166,9 +166,17 @@ def test_empty_supplemental_response_preserves_last_healthy_cache(monkeypatch) -
     fake_cache = Cache()
     monkeypatch.setattr(sync_service, "SPORTSGAMEODDS_API_KEY", "test-key")
     monkeypatch.setattr(sync_service, "cache", fake_cache)
-    monkeypatch.setattr(sync_service, "fetch_sgo_account_usage", lambda: {})
+    monkeypatch.setattr(
+        sync_service,
+        "fetch_sgo_account_usage",
+        lambda **_kwargs: {},
+    )
     monkeypatch.setattr(sync_service, "next_sgo_leagues", lambda: [("ATP", "tennis_atp")])
-    monkeypatch.setattr(sync_service, "fetch_sgo_events", lambda _league: [])
+    monkeypatch.setattr(
+        sync_service,
+        "fetch_sgo_events",
+        lambda _league, **_kwargs: [],
+    )
 
     result = sync_service.sync_sportsgameodds()
 

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
+import hashlib
 import logging
 import re
 from threading import Lock, local
+import time
 from typing import Any
 
 import requests
@@ -155,6 +157,8 @@ _http_local = local()
 _usage_lock = Lock()
 _USAGE_CACHE_KEY = "provider:sportsgameodds:usage:v1"
 _USAGE_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30
+_REJECTED_CREDENTIALS_CACHE_KEY = "provider:sportsgameodds:rejected-credentials:v1"
+_REJECTED_CREDENTIAL_TTL_SECONDS = 60 * 60 * 24
 _usage: dict[str, object] = {
     "configured": bool(_api_keys()),
     "keyCount": len(_api_keys()),
@@ -235,7 +239,55 @@ def usage_snapshot() -> dict[str, object]:
             retry_after = 0
     snapshot["coolingDown"] = retry_after > 0
     snapshot["retryAfterSeconds"] = retry_after
+    quarantined = _quarantined_credentials()
+    snapshot["quarantinedCredentialCount"] = len(quarantined)
+    snapshot["nextCredentialRetryAt"] = min(quarantined.values(), default=None)
     return snapshot
+
+
+def _credential_id(api_key: str) -> str:
+    """Return a non-reversible identifier safe for shared health state."""
+
+    return hashlib.sha256(api_key.encode("utf-8")).hexdigest()[:16]
+
+
+def _quarantined_credentials() -> dict[str, str]:
+    persisted = get_json(_REJECTED_CREDENTIALS_CACHE_KEY)
+    if not isinstance(persisted, dict):
+        return {}
+    now = datetime.now(timezone.utc)
+    active: dict[str, str] = {}
+    for credential_id, raw_until in persisted.items():
+        try:
+            until = datetime.fromisoformat(str(raw_until).replace("Z", "+00:00"))
+            if until.tzinfo is None:
+                until = until.replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        if until > now:
+            active[str(credential_id)] = until.isoformat()
+    return active
+
+
+def _quarantine_credential(api_key: str) -> None:
+    quarantined = _quarantined_credentials()
+    quarantined[_credential_id(api_key)] = (
+        datetime.now(timezone.utc)
+        + timedelta(seconds=_REJECTED_CREDENTIAL_TTL_SECONDS)
+    ).isoformat()
+    set_json(
+        _REJECTED_CREDENTIALS_CACHE_KEY,
+        quarantined,
+        ttl_seconds=_REJECTED_CREDENTIAL_TTL_SECONDS,
+    )
+
+
+def _eligible_api_keys() -> tuple[str, ...]:
+    quarantined = _quarantined_credentials()
+    return tuple(
+        api_key for api_key in _api_keys()
+        if _credential_id(api_key) not in quarantined
+    )
 
 
 def _record(
@@ -302,18 +354,38 @@ def _enforce_cooldown() -> None:
         )
 
 
-def _get(path: str, params: dict[str, object]) -> dict[str, Any]:
-    keys = _api_keys()
-    if not keys:
+def _get(
+    path: str,
+    params: dict[str, object],
+    *,
+    timeout_seconds: float | None = None,
+) -> dict[str, Any]:
+    configured_keys = _api_keys()
+    if not configured_keys:
         raise RuntimeError("SPORTSGAMEODDS_API_KEY is not configured")
+    keys = _eligible_api_keys()
+    if not keys:
+        raise RuntimeError("SportsGameOdds credentials are temporarily quarantined")
     _enforce_cooldown()
+    deadline = (
+        time.monotonic() + max(1.0, timeout_seconds)
+        if timeout_seconds is not None
+        else None
+    )
     try:
         for index, api_key in enumerate(keys):
+            remaining = (
+                max(0.0, deadline - time.monotonic())
+                if deadline is not None
+                else float(HTTP_TIMEOUT_SECONDS)
+            )
+            if remaining <= 0:
+                raise TimeoutError("SportsGameOdds request budget exhausted")
             response = _session().get(
                 f"{BASE_URL}/{path.lstrip('/')}",
                 params=params,
                 headers={"x-api-key": api_key},
-                timeout=HTTP_TIMEOUT_SECONDS,
+                timeout=max(1.0, min(float(HTTP_TIMEOUT_SECONDS), remaining)),
             )
             has_fallback = index < len(keys) - 1
             if response.status_code == 429:
@@ -333,12 +405,19 @@ def _get(path: str, params: dict[str, object]) -> dict[str, Any]:
                 if has_fallback:
                     continue
                 raise ProviderCooldownError(error)
-            if response.status_code in {401, 403} and has_fallback:
+            if response.status_code in {401, 403}:
+                _quarantine_credential(api_key)
                 _record(
                     response.status_code,
-                    "Primary credential rejected; trying configured fallback",
+                    (
+                        "Credential rejected and quarantined; trying fallback"
+                        if has_fallback
+                        else "Credential rejected and quarantined"
+                    ),
                 )
-                continue
+                if has_fallback:
+                    continue
+                raise RuntimeError("SportsGameOdds credentials were rejected")
             if response.status_code >= 400:
                 body = response.text.strip()[:500]
                 raise requests.HTTPError(
@@ -365,8 +444,8 @@ def _get(path: str, params: dict[str, object]) -> dict[str, Any]:
         raise
 
 
-def fetch_account_usage() -> dict[str, object]:
-    payload = _get("account/usage", {})
+def fetch_account_usage(*, timeout_seconds: float | None = None) -> dict[str, object]:
+    payload = _get("account/usage", {}, timeout_seconds=timeout_seconds)
     data = payload.get("data")
     return data if isinstance(data, dict) else {"data": data}
 
@@ -376,6 +455,7 @@ def fetch_upcoming_events(
     *,
     max_pages: int = 1,
     limit: int = 25,
+    request_timeout_seconds: float | None = None,
 ) -> list[dict[str, Any]]:
     now = datetime.now(timezone.utc)
     specialty_horizon_days = 10 if league_id in {"PGA_MEN", "UFC"} else 4
@@ -395,7 +475,11 @@ def fetch_upcoming_events(
     for _ in range(max(1, max_pages)):
         request_params = {**params, **({"cursor": cursor} if cursor else {})}
         try:
-            page = _get("events", request_params)
+            page = _get(
+                "events",
+                request_params,
+                timeout_seconds=request_timeout_seconds,
+            )
         except requests.HTTPError as exc:
             # Some specialty leagues reject optional expansion flags even
             # though the common events endpoint accepts them elsewhere.
@@ -408,7 +492,11 @@ def fetch_upcoming_events(
                 for key, value in request_params.items()
                 if key in {"leagueID", "oddsAvailable", "started", "limit", "cursor"}
             }
-            page = _get("events", minimal_params)
+            page = _get(
+                "events",
+                minimal_params,
+                timeout_seconds=request_timeout_seconds,
+            )
         data = page.get("data")
         if isinstance(data, list):
             events.extend(item for item in data if isinstance(item, dict))

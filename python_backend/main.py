@@ -1081,12 +1081,19 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 			)
 
 		def mark_sportsgameodds_complete(result: dict[str, object]) -> None:
-			failed = bool(result.get("error"))
+			partial = bool(
+				result.get("error")
+				or result.get("partial")
+				or result.get("failedLeagues")
+			)
 			_set_sync_state(
-				sportsGameOddsStatus="failed" if failed else "complete",
+				sportsGameOddsStatus="partial" if partial else "complete",
 				sportsGameOddsCompletedAt=datetime.now(timezone.utc).isoformat(),
 				sportsGameOddsResult=result,
-				sportsGameOddsError=str(result.get("error")) if failed else None,
+				sportsGameOddsError=(
+					str(result.get("error") or "Some leagues were unavailable")
+					if partial else None
+				),
 				postProcessingStatus="running",
 				postProcessingStep="catalog_refresh",
 				postProcessingUpdatedAt=datetime.now(timezone.utc).isoformat(),

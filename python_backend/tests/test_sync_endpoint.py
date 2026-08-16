@@ -338,3 +338,46 @@ def test_post_processing_failure_preserves_completed_coverage(monkeypatch) -> No
     assert final["postProcessingStatus"] == "failed"
     assert final["postProcessingStep"] == "failed"
     assert final["postProcessingError"] == "model recalculation failed"
+
+
+def test_partial_sportsgameodds_allows_post_processing_to_complete(monkeypatch) -> None:
+    provider_observed = {}
+
+    def fake_pipeline(
+        fast_callback,
+        coverage_callback,
+        _progress_callback,
+        sportsgameodds_started,
+        sportsgameodds_complete,
+        post_processing_progress,
+    ):
+        results = [{"sport": "primary", "props": 10}]
+        fast_callback(results)
+        coverage_callback(results)
+        sportsgameodds_started()
+        sportsgameodds_complete({
+            "sport": "sportsgameodds",
+            "events": 0,
+            "props": 0,
+            "partial": True,
+            "error": "provider stage timed out",
+        })
+        provider_observed.update(main._sync_state_snapshot())
+        post_processing_progress("model_recalculation")
+        return results
+
+    monkeypatch.setattr(main, "run_global_sync_pipeline", fake_pipeline)
+    monkeypatch.setattr(main, "_refresh_prop_catalog_now", lambda **_kwargs: [])
+    monkeypatch.setattr(main, "get_props", lambda: [])
+    monkeypatch.setattr(main, "capture_closing_lines_from_props", lambda _props: {})
+    monkeypatch.setattr(main, "quota_snapshot", lambda: {"remaining": 1000})
+    main._mark_sync_running()
+
+    main._run_sync_background(release_local_lock=False)
+
+    assert provider_observed["sportsGameOddsStatus"] == "partial"
+    assert provider_observed["postProcessingStatus"] == "running"
+    final = main._sync_state_snapshot()
+    assert final["sportsGameOddsStatus"] == "partial"
+    assert final["sportsGameOddsError"] == "provider stage timed out"
+    assert final["postProcessingStatus"] == "complete"

@@ -128,7 +128,7 @@ def test_normalized_payload_runs_through_real_prop_processor(tmp_path: Path) -> 
 def test_pagination_passes_opaque_cursor(monkeypatch) -> None:
     calls: list[dict[str, object]] = []
 
-    def fake_get(_path: str, params: dict[str, object]):
+    def fake_get(_path: str, params: dict[str, object], **_kwargs):
         calls.append(params)
         if len(calls) == 1:
             return {"success": True, "data": [{"eventID": "one"}], "nextCursor": "opaque"}
@@ -237,6 +237,66 @@ def test_rejected_primary_credential_uses_secondary(monkeypatch) -> None:
     assert snapshot["requests"] == 2
     assert snapshot["lastStatus"] == 200
     assert snapshot["coolingDown"] is False
+    _reset_usage()
+
+
+def test_rejected_credential_is_quarantined_across_requests(monkeypatch) -> None:
+    class FakeResponse:
+        headers = {}
+        text = ""
+        url = "https://api.sportsgameodds.com/v2/events"
+
+        def __init__(self, status_code: int) -> None:
+            self.status_code = status_code
+
+        def json(self):
+            return {"success": True, "data": []}
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.keys: list[str] = []
+
+        def get(self, *_args, **kwargs):
+            key = kwargs["headers"]["x-api-key"]
+            self.keys.append(key)
+            return FakeResponse(403 if key == "rejected-primary" else 200)
+
+    shared: dict[str, object] = {}
+    monkeypatch.setattr(
+        sportsgameodds,
+        "get_json",
+        lambda key: shared.get(key),
+    )
+    monkeypatch.setattr(
+        sportsgameodds,
+        "set_json",
+        lambda key, value, *, ttl_seconds: shared.update({key: value}),
+    )
+    monkeypatch.setattr(
+        sportsgameodds,
+        "SPORTSGAMEODDS_API_KEY",
+        "rejected-primary",
+    )
+    monkeypatch.setattr(
+        sportsgameodds,
+        "SPORTSGAMEODDS_API_KEY_SECONDARY",
+        "working-secondary",
+    )
+    session = FakeSession()
+    monkeypatch.setattr(sportsgameodds, "_session", lambda: session)
+    _reset_usage()
+
+    sportsgameodds._get("events", {})
+    sportsgameodds._get("events", {})
+
+    assert session.keys == [
+        "rejected-primary",
+        "working-secondary",
+        "working-secondary",
+    ]
+    snapshot = sportsgameodds.usage_snapshot()
+    assert snapshot["quarantinedCredentialCount"] == 1
+    assert snapshot["nextCredentialRetryAt"] is not None
     _reset_usage()
 
 
