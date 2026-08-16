@@ -33,6 +33,7 @@ HEADSHOT_MAP_PATH = ESPN_HEADSHOT_MAP_PATH
 _BUNDLED_MAP_PATH = Path(__file__).resolve().parents[1] / "data" / "espn_headshot_map.json"
 _DISTRIBUTED_CACHE_KEY = "headshots:espn:v1"
 _DISTRIBUTED_CACHE_TTL_SECONDS = 8 * 24 * 60 * 60
+_HEADSHOT_STALE_HOURS = 26
 _last_map_refresh_check = 0.0
 _MAP_REFRESH_CHECK_SECONDS = 300
 
@@ -146,7 +147,9 @@ def espn_player_id(player_name: str, sport: str) -> str | None:
     return match.group(1) if match else None
 
 
-def espn_headshot_cache_health() -> dict[str, object]:
+def espn_headshot_cache_health(
+    now: datetime | None = None,
+) -> dict[str, object]:
     payload, source = _load_payload()
     result: dict[str, object] = {
         "status": "missing",
@@ -154,6 +157,9 @@ def espn_headshot_cache_health() -> dict[str, object]:
         "leagueCounts": {},
         "playerCount": 0,
         "updatedAtUtc": None,
+        "ageHours": None,
+        "stale": True,
+        "staleAfterHours": _HEADSHOT_STALE_HOURS,
     }
     if payload is None:
         return result
@@ -167,12 +173,33 @@ def espn_headshot_cache_health() -> dict[str, object]:
             for sport, players in leagues.items()
             if isinstance(players, dict)
         }
+        updated_at = payload.get("updatedAtUtc")
+        age_hours: float | None = None
+        if updated_at:
+            try:
+                parsed = datetime.fromisoformat(
+                    str(updated_at).replace("Z", "+00:00")
+                )
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                current = now or datetime.now(timezone.utc)
+                if current.tzinfo is None:
+                    current = current.replace(tzinfo=timezone.utc)
+                age_hours = max(
+                    0.0,
+                    (current.astimezone(timezone.utc) - parsed).total_seconds()
+                    / 3600,
+                )
+            except ValueError:
+                age_hours = None
         result.update(
             {
                 "status": "ok" if sum(counts.values()) else "empty",
                 "leagueCounts": counts,
                 "playerCount": sum(counts.values()),
-                "updatedAtUtc": payload.get("updatedAtUtc"),
+                "updatedAtUtc": updated_at,
+                "ageHours": round(age_hours, 1) if age_hours is not None else None,
+                "stale": age_hours is None or age_hours > _HEADSHOT_STALE_HOURS,
             }
         )
     except (OSError, ValueError):
@@ -367,7 +394,11 @@ def refresh_espn_headshot_map() -> dict[str, int]:
             espn_sport, espn_league
         )
         if players:
-            leagues[sport_label] = players
+            # A partial roster refresh must not erase previously working
+            # portraits from teams whose ESPN request failed.
+            merged_players = dict(leagues.get(sport_label, {}))
+            merged_players.update(players)
+            leagues[sport_label] = merged_players
         counts[sport_label] = len(leagues.get(sport_label, {}))
 
     for sport_label, (espn_sport, espn_league) in EVENT_LEAGUES.items():
@@ -376,7 +407,9 @@ def refresh_espn_headshot_map() -> dict[str, int]:
         except requests.RequestException:
             players = {}
         if players:
-            leagues[sport_label] = players
+            merged_players = dict(leagues.get(sport_label, {}))
+            merged_players.update(players)
+            leagues[sport_label] = merged_players
         counts[sport_label] = len(leagues.get(sport_label, {}))
 
     for sport_label, (espn_sport, espn_league) in DETAIL_ROSTER_LEAGUES.items():
@@ -385,7 +418,9 @@ def refresh_espn_headshot_map() -> dict[str, int]:
         except requests.RequestException:
             players = {}
         if players:
-            leagues[sport_label] = players
+            merged_players = dict(leagues.get(sport_label, {}))
+            merged_players.update(players)
+            leagues[sport_label] = merged_players
         counts[sport_label] = len(leagues.get(sport_label, {}))
 
     payload = {

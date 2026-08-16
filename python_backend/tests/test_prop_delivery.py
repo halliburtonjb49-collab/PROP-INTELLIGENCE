@@ -846,6 +846,17 @@ def test_cached_catalog_preserves_valid_remote_player_photo(monkeypatch) -> None
     assert calls == []
 
 
+def test_cached_catalog_repairs_stale_provider_player_photo(monkeypatch) -> None:
+    prop = FakeProp("provider-photo", "Player", "WNBA", "FANDUEL", "POINTS")
+    prop.imagePath = "https://a.espncdn.com/i/headshots/wnba/players/full/old.png"
+    current = "https://a.espncdn.com/i/headshots/wnba/players/full/current.png"
+    monkeypatch.setattr(main, "resolve_player_image", lambda *_args: current)
+
+    main._recompute_runtime_verdicts([prop])
+
+    assert prop.imagePath == current
+
+
 def test_positive_ev_route_returns_only_calculated_positive_rows(monkeypatch) -> None:
     positive = FakeProp("positive", "One", "MLB", "FANDUEL", "HITS")
     positive.evPercentage = 4.25

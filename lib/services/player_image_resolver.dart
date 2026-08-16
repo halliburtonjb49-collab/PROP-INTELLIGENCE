@@ -36,6 +36,22 @@ String resolvePlayerImagePath(
   return '$normalizedBase$normalizedPath';
 }
 
+/// Returns a server-proxied retry URL for supported remote player images.
+/// Web cards use the smaller direct CDN image first, then this path if the
+/// browser/CDN request fails. Native clients already use the proxy first.
+String resolvePlayerImageFallbackPath(
+  String rawPath, {
+  String? apiBaseUrl,
+}) {
+  final trimmed = rawPath.trim();
+  if (!trimmed.startsWith('https://')) return '';
+  final fallback = _proxySupportedPlayerImage(
+    trimmed,
+    apiBaseUrl: apiBaseUrl ?? ApiService.baseUrl,
+  );
+  return fallback == trimmed ? '' : fallback;
+}
+
 String _optimizedWebPlayerImage(String imageUrl) {
   final imageUri = Uri.tryParse(imageUrl);
   if (imageUri == null ||

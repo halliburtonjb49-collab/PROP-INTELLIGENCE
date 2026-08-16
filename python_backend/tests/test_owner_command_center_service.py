@@ -17,6 +17,16 @@ def _disable_external_owner_action_storage(monkeypatch) -> None:
             "history": [],
         },
     )
+    monkeypatch.setattr(
+        command_center,
+        "espn_headshot_cache_health",
+        lambda now=None: {
+            "status": "ok",
+            "stale": False,
+            "playerCount": 5109,
+            "updatedAtUtc": "2026-08-11T14:50:00Z",
+        },
+    )
 
 
 def test_command_center_windows_are_bounded() -> None:
@@ -109,6 +119,38 @@ def test_command_center_combines_truthful_metrics_and_service_health(monkeypatch
     assert metrics["mrr"]["value"] is None
     assert metrics["mrr"]["status"] == "unavailable"
     assert any(row["service"] == "WNBA availability" for row in result["services"])
+    assert any(row["service"] == "Athlete photos" for row in result["services"])
+
+
+def test_command_center_alerts_when_headshot_refresh_is_stale(monkeypatch) -> None:
+    monkeypatch.setattr(command_center, "_database_metrics", lambda *_args: {})
+    monkeypatch.setattr(command_center._PROP_CACHE, "load_props", lambda: [])
+    monkeypatch.setattr(command_center, "cache_health", lambda: {"available": True})
+    monkeypatch.setattr(command_center, "queue_health", lambda: {"available": True, "workers": 1})
+    monkeypatch.setattr(command_center, "scoreboard_latency_snapshot", lambda: {})
+    monkeypatch.setattr(command_center, "recent_pipeline_runs", lambda _limit: [])
+    monkeypatch.setattr(command_center, "summarize_pipeline_health", lambda _runs: {"activeFailures": []})
+    monkeypatch.setattr(command_center, "provider_availability_snapshot", lambda now=None: {"sports": [], "alerts": []})
+    monkeypatch.setattr(
+        command_center,
+        "espn_headshot_cache_health",
+        lambda now=None: {
+            "status": "ok",
+            "stale": True,
+            "ageHours": 28.0,
+            "playerCount": 5109,
+            "updatedAtUtc": "2026-08-15T09:15:00Z",
+        },
+    )
+
+    result = command_center.owner_command_center_snapshot(
+        now=datetime(2026, 8, 16, 13, 15, tzinfo=timezone.utc),
+    )
+
+    assert any(
+        alert["key"] == "headshot_cache_stale"
+        for alert in result["alerts"]
+    )
 
 
 def test_inventory_flags_stale_duplicates_conflicts_and_rolls_up_providers() -> None:
