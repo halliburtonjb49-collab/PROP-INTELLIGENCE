@@ -143,17 +143,18 @@ def test_removed_specialty_sports_are_disabled_by_default(monkeypatch) -> None:
     assert [league for league, _ in selected] == ["MLB", "NBA", "WNBA", "NFL"]
 
 
-def test_default_supplemental_sync_attempts_every_enabled_league(monkeypatch) -> None:
+def test_default_supplemental_sync_rotates_memory_safe_league_batch(monkeypatch) -> None:
     monkeypatch.delenv("SPORTSGAMEODDS_DISABLED_LEAGUES", raising=False)
     monkeypatch.delenv("SPORTSGAMEODDS_LEAGUES_PER_SYNC", raising=False)
     monkeypatch.setattr(sync_service, "_sgo_league_cursor", 0)
 
     selected = next_sgo_leagues()
 
-    assert [league for league, _ in selected] == [
-        league for league in sync_service.LEAGUE_TO_SPORT
-        if league not in {"ATP", "WTA", "PGA_MEN", "UFC"}
-    ]
+    assert [league for league, _ in selected] == ["MLB", "NBA", "WNBA"]
+
+    next_selected = next_sgo_leagues()
+
+    assert [league for league, _ in next_selected] == ["NFL", "NHL", "EPL"]
 
 
 def test_empty_supplemental_response_preserves_last_healthy_cache(monkeypatch) -> None:
