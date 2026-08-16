@@ -150,11 +150,11 @@ def test_default_supplemental_sync_rotates_memory_safe_league_batch(monkeypatch)
 
     selected = next_sgo_leagues()
 
-    assert [league for league, _ in selected] == ["MLB", "NBA", "WNBA"]
+    assert [league for league, _ in selected] == ["MLB"]
 
     next_selected = next_sgo_leagues()
 
-    assert [league for league, _ in next_selected] == ["NFL", "NHL", "EPL"]
+    assert [league for league, _ in next_selected] == ["NBA"]
 
 
 def test_empty_supplemental_response_preserves_last_healthy_cache(monkeypatch) -> None:

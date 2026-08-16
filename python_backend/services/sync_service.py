@@ -345,7 +345,7 @@ def next_sgo_leagues(limit: int | None = None) -> list[tuple[str, str]]:
     configured_limit = (
         limit
         if limit is not None
-        else int(os.getenv("SPORTSGAMEODDS_LEAGUES_PER_SYNC", "3"))
+        else int(os.getenv("SPORTSGAMEODDS_LEAGUES_PER_SYNC", "1"))
     )
     count = max(1, min(configured_limit, len(leagues)))
     with _sgo_cursor_lock:
@@ -661,13 +661,18 @@ def sync_sportsgameodds() -> dict[str, object]:
             "contribution": _sportsgameodds_contribution(),
         }
     selected_leagues = next_sgo_leagues()
+    events_per_league = max(
+        1,
+        int(os.getenv("SPORTSGAMEODDS_EVENTS_PER_LEAGUE", "3")),
+    )
+
     def fetch_league(item: tuple[str, str]):
         league_id, sport_key = item
         try:
             raw_events = _with_retries(
                 lambda league_id=league_id: fetch_sgo_events(
                     league_id,
-                    limit=15,
+                    limit=events_per_league,
                     request_timeout_seconds=remaining_seconds(),
                 ),
                 label=f"sportsgameodds events {league_id}",
@@ -677,11 +682,11 @@ def sync_sportsgameodds() -> dict[str, object]:
         except Exception as exc:
             return league_id, sport_key, [], exc
 
-    # Provider reads are independent and safe to overlap. Cache mutation stays
-    # serialized below so SQLite/Postgres writes remain deterministic.
+    # Keep provider reads serialized. A single expanded league response can be
+    # large enough to create a damaging memory peak on the production worker.
     league_workers = min(
-        2,
-        max(1, int(os.getenv("SPORTSGAMEODDS_LEAGUE_WORKERS", "2"))),
+        1,
+        max(1, int(os.getenv("SPORTSGAMEODDS_LEAGUE_WORKERS", "1"))),
         max(1, len(selected_leagues)),
     )
     with ThreadPoolExecutor(max_workers=league_workers) as executor:
@@ -714,16 +719,24 @@ def sync_sportsgameodds() -> dict[str, object]:
             })
             continue
         try:
-            normalized = []
+            valid_ids: list[str] = []
+            league_props = 0
+            processed_events = 0
             for raw in raw_events:
                 remaining_seconds()
-                normalized.append(normalize_sgo_event(raw, sport_key=sport_key))
-            valid_ids = [
-                str(event.get("id") or "")
-                for event, _ in normalized
-                if event.get("id")
-            ]
-            if valid_ids:
+                event, odds_payload = normalize_sgo_event(raw, sport_key=sport_key)
+                event_id = str(event.get("id") or "")
+                if event_id:
+                    valid_ids.append(event_id)
+                league_props += process_and_cache_props(
+                    cache=cache,
+                    sport_key=sport_key,
+                    event=event,
+                    odds_payload=odds_payload,
+                )
+                processed_events += 1
+                del event, odds_payload
+            if valid_ids and processed_events == len(raw_events):
                 cache.prune_provider_events(
                     sport=sport_key,
                     event_prefix="sgo:",
@@ -737,20 +750,11 @@ def sync_sportsgameodds() -> dict[str, object]:
                     "sportsgameodds preserved cache league=%s reason=no_active_events",
                     league_id,
                 )
-            league_props = 0
-            for event, odds_payload in normalized:
-                remaining_seconds()
-                league_props += process_and_cache_props(
-                    cache=cache,
-                    sport_key=sport_key,
-                    event=event,
-                    odds_payload=odds_payload,
-                )
             total_props += league_props
-            total_events += len(normalized)
+            total_events += processed_events
             league_results.append({
                 "league": league_id,
-                "events": len(normalized),
+                "events": processed_events,
                 "props": league_props,
             })
             record_memory_checkpoint(
@@ -778,6 +782,7 @@ def sync_sportsgameodds() -> dict[str, object]:
         "attemptedLeagues": [league for league, _ in selected_leagues],
         "disabledLeagues": sorted(_disabled_sgo_leagues()),
         "rotationSize": len(LEAGUE_TO_SPORT),
+        "eventsPerLeague": events_per_league,
         "durationMs": int((time.perf_counter() - started) * 1000),
         "contribution": _sportsgameodds_contribution(),
     }
