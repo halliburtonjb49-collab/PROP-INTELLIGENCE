@@ -157,7 +157,9 @@ services:
   - type: worker
     name: prop-intelligence-worker
     runtime: python
-    plan: starter
+    # Keep the dashboard upgrade in source control so a Blueprint sync cannot
+    # silently return this memory-intensive worker to the 512 MB Starter plan.
+    plan: standard
     buildCommand: pip install -r requirements.txt
     # Import the application before starting RQ so a missing provider or
     # database credential fails the deploy visibly. RQ otherwise reports the
@@ -220,6 +222,13 @@ services:
         value: 3
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES
         value: ""
+      # Render cron is the primary photo scheduler. The worker also checks this
+      # threshold after prop syncs and queues a separate deduplicated refresh
+      # if the cron was paused or missed.
+      - key: ESPN_HEADSHOT_REFRESH_AFTER_HOURS
+        value: 8
+      - key: ESPN_HEADSHOT_REFRESH_BUCKET_HOURS
+        value: 4
       - key: RAW_PROP_STREAM
         value: prop-intelligence:raw-feeds
       - key: RAW_PROP_STREAM_MAXLEN
@@ -309,9 +318,9 @@ services:
   - type: cron
     name: prop-intelligence-espn-headshot-sync
     runtime: python
-    # Retry every six hours so one transient ESPN/Render failure cannot leave
-    # athlete photos stale for a full day. Refreshes merge last-known-good data.
-    schedule: "15 */6 * * *"
+    # Refresh every four hours; the worker-side safety net handles a missed or
+    # paused cron. Refreshes always merge the last-known-good photo data.
+    schedule: "15 */4 * * *"
     buildCommand: pip install -r requirements.txt
     startCommand: python python_backend/scripts/sync_espn_headshots.py
     envVars:
