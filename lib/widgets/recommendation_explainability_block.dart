@@ -79,6 +79,41 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
         text.contains('strikeout');
   }
 
+  String? _weatherFactor() {
+    final status = prop.weatherStatus.trim().toLowerCase();
+    if (status.isEmpty || status == 'not_applicable') return null;
+    final venue = prop.weatherVenue.trim();
+    final venueLabel = venue.isEmpty ? '' : ' at $venue';
+    if (status == 'indoor') {
+      return 'Weather: indoor$venueLabel (no adjustment)';
+    }
+    if (status == 'roof_unknown') {
+      return 'Weather: roof status unconfirmed$venueLabel (no adjustment)';
+    }
+    if (status != 'outdoor') {
+      return 'Weather: unavailable$venueLabel (no adjustment)';
+    }
+
+    final details = <String>[];
+    if (prop.temperatureF != null) {
+      details.add('${prop.temperatureF!.toStringAsFixed(0)} F');
+    }
+    if (prop.windSpeedMph != null) {
+      details.add('wind ${prop.windSpeedMph!.toStringAsFixed(0)} mph');
+    }
+    if (prop.precipitationProbability != null) {
+      details.add('rain ${prop.precipitationProbability!.toStringAsFixed(0)}%');
+    }
+    final adjustment = prop.weatherMultiplier;
+    final adjustmentText = (adjustment - 1).abs() < 0.001
+        ? 'neutral'
+        : '${adjustment.toStringAsFixed(3)}x model adjustment';
+    final forecast = details.isEmpty
+        ? 'forecast unavailable'
+        : details.join(', ');
+    return 'Weather$venueLabel: $forecast ($adjustmentText)';
+  }
+
   /// Reasons that mean something is wrong, rather than the model declining.
   static const Set<String> _faultReasons = {
     'player_identity_unresolved',
@@ -99,18 +134,25 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
   /// An empty value reads as missing data rather than as one that never
   /// applied.
   List<String> _topFactors() {
+    final weather = _weatherFactor();
     if (_isStrikeoutProp()) {
       return [
         'Pitcher K% vs lineup K%: ${_pct(prop.pitcherKPercent)} vs ${_pct(prop.lineupKPercent)}',
         'Projected batters faced: ${prop.strikeoutProjectedBattersFaced?.toString() ?? '--'}',
         'Umpire boost: ${prop.umpireKBoost == null ? '--' : '${(prop.umpireKBoost! * 100).toStringAsFixed(1)}%'}',
         'Park factor: ${_num(prop.parkKFactor, decimals: 2)}',
+        ?weather,
       ];
     }
     final factors = <String>[
       'Projection ${_num(prop.projection, decimals: 2)} vs line ${_num(prop.line, decimals: 2)}',
       'Sample ${prop.projectionSampleSize} games',
     ];
+    if (prop.recentHitRate != null) {
+      factors.add(
+        "Recent 5/10/20 blend ${prop.recentHitRate}% vs season ${prop.historicalHitRate ?? '--'}%",
+      );
+    }
     if (prop.paceMultiplier != null) {
       factors.add('Pace ${_num(prop.paceMultiplier, decimals: 2)}x');
     }
@@ -122,10 +164,15 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
     if (prop.matchupMultiplier != null) {
       factors.add('Matchup ${_num(prop.matchupMultiplier, decimals: 2)}x');
     }
+    if (weather != null) factors.add(weather);
     return factors;
   }
 
   String _actionStatus() {
+    final suggestedSide = prop.proSuggestedSide;
+    if (suggestedSide != null && prop.proSuggestionUsesHistoricalStats) {
+      return 'PI Pick';
+    }
     if (!prop.recommendationAvailable) return 'Blocked';
     final status = prop.opportunityStatus.trim().toUpperCase();
     if (status == 'READY') return 'Actionable';
@@ -146,6 +193,11 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
   };
 
   String _actionReason() {
+    final suggestedSide = prop.proSuggestedSide;
+    if (suggestedSide != null && prop.proSuggestionUsesHistoricalStats) {
+      return 'projection supports $suggestedSide using the available 5/10/20 and season evidence';
+    }
+
     if (!prop.recommendationAvailable &&
         prop.recommendationUnavailableReason.trim().isNotEmpty) {
       final raw = prop.recommendationUnavailableReason.trim();
@@ -162,11 +214,15 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
   }
 
   Widget _buildContent({bool expanded = false}) {
-    final side = prop.recommendedSide.trim().isEmpty
-        ? 'N/A'
-        : prop.recommendedSide;
-    final confidenceLabel =
-        '${prop.displayConfidenceLabel} (Tier: ${prop.tier.trim().isEmpty ? 'No Pick' : prop.tier})';
+    final suggestedSide = prop.proSuggestedSide;
+    final side =
+        suggestedSide ??
+        (prop.recommendedSide.trim().isEmpty ? 'N/A' : prop.recommendedSide);
+    final tierLabel =
+        suggestedSide != null && prop.proSuggestionUsesHistoricalStats
+        ? 'Projection Pick'
+        : (prop.tier.trim().isEmpty ? 'No Pick' : prop.tier);
+    final confidenceLabel = '${prop.displayConfidenceLabel} (Tier: $tierLabel)';
     final riskFlags =
         'Fallback ${_fallbackCount()}/3 | Freshness ${_lineupFreshness()} | Coverage ${_coverageSummary()}';
     final factors = _topFactors();
@@ -174,7 +230,9 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
     // A blocked pick is the model declining, which is the safe outcome and
     // not a fault. Only a genuine data problem earns the alert colour, and
     // every colour here comes from the app palette.
-    final actionColor = action == 'Actionable'
+    final actionColor = action == 'PI Pick'
+        ? AppColors.blue
+        : action == 'Actionable'
         ? AppColors.success
         : action == 'Blocked'
         ? (_isFault() ? AppColors.danger : AppColors.textMuted)
@@ -270,7 +328,10 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
       builder: (dialogContext) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 18,
+          ),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 700, maxHeight: 760),
             padding: const EdgeInsets.all(10),

@@ -503,7 +503,10 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   }
 
   Map<String, dynamic> _replacementLeg(PropData prop) {
-    final side = prop.proSuggestedSide ?? 'OVER';
+    final side = prop.proSuggestedSide;
+    if (side == null) {
+      throw StateError('Replacement prop has no qualified side');
+    }
     final odds = side == 'UNDER' ? prop.underOdds : prop.overOdds;
     return {
       'prop_id': prop.id,

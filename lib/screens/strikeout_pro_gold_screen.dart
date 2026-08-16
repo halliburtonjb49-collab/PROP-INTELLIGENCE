@@ -102,8 +102,8 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
   String _signalLabel(PropData prop, PickSide? side) {
     if (side == null) return 'SIGNAL';
     if (prop.proSuggestionUsesModel) return 'MODEL PICK';
-    if (prop.proSuggestionUsesHistoricalStats) return 'STATS LEAN';
-    return 'SYSTEM LEAN';
+    if (prop.proSuggestionUsesHistoricalStats) return 'PI PICK';
+    return 'MARKET LEAN';
   }
 
   double _edge(PropData prop) => prop.calculatedEdge ?? prop.edge.abs();
@@ -699,7 +699,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                       prop.proSuggestionUsesModel
                           ? 'VERIFIED MODEL'
                           : prop.proSuggestionUsesHistoricalStats
-                          ? 'HISTORICAL BASELINE'
+                          ? '5/10/20 PROJECTION'
                           : prop.proSuggestionUsesMarket
                           ? 'SPORTSBOOK PRICING'
                           : 'LIVE FEED',
@@ -970,9 +970,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
             Text(
               '⌄',
               style: TextStyle(
-                color: selected
-                    ? brand_colors.AppColors.sidebar
-                    : Colors.white,
+                color: selected ? brand_colors.AppColors.sidebar : Colors.white,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
                 height: 1,
@@ -1013,9 +1011,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
             Text(
               '⌃',
               style: TextStyle(
-                color: selected
-                    ? brand_colors.AppColors.sidebar
-                    : Colors.white,
+                color: selected ? brand_colors.AppColors.sidebar : Colors.white,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
                 height: 1,

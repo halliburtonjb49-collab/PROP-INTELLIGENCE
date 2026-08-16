@@ -36,6 +36,7 @@ class PropResponse(BaseModel):
     projectionUsesMinutes: bool = False
     projectedMinutes: float | None = None
     historicalHitRate: int | None = None
+    recentHitRate: int | None = None
     pick: str
     edge: float = Field(ge=0)
     recommendedSide: str = "N/A"
@@ -149,6 +150,16 @@ class PropResponse(BaseModel):
     pitcherCsw: float | None = None
     lineupCswAgainst: float | None = None
     temperatureF: float | None = None
+    apparentTemperatureF: float | None = None
+    precipitationProbability: float | None = None
+    windSpeedMph: float | None = None
+    windGustMph: float | None = None
+    weatherCode: int | None = None
+    weatherMultiplier: float = 1.0
+    weatherStatus: str = ""
+    weatherVenue: str = ""
+    weatherSource: str = ""
+    weatherForecastForUtc: str = ""
     umpireKBoost: float | None = None
     parkKFactor: float | None = None
     strikeoutModelMethod: str = ""

@@ -371,7 +371,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         : signalConflict
         ? 'PI SIGNAL'
         : prop.proSuggestionUsesHistoricalStats
-        ? 'PROJECTION LEAN'
+        ? 'PI PICK'
         : 'MARKET LEAN';
     final badgeExplanation = !hasProAccess
         ? 'PROP TYPE: the statistic and posted line available for manual research and selection.'
@@ -382,11 +382,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         : signalConflict
         ? 'PI SIGNAL: the final verdict direction after probability and price checks differs from the raw fallback lean. The PI Verdict is the action guide.'
         : prop.proSuggestionUsesHistoricalStats
-        ? 'PROJECTION LEAN: direction from the available projection, not a released model pick. Follow the PI Verdict for the action decision.'
+        ? 'PI PICK: the projection suggests a definite OVER or UNDER direction using the available evidence. Evidence source and confidence remain visible.'
         : 'MARKET LEAN: direction inferred from sportsbook pricing, not a released model pick. Follow the PI Verdict for the action decision.';
     final signalColor = noPiPick
         ? app_colors.AppColors.textMuted
-        : hasModelPick
+        : hasModelPick || prop.proSuggestionUsesHistoricalStats
         ? app_colors.AppColors.blue
         : app_colors.AppColors.gold;
 
@@ -950,7 +950,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 if (hasModelPick && prop.displayRiskFloorRating != null)
                   chip('RISK FLOOR ${prop.displayRiskFloorRating}%'),
                 if (!hasModelPick && prop.proSuggestionUsesHistoricalStats)
-                  chip('EVIDENCE: RECENT RESULTS'),
+                  chip('EVIDENCE: 5/10/20 PROJECTION'),
                 if (!hasModelPick && prop.proSuggestionUsesMarket)
                   chip('EVIDENCE: SPORTSBOOK PRICING'),
                 if (prop.displayModelIsMarketBaseline) chip('MODEL: BASELINE'),
@@ -1354,11 +1354,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               hasModelRecommendation
                   ? '★ SYSTEM PICK: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
                   : hasHistoricalLean
-                  ? 'STATS LEAN: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
+                  ? 'PI PICK: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
                   : hasMarketLean
-                  ? 'SYSTEM LEAN: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
+                  ? 'MARKET LEAN: ${advisedSide == PickSide.over ? 'OVER' : 'UNDER'}'
                   : hasProAccess
-                  ? 'NO QUALIFIED LEAN'
+                  ? 'NO PI PICK'
                   : 'PRO SUGGESTIVE PICK',
               style: const TextStyle(
                 color: app_colors.AppColors.gold,

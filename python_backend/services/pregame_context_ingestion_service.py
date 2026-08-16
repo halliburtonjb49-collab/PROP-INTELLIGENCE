@@ -389,7 +389,12 @@ def persist_pregame_observations(provider: str, observations: Iterable[dict[str,
           (sport,event_id,provider,entity_type,provider_player_id,player_name,team,opponent,
            event_time,status,confirmed,fingerprint,payload)
           values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
-          on conflict(provider,fingerprint) do nothing""", rows)
+          on conflict(provider,fingerprint) do update set
+            observed_at=now(),
+            event_time=excluded.event_time,
+            status=excluded.status,
+            confirmed=excluded.confirmed,
+            payload=excluded.payload""", rows)
         inserted = cursor.rowcount
         connection.commit()
     return max(0, inserted)
@@ -598,6 +603,58 @@ def _current_injury_matches(
     ]
 
 
+def _parse_utc(value: object) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(str(value or "").replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _event_scoped_lineups(
+    prop: object,
+    observations: Iterable[dict[str, object]],
+) -> list[dict[str, object]]:
+    lineups = [
+        item for item in observations if item.get("entityType") == "LINEUP"
+    ]
+    if not lineups:
+        return []
+    prop_event_id = str(getattr(prop, "eventId", "") or "").strip()
+    if prop_event_id:
+        exact = [
+            item for item in lineups
+            if str(item.get("eventId") or "").strip() == prop_event_id
+        ]
+        if exact:
+            return exact
+    prop_time = _parse_utc(getattr(prop, "startTimeUtc", None))
+    if prop_time is None:
+        return lineups
+    timed = [
+        (item, _parse_utc(item.get("eventTime")))
+        for item in lineups
+    ]
+    nearby = [
+        (item, observed_time)
+        for item, observed_time in timed
+        if observed_time is not None
+        and abs((observed_time - prop_time).total_seconds()) <= 12 * 3600
+    ]
+    if not nearby:
+        return lineups
+    closest = min(
+        nearby,
+        key=lambda pair: abs((pair[1] - prop_time).total_seconds()),
+    )[0]
+    closest_event_id = str(closest.get("eventId") or "")
+    return [
+        item for item, _ in nearby
+        if str(item.get("eventId") or "") == closest_event_id
+    ]
+
 def apply_latest_pregame_context(props: list[object]) -> None:
     if not props or not database_is_configured():
         return
@@ -640,7 +697,7 @@ def apply_latest_pregame_context(props: list[object]) -> None:
             matches,
             current_report[0] if current_report else "",
         )
-        lineup_matches = [item for item in matches if item["entityType"] == "LINEUP"]
+        lineup_matches = _event_scoped_lineups(prop, matches)
         if injury_matches:
             injury = max(injury_matches, key=lambda item: item["observedAt"])
             injury_status = str(injury["status"] or "").upper()

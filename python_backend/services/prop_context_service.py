@@ -26,6 +26,7 @@ from services.context_quality_service import evaluate_context_quality
 from services.wnba_research_service import assess_wnba_research
 from services.mlb_strikeout_enrichment_service import enrich_mlb_strikeout_props
 from services.pregame_context_ingestion_service import apply_latest_pregame_context
+from services.outdoor_weather_service import enrich_outdoor_weather
 from services.pregame_availability_service import apply_pregame_availability
 from services.strikeout_quality_service import (
     build_explainability_payload,
@@ -185,6 +186,7 @@ def apply_projection_context(prop: object) -> None:
         ),
         availability_multiplier=availability,
         venue_multiplier=float(getattr(prop, "homeAwayMultiplier", None) or 1),
+        weather_multiplier=float(getattr(prop, "weatherMultiplier", None) or 1),
     )
     adjusted = contextual_projection(float(projection), context)
     line = float(getattr(prop, "line", 0))
@@ -207,7 +209,11 @@ def apply_projection_context(prop: object) -> None:
             pitches_per_batter=getattr(prop, "pitchesPerBatter", None),
             pitcher_csw=getattr(prop, "pitcherCsw", None),
             lineup_csw_against=getattr(prop, "lineupCswAgainst", None),
-            temp_f=float(getattr(prop, "temperatureF", None) or 70.0),
+            temp_f=(
+                float(getattr(prop, "temperatureF", None) or 70.0)
+                if str(getattr(prop, "weatherStatus", "") or "") == "outdoor"
+                else 70.0
+            ),
             umpire_k_boost=float(getattr(prop, "umpireKBoost", None) or 0.0),
             park_k_factor=float(getattr(prop, "parkKFactor", None) or 1.0),
         )
@@ -250,6 +256,13 @@ def apply_projection_context(prop: object) -> None:
     projection_sample_size = max(
         0, int(getattr(prop, "projectionSampleSize", 0) or 0)
     )
+    recent_hit_rate = getattr(prop, "recentHitRate", None)
+    historical_hit_rate = getattr(prop, "historicalHitRate", None)
+    empirical_hit_rate = (
+        float(recent_hit_rate if recent_hit_rate is not None else historical_hit_rate) / 100
+        if recent_hit_rate is not None or historical_hit_rate is not None
+        else None
+    )
     evaluation = evaluate_market(
         projection=adjusted,
         line=line,
@@ -259,11 +272,7 @@ def apply_projection_context(prop: object) -> None:
         sport=str(getattr(prop, "sport", "")),
         market=str(getattr(prop, "market", "")),
         model_calibrated=bool(getattr(prop, "projectionCalibrated", False)),
-        empirical_hit_rate=(
-            float(getattr(prop, "historicalHitRate")) / 100
-            if getattr(prop, "historicalHitRate", None) is not None
-            else None
-        ),
+        empirical_hit_rate=empirical_hit_rate,
         sharp_probability=(
             getattr(prop, "noVigOverProbability", None)
             if over_side
@@ -418,6 +427,7 @@ def apply_projection_context(prop: object) -> None:
 def enrich_props(props: list[object]) -> None:
     if not props:
         return
+    enrich_outdoor_weather(props)
     if not database_is_configured():
         for prop in props:
             apply_projection_context(prop)

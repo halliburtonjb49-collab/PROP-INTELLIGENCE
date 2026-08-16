@@ -5,6 +5,7 @@ from services.baseline_projection_service import (
     compute_baseline_projection,
     role_bucket_prior,
 )
+from services.prop_probability_service import evaluate_market
 
 
 def test_baseline_requires_a_real_minimum_sample() -> None:
@@ -23,6 +24,33 @@ def test_baseline_is_time_ordered_and_transparently_capped() -> None:
     assert result.calibrated is False
     assert result.historical_hit_rate == 50
     assert baseline_is_actionable(result, recommendation_tier="Strong") is False
+
+
+def test_sustained_recent_form_raises_confidence_over_season_only_rate() -> None:
+    improving = compute_baseline_projection(
+        ([18] * 20) + ([24] * 20), line=20.5, sport="WNBA", market="Points"
+    )
+
+    assert improving is not None
+    season_only = evaluate_market(
+        projection=improving.projection,
+        line=20.5,
+        volatility=improving.volatility,
+        side="OVER",
+        sample_size=improving.sample_size,
+        sport="WNBA",
+        market="Points",
+        empirical_hit_rate=improving.historical_hit_rate / 100,
+        model_calibrated=False,
+        sharp_probability=None,
+        decimal_odds=None,
+    )
+    assert improving.historical_hit_rate == 50
+    assert improving.recent_hit_rate > improving.historical_hit_rate
+    assert improving.hit_probability > season_only.model_probability
+    assert improving.confidence <= 80
+
+
 
 
 def test_basketball_combination_markets_use_actual_components() -> None:

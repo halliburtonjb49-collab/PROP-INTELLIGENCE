@@ -1960,7 +1960,7 @@ class _LineMovementItem {
       currentBook: p.sportsbook,
       movedAt: DateTime.tryParse(p.lineMovedAtUtc),
       lastUpdatedAt: DateTime.tryParse(p.lastUpdatedUtc),
-      recommendedSide: p.recommendedSide,
+      recommendedSide: p.proSuggestedSide ?? 'N/A',
       consensusLine: p.marketOriginLine,
       providerCount: p.marketBookCount,
       dataAgeSeconds: p.dataAgeSeconds,

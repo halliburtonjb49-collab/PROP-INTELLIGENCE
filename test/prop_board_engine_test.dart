@@ -145,7 +145,7 @@ void main() {
     expect(result.map((prop) => prop.id), ['early', 'late', 'missing']);
   });
 
-  test('selected props pin after ranking without disturbing other order', () {
+  test('selected props remain chronological across different start times', () {
     final result = _query(
       [
         _prop('late', startTimeUtc: '2099-07-22T20:00:00Z'),
@@ -155,7 +155,23 @@ void main() {
       pinned: {'middle'},
     );
 
-    expect(result.map((prop) => prop.id), ['middle', 'early', 'late']);
+    expect(result.map((prop) => prop.id), ['early', 'middle', 'late']);
+  });
+  test('verdict ranking only breaks ties within the same start time', () {
+    final result = _query([
+      _prop(
+        'later-play',
+        decision: 'PLAY_NOW',
+        startTimeUtc: '2099-07-21T20:00:00Z',
+      ),
+      _prop(
+        'earlier-wait',
+        decision: 'WAIT',
+        startTimeUtc: '2099-07-20T20:00:00Z',
+      ),
+    ], sortBy: 'verdict');
+
+    expect(result.map((prop) => prop.id), ['earlier-wait', 'later-play']);
   });
 
   test('board query helpers distinguish broad and narrowed states', () {

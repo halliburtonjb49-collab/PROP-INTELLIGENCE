@@ -384,6 +384,7 @@ def get_props() -> list[PropResponse]:
 		projection_calibrated = False
 		projection_label = ""
 		historical_hit_rate = None
+		recent_hit_rate = None
 		hit_probability = None
 		if projection is None:
 			projection = _row_optional_value(
@@ -453,6 +454,7 @@ def get_props() -> list[PropResponse]:
 					else "Baseline historical model"
 				)
 				historical_hit_rate = baseline.historical_hit_rate
+				recent_hit_rate = baseline.recent_hit_rate
 				hit_probability = baseline.hit_probability
 		confidence_override = baseline.confidence if baseline is not None else None
 		if projection is not None and baseline is None and float(projection) != line:
@@ -598,7 +600,11 @@ def get_props() -> list[PropResponse]:
 				empirical = None
 				if historical_hit_rate is not None:
 					projection_side = "OVER" if float(projection) > line else "UNDER"
-					empirical = historical_hit_rate / 100
+					empirical = (
+						recent_hit_rate / 100
+						if recent_hit_rate is not None
+						else historical_hit_rate / 100
+					)
 					if side != projection_side:
 						empirical = 1 - empirical
 				evaluations[side] = evaluate_market(
@@ -734,6 +740,7 @@ def get_props() -> list[PropResponse]:
 				projectedMinutes=projected_minutes,
 				projectionLabel=projection_label,
 				historicalHitRate=historical_hit_rate,
+				recentHitRate=recent_hit_rate,
 				pick=recommended_pick,
 				edge=float(
 					recommendation["edge"]

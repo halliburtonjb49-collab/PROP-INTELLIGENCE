@@ -179,24 +179,27 @@ void main() {
     expect(prop.displayConfidenceLabel, '57%');
   });
 
-  test('uses calibrated probability when a stats lean has no hit rate', () {
-    final prop = PropData.fromJson({
-      'id': 'strikeout-stats',
-      'player': 'Test Pitcher',
-      'sport': 'MLB',
-      'sportsbook': 'Book',
-      'market': 'Pitcher Strikeouts',
-      'line': 5.0,
-      'projection': 5.7,
-      'uncertaintyAdjustedProbability': 0.64,
-      'recommendationAvailable': false,
-      'confidence': 0,
-    });
+  test(
+    'uses calibrated probability when a projection pick has no hit rate',
+    () {
+      final prop = PropData.fromJson({
+        'id': 'strikeout-stats',
+        'player': 'Test Pitcher',
+        'sport': 'MLB',
+        'sportsbook': 'Book',
+        'market': 'Pitcher Strikeouts',
+        'line': 5.0,
+        'projection': 5.7,
+        'uncertaintyAdjustedProbability': 0.64,
+        'recommendationAvailable': false,
+        'confidence': 0,
+      });
 
-    expect(prop.proSuggestionUsesHistoricalStats, isTrue);
-    expect(prop.displayConfidenceRating, 64);
-    expect(prop.displayConfidenceLabel, '64%');
-  });
+      expect(prop.proSuggestionUsesHistoricalStats, isTrue);
+      expect(prop.displayConfidenceRating, 64);
+      expect(prop.displayConfidenceLabel, '64%');
+    },
+  );
 
   test('separates the model estimate from the conservative risk floor', () {
     final prop = PropData.fromJson({
