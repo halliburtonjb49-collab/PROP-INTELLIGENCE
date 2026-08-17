@@ -29,6 +29,20 @@ flutter --version
 : "${TURNSTILE_SITE_KEY:=}"
 : "${TURNSTILE_BASE_URL:=https://app.propsintell.com/}"
 
+# Supabase rejects password authentication without a CAPTCHA token when its
+# CAPTCHA protection is enabled. Never publish a production client that cannot
+# create the token required by login, signup, and password recovery.
+if [ "${VERCEL_ENV:-}" = "production" ] && [ -z "${TURNSTILE_SITE_KEY}" ]; then
+  echo "TURNSTILE_SITE_KEY is required for production authentication." >&2
+  exit 1
+fi
+
+if [ "${VERCEL_ENV:-}" = "production" ]; then
+  TURNSTILE_REQUIRED="true"
+else
+  TURNSTILE_REQUIRED="false"
+fi
+
 # Accept the legacy lowercase Preview variable while keeping the canonical
 # uppercase name used by production and the Flutter build.
 if [ -z "${SUPABASE_ANON_KEY:-}" ] && [ -n "${supabase_anon_key:-}" ]; then
@@ -77,6 +91,7 @@ flutter build web --release \
   --dart-define="MOBILE_AUTH_REDIRECT_URL=com.propintelligence.app://login-callback/" \
   --dart-define="ALLOW_PUBLIC_SIGNUP=${ALLOW_PUBLIC_SIGNUP:-true}" \
   --dart-define="TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY}" \
+  --dart-define="TURNSTILE_REQUIRED=${TURNSTILE_REQUIRED}" \
   --dart-define="TURNSTILE_BASE_URL=${TURNSTILE_BASE_URL}" \
   --dart-define="REVENUECAT_PUBLIC_API_KEY=${REVENUECAT_PUBLIC_API_KEY}"
 

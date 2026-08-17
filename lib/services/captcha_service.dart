@@ -19,8 +19,13 @@ class CaptchaService {
     'TURNSTILE_BASE_URL',
     defaultValue: 'https://app.propsintell.com/',
   );
+  static const bool _required = bool.fromEnvironment(
+    'TURNSTILE_REQUIRED',
+    defaultValue: false,
+  );
 
   static bool get isEnabled => _siteKey.trim().isNotEmpty;
+  static bool get isMisconfigured => _required && !isEnabled;
 
   static String get _baseUrl {
     if (kIsWeb && Uri.base.origin.startsWith('https://')) {
@@ -31,7 +36,7 @@ class CaptchaService {
 
   static Future<CaptchaChallengeResult> tokenFor(String action) async {
     if (!isEnabled) {
-      return const CaptchaChallengeResult(required: false);
+      return CaptchaChallengeResult(required: _required);
     }
     final turnstile = CloudflareTurnstile.invisible(
       siteKey: _siteKey,

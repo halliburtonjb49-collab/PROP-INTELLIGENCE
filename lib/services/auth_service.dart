@@ -60,6 +60,13 @@ class SportsAppAuthService {
   }
 
   String _friendlyAuthMessage(Object error, {required bool isRegistering}) {
+    final rawMessage = error.toString().toLowerCase();
+    if (rawMessage.contains('captcha_token') ||
+        rawMessage.contains('captcha protection') ||
+        rawMessage.contains('captcha verification')) {
+      return 'Security verification is temporarily unavailable. '
+          'Please use Continue with Google or try again shortly.';
+    }
     if (error is AuthApiException) {
       final code = (error.code ?? '').toLowerCase();
       if (code == 'email_not_confirmed') {
@@ -139,7 +146,8 @@ class SportsAppAuthService {
       if (!captcha.passed) {
         return const AuthActionResult(
           success: false,
-          message: 'Security verification failed. Please try again.',
+          message:
+              'Security verification is temporarily unavailable. Please use Continue with Google or try again shortly.',
         );
       }
       final response = await client.auth.signUp(
@@ -194,7 +202,8 @@ class SportsAppAuthService {
       if (!captcha.passed) {
         return const AuthActionResult(
           success: false,
-          message: 'Security verification failed. Please try again.',
+          message:
+              'Security verification is temporarily unavailable. Please use Continue with Google or try again shortly.',
         );
       }
       final response = await client.auth.signInWithPassword(
@@ -239,7 +248,8 @@ class SportsAppAuthService {
       if (!captcha.passed) {
         return const AuthActionResult(
           success: false,
-          message: 'Security verification failed. Please try again.',
+          message:
+              'Security verification is temporarily unavailable. Please use Continue with Google or try again shortly.',
         );
       }
       await client.auth.resetPasswordForEmail(
