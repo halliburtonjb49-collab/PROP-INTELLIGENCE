@@ -141,7 +141,8 @@ void main() {
     expect(overLean.proSuggestedSide, 'OVER');
     expect(overLean.proSuggestionUsesModel, isFalse);
     expect(even.marketLeanSide, 'EVEN');
-    expect(even.proSuggestedSide, isNull);
+    expect(even.proSuggestedSide, 'UNDER');
+    expect(even.proSuggestionUsesResearchFallback, isTrue);
   });
 
   test('Pro suggestion prioritizes a verified model direction', () {
@@ -200,6 +201,57 @@ void main() {
     expect(prop.proSuggestionUsesModel, isFalse);
     expect(prop.proSuggestionUsesHistoricalStats, isTrue);
     expect(prop.proSuggestionUsesMarket, isFalse);
+  });
+
+  test('pre-market projection provides a definite Pro PI Pick direction', () {
+    const prop = PropData(
+      id: 'pre-market',
+      eventId: '',
+      apiSportsGameId: '',
+      playerId: 'player',
+      player: 'Player',
+      sport: 'MLB',
+      matchup: '',
+      sportsbook: 'Book',
+      market: 'Pitcher Strikeouts',
+      line: 4.5,
+      pick: 'N/A',
+      edge: 0,
+      imagePath: '',
+      projectionPreMarket: 5.2,
+      recommendationAvailable: false,
+    );
+
+    expect(prop.proSuggestedSide, 'OVER');
+    expect(prop.proSuggestionUsesHistoricalStats, isTrue);
+    expect(prop.proSuggestionUsesResearchFallback, isFalse);
+  });
+
+  test('Pro always gets a disclosed stable direction without model evidence', () {
+    const prop = PropData(
+      id: 'unmodeled',
+      eventId: '',
+      apiSportsGameId: '',
+      playerId: 'player',
+      player: 'Player',
+      sport: 'MLB',
+      matchup: '',
+      sportsbook: 'Book',
+      market: 'Pitcher Strikeouts',
+      line: 4.5,
+      pick: 'N/A',
+      edge: 0,
+      imagePath: '',
+      recommendationAvailable: false,
+      recentHitRate: 62,
+      verdict: PropVerdict(
+        decision: 'PASS',
+        headline: 'TAKE A CHANCE - NOT BACKED',
+      ),
+    );
+
+    expect(prop.proSuggestedSide, 'OVER');
+    expect(prop.proSuggestionUsesResearchFallback, isTrue);
   });
 
   test('PI verdict side overrides a conflicting fallback projection pick', () {

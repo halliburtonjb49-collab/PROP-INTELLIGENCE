@@ -358,10 +358,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final hasModelPick =
         hasProAccess && prop.proSuggestionUsesModel && advisedSide != null;
     final noPiPick = hasProAccess && advisedSide == null;
+    final usesResearchFallback =
+        hasProAccess && prop.proSuggestionUsesResearchFallback;
+    final researchProjection = prop.projection ?? prop.projectionPreMarket;
     final rawFallbackSide = prop.proSuggestionUsesHistoricalStats
-        ? prop.projection == null || prop.projection == prop.line
+        ? researchProjection == null || researchProjection == prop.line
               ? null
-              : prop.projection! > prop.line
+              : researchProjection > prop.line
               ? 'OVER'
               : 'UNDER'
         : prop.proSuggestionUsesMarket
@@ -379,6 +382,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         ? 'PI SIGNAL'
         : prop.proSuggestionUsesHistoricalStats
         ? 'PI PICK'
+        : usesResearchFallback
+        ? 'RESEARCH PICK'
         : 'MARKET LEAN';
     final badgeExplanation = !hasProAccess
         ? 'PROP TYPE: the statistic and posted line available for manual research and selection.'
@@ -390,11 +395,15 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         ? 'PI SIGNAL: the final verdict direction after probability and price checks differs from the raw fallback lean. The PI Verdict is the action guide.'
         : prop.proSuggestionUsesHistoricalStats
         ? 'PI PICK: the projection suggests a definite OVER or UNDER direction using the available evidence. Evidence source and PI Trust remain visible.'
+        : usesResearchFallback
+        ? 'RESEARCH PICK: a stable OVER or UNDER research direction is shown because no released model or priced market edge is available. It is low evidence and the PI Verdict remains the action guide.'
         : 'MARKET LEAN: direction inferred from sportsbook pricing, not a released model pick. Follow the PI Verdict for the action decision.';
     final signalColor = noPiPick
         ? app_colors.AppColors.textMuted
         : hasModelPick || prop.proSuggestionUsesHistoricalStats
         ? app_colors.AppColors.blue
+        : usesResearchFallback
+        ? app_colors.AppColors.textMuted
         : app_colors.AppColors.gold;
 
     Widget metric(String label, String value) => Expanded(
@@ -963,6 +972,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   chip('EVIDENCE: 5/10/20 PROJECTION'),
                 if (!hasModelPick && prop.proSuggestionUsesMarket)
                   chip('EVIDENCE: SPORTSBOOK PRICING'),
+                if (usesResearchFallback)
+                  chip('EVIDENCE: LOW-EVIDENCE RESEARCH'),
                 if (prop.displayModelIsMarketBaseline) chip('MODEL: BASELINE'),
                 if (hasProAccess) chip('PICK GRADE ${prop.pickGrade}'),
                 if (hasProAccess && prop.projectedOpportunity != null)
