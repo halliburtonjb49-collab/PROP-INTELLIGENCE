@@ -570,9 +570,22 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$baseUrl/api/operations/control-panel'),
       headers: await _authenticatedHeaders(),
-    );
+    ).timeout(const Duration(seconds: 20));
     if (response.statusCode != 200) {
       throw Exception('Unable to load launch control panel: ${response.body}');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> fetchBillingCertification() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/operations/billing-certification'),
+      headers: await _authenticatedHeaders(),
+    ).timeout(const Duration(seconds: 12));
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Unable to load billing certification: ${response.body}',
+      );
     }
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
