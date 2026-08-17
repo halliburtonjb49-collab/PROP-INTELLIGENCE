@@ -107,4 +107,42 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('collapsed phone verdict defers secondary facts to research', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    const reason =
+        'The projection clears the current line, but users should confirm '
+        'availability and recent lineup news before making a decision.';
+    const verdict = PropVerdict(
+      decision: 'LEAN',
+      headline: 'LEAN OVER',
+      reason: reason,
+      maximumPlayableLine: 17.5,
+      betterPriceAt: 'PRIZEPICKS',
+      recheck: 'AFTER LINEUPS',
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: PiVerdictBlock(verdict: verdict, compactSummary: true),
+        ),
+      ),
+    );
+
+    expect(find.text('LEAN OVER'), findsOneWidget);
+    expect(find.text(reason), findsOneWidget);
+    expect(tester.widget<Text>(find.text(reason)).maxLines, 2);
+    expect(find.text('PI VERDICT'), findsNothing);
+    expect(find.byKey(const ValueKey('pi-verdict-facts')), findsNothing);
+    expect(find.text('Recheck after lineups'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
