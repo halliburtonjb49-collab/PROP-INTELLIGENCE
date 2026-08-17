@@ -58,7 +58,16 @@ String normalizedApiCategory(PropData prop) {
 
   final sport = prop.sport.trim().toUpperCase();
   final aliases = switch (sport) {
-    'NBA' || 'WNBA' => const {'3-pointers': '3-POINTERS MADE'},
+    'NBA' || 'WNBA' => const {
+      'player points': 'POINTS',
+      'player rebounds': 'REBOUNDS',
+      'player assists': 'ASSISTS',
+      'player points rebounds assists': 'PRA',
+      'player points rebounds': 'POINTS + REBOUNDS',
+      'player points assists': 'POINTS + ASSISTS',
+      'player rebounds assists': 'REBOUNDS + ASSISTS',
+      '3-pointers': '3-POINTERS MADE',
+    },
     'NFL' => const {
       'touchdowns': 'TOTAL TOUCHDOWNS',
       'rushing attempts': 'RUSH ATTEMPTS',

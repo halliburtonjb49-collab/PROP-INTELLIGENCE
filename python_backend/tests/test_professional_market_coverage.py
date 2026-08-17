@@ -48,6 +48,12 @@ def test_new_markets_have_professional_category_labels():
     assert market_to_category("player_anytime_td") == "anytime touchdown"
     assert market_to_category("player_goal_scorer_anytime") == "anytime goalscorer"
     assert market_to_category("player_to_receive_card") == "player card"
+
+
+def test_provider_display_labels_normalize_to_canonical_categories():
+    assert market_to_category("Player Assists") == "assists"
+    assert market_to_category("player-assists") == "assists"
+    assert market_to_category("Player Points + Assists") == "points + assists"
     assert format_sport_label("icehockey_nhl") == "NHL"
     assert format_sport_label("soccer_epl") == "SOCCER"
     assert format_sport_label("americanfootball_ncaaf") == "NCAAF"

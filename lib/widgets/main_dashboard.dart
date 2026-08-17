@@ -1008,9 +1008,9 @@ class _MainDashboardState extends State<MainDashboard> {
                 ? _siteSportCounts.entries
                       .where((entry) => entry.value > 0)
                       .map((entry) => _normalizeSport(entry.key))
-                : _siteInventoryProps
-                      .where((prop) => prop.isSelectable)
-                      .map((prop) => _normalizeSport(prop.sport)))
+                : _siteInventoryProps.map(
+                    (prop) => _normalizeSport(prop.sport),
+                  ))
             .where((sport) => sport.isNotEmpty && sport != 'ALL')
             .toSet()
             .toList();
@@ -1048,8 +1048,7 @@ class _MainDashboardState extends State<MainDashboard> {
     }
     final counts = <String, int>{};
     for (final prop in _siteInventoryProps) {
-      if (!prop.isSelectable ||
-          _normalizeSport(prop.sport) != _selectedSiteSport) {
+      if (_normalizeSport(prop.sport) != _selectedSiteSport) {
         continue;
       }
       final category = _marketCategory(prop);

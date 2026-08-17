@@ -209,7 +209,16 @@ def format_market_label(prop_type: str) -> str:
 
 
 def market_to_category(market: str) -> str:
-    normalized = (market or "").strip().lower()
+    # Provider market identifiers arrive in several equivalent shapes:
+    # player_assists, "Player Assists", player-assists, and occasionally
+    # punctuation-delimited labels. Normalize those shapes before looking up
+    # the canonical category so a WNBA assist line cannot fall into a stray
+    # PLAYER ASSISTS category and disappear from the ASSISTS rail.
+    normalized = re.sub(
+        r"[^a-z0-9]+",
+        "_",
+        (market or "").strip().lower(),
+    ).strip("_")
     if not normalized:
         return ""
 

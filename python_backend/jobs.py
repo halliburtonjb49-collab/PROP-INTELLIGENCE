@@ -72,12 +72,9 @@ def run_prop_sync() -> None:
 
     current_job = get_current_job()
     main.run_queued_prop_sync(current_job.id if current_job is not None else None)
-    # The worker and API have separate ephemeral disks. Publish the worker's
-    # completed local catalog to Redis so API instances and devices can read it.
-    props = main._cached_prop_catalog()
-    main.save_catalog_snapshot(
-        [prop.model_dump(mode="json") for prop in props]
-    )
+    # The sync's final catalog refresh already streams the durable snapshot and
+    # shared Redis catalog. Re-serializing the entire catalog here retained a
+    # second full copy at peak memory and delayed the job's terminal state.
     _enqueue_espn_headshot_refresh_if_due()
 
 

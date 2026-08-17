@@ -356,8 +356,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         : null;
     final hasModelPick =
         hasProAccess && prop.proSuggestionUsesModel && advisedSide != null;
-    final noPiPick =
-        hasProAccess && prop.verdict.decision.trim().toUpperCase() == 'PASS';
+    final noPiPick = hasProAccess && advisedSide == null;
     final rawFallbackSide = prop.proSuggestionUsesHistoricalStats
         ? prop.projection == null || prop.projection == prop.line
               ? null

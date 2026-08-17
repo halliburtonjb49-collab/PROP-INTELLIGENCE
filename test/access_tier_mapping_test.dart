@@ -225,7 +225,7 @@ void main() {
     expect(prop.proSuggestedSide, 'UNDER');
   });
 
-  test('PASS verdict does not expose a directional Pro suggestion', () {
+  test('PASS verdict keeps its non-actionable Pro research direction', () {
     final prop = PropData.fromJson(const {
       'id': 'not-backed',
       'player': 'Player',
@@ -244,7 +244,7 @@ void main() {
     });
 
     expect(prop.proSuggestionUsesHistoricalStats, isTrue);
-    expect(prop.proSuggestedSide, isNull);
+    expect(prop.proSuggestedSide, 'OVER');
   });
   test('baseline projection metadata remains visible to the client', () {
     final prop = PropData.fromJson({

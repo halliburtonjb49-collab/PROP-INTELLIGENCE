@@ -100,4 +100,9 @@ void main() {
     expect(marketCategoryFor('NFL', 'player_rush_attempts'), 'RUSH ATTEMPTS');
     expect(marketCategoryFor('NFL', 'rushing attempts'), 'RUSH ATTEMPTS');
   });
+
+  test('Caitlin Clark player-assist labels stay in ASSISTS', () {
+    expect(marketCategoryFor('WNBA', 'Player Assists'), 'ASSISTS');
+    expect(marketCategoryFor('WNBA', 'player_assists'), 'ASSISTS');
+  });
 }

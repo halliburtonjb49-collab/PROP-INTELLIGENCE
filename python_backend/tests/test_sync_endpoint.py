@@ -114,6 +114,35 @@ def test_requested_sync_deduplicates_active_downstream_run(monkeypatch) -> None:
     assert enqueue_calls == []
 
 
+def test_freshness_recovery_deduplicates_active_downstream_run(monkeypatch) -> None:
+    enqueue_calls = []
+    monkeypatch.setattr(
+        main,
+        "_sync_state_snapshot",
+        lambda: {
+            "status": "running",
+            "queuedJobId": "active-recovery-job",
+            "coverageStatus": "complete",
+            "sportsGameOddsStatus": "complete",
+            "postProcessingStatus": "running",
+        },
+    )
+    monkeypatch.setattr(
+        main,
+        "enqueue_background_job",
+        lambda *_args, **_kwargs: enqueue_calls.append(True),
+    )
+
+    queued = main._enqueue_prop_refresh()
+
+    assert queued == {
+        "id": "active-recovery-job",
+        "status": "running",
+        "deduplicated": True,
+    }
+    assert enqueue_calls == []
+
+
 def test_requested_sync_recovers_orphaned_shared_state(monkeypatch) -> None:
 	state_updates = []
 	started_at = datetime.now(timezone.utc) - timedelta(minutes=5)
@@ -283,7 +312,7 @@ def test_primary_lane_completes_before_background_coverage(monkeypatch) -> None:
 
     main._run_sync_background(release_local_lock=False)
 
-    assert observed["status"] == "complete"
+    assert observed["status"] == "running"
     assert observed["coverageStatus"] == "running"
     assert observed["postProcessingStatus"] == "pending"
     assert coverage_observed["coverageStatus"] == "complete"
@@ -297,6 +326,10 @@ def test_primary_lane_completes_before_background_coverage(monkeypatch) -> None:
     assert final["coverageStatus"] == "complete"
     assert final["sportsGameOddsStatus"] == "complete"
     assert final["postProcessingStatus"] == "complete"
+    assert final["postProcessingCompletedAt"] is not None
+    assert final["postProcessingDurationSeconds"] is not None
+    assert final["lastFullCycleCompletedAt"] == final["finishedAt"]
+    assert final["lastFullCycleDurationSeconds"] is not None
     assert len(final["coverageResults"]) == 2
     assert len(final["results"]) == 3
     assert refreshes == [
