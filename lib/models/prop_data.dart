@@ -472,31 +472,49 @@ class PropData {
     // actionable UNDER verdict.
     final verdictSide = verdict.side.trim().toUpperCase();
     if (verdict.isPresent) {
-      final decision = verdict.decision.trim().toUpperCase();
-      if ((verdictSide == 'OVER' || verdictSide == 'UNDER') &&
-          (decision != 'PASS' ||
-              recommendationAvailable ||
-              (projection != null && projection != line))) {
+      if (verdictSide == 'OVER' || verdictSide == 'UNDER') {
         return verdictSide;
       }
       // A PASS verdict means PI does not consider the price actionable; it
       // does not erase a real projection. Pro may still see the research
       // direction, while the verdict and actionable flag remain unchanged.
-      if (projection != null && projection != line) {
-        return projection! > line ? 'OVER' : 'UNDER';
+      final researchProjection = projection ?? projectionPreMarket;
+      if (researchProjection != null && researchProjection != line) {
+        return researchProjection > line ? 'OVER' : 'UNDER';
       }
-      return null;
+      final marketSide = marketLeanSide;
+      if (marketSide == 'OVER' || marketSide == 'UNDER') return marketSide;
+      return _lowEvidenceResearchSide;
     }
     final modelSide = recommendedSide.trim().toUpperCase();
     if (recommendationAvailable &&
         (modelSide == 'OVER' || modelSide == 'UNDER')) {
       return modelSide;
     }
-    if (projection != null && projection != line) {
-      return projection! > line ? 'OVER' : 'UNDER';
+    final researchProjection = projection ?? projectionPreMarket;
+    if (researchProjection != null && researchProjection != line) {
+      return researchProjection > line ? 'OVER' : 'UNDER';
     }
     final marketSide = marketLeanSide;
-    return marketSide == 'OVER' || marketSide == 'UNDER' ? marketSide : null;
+    if (marketSide == 'OVER' || marketSide == 'UNDER') return marketSide;
+    return _lowEvidenceResearchSide;
+  }
+
+  /// A stable last-resort direction for Pro research when neither PI nor the
+  /// market supplies a released side. Recent/season over hit rate and line
+  /// movement are still useful directional evidence. If even those are
+  /// unavailable, UNDER is the deliberately conservative research default.
+  /// The UI labels this case LOW-EVIDENCE RESEARCH PICK and the verdict remains
+  /// PASS, so it cannot be mistaken for a backed or actionable model play.
+  String get _lowEvidenceResearchSide {
+    final hitRate = recentHitRate ?? historicalHitRate;
+    if (hitRate != null && hitRate != 50) {
+      return hitRate > 50 ? 'OVER' : 'UNDER';
+    }
+    if (openingLine != 0 && currentLine != 0 && openingLine != currentLine) {
+      return currentLine > openingLine ? 'OVER' : 'UNDER';
+    }
+    return 'UNDER';
   }
 
   bool get proSuggestionUsesModel =>
@@ -505,12 +523,19 @@ class PropData {
           recommendedSide.trim().toUpperCase() == 'UNDER');
 
   bool get proSuggestionUsesHistoricalStats =>
-      !proSuggestionUsesModel && projection != null && projection != line;
+      !proSuggestionUsesModel &&
+      (projection ?? projectionPreMarket) != null &&
+      (projection ?? projectionPreMarket) != line;
 
   bool get proSuggestionUsesMarket =>
       !proSuggestionUsesModel &&
       !proSuggestionUsesHistoricalStats &&
       (marketLeanSide == 'OVER' || marketLeanSide == 'UNDER');
+
+  bool get proSuggestionUsesResearchFallback =>
+      !proSuggestionUsesModel &&
+      !proSuggestionUsesHistoricalStats &&
+      !proSuggestionUsesMarket;
 
   /// The evidence-backed percentage displayed as the pick's confidence.
   ///
