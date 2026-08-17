@@ -282,6 +282,9 @@ class SportsAppAuthService {
       final launched = await client.auth.signInWithOAuth(
         provider,
         redirectTo: _redirectUrlOrNull,
+        queryParams: provider == OAuthProvider.google
+            ? const {'prompt': 'select_account'}
+            : const {},
       );
       return AuthActionResult(
         success: launched,
