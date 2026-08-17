@@ -199,4 +199,61 @@ void main() {
       );
     },
   );
+
+  test(
+    'cached props rebuild zero category facets before first paint',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'prop-feed-v5-last-stable': jsonEncode({
+          'savedAt': DateTime.now().toUtc().toIso8601String(),
+          'total': 2,
+          'facetTotal': 2,
+          'categoryCounts': {'POINTS': 0},
+          'totalCategoryCounts': {'POINTS': 0},
+          'playableCategoryCounts': {'POINTS': 0},
+          'sportCounts': {'NBA': 0},
+          'verdictCounts': {'ALL': 0},
+          'sportCategoryCounts': {
+            'NBA': {'POINTS': 0},
+          },
+          'totalSportCategoryCounts': {
+            'NBA': {'POINTS': 0},
+          },
+          'playableSportCategoryCounts': {
+            'NBA': {'POINTS': 0},
+          },
+          'props': [
+            {
+              ..._prop('cached-playable', 'NBA'),
+              'verdict': {'decision': 'LEAN', 'actionable': true},
+            },
+            {
+              ..._prop('cached-wait', 'NBA'),
+              'verdict': {'decision': 'WAIT', 'actionable': false},
+            },
+          ],
+        }),
+      });
+
+      final cached = await ApiService().loadCachedProps(
+        selectedSide: 'All',
+        selectedTier: 'All',
+        selectedSportsbook: 'All',
+        selectedSport: 'All',
+        selectedCategory: 'All',
+        sortBy: 'source',
+      );
+
+      expect(cached, hasLength(2));
+      expect(ApiService().lastTotalCategoryCounts, {'POINTS': 2});
+      expect(ApiService().lastPlayableCategoryCounts, {'POINTS': 1});
+      expect(ApiService().lastSportCounts, {'NBA': 2});
+      expect(ApiService().lastTotalSportCategoryCounts, {
+        'NBA': {'POINTS': 2},
+      });
+      expect(ApiService().lastPlayableSportCategoryCounts, {
+        'NBA': {'POINTS': 1},
+      });
+    },
+  );
 }

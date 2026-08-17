@@ -1834,6 +1834,46 @@ class ApiService {
           decoded['playableSportCategoryCounts'],
           _lastSportCategoryCounts,
         );
+        // Older or interrupted cache writes can preserve a healthy prop list
+        // alongside empty/zero facet maps. Rendering those maps produces the
+        // confusing "ALL 0" category rail while cards are visibly present.
+        // Rebuild only unusable facets from the saved props; valid server
+        // aggregates still win and retain their full-catalog totals.
+        bool hasPositiveCount(Map<String, int> counts) =>
+            counts.values.any((count) => count > 0);
+        bool hasPositiveNestedCount(Map<String, Map<String, int>> counts) =>
+            counts.values.any(hasPositiveCount);
+        final cachedPlayable = cached
+            .where((prop) => prop.verdict.actionable)
+            .toList(growable: false);
+        if (!hasPositiveCount(_lastCategoryCounts)) {
+          _lastCategoryCounts = _categoryCountsFromProps(cached);
+        }
+        if (!hasPositiveCount(_lastTotalCategoryCounts)) {
+          _lastTotalCategoryCounts = _categoryCountsFromProps(cached);
+        }
+        if (!hasPositiveCount(_lastPlayableCategoryCounts)) {
+          _lastPlayableCategoryCounts = _categoryCountsFromProps(
+            cachedPlayable,
+          );
+        }
+        if (!hasPositiveCount(_lastSportCounts)) {
+          _lastSportCounts = _sportCountsFromProps(cached);
+        }
+        if (!hasPositiveCount(_lastVerdictCounts)) {
+          _lastVerdictCounts = _verdictCountsFromProps(cached);
+        }
+        if (!hasPositiveNestedCount(_lastSportCategoryCounts)) {
+          _lastSportCategoryCounts = _sportCategoryCountsFromProps(cached);
+        }
+        if (!hasPositiveNestedCount(_lastTotalSportCategoryCounts)) {
+          _lastTotalSportCategoryCounts = _sportCategoryCountsFromProps(cached);
+        }
+        if (!hasPositiveNestedCount(_lastPlayableSportCategoryCounts)) {
+          _lastPlayableSportCategoryCounts = _sportCategoryCountsFromProps(
+            cachedPlayable,
+          );
+        }
         refreshStatusNotifier.value = BackendRefreshStatus(
           lastRefreshAt: DateTime.tryParse(
             decoded['savedAt']?.toString() ?? '',

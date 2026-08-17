@@ -44,9 +44,14 @@ class ResearchToggle extends StatelessWidget {
 }
 
 class PiVerdictBlock extends StatelessWidget {
-  const PiVerdictBlock({super.key, required this.verdict});
+  const PiVerdictBlock({
+    super.key,
+    required this.verdict,
+    this.compactSummary = false,
+  });
 
   final PropVerdict verdict;
+  final bool compactSummary;
 
   ({Color accent, IconData icon}) get _treatment => switch (verdict.decision) {
     'PLAY_NOW' => (accent: AppColors.success, icon: Icons.bolt_rounded),
@@ -78,7 +83,11 @@ class PiVerdictBlock extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 10 : 12,
-        vertical: compact ? 8 : 10,
+        vertical: compactSummary
+            ? 7
+            : compact
+            ? 8
+            : 10,
       ),
       decoration: BoxDecoration(
         color: accent.withValues(alpha: .07),
@@ -103,29 +112,36 @@ class PiVerdictBlock extends StatelessWidget {
                   ),
                 ),
               ),
-              const Text(
-                'PI VERDICT',
-                style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 8,
-                  letterSpacing: 1.1,
-                  fontWeight: FontWeight.w700,
+              if (!compactSummary)
+                const Text(
+                  'PI VERDICT',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 8,
+                    letterSpacing: 1.1,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
             ],
           ),
-          const SizedBox(height: 5),
+          SizedBox(height: compactSummary ? 3 : 5),
           Text(
             verdict.reason,
-            maxLines: compact ? 3 : null,
-            overflow: compact ? TextOverflow.ellipsis : TextOverflow.visible,
+            maxLines: compactSummary
+                ? 2
+                : compact
+                ? 3
+                : null,
+            overflow: compactSummary || compact
+                ? TextOverflow.ellipsis
+                : TextOverflow.visible,
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 11,
               height: 1.35,
             ),
           ),
-          if (facts.isNotEmpty) ...[
+          if (!compactSummary && facts.isNotEmpty) ...[
             const SizedBox(height: 5),
             Text(
               facts.join('  \u00b7  '),
@@ -139,7 +155,7 @@ class PiVerdictBlock extends StatelessWidget {
               ),
             ),
           ],
-          if (verdict.recheck.isNotEmpty) ...[
+          if (!compactSummary && verdict.recheck.isNotEmpty) ...[
             const SizedBox(height: 4),
             Row(
               children: [

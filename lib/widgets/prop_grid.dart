@@ -340,6 +340,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     bool fixedHeight = true,
   }) {
     final researchOpen = _expandedResearch.contains(prop.id);
+    final compactCard = MediaQuery.sizeOf(context).width < 600;
     final hasProAccess = canShowSystemRecommendation(
       hasEdgeAccess: AuthManager.instance.sessionState.value.hasEdgeAccess,
     );
@@ -840,7 +841,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           // line, the book and both buttons; only Pro is told what we think
           // of it. Giving the opinion away leaves nothing to sell.
           if (hasProAccess && prop.verdict.isPresent) ...[
-            PiVerdictBlock(verdict: prop.verdict),
+            PiVerdictBlock(
+              verdict: prop.verdict,
+              compactSummary: compactCard && !researchOpen,
+            ),
             const SizedBox(height: 8),
           ],
           // Above the fold, never inside the research fold. When an event's
@@ -883,7 +887,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 9),
           ],
-          if (hasProAccess) ...[
+          // On a collapsed phone card, the PI Trust badge and PI Pick already
+          // carry the decision-critical values. Keep this secondary model row
+          // for larger screens and reveal it with the research details on a
+          // phone instead of repeating the same information above the fold.
+          if (hasProAccess && (!compactCard || researchOpen)) ...[
             Row(
               children: [
                 metric(
