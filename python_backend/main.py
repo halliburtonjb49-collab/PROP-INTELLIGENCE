@@ -888,6 +888,7 @@ _sync_state: dict[str, object] = {
 	"error": None,
 	"queuedJobId": None,
 	"jobHeartbeatAt": None,
+	"syncLockActive": False,
 	"syncLockHealthy": None,
 	"cooldownSeconds": LIVE_ODDS_SYNC_MIN_SECONDS,
 	"nextAllowedAt": None,
@@ -905,10 +906,15 @@ _sync_state: dict[str, object] = {
 	"sportsGameOddsResult": None,
 	"sportsGameOddsError": None,
 	"postProcessingStatus": "idle",
+	"postProcessingStartedAt": None,
 	"postProcessingStep": None,
 	"postProcessingUpdatedAt": None,
 	"postProcessingCompletedAt": None,
+	"postProcessingDurationSeconds": None,
 	"postProcessingError": None,
+	"lastFullCycleCompletedAt": None,
+	"lastFullCycleDurationSeconds": None,
+	"lastFullCycleJobId": None,
 }
 
 
@@ -1018,7 +1024,8 @@ def _mark_sync_running(job_id: str | None = None) -> None:
 	_set_sync_state(
 		status="running", startedAt=now,
 		finishedAt=None, results=[], error=None, queuedJobId=job_id,
-		jobHeartbeatAt=now, syncLockHealthy=True, nextAllowedAt=None,
+		jobHeartbeatAt=now, syncLockActive=True, syncLockHealthy=True,
+		nextAllowedAt=None,
 		fastLaneCompletedAt=None, fastLaneResults=[],
 		coverageStatus="pending", coverageCompletedAt=None,
 		coverageResults=[], coverageError=None,
@@ -1027,7 +1034,8 @@ def _mark_sync_running(job_id: str | None = None) -> None:
 		sportsGameOddsCompletedAt=None, sportsGameOddsResult=None,
 		sportsGameOddsError=None,
 		postProcessingStatus="pending", postProcessingStep=None,
-		postProcessingUpdatedAt=None, postProcessingCompletedAt=None,
+		postProcessingStartedAt=None, postProcessingUpdatedAt=None,
+		postProcessingCompletedAt=None, postProcessingDurationSeconds=None,
 		postProcessingError=None,
 	)
 
@@ -1043,8 +1051,10 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 			finished = datetime.now(timezone.utc)
 			cooldown = _effective_sync_cooldown_seconds()
 			_set_sync_state(
-				status="complete",
-				finishedAt=finished.isoformat(),
+				# The board is already usable, but the cycle is not complete until
+				# every provider and post-processing stage reaches a terminal state.
+				status="running",
+				finishedAt=None,
 				cooldownSeconds=cooldown,
 				nextAllowedAt=(finished + timedelta(seconds=cooldown)).isoformat(),
 				fastLaneCompletedAt=finished.isoformat(),
@@ -1081,6 +1091,7 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 			)
 
 		def mark_sportsgameodds_complete(result: dict[str, object]) -> None:
+			post_started = datetime.now(timezone.utc)
 			partial = bool(
 				result.get("error")
 				or result.get("partial")
@@ -1095,8 +1106,9 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 					if partial else None
 				),
 				postProcessingStatus="running",
+				postProcessingStartedAt=post_started.isoformat(),
 				postProcessingStep="catalog_refresh",
-				postProcessingUpdatedAt=datetime.now(timezone.utc).isoformat(),
+				postProcessingUpdatedAt=post_started.isoformat(),
 			)
 			# One final rebuild includes coverage and SportsGameOdds, and is the
 			# only refresh in this run that starts a durable snapshot write.
@@ -1125,6 +1137,35 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 		clv_capture = capture_closing_lines_from_props(get_props())
 		quota = quota_snapshot()
 		finished = datetime.now(timezone.utc)
+		state = _sync_state_snapshot()
+		post_started_raw = state.get("postProcessingStartedAt")
+		post_duration: int | None = None
+		if post_started_raw:
+			try:
+				post_started = datetime.fromisoformat(
+					str(post_started_raw).replace("Z", "+00:00")
+				)
+				if post_started.tzinfo is None:
+					post_started = post_started.replace(tzinfo=timezone.utc)
+				post_duration = max(
+					0, int((finished - post_started).total_seconds())
+				)
+			except ValueError:
+				post_duration = None
+		started_raw = state.get("startedAt")
+		cycle_duration: int | None = None
+		if started_raw:
+			try:
+				cycle_started = datetime.fromisoformat(
+					str(started_raw).replace("Z", "+00:00")
+				)
+				if cycle_started.tzinfo is None:
+					cycle_started = cycle_started.replace(tzinfo=timezone.utc)
+				cycle_duration = max(
+					0, int((finished - cycle_started).total_seconds())
+				)
+			except ValueError:
+				cycle_duration = None
 		cooldown = _effective_sync_cooldown_seconds()
 		_set_sync_state(
 			status="complete",
@@ -1138,7 +1179,11 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 			postProcessingStep="complete",
 			postProcessingUpdatedAt=finished.isoformat(),
 			postProcessingCompletedAt=finished.isoformat(),
+			postProcessingDurationSeconds=post_duration,
 			postProcessingError=None,
+			lastFullCycleCompletedAt=finished.isoformat(),
+			lastFullCycleDurationSeconds=cycle_duration,
+			lastFullCycleJobId=state.get("queuedJobId"),
 			error=None,
 		)
 	except Exception as exc:
@@ -1149,11 +1194,7 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 		provider_complete = bool(state.get("sportsGameOddsCompletedAt"))
 		_set_sync_state(
 			status="complete" if primary_complete else "failed",
-			finishedAt=(
-				state.get("finishedAt")
-				if primary_complete
-				else datetime.now(timezone.utc).isoformat()
-			),
+			finishedAt=datetime.now(timezone.utc).isoformat(),
 			coverageStatus=(
 				"complete" if coverage_complete
 				else "failed" if primary_complete
@@ -1221,7 +1262,7 @@ def run_queued_prop_sync(job_id: str | None = None) -> None:
 			heartbeat_thread.join(timeout=2)
 		_set_sync_state(
 			jobHeartbeatAt=datetime.now(timezone.utc).isoformat(),
-			syncLockHealthy=False,
+			syncLockActive=False,
 		)
 		release_global_sync_lock(lock_token)
 
@@ -1341,8 +1382,29 @@ async def _maintain_prop_freshness() -> None:
 			logging.exception("Prop freshness watchdog check failed")
 
 
+def _sync_has_active_work(state: dict[str, object]) -> bool:
+	return (
+		str(state.get("status") or "").lower() in {"queued", "running"}
+		or any(
+			str(state.get(key) or "").lower() in {"pending", "running"}
+			for key in (
+				"coverageStatus",
+				"sportsGameOddsStatus",
+				"postProcessingStatus",
+			)
+		)
+	)
+
+
 def _enqueue_prop_refresh() -> dict[str, object] | None:
 	"""Deduplicate recovery work across API restarts and watchdog checks."""
+	state = _sync_state_snapshot()
+	if _sync_has_active_work(state):
+		return {
+			"id": str(state.get("queuedJobId") or "active-prop-sync"),
+			"status": "running",
+			"deduplicated": True,
+		}
 	# One recovery job per 15-minute window is enough. RQ handles retries and
 	# the worker owns all provider/network work; the web service stays responsive.
 	bucket = int(time.time() // 900)
@@ -1356,14 +1418,7 @@ def _enqueue_requested_prop_sync() -> dict[str, object] | None:
 	"""Queue an explicit refresh while deduplicating an active shared run."""
 	state = _sync_state_snapshot()
 	status = str(state.get("status") or "").lower()
-	downstream_active = any(
-		str(state.get(key) or "").lower() in {"pending", "running"}
-		for key in (
-			"coverageStatus",
-			"sportsGameOddsStatus",
-			"postProcessingStatus",
-		)
-	)
+	downstream_active = _sync_has_active_work(state)
 	if status in {"queued", "running"} or downstream_active:
 		job_id = str(state.get("queuedJobId") or "").strip() or None
 		started_at = state.get("startedAt")
@@ -1441,6 +1496,7 @@ def _enqueue_requested_prop_sync() -> dict[str, object] | None:
 			error=None,
 			queuedJobId=queued.get("id"),
 			jobHeartbeatAt=None,
+			syncLockActive=False,
 			syncLockHealthy=None,
 			coverageStatus="pending",
 			sportsGameOddsStatus="pending",
