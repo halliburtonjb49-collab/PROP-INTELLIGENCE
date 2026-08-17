@@ -3,6 +3,8 @@ from services.live_stats_service import (
     _espn_snapshot_from_logs,
     _game_detail,
     _golf_round_value,
+    _mlb_snapshot_from_feed,
+    _mlb_statsapi_snapshot,
     extract_prop_value,
     find_player_match_in_boxscores,
 )
@@ -160,3 +162,130 @@ def test_ambiguous_player_without_event_context_stays_unresolved() -> None:
         boxscores=games,
         player_name="Alex Smith",
     ) is None
+
+
+def test_mlb_official_live_feed_updates_pitcher_strikeouts() -> None:
+    snapshot = _mlb_snapshot_from_feed(
+        feed={
+            "gameData": {
+                "status": {
+                    "abstractGameState": "Live",
+                    "detailedState": "In Progress",
+                }
+            },
+            "liveData": {
+                "linescore": {
+                    "currentInningOrdinal": "6th",
+                    "inningHalf": "Top",
+                },
+                "boxscore": {
+                    "teams": {
+                        "away": {"players": {}},
+                        "home": {
+                            "players": {
+                                "ID123": {
+                                    "person": {"fullName": "Brandon Young"},
+                                    "stats": {
+                                        "pitching": {"strikeOuts": 6},
+                                        "batting": {},
+                                    },
+                                }
+                            }
+                        },
+                    }
+                },
+            },
+        },
+        player_name="Brandon Young",
+        prop_type="Pitcher Strikeouts",
+    )
+
+    assert snapshot.value == 6
+    assert snapshot.completed is False
+    assert snapshot.status == "Live"
+    assert snapshot.source == "mlb-statsapi"
+    assert snapshot.game_detail == "TOP 6th"
+
+
+def test_mlb_official_feed_does_not_turn_missing_player_into_zero() -> None:
+    snapshot = _mlb_snapshot_from_feed(
+        feed={
+            "gameData": {"status": {"abstractGameState": "Live"}},
+            "liveData": {
+                "boxscore": {
+                    "teams": {
+                        "away": {"players": {}},
+                        "home": {"players": {}},
+                    }
+                }
+            },
+        },
+        player_name="Missing Player",
+        prop_type="Pitcher Strikeouts",
+    )
+
+    assert snapshot.value is None
+    assert snapshot.status == "mlb_player_not_found"
+
+
+def test_mlb_series_match_uses_game_closest_to_prop_start(monkeypatch) -> None:
+    schedule = {
+        "dates": [{
+            "games": [
+                {
+                    "gamePk": 100,
+                    "gameDate": "2026-08-16T17:40:00Z",
+                    "teams": {
+                        "away": {"team": {"name": "St. Louis Cardinals"}},
+                        "home": {"team": {"name": "Cincinnati Reds"}},
+                    },
+                },
+                {
+                    "gamePk": 101,
+                    "gameDate": "2026-08-17T17:41:00Z",
+                    "teams": {
+                        "away": {"team": {"name": "St. Louis Cardinals"}},
+                        "home": {"team": {"name": "Cincinnati Reds"}},
+                    },
+                },
+            ]
+        }]
+    }
+    feed = {
+        "gameData": {"status": {"abstractGameState": "Live"}},
+        "liveData": {
+            "boxscore": {
+                "teams": {
+                    "away": {
+                        "players": {
+                            "ID1": {
+                                "person": {"fullName": "Quinn Mathews"},
+                                "stats": {"pitching": {"strikeOuts": 7}},
+                            }
+                        }
+                    },
+                    "home": {"players": {}},
+                }
+            }
+        },
+    }
+
+    def fake_cached_json(**kwargs):
+        if str(kwargs["key"]).startswith("schedule:"):
+            return schedule
+        assert kwargs["key"] == "feed:101"
+        return feed
+
+    monkeypatch.setattr(
+        "services.live_stats_service._cached_json",
+        fake_cached_json,
+    )
+    snapshot = _mlb_statsapi_snapshot(
+        player_name="Quinn Mathews",
+        prop_type="Pitcher Strikeouts",
+        matchup="St. Louis Cardinals @ Cincinnati Reds",
+        game_start_time="2026-08-17T17:41:00Z",
+    )
+
+    assert snapshot.value == 7
+    assert snapshot.status == "Live"

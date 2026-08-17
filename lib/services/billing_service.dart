@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -145,7 +147,12 @@ class RevenueCatBillingService {
               ?.isActive ==
           true) {
         EngagementTracker.instance.recordProduct('PURCHASE_COMPLETED');
-        await AuthManager.instance.refreshSessionState();
+        AuthManager.instance.applyVerifiedPurchaseTier(
+          tier == PurchaseTier.core
+              ? SubscriptionTier.core
+              : SubscriptionTier.edge,
+        );
+        unawaited(AuthManager.instance.refreshSessionState());
 
         if (context.mounted && Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
@@ -155,7 +162,7 @@ class RevenueCatBillingService {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Subscription active. Access will unlock after secure verification.',
+                'Subscription active. Access is ready.',
               ),
               backgroundColor: brand_colors.AppColors.blue,
             ),

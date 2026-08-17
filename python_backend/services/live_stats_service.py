@@ -3,7 +3,7 @@ import re
 import time
 import unicodedata
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +23,7 @@ CACHE_SECONDS = 20
 HTTP_TIMEOUT_SECONDS = 12
 _live_cache: dict[str, dict[str, Any]] = {}
 _espn_logs_cache: dict[str, dict[str, Any]] = {}
+_mlb_statsapi_cache: dict[str, dict[str, Any]] = {}
 
 SPORT_CONFIG = {
     "NBA": {
@@ -194,7 +195,216 @@ def get_live_player_stat_snapshot(
         if fallback.value is not None:
             return fallback
 
+    if sport_key == "MLB":
+        fallback = _mlb_statsapi_snapshot(
+            player_name=player_name,
+            prop_type=prop_type,
+            event_id=event_id,
+            matchup=matchup,
+            game_start_time=game_start_time,
+        )
+        if fallback.value is not None:
+            return fallback
+
     return LiveStatSnapshot(None, False, "no_authoritative_boxscore")
+
+
+def _cached_json(
+    *, cache: dict[str, dict[str, Any]], key: str, url: str,
+    params: dict[str, object] | None = None, ttl_seconds: int = CACHE_SECONDS,
+) -> dict[str, Any]:
+    now = time.time()
+    cached = cache.get(key)
+    if cached and now - float(cached.get("time", 0)) < ttl_seconds:
+        data = cached.get("data")
+        if isinstance(data, dict):
+            return data
+    try:
+        response = requests.get(
+            url,
+            params=params,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": (
+                    "Mozilla/5.0 (compatible; PropsIntell/1.0; "
+                    "+https://propsintell.com)"
+                ),
+            },
+            timeout=HTTP_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except (requests.RequestException, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    cache[key] = {"time": now, "data": data}
+    return data
+
+
+def _mlb_statsapi_snapshot(
+    *, player_name: str, prop_type: str, event_id: str = "",
+    matchup: str = "", game_start_time: str = "",
+) -> LiveStatSnapshot:
+    """Read an MLB in-progress box score from MLB's official Stats API.
+
+    Odds-provider event ids are not necessarily MLB game ids, so a normalized
+    matchup is the primary identity fallback. Only the matched game's feed is
+    fetched, and both schedule/feed responses are cached for a short interval.
+    """
+    try:
+        target_start = datetime.fromisoformat(
+            str(game_start_time).replace("Z", "+00:00")
+        )
+    except (TypeError, ValueError):
+        return LiveStatSnapshot(None, False, "invalid_game_date")
+    game_date = target_start.date()
+
+    start_date = (game_date - timedelta(days=1)).strftime("%Y-%m-%d")
+    end_date = (game_date + timedelta(days=1)).strftime("%Y-%m-%d")
+    schedule = _cached_json(
+        cache=_mlb_statsapi_cache,
+        key=f"schedule:{start_date}:{end_date}",
+        url="https://statsapi.mlb.com/api/v1/schedule",
+        # Provider start times are UTC. A late local game can fall on the next
+        # UTC date, so search the adjacent dates and select only the exact
+        # matchup instead of silently missing West Coast evening games.
+        params={"sportId": 1, "startDate": start_date, "endDate": end_date},
+    )
+    exact_id_candidates: list[dict[str, Any]] = []
+    matchup_candidates: list[dict[str, Any]] = []
+    for date_row in schedule.get("dates", []):
+        if not isinstance(date_row, dict):
+            continue
+        for game in date_row.get("games", []):
+            if not isinstance(game, dict):
+                continue
+            game_pk = str(game.get("gamePk") or "")
+            teams = game.get("teams")
+            away = teams.get("away", {}) if isinstance(teams, dict) else {}
+            home = teams.get("home", {}) if isinstance(teams, dict) else {}
+            away_team = away.get("team", {}) if isinstance(away, dict) else {}
+            home_team = home.get("team", {}) if isinstance(home, dict) else {}
+            official_matchup = " @ ".join((
+                str(away_team.get("name") or ""),
+                str(home_team.get("name") or ""),
+            ))
+            if event_id and game_pk == str(event_id):
+                exact_id_candidates.append(game)
+            elif matchup and _normalize_matchup_identity(official_matchup) == (
+                _normalize_matchup_identity(matchup)
+            ):
+                matchup_candidates.append(game)
+    candidates = exact_id_candidates or matchup_candidates
+    if not candidates:
+        return LiveStatSnapshot(None, False, "mlb_game_not_found")
+
+    # A three-day schedule can contain the same matchup multiple times. Use
+    # the official start closest to the locked prop's start time instead of
+    # treating a normal series as ambiguous.
+    def _distance_from_target(game: dict[str, Any]) -> float:
+        try:
+            official_start = datetime.fromisoformat(
+                str(game.get("gameDate") or "").replace("Z", "+00:00")
+            )
+            comparable_target = target_start
+            if comparable_target.tzinfo is None:
+                comparable_target = comparable_target.replace(tzinfo=timezone.utc)
+            if official_start.tzinfo is None:
+                official_start = official_start.replace(tzinfo=timezone.utc)
+            return abs((official_start - comparable_target).total_seconds())
+        except (TypeError, ValueError):
+            return float("inf")
+
+    candidates.sort(key=_distance_from_target)
+
+    game_pk = str(candidates[0].get("gamePk") or "")
+    if not game_pk:
+        return LiveStatSnapshot(None, False, "mlb_game_not_found")
+    feed = _cached_json(
+        cache=_mlb_statsapi_cache,
+        key=f"feed:{game_pk}",
+        url=f"https://statsapi.mlb.com/api/v1.1/game/{game_pk}/feed/live",
+    )
+    return _mlb_snapshot_from_feed(
+        feed=feed,
+        player_name=player_name,
+        prop_type=prop_type,
+    )
+
+
+def _mlb_snapshot_from_feed(
+    *, feed: dict[str, Any], player_name: str, prop_type: str,
+) -> LiveStatSnapshot:
+    game_data = feed.get("gameData")
+    live_data = feed.get("liveData")
+    if not isinstance(game_data, dict) or not isinstance(live_data, dict):
+        return LiveStatSnapshot(None, False, "mlb_boxscore_unavailable")
+    status_row = game_data.get("status")
+    abstract = (
+        str(status_row.get("abstractGameState") or "")
+        if isinstance(status_row, dict) else ""
+    )
+    detailed = (
+        str(status_row.get("detailedState") or abstract)
+        if isinstance(status_row, dict) else abstract
+    )
+    completed = abstract.strip().lower() == "final"
+    status = "Final" if completed else "Live" if abstract == "Live" else detailed
+
+    linescore = live_data.get("linescore")
+    game_detail = ""
+    if isinstance(linescore, dict) and not completed:
+        ordinal = str(linescore.get("currentInningOrdinal") or "").strip()
+        half = str(linescore.get("inningHalf") or "").strip().upper()
+        game_detail = " ".join(part for part in (half, ordinal) if part)
+
+    boxscore = live_data.get("boxscore")
+    teams = boxscore.get("teams") if isinstance(boxscore, dict) else None
+    matches: list[dict[str, Any]] = []
+    for side in ("away", "home"):
+        team_box = teams.get(side) if isinstance(teams, dict) else None
+        players = team_box.get("players") if isinstance(team_box, dict) else None
+        for player in players.values() if isinstance(players, dict) else []:
+            if not isinstance(player, dict):
+                continue
+            person = player.get("person")
+            name = person.get("fullName") if isinstance(person, dict) else ""
+            if normalize_name(name) == normalize_name(player_name):
+                matches.append(player)
+    if len(matches) != 1:
+        return LiveStatSnapshot(None, completed, "mlb_player_not_found")
+
+    stats = matches[0].get("stats")
+    pitching = stats.get("pitching") if isinstance(stats, dict) else None
+    hitting = stats.get("batting") if isinstance(stats, dict) else None
+    market = _normalize_live_stat_market(prop_type)
+    stat_path = {
+        "pitcher strikeouts": (pitching, "strikeOuts"),
+        "strikeouts": (pitching, "strikeOuts"),
+        "hits allowed": (pitching, "hits"),
+        "pitcher hits allowed": (pitching, "hits"),
+        "earned runs": (pitching, "earnedRuns"),
+        "pitcher earned runs": (pitching, "earnedRuns"),
+        "walks allowed": (pitching, "baseOnBalls"),
+        "pitcher walks": (pitching, "baseOnBalls"),
+        "hits": (hitting, "hits"),
+        "runs": (hitting, "runs"),
+        "rbis": (hitting, "rbi"),
+        "rbi": (hitting, "rbi"),
+        "home runs": (hitting, "homeRuns"),
+        "total bases": (hitting, "totalBases"),
+    }.get(market)
+    if stat_path is None:
+        return LiveStatSnapshot(None, completed, "unsupported_market")
+    group, stat_key = stat_path
+    if not isinstance(group, dict) or stat_key not in group:
+        return LiveStatSnapshot(None, completed, "missing_live_stat")
+    try:
+        value = float(group[stat_key])
+    except (TypeError, ValueError):
+        return LiveStatSnapshot(None, completed, "missing_live_stat")
+    return LiveStatSnapshot(value, completed, status, "mlb-statsapi", game_detail)
 
 
 def _espn_completed_basketball_snapshot(

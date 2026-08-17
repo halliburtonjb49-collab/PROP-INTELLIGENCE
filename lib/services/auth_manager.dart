@@ -249,6 +249,9 @@ class AuthManager {
   StreamSubscription<AuthState>? _authSubscription;
   int _profileRefreshGeneration = 0;
   String? _lastMemberJoinNotificationUserId;
+  SubscriptionTier? _recentVerifiedPurchaseTier;
+  String? _recentVerifiedPurchaseUserId;
+  DateTime? _recentVerifiedPurchaseExpiresAt;
   static const String _apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'https://api.propsintell.com',
@@ -507,6 +510,54 @@ class AuthManager {
     await _setSession(client.auth.currentSession);
   }
 
+  /// Applies a tier that was already verified by the billing SDK immediately.
+  ///
+  /// RevenueCat webhooks remain the authoritative persisted source, but they
+  /// can take a few seconds to update the profile row. Holding the verified
+  /// purchase briefly prevents a successful checkout from bouncing through
+  /// the paywall or showing the wrong tier while that webhook catches up.
+  void applyVerifiedPurchaseTier(SubscriptionTier purchasedTier) {
+    final current = sessionState.value;
+    if (!current.authenticated || current.userId == null) return;
+
+    final effectiveTier = current.subscriptionTier.index >= purchasedTier.index
+        ? current.subscriptionTier
+        : purchasedTier;
+    _recentVerifiedPurchaseTier = effectiveTier;
+    _recentVerifiedPurchaseUserId = current.userId;
+    _recentVerifiedPurchaseExpiresAt = DateTime.now().add(
+      const Duration(seconds: 45),
+    );
+    sessionState.value = AuthSessionState(
+      ready: true,
+      authenticated: true,
+      isPremium: true,
+      subscriptionTier: effectiveTier,
+      accessPreviewTier: current.accessPreviewTier,
+      role: current.role,
+      userId: current.userId,
+      email: current.email,
+      username: current.username,
+      assignedMemberRole: current.assignedMemberRole,
+      founderNumber: current.founderNumber,
+      message: 'Subscription active',
+    );
+  }
+
+  SubscriptionTier _preserveRecentVerifiedPurchase(
+    String userId,
+    SubscriptionTier candidate,
+  ) {
+    final verifiedTier = _recentVerifiedPurchaseTier;
+    final expiresAt = _recentVerifiedPurchaseExpiresAt;
+    final isCurrent = verifiedTier != null &&
+        _recentVerifiedPurchaseUserId == userId &&
+        expiresAt != null &&
+        DateTime.now().isBefore(expiresAt);
+    if (!isCurrent) return candidate;
+    return verifiedTier.index > candidate.index ? verifiedTier : candidate;
+  }
+
   Future<void> saveProfileTrackingState(
     Map<String, dynamic> trackingState,
   ) async {
@@ -603,9 +654,13 @@ class AuthManager {
     // Render the authenticated shell immediately. The API still performs the
     // authoritative membership check on every protected request; this
     // provisional UI state only prevents profile I/O from blocking sign-in.
-    final provisionalTier = metadataTier == SubscriptionTier.free
+    final metadataProvisionalTier = metadataTier == SubscriptionTier.free
         ? SubscriptionTier.core
         : metadataTier;
+    final provisionalTier = _preserveRecentVerifiedPurchase(
+      user.id,
+      metadataProvisionalTier,
+    );
     sessionState.value = AuthSessionState(
       ready: true,
       authenticated: true,
@@ -706,11 +761,16 @@ class AuthManager {
         _client?.auth.currentUser?.id != user.id) {
       return;
     }
+    final effectiveSubscriptionTier = _preserveRecentVerifiedPurchase(
+      user.id,
+      subscriptionTier,
+    );
     sessionState.value = AuthSessionState(
       ready: true,
       authenticated: true,
-      isPremium: isPremium,
-      subscriptionTier: subscriptionTier,
+      isPremium:
+          isPremium || effectiveSubscriptionTier != SubscriptionTier.free,
+      subscriptionTier: effectiveSubscriptionTier,
       accessPreviewTier: null,
       role: role,
       userId: user.id,

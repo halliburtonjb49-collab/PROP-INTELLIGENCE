@@ -133,6 +133,30 @@ void main() {
     }
   });
 
+  test('verified purchases unlock the paid tier immediately', () {
+    final auth = AuthManager.instance;
+    auth.sessionState.value = const AuthSessionState(
+      ready: true,
+      authenticated: true,
+      isPremium: false,
+      subscriptionTier: SubscriptionTier.free,
+      role: 'user',
+      userId: 'purchase-user',
+      email: 'purchase@example.com',
+      message: 'Ready',
+    );
+
+    auth.applyVerifiedPurchaseTier(SubscriptionTier.edge);
+
+    expect(auth.sessionState.value.subscriptionTier, SubscriptionTier.edge);
+    expect(auth.sessionState.value.hasCoreAccess, isTrue);
+    expect(auth.sessionState.value.hasEdgeAccess, isTrue);
+    expect(auth.sessionState.value.requiresPaidPlan, isFalse);
+    expect(auth.sessionState.value.message, 'Subscription active');
+
+    auth.sessionState.value = const AuthSessionState.signedOut();
+  });
+
   test('change request preserves approval lifecycle fields', () {
     final request = AppChangeRequest.fromJson({
       'id': 42,
