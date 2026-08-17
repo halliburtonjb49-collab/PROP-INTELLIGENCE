@@ -69,7 +69,7 @@ void main() {
     expect(normalizePropSport('americanfootball_cfl'), 'CFL');
   });
 
-  test('filters by site, sport and search and excludes unsafe props', () {
+  test('filters by site, sport and search while retaining research inventory', () {
     final matching = _prop(
       'matching',
       player: 'Alyssa Thomas',
@@ -101,7 +101,8 @@ void main() {
       search: 'rebounds',
     );
 
-    expect(result.map((prop) => prop.id), ['matching']);
+    expect(result.map((prop) => prop.id), ['matching', 'unsafe']);
+    expect(result.last.isSelectable, isFalse);
   });
 
   test('actionable filter uses the backend verdict contract', () {

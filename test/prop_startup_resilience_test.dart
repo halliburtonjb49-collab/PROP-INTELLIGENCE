@@ -59,6 +59,20 @@ void main() {
     );
   });
 
+  test('unverified pregame props remain visible but cannot enter a slip', () {
+    final awaitingVerification = PropData.fromJson({
+      ..._prop('awaiting-verification', 'WNBA'),
+      'selectable': false,
+      'verificationStatus': 'unverified',
+      'verificationReasons': ['lineup_unconfirmed'],
+    });
+
+    final visible = activePropsInChronologicalOrder([awaitingVerification]);
+
+    expect(visible.map((prop) => prop.id), ['awaiting-verification']);
+    expect(visible.single.isSelectable, isFalse);
+  });
+
   test('all-sports display places soccer after available US sports', () {
     final ordered = deprioritizeSoccerForAllSports([
       PropData.fromJson(_prop('soccer', 'soccer_usa_mls')),

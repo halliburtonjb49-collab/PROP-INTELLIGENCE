@@ -472,12 +472,20 @@ class PropData {
     // actionable UNDER verdict.
     final verdictSide = verdict.side.trim().toUpperCase();
     if (verdict.isPresent) {
-      if (verdict.decision.trim().toUpperCase() == 'PASS') {
-        return null;
+      final decision = verdict.decision.trim().toUpperCase();
+      if ((verdictSide == 'OVER' || verdictSide == 'UNDER') &&
+          (decision != 'PASS' ||
+              recommendationAvailable ||
+              (projection != null && projection != line))) {
+        return verdictSide;
       }
-      return verdictSide == 'OVER' || verdictSide == 'UNDER'
-          ? verdictSide
-          : null;
+      // A PASS verdict means PI does not consider the price actionable; it
+      // does not erase a real projection. Pro may still see the research
+      // direction, while the verdict and actionable flag remain unchanged.
+      if (projection != null && projection != line) {
+        return projection! > line ? 'OVER' : 'UNDER';
+      }
+      return null;
     }
     final modelSide = recommendedSide.trim().toUpperCase();
     if (recommendationAvailable &&

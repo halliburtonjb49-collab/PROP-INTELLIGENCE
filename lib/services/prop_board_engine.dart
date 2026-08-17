@@ -149,8 +149,12 @@ List<PropData> filterAndSortBoardProps(
             (verdict == 'ACTIONABLE'
                 ? item.prop.verdict.actionable
                 : item.prop.verdict.decision == verdict);
-        return item.prop.isSelectable &&
-            sportMatches &&
+        // A prop can be legitimate live inventory while PI is still waiting
+        // for a lineup, projection, or another verification input. Keep it on
+        // the research board so category totals and cards describe the same
+        // catalog. PropData.isSelectable continues to guard the pick buttons,
+        // so incomplete props cannot be added to a slip.
+        return sportMatches &&
             siteMatches &&
             searchMatches &&
             verdictMatches;
@@ -250,7 +254,10 @@ List<PropData> pinSelectedPropsFirst(
 }
 
 List<PropData> activePropsInChronologicalOrder(Iterable<PropData> props) {
-  final active = props.where((prop) => prop.isSelectable).toList();
+  // Keep legitimate pregame research inventory visible even when a missing
+  // verification input makes the pick buttons unavailable. Started/final
+  // events are still removed here; isSelectable remains the slip gate.
+  final active = props.where((prop) => !prop.gameHasStarted).toList();
   active.sort((left, right) {
     final leftStart = propScheduledStart(left);
     final rightStart = propScheduledStart(right);
