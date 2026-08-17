@@ -105,6 +105,7 @@ def record_provider_availability(
         confirmed_starters = sum(
             int(row.get("confirmedStarters") or 0) for row in rows
         )
+        failed_events = sum(int(row.get("failedEvents") or 0) for row in rows)
         errors = [str(row["error"]) for row in rows if row.get("error")]
         missing: list[str] = []
         if authorization == "NOT_ENTITLED":
@@ -115,6 +116,10 @@ def record_provider_availability(
             missing.append("The latest provider request failed.")
         if games_checked > 0 and confirmed_players == 0:
             missing.append("Games are in the lineup window but no players are confirmed.")
+        if failed_events:
+            missing.append(
+                f"{failed_events} game-level availability request(s) failed; retry scheduled."
+            )
         if errors:
             missing.extend(errors[:2])
 
@@ -141,6 +146,7 @@ def record_provider_availability(
             "gamesChecked": games_checked,
             "playersConfirmed": confirmed_players,
             "startersConfirmed": confirmed_starters,
+            "failedEvents": failed_events,
             "observationsFound": observations,
             "observationsCreated": created,
             "missingData": missing,

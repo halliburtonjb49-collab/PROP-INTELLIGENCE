@@ -51,18 +51,37 @@ def _bool(row: dict[str, object], *keys: str) -> bool:
     return value is True or str(value).strip().lower() in {"true", "1", "yes"}
 
 
+def _retry_after_seconds(response: requests.Response, attempt: int) -> float:
+    try:
+        return max(0.5, min(10.0, float(response.headers.get("Retry-After", ""))))
+    except (TypeError, ValueError):
+        return min(10.0, 1.5 * (2 ** attempt))
+
+
 def _request_json(url: str) -> dict[str, object]:
     global _LAST_REQUEST_AT
-    with _REQUEST_LOCK:
-        wait = _MIN_REQUEST_INTERVAL - (time.monotonic() - _LAST_REQUEST_AT)
-        if wait > 0:
-            time.sleep(wait)
-        response = requests.get(
-            url,
-            headers={"accept": "application/json", "x-api-key": SPORTRADAR_API_KEY},
-            timeout=20,
+    response: requests.Response | None = None
+    for attempt in range(3):
+        with _REQUEST_LOCK:
+            wait = _MIN_REQUEST_INTERVAL - (time.monotonic() - _LAST_REQUEST_AT)
+            if wait > 0:
+                time.sleep(wait)
+            response = requests.get(
+                url,
+                headers={"accept": "application/json", "x-api-key": SPORTRADAR_API_KEY},
+                timeout=20,
+            )
+            _LAST_REQUEST_AT = time.monotonic()
+        if response.status_code != 429 or attempt == 2:
+            break
+        delay = _retry_after_seconds(response, attempt)
+        LOGGER.warning(
+            "Sportradar throttled a pregame request; retrying attempt=%s delay=%.1fs",
+            attempt + 2,
+            delay,
         )
-        _LAST_REQUEST_AT = time.monotonic()
+        time.sleep(delay)
+    assert response is not None
     if response.status_code in {401, 403}:
         raise NotEntitledError(f"not entitled ({response.status_code})")
     if response.status_code == 404:
@@ -72,13 +91,19 @@ def _request_json(url: str) -> dict[str, object]:
     return payload if isinstance(payload, dict) else {}
 
 
-def _cached_json(key: str, url: str) -> dict[str, object]:
+def _cached_json(
+    key: str,
+    url: str,
+    *,
+    ttl_seconds: int | None = None,
+) -> dict[str, object]:
     cached = get_json(key)
     if isinstance(cached, dict):
         return cached
     payload = _request_json(url)
     active = bool(payload.get("games") or payload.get("sport_events"))
-    set_json(key, payload, ttl_seconds=600 if active else 14_400)
+    ttl = ttl_seconds if ttl_seconds is not None else 600 if active else 14_400
+    set_json(key, payload, ttl_seconds=ttl)
     return payload
 
 
@@ -219,11 +244,28 @@ def _sync_scheduled_summaries(*, sport: str, target: date, base: str, schedule_p
     games = schedule.get("games") if isinstance(schedule.get("games"), list) else []
     observations: list[dict[str, object]] = []
     attempted = 0
+    failed_events = 0
     for game in games:
         if not isinstance(game, dict) or not game.get("id") or not _inside_window(game.get("scheduled"), before_seconds=7200):
             continue
         attempted += 1
-        summary = _request_json(f"{base}/games/{game['id']}/summary.json")
+        try:
+            summary = _cached_json(
+                f"pregame:sportradar:{sport}:summary:{game['id']}",
+                f"{base}/games/{game['id']}/summary.json",
+                ttl_seconds=300,
+            )
+        except NotEntitledError:
+            raise
+        except Exception as exc:
+            failed_events += 1
+            LOGGER.warning(
+                "Sportradar %s pregame event failed event_id=%s error=%s",
+                sport,
+                game.get("id"),
+                exc,
+            )
+            continue
         kwargs = {"event_id": str(game["id"]), "event_time": _text(game, "scheduled")}
         if sport in {"NBA", "WNBA"}:
             kwargs["sport"] = sport
@@ -232,6 +274,7 @@ def _sync_scheduled_summaries(*, sport: str, target: date, base: str, schedule_p
         "provider": f"sportradar-{sport.lower()}-pregame",
         "games": len(games),
         "attempted": attempted,
+        "failedEvents": failed_events,
         "observations": len(observations),
         "confirmedPlayers": sum(bool(row.get("confirmed")) for row in observations),
         "confirmedStarters": sum(
@@ -248,16 +291,33 @@ def _sync_nfl(persist: Persist) -> dict[str, object]:
     games = schedule.get("games") if isinstance(schedule.get("games"), list) else []
     observations: list[dict[str, object]] = []
     attempted = 0
+    failed_events = 0
     for game in games:
         if not isinstance(game, dict) or not game.get("id") or not _inside_window(game.get("scheduled"), before_seconds=10_800):
             continue
         attempted += 1
-        roster = _request_json(f"{base}/games/{game['id']}/roster.json")
+        try:
+            roster = _cached_json(
+                f"pregame:sportradar:NFL:roster:{game['id']}",
+                f"{base}/games/{game['id']}/roster.json",
+                ttl_seconds=300,
+            )
+        except NotEntitledError:
+            raise
+        except Exception as exc:
+            failed_events += 1
+            LOGGER.warning(
+                "Sportradar NFL pregame event failed event_id=%s error=%s",
+                game.get("id"),
+                exc,
+            )
+            continue
         observations.extend(normalize_nfl_roster(roster, event_id=str(game["id"]), event_time=_text(game, "scheduled")))
     return {
         "provider": "sportradar-nfl-pregame",
         "games": len(games),
         "attempted": attempted,
+        "failedEvents": failed_events,
         "observations": len(observations),
         "confirmedPlayers": sum(bool(row.get("confirmed")) for row in observations),
         "confirmedStarters": sum(
@@ -284,17 +344,34 @@ def _sync_soccer(target: date, persist: Persist) -> dict[str, object]:
     supported_events = sorted(supported_events, key=lambda event: _text(event, "start_time"))[:_MAX_SOCCER_EVENTS]
     observations: list[dict[str, object]] = []
     attempted = 0
+    failed_events = 0
     for event in supported_events:
         if not isinstance(event, dict) or not event.get("id") or not _inside_window(event.get("start_time"), before_seconds=7200):
             continue
         attempted += 1
-        lineup = _request_json(f"{base}/sport_events/{event['id']}/lineups.json")
+        try:
+            lineup = _cached_json(
+                f"pregame:sportradar:SOCCER:lineup:{event['id']}",
+                f"{base}/sport_events/{event['id']}/lineups.json",
+                ttl_seconds=300,
+            )
+        except NotEntitledError:
+            raise
+        except Exception as exc:
+            failed_events += 1
+            LOGGER.warning(
+                "Sportradar soccer pregame event failed event_id=%s error=%s",
+                event.get("id"),
+                exc,
+            )
+            continue
         observations.extend(normalize_soccer_lineups(lineup, event_id=str(event["id"]), event_time=_text(event, "start_time")))
     return {
         "provider": "sportradar-soccer-pregame",
         "events": len(events),
         "supportedEvents": len(supported_events),
         "attempted": attempted,
+        "failedEvents": failed_events,
         "observations": len(observations),
         "confirmedPlayers": sum(bool(row.get("confirmed")) for row in observations),
         "confirmedStarters": sum(
