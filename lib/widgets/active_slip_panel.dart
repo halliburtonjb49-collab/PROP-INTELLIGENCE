@@ -86,7 +86,10 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     );
     _liveUpdates.connect();
     _liveTicketRefreshTimer = Timer.periodic(
-      const Duration(seconds: 60),
+      // Live stats are cached server-side for 20 seconds. Polling at the same
+      // cadence keeps ticket progress current without multiplying provider
+      // traffic for every open client.
+      const Duration(seconds: 20),
       (_) => _refreshActiveTicket(),
     );
   }
