@@ -278,8 +278,10 @@ def require_admin(x_admin_key: str = Header(default=""), authorization: str = He
     except requests.RequestException as exc:
         raise HTTPException(status_code=503, detail="Authentication service unavailable") from exc
     metadata = (user or {}).get("app_metadata") or {}
-    user_metadata = (user or {}).get("user_metadata") or {}
-    role = str(metadata.get("role") or user_metadata.get("role") or "").lower() if isinstance(metadata, dict) and isinstance(user_metadata, dict) else ""
+    # Only app_metadata is written by trusted server-side administration.
+    # Supabase users can edit user_metadata, so it must never grant a
+    # privileged role.
+    role = str(metadata.get("role") or "").lower() if isinstance(metadata, dict) else ""
     email = str((user or {}).get("email") or "").strip().lower()
     user_id = str((user or {}).get("id") or "").strip().lower()
     if user and (
@@ -298,8 +300,9 @@ def require_owner(authorization: str = Header(default="")) -> str:
     except requests.RequestException as exc:
         raise HTTPException(status_code=503, detail="Authentication service unavailable") from exc
     metadata = (user or {}).get("app_metadata") or {}
-    user_metadata = (user or {}).get("user_metadata") or {}
-    role = str(metadata.get("role") or user_metadata.get("role") or "").lower() if isinstance(metadata, dict) and isinstance(user_metadata, dict) else ""
+    # Only app_metadata is authoritative. Trusting user_metadata here would
+    # allow a normal account to self-assert an owner role.
+    role = str(metadata.get("role") or "").lower() if isinstance(metadata, dict) else ""
     email = str((user or {}).get("email") or "").strip().lower()
     user_id = str((user or {}).get("id") or "").strip().lower()
     if user and (

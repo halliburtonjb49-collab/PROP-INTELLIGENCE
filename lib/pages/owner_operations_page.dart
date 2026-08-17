@@ -22,6 +22,7 @@ class OwnerOperationsPage extends StatefulWidget {
 class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   late final ApiService _api = widget.apiService ?? ApiService();
   Map<String, dynamic>? _control;
+  Map<String, dynamic>? _billing;
   Map<String, dynamic>? _commandCenter;
   Map<String, dynamic>? _modelAudit;
   Map<String, dynamic>? _review;
@@ -95,7 +96,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     }
     try {
       final results = await Future.wait([
-        _api.fetchLaunchControlPanel(),
+        _optionalSnapshot(_api.fetchLaunchControlPanel()),
+        _optionalSnapshot(_api.fetchBillingCertification()),
         _optionalSnapshot(
           _api.fetchOwnerCommandCenter(
             window: _selectedWindow,
@@ -117,11 +119,12 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       if (!mounted) return;
       setState(() {
         _control = results[0];
-        _commandCenter = results[1];
-        _modelAudit = results[2];
-        _review = results[3];
-        _providerAvailability = results[4];
-        _providerRecovery = results[5];
+        _billing = results[1];
+        _commandCenter = results[2];
+        _modelAudit = results[3];
+        _review = results[4];
+        _providerAvailability = results[5];
+        _providerRecovery = results[6];
         final ownerInsights =
             _control?['ownerOnlyInsights'] as Map? ?? const {};
         final controlPayload =
@@ -645,7 +648,9 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   }
 
   Widget _billingCertification() {
-    final certification = _map('billingCertification');
+    final certification = _billing?.isNotEmpty == true
+        ? _billing!
+        : _map('billingCertification');
     final checks = (certification['checks'] as List? ?? const [])
         .whereType<Map>()
         .toList(growable: false);

@@ -20,6 +20,7 @@ from services.owner_action_service import (
 from services.readiness_service import production_readiness
 from services.acceptance_service import production_acceptance_snapshot
 from services.launch_control_service import launch_control_snapshot
+from services.billing_certification_service import billing_release_certification
 from services.grading_review_service import grading_review_queue
 from services.user_feedback_service import list_feedback, submit_feedback
 from services.member_signup_service import record_member_join
@@ -162,6 +163,12 @@ def model_audit(
 @router.get("/control-panel", dependencies=[Depends(require_owner)])
 def control_panel() -> dict[str, object]:
     return launch_control_snapshot()
+
+
+@router.get("/billing-certification", dependencies=[Depends(require_owner)])
+def billing_certification() -> dict[str, object]:
+    """Return the billing release gate without building the full owner report."""
+    return billing_release_certification()
 
 
 @router.get("/control-panel/detail/{metric}", dependencies=[Depends(require_owner)])

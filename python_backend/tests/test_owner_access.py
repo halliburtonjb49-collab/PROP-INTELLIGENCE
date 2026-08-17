@@ -82,6 +82,46 @@ def test_admin_role_does_not_gain_owner_only_access(monkeypatch):
         raise AssertionError("Administrators must not receive owner-only access")
 
 
+def test_user_metadata_cannot_self_grant_owner_access(monkeypatch):
+    monkeypatch.setattr(
+        api_auth_service,
+        "_supabase_user",
+        lambda _token: {
+            "id": "regular-user-id",
+            "email": "regular@example.com",
+            "app_metadata": {"role": "user"},
+            "user_metadata": {"role": "owner"},
+        },
+    )
+
+    try:
+        api_auth_service.require_owner(authorization="Bearer valid-token")
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 403
+    else:
+        raise AssertionError("User metadata must not grant owner-only access")
+
+
+def test_user_metadata_cannot_self_grant_admin_access(monkeypatch):
+    monkeypatch.setattr(
+        api_auth_service,
+        "_supabase_user",
+        lambda _token: {
+            "id": "regular-user-id",
+            "email": "regular@example.com",
+            "app_metadata": {"role": "user"},
+            "user_metadata": {"role": "admin"},
+        },
+    )
+
+    try:
+        api_auth_service.require_admin(authorization="Bearer valid-token")
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 401
+    else:
+        raise AssertionError("User metadata must not grant administrator access")
+
+
 def test_validated_user_response_is_enriched_from_token_claims(monkeypatch):
     token = _unsigned_token({
         "email": "HalliburtonJB49@Gmail.com",

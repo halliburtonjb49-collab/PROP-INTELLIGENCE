@@ -7,6 +7,25 @@ import 'package:prop_intelligence/widgets/owner_user_account_controls.dart';
 
 class _FakeOperationsApi extends ApiService {
   int recoveryRequests = 0;
+
+  @override
+  Future<Map<String, dynamic>> fetchBillingCertification() async => {
+    'status': 'WARN',
+    'releaseReady': false,
+    'passCount': 6,
+    'warningCount': 1,
+    'failureCount': 0,
+    'generatedAtUtc': '2026-08-09T20:00:00Z',
+    'checks': [
+      {
+        'key': 'checkout_terms',
+        'label': 'Stripe / RevenueCat checkout terms',
+        'status': 'WARN',
+        'detail': 'External checkout prices and trials require verification.',
+      },
+    ],
+  };
+
   @override
   Future<Map<String, dynamic>> fetchLaunchControlPanel() async => {
     'api': {'status': 'ok', 'version': 'abc123'},
@@ -464,6 +483,13 @@ class _PartialFailureOperationsApi extends _FakeOperationsApi {
   }
 }
 
+class _PrimaryFailureOperationsApi extends _FakeOperationsApi {
+  @override
+  Future<Map<String, dynamic>> fetchLaunchControlPanel() async {
+    throw Exception('launch control timed out');
+  }
+}
+
 void main() {
   test('owner operations access is role-specific', () {
     expect(canAccessOwnerOperations('owner'), isTrue);
@@ -499,6 +525,30 @@ void main() {
       find.byKey(const ValueKey('billing-release-certification')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('billing certification survives a control panel failure', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OwnerOperationsPage(apiService: _PrimaryFailureOperationsApi()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('billing-release-certification')),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      find.byKey(const ValueKey('billing-release-certification')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('6 passed'), findsOneWidget);
   });
 
   testWidgets('owner operations page shows controls and review queue', (
