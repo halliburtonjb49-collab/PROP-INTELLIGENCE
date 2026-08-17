@@ -75,6 +75,25 @@ def test_games_without_confirmed_players_are_partial(monkeypatch) -> None:
     assert "no players are confirmed" in nhl["missingData"][0]
 
 
+def test_failed_game_request_marks_partial_without_erasing_confirmations(monkeypatch) -> None:
+    monkeypatch.setattr(monitor, "get_json", lambda _key: None)
+    monkeypatch.setattr(monitor, "set_json", lambda *_args, **_kwargs: True)
+
+    snapshot = monitor.record_provider_availability([{
+        "provider": "sportradar-wnba-pregame",
+        "games": 3,
+        "attempted": 3,
+        "confirmedPlayers": 10,
+        "confirmedStarters": 5,
+        "failedEvents": 1,
+    }])
+
+    wnba = next(row for row in snapshot["sports"] if row["sport"] == "WNBA")
+    assert wnba["status"] == "PARTIAL"
+    assert wnba["playersConfirmed"] == 10
+    assert wnba["failedEvents"] == 1
+
+
 def test_read_marks_old_snapshot_stale(monkeypatch) -> None:
     observed = datetime(2026, 8, 11, 14, 0, tzinfo=timezone.utc)
     monkeypatch.setattr(monitor, "get_json", lambda _key: None)

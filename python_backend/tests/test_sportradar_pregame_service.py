@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+import requests
+
 from services import sportradar_pregame_service as service
 
 
@@ -116,6 +118,67 @@ def test_empty_schedule_is_cached_for_four_hours(monkeypatch):
     monkeypatch.setattr(service, "set_json", lambda key, value, ttl_seconds: writes.append((key, value, ttl_seconds)))
     assert service._cached_json("key", "url") == {"games": []}
     assert writes[0][2] == 14_400
+
+
+def test_rate_limit_retries_using_provider_delay(monkeypatch):
+    class Response:
+        def __init__(self, status_code, payload=None, retry_after=None):
+            self.status_code = status_code
+            self._payload = payload or {}
+            self.headers = {"Retry-After": retry_after} if retry_after else {}
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise requests.HTTPError(str(self.status_code))
+
+        def json(self):
+            return self._payload
+
+    responses = iter([
+        Response(429, retry_after="2"),
+        Response(200, {"games": [{"id": "g1"}]}),
+    ])
+    sleeps = []
+    monkeypatch.setattr(service.requests, "get", lambda *_args, **_kwargs: next(responses))
+    monkeypatch.setattr(service.time, "sleep", lambda seconds: sleeps.append(seconds))
+    monkeypatch.setattr(service, "_LAST_REQUEST_AT", 0.0)
+    monkeypatch.setattr(service, "_MIN_REQUEST_INTERVAL", 0.0)
+
+    result = service._request_json("https://example.test/schedule")
+
+    assert result["games"][0]["id"] == "g1"
+    assert sleeps == [2.0]
+
+
+def test_one_failed_game_does_not_discard_other_lineups(monkeypatch):
+    now = datetime.now(timezone.utc).isoformat()
+    monkeypatch.setattr(
+        service,
+        "_cached_json",
+        lambda key, _url, **_kwargs: (
+            {"games": [
+                {"id": "bad", "scheduled": now},
+                {"id": "good", "scheduled": now},
+            ]}
+            if key.endswith(":schedule:2026-08-11")
+            else (_ for _ in ()).throw(requests.HTTPError("429"))
+            if key.endswith(":bad")
+            else {"home": {"players": [{"full_name": "Starter", "starter": True}]}}
+        ),
+    )
+
+    result = service._sync_scheduled_summaries(
+        sport="WNBA",
+        target=datetime(2026, 8, 11, tzinfo=timezone.utc).date(),
+        base="https://example.test",
+        schedule_path="schedule",
+        normalizer=service.normalize_basketball_summary,
+        persist=lambda _provider, rows: len(list(rows)),
+    )
+
+    assert result["attempted"] == 2
+    assert result["failedEvents"] == 1
+    assert result["confirmedStarters"] == 1
 
 
 def test_unlicensed_sport_is_skipped_not_failed(monkeypatch):
