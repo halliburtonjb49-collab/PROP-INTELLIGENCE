@@ -5,9 +5,12 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import re
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
-from typing import Iterable
+from typing import Callable, Iterable
 
 import requests
 
@@ -33,6 +36,10 @@ ESPN_INJURY_LEAGUES = {
     "NFL": ("football", "nfl"),
     "NHL": ("hockey", "nhl"),
 }
+PREGAME_PROVIDER_WORKERS = max(
+    1, min(3, int(os.getenv("PREGAME_PROVIDER_WORKERS", "3"))))
+MLB_BOXSCORE_WORKERS = max(
+    1, min(3, int(os.getenv("MLB_BOXSCORE_WORKERS", "3"))))
 
 
 def _text(row: dict[str, object], *keys: str) -> str:
@@ -446,25 +453,42 @@ def sync_official_mlb_context(day: date | None = None) -> dict[str, object]:
         observations = normalize_official_mlb_schedule(payload)
         games = [game for day_row in payload.get("dates", [])
                  for game in day_row.get("games", []) if isinstance(game, dict)]
-        attempted = 0
+        eligible_games = []
         for game in games:
             game_pk = str(game.get("gamePk") or "")
             if not game_pk:
                 continue
             if not _inside_mlb_lineup_window(game.get("gameDate")):
                 continue
-            attempted += 1
+            eligible_games.append(game)
+
+        def fetch_boxscore(game: dict[str, object]) -> list[dict[str, object]]:
+            game_pk = str(game.get("gamePk") or "")
             boxscore = requests.get(f"{MLB_STATS_API}/v1/game/{game_pk}/boxscore", timeout=15)
             if boxscore.status_code in {404, 503}:
-                continue
+                return []
             boxscore.raise_for_status()
-            observations.extend(normalize_official_mlb_boxscore(
+            return normalize_official_mlb_boxscore(
                 boxscore.json(), event_id=game_pk, event_time=_text(game, "gameDate"),
-            ))
+            )
+
+        failed_events = 0
+        with ThreadPoolExecutor(max_workers=MLB_BOXSCORE_WORKERS) as executor:
+            futures = [executor.submit(fetch_boxscore, game) for game in eligible_games]
+            for game, future in zip(eligible_games, futures):
+                try:
+                    observations.extend(future.result())
+                except Exception as exc:
+                    failed_events += 1
+                    logger.warning(
+                        "Official MLB boxscore failed game=%s error=%s",
+                        game.get("gamePk"), exc,
+                    )
         return {
             "provider": "mlb-stats-api",
             "games": len(games),
-            "attempted": attempted,
+            "attempted": len(eligible_games),
+            "failedEvents": failed_events,
             "observations": len(observations),
             "confirmedPlayers": sum(bool(row.get("confirmed")) for row in observations),
             "confirmedStarters": sum(
@@ -574,9 +598,50 @@ def sync_sportradar_wnba_starters(day: date | None = None) -> dict[str, object]:
 
 
 def sync_pregame_context() -> list[dict[str, object]]:
-    results = [sync_official_mlb_context(), sync_sportsdataio_mlb_lineups(), sync_espn_injuries(), sync_sportradar_wnba_injuries(),
-               sync_sportradar_wnba_starters()]
-    results.extend(sync_sportradar_pregame(persist_pregame_observations))
+    jobs: list[tuple[str, Callable[[], object]]] = [
+        ("mlb-stats-api", sync_official_mlb_context),
+        ("sportsdataio-mlb", sync_sportsdataio_mlb_lineups),
+        ("espn-injuries", sync_espn_injuries),
+        ("sportradar-wnba", sync_sportradar_wnba_injuries),
+        ("sportradar-wnba-starters", sync_sportradar_wnba_starters),
+        (
+            "sportradar-pregame",
+            lambda: sync_sportradar_pregame(persist_pregame_observations),
+        ),
+    ]
+
+    def run_job(label: str, job: Callable[[], object]) -> object:
+        started = time.monotonic()
+        try:
+            result = job()
+        except Exception as exc:
+            logger.exception("Pregame provider crashed provider=%s", label)
+            result = {"provider": label, "created": 0, "error": str(exc)}
+        duration_ms = int((time.monotonic() - started) * 1000)
+        if isinstance(result, dict):
+            return {**result, "durationMs": duration_ms}
+        if isinstance(result, list):
+            return [
+                {**row, "durationMs": duration_ms}
+                if isinstance(row, dict) else row
+                for row in result
+            ]
+        return {"provider": label, "created": 0, "durationMs": duration_ms}
+
+    # These providers are independent and the database pool has five
+    # connections. Three workers cut the ten-minute serial wait without
+    # recreating the high-concurrency memory pressure that previously
+    # exhausted the Render worker.
+    with ThreadPoolExecutor(max_workers=PREGAME_PROVIDER_WORKERS) as executor:
+        futures = [executor.submit(run_job, label, job) for label, job in jobs]
+        raw_results = [future.result() for future in futures]
+
+    results: list[dict[str, object]] = []
+    for result in raw_results:
+        if isinstance(result, list):
+            results.extend(row for row in result if isinstance(row, dict))
+        elif isinstance(result, dict):
+            results.append(result)
     record_provider_availability(results)
     return results
 

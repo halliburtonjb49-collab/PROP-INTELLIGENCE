@@ -149,38 +149,10 @@ def initialize_slip_table() -> None:
         with _postgres_init_lock:
             if _postgres_initialized:
                 return
-            with _connect() as connection:
-                connection.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS slips (
-                        id TEXT PRIMARY KEY,
-                        user_id TEXT,
-                        status TEXT NOT NULL
-                          CHECK (status IN ('active', 'won', 'lost')),
-                        stake DOUBLE PRECISION NOT NULL,
-                        potential_payout DOUBLE PRECISION NOT NULL,
-                        created_at TIMESTAMPTZ NOT NULL,
-                        legs_json JSONB NOT NULL,
-                        client_request_id TEXT
-                    )
-                    """
-                )
-                connection.execute(
-                    "ALTER TABLE slips ADD COLUMN IF NOT EXISTS client_request_id TEXT"
-                )
-                connection.execute(
-                    """
-                    CREATE INDEX IF NOT EXISTS slips_user_status_idx
-                    ON slips(user_id, status, created_at DESC)
-                    """
-                )
-                connection.execute(
-                    """
-                    CREATE UNIQUE INDEX IF NOT EXISTS slips_user_request_idx
-                    ON slips(user_id, client_request_id)
-                    WHERE client_request_id IS NOT NULL
-                    """
-                )
+            # Production schema changes are applied by Render's pre-deploy
+            # migration. Running ALTER TABLE and CREATE INDEX from customer
+            # requests required an AccessExclusiveLock and deadlocked with
+            # live slip writes during deploys and instance restarts.
             _postgres_initialized = True
         return
     with _connect() as connection:
