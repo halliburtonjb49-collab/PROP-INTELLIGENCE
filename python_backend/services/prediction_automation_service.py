@@ -279,6 +279,19 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
         _probability_skipped.clear()
         _probability_observed_at = datetime.now(timezone.utc).isoformat()
     with get_database_pool().connection() as connection, connection.cursor() as cursor:
+        # Snapshotting used to issue this existence check once per live prop.
+        # A normal board contains more than ten thousand rows, so an otherwise
+        # no-op repeat sync spent minutes making thousands of database round
+        # trips. Fetch today's keys once and keep the same append-only behavior
+        # with an in-memory membership test.
+        cursor.execute(
+            """select prop_id,model_version from prediction_snapshots
+               where snapshot_date=(now() at time zone 'UTC')::date"""
+        )
+        existing_snapshots = {
+            (str(prop_id), str(existing_model_version))
+            for prop_id, existing_model_version in cursor.fetchall()
+        }
         for prop in get_props():
             if prop.dataStale:
                 continue
@@ -320,9 +333,8 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
                         _probability_skipped.get("confidenceFallback", 0) + 1
                     )
                 continue
-            cursor.execute("""select 1 from prediction_snapshots where prop_id=%s and model_version=%s
-                and snapshot_date=(now() at time zone 'UTC')::date limit 1""", (prop.id, snapshot_model_version))
-            if cursor.fetchone():
+            snapshot_key = (str(prop.id), str(snapshot_model_version))
+            if snapshot_key in existing_snapshots:
                 continue
             cursor.execute("""insert into prediction_snapshots
                 (prop_id,player_id,sport,market,side,line,projection,hit_probability,
@@ -442,6 +454,7 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
                      event_time, json.dumps(feature_payload)),
                 )
             created += 1
+            existing_snapshots.add(snapshot_key)
         connection.commit()
     _publish_probability_sources()
     return {"created": created, "modelVersion": model_version}
