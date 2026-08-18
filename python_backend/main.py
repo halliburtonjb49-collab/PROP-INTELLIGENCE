@@ -758,7 +758,10 @@ def _rebuild_prop_catalog_from_local(
 			catalog_version,
 			ttl_seconds=86400,
 		)
-		_publish_prop_catalog_summary(props)
+		_publish_prop_catalog_summary(
+			props,
+			catalog_published_at=datetime.now(timezone.utc).isoformat(),
+		)
 		with _prop_catalog_lock:
 			_prop_catalog["version"] = catalog_version
 		# The durable snapshot was previously written only by the worker job
@@ -780,6 +783,8 @@ def _rebuild_prop_catalog_from_local(
 
 def _prop_catalog_summary(
 	props: list[PropResponse],
+	*,
+	catalog_published_at: str | None = None,
 ) -> dict[str, object]:
 	return {
 		"count": len(props),
@@ -787,6 +792,7 @@ def _prop_catalog_summary(
 			(str(prop.lastUpdatedUtc or "") for prop in props),
 			default="",
 		) or None,
+		"catalogPublishedAt": catalog_published_at,
 		"version": APP_VERSION,
 	}
 
@@ -811,12 +817,25 @@ def _prop_catalog_summary_from_version(
 	}
 
 
-def _publish_prop_catalog_summary(props: list[PropResponse]) -> None:
+def _publish_prop_catalog_summary(
+	props: list[PropResponse],
+	*,
+	catalog_published_at: str | None = None,
+) -> None:
 	if not props:
 		return
+	if catalog_published_at is None:
+		existing = get_distributed_json(_PROP_CATALOG_SUMMARY_KEY)
+		if isinstance(existing, dict):
+			catalog_published_at = str(
+				existing.get("catalogPublishedAt") or ""
+			) or None
 	set_distributed_json(
 		_PROP_CATALOG_SUMMARY_KEY,
-		_prop_catalog_summary(props),
+		_prop_catalog_summary(
+			props,
+			catalog_published_at=catalog_published_at,
+		),
 		ttl_seconds=86400,
 	)
 
@@ -2839,6 +2858,9 @@ def props_readiness(response: Response) -> dict[str, object]:
 		last_data_updated_at = str(
 			summary.get("lastDataUpdatedAt") or ""
 		)
+		catalog_published_at = str(
+			summary.get("catalogPublishedAt") or ""
+		)
 	else:
 		prop_list = _cached_prop_catalog()
 		fallback_summary = _prop_catalog_summary(prop_list)
@@ -2846,11 +2868,13 @@ def props_readiness(response: Response) -> dict[str, object]:
 		last_data_updated_at = str(
 			fallback_summary.get("lastDataUpdatedAt") or ""
 		)
+		catalog_published_at = ""
 	response.headers["Cache-Control"] = "private, no-store, max-age=0"
 	return {
 		"status": "ok" if count else "empty",
 		"count": count,
 		"lastDataUpdatedAt": last_data_updated_at or None,
+		"catalogPublishedAt": catalog_published_at or None,
 		"version": APP_VERSION,
 		"responseMs": round((time.perf_counter() - started_at) * 1000),
 		"dataProtected": True,

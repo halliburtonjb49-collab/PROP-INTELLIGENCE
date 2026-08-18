@@ -141,6 +141,29 @@ def test_readiness_waits_for_feed_to_refresh_after_deployment(monkeypatch) -> No
     assert delays == [post_deploy_smoke.DEPLOYMENT_POLL_SECONDS]
 
 
+def test_readiness_prefers_catalog_publication_freshness(monkeypatch) -> None:
+    real_datetime = post_deploy_smoke.datetime
+
+    class _Now:
+        @classmethod
+        def now(cls, tz):
+            return real_datetime.fromisoformat(
+                "2026-07-29T17:30:00+00:00"
+            )
+
+        @classmethod
+        def fromisoformat(cls, value):
+            return real_datetime.fromisoformat(value)
+
+    payload = {
+        "lastDataUpdatedAt": "2026-07-29T12:00:00Z",
+        "catalogPublishedAt": "2026-07-29T17:25:00Z",
+    }
+    monkeypatch.setattr(post_deploy_smoke, "datetime", _Now)
+
+    assert post_deploy_smoke._feed_age_minutes(payload) == 5
+
+
 def test_readiness_retries_one_cold_cache_performance_sample(monkeypatch) -> None:
     response_times = iter([11_500, 800])
     delays: list[int] = []
