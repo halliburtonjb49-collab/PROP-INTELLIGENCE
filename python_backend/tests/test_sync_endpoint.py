@@ -143,6 +143,54 @@ def test_freshness_recovery_deduplicates_active_downstream_run(monkeypatch) -> N
     assert enqueue_calls == []
 
 
+def test_freshness_recovery_replaces_orphaned_job_after_worker_restart(
+    monkeypatch,
+) -> None:
+    state_updates = []
+    started_at = datetime.now(timezone.utc) - timedelta(minutes=5)
+    monkeypatch.setattr(
+        main,
+        "_sync_state_snapshot",
+        lambda: {
+            "status": "running",
+            "queuedJobId": "orphaned-worker-job",
+            "startedAt": started_at.isoformat(),
+            "jobHeartbeatAt": started_at.isoformat(),
+            "coverageStatus": "complete",
+            "sportsGameOddsStatus": "running",
+            "postProcessingStatus": "pending",
+        },
+    )
+    monkeypatch.setattr(
+        main,
+        "background_job_status",
+        lambda _job_id: {
+            "available": True,
+            "found": False,
+            "id": "orphaned-worker-job",
+        },
+    )
+    monkeypatch.setattr(
+        main,
+        "enqueue_background_job",
+        lambda *_args, **_kwargs: {
+            "id": "watchdog-replacement-job",
+            "status": "queued",
+        },
+    )
+    monkeypatch.setattr(
+        main,
+        "_set_sync_state",
+        lambda **changes: state_updates.append(changes),
+    )
+
+    queued = main._enqueue_prop_refresh()
+
+    assert queued["id"] == "watchdog-replacement-job"
+    assert state_updates[0]["status"] == "queued"
+    assert state_updates[0]["queuedJobId"] == "watchdog-replacement-job"
+
+
 def test_requested_sync_recovers_orphaned_shared_state(monkeypatch) -> None:
 	state_updates = []
 	started_at = datetime.now(timezone.utc) - timedelta(minutes=5)

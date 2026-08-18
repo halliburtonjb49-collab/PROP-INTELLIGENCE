@@ -1400,11 +1400,10 @@ def _enqueue_prop_refresh() -> dict[str, object] | None:
 	"""Deduplicate recovery work across API restarts and watchdog checks."""
 	state = _sync_state_snapshot()
 	if _sync_has_active_work(state):
-		return {
-			"id": str(state.get("queuedJobId") or "active-prop-sync"),
-			"status": "running",
-			"deduplicated": True,
-		}
+		# Reuse the exact-job and heartbeat checks used by explicit refreshes.
+		# A rolling worker deploy can otherwise leave shared state marked running
+		# forever after the original RQ job has disappeared.
+		return _enqueue_requested_prop_sync()
 	# One recovery job per 15-minute window is enough. RQ handles retries and
 	# the worker owns all provider/network work; the web service stays responsive.
 	bucket = int(time.time() // 900)
