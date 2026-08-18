@@ -161,6 +161,10 @@ services:
   - type: worker
     name: prop-intelligence-worker
     runtime: python
+    # Existing Render services retain their dashboard auto-deploy setting when
+    # this field is omitted. Keep the worker on the same commit as the API so
+    # a merged sync fix cannot leave an older RQ process running indefinitely.
+    autoDeployTrigger: commit
     # Keep the dashboard upgrade in source control so a Blueprint sync cannot
     # silently return this memory-intensive worker to the 512 MB Starter plan.
     plan: standard
