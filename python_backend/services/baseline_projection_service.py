@@ -12,6 +12,7 @@ from __future__ import annotations
 from bisect import bisect_left
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import logging
 from math import sqrt
 from statistics import fmean
 from threading import Lock
@@ -34,6 +35,10 @@ from services.projection_calibration_service import (
     shrinkage_k_for,
 )
 from services.prop_probability_service import evaluate_market
+from services.distributed_cache_service import (
+    get_compressed_json,
+    set_compressed_json,
+)
 
 MODEL_VERSION = "baseline-v3"
 MINIMUM_SAMPLE_SIZE = 8
@@ -41,6 +46,10 @@ MINIMUM_SAMPLE_SIZE = 8
 # 20-game window rather than a duplicate of it.
 MAXIMUM_SAMPLE_SIZE = 40
 _CACHE_TTL = timedelta(minutes=5)
+_SHARED_CACHE_KEY = "baseline:historical-projection-index:v1"
+_SHARED_CACHE_TTL_SECONDS = 6 * 60 * 60
+_SHARED_CACHE_MAX_AGE = timedelta(hours=1)
+LOGGER = logging.getLogger(__name__)
 
 # Role buckets are read off the population itself: players are ranked by their
 # own long-run level and a player's prior is the mean of their bucket. That
@@ -547,11 +556,84 @@ class _HistoricalProjectionIndex:
             and datetime.now(timezone.utc) - self.loaded_at < _CACHE_TTL
         )
 
+    def _load_shared(self) -> bool:
+        payload = get_compressed_json(_SHARED_CACHE_KEY)
+        if not isinstance(payload, dict) or payload.get("version") != 1:
+            return False
+        generated_raw = payload.get("generatedAt")
+        try:
+            generated = datetime.fromisoformat(
+                str(generated_raw).replace("Z", "+00:00")
+            )
+            if generated.tzinfo is None:
+                generated = generated.replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            return False
+        if datetime.now(timezone.utc) - generated > _SHARED_CACHE_MAX_AGE:
+            return False
+        try:
+            basketball = {
+                (str(sport), str(player)): [tuple(row) for row in rows]
+                for sport, player, rows in payload.get("basketball", [])
+            }
+            mlb = {
+                (str(player), str(stat)): [float(value) for value in values]
+                for player, stat, values in payload.get("mlb", [])
+            }
+            multi_sport = {
+                (str(sport), str(player), str(stat)): [
+                    float(value) for value in values
+                ]
+                for sport, player, stat, values in payload.get("multiSport", [])
+            }
+        except (TypeError, ValueError):
+            LOGGER.warning("Ignoring malformed shared historical projection index")
+            return False
+        if not (basketball or mlb or multi_sport):
+            return False
+        self.basketball = basketball
+        self.mlb = mlb
+        self.multi_sport = multi_sport
+        self._population_cache = {}
+        self.loaded_at = datetime.now(timezone.utc)
+        LOGGER.info(
+            "Loaded historical projection index from shared cache "
+            "basketball=%s mlb=%s multi_sport=%s",
+            len(basketball), len(mlb), len(multi_sport),
+        )
+        return True
+
+    def _publish_shared(self, generated: datetime) -> None:
+        payload = {
+            "version": 1,
+            "generatedAt": generated.isoformat(),
+            "basketball": [
+                [sport, player, [list(row) for row in rows]]
+                for (sport, player), rows in self.basketball.items()
+            ],
+            "mlb": [
+                [player, stat, values]
+                for (player, stat), values in self.mlb.items()
+            ],
+            "multiSport": [
+                [sport, player, stat, values]
+                for (sport, player, stat), values in self.multi_sport.items()
+            ],
+        }
+        if set_compressed_json(
+            _SHARED_CACHE_KEY,
+            payload,
+            ttl_seconds=_SHARED_CACHE_TTL_SECONDS,
+        ):
+            LOGGER.info("Published historical projection index to shared cache")
+
     def ensure_loaded(self) -> None:
         if self._fresh() or not database_is_configured():
             return
         with self._lock:
             if self._fresh():
+                return
+            if self._load_shared():
                 return
             basketball: dict[tuple[str, str], list[tuple[object, ...]]] = {}
             mlb: dict[tuple[str, str], list[float]] = {}
@@ -697,7 +779,9 @@ class _HistoricalProjectionIndex:
                 for key, values in multi_sport.items()
             }
             self._population_cache = {}
-            self.loaded_at = datetime.now(timezone.utc)
+            generated = datetime.now(timezone.utc)
+            self.loaded_at = generated
+            self._publish_shared(generated)
 
     def project(
         self,
