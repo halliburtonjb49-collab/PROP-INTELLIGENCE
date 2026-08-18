@@ -26,6 +26,15 @@ def _ensure_member_signup_table() -> None:
             """create index if not exists member_signup_notifications_first_seen_idx
                on member_signup_notifications(first_seen_at desc)"""
         )
+        cursor.execute(
+            "alter table member_signup_notifications enable row level security"
+        )
+        cursor.execute(
+            "alter table member_signup_notifications force row level security"
+        )
+        cursor.execute(
+            "revoke all on member_signup_notifications from anon, authenticated"
+        )
         connection.commit()
 
 

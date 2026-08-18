@@ -81,6 +81,21 @@ def test_feedback_table_is_migrated_as_api_only_data() -> None:
     )
 
 
+def test_member_signup_table_is_migrated_as_api_only_data() -> None:
+    from scripts.apply_supabase_migrations import MIGRATIONS
+
+    filename = "supabase_member_signup_notifications.sql"
+    assert filename in MIGRATIONS
+    sql = (ROOT / filename).read_text(encoding="utf-8").lower()
+    assert "enable row level security" in sql
+    assert "force row level security" in sql
+    assert (
+        "revoke all on public.member_signup_notifications "
+        "from anon, authenticated"
+        in sql
+    )
+
+
 def test_owner_operations_tables_are_migrated_as_api_only_data() -> None:
     from scripts.apply_supabase_migrations import MIGRATIONS
 
