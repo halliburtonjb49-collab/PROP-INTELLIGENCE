@@ -348,13 +348,28 @@ def test_primary_lane_completes_before_background_coverage(monkeypatch) -> None:
 
     monkeypatch.setattr(main, "run_global_sync_pipeline", fake_pipeline)
     refreshes = []
+    refreshed_board = [object()]
+    captured_closing_line_boards = []
+
+    def refresh_catalog(**kwargs):
+        refreshes.append(kwargs)
+        return refreshed_board
+
     monkeypatch.setattr(
         main,
         "_refresh_prop_catalog_now",
-        lambda **kwargs: refreshes.append(kwargs),
+        refresh_catalog,
     )
-    monkeypatch.setattr(main, "get_props", lambda: [])
-    monkeypatch.setattr(main, "capture_closing_lines_from_props", lambda _props: {})
+    monkeypatch.setattr(
+        main,
+        "get_props",
+        lambda: (_ for _ in ()).throw(AssertionError("catalog rebuilt twice")),
+    )
+    monkeypatch.setattr(
+        main,
+        "capture_closing_lines_from_props",
+        lambda props: captured_closing_line_boards.append(props) or {},
+    )
     monkeypatch.setattr(main, "quota_snapshot", lambda: {"remaining": 1000})
     main._mark_sync_running()
 
@@ -384,6 +399,7 @@ def test_primary_lane_completes_before_background_coverage(monkeypatch) -> None:
         {"persist_snapshot": False},
         {"persist_snapshot": True},
     ]
+    assert captured_closing_line_boards == [refreshed_board]
 
 
 def test_post_processing_failure_preserves_completed_coverage(monkeypatch) -> None:

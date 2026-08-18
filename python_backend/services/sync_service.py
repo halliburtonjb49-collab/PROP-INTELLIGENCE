@@ -909,7 +909,9 @@ def run_global_sync_pipeline(
     on_coverage_complete: Callable[[list[dict[str, object]]], None] | None = None,
     on_coverage_progress: Callable[[dict[str, object]], None] | None = None,
     on_sportsgameodds_started: Callable[[], None] | None = None,
-    on_sportsgameodds_complete: Callable[[dict[str, object]], None] | None = None,
+    on_sportsgameodds_complete: Callable[
+        [dict[str, object]], list[object] | None
+    ] | None = None,
     on_post_processing_progress: Callable[[str], None] | None = None,
 ) -> list[dict[str, object]]:
     sports, off_season_sports = partition_seasonal_sync_sports(
@@ -920,6 +922,12 @@ def run_global_sync_pipeline(
         {"sport": sport, "events": 0, "props": 0, "status": "off_season"}
         for sport in off_season_sports
     ]
+    # The completion callback publishes the freshly enriched catalog for the
+    # API. Keep the exact same objects for the diagnostic and alert stages.
+    # Rebuilding them with get_props() used to repeat the most expensive part
+    # of a sync (history hydration and projection enrichment) and could hold
+    # board_projection open for several minutes.
+    post_processing_board: list[object] | None = None
     record_memory_checkpoint("sync_start")
 
     def sync_lane(
@@ -1014,7 +1022,9 @@ def run_global_sync_pipeline(
     results.append(sportsgameodds_result)
     if on_sportsgameodds_complete is not None:
         try:
-            on_sportsgameodds_complete(sportsgameodds_result)
+            refreshed_board = on_sportsgameodds_complete(sportsgameodds_result)
+            if isinstance(refreshed_board, list):
+                post_processing_board = refreshed_board
         except Exception as exc:
             logger.warning(
                 "sportsgameodds completion callback failed error=%s", exc
@@ -1114,7 +1124,11 @@ def run_global_sync_pipeline(
     # Measured here because this walk already holds every prop; doing it
     # inside a request is what turned the operations endpoint into a 502.
     report_post_processing("board_projection")
-    _board = get_props()
+    _board = (
+        post_processing_board
+        if post_processing_board is not None
+        else get_props()
+    )
     record_selectability_projection(_board)
     record_memory_checkpoint("board_projection_complete")
     # Graded on the same long cooldown as the history top-up: replaying
