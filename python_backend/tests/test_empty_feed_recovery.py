@@ -3,6 +3,8 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
+import pytest
+
 import main
 
 
@@ -155,7 +157,7 @@ def test_a_fresh_local_sync_persists_the_durable_snapshot(monkeypatch):
     monkeypatch.setattr(
         main,
         "_publish_prop_catalog_summary",
-        lambda _props, **_kwargs: None,
+        lambda _props, **_kwargs: True,
     )
     monkeypatch.setattr(main, "save_catalog_snapshot", lambda rows: saved.append(rows))
 
@@ -189,13 +191,38 @@ def test_intermediate_catalog_refresh_does_not_start_snapshot_write(monkeypatch)
     monkeypatch.setattr(
         main,
         "_publish_prop_catalog_summary",
-        lambda _props, **_kwargs: None,
+        lambda _props, **_kwargs: True,
     )
     monkeypatch.setattr(main, "save_catalog_snapshot", lambda rows: saved.append(rows))
 
     main._rebuild_prop_catalog_from_local(persist_snapshot=False)
 
     assert saved == []
+
+
+def test_fresh_catalog_fails_when_compact_summary_cannot_publish(monkeypatch):
+    prop = SimpleNamespace(
+        lastUpdatedUtc=datetime.now(timezone.utc).isoformat(),
+        model_dump=lambda mode=None: {"id": "p1"},
+    )
+    monkeypatch.setattr(main, "get_props", lambda: [prop])
+    monkeypatch.setattr(main, "set_distributed_json", lambda *a, **k: True)
+    monkeypatch.setattr(
+        main,
+        "set_distributed_json_streaming_list",
+        lambda *a, **k: True,
+    )
+    monkeypatch.setattr(
+        main,
+        "_publish_prop_catalog_summary",
+        lambda _props, **_kwargs: False,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="catalog summary could not be published",
+    ):
+        main._rebuild_prop_catalog_from_local()
 
 
 def test_an_empty_sync_does_not_overwrite_a_good_snapshot(monkeypatch):
