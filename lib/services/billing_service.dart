@@ -31,6 +31,14 @@ String subscriptionManagementUnavailableMessage({
     : 'No active paid subscription was found for this account.';
 
 @visibleForTesting
+LaunchMode subscriptionManagementLaunchMode({required bool isWeb}) =>
+    isWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication;
+
+@visibleForTesting
+String? subscriptionManagementWindowName({required bool isWeb}) =>
+    isWeb ? '_self' : null;
+
+@visibleForTesting
 String selectRevenueCatPublicApiKey({
   required bool isWeb,
   required TargetPlatform platform,
@@ -161,9 +169,7 @@ class RevenueCatBillingService {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                'Subscription active. Access is ready.',
-              ),
+              content: Text('Subscription active. Access is ready.'),
               backgroundColor: brand_colors.AppColors.blue,
             ),
           );
@@ -236,7 +242,8 @@ class RevenueCatBillingService {
 
       final launched = await launchUrl(
         Uri.parse(managementUrl),
-        mode: LaunchMode.externalApplication,
+        mode: subscriptionManagementLaunchMode(isWeb: kIsWeb),
+        webOnlyWindowName: subscriptionManagementWindowName(isWeb: kIsWeb),
       );
       if (!launched) {
         throw StateError('Subscription portal could not be opened.');

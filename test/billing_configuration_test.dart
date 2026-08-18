@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/services/billing_service.dart';
 import 'package:prop_intelligence/services/founding_pro_reservation_service.dart';
 import 'package:prop_intelligence/services/subscription_pricing.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() {
   test('active subscribers get a support path when the portal is missing', () {
@@ -14,6 +15,19 @@ void main() {
       subscriptionManagementUnavailableMessage(hasActivePurchase: false),
       contains('No active paid subscription'),
     );
+  });
+
+  test('opens web subscription management in the current tab', () {
+    expect(
+      subscriptionManagementLaunchMode(isWeb: true),
+      LaunchMode.platformDefault,
+    );
+    expect(subscriptionManagementWindowName(isWeb: true), '_self');
+    expect(
+      subscriptionManagementLaunchMode(isWeb: false),
+      LaunchMode.externalApplication,
+    );
+    expect(subscriptionManagementWindowName(isWeb: false), isNull);
   });
 
   test('publishes the new plan prices, trials and founding-member cap', () {
