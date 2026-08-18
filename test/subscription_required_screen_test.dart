@@ -20,4 +20,45 @@ void main() {
     );
     expect(find.text('SIGN OUT'), findsOneWidget);
   });
+
+  testWidgets('plan sheet remains scrollable on a short screen', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(639, 632));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => const BrandedPaywallModalSheet(),
+              ),
+              child: const Text('OPEN PLANS'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('OPEN PLANS'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    await tester.dragUntilVisible(
+      find.text('RESTORE PURCHASES'),
+      find.byType(SingleChildScrollView),
+      const Offset(0, -300),
+    );
+
+    expect(
+      find.text('FOUNDING PRO - \$49.99 / MONTH').hitTestable(),
+      findsOneWidget,
+    );
+    expect(find.text('RESTORE PURCHASES').hitTestable(), findsOneWidget);
+  });
 }

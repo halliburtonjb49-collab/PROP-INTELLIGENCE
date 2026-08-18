@@ -27,6 +27,7 @@ class SubscriptionRequiredScreen extends StatelessWidget {
                     heading: 'CHOOSE A PLAN TO CONTINUE',
                     supportingText:
                         'PROP INTELLIGENCE is your all-in-one sports-prop command center for research, tracking, analytics, and community. Monthly plans start with 2 days free; annual plans start with 7 days free.',
+                    scrollable: false,
                   ),
                   const SizedBox(height: 12),
                   TextButton.icon(
@@ -50,10 +51,12 @@ class BrandedPaywallModalSheet extends StatelessWidget {
     this.heading = 'CHOOSE YOUR PROP INTELLIGENCE PLAN',
     this.supportingText =
         'Research, track, analyze, and discuss picks without placing bets in-app',
+    this.scrollable = true,
   });
 
   final String heading;
   final String supportingText;
+  final bool scrollable;
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +67,7 @@ class BrandedPaywallModalSheet extends StatelessWidget {
     const primaryYellow = brand_colors.AppColors.goldHighlight;
     final billingService = RevenueCatBillingService();
 
-    return Container(
+    final content = Container(
       padding: const EdgeInsets.all(32.0),
       decoration: BoxDecoration(
         color: const Color(0xFF1E222A),
@@ -245,6 +248,21 @@ class BrandedPaywallModalSheet extends StatelessWidget {
             style: TextStyle(color: Colors.grey[500], fontSize: 10),
           ),
         ],
+      ),
+    );
+
+    if (!scrollable) {
+      return content;
+    }
+
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        primary: false,
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: content,
       ),
     );
   }
