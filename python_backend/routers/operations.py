@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from services.api_auth_service import require_admin, require_owner, require_user_id
+from services.api_auth_service import require_owner, require_user_id
 from services.operations_detail_service import operations_detail
 from services.pipeline_run_service import recent_pipeline_runs, summarize_pipeline_health
 from services.provider_availability_monitor_service import provider_availability_snapshot
@@ -66,7 +66,7 @@ class MemberJoinedRequest(BaseModel):
     source: str = "app"
 
 
-@router.get("/readiness", dependencies=[Depends(require_admin)])
+@router.get("/readiness", dependencies=[Depends(require_owner)])
 def readiness() -> dict[str, object]:
     return production_readiness()
 
@@ -76,7 +76,7 @@ def acceptance() -> dict[str, object]:
     return production_acceptance_snapshot()
 
 
-@router.get("/pipelines", dependencies=[Depends(require_admin)])
+@router.get("/pipelines", dependencies=[Depends(require_owner)])
 def pipelines(limit: int = 25) -> dict[str, object]:
     bounded_limit = max(1, min(limit, 100))
     runs = recent_pipeline_runs(bounded_limit)

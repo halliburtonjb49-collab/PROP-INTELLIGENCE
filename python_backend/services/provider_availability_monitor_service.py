@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import json
+import logging
 from datetime import datetime, timedelta, timezone
 from threading import Lock
 from typing import Iterable
 
+from database.postgres import database_is_configured, get_database_pool
 from services.distributed_cache_service import get_json, set_json
 
 _CACHE_KEY = "operations:provider-availability:v1"
@@ -14,6 +17,7 @@ _REFRESH_MINUTES = 10
 _STALE_MINUTES = 25
 _LOCAL_LOCK = Lock()
 _LOCAL_SNAPSHOT: dict[str, object] | None = None
+LOGGER = logging.getLogger(__name__)
 
 _SPORTS = (
     ("WNBA", "Sportradar WNBA"),
@@ -23,6 +27,50 @@ _SPORTS = (
     ("NHL", "Sportradar NHL"),
     ("SOCCER", "Sportradar Soccer"),
 )
+
+
+def _persist_snapshot(snapshot: dict[str, object]) -> bool:
+    """Persist the latest worker snapshot where every API instance can read it."""
+
+    if not database_is_configured():
+        return False
+    try:
+        with get_database_pool().connection() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """insert into provider_availability_snapshots(id, generated_at, payload)
+                   values(true, %s, %s::jsonb)
+                   on conflict(id) do update set
+                     generated_at=excluded.generated_at,
+                     payload=excluded.payload,
+                     updated_at=now()""",
+                (snapshot["generatedAt"], json.dumps(snapshot, default=str)),
+            )
+            connection.commit()
+        return True
+    except Exception as exc:
+        LOGGER.warning("Provider availability database write failed error=%s", exc)
+        return False
+
+
+def _read_persisted_snapshot() -> dict[str, object] | None:
+    if not database_is_configured():
+        return None
+    try:
+        with get_database_pool().connection() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """select payload
+                   from provider_availability_snapshots
+                   where id=true
+                   limit 1"""
+            )
+            row = cursor.fetchone()
+        payload = row[0] if row else None
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        return dict(payload) if isinstance(payload, dict) else None
+    except Exception as exc:
+        LOGGER.warning("Provider availability database read failed error=%s", exc)
+        return None
 
 
 def _utc(value: datetime | None = None) -> datetime:
@@ -180,7 +228,19 @@ def record_provider_availability(
     }
     with _LOCAL_LOCK:
         _LOCAL_SNAPSHOT = snapshot
-    set_json(_CACHE_KEY, snapshot, ttl_seconds=_CACHE_TTL_SECONDS)
+    cache_stored = set_json(
+        _CACHE_KEY, snapshot, ttl_seconds=_CACHE_TTL_SECONDS,
+    )
+    database_stored = _persist_snapshot(snapshot)
+    snapshot["storage"] = {
+        "redis": cache_stored,
+        "database": database_stored,
+        "durable": cache_stored or database_stored,
+    }
+    if not cache_stored and not database_stored:
+        LOGGER.error(
+            "Provider availability snapshot was not stored in Redis or PostgreSQL"
+        )
     return snapshot
 
 
@@ -191,8 +251,15 @@ def provider_availability_snapshot(
 
     current = _utc(now)
     shared = get_json(_CACHE_KEY)
+    persisted = None if isinstance(shared, dict) else _read_persisted_snapshot()
     with _LOCAL_LOCK:
-        payload = shared if isinstance(shared, dict) else _LOCAL_SNAPSHOT
+        payload = (
+            shared
+            if isinstance(shared, dict)
+            else persisted
+            if isinstance(persisted, dict)
+            else _LOCAL_SNAPSHOT
+        )
     if not isinstance(payload, dict):
         return {
             "generatedAt": None,

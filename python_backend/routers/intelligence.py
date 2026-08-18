@@ -33,7 +33,7 @@ from services.clv_service import closing_line_value
 from services.wowy_usage_service import UsageTotals, analyze_wowy_usage
 from services.model_performance_service import model_performance, operations_summary
 from services.prop_intelligence_service import analyze_prop
-from services.api_auth_service import require_admin
+from services.api_auth_service import require_owner
 
 router = APIRouter(
     prefix="/api/intelligence",
@@ -182,7 +182,7 @@ def save_engagement(request: SentimentBatchRequest,
 @router.get("/observability")
 def get_product_observability(
     hours: int = 168,
-    _admin: str = Depends(require_admin),
+    _owner: str = Depends(require_owner),
 ) -> dict[str, object]:
     return product_observability(hours)
 
@@ -259,7 +259,7 @@ def get_model_performance(model_version: str = MODEL_VERSION) -> dict[str, objec
 
 
 @router.get("/operations")
-def get_operations_summary(_admin: str = Depends(require_admin)) -> dict[str, object]:
+def get_operations_summary(_owner: str = Depends(require_owner)) -> dict[str, object]:
     return operations_summary()
 
 

@@ -231,8 +231,8 @@ from services.wnba_mapping_service import map_wnba_event
 from services.api_auth_service import (
 	AccessLevel,
 	Membership,
-	require_admin,
 	require_core,
+	require_owner,
 	require_pro,
 	require_user_id,
 )
@@ -4004,13 +4004,14 @@ def accuracy_audit() -> dict[str, object]:
 
 
 @app.get("/api/identity/map")
-def get_identity_map() -> dict[str, object]:
+def get_identity_map(_owner: str = Depends(require_owner)) -> dict[str, object]:
 	return load_identity_map()
 
 
 @app.post("/api/identity/bootstrap")
 def bootstrap_identity_map(
 	sourceProvider: str = Query(default="odds-api"),
+	_owner: str = Depends(require_owner),
 ) -> dict[str, object]:
 	props = [item.model_dump() for item in get_props()]
 	return bootstrap_identity_candidates(
@@ -4023,6 +4024,7 @@ def bootstrap_identity_map(
 def get_unresolved_identities(
 	sourceProvider: str = Query(default="odds-api"),
 	limit: int = Query(default=100),
+	_owner: str = Depends(require_owner),
 ) -> dict[str, object]:
 	props = [item.model_dump() for item in get_props()]
 	rows = unresolved_identity_rows(
@@ -4040,6 +4042,7 @@ def get_unresolved_identities(
 def get_unresolved_identities_grouped(
 	sourceProvider: str = Query(default="odds-api"),
 	limit: int = Query(default=1000),
+	_owner: str = Depends(require_owner),
 ) -> dict[str, object]:
 	props = [item.model_dump() for item in get_props()]
 	rows = unresolved_identity_rows(
@@ -4081,6 +4084,7 @@ def get_unresolved_identities_grouped(
 def bulk_identity_map_update(
 	body: dict[str, object] = Body(default={}),
 	mode: str = Query(default="merge"),
+	_owner: str = Depends(require_owner),
 ) -> dict[str, object]:
 	normalized_mode = _normalize_bulk_mode(mode)
 	incoming_providers = _validate_identity_bulk_body(body)
@@ -4132,6 +4136,7 @@ def put_identity_mapping(
 	source_provider: str,
 	source_player_id: str,
 	body: dict[str, object] = Body(default={}),
+	_owner: str = Depends(require_owner),
 ) -> dict[str, object]:
 	try:
 		raw_aliases = body.get("aliases", [])
@@ -4158,7 +4163,9 @@ def put_identity_mapping(
 
 
 @app.get("/api/player-availability")
-def get_player_availability_map() -> dict[str, object]:
+def get_player_availability_map(
+	_owner: str = Depends(require_owner),
+) -> dict[str, object]:
 	return load_status_map()
 
 
@@ -4166,6 +4173,7 @@ def get_player_availability_map() -> dict[str, object]:
 def bulk_player_availability_update(
 	body: dict[str, object] = Body(default={}),
 	mode: str = Query(default="merge"),
+	_owner: str = Depends(require_owner),
 ) -> dict[str, object]:
 	normalized_mode = _normalize_bulk_mode(mode)
 	incoming_players = _validate_availability_bulk_body(body)
@@ -4196,6 +4204,7 @@ def bulk_player_availability_update(
 def put_player_availability(
 	canonical_player_id: str,
 	body: dict[str, object] = Body(default={}),
+	_owner: str = Depends(require_owner),
 ) -> dict[str, object]:
 	try:
 		entry = upsert_player_availability(
@@ -4934,7 +4943,7 @@ def refresh_slip_games(
 def grade_test(
 	sport_key: str,
 	event_id: str,
-	_admin: str = Depends(require_admin),
+	_owner: str = Depends(require_owner),
 ) -> dict[str, object]:
 	provider = MockPlayerStatsProvider()
 	updated = grade_event_slips(
@@ -5022,7 +5031,7 @@ _golf_roster_job = _BackgroundJob()
 
 @app.post("/api/admin/refresh-mlb-headshots")
 def refresh_mlb_headshots(
-	_admin: str = Depends(require_admin),
+	_owner: str = Depends(require_owner),
 ) -> dict[str, object]:
 	bucket = int(time.time() // 300)
 	queued = enqueue_background_job(
@@ -5038,7 +5047,7 @@ def refresh_mlb_headshots(
 
 
 @app.get("/api/admin/refresh-mlb-headshots/status")
-def refresh_mlb_headshots_status(_admin: str = Depends(require_admin)) -> dict[str, object]:
+def refresh_mlb_headshots_status(_owner: str = Depends(require_owner)) -> dict[str, object]:
 	return {
 		"status": "worker-owned",
 		"queue": job_queue_health(),
@@ -5047,7 +5056,7 @@ def refresh_mlb_headshots_status(_admin: str = Depends(require_admin)) -> dict[s
 
 @app.post("/api/admin/refresh-espn-headshots")
 def refresh_espn_headshots(
-	_admin: str = Depends(require_admin),
+	_owner: str = Depends(require_owner),
 ) -> dict[str, object]:
 	bucket = int(time.time() // 300)
 	queued = enqueue_background_job(
@@ -5063,7 +5072,7 @@ def refresh_espn_headshots(
 
 
 @app.get("/api/admin/refresh-espn-headshots/status")
-def refresh_espn_headshots_status(_admin: str = Depends(require_admin)) -> dict[str, object]:
+def refresh_espn_headshots_status(_owner: str = Depends(require_owner)) -> dict[str, object]:
 	return {
 		"status": "worker-owned",
 		"queue": job_queue_health(),
@@ -5076,7 +5085,7 @@ def refresh_espn_headshots_status(_admin: str = Depends(require_admin)) -> dict[
 def refresh_gridiron_ice_history(
 	background_tasks: BackgroundTasks,
 	days: int = 7,
-	_admin: str = Depends(require_admin),
+	_owner: str = Depends(require_owner),
 ) -> dict[str, object]:
 	"""Ingest recent NFL and NHL box scores into the player game logs."""
 	window = max(1, min(60, int(days)))
@@ -5088,7 +5097,7 @@ def refresh_gridiron_ice_history(
 
 @app.get("/api/admin/refresh-gridiron-ice-history/status")
 def refresh_gridiron_ice_history_status(
-	_admin: str = Depends(require_admin),
+	_owner: str = Depends(require_owner),
 ) -> dict[str, object]:
 	return _gridiron_ice_history_job.snapshot()
 
@@ -5097,13 +5106,13 @@ def refresh_gridiron_ice_history_status(
 @app.post("/api/admin/refresh-golf-roster")
 def refresh_golf_roster(
 	background_tasks: BackgroundTasks,
-	_admin: str = Depends(require_admin),
+	_owner: str = Depends(require_owner),
 ) -> dict[str, object]:
 	return _golf_roster_job.start(background_tasks, refresh_golf_roster_map)
 
 
 @app.get("/api/admin/refresh-golf-roster/status")
-def refresh_golf_roster_status(_admin: str = Depends(require_admin)) -> dict[str, object]:
+def refresh_golf_roster_status(_owner: str = Depends(require_owner)) -> dict[str, object]:
 	return _golf_roster_job.snapshot()
 
 
@@ -5203,7 +5212,7 @@ def grade_wnba_slips(_user_id: str = Depends(require_user_id)) -> dict[str, obje
 @app.get("/api/slips/diagnose-wnba/{game_id}")
 def diagnose_wnba(
 	game_id: str,
-	_admin: str = Depends(require_admin),
+	_owner: str = Depends(require_owner),
 ) -> dict[str, object]:
 	try:
 		report = diagnose_wnba_game(game_id)

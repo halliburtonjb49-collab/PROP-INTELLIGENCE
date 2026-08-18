@@ -2083,7 +2083,7 @@ class ApiService {
     final response = await http
         .post(
           uri,
-          headers: const {'Content-Type': 'application/json'},
+          headers: await _authenticatedHeaders(json: true),
           body: jsonEncode(payload),
         )
         .timeout(const Duration(seconds: 30));
@@ -2109,7 +2109,7 @@ class ApiService {
     final response = await http
         .post(
           uri,
-          headers: const {'Content-Type': 'application/json'},
+          headers: await _authenticatedHeaders(json: true),
           body: jsonEncode(payload),
         )
         .timeout(const Duration(seconds: 30));

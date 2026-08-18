@@ -110,3 +110,44 @@ def test_read_marks_old_snapshot_stale(monkeypatch) -> None:
     assert nba["stale"] is True
     assert nba["status"] == "UNAVAILABLE"
     assert "stale" in nba["missingData"][-1]
+
+
+def test_read_uses_database_when_shared_cache_is_empty(monkeypatch) -> None:
+    observed = datetime(2026, 8, 11, 14, 0, tzinfo=timezone.utc)
+    persisted = {
+        "generatedAt": observed.isoformat(),
+        "refreshIntervalMinutes": 10,
+        "staleAfterMinutes": 25,
+        "overallStatus": "HEALTHY",
+        "sports": [{
+            "sport": "MLB",
+            "provider": "MLB Stats API / SportsDataIO",
+            "status": "HEALTHY",
+            "authorizationStatus": "AUTHORIZED",
+            "lastAttemptAt": observed.isoformat(),
+            "missingData": [],
+            "stale": False,
+        }],
+        "alerts": [],
+    }
+    monkeypatch.setattr(monitor, "get_json", lambda _key: None)
+    monkeypatch.setattr(monitor, "_read_persisted_snapshot", lambda: persisted)
+    monkeypatch.setattr(monitor, "_LOCAL_SNAPSHOT", None)
+
+    snapshot = monitor.provider_availability_snapshot(now=observed)
+
+    assert snapshot["overallStatus"] == "HEALTHY"
+    assert snapshot["sports"][0]["sport"] == "MLB"
+
+
+def test_record_reports_when_no_shared_storage_accepts_snapshot(monkeypatch) -> None:
+    monkeypatch.setattr(monitor, "set_json", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr(monitor, "_persist_snapshot", lambda _snapshot: False)
+
+    snapshot = monitor.record_provider_availability([])
+
+    assert snapshot["storage"] == {
+        "redis": False,
+        "database": False,
+        "durable": False,
+    }
