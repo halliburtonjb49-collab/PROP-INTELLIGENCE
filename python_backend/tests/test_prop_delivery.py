@@ -287,6 +287,7 @@ def test_prop_readiness_exposes_metadata_without_authentication(monkeypatch) -> 
         "status": "ok",
         "count": 2,
         "lastDataUpdatedAt": "2026-07-29T12:05:00Z",
+        "catalogPublishedAt": None,
         "version": main.APP_VERSION,
         "responseMs": response.json()["responseMs"],
         "dataProtected": True,
@@ -301,6 +302,7 @@ def test_prop_readiness_uses_compact_distributed_summary(monkeypatch) -> None:
         lambda key: {
             "count": 8489,
             "lastDataUpdatedAt": "2026-07-29T16:26:39Z",
+            "catalogPublishedAt": "2026-07-29T16:30:00Z",
             "version": "catalog-v1",
         }
         if key == main._PROP_CATALOG_SUMMARY_KEY
@@ -318,6 +320,7 @@ def test_prop_readiness_uses_compact_distributed_summary(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.json()["count"] == 8489
     assert response.json()["lastDataUpdatedAt"] == "2026-07-29T16:26:39Z"
+    assert response.json()["catalogPublishedAt"] == "2026-07-29T16:30:00Z"
 
 
 def test_prop_readiness_can_use_compact_catalog_version(monkeypatch) -> None:
@@ -344,6 +347,7 @@ def test_prop_readiness_can_use_compact_catalog_version(monkeypatch) -> None:
         response.json()["lastDataUpdatedAt"]
         == "2026-07-29T16:26:39.035904+00:00"
     )
+    assert response.json()["catalogPublishedAt"] is None
 
 
 def test_category_facets_are_not_reduced_by_selected_category(monkeypatch) -> None:

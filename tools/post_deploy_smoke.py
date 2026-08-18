@@ -108,7 +108,15 @@ def wait_for_expected_version() -> None:
 
 
 def _feed_age_minutes(payload: dict) -> float:
-    last_data_updated = payload.get("lastDataUpdatedAt")
+    # A provider can legitimately return the same line across consecutive
+    # successful syncs. In that case lastDataUpdatedAt does not move even
+    # though a fresh protected catalog was generated and published. Certify
+    # the publication timestamp when available while retaining the provider
+    # timestamp in readiness for data-quality monitoring.
+    last_data_updated = (
+        payload.get("catalogPublishedAt")
+        or payload.get("lastDataUpdatedAt")
+    )
     if not last_data_updated:
         raise RuntimeError("Production prop-feed freshness is unavailable")
     last_data_at = datetime.fromisoformat(
