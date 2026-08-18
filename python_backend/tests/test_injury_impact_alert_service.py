@@ -79,6 +79,7 @@ def test_sub_two_percent_factor_does_not_create_impact() -> None:
 
 def test_catalog_refresh_broadcasts_detected_change_once(monkeypatch) -> None:
     calls: list[tuple[dict[str, object], str]] = []
+    rebuilt = [prop()]
     alert = {
         "eventId": "event-change-1",
         "occurredAt": "2026-08-09T15:00:00Z",
@@ -88,7 +89,7 @@ def test_catalog_refresh_broadcasts_detected_change_once(monkeypatch) -> None:
     monkeypatch.setattr(
         main,
         "_rebuild_prop_catalog_from_local",
-        lambda **_kwargs: [prop()],
+        lambda **_kwargs: rebuilt,
     )
     monkeypatch.setattr(main, "evaluate_injury_impact_changes", lambda _: [alert])
     monkeypatch.setattr(
@@ -97,8 +98,9 @@ def test_catalog_refresh_broadcasts_detected_change_once(monkeypatch) -> None:
         lambda event, channel: calls.append((event, channel)),
     )
 
-    main._refresh_prop_catalog_now()
+    result = main._refresh_prop_catalog_now()
 
+    assert result is rebuilt
     assert len(calls) == 1
     assert calls[0][1] == "alerts"
     assert calls[0][0]["type"] == "injury.impact.changed"

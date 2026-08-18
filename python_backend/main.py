@@ -866,6 +866,7 @@ def _refresh_prop_catalog_now(
 			},
 			"alerts",
 		)
+	return props
 
 _sync_run_lock = Lock()
 _sync_state_lock = Lock()
