@@ -8,6 +8,50 @@ from services.baseline_projection_service import (
 from services.prop_probability_service import evaluate_market
 
 
+def test_historical_index_reuses_fresh_shared_cache(monkeypatch) -> None:
+    from datetime import datetime, timezone
+    from services import baseline_projection_service as service
+
+    generated = datetime.now(timezone.utc).isoformat()
+    monkeypatch.setattr(service, "database_is_configured", lambda: True)
+    monkeypatch.setattr(service, "get_compressed_json", lambda _key: {
+        "version": 1,
+        "generatedAt": generated,
+        "basketball": [["WNBA", "player", [[20, 5, 4, 1, 0, 2, 1, 32]]]],
+        "mlb": [["pitcher:7", "strikeouts", [5, 6, 7]]],
+        "multiSport": [["NFL", "receiver", "receiving_yards", [60, 70]]],
+    })
+    monkeypatch.setattr(
+        service,
+        "get_database_pool",
+        lambda: (_ for _ in ()).throw(AssertionError("database should not load")),
+    )
+
+    index = service._HistoricalProjectionIndex()
+    index.ensure_loaded()
+
+    assert index.basketball[("WNBA", "player")][0][0] == 20
+    assert index.mlb[("pitcher:7", "strikeouts")] == [5.0, 6.0, 7.0]
+    assert index.multi_sport[("NFL", "receiver", "receiving_yards")] == [60.0, 70.0]
+
+
+def test_historical_index_rejects_stale_shared_cache(monkeypatch) -> None:
+    from datetime import datetime, timedelta, timezone
+    from services import baseline_projection_service as service
+
+    monkeypatch.setattr(service, "get_compressed_json", lambda _key: {
+        "version": 1,
+        "generatedAt": (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(),
+        "basketball": [["WNBA", "stale", [[1, 1, 1, 1, 1, 1, 1]]]],
+        "mlb": [],
+        "multiSport": [],
+    })
+    index = service._HistoricalProjectionIndex()
+
+    assert index._load_shared() is False
+    assert index.basketball == {}
+
+
 def test_baseline_requires_a_real_minimum_sample() -> None:
     assert compute_baseline_projection([20, 21, 19, 22, 20, 18, 21], line=20.5) is None
 

@@ -11,10 +11,15 @@ from services import distributed_cache_service, job_queue_service
 def test_optional_redis_services_fail_open_without_configuration(monkeypatch) -> None:
     monkeypatch.setattr(distributed_cache_service, "REDIS_URL", "")
     distributed_cache_service._client.cache_clear()
+    distributed_cache_service._binary_client.cache_clear()
     monkeypatch.setattr(job_queue_service, "REDIS_URL", "")
 
     assert distributed_cache_service.get_json("missing") is None
     assert distributed_cache_service.set_json("key", {"ok": True}, ttl_seconds=10) is False
+    assert distributed_cache_service.get_compressed_json("missing") is None
+    assert distributed_cache_service.set_compressed_json(
+        "key", {"ok": True}, ttl_seconds=10
+    ) is False
     assert distributed_cache_service.health()["mode"] == "local"
     assert job_queue_service.enqueue("jobs.run_prop_sync") is None
     assert job_queue_service.health()["mode"] == "in-process"
@@ -128,6 +133,31 @@ class _StreamingRedis:
 
     def delete(self, key):
         self.values.pop(key, None)
+
+
+class _BinaryRedis:
+    def __init__(self) -> None:
+        self.values = {}
+
+    def setex(self, key, _ttl, value):
+        self.values[key] = value
+
+    def get(self, key):
+        return self.values.get(key)
+
+
+def test_compressed_json_cache_round_trip(monkeypatch) -> None:
+    client = _BinaryRedis()
+    monkeypatch.setattr(distributed_cache_service, "_binary_client", lambda: client)
+    payload = {"players": [["WNBA", "Player", list(range(40))]] * 10}
+
+    assert distributed_cache_service.set_compressed_json(
+        "history", payload, ttl_seconds=60
+    ) is True
+    assert len(client.values["history"]) < len(
+        distributed_cache_service.json.dumps(payload).encode("utf-8")
+    )
+    assert distributed_cache_service.get_compressed_json("history") == payload
 
 
 def test_large_json_list_is_published_in_bounded_atomic_chunks(monkeypatch) -> None:

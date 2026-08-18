@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import uuid
+import zlib
 from functools import lru_cache
 from typing import Any, Callable, Iterable
 
@@ -24,6 +25,21 @@ def _client() -> Redis | None:
         decode_responses=True,
         socket_connect_timeout=2,
         socket_timeout=2,
+        health_check_interval=30,
+    )
+
+
+@lru_cache(maxsize=1)
+def _binary_client() -> Redis | None:
+    """Binary Redis client for compact internal cache payloads."""
+
+    if not REDIS_URL:
+        return None
+    return Redis.from_url(
+        REDIS_URL,
+        decode_responses=False,
+        socket_connect_timeout=2,
+        socket_timeout=5,
         health_check_interval=30,
     )
 
@@ -49,6 +65,45 @@ def set_json(key: str, value: Any, *, ttl_seconds: int) -> bool:
         return True
     except Exception as exc:
         LOGGER.warning("Redis write failed key=%s error=%s", key, exc)
+        return False
+
+
+def get_compressed_json(key: str) -> Any | None:
+    """Read an internal JSON payload stored with zlib compression."""
+
+    client = _binary_client()
+    if client is None:
+        return None
+    try:
+        value = client.get(key)
+        if not value:
+            return None
+        return json.loads(zlib.decompress(value).decode("utf-8"))
+    except Exception as exc:
+        LOGGER.warning("Redis compressed read failed key=%s error=%s", key, exc)
+        return None
+
+
+def set_compressed_json(key: str, value: Any, *, ttl_seconds: int) -> bool:
+    """Write a compact JSON payload for large, read-mostly internal data."""
+
+    client = _binary_client()
+    if client is None:
+        return False
+    try:
+        encoded = json.dumps(
+            value,
+            separators=(",", ":"),
+            default=str,
+        ).encode("utf-8")
+        client.setex(
+            key,
+            max(1, ttl_seconds),
+            zlib.compress(encoded, level=6),
+        )
+        return True
+    except Exception as exc:
+        LOGGER.warning("Redis compressed write failed key=%s error=%s", key, exc)
         return False
 
 
