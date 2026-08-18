@@ -758,10 +758,14 @@ def _rebuild_prop_catalog_from_local(
 			catalog_version,
 			ttl_seconds=86400,
 		)
-		_publish_prop_catalog_summary(
+		summary_published = _publish_prop_catalog_summary(
 			props,
 			catalog_published_at=datetime.now(timezone.utc).isoformat(),
 		)
+		if not summary_published:
+			raise RuntimeError(
+				"Fresh prop catalog summary could not be published to Redis"
+			)
 		with _prop_catalog_lock:
 			_prop_catalog["version"] = catalog_version
 		# The durable snapshot was previously written only by the worker job
@@ -821,16 +825,16 @@ def _publish_prop_catalog_summary(
 	props: list[PropResponse],
 	*,
 	catalog_published_at: str | None = None,
-) -> None:
+) -> bool:
 	if not props:
-		return
+		return False
 	if catalog_published_at is None:
 		existing = get_distributed_json(_PROP_CATALOG_SUMMARY_KEY)
 		if isinstance(existing, dict):
 			catalog_published_at = str(
 				existing.get("catalogPublishedAt") or ""
 			) or None
-	set_distributed_json(
+	return set_distributed_json(
 		_PROP_CATALOG_SUMMARY_KEY,
 		_prop_catalog_summary(
 			props,
