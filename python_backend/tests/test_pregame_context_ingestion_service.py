@@ -1,4 +1,6 @@
 from datetime import date
+import threading
+import time
 import services.pregame_context_ingestion_service as ingestion
 
 from services.pregame_context_ingestion_service import (
@@ -177,6 +179,57 @@ def test_latest_context_lookup_index_is_registered_and_matches_query_order() -> 
         "provider,\n    entity_type,\n    event_id,\n"
         "    lower(player_name),\n    observed_at desc"
     ) in sql
+
+
+def test_pregame_providers_run_with_bounded_parallelism(monkeypatch) -> None:
+    active = 0
+    maximum_active = 0
+    lock = threading.Lock()
+
+    def provider(label: str):
+        def run():
+            nonlocal active, maximum_active
+            with lock:
+                active += 1
+                maximum_active = max(maximum_active, active)
+            time.sleep(0.04)
+            with lock:
+                active -= 1
+            return {"provider": label, "created": 0}
+        return run
+
+    monkeypatch.setattr(ingestion, "sync_official_mlb_context", provider("mlb"))
+    monkeypatch.setattr(ingestion, "sync_sportsdataio_mlb_lineups", provider("sportsdata"))
+    monkeypatch.setattr(ingestion, "sync_espn_injuries", provider("espn"))
+    monkeypatch.setattr(ingestion, "sync_sportradar_wnba_injuries", provider("wnba-injuries"))
+    monkeypatch.setattr(ingestion, "sync_sportradar_wnba_starters", provider("wnba-starters"))
+    monkeypatch.setattr(
+        ingestion,
+        "sync_sportradar_pregame",
+        lambda _persist: [provider("sportradar")()],
+    )
+    monkeypatch.setattr(ingestion, "record_provider_availability", lambda _rows: None)
+
+    results = ingestion.sync_pregame_context()
+
+    assert len(results) == 6
+    assert 2 <= maximum_active <= ingestion.PREGAME_PROVIDER_WORKERS
+    assert all("durationMs" in result for result in results)
+
+
+def test_slip_idempotency_schema_is_a_predeploy_migration() -> None:
+    from pathlib import Path
+
+    from scripts.apply_supabase_migrations import MIGRATIONS
+
+    filename = "supabase_slip_request_idempotency.sql"
+    sql = (Path(__file__).resolve().parents[2] / filename).read_text(
+        encoding="utf-8"
+    ).lower()
+
+    assert filename in MIGRATIONS
+    assert "add column if not exists client_request_id" in sql
+    assert "create unique index if not exists slips_user_request_idx" in sql
 
 
 def test_reconfirmed_lineup_refreshes_observation_timestamp(monkeypatch) -> None:

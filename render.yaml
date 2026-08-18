@@ -89,6 +89,10 @@ services:
         value: 120
       - key: PROP_SYNC_EVENT_WORKERS
         value: 3
+      - key: PREGAME_PROVIDER_WORKERS
+        value: 3
+      - key: MLB_BOXSCORE_WORKERS
+        value: 3
       - key: SPORTSGAMEODDS_LEAGUE_WORKERS
         value: 1
       - key: ODDS_FAST_REFRESH_SECONDS
@@ -207,6 +211,10 @@ services:
       - key: PROP_CACHE_DB_PATH
         value: /tmp/prop_intelligence_cache.db
       - key: PROP_SYNC_EVENT_WORKERS
+        value: 3
+      - key: PREGAME_PROVIDER_WORKERS
+        value: 3
+      - key: MLB_BOXSCORE_WORKERS
         value: 3
       - key: SPORTSGAMEODDS_LEAGUE_WORKERS
         value: 1
