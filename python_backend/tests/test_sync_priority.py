@@ -428,3 +428,60 @@ def test_sportsgameodds_contribution_separates_unique_and_overlap(monkeypatch) -
         "uniqueBySport": {"basketball_wnba": 1},
         "overlappingBySport": {"basketball_wnba": 1},
     }
+
+
+def test_global_pipeline_reuses_catalog_callback_board(monkeypatch) -> None:
+    class BoardProp:
+        id = "prop"
+        player = "Player"
+        playerId = "player"
+        sport = "MLB"
+        market = "Strikeouts"
+        marketKey = "pitcher_strikeouts"
+        line = 5.5
+        recommendedSide = "OVER"
+        confidence = 80
+        recommendationEdge = 6.0
+        injuryStatus = "active"
+        lineupStatus = "confirmed"
+        gameId = "game"
+
+    refreshed_board = [BoardProp(), BoardProp()]
+    projected = []
+    alerted = []
+
+    monkeypatch.setattr(sync_service, "configured_sync_sports", lambda: [])
+    monkeypatch.setattr(sync_service, "sync_sportsgameodds", lambda: {
+        "sport": "sportsgameodds", "events": 0, "props": 0,
+    })
+    monkeypatch.setattr(sync_service, "sync_pregame_context", lambda: [])
+    monkeypatch.setattr(sync_service, "sync_balldontlie_soccer", lambda: {
+        "sport": "soccer", "events": 0, "props": 0,
+    })
+    monkeypatch.setattr(sync_service, "_gridiron_ingest_due", lambda: False)
+    monkeypatch.setattr(sync_service, "snapshot_live_predictions", lambda: {})
+    monkeypatch.setattr(sync_service, "capture_prediction_closing_lines", lambda: {})
+    monkeypatch.setattr(sync_service, "_grade_due", lambda: False)
+    monkeypatch.setattr(
+        sync_service,
+        "record_selectability_projection",
+        lambda props: projected.append(props),
+    )
+    monkeypatch.setattr(
+        sync_service,
+        "evaluate_all_alerts",
+        lambda snapshots, **_kwargs: alerted.extend(snapshots) or [],
+    )
+    monkeypatch.setattr(
+        sync_service,
+        "get_props",
+        lambda: (_ for _ in ()).throw(AssertionError("catalog rebuilt twice")),
+    )
+
+    results = sync_service.run_global_sync_pipeline(
+        on_sportsgameodds_complete=lambda _result: refreshed_board,
+    )
+
+    assert projected == [refreshed_board]
+    assert len(alerted) == len(refreshed_board)
+    assert any(row["sport"] == "compound_alerts" for row in results)

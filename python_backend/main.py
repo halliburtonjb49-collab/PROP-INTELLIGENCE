@@ -835,7 +835,9 @@ def _invalidate_prop_catalog(*, delete_shared: bool = True) -> None:
 		delete_distributed_cache(_PROP_CATALOG_SUMMARY_KEY)
 
 
-def _refresh_prop_catalog_now(*, persist_snapshot: bool = True) -> None:
+def _refresh_prop_catalog_now(
+	*, persist_snapshot: bool = True,
+) -> list[PropResponse]:
 	"""Invalidate and immediately rebuild+republish the shared catalog.
 
 	Render runs multiple API instances with separate local disks. Deleting
@@ -1090,7 +1092,12 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 				sportsGameOddsError=None,
 			)
 
-		def mark_sportsgameodds_complete(result: dict[str, object]) -> None:
+		post_processing_board: list[PropResponse] | None = None
+
+		def mark_sportsgameodds_complete(
+			result: dict[str, object],
+		) -> list[PropResponse]:
+			nonlocal post_processing_board
 			post_started = datetime.now(timezone.utc)
 			partial = bool(
 				result.get("error")
@@ -1112,7 +1119,10 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 			)
 			# One final rebuild includes coverage and SportsGameOdds, and is the
 			# only refresh in this run that starts a durable snapshot write.
-			_refresh_prop_catalog_now(persist_snapshot=True)
+			post_processing_board = _refresh_prop_catalog_now(
+				persist_snapshot=True,
+			)
+			return post_processing_board
 
 		def mark_post_processing_progress(step: str) -> None:
 			_set_sync_state(
@@ -1134,7 +1144,15 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 			postProcessingStep="closing_line_capture",
 			postProcessingUpdatedAt=datetime.now(timezone.utc).isoformat(),
 		)
-		clv_capture = capture_closing_lines_from_props(get_props())
+		# Reuse the catalog that this same cycle already built and published.
+		# A second get_props() here repeated history/projection hydration after
+		# board_projection had just consumed the identical objects.
+		closing_line_board = (
+			post_processing_board
+			if post_processing_board is not None
+			else _cached_prop_catalog()
+		)
+		clv_capture = capture_closing_lines_from_props(closing_line_board)
 		quota = quota_snapshot()
 		finished = datetime.now(timezone.utc)
 		state = _sync_state_snapshot()
