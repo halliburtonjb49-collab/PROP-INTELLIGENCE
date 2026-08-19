@@ -417,3 +417,29 @@ def test_reconciliation_failure_does_not_break_the_caller(monkeypatch):
     # Startup and the watchdog both call this; neither may die because a
     # best-effort snapshot write failed.
     assert main._reconcile_catalog_snapshot() is False
+
+
+def test_catalog_publication_failure_reports_the_redis_cause(monkeypatch):
+    """A bare "could not be published" told the cron nothing actionable.
+
+    The real cause (unconfigured URL, timeout, out-of-memory) only ever
+    reached a warning line in the API's own log stream, so the cron failure
+    could not be diagnosed from the job output it printed.
+    """
+
+    prop = SimpleNamespace(
+        lastUpdatedUtc=datetime.now(timezone.utc).isoformat(),
+        model_dump=lambda mode=None: {"id": "p1"},
+    )
+    monkeypatch.setattr(main, "get_props", lambda: [prop])
+    monkeypatch.setattr(
+        main, "set_distributed_json_streaming_list", lambda *a, **k: False
+    )
+    monkeypatch.setattr(
+        main,
+        "distributed_cache_last_write_error",
+        lambda _key: "TimeoutError: Timeout reading from socket",
+    )
+
+    with pytest.raises(RuntimeError, match="Timeout reading from socket"):
+        main._rebuild_prop_catalog_from_local()

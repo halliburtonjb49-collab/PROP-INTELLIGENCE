@@ -211,3 +211,123 @@ def test_slip_leg_preserves_prediction_audit_snapshot() -> None:
     assert restored.projection == 5.4
     assert restored.hit_probability == .63
     assert restored.calculation_inputs["opponent_multiplier"] == 1.08
+
+
+def _boxscore(batting: dict) -> dict:
+    return {
+        "teams": {
+            "home": {
+                "players": {
+                    "ID1": {
+                        "person": {"fullName": "Corey Seager"},
+                        "stats": {"batting": batting, "pitching": {}},
+                    }
+                }
+            },
+            "away": {"players": {}},
+        }
+    }
+
+
+def test_batter_markets_resolve_against_the_official_batting_line() -> None:
+    """Singles, doubles, walks and batter strikeouts were never mapped.
+
+    Every one of those markets fell through _market_value and returned None,
+    so grading reported official_mlb_result_not_found for the bulk of the MLB
+    board while the box score carried each stat outright.
+    """
+
+    stats = {
+        "batting": {
+            "hits": 3, "doubles": 1, "triples": 0, "homeRuns": 1,
+            "baseOnBalls": 2, "strikeOuts": 2, "totalBases": 8,
+            "rbi": 4, "runs": 2, "stolenBases": 1,
+        },
+        "pitching": {},
+    }
+    value = mlb_official_stats_service._market_value
+    assert value(stats, "Batter Singles") == 1
+    assert value(stats, "Batter Doubles") == 1
+    assert value(stats, "Batter Triples") == 0
+    assert value(stats, "Batter Walks") == 2
+    assert value(stats, "Batter Strikeouts") == 2
+    assert value(stats, "Stolen Bases") == 1
+    assert value(stats, "Total Bases") == 8
+    assert value(stats, "Hits") == 3
+    assert value(stats, "Home Runs") == 1
+    assert value(stats, "RBIs") == 4
+    assert value(stats, "Runs") == 2
+    assert value(stats, "Hits + Runs + RBIs") == 9
+
+
+def test_pitcher_markets_keep_reading_the_pitching_line() -> None:
+    stats = {
+        "batting": {},
+        "pitching": {
+            "strikeOuts": 7, "hits": 4, "baseOnBalls": 1,
+            "earnedRuns": 2, "inningsPitched": "6.1",
+        },
+    }
+    value = mlb_official_stats_service._market_value
+    assert value(stats, "Pitcher Strikeouts") == 7
+    assert value(stats, "Strikeouts") == 7
+    assert value(stats, "Pitcher Hits Allowed") == 4
+    assert value(stats, "Pitcher Walks") == 1
+    assert value(stats, "Pitcher Earned Runs") == 2
+    assert value(stats, "Pitcher Outs Recorded") == 19
+
+
+def test_batter_strikeouts_are_not_graded_off_the_pitching_line() -> None:
+    """The shared "strikeout" token used to send this market to pitching.
+
+    A batter carries an empty pitching group, so the market returned None and
+    the prediction stayed pending forever.
+    """
+
+    stats = {"batting": {"strikeOuts": 2}, "pitching": {}}
+    assert mlb_official_stats_service._market_value(stats, "Batter Strikeouts") == 2
+
+
+def test_official_mlb_result_grades_a_batter_singles_prop(monkeypatch) -> None:
+    def fake_get(path, params=None):
+        if path == "/v1/schedule":
+            return {
+                "dates": [{
+                    "games": [{
+                        "gamePk": 42,
+                        "status": {"abstractGameState": "Final"},
+                        "teams": {
+                            "away": {"team": {"name": "Toronto Blue Jays"}},
+                            "home": {"team": {"name": "Boston Red Sox"}},
+                        },
+                    }]
+                }]
+            }
+        assert path == "/v1/game/42/boxscore"
+        return _boxscore({
+            "hits": 4, "doubles": 1, "triples": 1, "homeRuns": 1,
+        })
+
+    monkeypatch.setattr(mlb_official_stats_service, "_get_json", fake_get)
+    result = mlb_official_stats_service.official_mlb_result(
+        player_name="Corey Seager",
+        market="Batter Singles",
+        matchup="Toronto Blue Jays @ Boston Red Sox",
+        game_start_time="2026-07-26T18:00:00Z",
+    )
+    assert result is not None
+    assert result.value == 1
+
+
+def test_statcast_fallback_covers_the_new_batter_markets() -> None:
+    stat = mlb_official_stats_service._statcast_batter_stat
+    assert stat("batter singles") == "singles"
+    assert stat("batter doubles") == "doubles"
+    assert stat("batter walks") == "walks"
+    assert stat("batter strikeouts") == "strikeouts"
+    assert stat("total bases") == "total_bases"
+    assert stat("hits") == "hits"
+    # Runs and RBIs are absent from a batter's own pitch log, so the combined
+    # market must stay ungraded instead of being graded as hits.
+    assert stat("hits + runs + rbis") is None
+    assert stat("runs") is None

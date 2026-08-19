@@ -107,6 +107,7 @@ from services.distributed_cache_service import (
 	delete as delete_distributed_cache,
 	get_json as get_distributed_json,
 	health as distributed_cache_health,
+	last_write_error as distributed_cache_last_write_error,
 	set_json as set_distributed_json,
 	set_json_streaming_list as set_distributed_json_streaming_list,
 )
@@ -751,7 +752,11 @@ def _rebuild_prop_catalog_from_local(
 		)
 		if not catalog_published:
 			raise RuntimeError(
-				"Fresh prop catalog could not be published to Redis"
+				"Fresh prop catalog could not be published to Redis: "
+				+ (
+					distributed_cache_last_write_error(_PROP_CATALOG_KEY)
+					or "cause not reported by the cache client"
+				)
 			)
 		set_distributed_json(
 			_PROP_CATALOG_VERSION_KEY,
@@ -764,7 +769,13 @@ def _rebuild_prop_catalog_from_local(
 		)
 		if not summary_published:
 			raise RuntimeError(
-				"Fresh prop catalog summary could not be published to Redis"
+				"Fresh prop catalog summary could not be published to Redis: "
+				+ (
+					distributed_cache_last_write_error(
+						_PROP_CATALOG_SUMMARY_KEY
+					)
+					or "cause not reported by the cache client"
+				)
 			)
 		with _prop_catalog_lock:
 			_prop_catalog["version"] = catalog_version
