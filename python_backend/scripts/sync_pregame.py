@@ -16,29 +16,69 @@ from services.prediction_automation_service import grade_completed_predictions
 from services.sync_service import run_global_sync_pipeline
 
 
+_TRANSIENT_HTTP_STATUSES = {429, 502, 503, 504}
+
+
+def _request_json_with_retry(
+    method: str,
+    url: str,
+    *,
+    attempts: int = 8,
+) -> dict[str, object]:
+    """Return JSON while tolerating brief deploy/proxy interruptions.
+
+    Render can return a short-lived 502 while the API instance is swapping to
+    a new release. The API owns the sync lock, so retrying the trigger is safe
+    and cannot create a second concurrent full sync.
+    """
+
+    last_error: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            response = requests.request(method, url, timeout=30)
+            if response.status_code not in _TRANSIENT_HTTP_STATUSES:
+                response.raise_for_status()
+                payload = response.json()
+                if not isinstance(payload, dict):
+                    raise RuntimeError(f"Unexpected response from {url}")
+                return payload
+            last_error = requests.HTTPError(
+                f"Transient HTTP {response.status_code} from {url}",
+                response=response,
+            )
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            last_error = exc
+        if attempt + 1 < attempts:
+            time.sleep(min(2 ** (attempt + 1), 15))
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(f"Request failed without a response: {url}")
+
+
 def run_live_api_sync() -> dict[str, object] | None:
     api_base_url = os.getenv("API_BASE_URL", "").strip().rstrip("/")
     if not api_base_url and os.getenv("RENDER", "").lower() == "true":
         api_base_url = "https://api.propsintell.com"
     if not api_base_url:
         return None
-    response = requests.post(f"{api_base_url}/api/sync", timeout=30)
-    response.raise_for_status()
-    payload = response.json()
+    payload = _request_json_with_retry("POST", f"{api_base_url}/api/sync")
     if _full_sync_complete(payload):
         return payload
 
-    # Expanded professional coverage can span 150+ events. Keep the monitor
-    # comfortably above the normal four-minute sync without changing cadence.
-    deadline = time.monotonic() + 600
+    # Expanded professional coverage and post-processing can exceed the old
+    # ten-minute ceiling. Wait for the real terminal state instead of marking
+    # an otherwise healthy, locked cycle as a failed cron run.
+    timeout_seconds = max(
+        600,
+        int(os.getenv("PREGAME_SYNC_TIMEOUT_SECONDS", "2700")),
+    )
+    deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
         time.sleep(3)
-        status_response = requests.get(
+        payload = _request_json_with_retry(
+            "GET",
             f"{api_base_url}/api/sync/status",
-            timeout=30,
         )
-        status_response.raise_for_status()
-        payload = status_response.json()
         status = str(payload.get("status", "")).lower()
         coverage_status = str(payload.get("coverageStatus", "")).lower()
         sports_game_odds_status = str(
@@ -62,7 +102,9 @@ def run_live_api_sync() -> dict[str, object] | None:
                 or payload.get("error")
                 or "Live API sync failed"
             ))
-    raise TimeoutError("Live API prop sync did not finish within ten minutes")
+    raise TimeoutError(
+        f"Live API prop sync did not finish within {timeout_seconds} seconds"
+    )
 
 
 def _full_sync_complete(payload: dict[str, object]) -> bool:
