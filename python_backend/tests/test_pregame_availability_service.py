@@ -187,3 +187,18 @@ def test_official_role_confirms_participation_without_separate_injury_row():
 
 def test_non_target_sports_do_not_receive_a_generic_assessment():
     assert assess_pregame_availability(prop("CRICKET")) == {}
+
+
+def test_mlb_batter_strikeouts_is_checked_as_a_batter_not_a_pitcher():
+    """The shared "strikeout" token used to route this to the pitcher check.
+
+    A confirmed batting order slot then failed a starting-pitcher test the
+    batter could never satisfy, so the prop never became available.
+    """
+
+    result = assess_pregame_availability(
+        prop("MLB", "Batter Strikeouts"),
+        observations=[observation(payload={"battingOrder": 2})],
+    )
+    assert result["factors"][0]["key"] != "starting_pitcher"
+    assert result["status"] == "READY"

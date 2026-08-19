@@ -65,6 +65,21 @@ def _streaming_client() -> Redis | None:
 
 
 @lru_cache(maxsize=1)
+def _binary_streaming_client() -> Redis | None:
+    """Binary client for compressed multi-megabyte publication."""
+
+    if not REDIS_URL:
+        return None
+    return Redis.from_url(
+        REDIS_URL,
+        decode_responses=False,
+        socket_connect_timeout=5,
+        socket_timeout=30,
+        health_check_interval=30,
+    )
+
+
+@lru_cache(maxsize=1)
 def _binary_client() -> Redis | None:
     """Binary Redis client for compact internal cache payloads."""
 
@@ -145,6 +160,39 @@ def set_compressed_json(key: str, value: Any, *, ttl_seconds: int) -> bool:
         return False
 
 
+def _reclaim_abandoned_builders(client: Redis, key: str) -> int:
+    """Delete builder keys left behind by a killed publisher.
+
+    Every live publication now carries a TTL from its first write, so a
+    builder with no expiry can only be the residue of a process that died
+    mid-write. Those are pure waste holding a full catalog each, and enough
+    of them exhaust the instance -- at which point every subsequent write
+    fails and the catalog silently stops publishing while reads keep serving
+    the previous copy.
+    """
+
+    reclaimed = 0
+    try:
+        for candidate in client.scan_iter(
+            match=f"{key}:building:*", count=100
+        ):
+            if client.ttl(candidate) == -1:
+                client.delete(candidate)
+                reclaimed += 1
+    except Exception as exc:
+        LOGGER.warning(
+            "Redis builder reclaim failed key=%s error=%s", key, exc
+        )
+        return reclaimed
+    if reclaimed:
+        LOGGER.warning(
+            "Reclaimed %s abandoned Redis builder key(s) for %s",
+            reclaimed,
+            key,
+        )
+    return reclaimed
+
+
 def set_json_streaming_list(
     key: str,
     values: Iterable[Any],
@@ -167,7 +215,14 @@ def set_json_streaming_list(
     temporary_key = f"{key}:building:{uuid.uuid4().hex}"
     transform = encode_item or (lambda item: item)
     try:
-        client.set(temporary_key, "[")
+        _reclaim_abandoned_builders(client, key)
+        # The expiry has to be attached at creation, not after the final
+        # append. A publisher killed mid-write -- a deploy restart, an
+        # out-of-memory kill -- otherwise leaves a multi-megabyte builder key
+        # with no TTL at all, and under maxmemory-policy noeviction nothing
+        # ever reclaims it. APPEND preserves an existing TTL and RENAME
+        # carries it to the destination, so the success path is unchanged.
+        client.set(temporary_key, "[", ex=max(1, ttl_seconds))
         buffer: list[str] = []
         buffer_size = 0
         first = True
@@ -195,6 +250,84 @@ def set_json_streaming_list(
     except Exception as exc:
         _LAST_WRITE_ERROR[key] = f"{type(exc).__name__}: {exc}"
         LOGGER.warning("Redis streaming write failed key=%s error=%s", key, exc)
+        try:
+            client.delete(temporary_key)
+        except Exception:
+            pass
+        return False
+
+
+def set_compressed_json_streaming_list(
+    key: str,
+    values: Iterable[Any],
+    *,
+    ttl_seconds: int,
+    encode_item: Callable[[Any], Any] | None = None,
+    chunk_chars: int = 512 * 1024,
+) -> bool:
+    """Publish a large JSON list as a single compressed payload.
+
+    The plain catalog occupied roughly 112 MiB in Redis, and the atomic
+    rename necessarily holds the previous copy beside its replacement, so one
+    publication needed about 224 MiB of a 256 MiB instance -- twelve percent
+    headroom, and an OutOfMemoryError the moment anything grew. Compressing
+    while walking the list keeps the worker's own memory bounded, which is
+    the reason this path streams at all, and cuts what Redis must hold by
+    several fold. Strings grown by APPEND also over-allocate, so the smaller
+    payload compounds twice over.
+    """
+
+    client = _binary_streaming_client()
+    if client is None:
+        _LAST_WRITE_ERROR[key] = "REDIS_URL is not configured"
+        return False
+    temporary_key = f"{key}:building:{uuid.uuid4().hex}"
+    transform = encode_item or (lambda item: item)
+    compressor = zlib.compressobj(6)
+    try:
+        _reclaim_abandoned_builders(client, key)
+        client.set(
+            temporary_key,
+            compressor.compress(b"["),
+            ex=max(1, ttl_seconds),
+        )
+        buffer: list[str] = []
+        buffer_size = 0
+        first = True
+        for value in values:
+            encoded = json.dumps(
+                transform(value),
+                separators=(",", ":"),
+                default=str,
+            )
+            fragment = encoded if first else f",{encoded}"
+            first = False
+            buffer.append(fragment)
+            buffer_size += len(fragment)
+            if buffer_size >= chunk_chars:
+                chunk = compressor.compress(
+                    "".join(buffer).encode("utf-8")
+                )
+                if chunk:
+                    client.append(temporary_key, chunk)
+                buffer.clear()
+                buffer_size = 0
+        tail = compressor.compress(
+            ("".join(buffer) + "]").encode("utf-8")
+        ) + compressor.flush()
+        if tail:
+            client.append(temporary_key, tail)
+        client.expire(temporary_key, max(1, ttl_seconds))
+        client.rename(temporary_key, key)
+        _LAST_WRITE_ERROR.pop(key, None)
+        return True
+    except Exception as exc:
+        _LAST_WRITE_ERROR[key] = f"{type(exc).__name__}: {exc}"
+        LOGGER.warning(
+            "Redis compressed streaming write failed key=%s error=%s",
+            key,
+            exc,
+        )
         try:
             client.delete(temporary_key)
         except Exception:

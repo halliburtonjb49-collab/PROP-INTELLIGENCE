@@ -289,3 +289,71 @@ def test_mlb_series_match_uses_game_closest_to_prop_start(monkeypatch) -> None:
 
     assert snapshot.value == 7
     assert snapshot.status == "Live"
+
+
+def _live_batter_feed(batting: dict) -> dict:
+    return {
+        "gameData": {"status": {"abstractGameState": "Live"}},
+        "liveData": {
+            "boxscore": {
+                "teams": {
+                    "away": {"players": {}},
+                    "home": {
+                        "players": {
+                            "ID9": {
+                                "person": {"fullName": "Corey Seager"},
+                                "stats": {"pitching": {}, "batting": batting},
+                            }
+                        }
+                    },
+                }
+            }
+        },
+    }
+
+
+def test_live_mlb_feed_covers_the_same_batter_markets_as_grading() -> None:
+    """The live table was shorter than the grading table.
+
+    Singles, doubles, walks and batter strikeouts graded correctly once the
+    game ended but read as unsupported while it was being played, because
+    this path kept its own partial copy of the market map.
+    """
+
+    feed = _live_batter_feed({
+        "hits": 3, "doubles": 1, "triples": 0, "homeRuns": 1,
+        "baseOnBalls": 2, "strikeOuts": 2, "totalBases": 8,
+    })
+    for market, expected in (
+        ("Batter Singles", 1),
+        ("Batter Doubles", 1),
+        ("Batter Walks", 2),
+        ("Batter Strikeouts", 2),
+        ("Total Bases", 8),
+        ("Hits", 3),
+    ):
+        snapshot = _mlb_snapshot_from_feed(
+            feed=feed, player_name="Corey Seager", prop_type=market,
+        )
+        assert snapshot.value == expected, market
+        assert snapshot.source == "mlb-statsapi"
+
+
+def test_live_mlb_feed_separates_unknown_markets_from_missing_stats() -> None:
+    unknown = _mlb_snapshot_from_feed(
+        feed=_live_batter_feed({"hits": 1}),
+        player_name="Corey Seager",
+        prop_type="Fantasy Score",
+    )
+    assert unknown.value is None
+    assert unknown.status == "unsupported_market"
+
+    # A known market whose stat has not appeared yet is a different state:
+    # the batter simply has not walked, not that we cannot grade walks.
+    missing = _mlb_snapshot_from_feed(
+        feed=_live_batter_feed({"hits": 1}),
+        player_name="Corey Seager",
+        prop_type="Batter Walks",
+    )
+    assert missing.value is None
+    assert missing.status == "missing_live_stat"
