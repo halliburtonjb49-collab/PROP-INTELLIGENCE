@@ -189,9 +189,9 @@ class _MainDashboardState extends State<MainDashboard> {
   final String _selectedTier = 'All';
   int _minConfidence = 0;
   String _sortBy = 'trust';
-  // Always open on real available inventory. A temporary lack of actionable
-  // model verdicts must never make a healthy prop catalog look empty.
-  String _verdictFilter = 'ALL';
+  // Open on the smaller, decision-ready set. This keeps the first request and
+  // first render focused while ALL PROPS remains one tap away.
+  String _verdictFilter = 'ACTIONABLE';
   DateTime? _lastUpdated;
   List<PropData> _latestProps = const [];
   List<PropData> _siteInventoryProps = const [];
@@ -2393,9 +2393,9 @@ class _MainDashboardState extends State<MainDashboard> {
       'LEAN': 'LEAN',
       'WAIT': 'WAIT',
     };
-    // ALL PROPS is the board's normal starting state, so the selected tab is
-    // enough feedback; repeating it here makes the default look filtered.
-    final verdict = _verdictFilter == 'ALL'
+    // PLAYABLE is the board's normal starting state, so the selected tab is
+    // enough feedback; repeating it here makes the default look like a filter.
+    final verdict = _verdictFilter == 'ACTIONABLE'
         ? null
         : verdictLabels[_verdictFilter];
     if (verdict != null) labels.add(verdict);

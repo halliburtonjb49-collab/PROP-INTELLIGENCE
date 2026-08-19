@@ -369,7 +369,7 @@ class PropIntelligenceShell extends StatelessWidget {
               builder: (context, constraints) {
                 final accessKey =
                     authState?.effectiveSubscriptionTier.name ?? 'public';
-                if (constraints.maxWidth >= 700) {
+                if (constraints.maxWidth >= 1100) {
                   return DesktopDashboard(
                     key: ValueKey('desktop-access-$accessKey'),
                   );
@@ -1246,7 +1246,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     );
     final removingExisting =
         existingIndex >= 0 && _slipSelections[existingIndex].side == side;
-    if (!prop.isSelectable && !removingExisting) {
+    if ((!prop.isSelectable || prop.dataStale) && !removingExisting) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
@@ -1254,7 +1254,9 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           content: Text(
             // Say which of the two reasons applies rather than always
             // blaming the clock.
-            prop.selectionBlockedReason,
+            prop.dataStale
+                ? 'This line is stale. Confirm a current line before adding it to the active slip.'
+                : prop.selectionBlockedReason,
             style: TextStyle(
               color: app_colors.AppColors.bgBase,
               fontWeight: FontWeight.w900,

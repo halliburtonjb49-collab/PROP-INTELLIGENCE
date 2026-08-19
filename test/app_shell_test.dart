@@ -39,7 +39,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(buildShell());
+    await tester.pumpWidget(buildShell(activeSlipCount: 1));
 
     expect(find.text('WORKSPACE NAVIGATION'), findsOneWidget);
     expect(find.text('COMMAND BAR'), findsOneWidget);

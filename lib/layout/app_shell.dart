@@ -31,6 +31,7 @@ class AppShell extends StatelessWidget {
     this.onMobileWatchSlip,
     this.onMobileDismissOverlay,
     this.onMobileNavigateIndex,
+    this.collapseEmptyRightSidebar = true,
     this.accentColor = AppColors.gold,
   });
 
@@ -45,6 +46,7 @@ class AppShell extends StatelessWidget {
   final VoidCallback? onMobileWatchSlip;
   final VoidCallback? onMobileDismissOverlay;
   final ValueChanged<int>? onMobileNavigateIndex;
+  final bool collapseEmptyRightSidebar;
   final Color accentColor;
 
   static const double leftWidth = 244;
@@ -103,6 +105,11 @@ class AppShell extends StatelessWidget {
         }
         final metrics = _metrics(constraints.maxWidth);
         final radius = BorderRadius.circular(18);
+        // The account actions already live in the top navigation. Reclaim the
+        // full column while no draft picks exist; selecting the first prop
+        // rebuilds AppShell with a positive count and restores the slip.
+        final showRightSidebar =
+            !collapseEmptyRightSidebar || activeSlipCount > 0;
 
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -143,14 +150,16 @@ class AppShell extends StatelessWidget {
                           ],
                         ),
                       ),
-                      SizedBox(width: metrics.gap),
-                      SizedBox(
-                        width: metrics.right,
-                        child: _surface(
-                          borderRadius: radius,
-                          child: rightSidebar,
+                      if (showRightSidebar) ...[
+                        SizedBox(width: metrics.gap),
+                        SizedBox(
+                          width: metrics.right,
+                          child: _surface(
+                            borderRadius: radius,
+                            child: rightSidebar,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
