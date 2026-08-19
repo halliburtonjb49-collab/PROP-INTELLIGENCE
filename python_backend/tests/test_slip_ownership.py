@@ -11,6 +11,37 @@ def _request(player: str) -> SlipCreate:
         sportsbook="Book", market="points", line=20.5, side="OVER")], stake=10)
 
 
+def test_pickem_multiplier_overrides_sportsbook_leg_odds() -> None:
+    request = _request("prizepicks-power")
+    request.legs[0].odds = -110
+    request.prop_site = "PRIZEPICKS"
+    request.entry_type = "POWER"
+    request.legs.append(request.legs[0].model_copy(update={"prop_id": "second"}))
+    request.legs.append(request.legs[0].model_copy(update={"prop_id": "third"}))
+    request.payout_multiplier = 6
+
+    assert slip_service.calculate_payout_preview(request) == 60
+
+
+def test_unrecognized_client_pickem_multiplier_is_rejected() -> None:
+    request = _request("inflated-payout")
+    request.prop_site = "PRIZEPICKS"
+    request.entry_type = "POWER"
+    request.legs.append(request.legs[0].model_copy(update={"prop_id": "second"}))
+    request.payout_multiplier = 999
+
+    with pytest.raises(ValueError, match="does not match"):
+        slip_service.calculate_payout_preview(request)
+
+
+def test_pool_based_pickem_does_not_invent_a_payout() -> None:
+    request = _request("pick6-pool")
+    request.legs[0].odds = 150
+    request.payout_multiplier = 0
+
+    assert slip_service.calculate_payout_preview(request) == 0
+
+
 def test_saved_slips_are_isolated_by_user(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(slip_service, "DATABASE_PATH", tmp_path / "slips.db")
     first = slip_service.create_slip(_request("First"), user_id="user-1")
@@ -177,12 +208,12 @@ def test_result_updates_are_isolated_by_user(tmp_path, monkeypatch) -> None:
         [LegResultUpdate(prop_id="shared-prop", result_value=25)], user_id="user-1"
     )
     assert changed == 1
-    assert slip_service.get_slips(user_id="user-1")[0].status == "active"
+    assert slip_service.get_slips(user_id="user-1")[0].status == "won"
     assert slip_service.get_slips(user_id="user-2")[0].status == "active"
 
 
 def test_lock_watch_grade_history_lifecycle(tmp_path, monkeypatch) -> None:
-    """A winner remains watched until its owner acknowledges it."""
+    """A fully graded winner leaves the watcher and enters history."""
     monkeypatch.setattr(slip_service, "DATABASE_PATH", tmp_path / "slips.db")
     request = _request("lifecycle-prop")
     request.client_request_id = "lifecycle-lock-1"
@@ -197,11 +228,7 @@ def test_lock_watch_grade_history_lifecycle(tmp_path, monkeypatch) -> None:
         user_id="user-1",
     ) == 1
 
-    still_watching = slip_service.get_slips(status="active", user_id="user-1")
-    assert [slip.id for slip in still_watching] == [locked.id]
-    assert still_watching[0].legs[0].result_status == "won"
-
-    assert slip_service.update_slip_status(locked.id, "won", user_id="user-1")
+    assert slip_service.get_slips(status="active", user_id="user-1") == []
     settled = slip_service.get_slips(status="won", user_id="user-1")
     assert [slip.id for slip in settled] == [locked.id]
     assert settled[0].legs[0].result_status == "won"

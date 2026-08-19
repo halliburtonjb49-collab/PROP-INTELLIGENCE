@@ -5,6 +5,93 @@ import 'package:prop_intelligence/models/saved_slip.dart';
 import 'package:prop_intelligence/widgets/slip_history_panel.dart';
 
 void main() {
+  test('final graded ticket resolves out of the active watcher', () {
+    const slip = SavedSlip(
+      id: 'final-slip',
+      status: 'active',
+      stake: 10,
+      potentialPayout: 30,
+      createdAt: null,
+      legs: [
+        SavedSlipLeg(
+          propId: 'won-leg',
+          eventId: 'event-1',
+          player: 'Winner',
+          sport: 'MLB',
+          matchup: 'Away @ Home',
+          sportsbook: 'PrizePicks',
+          market: 'Hits',
+          line: 1.5,
+          entryLine: 1.5,
+          side: 'OVER',
+        ),
+        SavedSlipLeg(
+          propId: 'lost-leg',
+          eventId: 'event-1',
+          player: 'Loser',
+          sport: 'MLB',
+          matchup: 'Away @ Home',
+          sportsbook: 'PrizePicks',
+          market: 'Strikeouts',
+          line: 4.5,
+          entryLine: 4.5,
+          side: 'UNDER',
+        ),
+      ],
+    );
+
+    expect(
+      terminalSlipStatus(slip, const {
+        'won-leg': {
+          'game_status': 'Final',
+          'result_status': 'win',
+          'result_value': 2,
+        },
+        'lost-leg': {
+          'game_status': 'Final',
+          'result_status': 'loss',
+          'result_value': 7,
+        },
+      }),
+      'lost',
+    );
+  });
+
+  test('in-progress ticket stays in the active watcher', () {
+    const slip = SavedSlip(
+      id: 'live-slip',
+      status: 'active',
+      stake: 10,
+      potentialPayout: 30,
+      createdAt: null,
+      legs: [
+        SavedSlipLeg(
+          propId: 'live-leg',
+          eventId: 'event-1',
+          player: 'Live Player',
+          sport: 'MLB',
+          matchup: 'Away @ Home',
+          sportsbook: 'PrizePicks',
+          market: 'Hits',
+          line: 1.5,
+          entryLine: 1.5,
+          side: 'OVER',
+        ),
+      ],
+    );
+
+    expect(
+      terminalSlipStatus(slip, const {
+        'live-leg': {
+          'game_status': 'Live',
+          'result_status': 'win',
+          'result_value': 2,
+        },
+      }),
+      isNull,
+    );
+  });
+
   testWidgets('Slip Watcher close button exits through its route callback', (
     tester,
   ) async {

@@ -4,6 +4,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Iterable
 
+from services.player_role_service import build_player_role
+
 SUPPORTED_SPORTS = frozenset({"WNBA", "NBA", "MLB", "NFL", "NHL", "SOCCER", "MLS"})
 SPORT_PRIORITY = {"WNBA": 1, "NBA": 1, "MLB": 2, "NFL": 3, "NHL": 4, "SOCCER": 4, "MLS": 4}
 _UNAVAILABLE = frozenset({"out", "inactive", "suspended", "ruled out"})
@@ -219,10 +221,11 @@ def assess_pregame_availability(prop: object, *, observations: Iterable[dict[str
     observed = [_observed_at(row) for row in rows + event_rows]
     latest = max((value for value in observed if value is not None), default=None)
     sources = sorted({_source(row) for row in rows + event_rows if _source(row)})
-    return {"sport": normalized_sport, "priority": SPORT_PRIORITY[sport], "status": status, "ready": ready, "score": score, "factors": factors, "warnings": warnings, "recheck": "" if ready else recheck, "sources": sources, "lastVerifiedAt": latest.isoformat() if latest else None}
+    return {"sport": normalized_sport, "priority": SPORT_PRIORITY[sport], "status": status, "ready": ready, "score": score, "factors": factors, "warnings": warnings, "recheck": "" if ready else recheck, "sources": sources, "lastVerifiedAt": latest.isoformat() if latest else None, "playerRole": build_player_role(prop, observations=rows)}
 
 
 def apply_pregame_availability(prop: object, *, observations: Iterable[dict[str, object]] = (), event_observations: Iterable[dict[str, object]] = ()) -> None:
     assessment = assess_pregame_availability(prop, observations=observations, event_observations=event_observations)
     if assessment:
         prop.pregameAvailability = assessment
+        prop.playerRole = assessment.get("playerRole", {})

@@ -255,6 +255,43 @@ def test_an_empty_sync_does_not_overwrite_a_good_snapshot(monkeypatch):
     assert saved == []
 
 
+def test_catalog_publication_retries_before_succeeding(monkeypatch):
+    prop = SimpleNamespace(id="fresh")
+    attempts = []
+    sleeps = []
+
+    def refresh(**_kwargs):
+        attempts.append(True)
+        if len(attempts) < 3:
+            raise RuntimeError("temporary redis timeout")
+        return [prop]
+
+    monkeypatch.setattr(main, "_refresh_prop_catalog_now", refresh)
+    monkeypatch.setattr(main.time, "sleep", sleeps.append)
+
+    assert main._refresh_prop_catalog_resilient() == [prop]
+    assert len(attempts) == 3
+    assert sleeps == [1, 2]
+
+
+def test_empty_catalog_publication_fails_and_preserves_previous_board(monkeypatch):
+    attempts = []
+    monkeypatch.setattr(
+        main,
+        "_refresh_prop_catalog_now",
+        lambda **_kwargs: attempts.append(True) or [],
+    )
+    monkeypatch.setattr(main.time, "sleep", lambda _seconds: None)
+
+    with pytest.raises(
+        RuntimeError,
+        match="Fresh prop catalog could not be published",
+    ):
+        main._refresh_prop_catalog_resilient(attempts=2)
+
+    assert len(attempts) == 2
+
+
 def test_a_failed_snapshot_write_is_recorded_not_swallowed(monkeypatch):
     """A best-effort write that fails silently is undiagnosable.
 

@@ -452,6 +452,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   final ActiveSlipController _activeSlipController = ActiveSlipController();
   final List<SlipSelection> _slipSelections = [];
   final ValueNotifier<bool> _isSavingSlipNotifier = ValueNotifier(false);
+  LockSlipResult? _pendingSlipLockResult;
   bool get _isSavingSlip => _isSavingSlipNotifier.value;
   Timer? _selectionExpiryTimer;
   Timer? _ticketSyncRetryTimer;
@@ -1872,7 +1873,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       return;
     }
 
-    final stake = await showDialog<double>(
+    final lockResult = await showDialog<LockSlipResult>(
       context: context,
       barrierDismissible: false,
       builder: (context) {
@@ -1880,17 +1881,19 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       },
     );
 
-    if (stake == null || !mounted) {
+    if (lockResult == null || !mounted) {
       return;
     }
 
-    await _saveSlip(stake, selections);
+    _pendingSlipLockResult = lockResult;
+    await _saveSlip(lockResult.stake, selections, lockResult: lockResult);
   }
 
   Future<void> _saveSlip(
     double stake,
     List<SlipSelection> selections, {
     bool automaticRetry = false,
+    LockSlipResult? lockResult,
   }) async {
     if (selections.isEmpty || _isSavingSlip) {
       return;
@@ -1909,6 +1912,10 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         selections: selections,
         stake: stake,
         clientRequestId: requestId,
+        propSite: (lockResult ?? _pendingSlipLockResult)?.site,
+        entryType: (lockResult ?? _pendingSlipLockResult)?.entryType,
+        payoutMultiplier:
+            (lockResult ?? _pendingSlipLockResult)?.payoutMultiplier,
       );
       if (!mounted) {
         return;
@@ -1918,6 +1925,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       _activeSlipController.addOptimisticLockedSlip(savedSlip);
       await _activeSlipController.clear();
       _activeSlipController.markSynced();
+      _pendingSlipLockResult = null;
       if (!mounted) return;
       setState(() => _slipSelections.clear());
       SlipManager.reserveActiveSlips(_activeSlipController.recentLockedSlips);

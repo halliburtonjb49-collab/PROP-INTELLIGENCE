@@ -115,6 +115,25 @@ def test_nfl_snap_restriction_blocks_readiness():
     assert any(factor["key"] == "snap_restriction" and factor["status"] == "RESTRICTED" for factor in result["factors"])
 
 
+def test_nfl_assessment_exposes_universal_expected_role():
+    result = assess_pregame_availability(
+        prop("NFL", "Receiving Yards"),
+        observations=[observation(
+            status="ACTIVE",
+            payload={
+                "position": "WR",
+                "role": "WR2",
+                "depthRank": 2,
+                "expectedSnapPct": 88,
+                "routeParticipation": 91,
+                "targetShare": 24,
+            },
+        )],
+    )
+    assert result["playerRole"]["role"] == "WR2"
+    assert result["playerRole"]["nflExpectedRole"]["routeParticipation"] == 91
+
+
 def test_nhl_goalie_does_not_require_a_skater_line_combination():
     result = assess_pregame_availability(
         prop("NHL", "Goalie Saves"),

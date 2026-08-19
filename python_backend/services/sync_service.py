@@ -968,10 +968,10 @@ def run_global_sync_pipeline(
 
     sync_lane(fast_sports)
     if on_fast_lane_complete is not None:
-        try:
-            on_fast_lane_complete(list(results))
-        except Exception as exc:
-            logger.warning("fast lane completion callback failed error=%s", exc)
+        # Publishing the priority board is part of the sync contract.  If it
+        # fails, do not continue for another twenty minutes and report a false
+        # successful cycle while customers still see yesterday's catalog.
+        on_fast_lane_complete(list(results))
     record_memory_checkpoint("fast_lane_complete")
 
     if _coverage_sync_due():
@@ -1021,14 +1021,9 @@ def run_global_sync_pipeline(
         }
     results.append(sportsgameodds_result)
     if on_sportsgameodds_complete is not None:
-        try:
-            refreshed_board = on_sportsgameodds_complete(sportsgameodds_result)
-            if isinstance(refreshed_board, list):
-                post_processing_board = refreshed_board
-        except Exception as exc:
-            logger.warning(
-                "sportsgameodds completion callback failed error=%s", exc
-            )
+        refreshed_board = on_sportsgameodds_complete(sportsgameodds_result)
+        if isinstance(refreshed_board, list):
+            post_processing_board = refreshed_board
     record_memory_checkpoint("sportsgameodds_complete")
     def report_post_processing(step: str) -> None:
         if on_post_processing_progress is None:

@@ -48,14 +48,10 @@ CORS_ALLOWED_ORIGINS = [
     if origin.strip()
 ]
 
-if not ODDS_API_KEY:
-    raise RuntimeError(
-        "ODDS_API_KEY is missing from python_backend/.env"
-    )
-if not API_SPORTS_KEY:
-    raise RuntimeError(
-        "API_SPORTS_KEY is missing from python_backend/.env"
-    )
+# Provider credentials are validated by the provider that consumes them.
+# Importing shared path/timeout settings must remain safe for isolated jobs
+# such as headshot refreshes, migrations, billing webhooks, and diagnostics.
+# Failing here made every utility process depend on every unrelated provider.
 
 BASE_URL = "https://api.the-odds-api.com/v4"
 ODDS_REGIONS = (

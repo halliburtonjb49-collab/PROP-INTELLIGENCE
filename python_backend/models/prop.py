@@ -92,6 +92,8 @@ class PropResponse(BaseModel):
     lineupStatus: str = "unknown"
     # Normalized sport-specific participation evidence and readiness.
     pregameAvailability: dict[str, object] = Field(default_factory=dict)
+    # Universal role/opportunity object derived from sport-specific evidence.
+    playerRole: dict[str, object] = Field(default_factory=dict)
     imagePath: str = ""
     overOdds: float | None = None
     underOdds: float | None = None
