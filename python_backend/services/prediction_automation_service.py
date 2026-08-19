@@ -460,6 +460,23 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
     return {"created": created, "modelVersion": model_version}
 
 
+# One cycle serves both ends of the queue. Servicing only the newest -- the
+# previous behaviour -- meant the rows closest to falling out of the
+# fourteen day window were graded last, so the oldest expired ungraded even
+# while throughput was sufficient to clear the backlog. Servicing only the
+# oldest would be worse: rows that can never resolve (no game match, no
+# player match) would sit at the head of the queue and be retried every
+# cycle for a fortnight, starving everything behind them. Splitting the
+# batch bounds what a stuck cohort can consume to its own half.
+_GRADING_BATCH_HALF = 100
+_ELIGIBLE_PREDICATE = """
+    and event_time < now() - interval '3 hours'
+    and created_at < event_time - interval '5 minutes'
+    and event_time >= now() - interval '14 days'
+    and sport not in ('NBA','WNBA')
+"""
+
+
 def grade_completed_predictions() -> dict[str, object]:
     if not database_is_configured():
         return {"graded": 0, "reason": "DATABASE_URL is not configured"}
@@ -514,17 +531,38 @@ def grade_completed_predictions() -> dict[str, object]:
             from observed o where p.id=o.id and o.actual is not null""")
         graded += cursor.rowcount
         connection.commit()
-        cursor.execute("""select id,sport,market,side,line,event_time,inputs->>'playerName',
-            player_id,inputs->>'matchup'
-            from prediction_snapshots where graded_at is null and event_time < now() - interval '3 hours'
-            and created_at < event_time - interval '5 minutes'
-            and event_time >= now() - interval '14 days'
-            and sport not in ('NBA','WNBA')
-            order by
-              case when sport in ('NBA','WNBA') then 0 when sport='MLB' then 1 else 2 end,
-              event_time desc
-            limit 100""")
+        cursor.execute(
+            f"""with eligible as (
+              select id,sport,market,side,line,event_time,
+                     inputs->>'playerName' player_name,
+                     player_id,inputs->>'matchup' matchup
+                from prediction_snapshots
+               where graded_at is null {_ELIGIBLE_PREDICATE}
+            ),
+            expiring as (
+              select * from eligible order by event_time asc limit %s
+            ),
+            freshest as (
+              select * from eligible order by event_time desc limit %s
+            )
+            select id,sport,market,side,line,event_time,player_name,
+                   player_id,matchup
+              from (select * from expiring union select * from freshest) batch
+             order by event_time asc""",
+            (_GRADING_BATCH_HALF, _GRADING_BATCH_HALF),
+        )
         pending = cursor.fetchall()
+        cursor.execute(
+            f"""select count(*),min(event_time),
+                   count(*) filter (
+                     where event_time < now() - interval '13 days'
+                   )
+              from prediction_snapshots
+             where graded_at is null {_ELIGIBLE_PREDICATE}"""
+        )
+        backlog_total, backlog_oldest, backlog_expiring = (
+            cursor.fetchone() or (0, None, 0)
+        )
         for identifier, sport, market, side, line, event_time, player_name, player_id, matchup in pending:
             result_source = ""
             if sport not in TRACKED_SPORTS or not player_name or event_time is None:
@@ -630,6 +668,14 @@ def grade_completed_predictions() -> dict[str, object]:
             "pendingReasons": dict(pending_reasons.most_common()),
             "pendingBySport": dict(pending_sports.most_common()),
             "pendingByMarket": dict(pending_markets.most_common(25)),
+            # Without these the queue depth was invisible: a cycle reporting
+            # a healthy graded count looks identical whether ten rows remain
+            # or twenty thousand do.
+            "backlogTotal": int(backlog_total or 0),
+            "backlogOldestEventTime": (
+                backlog_oldest.isoformat() if backlog_oldest else None
+            ),
+            "backlogExpiringWithin24h": int(backlog_expiring or 0),
             "gradedAt": datetime.now(timezone.utc).isoformat()}
 
 
