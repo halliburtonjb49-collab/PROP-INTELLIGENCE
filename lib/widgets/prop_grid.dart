@@ -852,7 +852,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           if (hasProAccess && prop.verdict.isPresent) ...[
             PiVerdictBlock(
               verdict: prop.verdict,
-              compactSummary: compactCard && !researchOpen,
+              // Keep every closed card scannable. The complete reason and
+              // recheck instructions belong in the explicit research fold.
+              compactSummary: !researchOpen,
             ),
             const SizedBox(height: 8),
           ],
@@ -861,7 +863,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           // them as current, so this line can be hours old while looking
           // exactly like one fetched a moment ago -- which is how a board
           // ends up disagreeing with the book it came from.
-          if (prop.dataStale) ...[
+          if (researchOpen && prop.dataStale) ...[
             Container(
               key: ValueKey('prop-stale-warning-${prop.id}'),
               padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
@@ -2947,8 +2949,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                           crossAxisCount: columns,
                           crossAxisSpacing: cardSpacing,
                           mainAxisSpacing: cardSpacing,
-                          // Collapsed cards keep only decision-changing details.
-                          mainAxisExtent: 380,
+                          // Closed cards keep the decision, core metrics and
+                          // pick buttons visible without a long evidence body.
+                          mainAxisExtent: 342,
                         ),
                         itemBuilder: (context, index) =>
                             cardFor(visibleProps[index], fixedHeight: true),

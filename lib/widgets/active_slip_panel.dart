@@ -3178,7 +3178,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
 
   Widget _buildCurrentSlipSetupCard() {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: const Color(0xFF011224),
         borderRadius: BorderRadius.circular(16),
@@ -3188,20 +3188,33 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
             decoration: BoxDecoration(
               color: const Color(0xFF041A2E),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFF2A3B48)),
             ),
-            child: const Text(
-              'No props selected',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFF9AB0C3),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.add_circle_outline_rounded,
+                  color: PropIntelligenceColors.gold,
+                  size: 18,
+                ),
+                SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Choose Over or Under to add a prop',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFF9AB0C3),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

@@ -121,7 +121,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   vertical: 10,
                 ),
                 children: [
-                  const _SidebarSectionLabel('WORKSPACE'),
+                  const _SidebarSectionLabel('RESEARCH'),
                   const SizedBox(height: 7),
                   SidebarButton(
                     label: 'GAME MARKETS',
@@ -170,7 +170,9 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     onTap: () =>
                         widget.onSelectPage?.call(AppPage.refereeTracker),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 18),
+                  const _SidebarSectionLabel('BUILD & TRACK'),
+                  const SizedBox(height: 7),
                   SidebarButton(
                     label: 'PROP BUILDER',
                     leadingIcons: const [Icons.category_outlined],
