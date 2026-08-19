@@ -188,10 +188,10 @@ class _MainDashboardState extends State<MainDashboard> {
   final String _selectedSide = 'All';
   final String _selectedTier = 'All';
   int _minConfidence = 0;
-  String _sortBy = 'time';
-  // Open on the smaller, decision-ready set. This keeps the first request and
-  // first render focused while ALL PROPS remains one tap away.
-  String _verdictFilter = 'ACTIONABLE';
+  String _sortBy = 'trust';
+  // Always open on real available inventory. A temporary lack of actionable
+  // model verdicts must never make a healthy prop catalog look empty.
+  String _verdictFilter = 'ALL';
   DateTime? _lastUpdated;
   List<PropData> _latestProps = const [];
   List<PropData> _siteInventoryProps = const [];
@@ -1683,7 +1683,7 @@ class _MainDashboardState extends State<MainDashboard> {
           });
         },
         decoration: InputDecoration(
-          hintText: 'Search players',
+          hintText: 'Search player, team, or market',
           prefixIcon: const Icon(Icons.search_rounded, size: 18),
           suffixIcon: _searchQuery.isEmpty
               ? null
@@ -2393,9 +2393,9 @@ class _MainDashboardState extends State<MainDashboard> {
       'LEAN': 'LEAN',
       'WAIT': 'WAIT',
     };
-    // PLAYABLE is the board's normal starting state, so the selected tab is
-    // enough feedback; repeating it here makes the default look like a filter.
-    final verdict = _verdictFilter == 'ACTIONABLE'
+    // ALL PROPS is the board's normal starting state, so the selected tab is
+    // enough feedback; repeating it here makes the default look filtered.
+    final verdict = _verdictFilter == 'ALL'
         ? null
         : verdictLabels[_verdictFilter];
     if (verdict != null) labels.add(verdict);
@@ -2510,6 +2510,80 @@ class _MainDashboardState extends State<MainDashboard> {
         setState(() => _verdictFilter = value);
       },
       onShowGuide: () => ProductOnboarding.showDecisionGuide(context),
+    );
+  }
+
+  String get _boardSortLabel => switch (_sortBy) {
+    'edge' => 'Highest edge',
+    'trust' => 'Best PI score',
+    _ => 'Starting soon',
+  };
+
+  String get _boardUpdatedLabel {
+    final updated = _lastUpdated;
+    if (updated == null) return 'Updating results';
+    final elapsed = DateTime.now().difference(updated);
+    if (elapsed.inMinutes < 1) return 'Updated just now';
+    if (elapsed.inMinutes < 60) {
+      return 'Updated ${elapsed.inMinutes}m ago';
+    }
+    return 'Updated ${elapsed.inHours}h ago';
+  }
+
+  Widget _buildBoardResultsSummary() {
+    final resultCount = _latestProps.length;
+    return Semantics(
+      liveRegion: true,
+      label:
+          '$resultCount results. Sorted by $_boardSortLabel. $_boardUpdatedLabel.',
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+        decoration: BoxDecoration(
+          color: app_colors.AppColors.sidebar,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: app_colors.AppColors.border),
+        ),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 5,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              '$resultCount RESULTS',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const Text(
+              '•',
+              style: TextStyle(color: app_colors.AppColors.textMuted),
+            ),
+            Text(
+              'SORTED BY $_boardSortLabel'.toUpperCase(),
+              style: const TextStyle(
+                color: app_colors.AppColors.gold,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const Text(
+              '•',
+              style: TextStyle(color: app_colors.AppColors.textMuted),
+            ),
+            Text(
+              _boardUpdatedLabel.toUpperCase(),
+              style: const TextStyle(
+                color: app_colors.AppColors.textMuted,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -2841,6 +2915,8 @@ class _MainDashboardState extends State<MainDashboard> {
                             _buildActiveBoardFilters(),
                             SizedBox(height: sectionGap),
                           ],
+                          _buildBoardResultsSummary(),
+                          SizedBox(height: sectionGap),
                           PropGrid(
                             selections: widget.selections,
                             onSelect: (prop, side) {

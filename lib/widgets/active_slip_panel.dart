@@ -8,6 +8,7 @@ import '../models/prop_data.dart';
 import '../services/api_service.dart';
 import '../services/slip_doctor_service.dart';
 import '../services/live_update_service.dart';
+import '../services/pickem_payout_rules.dart';
 import '../services/player_image_resolver.dart';
 import 'context_help.dart';
 import 'slip_doctor_panel.dart';
@@ -49,15 +50,8 @@ class ActiveSlipPanel extends StatefulWidget {
 class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   final ApiService _apiService = ApiService();
   final double _underdogEntryAmount = 25;
-  final double _pick6EntryAmount = 25;
   final ScrollController _activeSlipScrollController = ScrollController();
   final TextEditingController _entryController = TextEditingController(
-    text: '25.00',
-  );
-  final TextEditingController _underdogEntryController = TextEditingController(
-    text: '25.00',
-  );
-  final TextEditingController _pick6EntryController = TextEditingController(
     text: '25.00',
   );
   final TextEditingController _fanDuelWagerController = TextEditingController(
@@ -101,8 +95,6 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     unawaited(_liveUpdates.dispose());
     _activeSlipScrollController.dispose();
     _entryController.dispose();
-    _underdogEntryController.dispose();
-    _pick6EntryController.dispose();
     _fanDuelWagerController.dispose();
     _draftKingsWagerController.dispose();
     super.dispose();
@@ -824,16 +816,6 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     return odds > 0 ? '+$odds' : '$odds';
   }
 
-  double _decimalOddsFromAmerican(int odds) {
-    if (odds == 0) {
-      return 1;
-    }
-    if (odds > 0) {
-      return 1 + odds / 100;
-    }
-    return 1 + 100 / odds.abs();
-  }
-
   int _americanOdds(Map<String, dynamic> leg) {
     final raw = leg['current_odds'] ?? leg['odds'] ?? -110;
     if (raw is num) {
@@ -917,30 +899,15 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   }
 
   double _underdogMultiplier(int legCount) {
-    switch (legCount) {
-      case 2:
-        return 3;
-      case 3:
-        return 6;
-      case 4:
-        return 10;
-      case 5:
-        return 20;
-      case 6:
-        return 40;
-      default:
-        return 1;
-    }
+    return basePickemMaxMultiplier(
+          site: 'UNDERDOG',
+          entryType: 'STANDARD',
+          legCount: legCount,
+        ) ??
+        1;
   }
 
-  double _pick6LegMultiplier(Map<String, dynamic> leg) {
-    double? asDouble(dynamic rawValue) {
-      if (rawValue is num) {
-        return rawValue.toDouble();
-      }
-      return double.tryParse(rawValue?.toString() ?? '');
-    }
-
+  double? _pick6LegMultiplier(Map<String, dynamic> leg) {
     final rawValue =
         leg['multiplier'] ??
         leg['pick_multiplier'] ??
@@ -953,43 +920,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     if (parsed != null && parsed > 0) {
       return parsed;
     }
-
-    final side = leg['side']?.toString().toUpperCase() ?? '';
-    final sideOdds = side == 'UNDER'
-        ? asDouble(leg['under_odds'] ?? leg['underOdds'])
-        : asDouble(leg['over_odds'] ?? leg['overOdds']);
-    final fallbackOdds =
-        asDouble(leg['current_odds']) ?? asDouble(leg['odds']) ?? sideOdds;
-
-    if (fallbackOdds != null) {
-      return _decimalOddsFromAmerican(fallbackOdds.toInt());
-    }
-
-    final rawWinProbability =
-        asDouble(leg['win_probability']) ?? asDouble(leg['winProbability']);
-    if (rawWinProbability != null && rawWinProbability > 0) {
-      final normalizedProbability = rawWinProbability > 1
-          ? (rawWinProbability / 100).clamp(0.0001, 1.0)
-          : rawWinProbability.clamp(0.0001, 1.0);
-      return 1 / normalizedProbability;
-    }
-
-    return 1.5;
-  }
-
-  double _pick6TotalMultiplier(List<Map<String, dynamic>> legs) {
-    if (legs.isEmpty) {
-      return 1;
-    }
-    var total = 1.0;
-    for (final leg in legs) {
-      total *= _pick6LegMultiplier(leg);
-    }
-    return total;
-  }
-
-  double _pick6Payout(List<Map<String, dynamic>> legs) {
-    return _pick6EntryAmount * _pick6TotalMultiplier(legs);
+    return null;
   }
 
   Widget _buildTicketLeg({
@@ -1269,7 +1200,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${multiplier.toStringAsFixed(multiplier % 1 == 0 ? 0 : 2)}x MULTIPLIER',
+                  '${multiplier.toStringAsFixed(multiplier % 1 == 0 ? 0 : 2)}x BASE STANDARD',
                   style: const TextStyle(
                     color: brand_colors.AppColors.gold,
                     fontSize: 11,
@@ -1283,7 +1214,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               const Text(
-                'TO WIN',
+                'BASE MAX',
                 style: TextStyle(
                   color: brand_colors.AppColors.textSecondary,
                   fontSize: 8,
@@ -1311,8 +1242,6 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   }
 
   Widget _buildPick6Header(List<Map<String, dynamic>> legs) {
-    final totalMultiplier = _pick6TotalMultiplier(legs);
-    final payout = _pick6Payout(legs);
     final sport = legs.isEmpty
         ? ''
         : (legs.first['sport'] ?? legs.first['league'] ?? '').toString();
@@ -1350,9 +1279,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  '${totalMultiplier.toStringAsFixed(2)}x TOTAL MULTIPLIER',
-                  style: const TextStyle(
+                const Text(
+                  'POOL-BASED CONTEST',
+                  style: TextStyle(
                     color: brand_colors.AppColors.gold,
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
@@ -1361,10 +1290,10 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               ],
             ),
           ),
-          Column(
+          const Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text(
+              Text(
                 'PAYOUT',
                 style: TextStyle(
                   color: brand_colors.AppColors.textSecondary,
@@ -1372,10 +1301,10 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 ),
               ),
               Text(
-                '\$${payout.toStringAsFixed(2)}',
-                style: const TextStyle(
+                'SET BY PICK6',
+                style: TextStyle(
                   color: brand_colors.AppColors.gold,
-                  fontSize: 16,
+                  fontSize: 11,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -1898,15 +1827,17 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 child: Column(
                   children: [
                     Text(
-                      '${multiplier.toStringAsFixed(2)}x',
+                      multiplier == null
+                          ? 'POOL'
+                          : '${multiplier.toStringAsFixed(2)}x',
                       style: const TextStyle(
                         color: brand_colors.AppColors.gold,
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const Text(
-                      'MULTIPLIER',
+                    Text(
+                      multiplier == null ? 'PICK6 PRIZE' : 'MULTIPLIER',
                       style: TextStyle(
                         color: brand_colors.AppColors.textSecondary,
                         fontSize: 6.5,

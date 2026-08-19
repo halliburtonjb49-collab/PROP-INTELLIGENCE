@@ -182,7 +182,7 @@ def test_reconciliation_corrects_already_lost_slip(tmp_path, monkeypatch) -> Non
     summary = result_reconciliation_service.reconcile_user_slips(user_id="owner")
     corrected = slip_service.get_slips(user_id="owner")[0]
     assert summary["values_corrected"] == 2
-    assert corrected.status == "active"
+    assert corrected.status == "won"
     assert [leg.result_status for leg in corrected.legs] == ["won", "push"]
     assert all(leg.result_verified for leg in corrected.legs)
     assert corrected.id == slip.id

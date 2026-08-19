@@ -2195,6 +2195,9 @@ class ApiService {
     required List<SlipSelection> selections,
     double stake = 0,
     String? clientRequestId,
+    String? propSite,
+    String? entryType,
+    double? payoutMultiplier,
   }) async {
     final uri = Uri.parse('$baseUrl/api/slips');
     final legs = _buildSlipLegs(selections);
@@ -2205,6 +2208,9 @@ class ApiService {
       'legs': legs,
       'stake': stake,
       'client_request_id': requestId,
+      'prop_site': ?propSite,
+      'entry_type': ?entryType,
+      'payout_multiplier': ?payoutMultiplier,
     });
 
     http.Response? response;

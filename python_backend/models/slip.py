@@ -71,6 +71,9 @@ class SlipCreate(BaseModel):
     legs: list[SlipLeg] = Field(min_length=1)
     stake: float = Field(default=0, ge=0)
     client_request_id: str = Field(default="", max_length=128)
+    prop_site: str = Field(default="", max_length=64)
+    entry_type: str = Field(default="", max_length=32)
+    payout_multiplier: float | None = Field(default=None, ge=0, le=1000)
 
 
 class SlipPreview(BaseModel):

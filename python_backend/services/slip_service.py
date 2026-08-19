@@ -34,15 +34,55 @@ _postgres_initialized = False
 _postgres_init_lock = Lock()
 SELECTION_SAFETY_WINDOW = timedelta(minutes=2)
 
+_AUDITED_PICKEM_MAX_MULTIPLIERS: dict[tuple[str, str, int], float] = {
+    ("PRIZEPICKS", "POWER", 2): 3,
+    ("PRIZEPICKS", "POWER", 3): 6,
+    ("PRIZEPICKS", "POWER", 4): 10,
+    ("PRIZEPICKS", "POWER", 5): 20,
+    ("PRIZEPICKS", "POWER", 6): 37.5,
+    ("PRIZEPICKS", "FLEX", 2): 2,
+    ("PRIZEPICKS", "FLEX", 3): 3,
+    ("PRIZEPICKS", "FLEX", 4): 6,
+    ("PRIZEPICKS", "FLEX", 5): 10,
+    ("PRIZEPICKS", "FLEX", 6): 25,
+    ("UNDERDOG", "STANDARD", 2): 3.5,
+    ("UNDERDOG", "STANDARD", 3): 6.5,
+    ("UNDERDOG", "STANDARD", 4): 12,
+    ("UNDERDOG", "STANDARD", 5): 20,
+    ("UNDERDOG", "STANDARD", 6): 35,
+    ("UNDERDOG", "STANDARD", 7): 65,
+    ("UNDERDOG", "STANDARD", 8): 120,
+    ("UNDERDOG", "FLEX", 3): 3.25,
+    ("UNDERDOG", "FLEX", 4): 6,
+    ("UNDERDOG", "FLEX", 5): 10,
+    ("UNDERDOG", "FLEX", 6): 25,
+    ("UNDERDOG", "FLEX", 7): 40,
+    ("UNDERDOG", "FLEX", 8): 80,
+    ("BETR", "PERFECT", 2): 3,
+    ("BETR", "PERFECT", 3): 5,
+    ("BETR", "PERFECT", 4): 10,
+    ("BETR", "PERFECT", 5): 20,
+    ("BETR", "PERFECT", 6): 30,
+    ("BETR", "PERFECT", 7): 50,
+    ("BETR", "PERFECT", 8): 100,
+    ("BETR", "FLEX", 3): 3,
+    ("BETR", "FLEX", 4): 6,
+    ("BETR", "FLEX", 5): 10,
+    ("BETR", "FLEX", 6): 20,
+    ("BETR", "FLEX", 7): 35,
+    ("BETR", "FLEX", 8): 50,
+    ("BETR", "FLEX", 9): 100,
+    ("BETR", "FLEX", 10): 200,
+}
 
-def _status_until_winner_acknowledged(
+
+def _resolved_slip_status(
     graded_status: str,
     *,
     current_status: str = "active",
 ) -> str:
-    """Keep a newly won ticket in Slip Watcher until its owner confirms it."""
-    if graded_status == "won" and current_status != "won":
-        return "active"
+    """Persist the grader's terminal result as soon as every leg is settled."""
+    del current_status
     return graded_status
 
 
@@ -201,6 +241,23 @@ def _american_decimal_multiplier(odds: float | None) -> float:
 def _calculate_payout(request: SlipCreate) -> float:
     if request.stake <= 0:
         return 0
+
+    # Pick'em products send their audited base multiplier explicitly. A zero
+    # multiplier means the prize is provider/pool determined and must not be
+    # fabricated from sportsbook odds stored on the individual legs.
+    if request.payout_multiplier is not None:
+        if request.payout_multiplier == 0:
+            return 0
+        expected = _AUDITED_PICKEM_MAX_MULTIPLIERS.get(
+            (
+                request.prop_site.strip().upper(),
+                request.entry_type.strip().upper(),
+                len(request.legs),
+            )
+        )
+        if expected is None or abs(request.payout_multiplier - expected) > 0.001:
+            raise ValueError("The submitted pick'em payout does not match the audited rules.")
+        return round(request.stake * request.payout_multiplier, 2)
 
     combined_multiplier = 1.0
     for leg in request.legs:
@@ -659,7 +716,7 @@ def update_slip_results(
             if not changed:
                 continue
 
-            slip_status = _status_until_winner_acknowledged(
+            slip_status = _resolved_slip_status(
                 grade_slip_status(leg_statuses)
             )
             connection.execute(
@@ -729,7 +786,7 @@ def reconcile_verified_slip_results(
             if not changed:
                 continue
             graded_status = grade_slip_status(statuses)
-            persisted_status = _status_until_winner_acknowledged(
+            persisted_status = _resolved_slip_status(
                 graded_status,
                 current_status=str(row["status"]),
             )
@@ -888,7 +945,7 @@ def update_slip_with_stat_results(
                 str(leg.get("result_status", "pending"))
                 for leg in legs
             ]
-            slip_status = _status_until_winner_acknowledged(
+            slip_status = _resolved_slip_status(
                 grade_slip_fn(statuses)
             )
             connection.execute(

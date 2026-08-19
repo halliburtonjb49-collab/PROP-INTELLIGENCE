@@ -19,12 +19,12 @@ class VerdictFilterBar extends StatelessWidget {
   final bool Function(double width) shouldWrap;
 
   static const options = <(String, String)>[
-    ('ALL', 'ALL PROPS'),
     ('ACTIONABLE', 'PLAYABLE'),
-    ('PLAY_NOW', 'PLAY NOW'),
-    ('SHOP', 'SHOP'),
-    ('LEAN', 'LEAN'),
-    ('WAIT', 'WAIT'),
+    ('PLAY_NOW', 'BEST NOW'),
+    ('LEAN', 'SLIGHT EDGE'),
+    ('SHOP', 'BETTER LINE'),
+    ('WAIT', 'WAIT / MONITOR'),
+    ('ALL', 'ALL PROPS'),
   ];
 
   @override
@@ -54,9 +54,7 @@ class VerdictFilterBar extends StatelessWidget {
       child: Semantics(
         button: true,
         selected: isSelected,
-        label: count == null
-            ? 'Show $label'
-            : 'Show $label, $count available',
+        label: count == null ? 'Show $label' : 'Show $label, $count available',
         child: GestureDetector(
           key: ValueKey('verdict-filter-$value'),
           onTap: () => onSelected(value),
@@ -65,7 +63,9 @@ class VerdictFilterBar extends StatelessWidget {
             decoration: BoxDecoration(
               color: isSelected ? AppColors.gold : const Color(0xFF07111C),
               borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: AppColors.gold),
+              border: Border.all(
+                color: isSelected ? AppColors.gold : AppColors.border,
+              ),
             ),
             child: Text(
               count == null ? label : '$label $count',

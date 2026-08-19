@@ -56,5 +56,5 @@ def test_result_sync_remains_owner_scoped(tmp_path, monkeypatch) -> None:
     )
 
     assert changed == 1
-    assert slip_service.get_slips(user_id="owner-1")[0].status == "active"
+    assert slip_service.get_slips(user_id="owner-1")[0].status == "won"
     assert slip_service.get_slips(user_id="owner-2")[0].status == "active"

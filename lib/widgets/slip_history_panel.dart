@@ -266,8 +266,20 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
         _liveStats = stats;
       });
       _notifyEarlyWinners(stats);
+      unawaited(_settleCompletedTickets(stats));
     } catch (_) {
       // Keep the last known live stats on a transient failure.
+    }
+  }
+
+  Future<void> _settleCompletedTickets(
+    Map<String, Map<String, dynamic>> stats,
+  ) async {
+    if (_isHistory) return;
+    for (final slip in List<SavedSlip>.from(_lastGoodSlips)) {
+      final status = terminalSlipStatus(slip, stats[slip.id] ?? const {});
+      if (status == null || _updatingSlipIds.contains(slip.id)) continue;
+      await _changeStatus(slip, status, automatic: true);
     }
   }
 
@@ -378,7 +390,11 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     });
   }
 
-  Future<void> _changeStatus(SavedSlip slip, String status) async {
+  Future<void> _changeStatus(
+    SavedSlip slip,
+    String status, {
+    bool automatic = false,
+  }) async {
     if (_updatingSlipIds.contains(slip.id)) return;
     if (slip.id.startsWith('pending-')) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -407,7 +423,9 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
         SnackBar(
           backgroundColor: brand_colors.AppColors.gold,
           content: Text(
-            status == 'won'
+            automatic
+                ? 'Final ticket moved to Past Tickets.'
+                : status == 'won'
                 ? 'Win acknowledged and moved to Past Tickets.'
                 : 'Ticket marked lost and moved to Past Tickets.',
             style: const TextStyle(
@@ -1381,6 +1399,27 @@ _SlipLiveProjection? _slipLiveProjection(
       : _SlipLiveProjection.live;
 }
 
+/// Returns a terminal saved-ticket status only after every leg has an
+/// authoritative final state. This prevents a completed ticket from being
+/// presented as LIVE while its status update is being persisted.
+String? terminalSlipStatus(SavedSlip slip, Map<String, dynamic> legLiveStats) {
+  if (slip.status.toLowerCase() == 'won') return 'won';
+  if (slip.status.toLowerCase() == 'lost') return 'lost';
+  if (slip.legs.isEmpty) return null;
+
+  var hasLoss = false;
+  for (final leg in slip.legs) {
+    final state = _effectiveLegState(leg, legLiveStats);
+    final result = state.resultStatus.toLowerCase();
+    if (!state.gameCompleted ||
+        !{'won', 'win', 'lost', 'loss', 'push'}.contains(result)) {
+      return null;
+    }
+    hasLoss = hasLoss || result == 'lost' || result == 'loss';
+  }
+  return hasLoss ? 'lost' : 'won';
+}
+
 class _CompactSlipLegRow extends StatelessWidget {
   const _CompactSlipLegRow({
     required this.leg,
@@ -1621,9 +1660,11 @@ class _SavedSlipCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final normalizedStatus = slip.status.toLowerCase();
-    final isWon = normalizedStatus == 'won';
-    final isLost = normalizedStatus == 'lost';
-    final liveProjection = normalizedStatus == 'active'
+    final terminalStatus = terminalSlipStatus(slip, liveStats);
+    final isWon = terminalStatus == 'won';
+    final isLost = terminalStatus == 'lost';
+    final liveProjection =
+        normalizedStatus == 'active' && terminalStatus == null
         ? _slipLiveProjection(slip, liveStats)
         : null;
     final isLiveWinning = liveProjection == _SlipLiveProjection.winning;
@@ -1702,7 +1743,8 @@ class _SavedSlipCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (normalizedStatus == 'active') ...[
+                    if (normalizedStatus == 'active' &&
+                        terminalStatus == null) ...[
                       const SizedBox(width: 6),
                       Tooltip(
                         message: 'Unlock (remove) this slip',
@@ -1946,7 +1988,7 @@ class _SavedSlipCard extends StatelessWidget {
                     ),
                   );
                 }),
-                if (slip.status == 'active') ...[
+                if (normalizedStatus == 'active' && terminalStatus == null) ...[
                   const SizedBox(height: 4),
                   if (isLiveWinning)
                     SizedBox(

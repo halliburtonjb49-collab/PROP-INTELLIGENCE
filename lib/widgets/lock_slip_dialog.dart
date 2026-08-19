@@ -2,61 +2,41 @@ import 'package:flutter/material.dart';
 
 import '../models/slip_selection.dart';
 import '../services/api_service.dart';
+import '../services/pickem_payout_rules.dart';
 import '../theme/app_colors.dart';
 
 String normalizeSlipSite(String value) {
-  final source = value.toUpperCase();
-  if (source.contains('PRIZEPICKS') || source.contains('PRIZE PICKS')) {
-    return 'PRIZEPICKS';
-  }
-  if (source.contains('UNDERDOG')) return 'UNDERDOG';
-  if (source.contains('PICK6') || source.contains('PICK 6')) return 'PICK6';
-  if (source.contains('FANDUEL')) return 'FANDUEL';
-  if (source.contains('DRAFTKINGS')) return 'DRAFTKINGS';
-  return 'PRIZEPICKS';
+  return normalizePickemSite(value);
 }
 
-List<String> slipEntryTypesForSite(String site) => switch (site) {
-  'PRIZEPICKS' => const ['POWER', 'FLEX'],
-  'FANDUEL' || 'DRAFTKINGS' => const ['PARLAY'],
-  _ => const ['POWER'],
-};
+List<String> slipEntryTypesForSite(String site) =>
+    pickemEntryTypesForSite(site);
 
 double fixedSlipMultiplier({
   required String site,
   required String entryType,
   required int legCount,
 }) {
-  if (site == 'PRIZEPICKS' && entryType == 'FLEX') {
-    return switch (legCount) {
-      3 => 2.25,
-      4 => 5,
-      5 => 10,
-      6 => 25,
-      _ => 1,
-    };
-  }
-  if (site == 'PRIZEPICKS') {
-    return switch (legCount) {
-      2 => 3,
-      3 => 5,
-      4 => 10,
-      5 => 20,
-      6 => 37.5,
-      _ => 1,
-    };
-  }
-  if (site == 'UNDERDOG') {
-    return switch (legCount) {
-      2 => 3,
-      3 => 6,
-      4 => 10,
-      5 => 20,
-      6 => 40,
-      _ => 1,
-    };
-  }
-  return 1;
+  return basePickemMaxMultiplier(
+        site: site,
+        entryType: entryType,
+        legCount: legCount,
+      ) ??
+      1;
+}
+
+class LockSlipResult {
+  const LockSlipResult({
+    required this.stake,
+    required this.site,
+    required this.entryType,
+    this.payoutMultiplier,
+  });
+
+  final double stake;
+  final String site;
+  final String entryType;
+  final double? payoutMultiplier;
 }
 
 class LockSlipDialog extends StatefulWidget {
@@ -82,6 +62,11 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
   String? _error;
   double? _potentialPayout;
   double? _potentialProfit;
+
+  bool get _hasProviderModifiers => widget.selections.any((selection) {
+    final multiplier = selection.prop.multiplier;
+    return multiplier != null && (multiplier - 1).abs() > 0.001;
+  });
 
   List<String> get _siteOptions {
     final options = <String>{
@@ -123,7 +108,55 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
       return;
     }
 
-    if (_selectedSite == 'PRIZEPICKS' || _selectedSite == 'UNDERDOG') {
+    final outcomes = basePickemPayoutOutcomes(
+      site: _selectedSite,
+      entryType: _entryType,
+      legCount: widget.selections.length,
+    );
+    if (outcomes.isNotEmpty) {
+      final multiplier = outcomes[widget.selections.length];
+      if (_hasProviderModifiers) {
+        setState(() {
+          _loadingPreview = false;
+          _error =
+              'This entry contains provider-specific multipliers. Confirm the exact payout shown by $_selectedSite before locking.';
+          _potentialPayout = null;
+          _potentialProfit = null;
+        });
+        return;
+      }
+      if (multiplier == null) return;
+      setState(() {
+        _loadingPreview = false;
+        _error = null;
+        _potentialPayout = stake * multiplier;
+        _potentialProfit = _potentialPayout! - stake;
+      });
+      return;
+    }
+
+    if (isPoolBasedPayout(_selectedSite)) {
+      setState(() {
+        _loadingPreview = false;
+        _error =
+            'DraftKings Pick6 is pool-based. Its final prize cannot be calculated from leg odds; use the payout displayed by Pick6.';
+        _potentialPayout = null;
+        _potentialProfit = null;
+      });
+      return;
+    }
+
+    if (isDiscontinuedPickemProduct(_selectedSite)) {
+      setState(() {
+        _loadingPreview = false;
+        _error = 'FanDuel Picks no longer accepts new contests.';
+        _potentialPayout = null;
+        _potentialProfit = null;
+      });
+      return;
+    }
+
+    if (!const {'FANDUEL', 'DRAFTKINGS'}.contains(_selectedSite)) {
       final multiplier = fixedSlipMultiplier(
         site: _selectedSite,
         entryType: _entryType,
@@ -169,7 +202,34 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
 
   void _confirm() {
     if (_formKey.currentState?.validate() ?? false) {
-      Navigator.of(context).pop(_readStake());
+      final stake = _readStake();
+      if (stake == null) return;
+      final payoutMultiplier = basePickemMaxMultiplier(
+        site: _selectedSite,
+        entryType: _entryType,
+        legCount: widget.selections.length,
+      );
+      Navigator.of(context).pop(
+        LockSlipResult(
+          stake: stake,
+          site: _selectedSite,
+          entryType: _entryType,
+          // Zero explicitly records that a pool-based or modified pick'em
+          // payout is unknown instead of inventing sportsbook odds.
+          payoutMultiplier:
+              _hasProviderModifiers ||
+                  isPoolBasedPayout(_selectedSite) ||
+                  isDiscontinuedPickemProduct(_selectedSite) ||
+                  (const {
+                        'PRIZEPICKS',
+                        'UNDERDOG',
+                        'BETR',
+                      }.contains(_selectedSite) &&
+                      payoutMultiplier == null)
+              ? 0
+              : payoutMultiplier,
+        ),
+      );
     }
   }
 
@@ -182,8 +242,17 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
     final entryTypeLabel = switch (selectedEntryType) {
       'PARLAY' => 'Parlay',
       'POWER' => 'Power Play',
+      'STANDARD' => 'Standard',
+      'PERFECT' => 'Perfect Play',
+      'CONTEST' => 'Pick6 Contest',
+      'DISCONTINUED' => 'Discontinued',
       _ => 'Flex Play',
     };
+    final outcomes = basePickemPayoutOutcomes(
+      site: _selectedSite,
+      entryType: selectedEntryType,
+      legCount: widget.selections.length,
+    );
 
     return AlertDialog(
       backgroundColor: AppColors.panel,
@@ -204,129 +273,166 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
       ),
       content: SizedBox(
         width: 430,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${widget.selections.length} LEG SLIP',
-                style: const TextStyle(
-                  color: AppColors.goldHighlight,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${widget.selections.length} LEG SLIP',
+                  style: const TextStyle(
+                    color: AppColors.goldHighlight,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedSite,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Prop Site',
-                  border: OutlineInputBorder(),
-                ),
-                items: _siteOptions
-                    .map(
-                      (site) =>
-                          DropdownMenuItem(value: site, child: Text(site)),
-                    )
-                    .toList(growable: false),
-                onChanged: (value) {
-                  if (value == null) return;
-                  setState(() {
-                    _selectedSite = value;
-                    _entryType = slipEntryTypesForSite(value).first;
-                  });
-                  _updatePreview();
-                },
-              ),
-              if (_selectedSite == 'PRIZEPICKS') ...[
                 const SizedBox(height: 12),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(
-                      value: 'POWER',
-                      label: Text('POWER PLAY'),
-                      icon: Icon(Icons.bolt),
-                    ),
-                    ButtonSegment(
-                      value: 'FLEX',
-                      label: Text('FLEX PLAY'),
-                      icon: Icon(Icons.shield_outlined),
-                    ),
-                  ],
-                  selected: {selectedEntryType},
-                  onSelectionChanged: (selection) {
-                    setState(() => _entryType = selection.first);
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedSite,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Prop Site',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _siteOptions
+                      .map(
+                        (site) =>
+                            DropdownMenuItem(value: site, child: Text(site)),
+                      )
+                      .toList(growable: false),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _selectedSite = value;
+                      _entryType = slipEntryTypesForSite(value).first;
+                    });
                     _updatePreview();
                   },
                 ),
-              ] else ...[
-                const SizedBox(height: 12),
+                if (entryTypes.length > 1) ...[
+                  const SizedBox(height: 12),
+                  SegmentedButton<String>(
+                    segments: entryTypes
+                        .map(
+                          (type) => ButtonSegment(
+                            value: type,
+                            label: Text(switch (type) {
+                              'POWER' => 'POWER PLAY',
+                              'STANDARD' => 'STANDARD',
+                              'PERFECT' => 'PERFECT PLAY',
+                              _ => 'FLEX PLAY',
+                            }),
+                            icon: Icon(
+                              type == 'FLEX'
+                                  ? Icons.shield_outlined
+                                  : Icons.bolt,
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                    selected: {selectedEntryType},
+                    onSelectionChanged: (selection) {
+                      setState(() => _entryType = selection.first);
+                      _updatePreview();
+                    },
+                  ),
+                ] else ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Entry Type: ${entryTypes.first}',
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
                 Text(
-                  'Entry Type: ${entryTypes.first}',
+                  'Site: $_selectedSite \u2022 Entry: $entryTypeLabel',
                   style: const TextStyle(
                     color: AppColors.textMuted,
                     fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-              ],
-              const SizedBox(height: 10),
-              Text(
-                'Site: $_selectedSite \u2022 Entry: $entryTypeLabel',
-                style: const TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                key: const ValueKey('lock-slip-stake'),
-                controller: _stakeController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Stake',
-                  prefixText: r'$',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  final stake = double.tryParse(
-                    value?.replaceAll(r'$', '').trim() ?? '',
-                  );
-                  return stake == null || stake <= 0
-                      ? r'Enter a stake greater than $0.'
-                      : null;
-                },
-                onChanged: (_) => _updatePreview(),
-              ),
-              const SizedBox(height: 18),
-              _PreviewRow(
-                label: 'Potential payout',
-                value: _potentialPayout,
-                loading: _loadingPreview,
-              ),
-              const SizedBox(height: 8),
-              _PreviewRow(
-                label: 'Potential profit',
-                value: _potentialProfit,
-                loading: _loadingPreview,
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _error!,
-                  style: const TextStyle(
-                    color: Color(0xFFFF9EA6),
-                    fontSize: 10,
+                const SizedBox(height: 16),
+                TextFormField(
+                  key: const ValueKey('lock-slip-stake'),
+                  controller: _stakeController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
                   ),
+                  decoration: const InputDecoration(
+                    labelText: 'Stake',
+                    prefixText: r'$',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    final stake = double.tryParse(
+                      value?.replaceAll(r'$', '').trim() ?? '',
+                    );
+                    return stake == null || stake <= 0
+                        ? r'Enter a stake greater than $0.'
+                        : null;
+                  },
+                  onChanged: (_) => _updatePreview(),
                 ),
+                const SizedBox(height: 18),
+                _PreviewRow(
+                  label: outcomes.isEmpty
+                      ? 'Potential payout'
+                      : 'Base max payout',
+                  value: _potentialPayout,
+                  loading: _loadingPreview,
+                ),
+                const SizedBox(height: 8),
+                _PreviewRow(
+                  label: 'Potential profit',
+                  value: _potentialProfit,
+                  loading: _loadingPreview,
+                ),
+                if (outcomes.length > 1) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    outcomes.entries
+                        .map(
+                          (outcome) =>
+                              '${outcome.key}/${widget.selections.length} correct: ${formatPickemMultiplier(outcome.value)}x',
+                        )
+                        .join('  •  '),
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 10,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+                if (outcomes.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Standard selections only. Special picks, promotions, correlations, ties, and voids can change the payout; the prop site display is final.',
+                    style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 9,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _error!,
+                    style: const TextStyle(
+                      color: Color(0xFFFF9EA6),
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -336,7 +442,10 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
           child: const Text('CANCEL'),
         ),
         ElevatedButton(
-          onPressed: _loadingPreview ? null : _confirm,
+          onPressed:
+              _loadingPreview || isDiscontinuedPickemProduct(_selectedSite)
+              ? null
+              : _confirm,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.gold,
             foregroundColor: Colors.black,

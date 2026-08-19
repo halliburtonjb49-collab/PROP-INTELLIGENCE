@@ -899,6 +899,44 @@ def _refresh_prop_catalog_now(
 		)
 	return props
 
+
+def _refresh_prop_catalog_resilient(
+	*, persist_snapshot: bool = True, attempts: int = 3,
+) -> list[PropResponse]:
+	"""Publish a non-empty replacement catalog or fail the sync visibly.
+
+	The provider lanes can finish successfully while the Redis promotion fails
+	transiently.  Swallowing that failure leaves the API serving yesterday's
+	catalog, which is then removed by the past-event filter and presents an
+	empty board.  Retry the atomic publication and never call an empty catalog a
+	success; the previous shared catalog remains untouched until rename.
+	"""
+	maximum_attempts = max(1, attempts)
+	last_error: Exception | None = None
+	for attempt in range(1, maximum_attempts + 1):
+		try:
+			props = _refresh_prop_catalog_now(
+				persist_snapshot=persist_snapshot,
+			)
+			if not props:
+				raise RuntimeError(
+					"Fresh prop catalog rebuild returned no inventory"
+				)
+			return props
+		except Exception as exc:
+			last_error = exc
+			logging.exception(
+				"Fresh prop catalog publication failed attempt=%s/%s",
+				attempt,
+				maximum_attempts,
+			)
+			if attempt < maximum_attempts:
+				time.sleep(min(2 ** (attempt - 1), 4))
+	raise RuntimeError(
+		"Fresh prop catalog could not be published after "
+		f"{maximum_attempts} attempts: {last_error}"
+	) from last_error
+
 _sync_run_lock = Lock()
 _sync_state_lock = Lock()
 _SYNC_STATE_CACHE_KEY = "sync:global:state:v2"
@@ -946,6 +984,9 @@ _sync_state: dict[str, object] = {
 	"postProcessingCompletedAt": None,
 	"postProcessingDurationSeconds": None,
 	"postProcessingError": None,
+	"catalogPublicationStatus": "idle",
+	"catalogPublicationAt": None,
+	"catalogPublicationError": None,
 	"lastFullCycleCompletedAt": None,
 	"lastFullCycleDurationSeconds": None,
 	"lastFullCycleJobId": None,
@@ -1071,6 +1112,8 @@ def _mark_sync_running(job_id: str | None = None) -> None:
 		postProcessingStartedAt=None, postProcessingUpdatedAt=None,
 		postProcessingCompletedAt=None, postProcessingDurationSeconds=None,
 		postProcessingError=None,
+		catalogPublicationStatus="pending", catalogPublicationAt=None,
+		catalogPublicationError=None,
 	)
 
 
@@ -1081,7 +1124,14 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 			# durable snapshot until all providers are finished. Starting a
 			# full serialization thread at every lane boundary retained several
 			# complete catalogs at once and exhausted Render's 2 GB instance.
-			_refresh_prop_catalog_now(persist_snapshot=False)
+			try:
+				_refresh_prop_catalog_resilient(persist_snapshot=False)
+			except Exception as exc:
+				_set_sync_state(
+					catalogPublicationStatus="failed",
+					catalogPublicationError=str(exc),
+				)
+				raise
 			finished = datetime.now(timezone.utc)
 			cooldown = _effective_sync_cooldown_seconds()
 			_set_sync_state(
@@ -1096,6 +1146,9 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 				results=results,
 				coverageStatus="running",
 				coverageLastProgressAt=finished.isoformat(),
+				catalogPublicationStatus="complete",
+				catalogPublicationAt=finished.isoformat(),
+				catalogPublicationError=None,
 			)
 
 		def mark_coverage_progress(progress: dict[str, object]) -> None:
@@ -1151,8 +1204,20 @@ def _run_sync_background(*, release_local_lock: bool = True) -> None:
 			)
 			# One final rebuild includes coverage and SportsGameOdds, and is the
 			# only refresh in this run that starts a durable snapshot write.
-			post_processing_board = _refresh_prop_catalog_now(
-				persist_snapshot=True,
+			try:
+				post_processing_board = _refresh_prop_catalog_resilient(
+					persist_snapshot=True,
+				)
+			except Exception as exc:
+				_set_sync_state(
+					catalogPublicationStatus="failed",
+					catalogPublicationError=str(exc),
+				)
+				raise
+			_set_sync_state(
+				catalogPublicationStatus="complete",
+				catalogPublicationAt=datetime.now(timezone.utc).isoformat(),
+				catalogPublicationError=None,
 			)
 			return post_processing_board
 
