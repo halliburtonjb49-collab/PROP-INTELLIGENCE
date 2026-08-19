@@ -162,7 +162,7 @@ def test_compressed_json_cache_round_trip(monkeypatch) -> None:
 
 def test_large_json_list_is_published_in_bounded_atomic_chunks(monkeypatch) -> None:
     client = _StreamingRedis()
-    monkeypatch.setattr(distributed_cache_service, "_client", lambda: client)
+    monkeypatch.setattr(distributed_cache_service, "_streaming_client", lambda: client)
 
     published = distributed_cache_service.set_json_streaming_list(
         "catalog",
@@ -182,7 +182,7 @@ def test_large_json_list_is_published_in_bounded_atomic_chunks(monkeypatch) -> N
 def test_streaming_publish_preserves_previous_value_on_failure(monkeypatch) -> None:
     client = _StreamingRedis()
     client.append = lambda *_args: (_ for _ in ()).throw(RuntimeError("oom"))
-    monkeypatch.setattr(distributed_cache_service, "_client", lambda: client)
+    monkeypatch.setattr(distributed_cache_service, "_streaming_client", lambda: client)
 
     published = distributed_cache_service.set_json_streaming_list(
         "catalog", [{"id": 1}], ttl_seconds=60

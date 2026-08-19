@@ -14,6 +14,19 @@ from redis import Redis
 
 LOGGER = logging.getLogger(__name__)
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
+_LAST_WRITE_ERROR: dict[str, str] = {}
+
+
+def last_write_error(key: str) -> str:
+    """Return why the most recent write to ``key`` failed.
+
+    A boolean return told callers that publication failed but never why, so
+    the cron surfaced "could not be published to Redis" with the real cause
+    (unconfigured URL, timeout, out-of-memory) stranded in a warning line on
+    a different service's log stream.
+    """
+
+    return _LAST_WRITE_ERROR.get(key, "")
 
 
 @lru_cache(maxsize=1)
@@ -25,6 +38,28 @@ def _client() -> Redis | None:
         decode_responses=True,
         socket_connect_timeout=2,
         socket_timeout=2,
+        health_check_interval=30,
+    )
+
+
+@lru_cache(maxsize=1)
+def _streaming_client() -> Redis | None:
+    """Redis client sized for multi-megabyte catalog publication.
+
+    The shared client's two second socket timeout is right for the small
+    reads on the request path, but the catalog publisher issues a series of
+    half-megabyte appends followed by a rename. On a busy Key Value instance
+    a single one of those round trips can exceed two seconds, which aborted
+    the whole publication and left the API serving the previous catalog.
+    """
+
+    if not REDIS_URL:
+        return None
+    return Redis.from_url(
+        REDIS_URL,
+        decode_responses=True,
+        socket_connect_timeout=5,
+        socket_timeout=30,
         health_check_interval=30,
     )
 
@@ -59,11 +94,14 @@ def get_json(key: str) -> Any | None:
 def set_json(key: str, value: Any, *, ttl_seconds: int) -> bool:
     client = _client()
     if client is None:
+        _LAST_WRITE_ERROR[key] = "REDIS_URL is not configured"
         return False
     try:
         client.setex(key, max(1, ttl_seconds), json.dumps(value, default=str))
+        _LAST_WRITE_ERROR.pop(key, None)
         return True
     except Exception as exc:
+        _LAST_WRITE_ERROR[key] = f"{type(exc).__name__}: {exc}"
         LOGGER.warning("Redis write failed key=%s error=%s", key, exc)
         return False
 
@@ -122,8 +160,9 @@ def set_json_streaming_list(
     key receives bounded chunks and is renamed only after the closing bracket,
     so readers continue seeing the previous complete catalog during a rebuild.
     """
-    client = _client()
+    client = _streaming_client()
     if client is None:
+        _LAST_WRITE_ERROR[key] = "REDIS_URL is not configured"
         return False
     temporary_key = f"{key}:building:{uuid.uuid4().hex}"
     transform = encode_item or (lambda item: item)
@@ -151,8 +190,10 @@ def set_json_streaming_list(
         client.append(temporary_key, "]")
         client.expire(temporary_key, max(1, ttl_seconds))
         client.rename(temporary_key, key)
+        _LAST_WRITE_ERROR.pop(key, None)
         return True
     except Exception as exc:
+        _LAST_WRITE_ERROR[key] = f"{type(exc).__name__}: {exc}"
         LOGGER.warning("Redis streaming write failed key=%s error=%s", key, exc)
         try:
             client.delete(temporary_key)

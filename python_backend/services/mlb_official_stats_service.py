@@ -222,39 +222,109 @@ def _player_stats(boxscore: dict[str, Any], player_name: str) -> dict[str, Any] 
     return matches[0] if len(matches) == 1 else None
 
 
+_PITCHER_MARKET_TOKENS = (
+    "pitcher",
+    "hits allowed",
+    "walks allowed",
+    "earned run",
+    "outs recorded",
+)
+
+
+def _market_text(market: str) -> str:
+    return str(market).lower().replace("_", " ")
+
+
+def _is_pitcher_market(text: str) -> bool:
+    """Route a market to the pitching or the batting half of the box score.
+
+    "Batter Strikeouts" and "Pitcher Strikeouts" share their only distinctive
+    token, so the batter prefix has to win before the generic strikeout token
+    is consulted. A bare "Strikeouts" market is the pitcher line.
+    """
+
+    if "batter" in text:
+        return False
+    return "strikeout" in text or any(
+        token in text for token in _PITCHER_MARKET_TOKENS
+    )
+
+
+def _pitching_value(pitching: dict[str, Any], text: str) -> Any:
+    if "strikeout" in text:
+        return pitching.get("strikeOuts")
+    if "out" in text:
+        innings = str(pitching.get("inningsPitched", ""))
+        if "." not in innings:
+            return None
+        whole, partial = innings.split(".", 1)
+        return (int(whole) * 3) + int(partial[:1] or 0)
+    if "hit" in text:
+        return pitching.get("hits")
+    if "walk" in text:
+        return pitching.get("baseOnBalls")
+    if "earned" in text:
+        return pitching.get("earnedRuns")
+    return None
+
+
+def _batting_value(batting: dict[str, Any], text: str) -> Any:
+    """Resolve a batter market against the official batting line.
+
+    Singles, doubles, walks and batter strikeouts previously fell through
+    every branch and returned None, which stranded the bulk of the MLB board
+    as ungradable while the box score carried each of those stats outright.
+    Order matters: the longer phrases have to be tested before the tokens
+    they contain ("stolen bases" before "total bases", the combined
+    hits + runs + rbis market before plain "rbi" or "hit").
+    """
+
+    def total(*keys: str) -> Any:
+        parts = [batting.get(key) for key in keys]
+        if any(part is None for part in parts):
+            return None
+        return sum(parts)
+
+    if "stolen base" in text:
+        return batting.get("stolenBases")
+    if "total base" in text:
+        return batting.get("totalBases")
+    if "home run" in text:
+        return batting.get("homeRuns")
+    if "hit" in text and "run" in text and "rbi" in text:
+        return total("hits", "runs", "rbi")
+    if "rbi" in text:
+        return batting.get("rbi")
+    if "single" in text:
+        # The box score reports extra base hits but never singles directly.
+        extra_bases = total("doubles", "triples", "homeRuns")
+        hits = batting.get("hits")
+        if extra_bases is None or hits is None:
+            return None
+        return hits - extra_bases
+    if "double" in text:
+        return batting.get("doubles")
+    if "triple" in text:
+        return batting.get("triples")
+    if "walk" in text:
+        return batting.get("baseOnBalls")
+    if "strikeout" in text:
+        return batting.get("strikeOuts")
+    if "hit" in text:
+        return batting.get("hits")
+    if "run" in text:
+        return batting.get("runs")
+    return None
+
+
 def _market_value(stats: dict[str, Any], market: str) -> float | None:
-    text = str(market).lower().replace("_", " ")
+    text = _market_text(market)
     pitching = stats.get("pitching", {})
     batting = stats.get("batting", {})
-    if "pitcher" in text or "strikeout" in text or "outs recorded" in text:
-        if "strikeout" in text:
-            value = pitching.get("strikeOuts")
-        elif "out" in text:
-            innings = str(pitching.get("inningsPitched", ""))
-            if "." not in innings:
-                return None
-            whole, partial = innings.split(".", 1)
-            value = (int(whole) * 3) + int(partial[:1] or 0)
-        elif "hit" in text:
-            value = pitching.get("hits")
-        elif "walk" in text:
-            value = pitching.get("baseOnBalls")
-        elif "earned" in text:
-            value = pitching.get("earnedRuns")
-        else:
-            value = None
-    elif "total base" in text:
-        value = batting.get("totalBases")
-    elif "home run" in text:
-        value = batting.get("homeRuns")
-    elif "rbi" in text:
-        value = batting.get("rbi")
-    elif "hit" in text:
-        value = batting.get("hits")
-    elif "run" in text:
-        value = batting.get("runs")
+    if _is_pitcher_market(text):
+        value = _pitching_value(pitching, text)
     else:
-        value = None
+        value = _batting_value(batting, text)
     result: float | None
     try:
         result = float(value) if value is not None else None
@@ -268,6 +338,40 @@ def _market_value(stats: dict[str, Any], market: str) -> float | None:
             market, value, list(pitching.keys()), list(batting.keys()),
         )
     return result
+
+
+_HIT_EVENTS = frozenset({"single", "double", "triple", "home_run"})
+_WALK_EVENTS = frozenset({"walk", "intent_walk"})
+_STRIKEOUT_EVENTS = frozenset({"strikeout", "strikeout_double_play"})
+
+
+def _statcast_batter_stat(text: str) -> str | None:
+    """Name the batter stat the pitch log can reconstruct, else None.
+
+    Runs, RBIs and the combined hits + runs + rbis market are not derivable
+    from a batter's own pitch log, so they stay ungraded rather than be
+    graded as the hits they partially resemble.
+    """
+
+    if "hit" in text and "run" in text and "rbi" in text:
+        return None
+    if "total base" in text:
+        return "total_bases"
+    if "home run" in text:
+        return "home_runs"
+    if "single" in text:
+        return "singles"
+    if "double" in text:
+        return "doubles"
+    if "triple" in text:
+        return "triples"
+    if "walk" in text:
+        return "walks"
+    if "strikeout" in text:
+        return "strikeouts"
+    if "hit" in text:
+        return "hits"
+    return None
 
 
 def official_mlb_result(
@@ -317,13 +421,12 @@ def historical_mlb_result(
         official_id = str(resolved or "")
     if not official_id.isdigit():
         return None
-    text = str(market).lower().replace("_", " ")
-    is_pitcher = "pitcher" in text or "strikeout" in text
+    text = _market_text(market)
+    is_pitcher = _is_pitcher_market(text)
+    batter_stat = None if is_pitcher else _statcast_batter_stat(text)
     if is_pitcher and "strikeout" not in text:
         return None
-    if not is_pitcher and not any(
-        token in text for token in ("hit", "total base", "home run")
-    ):
+    if not is_pitcher and batter_stat is None:
         return None
     identifier_column = "pitcher_id" if is_pitcher else "batter_id"
     exact_game_pk = _final_game_pk(
@@ -355,14 +458,24 @@ def historical_mlb_result(
         return None
     game_pk, events = next(iter(by_game.items()))
     if is_pitcher:
-        value = sum(event in {"strikeout", "strikeout_double_play"} for event in events)
-    elif "total base" in text:
+        value = sum(event in _STRIKEOUT_EVENTS for event in events)
+    elif batter_stat == "total_bases":
         weights = {"single": 1, "double": 2, "triple": 3, "home_run": 4}
         value = sum(weights.get(event, 0) for event in events)
-    elif "home run" in text:
-        value = sum(event == "home_run" for event in events)
+    elif batter_stat == "walks":
+        value = sum(event in _WALK_EVENTS for event in events)
+    elif batter_stat == "strikeouts":
+        value = sum(event in _STRIKEOUT_EVENTS for event in events)
+    elif batter_stat == "hits":
+        value = sum(event in _HIT_EVENTS for event in events)
     else:
-        value = sum(event in {"single", "double", "triple", "home_run"} for event in events)
+        wanted = {
+            "singles": "single",
+            "doubles": "double",
+            "triples": "triple",
+            "home_runs": "home_run",
+        }[batter_stat]
+        value = sum(event == wanted for event in events)
     return OfficialMlbResult(
         value=float(value), game_pk=game_pk, source="statcast-history",
     )
