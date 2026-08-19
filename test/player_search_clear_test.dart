@@ -37,7 +37,11 @@ void main() {
     expect(clearedField, findsOneWidget);
     semantics.dispose();
     expect(tester.widget<TextField>(clearedField).controller?.text, isEmpty);
-    expect(find.byKey(const ValueKey('active-board-filters')), findsNothing);
+    // Clearing search removes only the search constraint. The board's
+    // deliberate trust sort remains visible as an active preference.
+    expect(find.byKey(const ValueKey('active-board-filters')), findsOneWidget);
+    expect(find.text('SEARCH: Brandon Lowe'), findsNothing);
+    expect(find.text('SORT: TRUST'), findsOneWidget);
     expect(tester.getSemantics(clearedField).value, isEmpty);
     expect(tester.takeException(), isNull);
   });
