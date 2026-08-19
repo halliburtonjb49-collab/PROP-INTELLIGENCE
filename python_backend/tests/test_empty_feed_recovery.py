@@ -225,6 +225,25 @@ def test_fresh_catalog_fails_when_compact_summary_cannot_publish(monkeypatch):
         main._rebuild_prop_catalog_from_local()
 
 
+def test_catalog_hydration_never_publishes_a_null_receipt(monkeypatch):
+    prop = SimpleNamespace(
+        lastUpdatedUtc=datetime.now(timezone.utc).isoformat(),
+    )
+    published = []
+    monkeypatch.setattr(main, "get_distributed_json", lambda _key: None)
+    monkeypatch.setattr(
+        main,
+        "set_distributed_json",
+        lambda key, payload, **kwargs: published.append((key, payload)) or True,
+    )
+
+    assert main._publish_prop_catalog_summary([prop]) is True
+
+    assert published
+    assert published[0][0] == main._PROP_CATALOG_SUMMARY_KEY
+    assert published[0][1]["catalogPublishedAt"]
+
+
 def test_an_empty_sync_does_not_overwrite_a_good_snapshot(monkeypatch):
     saved = []
     monkeypatch.setattr(main, "get_props", lambda: [])

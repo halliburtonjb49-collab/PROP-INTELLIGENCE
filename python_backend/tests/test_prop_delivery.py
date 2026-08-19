@@ -609,6 +609,29 @@ def test_recent_saved_catalog_remains_visible_while_recovery_runs(monkeypatch) -
     assert payload["staleFallback"]["reason"] == "recovery_running"
 
 
+def test_older_saved_catalog_remains_visible_while_recovery_runs(monkeypatch) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    recovering = FakeProp("older-recovering", "One", "MLB", "FANDUEL", "HITS")
+    recovering.lastUpdatedUtc = (
+        datetime.now(timezone.utc) - timedelta(hours=8)
+    ).isoformat()
+    recovering.dataStale = True
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [recovering])
+    monkeypatch.setattr(
+        main,
+        "_sync_state_snapshot",
+        lambda: {"status": "running"},
+    )
+
+    payload = TestClient(main.app).get("/api/props").json()
+
+    assert [row["id"] for row in payload["props"]] == ["older-recovering"]
+    assert payload["props"][0]["dataStale"] is True
+    assert payload["staleFallback"]["active"] is True
+    assert payload["staleFallback"]["ageLimitBypassedDuringRecovery"] is True
+
+
 def test_recent_saved_catalog_stays_hidden_without_active_recovery(monkeypatch) -> None:
     from datetime import datetime, timedelta, timezone
 
