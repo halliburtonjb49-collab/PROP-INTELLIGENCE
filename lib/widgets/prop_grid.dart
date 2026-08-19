@@ -398,7 +398,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         : usesResearchFallback
         ? 'RESEARCH PICK: a stable OVER or UNDER research direction is shown because no released model or priced market edge is available. It is low evidence and the PI Verdict remains the action guide.'
         : 'MARKET LEAN: direction inferred from sportsbook pricing, not a released model pick. Follow the PI Verdict for the action decision.';
-    final signalColor = noPiPick
+    final signalColor = prop.dataStale
+        ? app_colors.AppColors.warning
+        : noPiPick
         ? app_colors.AppColors.textMuted
         : hasModelPick || prop.proSuggestionUsesHistoricalStats
         ? app_colors.AppColors.blue
@@ -456,7 +458,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       final label = side == PickSide.over ? 'OVER' : 'UNDER';
       return Expanded(
         child: OutlinedButton(
-          onPressed: prop.isSelectable
+          onPressed: prop.isSelectable && !prop.dataStale
               ? () => _handleCardSelection(prop, side)
               : null,
           style: OutlinedButton.styleFrom(
@@ -673,7 +675,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            !hasProAccess ? 'PROP TYPE' : signalLabel,
+                            prop.dataStale
+                                ? 'DATA STATUS'
+                                : !hasProAccess
+                                ? 'PROP TYPE'
+                                : signalLabel,
                             style: TextStyle(
                               color: signalColor,
                               fontSize: 7,
@@ -690,7 +696,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        !hasProAccess
+                        prop.dataStale
+                            ? 'UNAVAILABLE'
+                            : !hasProAccess
                             ? market.toUpperCase()
                             : noPiPick
                             ? 'YOUR CHOICE'
@@ -849,7 +857,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           // The verdict is what Pro is for. Everyone sees the prop, the
           // line, the book and both buttons; only Pro is told what we think
           // of it. Giving the opinion away leaves nothing to sell.
-          if (hasProAccess && prop.verdict.isPresent) ...[
+          if (hasProAccess && prop.verdict.isPresent && !prop.dataStale) ...[
             PiVerdictBlock(
               verdict: prop.verdict,
               // Keep every closed card scannable. The complete reason and
@@ -863,7 +871,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           // them as current, so this line can be hours old while looking
           // exactly like one fetched a moment ago -- which is how a board
           // ends up disagreeing with the book it came from.
-          if (researchOpen && prop.dataStale) ...[
+          if (prop.dataStale) ...[
             Container(
               key: ValueKey('prop-stale-warning-${prop.id}'),
               padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
@@ -882,9 +890,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      '${prop.freshnessLabel} — confirm this number on '
-                      '${prop.sportsbook.trim().isEmpty ? 'the book' : prop.sportsbook} '
-                      'before betting it.',
+                      researchOpen
+                          ? '${prop.freshnessLabel} — confirm this number on '
+                                '${prop.sportsbook.trim().isEmpty ? 'the book' : prop.sportsbook} '
+                                'before using it.'
+                          : 'DATA UNAVAILABLE — live line verification required',
                       style: TextStyle(
                         color: app_colors.AppColors.warning,
                         fontSize: 8,
