@@ -154,7 +154,14 @@ services:
         value: 21
   - type: keyvalue
     name: prop-intelligence-redis
-    plan: starter
+    # Keep the upgrade in source control so a Blueprint sync cannot return
+    # this instance to Starter. The uncompressed catalog reached ~112 MiB and
+    # the atomic rename holds the previous copy beside its replacement, which
+    # exhausted the 256 MiB Starter instance and stopped publication outright.
+    plan: standard
+    # noeviction is deliberate: an LRU policy would silently evict the
+    # catalog mid-publication and serve empty boards instead of failing
+    # loudly enough to page someone.
     maxmemoryPolicy: noeviction
     ipAllowList: []
 

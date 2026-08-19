@@ -146,3 +146,64 @@ def test_reclaim_failure_never_blocks_the_publication(monkeypatch):
     assert distributed_cache_service.set_json_streaming_list(
         "props:catalog:test", [{"id": "p1"}], ttl_seconds=60
     ) is True
+
+
+class _BinaryRecordingClient(_RecordingClient):
+    def set(self, key, value, ex=None):
+        self.values[key] = value
+        if ex is not None:
+            self.ttls[key] = ex
+
+    def append(self, key, value):
+        self.values[key] = self.values.get(key, b"") + value
+
+    def get(self, key):
+        return self.values.get(key)
+
+
+def test_compressed_catalog_round_trips_and_shrinks(monkeypatch):
+    """The plain catalog needed ~224 MiB of a 256 MiB instance to publish.
+
+    The atomic rename holds the previous copy beside its replacement, so the
+    uncompressed payload left twelve percent headroom and failed with
+    OutOfMemoryError the moment anything grew.
+    """
+
+    client = _BinaryRecordingClient()
+    monkeypatch.setattr(
+        distributed_cache_service, "_binary_streaming_client", lambda: client
+    )
+    monkeypatch.setattr(
+        distributed_cache_service, "_binary_client", lambda: client
+    )
+    rows = [
+        {"id": index, "player": "Corey Seager", "market": "Batter Singles"}
+        for index in range(500)
+    ]
+
+    published = distributed_cache_service.set_compressed_json_streaming_list(
+        "props:catalog:v2", rows, ttl_seconds=86400, chunk_chars=2048
+    )
+
+    assert published is True
+    assert distributed_cache_service.get_compressed_json("props:catalog:v2") == rows
+    plain = distributed_cache_service.json.dumps(rows, separators=(",", ":"))
+    assert len(client.values["props:catalog:v2"]) < len(plain.encode("utf-8"))
+    # The builder carries its expiry from the first write, exactly as the
+    # plain publisher does, so a killed process cannot strand it.
+    assert client.ttls["props:catalog:v2"] == 86400
+
+
+def test_compressed_publication_reports_its_failure_cause(monkeypatch):
+    monkeypatch.setattr(
+        distributed_cache_service, "_binary_streaming_client", lambda: None
+    )
+
+    published = distributed_cache_service.set_compressed_json_streaming_list(
+        "props:catalog:v2", [{"id": "p1"}], ttl_seconds=60
+    )
+
+    assert published is False
+    assert distributed_cache_service.last_write_error("props:catalog:v2") == (
+        "REDIS_URL is not configured"
+    )

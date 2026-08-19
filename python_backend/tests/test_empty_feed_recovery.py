@@ -153,7 +153,7 @@ def test_a_fresh_local_sync_persists_the_durable_snapshot(monkeypatch):
 
     monkeypatch.setattr(main, "get_props", lambda: [prop])
     monkeypatch.setattr(main, "set_distributed_json", lambda *a, **k: True)
-    monkeypatch.setattr(main, "set_distributed_json_streaming_list", lambda *a, **k: True)
+    monkeypatch.setattr(main, "set_distributed_compressed_catalog", lambda *a, **k: True)
     monkeypatch.setattr(
         main,
         "_publish_prop_catalog_summary",
@@ -187,7 +187,7 @@ def test_intermediate_catalog_refresh_does_not_start_snapshot_write(monkeypatch)
     )
     monkeypatch.setattr(main, "get_props", lambda: [prop])
     monkeypatch.setattr(main, "set_distributed_json", lambda *a, **k: True)
-    monkeypatch.setattr(main, "set_distributed_json_streaming_list", lambda *a, **k: True)
+    monkeypatch.setattr(main, "set_distributed_compressed_catalog", lambda *a, **k: True)
     monkeypatch.setattr(
         main,
         "_publish_prop_catalog_summary",
@@ -209,7 +209,7 @@ def test_fresh_catalog_fails_when_compact_summary_cannot_publish(monkeypatch):
     monkeypatch.setattr(main, "set_distributed_json", lambda *a, **k: True)
     monkeypatch.setattr(
         main,
-        "set_distributed_json_streaming_list",
+        "set_distributed_compressed_catalog",
         lambda *a, **k: True,
     )
     monkeypatch.setattr(
@@ -433,7 +433,7 @@ def test_catalog_publication_failure_reports_the_redis_cause(monkeypatch):
     )
     monkeypatch.setattr(main, "get_props", lambda: [prop])
     monkeypatch.setattr(
-        main, "set_distributed_json_streaming_list", lambda *a, **k: False
+        main, "set_distributed_compressed_catalog", lambda *a, **k: False
     )
     monkeypatch.setattr(
         main,

@@ -105,9 +105,11 @@ from services.public_track_record_service import (
 )
 from services.distributed_cache_service import (
 	delete as delete_distributed_cache,
+	get_compressed_json as get_distributed_compressed_json,
 	get_json as get_distributed_json,
 	health as distributed_cache_health,
 	last_write_error as distributed_cache_last_write_error,
+	set_compressed_json_streaming_list as set_distributed_compressed_catalog,
 	set_json as set_distributed_json,
 	set_json_streaming_list as set_distributed_json_streaming_list,
 )
@@ -340,6 +342,12 @@ _prop_metrics: dict[str, object] = {
 	"cacheHits": 0,
 }
 _PROP_CATALOG_KEY = "props:catalog:v1"
+# The v1 payload was stored uncompressed and grew to roughly 112 MiB, which
+# the atomic rename doubles at publication time. v2 holds the same catalog
+# zlib-compressed. Both are read during a rollout so instances on either
+# release keep serving a shared catalog instead of falling back to the
+# durable snapshot; only v2 is ever written.
+_PROP_CATALOG_COMPRESSED_KEY = "props:catalog:v2"
 _PROP_CATALOG_VERSION_KEY = "props:catalog:version:v1"
 _PROP_CATALOG_SUMMARY_KEY = "props:catalog:summary:v1"
 _PROP_RESPONSE_CACHE_TTL_SECONDS = 20
@@ -672,7 +680,9 @@ def _cached_prop_catalog_singleflight() -> list[PropResponse]:
 			with _prop_catalog_lock:
 				_prop_catalog["versionCheckedAt"] = now
 			return filter_owner_quarantined_props(cached)
-	shared = get_distributed_json(_PROP_CATALOG_KEY)
+	shared = get_distributed_compressed_json(_PROP_CATALOG_COMPRESSED_KEY)
+	if not (isinstance(shared, list) and shared):
+		shared = get_distributed_json(_PROP_CATALOG_KEY)
 	if isinstance(shared, list) and shared:
 		try:
 			props = _recompute_runtime_verdicts(
@@ -697,6 +707,7 @@ def _cached_prop_catalog_singleflight() -> list[PropResponse]:
 				)
 			return filter_owner_quarantined_props(props)
 		except Exception:
+			delete_distributed_cache(_PROP_CATALOG_COMPRESSED_KEY)
 			delete_distributed_cache(_PROP_CATALOG_KEY)
 	durable = load_catalog_snapshot()
 	if durable:
@@ -744,8 +755,8 @@ def _rebuild_prop_catalog_from_local(
 			f"{max((prop.lastUpdatedUtc for prop in props), default='')}:"
 			f"{len(props)}"
 		)
-		catalog_published = set_distributed_json_streaming_list(
-			_PROP_CATALOG_KEY,
+		catalog_published = set_distributed_compressed_catalog(
+			_PROP_CATALOG_COMPRESSED_KEY,
 			props,
 			ttl_seconds=86400,
 			encode_item=lambda prop: prop.model_dump(mode="json"),
@@ -754,10 +765,16 @@ def _rebuild_prop_catalog_from_local(
 			raise RuntimeError(
 				"Fresh prop catalog could not be published to Redis: "
 				+ (
-					distributed_cache_last_write_error(_PROP_CATALOG_KEY)
+					distributed_cache_last_write_error(
+						_PROP_CATALOG_COMPRESSED_KEY
+					)
 					or "cause not reported by the cache client"
 				)
 			)
+		# The uncompressed predecessor must not linger beside the payload
+		# that replaced it; leaving it costs the exact memory this change
+		# reclaims, and it would go stale the moment v2 is republished.
+		delete_distributed_cache(_PROP_CATALOG_KEY)
 		set_distributed_json(
 			_PROP_CATALOG_VERSION_KEY,
 			catalog_version,
@@ -872,6 +889,7 @@ def _invalidate_prop_catalog(*, delete_shared: bool = True) -> None:
 			props=[],
 		)
 	if delete_shared:
+		delete_distributed_cache(_PROP_CATALOG_COMPRESSED_KEY)
 		delete_distributed_cache(_PROP_CATALOG_KEY)
 		delete_distributed_cache(_PROP_CATALOG_VERSION_KEY)
 		delete_distributed_cache(_PROP_CATALOG_SUMMARY_KEY)
