@@ -834,6 +834,14 @@ def _publish_prop_catalog_summary(
 			catalog_published_at = str(
 				existing.get("catalogPublishedAt") or ""
 			) or None
+		# API instances also hydrate the shared catalog during rolling deploys.
+		# Previously, an instance racing the worker could read the catalog before
+		# its compact summary existed and then overwrite the worker's publication
+		# receipt with null. A successfully hydrated non-empty shared catalog is
+		# publicly available at this point, so it is safe—and required for an
+		# auditable readiness signal—to stamp that publication here.
+		if catalog_published_at is None:
+			catalog_published_at = datetime.now(timezone.utc).isoformat()
 	return set_distributed_json(
 		_PROP_CATALOG_SUMMARY_KEY,
 		_prop_catalog_summary(
@@ -3063,12 +3071,22 @@ def props(
 				)
 				for prop in prop_list
 			)
-			if catalog_has_grace_row:
-				sync_state = _sync_state_snapshot()
-				recovery_active = str(sync_state.get("status") or "").lower() in {
-					"queued", "running"
-				}
-		serve_stale_fallback = catalog_has_grace_row and recovery_active
+			# A recovery can legitimately take longer than the ordinary stale
+			# grace window. Do not turn a non-empty last-known-good catalog into
+			# an empty board while the worker is actively replacing it. The
+			# replacement is published atomically, and every fallback row is
+			# explicitly marked stale below so the UI cannot mistake it for a
+			# freshly verified line.
+			sync_state = _sync_state_snapshot()
+			recovery_active = str(sync_state.get("status") or "").lower() in {
+				"queued", "running"
+			}
+		serve_stale_fallback = (
+			not includeStale
+			and not catalog_has_fresh_row
+			and bool(prop_list)
+			and recovery_active
+		)
 		catalog_updated_at = max(
 			(prop.lastUpdatedUtc for prop in prop_list),
 			default="",
@@ -3205,7 +3223,10 @@ def props(
 			if not includeStarted and start_time is not None and start_time <= now_utc:
 				return False
 			if not includeStale:
-				if bool(getattr(prop, "dataStale", False)):
+				if (
+					bool(getattr(prop, "dataStale", False))
+					and not serve_stale_fallback
+				):
 					return False
 				if not serve_stale_fallback and _is_stale_timestamp(
 					str(getattr(prop, "lastUpdatedUtc", "") or ""),
@@ -3570,6 +3591,9 @@ def props(
 				"reason": "recovery_running" if serve_stale_fallback else None,
 				"normalFreshnessMinutes": stale_after_minutes,
 				"maximumAgeMinutes": stale_fallback_minutes,
+				"ageLimitBypassedDuringRecovery": (
+					serve_stale_fallback and not catalog_has_grace_row
+				),
 			},
 			"recommendationCoverage": {
 				"modelPicks": model_pick_count,
