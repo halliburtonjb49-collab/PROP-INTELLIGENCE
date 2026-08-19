@@ -10,6 +10,10 @@ from typing import Any
 import requests
 from dotenv import load_dotenv
 from providers.espn_basketball_statistics import EspnBasketballStatisticsProvider
+from services.mlb_official_stats_service import (
+    market_is_known as mlb_market_is_known,
+    resolve_market_value as resolve_mlb_market_value,
+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -379,31 +383,23 @@ def _mlb_snapshot_from_feed(
     pitching = stats.get("pitching") if isinstance(stats, dict) else None
     hitting = stats.get("batting") if isinstance(stats, dict) else None
     market = _normalize_live_stat_market(prop_type)
-    stat_path = {
-        "pitcher strikeouts": (pitching, "strikeOuts"),
-        "strikeouts": (pitching, "strikeOuts"),
-        "hits allowed": (pitching, "hits"),
-        "pitcher hits allowed": (pitching, "hits"),
-        "earned runs": (pitching, "earnedRuns"),
-        "pitcher earned runs": (pitching, "earnedRuns"),
-        "walks allowed": (pitching, "baseOnBalls"),
-        "pitcher walks": (pitching, "baseOnBalls"),
-        "hits": (hitting, "hits"),
-        "runs": (hitting, "runs"),
-        "rbis": (hitting, "rbi"),
-        "rbi": (hitting, "rbi"),
-        "home runs": (hitting, "homeRuns"),
-        "total bases": (hitting, "totalBases"),
-    }.get(market)
-    if stat_path is None:
-        return LiveStatSnapshot(None, completed, "unsupported_market")
-    group, stat_key = stat_path
-    if not isinstance(group, dict) or stat_key not in group:
-        return LiveStatSnapshot(None, completed, "missing_live_stat")
-    try:
-        value = float(group[stat_key])
-    except (TypeError, ValueError):
-        return LiveStatSnapshot(None, completed, "missing_live_stat")
+    # Share the grading resolver rather than keep a second, shorter table.
+    # The local copy knew nothing of singles, doubles, walks or batter
+    # strikeouts, so markets that graded correctly after the game still read
+    # as unsupported while it was being played.
+    box_score_line = {
+        "pitching": pitching if isinstance(pitching, dict) else {},
+        "batting": hitting if isinstance(hitting, dict) else {},
+    }
+    value = resolve_mlb_market_value(box_score_line, market)
+    if value is None:
+        return LiveStatSnapshot(
+            None,
+            completed,
+            "missing_live_stat"
+            if mlb_market_is_known(market)
+            else "unsupported_market",
+        )
     return LiveStatSnapshot(value, completed, status, "mlb-statsapi", game_detail)
 
 

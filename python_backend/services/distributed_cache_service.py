@@ -145,6 +145,39 @@ def set_compressed_json(key: str, value: Any, *, ttl_seconds: int) -> bool:
         return False
 
 
+def _reclaim_abandoned_builders(client: Redis, key: str) -> int:
+    """Delete builder keys left behind by a killed publisher.
+
+    Every live publication now carries a TTL from its first write, so a
+    builder with no expiry can only be the residue of a process that died
+    mid-write. Those are pure waste holding a full catalog each, and enough
+    of them exhaust the instance -- at which point every subsequent write
+    fails and the catalog silently stops publishing while reads keep serving
+    the previous copy.
+    """
+
+    reclaimed = 0
+    try:
+        for candidate in client.scan_iter(
+            match=f"{key}:building:*", count=100
+        ):
+            if client.ttl(candidate) == -1:
+                client.delete(candidate)
+                reclaimed += 1
+    except Exception as exc:
+        LOGGER.warning(
+            "Redis builder reclaim failed key=%s error=%s", key, exc
+        )
+        return reclaimed
+    if reclaimed:
+        LOGGER.warning(
+            "Reclaimed %s abandoned Redis builder key(s) for %s",
+            reclaimed,
+            key,
+        )
+    return reclaimed
+
+
 def set_json_streaming_list(
     key: str,
     values: Iterable[Any],
@@ -167,7 +200,14 @@ def set_json_streaming_list(
     temporary_key = f"{key}:building:{uuid.uuid4().hex}"
     transform = encode_item or (lambda item: item)
     try:
-        client.set(temporary_key, "[")
+        _reclaim_abandoned_builders(client, key)
+        # The expiry has to be attached at creation, not after the final
+        # append. A publisher killed mid-write -- a deploy restart, an
+        # out-of-memory kill -- otherwise leaves a multi-megabyte builder key
+        # with no TTL at all, and under maxmemory-policy noeviction nothing
+        # ever reclaims it. APPEND preserves an existing TTL and RENAME
+        # carries it to the destination, so the success path is unchanged.
+        client.set(temporary_key, "[", ex=max(1, ttl_seconds))
         buffer: list[str] = []
         buffer_size = 0
         first = True

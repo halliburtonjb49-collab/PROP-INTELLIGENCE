@@ -317,25 +317,61 @@ def _batting_value(batting: dict[str, Any], text: str) -> Any:
     return None
 
 
-def _market_value(stats: dict[str, Any], market: str) -> float | None:
+def resolve_market_value(stats: dict[str, Any], market: str) -> float | None:
+    """Read one MLB market out of a box score line, without diagnostics.
+
+    Shared with the live in-game path so a market that grades correctly
+    cannot silently read as unsupported while the game is still running.
+    """
+
     text = _market_text(market)
-    pitching = stats.get("pitching", {})
-    batting = stats.get("batting", {})
+    pitching = stats.get("pitching") or {}
+    batting = stats.get("batting") or {}
     if _is_pitcher_market(text):
         value = _pitching_value(pitching, text)
     else:
         value = _batting_value(batting, text)
-    result: float | None
     try:
-        result = float(value) if value is not None else None
+        return float(value) if value is not None else None
     except (TypeError, ValueError):
-        result = None
+        return None
+
+
+_MARKET_PROBE = {
+    "batting": {
+        "hits": 0, "doubles": 0, "triples": 0, "homeRuns": 0,
+        "baseOnBalls": 0, "strikeOuts": 0, "totalBases": 0, "rbi": 0,
+        "runs": 0, "stolenBases": 0,
+    },
+    "pitching": {
+        "strikeOuts": 0, "hits": 0, "baseOnBalls": 0, "earnedRuns": 0,
+        "inningsPitched": "6.0",
+    },
+}
+
+
+def market_is_known(market: str) -> bool:
+    """Report whether a market maps to any box score stat at all.
+
+    Probing the real resolver against a complete line keeps this honest: a
+    market added to the resolver is recognised here automatically, so the two
+    can never disagree about what "unsupported" means.
+    """
+
+    return resolve_market_value(_MARKET_PROBE, market) is not None
+
+
+def _market_value(stats: dict[str, Any], market: str) -> float | None:
+    pitching = stats.get("pitching") or {}
+    batting = stats.get("batting") or {}
+    result = resolve_market_value(stats, market)
     if result is None and _diagnostic_budget["remaining"] > 0:
         _diagnostic_budget["remaining"] -= 1
         LOGGER.warning(
-            "mlb grading: market value failed market=%r rawValue=%r "
+            "mlb grading: market value failed market=%r marketKnown=%s "
             "pitchingKeys=%s battingKeys=%s",
-            market, value, list(pitching.keys()), list(batting.keys()),
+            market, market_is_known(market),
+            list(pitching.keys()), list(batting.keys()),
         )
     return result
 

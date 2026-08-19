@@ -115,6 +115,11 @@ def _basketball(prop: object, rows: list[dict[str, object]]) -> list[dict[str, o
 
 def _is_pitcher_prop(prop: object, rows: list[dict[str, object]]) -> bool:
     market = " ".join(_text(getattr(prop, key, "")) for key in ("market", "marketKey", "category")).lower()
+    # "Batter Strikeouts" shares its only distinctive token with the pitcher
+    # market, so without this the batter prop demanded a confirmed starting
+    # pitcher instead of a batting order slot and never came back available.
+    if "batter" in market:
+        return False
     if any(token in market for token in ("strikeout", "pitcher", "earned run", "outs recorded", "pitch count", "hits allowed")):
         return True
     return any("PITCHER" in _upper(_payload(row).get("role")) for row in rows)

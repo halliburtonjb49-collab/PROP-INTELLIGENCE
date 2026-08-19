@@ -114,11 +114,21 @@ def test_large_responses_support_brotli() -> None:
 class _StreamingRedis:
     def __init__(self) -> None:
         self.values = {"catalog": "[{\"old\":true}]"}
+        self.ttls: dict[str, int] = {}
         self.append_calls = 0
         self.previous_visible_at_rename = False
 
-    def set(self, key, value):
+    def set(self, key, value, ex=None):
         self.values[key] = value
+        if ex is not None:
+            self.ttls[key] = ex
+
+    def scan_iter(self, match=None, count=None):
+        prefix = str(match or "").rstrip("*")
+        return [key for key in list(self.values) if key.startswith(prefix)]
+
+    def ttl(self, key):
+        return self.ttls.get(key, -1)
 
     def append(self, key, value):
         self.append_calls += 1
