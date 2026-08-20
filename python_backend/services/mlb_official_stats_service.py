@@ -106,8 +106,11 @@ def _final_game_pk(
     matchup: str,
     api_sports_game_id: str,
 ) -> str | None:
-    if str(api_sports_game_id).isdigit():
-        return str(api_sports_game_id)
+    # A numeric provider id is not an MLB gamePk. Returning it unchecked sent
+    # the box score lookup at whatever game happens to hold that number in
+    # the MLB Stats API, so a slip could be verified against a different
+    # game entirely. The schedule below resolves the real one, and every
+    # caller reaches it now.
     start_date, end_date = _schedule_window(game_start_time)
     payload = _get_json(
         "/v1/schedule",

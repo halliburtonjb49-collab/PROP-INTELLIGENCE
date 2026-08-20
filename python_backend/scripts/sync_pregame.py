@@ -23,6 +23,10 @@ from services.sync_service import run_global_sync_pipeline
 
 _TRANSIENT_HTTP_STATUSES = {429, 502, 503, 504}
 
+# Each check already retries internally, so this many consecutive failures is
+# a status endpoint that is genuinely gone rather than a moment of noise.
+_MAX_CONSECUTIVE_STATUS_FAILURES = 10
+
 
 def _request_json_with_retry(
     method: str,
@@ -85,12 +89,39 @@ def run_live_api_sync() -> dict[str, object] | None:
         int(os.getenv("PREGAME_SYNC_TIMEOUT_SECONDS", "2700")),
     )
     deadline = time.monotonic() + timeout_seconds
+    # The API owns the sync; this loop only watches it. A proxy hiccup or a
+    # deploy swapping instances makes one status read fail, and treating
+    # that as a failed sync threw away a cycle that was still running fine
+    # on the other side. Only a status endpoint that stays unreachable is
+    # evidence of anything.
+    consecutive_status_failures = 0
     while time.monotonic() < deadline:
         time.sleep(3)
-        payload = _request_json_with_retry(
-            "GET",
-            f"{api_base_url}/api/sync/status",
-        )
+        try:
+            payload = _request_json_with_retry(
+                "GET",
+                f"{api_base_url}/api/sync/status",
+                attempts=3,
+            )
+        except (
+            requests.ConnectionError,
+            requests.Timeout,
+            requests.HTTPError,
+        ) as exc:
+            consecutive_status_failures += 1
+            logging.warning(
+                "Sync status temporarily unavailable failure=%s/%s error=%s",
+                consecutive_status_failures,
+                _MAX_CONSECUTIVE_STATUS_FAILURES,
+                exc,
+            )
+            if consecutive_status_failures >= _MAX_CONSECUTIVE_STATUS_FAILURES:
+                raise RuntimeError(
+                    "Live API sync status remained unavailable after "
+                    f"{consecutive_status_failures} consecutive checks"
+                ) from exc
+            continue
+        consecutive_status_failures = 0
         status = str(payload.get("status", "")).lower()
         coverage_status = str(payload.get("coverageStatus", "")).lower()
         sports_game_odds_status = str(
