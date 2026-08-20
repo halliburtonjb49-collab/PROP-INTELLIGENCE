@@ -17,6 +17,7 @@ import '../services/prop_board_engine.dart';
 import '../services/prop_market_identity.dart';
 import '../services/recommendation_access.dart';
 import '../theme/app_colors.dart' as app_colors;
+import '../theme/app_spacing.dart';
 import 'injury_impact_alert.dart';
 import 'prop_board_loading.dart';
 import 'prop_research_assistant.dart';
@@ -525,7 +526,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             label,
             style: const TextStyle(
               color: app_colors.AppColors.textMuted,
-              fontSize: 7,
+              fontSize: PiDesign.metadataFontSize,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -536,7 +537,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 10,
+              fontSize: 13,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -555,7 +556,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         text,
         style: const TextStyle(
           color: app_colors.AppColors.textMuted,
-          fontSize: 7,
+          fontSize: PiDesign.metadataFontSize,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -576,8 +577,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 ? app_colors.AppColors.background
                 : Colors.white,
             backgroundColor: selected
-                ? app_colors.AppColors.goldHighlight.withValues(alpha: .88)
-                : const Color(0xFF1A2430),
+                ? app_colors.AppColors.piGoldBright
+                : systemRecommended
+                ? app_colors.AppColors.piGold.withValues(alpha: .18)
+                : app_colors.AppColors.surfaceElevated,
             side: BorderSide(
               color: selected
                   ? app_colors.AppColors.goldHighlight
@@ -587,75 +590,48 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               width: selected ? 1.4 : 1,
             ),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(PiDesign.controlRadius),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           ),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              if (side == PickSide.under)
-                Text(
-                  '⌄',
-                  style: TextStyle(
-                    color: selected
-                        ? app_colors.AppColors.background
-                        : app_colors.AppColors.silver,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    height: 1,
-                  ),
-                ),
-              if (side == PickSide.under) const SizedBox(width: 7),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900,
-                        color: selected
-                            ? app_colors.AppColors.background
-                            : app_colors.AppColors.gold,
-                        letterSpacing: .4,
-                      ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      color: selected
+                          ? app_colors.AppColors.background
+                          : app_colors.AppColors.gold,
+                      letterSpacing: .4,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      prop.line.toStringAsFixed(1),
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        color: selected
-                            ? app_colors.AppColors.background
-                            : Colors.white,
-                      ),
+                  ),
+                  if (!selected && systemRecommended) ...[
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.auto_awesome_rounded,
+                      size: 11,
+                      color: app_colors.AppColors.gold,
                     ),
                   ],
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                prop.line.toStringAsFixed(1),
+                style: TextStyle(
+                  fontSize: PiDesign.recommendationFontSize,
+                  fontWeight: FontWeight.w900,
+                  color: selected
+                      ? app_colors.AppColors.background
+                      : Colors.white,
                 ),
               ),
-              if (side == PickSide.over) const SizedBox(width: 7),
-              if (side == PickSide.over)
-                Text(
-                  '⌃',
-                  style: TextStyle(
-                    color: selected
-                        ? app_colors.AppColors.background
-                        : app_colors.AppColors.silver,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    height: 1,
-                  ),
-                ),
-              if (!selected && systemRecommended) ...[
-                const SizedBox(width: 6),
-                const Icon(
-                  Icons.auto_awesome_rounded,
-                  size: 12,
-                  color: app_colors.AppColors.gold,
-                ),
-              ],
             ],
           ),
         ),
@@ -668,7 +644,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
           color: const Color(0xFF0B1622),
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(PiDesign.controlRadius),
           border: Border.all(
             color: app_colors.AppColors.gold.withValues(alpha: .28),
           ),
@@ -680,7 +656,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               'LINE',
               style: TextStyle(
                 color: app_colors.AppColors.gold,
-                fontSize: 8,
+                fontSize: PiDesign.metadataFontSize,
                 fontWeight: FontWeight.w900,
                 letterSpacing: .6,
               ),
@@ -690,7 +666,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               prop.line.toStringAsFixed(1),
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 14,
+                fontSize: PiDesign.recommendationFontSize,
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -707,8 +683,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           end: Alignment.bottomCenter,
           colors: [Color(0xFF0A1823), Color(0xFF06111A)],
         ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: app_colors.AppColors.gold),
+        borderRadius: BorderRadius.circular(PiDesign.cardRadius),
+        border: Border.all(
+          color: selectedSide == null
+              ? app_colors.AppColors.border
+              : app_colors.AppColors.piGoldBright,
+          width: selectedSide == null ? 1 : 1.4,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -742,7 +723,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 13,
+                                fontSize: PiDesign.playerFontSize,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
@@ -753,7 +734,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: app_colors.AppColors.textMuted,
-                                fontSize: 8,
+                                fontSize: PiDesign.metadataFontSize,
+                                height: 1.4,
                               ),
                             ),
                           ],
@@ -791,7 +773,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                                 : signalLabel,
                             style: TextStyle(
                               color: signalColor,
-                              fontSize: 7,
+                              fontSize: 9,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
@@ -816,7 +798,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                             : '${advisedSide == PickSide.over ? 'OVER' : 'UNDER'} ${prop.line.toStringAsFixed(1)}',
                         style: TextStyle(
                           color: signalColor,
-                          fontSize: 11,
+                          fontSize: PiDesign.recommendationFontSize,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -841,7 +823,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   key: ValueKey('prop-game-date-time-${prop.id}'),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 9,
+                    fontSize: PiDesign.metadataFontSize,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -857,7 +839,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   textAlign: TextAlign.right,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 9,
+                    fontSize: 12,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -3129,7 +3111,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                           // pick buttons visible without a long evidence body.
                           // The book strip needs its own room; a fixed cell
                           // that ignored it would clip the switcher.
-                          mainAxisExtent: anyAlternatives ? 384 : 342,
+                          mainAxisExtent: anyAlternatives ? 438 : 396,
                         ),
                         itemBuilder: (context, index) => groupCardFor(
                           visibleGroups[index],

@@ -18,8 +18,7 @@ void main() {
     // people did not know the evidence was there at all.
     await pump(tester, open: false);
 
-    expect(find.text('OPEN RESEARCH'), findsOneWidget);
-    expect(find.text('projection, evidence, risk'), findsOneWidget);
+    expect(find.text('VIEW RESEARCH'), findsOneWidget);
     expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
   });
 
@@ -27,7 +26,6 @@ void main() {
     await pump(tester, open: true);
 
     expect(find.text('CLOSE RESEARCH'), findsOneWidget);
-    expect(find.text('shorter card'), findsOneWidget);
     expect(find.byIcon(Icons.keyboard_arrow_up_rounded), findsOneWidget);
   });
 
@@ -41,7 +39,7 @@ void main() {
   testWidgets('it carries the board gold', (tester) async {
     await pump(tester, open: false);
 
-    final text = tester.widget<Text>(find.text('OPEN RESEARCH'));
+    final text = tester.widget<Text>(find.text('VIEW RESEARCH'));
     expect(text.style?.color, AppColors.gold);
 
     final icons = tester.widgetList<Icon>(find.byType(Icon));
@@ -85,7 +83,7 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(find.text('OPEN RESEARCH'), findsOneWidget);
+    expect(find.text('VIEW RESEARCH'), findsOneWidget);
     expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
   });
 }

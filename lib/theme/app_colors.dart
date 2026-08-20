@@ -1,6 +1,17 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
+  static const Color surfacePrimary = Color(0xFF09131F);
+  static const Color surfaceSecondary = Color(0xFF0D1926);
+  static const Color surfaceElevated = Color(0xFF122131);
+  static const Color piGold = Color(0xFFD4AF37);
+  static const Color piGoldBright = Color(0xFFE7C75A);
+  static const Color piGoldMuted = Color(0xFF8F7A3B);
+  static const Color coreSilver = Color(0xFFC0C7D1);
+  static const Color positive = Color(0xFF35D6A0);
+  static const Color informational = Color(0xFF79CBE8);
+  static const Color destructive = Color(0xFFFF6B6B);
+  static const Color textPrimary = Color(0xFFF4F7FA);
   static const Color bgBase = Color(0xFF080D15);
   static const Color bgPanel = Color(0xFF111822);
 

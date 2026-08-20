@@ -29,6 +29,7 @@ import '../services/prop_board_engine.dart';
 import '../services/prop_market_identity.dart';
 import '../services/recommendation_access.dart';
 import '../theme/app_colors.dart' as app_colors;
+import '../theme/app_spacing.dart';
 import 'active_board_filters.dart';
 import 'analytics_admin_workspace.dart';
 import 'board_category_chip.dart';
@@ -1733,7 +1734,7 @@ class _MainDashboardState extends State<MainDashboard> {
     final compactLayout = useCompactBoardControls(availableWidth);
     final primaryControlWidth = compactLayout
         ? compactBoardControlWidth(availableWidth)
-        : 160.0;
+        : 210.0;
     final shortControlLabels = primaryControlWidth < 132;
     final primaryControlPadding = EdgeInsets.symmetric(
       horizontal: shortControlLabels ? 6 : 13,
@@ -1781,11 +1782,11 @@ class _MainDashboardState extends State<MainDashboard> {
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(vertical: 8),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(7),
+            borderRadius: BorderRadius.circular(PiDesign.controlRadius),
             borderSide: const BorderSide(color: app_colors.AppColors.gold),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(7),
+            borderRadius: BorderRadius.circular(PiDesign.controlRadius),
             borderSide: const BorderSide(
               color: app_colors.AppColors.gold,
               width: 1.4,
@@ -1912,7 +1913,7 @@ class _MainDashboardState extends State<MainDashboard> {
               padding: primaryControlPadding,
               fixedSize: Size(primaryControlWidth, 48),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(7),
+                borderRadius: BorderRadius.circular(PiDesign.controlRadius),
               ),
             ),
             child: Row(
@@ -1929,7 +1930,7 @@ class _MainDashboardState extends State<MainDashboard> {
                             : 'All Prop Sites'
                       : _selectedSite,
                   style: const TextStyle(
-                    fontSize: 8,
+                    fontSize: PiDesign.metadataFontSize,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -1960,7 +1961,9 @@ class _MainDashboardState extends State<MainDashboard> {
                 : app_colors.AppColors.border,
           ),
           padding: const EdgeInsets.symmetric(horizontal: 13),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(PiDesign.controlRadius),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1969,7 +1972,10 @@ class _MainDashboardState extends State<MainDashboard> {
             const SizedBox(width: 6),
             Text(
               book,
-              style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800),
+              style: const TextStyle(
+                fontSize: PiDesign.metadataFontSize,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ],
         ),
@@ -1999,7 +2005,7 @@ class _MainDashboardState extends State<MainDashboard> {
               label: Text(
                 shortControlLabels ? 'CHAT' : 'PROP CHAT',
                 style: const TextStyle(
-                  fontSize: 8,
+                  fontSize: PiDesign.metadataFontSize,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -2012,7 +2018,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 padding: primaryControlPadding,
                 fixedSize: Size(primaryControlWidth, 48),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(7),
+                  borderRadius: BorderRadius.circular(PiDesign.controlRadius),
                 ),
               ),
             ),
@@ -2031,15 +2037,26 @@ class _MainDashboardState extends State<MainDashboard> {
           _activeBoardFilterLabels().isEmpty
               ? 'FILTERS'
               : 'FILTERS ${_activeBoardFilterLabels().length}',
-          style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w800),
+          style: const TextStyle(
+            fontSize: PiDesign.metadataFontSize,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         style: OutlinedButton.styleFrom(
           foregroundColor: app_colors.AppColors.gold,
-          backgroundColor: app_colors.AppColors.gold.withValues(alpha: .10),
-          side: const BorderSide(color: app_colors.AppColors.gold),
+          backgroundColor: _activeBoardFilterLabels().isEmpty
+              ? app_colors.AppColors.sidebar
+              : app_colors.AppColors.gold.withValues(alpha: .12),
+          side: BorderSide(
+            color: _activeBoardFilterLabels().isEmpty
+                ? app_colors.AppColors.border
+                : app_colors.AppColors.gold,
+          ),
           padding: primaryControlPadding,
           fixedSize: Size(primaryControlWidth, 48),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(PiDesign.controlRadius),
+          ),
         ),
       ),
       if (!compactLayout) ...books.map(buildSiteButton),
@@ -2664,6 +2681,32 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
+  Widget _buildDecisionAndSummary({required bool showVerdict}) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!showVerdict) return _buildBoardResultsSummary();
+        if (constraints.maxWidth < 900) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildVerdictFilter(),
+              const SizedBox(height: PiDesign.spacing8),
+              _buildBoardResultsSummary(),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: _buildVerdictFilter()),
+            const SizedBox(width: PiDesign.spacing12),
+            SizedBox(width: 310, child: _buildBoardResultsSummary()),
+          ],
+        );
+      },
+    );
+  }
+
   void _showProviderReliabilityDetails() {
     if (_providerReliability.isEmpty) return;
     showModalBottomSheet<void>(
@@ -3104,7 +3147,6 @@ class _MainDashboardState extends State<MainDashboard> {
                                     SizedBox(height: sectionGap),
                                     _buildProviderReliabilityBanner(),
                                     SizedBox(height: sectionGap),
-                                    _buildBoardSports(),
                                     _buildBoardCategories(),
                                     SizedBox(height: sectionGap),
                                     /*Text(
@@ -3115,23 +3157,21 @@ class _MainDashboardState extends State<MainDashboard> {
                             ),
                           ),
                           const SizedBox(height: 10),*/
-                                    if (canShowSystemRecommendation(
-                                      hasEdgeAccess: AuthManager
-                                          .instance
-                                          .sessionState
-                                          .value
-                                          .hasEdgeAccess,
-                                    )) ...[
-                                      _buildVerdictFilter(),
-                                      SizedBox(height: sectionGap),
-                                    ],
+                                    _buildDecisionAndSummary(
+                                      showVerdict: canShowSystemRecommendation(
+                                        hasEdgeAccess: AuthManager
+                                            .instance
+                                            .sessionState
+                                            .value
+                                            .hasEdgeAccess,
+                                      ),
+                                    ),
+                                    SizedBox(height: sectionGap),
                                     if (_activeBoardFilterLabels()
                                         .isNotEmpty) ...[
                                       _buildActiveBoardFilters(),
                                       SizedBox(height: sectionGap),
                                     ],
-                                    _buildBoardResultsSummary(),
-                                    SizedBox(height: sectionGap),
                                     PropGrid(
                                       selections: widget.selections,
                                       onSelect: (prop, side) {

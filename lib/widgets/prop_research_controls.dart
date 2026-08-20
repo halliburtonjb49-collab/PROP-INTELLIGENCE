@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/prop_data.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 
 class ResearchToggle extends StatelessWidget {
   const ResearchToggle({super.key, required this.open, required this.onTap});
@@ -22,13 +23,16 @@ class ResearchToggle extends StatelessWidget {
       label: open ? 'Close research' : 'Open research',
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(PiDesign.controlRadius),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          constraints: const BoxConstraints(
+            minHeight: PiDesign.minimumTouchTarget,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
             color: AppColors.gold.withValues(alpha: open ? .16 : .08),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(PiDesign.controlRadius),
             border: Border.all(
               color: AppColors.gold.withValues(alpha: open ? .9 : .55),
             ),
@@ -42,33 +46,20 @@ class ResearchToggle extends StatelessWidget {
                 size: 13,
               ),
               const SizedBox(width: 6),
-              Text(
-                open ? 'CLOSE RESEARCH' : 'OPEN RESEARCH',
-                style: const TextStyle(
-                  color: AppColors.gold,
-                  fontSize: 9,
-                  letterSpacing: .7,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(width: 6),
-              // The card is narrower than this line wants to be, so the hint
-              // gives way first: the label and the chevron are what has to
-              // survive on a phone.
               Flexible(
                 child: Text(
-                  open ? 'shorter card' : 'projection, evidence, risk',
+                  open ? 'CLOSE RESEARCH' : 'VIEW RESEARCH',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  softWrap: false,
-                  style: TextStyle(
-                    color: AppColors.gold.withValues(alpha: .72),
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
+                  style: const TextStyle(
+                    color: AppColors.gold,
+                    fontSize: 11,
+                    letterSpacing: .7,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
               Icon(
                 open
                     ? Icons.keyboard_arrow_up_rounded
