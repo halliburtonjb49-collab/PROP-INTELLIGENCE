@@ -224,6 +224,19 @@ def _request_with_failover(url: str, params: dict[str, object]) -> requests.Resp
     """GETs url, automatically moving on to the next configured Odds API
     key (and retrying once) if the active one comes back exhausted/rejected.
     """
+    # An unset key used to be sent as an empty string, so the provider
+    # answered 401 and rotation read an absent credential as a rejected one:
+    # it marked a key that does not exist dead, found nothing to fail over
+    # to, and surfaced an authentication error. The board went empty for a
+    # reason no log line named. Refuse before the request instead, and say
+    # which variable is missing. The check lives here rather than in the
+    # shared config module so that a headshot or roster job, which needs no
+    # odds credential at all, is not made to carry one.
+    if not _ODDS_API_KEYS:
+        raise RuntimeError(
+            "ODDS_API_KEY is not configured, so the odds provider cannot be "
+            "reached. Set it on the services that fetch odds."
+        )
     while True:
         response = _http_session().get(
             url,
