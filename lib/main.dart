@@ -1132,7 +1132,15 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     );
   }
 
-  Widget _buildRightPanel() {
+  Widget _buildAccountPanel() {
+    return Container(
+      color: app_colors.AppColors.sidebar,
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+      child: const AuthAccountPanel(),
+    );
+  }
+
+  Widget _buildActiveSlipPanel() {
     return AnimatedBuilder(
       animation: Listenable.merge([
         _activeSlipController,
@@ -1144,8 +1152,6 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
           padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
           child: Column(
             children: [
-              const AuthAccountPanel(),
-              const SizedBox(height: 8),
               _buildFeedbackActionButton(),
               const SizedBox(height: 10),
               Expanded(
@@ -2065,10 +2071,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final hasProAccess = AuthManager.instance.sessionState.value.hasEdgeAccess;
-    final membershipAccent = hasProAccess
-        ? app_colors.AppColors.gold
-        : app_colors.AppColors.silver;
+    final tierName = AuthManager.instance.sessionState.value.subscriptionTier.name;
+    final membershipAccent = rightPanelAccentForTier(tierName);
     return LayoutBuilder(
       builder: (context, constraints) => Stack(
         children: [
@@ -2078,7 +2082,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
               leftSidebar: _buildLeftSidebar(),
               topNavigation: _buildTopNavigation(),
               content: _buildMainContent(),
-              rightSidebar: _buildRightPanel(),
+              accountPanel: _buildAccountPanel(),
+              activeSlipPanel: _buildActiveSlipPanel(),
               activeSlipCount: _activeSlipController.legCount,
               watchedSlipCount: _activeSlipController.lockedSlipCount,
               mobileSelectedIndex: switch (_selectedPage) {

@@ -4,6 +4,28 @@ import '../theme/app_colors.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
+const piGold = Color(0xFFD4AF37);
+const piSilver = Color(0xFFC0C7D1);
+const piPanelNavy = Color(0xFF07111D);
+
+Color rightPanelAccentForTier(String? tier) {
+  final normalized = (tier ?? '').trim().toUpperCase();
+  switch (normalized) {
+    case 'PRO':
+    case 'PRO_FOUNDER':
+    case 'PRO FOUNDER':
+    case 'FOUNDING_PRO':
+    case 'FOUNDING PRO':
+    case 'OWNER':
+      return piGold;
+    case 'CORE':
+    default:
+      return piSilver;
+  }
+}
+
+enum _RightPanelSection { account, activeSlip }
+
 double mobileShellInset(double width) => width < 600 ? 5 : 6;
 double mobileShellGap(double width) => width < 600 ? 5 : 6;
 double mobileTopBarHeight(double width) => width < 360
@@ -23,7 +45,8 @@ class AppShell extends StatefulWidget {
     required this.leftSidebar,
     required this.topNavigation,
     required this.content,
-    required this.rightSidebar,
+    required this.accountPanel,
+    required this.activeSlipPanel,
     this.activeSlipCount = 0,
     this.watchedSlipCount = 0,
     this.mobileSelectedIndex = 0,
@@ -31,14 +54,14 @@ class AppShell extends StatefulWidget {
     this.onMobileWatchSlip,
     this.onMobileDismissOverlay,
     this.onMobileNavigateIndex,
-    this.collapseEmptyRightSidebar = true,
     this.accentColor = AppColors.gold,
   });
 
   final Widget leftSidebar;
   final Widget topNavigation;
   final Widget content;
-  final Widget rightSidebar;
+  final Widget accountPanel;
+  final Widget activeSlipPanel;
   final int activeSlipCount;
   final int watchedSlipCount;
   final int mobileSelectedIndex;
@@ -46,7 +69,6 @@ class AppShell extends StatefulWidget {
   final VoidCallback? onMobileWatchSlip;
   final VoidCallback? onMobileDismissOverlay;
   final ValueChanged<int>? onMobileNavigateIndex;
-  final bool collapseEmptyRightSidebar;
   final Color accentColor;
 
   static const double leftWidth = 244;
@@ -56,12 +78,12 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  /// The account column is collapsed while no picks exist, which also hides
-  /// the member's identity, plan controls and the only sign-out in the app.
-  /// This lets it be opened without first drafting a pick to earn it back.
-  bool _accountColumnRevealed = false;
+  bool _isRightPanelOpen = false;
+  _RightPanelSection _activeRightPanelSection = _RightPanelSection.activeSlip;
 
   static const double topHeight = 84;
+  static const double desktopRightRailWidth = 58;
+  static const double desktopRightPanelWidth = 340;
 
   ({double left, double right, double gap, double padding}) _metrics(
     double width,
@@ -109,7 +131,8 @@ class _AppShellState extends State<AppShell> {
             leftSidebar: widget.leftSidebar,
             topNavigation: widget.topNavigation,
             content: widget.content,
-            rightSidebar: widget.rightSidebar,
+            accountPanel: widget.accountPanel,
+            activeSlipPanel: widget.activeSlipPanel,
             activeSlipCount: widget.activeSlipCount,
             watchedSlipCount: widget.watchedSlipCount,
             selectedIndex: widget.mobileSelectedIndex,
@@ -122,14 +145,6 @@ class _AppShellState extends State<AppShell> {
         }
         final metrics = _metrics(constraints.maxWidth);
         final radius = BorderRadius.circular(18);
-        // The account actions already live in the top navigation. Reclaim the
-        // full column while no draft picks exist; selecting the first prop
-        // rebuilds AppShell with a positive count and restores the slip.
-        final showRightSidebar =
-            !widget.collapseEmptyRightSidebar ||
-            widget.activeSlipCount > 0 ||
-            _accountColumnRevealed;
-
         return Scaffold(
           backgroundColor: AppColors.background,
           body: Stack(
@@ -169,26 +184,26 @@ class _AppShellState extends State<AppShell> {
                           ],
                         ),
                       ),
-                      if (showRightSidebar) ...[
-                        SizedBox(width: metrics.gap),
-                        SizedBox(
-                          width: metrics.right,
-                          child: _surface(
-                            borderRadius: radius,
-                            child: widget.rightSidebar,
-                          ),
-                        ),
-                      ] else ...[
-                        SizedBox(width: metrics.gap),
-                        // Collapsing the empty slip also hid the member's
-                        // identity, their plan controls and the only sign-out
-                        // in the app, with no way back but drafting a pick to
-                        // earn the column again. This is that way back.
-                        _AccountColumnHandle(
-                          onOpen: () =>
-                              setState(() => _accountColumnRevealed = true),
-                        ),
-                      ],
+                      SizedBox(width: metrics.gap),
+                      _DesktopRightPanel(
+                        isOpen: _isRightPanelOpen,
+                        activePanelSection: _activeRightPanelSection,
+                        activeSlipCount: widget.activeSlipCount,
+                        accentColor: widget.accentColor,
+                        accountPanel: widget.accountPanel,
+                        activeSlipPanel: widget.activeSlipPanel,
+                        onOpenAccount: () => setState(() {
+                          _isRightPanelOpen = true;
+                          _activeRightPanelSection = _RightPanelSection.account;
+                        }),
+                        onOpenActiveSlip: () => setState(() {
+                          _isRightPanelOpen = true;
+                          _activeRightPanelSection = _RightPanelSection.activeSlip;
+                        }),
+                        onClose: () => setState(() {
+                          _isRightPanelOpen = false;
+                        }),
+                      ),
                     ],
                   ),
                 ),
@@ -199,38 +214,404 @@ class _AppShellState extends State<AppShell> {
       },
     );
   }
+
 }
 
 /// The slim rail that brings the account column back.
-class _AccountColumnHandle extends StatelessWidget {
-  const _AccountColumnHandle({required this.onOpen});
+class _DesktopRightPanel extends StatelessWidget {
+  const _DesktopRightPanel({
+    required this.isOpen,
+    required this.activePanelSection,
+    required this.activeSlipCount,
+    required this.accentColor,
+    required this.accountPanel,
+    required this.activeSlipPanel,
+    required this.onOpenAccount,
+    required this.onOpenActiveSlip,
+    required this.onClose,
+  });
 
-  final VoidCallback onOpen;
+  final bool isOpen;
+  final _RightPanelSection activePanelSection;
+  final int activeSlipCount;
+  final Color accentColor;
+  final Widget accountPanel;
+  final Widget activeSlipPanel;
+  final VoidCallback onOpenAccount;
+  final VoidCallback onOpenActiveSlip;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final panelWidth = isOpen
+        ? _AppShellState.desktopRightPanelWidth
+        : _AppShellState.desktopRightRailWidth;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 236),
+      curve: Curves.easeOutCubic,
+      width: panelWidth,
+      decoration: BoxDecoration(
+        color: piPanelNavy,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: accentColor.withValues(alpha: 0.85),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.12),
+            blurRadius: 14,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: isOpen
+            ? _DesktopRightPanelContent(
+                activeSlipCount: activeSlipCount,
+                accentColor: accentColor,
+                accountPanel: accountPanel,
+                activeSlipPanel: activeSlipPanel,
+                initialSection: activePanelSection,
+                onClose: onClose,
+              )
+            : _RightPanelRail(
+                accentColor: accentColor,
+                activeSlipCount: activeSlipCount,
+                onOpenAccount: onOpenAccount,
+                onOpenActiveSlip: onOpenActiveSlip,
+              ),
+      ),
+    );
+  }
+}
+
+class _DesktopRightPanelContent extends StatefulWidget {
+  const _DesktopRightPanelContent({
+    required this.activeSlipCount,
+    required this.accentColor,
+    required this.accountPanel,
+    required this.activeSlipPanel,
+    required this.initialSection,
+    this.onClose,
+  });
+
+  final int activeSlipCount;
+  final Color accentColor;
+  final Widget accountPanel;
+  final Widget activeSlipPanel;
+  final _RightPanelSection initialSection;
+  final VoidCallback? onClose;
+
+  @override
+  State<_DesktopRightPanelContent> createState() =>
+      _DesktopRightPanelContentState();
+}
+
+class _DesktopRightPanelContentState
+    extends State<_DesktopRightPanelContent> {
+  late _RightPanelSection _activeSection = widget.initialSection;
+
+  @override
+  void didUpdateWidget(covariant _DesktopRightPanelContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialSection != widget.initialSection) {
+      _activeSection = widget.initialSection;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          height: 54,
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: accentWithOpacity(widget.accentColor)),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: _PanelTab(
+                  label: 'ACCOUNT',
+                  selected: _activeSection == _RightPanelSection.account,
+                  accentColor: widget.accentColor,
+                  onTap: () {
+                    setState(() => _activeSection = _RightPanelSection.account);
+                  },
+                  labelKey: const ValueKey('account-tab'),
+                ),
+              ),
+              Expanded(
+                child: _PanelTab(
+                  label: 'ACTIVE SLIP',
+                  selected: _activeSection == _RightPanelSection.activeSlip,
+                  accentColor: widget.accentColor,
+                  onTap: () {
+                    setState(() => _activeSection = _RightPanelSection.activeSlip);
+                  },
+                  labelKey: const ValueKey('active-slip-tab'),
+                ),
+              ),
+              Semantics(
+                button: true,
+                label: 'Close panel',
+                child: IconButton(
+                  key: const ValueKey('right-panel-close'),
+                  tooltip: 'Close panel',
+                  onPressed: widget.onClose,
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: widget.accentColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 170),
+            child: _activeSection == _RightPanelSection.account
+                ? Container(
+                    key: const ValueKey('account-tab-content'),
+                    color: piPanelNavy,
+                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                    child: widget.accountPanel,
+                  )
+                : Container(
+                    key: const ValueKey('active-slip-tab-content'),
+                    color: piPanelNavy,
+                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                    child: widget.activeSlipPanel,
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PanelTab extends StatelessWidget {
+  const _PanelTab({
+    required this.label,
+    required this.selected,
+    required this.accentColor,
+    required this.onTap,
+    required this.labelKey,
+  });
+
+  final String label;
+  final bool selected;
+  final Color accentColor;
+  final VoidCallback onTap;
+  final Key labelKey;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Open account and active slip',
-      child: Tooltip(
-        message: 'Account & active slip',
-        child: InkWell(
-          key: const ValueKey('account-column-handle'),
-          onTap: onOpen,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            width: 34,
-            decoration: BoxDecoration(
-              color: AppColors.sidebar,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.border),
+      selected: selected,
+      label: '$label tab',
+      child: InkWell(
+        onTap: onTap,
+        key: labelKey,
+        child: Container(
+          height: double.infinity,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected
+                ? accentColor.withValues(alpha: 0.16)
+                : Colors.transparent,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? accentColor : AppColors.textSecondary,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .35,
             ),
-            alignment: Alignment.topCenter,
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: const Icon(
-              Icons.person_outline_rounded,
-              size: 18,
-              color: AppColors.gold,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RightPanelRail extends StatelessWidget {
+  const _RightPanelRail({
+    required this.accentColor,
+    required this.activeSlipCount,
+    required this.onOpenAccount,
+    required this.onOpenActiveSlip,
+  });
+
+  final Color accentColor;
+  final int activeSlipCount;
+  final VoidCallback onOpenAccount;
+  final VoidCallback onOpenActiveSlip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: piPanelNavy,
+      padding: const EdgeInsets.fromLTRB(7, 7, 7, 7),
+      child: Column(
+        children: [
+          _RailButton(
+            key: const ValueKey('right-panel-account-button'),
+            label: 'Open account',
+            tooltip: 'Open account',
+            icon: Icons.person_outline_rounded,
+            accentColor: accentColor,
+            buttonHeight: 44,
+            onTap: onOpenAccount,
+            openActionSize: 44,
+            openAction: _OpenPanelActionButton(
+              key: const ValueKey('right-panel-account-open'),
+              tooltip: 'Open account',
+              accentColor: accentColor,
+              onPressed: onOpenAccount,
+            ),
+            trailing: const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 7),
+          _RailButton(
+            key: const ValueKey('right-panel-active-slip-button'),
+            label: 'Open active slip',
+            tooltip: 'Open active slip',
+            icon: Icons.receipt_long_outlined,
+            accentColor: accentColor,
+            buttonHeight: 54,
+            onTap: onOpenActiveSlip,
+            openActionSize: 46,
+            openAction: _OpenPanelActionButton(
+              key: const ValueKey('right-panel-active-slip-open'),
+              tooltip: 'Open active slip',
+              accentColor: accentColor,
+              onPressed: onOpenActiveSlip,
+            ),
+            trailing: ActiveSlipBadge(
+              key: const ValueKey('active-slip-badge'),
+              count: activeSlipCount,
+              accentColor: accentColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RailButton extends StatelessWidget {
+  const _RailButton({
+    super.key,
+    required this.label,
+    required this.tooltip,
+    required this.icon,
+    required this.accentColor,
+    required this.buttonHeight,
+    required this.onTap,
+    required this.openActionSize,
+    required this.openAction,
+    required this.trailing,
+  });
+
+  final String label;
+  final String tooltip;
+  final IconData icon;
+  final Color accentColor;
+  final double buttonHeight;
+  final VoidCallback onTap;
+  final double openActionSize;
+  final Widget openAction;
+  final Widget trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: tooltip,
+      child: SizedBox(
+        height: buttonHeight,
+        width: double.infinity,
+        child: OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.fromLTRB(6, 8, 7, 8),
+            minimumSize: const Size(44, 44),
+            side: BorderSide(color: accentColor.withValues(alpha: .45)),
+            foregroundColor: accentColor,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            ),
+          ),
+          onPressed: onTap,
+          child: Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              Icon(icon, size: 22),
+              if (trailing != const SizedBox.shrink())
+                Positioned(
+                  right: 52,
+                  bottom: 2,
+                  child: trailing,
+                ),
+              Positioned(
+                right: 0,
+                top: (buttonHeight - openActionSize).clamp(0, buttonHeight) / 2,
+                child: SizedBox(
+                  width: openActionSize,
+                  height: openActionSize,
+                  child: openAction,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OpenPanelActionButton extends StatelessWidget {
+  const _OpenPanelActionButton({
+    super.key,
+    required this.tooltip,
+    required this.accentColor,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final Color accentColor;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Open',
+      child: Tooltip(
+        message: tooltip,
+        child: InkWell(
+          onTap: onPressed,
+          focusColor: accentColor.withValues(alpha: 0.24),
+          hoverColor: accentColor.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(12),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: accentColor.withValues(alpha: .55)),
+            ),
+            child: Center(
+              child: Icon(
+                Icons.chevron_right_rounded,
+                color: accentColor,
+                size: 20,
+              ),
             ),
           ),
         ),
@@ -239,12 +620,102 @@ class _AccountColumnHandle extends StatelessWidget {
   }
 }
 
+class ActiveSlipBadge extends StatefulWidget {
+  const ActiveSlipBadge({
+    super.key,
+    required this.count,
+    required this.accentColor,
+  });
+
+  final int count;
+  final Color accentColor;
+
+  @override
+  State<ActiveSlipBadge> createState() => _ActiveSlipBadgeState();
+}
+
+class _ActiveSlipBadgeState extends State<ActiveSlipBadge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 420),
+  );
+  late final Animation<double> _scaleAnimation = TweenSequence<double>([
+        TweenSequenceItem(
+          tween: Tween(begin: 1, end: 1.18).chain(
+            CurveTween(curve: Curves.easeOut),
+          ),
+          weight: 50,
+        ),
+        TweenSequenceItem(
+          tween: Tween(begin: 1.18, end: 1).chain(
+            CurveTween(curve: Curves.easeIn),
+          ),
+          weight: 50,
+        ),
+      ]).animate(_pulseController);
+
+  @override
+  void didUpdateWidget(covariant ActiveSlipBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.count > oldWidget.count && widget.count > 0) {
+      _pulseController.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = widget.count == 0;
+    final badgeColor = muted
+        ? widget.accentColor.withValues(alpha: 0.42)
+        : widget.accentColor;
+    return Semantics(
+      label: '${widget.count} selected props in active slip',
+      liveRegion: true,
+      child: ScaleTransition(
+        key: const ValueKey('active-slip-badge-scale'),
+        scale: muted ? const AlwaysStoppedAnimation(1.0) : _scaleAnimation,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 7),
+          decoration: BoxDecoration(
+            color: badgeColor,
+            shape: BoxShape.circle,
+            boxShadow: muted
+                ? null
+                : [BoxShadow(color: badgeColor.withValues(alpha: 0.28), blurRadius: 9)],
+          ),
+          child: Text(
+            '${widget.count}',
+            style: TextStyle(
+              color: muted ? const Color(0xFF07111D) : AppColors.bgBase,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Color accentWithOpacity(Color accent) => accent.withValues(alpha: 0.24);
+
 class _MobileAppShell extends StatefulWidget {
   const _MobileAppShell({
     required this.leftSidebar,
     required this.topNavigation,
     required this.content,
-    required this.rightSidebar,
+    required this.accountPanel,
+    required this.activeSlipPanel,
     required this.activeSlipCount,
     required this.watchedSlipCount,
     required this.selectedIndex,
@@ -258,7 +729,8 @@ class _MobileAppShell extends StatefulWidget {
   final Widget leftSidebar;
   final Widget topNavigation;
   final Widget content;
-  final Widget rightSidebar;
+  final Widget accountPanel;
+  final Widget activeSlipPanel;
   final int activeSlipCount;
   final int watchedSlipCount;
   final int selectedIndex;
@@ -376,7 +848,16 @@ class _MobileAppShellState extends State<_MobileAppShell> {
         width: drawerWidth,
         child: Drawer(
           backgroundColor: Colors.transparent,
-          child: SafeArea(child: widget.rightSidebar),
+          child: SafeArea(
+            child: _DesktopRightPanelContent(
+              activeSlipCount: widget.activeSlipCount,
+              accentColor: widget.accentColor,
+              accountPanel: widget.accountPanel,
+              activeSlipPanel: widget.activeSlipPanel,
+              initialSection: _RightPanelSection.activeSlip,
+              onClose: () => _scaffoldKey.currentState?.closeEndDrawer(),
+            ),
+          ),
         ),
       ),
       body: Stack(

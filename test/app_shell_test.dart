@@ -24,7 +24,8 @@ void main() {
         leftSidebar: const Center(child: Text('WORKSPACE NAVIGATION')),
         topNavigation: const Center(child: Text('COMMAND BAR')),
         content: const Center(child: Text('PRIMARY WORKSPACE')),
-        rightSidebar: const Center(child: Text('ACCOUNT AND SLIP')),
+        accountPanel: const Center(child: Text('ACCOUNT PANEL')),
+        activeSlipPanel: const Center(child: Text('ACTIVE SLIP PANEL')),
         activeSlipCount: activeSlipCount,
         watchedSlipCount: watchedSlipCount,
         onMobileWatchSlip: onMobileWatchSlip,
@@ -44,8 +45,91 @@ void main() {
     expect(find.text('WORKSPACE NAVIGATION'), findsOneWidget);
     expect(find.text('COMMAND BAR'), findsOneWidget);
     expect(find.text('PRIMARY WORKSPACE'), findsOneWidget);
-    expect(find.text('ACCOUNT AND SLIP'), findsOneWidget);
+    expect(find.byKey(const ValueKey('right-panel-account-button')), findsOneWidget);
+    expect(find.byKey(const ValueKey('right-panel-active-slip-button')), findsOneWidget);
+    expect(find.text('ACCOUNT PANEL'), findsNothing);
+    expect(find.text('ACTIVE SLIP PANEL'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('desktop rail account button opens account panel', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(buildShell(activeSlipCount: 1));
+
+    await tester.tap(find.byKey(const ValueKey('right-panel-account-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ACCOUNT PANEL'), findsOneWidget);
+    expect(find.text('ACTIVE SLIP PANEL'), findsNothing);
+  });
+
+  testWidgets('desktop rail active slip button opens active slip panel', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(buildShell(activeSlipCount: 1));
+
+    await tester.tap(find.byKey(const ValueKey('right-panel-active-slip-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ACTIVE SLIP PANEL'), findsOneWidget);
+    expect(find.text('ACCOUNT PANEL'), findsNothing);
+  });
+
+  testWidgets('desktop rail close button collapses panel', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(buildShell(activeSlipCount: 1));
+
+    await tester.tap(find.byKey(const ValueKey('right-panel-active-slip-button')));
+    await tester.pump();
+
+    expect(find.text('ACTIVE SLIP PANEL'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('right-panel-close')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ACTIVE SLIP PANEL'), findsNothing);
+    expect(find.text('ACCOUNT PANEL'), findsNothing);
+  });
+
+  testWidgets('desktop right panel controls expose accessibility labels', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(buildShell(activeSlipCount: 2));
+
+    expect(find.bySemanticsLabel('Open account'), findsOneWidget);
+    expect(find.bySemanticsLabel('Open active slip'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('right-panel-active-slip-button')));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Close panel'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('2 selected props in active slip'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('desktop right rail controls are touch-accessible', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(buildShell(activeSlipCount: 2));
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('right-panel-account-button'))).height,
+      greaterThanOrEqualTo(44.0),
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('right-panel-active-slip-button')).height),
+      greaterThanOrEqualTo(44.0),
+    );
   });
 
   testWidgets('mobile shell exposes navigation and slip drawers', (
@@ -66,7 +150,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('mobile-nav-ticket')));
     await tester.pumpAndSettle();
-    expect(find.text('ACCOUNT AND SLIP'), findsOneWidget);
+    expect(find.text('ACTIVE SLIP PANEL'), findsOneWidget);
+    expect(find.text('ACCOUNT PANEL'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -118,6 +203,46 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('mobile-nav-games')));
     expect(destinations, [0, 1]);
   });
+
+  testWidgets('active slip badge uses count and pulses once on increment', (
+    tester,
+  ) async {
+    const accent = Color(0xFFC0C7D1);
+    await tester.pumpWidget(
+      const MaterialApp(home: ActiveSlipBadge(count: 0, accentColor: accent)),
+    );
+
+    final getScale = () =>
+        tester.widget<ScaleTransition>(find.byKey(const ValueKey('active-slip-badge-scale')))
+            .scale
+            .value;
+    expect(getScale(), equals(1.0));
+
+    await tester.pumpWidget(
+      const MaterialApp(home: ActiveSlipBadge(count: 1, accentColor: accent)),
+    );
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(getScale(), greaterThan(1.0));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(getScale(), closeTo(1.0, 0.001));
+
+    await tester.pumpWidget(
+      const MaterialApp(home: ActiveSlipBadge(count: 2, accentColor: accent)),
+    );
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(getScale(), greaterThan(1.0));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(getScale(), closeTo(1.0, 0.001));
+
+    await tester.pump(const Duration(milliseconds: 1000));
+    expect(getScale(), closeTo(1.0, 0.001));
+
+    await tester.pumpWidget(
+      const MaterialApp(home: ActiveSlipBadge(count: 1, accentColor: accent)),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(getScale(), closeTo(1.0, 0.001));
+  });
   testWidgets('tablet portrait uses touch-friendly drawer shell', (
     tester,
   ) async {
@@ -132,35 +257,20 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('an empty slip still leaves a way to the account column', (
+  testWidgets('badge is readable and mobile shell still opens overlay', (
     tester,
   ) async {
-    // Collapsing the empty column also hid the member's identity, their plan
-    // controls and the only sign-out in the app, with no way back but
-    // drafting a pick to earn the column again.
-    tester.view.physicalSize = const Size(1600, 1000);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
+    await tester.binding.setSurfaceSize(const Size(820, 1180));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: AppShell(
-          leftSidebar: SizedBox(),
-          topNavigation: SizedBox(),
-          content: SizedBox(),
-          rightSidebar: Text('ACCOUNT PANEL'),
-          activeSlipCount: 0,
-        ),
-      ),
-    );
-    await tester.pump();
+    await tester.pumpWidget(buildShell(activeSlipCount: 2));
 
-    expect(find.text('ACCOUNT PANEL'), findsNothing);
-    expect(find.byKey(const ValueKey('account-column-handle')), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('account-column-handle')));
-    await tester.pump();
-
-    expect(find.text('ACCOUNT PANEL'), findsOneWidget);
+    expect(find.text('2'), findsWidgets);
+    await tester.tap(find.byKey(const ValueKey('mobile-nav-ticket')));
+    await tester.pumpAndSettle();
+    expect(find.text('ACTIVE SLIP PANEL'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('right-panel-close')));
+    await tester.pumpAndSettle();
+    expect(find.text('ACTIVE SLIP PANEL'), findsNothing);
   });
 }
