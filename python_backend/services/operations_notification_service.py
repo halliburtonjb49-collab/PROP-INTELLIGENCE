@@ -13,7 +13,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+from datetime import datetime, timezone
 from urllib.error import HTTPError
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 
@@ -23,6 +25,81 @@ from urllib.request import Request, urlopen
 # carries on, and the alerts simply never arrive. Any honest agent string is
 # accepted.
 _USER_AGENT = "PropIntelligenceAlerts/1.0 (+https://propsintell.com)"
+
+
+# What the last delivery did. Failures are swallowed on purpose -- an alert
+# that cannot be sent must not take a pipeline down -- which means a
+# misconfigured channel looks exactly like a quiet one. It looked exactly
+# like one for a whole day: the configured URL was answering 405 because it
+# was not an incoming-webhook endpoint, and nothing said so.
+_LAST_DELIVERY: dict[str, object] = {}
+
+# The two hosts that publish incoming webhooks, and the path each uses.
+_KNOWN_WEBHOOKS = (
+    ("discord.com", "/api/webhooks/"),
+    ("discordapp.com", "/api/webhooks/"),
+    ("hooks.slack.com", "/services/"),
+)
+
+
+def alert_channel_health() -> dict[str, object]:
+    """Whether alerts can actually be delivered, without exposing the URL.
+
+    Reports the shape of the configured endpoint and the outcome of the last
+    attempt. Never returns the URL itself: it is a credential, and the point
+    of this is to be readable from an operations page.
+    """
+
+    webhook = os.getenv("PIPELINE_ALERT_WEBHOOK_URL", "").strip()
+    if not webhook:
+        return {"configured": False, "deliverable": False,
+                "reason": "PIPELINE_ALERT_WEBHOOK_URL is not set"}
+    parsed = urlparse(webhook)
+    host = parsed.netloc.lower()
+    looks_like_webhook = any(
+        host.endswith(known_host) and parsed.path.startswith(known_path)
+        for known_host, known_path in _KNOWN_WEBHOOKS
+    )
+    status = {
+        "configured": True,
+        "host": host,
+        # A channel URL and a webhook URL share a host and differ only in
+        # path, which is exactly how one gets pasted in place of the other.
+        "looksLikeIncomingWebhook": looks_like_webhook,
+        "lastAttemptAt": _LAST_DELIVERY.get("at"),
+        "lastOutcome": _LAST_DELIVERY.get("outcome"),
+        "lastStatus": _LAST_DELIVERY.get("status"),
+        "lastDetail": _LAST_DELIVERY.get("detail"),
+    }
+    if not looks_like_webhook:
+        status["deliverable"] = False
+        status["reason"] = (
+            "The configured URL is not an incoming-webhook endpoint. Discord "
+            "webhooks are https://discord.com/api/webhooks/... and Slack "
+            "webhooks are https://hooks.slack.com/services/..."
+        )
+        return status
+    delivered = _LAST_DELIVERY.get("outcome")
+    status["deliverable"] = delivered != "rejected"
+    if delivered == "rejected":
+        status["reason"] = (
+            f"The endpoint rejected the last alert with "
+            f"{_LAST_DELIVERY.get('status')}"
+        )
+    return status
+
+
+def _record_delivery(
+    *, outcome: str, status: object = None, detail: str = "",
+) -> None:
+    _LAST_DELIVERY.update(
+        {
+            "at": datetime.now(timezone.utc).isoformat(),
+            "outcome": outcome,
+            "status": status,
+            "detail": detail[:200],
+        }
+    )
 
 
 def _deliver(webhook: str, payload: bytes, *, kind: str) -> bool:
@@ -45,13 +122,21 @@ def _deliver(webhook: str, payload: bytes, *, kind: str) -> bool:
     )
     try:
         with urlopen(request, timeout=10) as response:  # noqa: S310 - operator-configured webhook
-            return 200 <= response.status < 300
+            accepted = 200 <= response.status < 300
+            _record_delivery(
+                outcome="delivered" if accepted else "rejected",
+                status=response.status,
+            )
+            return accepted
     except HTTPError as error:
         detail = ""
         try:
             detail = error.read().decode("utf-8", "replace")[:200]
         except Exception:
             detail = ""
+        _record_delivery(
+            outcome="rejected", status=error.code, detail=detail,
+        )
         logging.error(
             "Alert rejected kind=%s status=%s detail=%s",
             kind,
@@ -59,7 +144,8 @@ def _deliver(webhook: str, payload: bytes, *, kind: str) -> bool:
             detail,
         )
         return False
-    except Exception:
+    except Exception as exc:
+        _record_delivery(outcome="unreachable", detail=str(exc))
         logging.exception("Alert delivery failed kind=%s", kind)
         return False
 
