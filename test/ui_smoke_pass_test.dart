@@ -129,9 +129,12 @@ void main() {
     await tester.pumpWidget(const PropIntelligenceApp());
     await tester.pump(const Duration(milliseconds: 800));
 
-    // Workflow destinations stay grouped while every sport remains visible.
-    for (final group in ['RESEARCH', 'BUILD', 'LIVE', 'HISTORY', 'SPORTS']) {
+    // Sports and live tools stay on top; workflow groups move to the sidebar.
+    for (final group in ['LIVE', 'SPORTS']) {
       expect(find.byKey(ValueKey('nav-group-$group')), findsOneWidget);
+    }
+    for (final group in ['RESEARCH', 'BUILD', 'HISTORY']) {
+      expect(find.byKey(ValueKey('nav-group-$group')), findsNothing);
     }
     for (final sport in [
       'MLB',
@@ -197,25 +200,6 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav-entry-scoreboard')));
     await tester.pumpAndSettle();
     expect(find.text('ALL GAMES'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-
-    await tester.tap(find.byKey(const ValueKey('nav-group-RESEARCH')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('nav-entry-analytics')));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-
-    await tester.tap(find.byKey(const ValueKey('nav-group-RESEARCH')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('nav-entry-lineMovement')));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-
-    await tester.tap(find.byKey(const ValueKey('nav-group-RESEARCH')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('nav-entry-injuryImpact')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('injury-impact-page')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

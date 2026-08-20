@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../navigation/app_navigation.dart';
 import '../services/auth_manager.dart';
-import '../services/prop_chat_service.dart';
 import '../theme/app_colors.dart' as app_colors;
 import 'sidebar_button.dart';
 
@@ -107,6 +106,70 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   const _SidebarSectionLabel('RESEARCH'),
                   const SizedBox(height: 7),
                   SidebarButton(
+                    label: "TODAY'S BRIEFING",
+                    leadingIcons: const [Icons.wb_sunny_outlined],
+                    selected: widget.selectedPage == AppPage.briefing,
+                    showGoldBar: true,
+                    onTap: () => widget.onSelectPage?.call(AppPage.briefing),
+                  ),
+                  const SizedBox(height: 6),
+                  SidebarButton(
+                    label: 'MARKET BOARD',
+                    leadingIcons: const [Icons.dashboard_outlined],
+                    selected: widget.selectedPage == AppPage.board,
+                    showGoldBar: true,
+                    onTap: () => widget.onSelectPage?.call(AppPage.board),
+                  ),
+                  const SizedBox(height: 6),
+                  SidebarButton(
+                    label: 'SEARCH PLAYERS',
+                    leadingIcons: const [Icons.person_search_outlined],
+                    selected: widget.selectedPage == AppPage.searchPlayers,
+                    showGoldBar: true,
+                    onTap: () =>
+                        widget.onSelectPage?.call(AppPage.searchPlayers),
+                  ),
+                  const SizedBox(height: 6),
+                  SidebarButton(
+                    label: 'LINE MOVEMENT',
+                    leadingIcons: const [Icons.show_chart_rounded],
+                    selected: widget.selectedPage == AppPage.lineMovement,
+                    requiredTier: SubscriptionTier.core,
+                    showGoldBar: true,
+                    onTap: () =>
+                        widget.onSelectPage?.call(AppPage.lineMovement),
+                  ),
+                  const SizedBox(height: 6),
+                  SidebarButton(
+                    label: 'INJURY IMPACT',
+                    leadingIcons: const [Icons.health_and_safety_outlined],
+                    selected: widget.selectedPage == AppPage.injuryImpact,
+                    requiredTier: SubscriptionTier.edge,
+                    showGoldBar: true,
+                    onTap: () =>
+                        widget.onSelectPage?.call(AppPage.injuryImpact),
+                  ),
+                  const SizedBox(height: 6),
+                  SidebarButton(
+                    label: 'ANALYTICS',
+                    leadingIcons: const [Icons.analytics_outlined],
+                    selected: widget.selectedPage == AppPage.analytics,
+                    requiredTier: SubscriptionTier.core,
+                    showGoldBar: true,
+                    onTap: () => widget.onSelectPage?.call(AppPage.analytics),
+                  ),
+                  const SizedBox(height: 6),
+                  SidebarButton(
+                    key: const ValueKey('mobile-sidebar-prop-chat'),
+                    label: 'PROP CHAT',
+                    leadingIcons: const [Icons.forum_outlined],
+                    selected: widget.selectedPage == AppPage.propChat,
+                    requiredTier: SubscriptionTier.core,
+                    showGoldBar: true,
+                    onTap: () => widget.onSelectPage?.call(AppPage.propChat),
+                  ),
+                  const SizedBox(height: 6),
+                  SidebarButton(
                     label: 'GAME MARKETS',
                     leadingIcons: const [Icons.sports_rounded],
                     leadingIconColors: const [app_colors.AppColors.gold],
@@ -154,7 +217,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
                         widget.onSelectPage?.call(AppPage.refereeTracker),
                   ),
                   const SizedBox(height: 18),
-                  const _SidebarSectionLabel('BUILD & TRACK'),
+                  const _SidebarSectionLabel('BUILD'),
                   const SizedBox(height: 7),
                   SidebarButton(
                     label: 'PROP BUILDER',
@@ -186,7 +249,9 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     showGoldBar: true,
                     onTap: () => widget.onSelectPage?.call(AppPage.watchlist),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 18),
+                  const _SidebarSectionLabel('HISTORY'),
+                  const SizedBox(height: 7),
                   SidebarButton(
                     label: 'PAST SLIP\nHISTORY',
                     leadingIcons: const [Icons.history_rounded],
@@ -200,6 +265,16 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   ),
                   const SizedBox(height: 6),
                   SidebarButton(
+                    label: 'TRACK RECORD',
+                    leadingIcons: const [Icons.fact_check_outlined],
+                    leadingIconColors: const [app_colors.AppColors.gold],
+                    selected: widget.selectedPage == AppPage.trackRecord,
+                    requiredTier: SubscriptionTier.core,
+                    showGoldBar: true,
+                    onTap: () => widget.onSelectPage?.call(AppPage.trackRecord),
+                  ),
+                  const SizedBox(height: 6),
+                  SidebarButton(
                     label: 'EV SCANNER',
                     selected: widget.selectedPage == AppPage.evScanner,
                     requiredTier: SubscriptionTier.edge,
@@ -208,23 +283,6 @@ class _LeftSidebarState extends State<LeftSidebar> {
                     leadingIconColors: const [app_colors.AppColors.blue],
                     onTap: () => widget.onSelectPage?.call(AppPage.evScanner),
                   ),
-                  if (MediaQuery.sizeOf(context).width < 700) ...[
-                    const SizedBox(height: 6),
-                    ValueListenableBuilder<int>(
-                      valueListenable: PropChatService.unreadCount,
-                      builder: (context, unread, _) => SidebarButton(
-                        key: const ValueKey('mobile-sidebar-prop-chat'),
-                        label: 'PROP CHAT',
-                        badge: unread > 0 ? '$unread' : null,
-                        selected: widget.selectedPage == AppPage.propChat,
-                        showGoldBar: true,
-                        leadingIcons: const [Icons.forum_rounded],
-                        leadingIconColors: const [app_colors.AppColors.gold],
-                        onTap: () =>
-                            widget.onSelectPage?.call(AppPage.propChat),
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 12),
                   const _SidebarSectionLabel('SPECIALTY'),
                   const SizedBox(height: 7),

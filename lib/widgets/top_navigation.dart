@@ -554,7 +554,7 @@ class TopNavigation extends StatelessWidget {
                     for (final (label, icon, entries) in appNavigationGroups)
                       if (label == 'SPORTS')
                         ..._buildVisibleSports()
-                      else
+                      else if (label == 'LIVE')
                         _buildNavGroup(label, icon, entries),
                     if (AuthManager.instance.sessionState.value.isOwner)
                       _buildNavItem(

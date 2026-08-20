@@ -37,12 +37,26 @@ void main() {
     );
 
     expect(find.text('42'), findsOneWidget);
-    expect(find.text('3'), findsOneWidget);
+    expect(find.text('RESEARCH'), findsOneWidget);
     await tester.tap(find.byTooltip('Refresh props'));
     expect(refreshes, 1);
     await tester.tap(find.text('GAME MARKETS'));
     expect(selectedPage, AppPage.gameMarkets);
     expect(find.text('MLB'), findsNothing);
+
+    await tester.scrollUntilVisible(
+      find.text('SLIP WATCHER'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('BUILD'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('HISTORY'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('HISTORY'), findsOneWidget);
 
     count.value = 57;
     await tester.pump();
