@@ -11,32 +11,73 @@ class ResearchToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              open ? 'HIDE RESEARCH' : 'SHOW RESEARCH',
-              style: const TextStyle(
+    // It was two small gold words with a chevron, which reads as a caption
+    // rather than something to press: people did not know the evidence was
+    // there, or that they could put it away again once they had read it.
+    // A bordered control that says what it will do, and spans the card so
+    // it is obvious and easy to hit.
+    return Semantics(
+      button: true,
+      expanded: open,
+      label: open ? 'Close research' : 'Open research',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: AppColors.gold.withValues(alpha: open ? .16 : .08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: AppColors.gold.withValues(alpha: open ? .9 : .55),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                open ? Icons.unfold_less_rounded : Icons.science_outlined,
                 color: AppColors.gold,
-                fontSize: 9,
-                letterSpacing: .6,
-                fontWeight: FontWeight.w900,
+                size: 13,
               ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              open
-                  ? Icons.keyboard_arrow_up_rounded
-                  : Icons.keyboard_arrow_down_rounded,
-              color: AppColors.gold,
-              size: 14,
-            ),
-          ],
+              const SizedBox(width: 6),
+              Text(
+                open ? 'CLOSE RESEARCH' : 'OPEN RESEARCH',
+                style: const TextStyle(
+                  color: AppColors.gold,
+                  fontSize: 9,
+                  letterSpacing: .7,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(width: 6),
+              // The card is narrower than this line wants to be, so the hint
+              // gives way first: the label and the chevron are what has to
+              // survive on a phone.
+              Flexible(
+                child: Text(
+                  open ? 'shorter card' : 'projection, evidence, risk',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  style: TextStyle(
+                    color: AppColors.gold.withValues(alpha: .72),
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                open
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
+                color: AppColors.gold,
+                size: 15,
+              ),
+            ],
+          ),
         ),
       ),
     );

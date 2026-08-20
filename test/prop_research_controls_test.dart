@@ -16,8 +16,8 @@ void main() {
       ),
     );
 
-    expect(find.text('SHOW RESEARCH'), findsOneWidget);
-    await tester.tap(find.text('SHOW RESEARCH'));
+    expect(find.text('OPEN RESEARCH'), findsOneWidget);
+    await tester.tap(find.text('OPEN RESEARCH'));
     expect(taps, 1);
 
     await tester.pumpWidget(
@@ -27,7 +27,7 @@ void main() {
         ),
       ),
     );
-    expect(find.text('HIDE RESEARCH'), findsOneWidget);
+    expect(find.text('CLOSE RESEARCH'), findsOneWidget);
   });
 
   testWidgets('PI verdict summarizes action facts and recheck guidance', (

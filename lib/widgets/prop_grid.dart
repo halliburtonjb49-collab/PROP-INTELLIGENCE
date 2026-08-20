@@ -200,7 +200,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           final officialUrl = _officialMlbHeadshot(prop.player);
           if (officialUrl != null) {
             return CachedNetworkImage(
+              // Keyed to the URL so a genuine change swaps cleanly instead of
+              // reusing another player's loaded frame.
+              key: ValueKey(officialUrl),
               imageUrl: officialUrl,
+              useOldImageOnUrlChange: true,
               fit: BoxFit.cover,
               alignment: Alignment.center,
               filterQuality: FilterQuality.high,
@@ -219,6 +223,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     }
 
     return CachedNetworkImage(
+      key: ValueKey(imagePath),
       imageUrl: imagePath,
       fit: BoxFit.cover,
       alignment: Alignment.center,
@@ -234,6 +239,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       errorWidget: (context, url, error) {
         if (retryImagePath.isNotEmpty && retryImagePath != imagePath) {
           return CachedNetworkImage(
+            key: ValueKey(retryImagePath),
             imageUrl: retryImagePath,
             fit: BoxFit.cover,
             alignment: Alignment.center,
@@ -3049,6 +3055,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     }
                   }
                   return RepaintBoundary(
+                    // Without a key the framework matches cards by position,
+                    // so a re-sort hands a card a different prop and its
+                    // headshot reloads from scratch: the photos blink out and
+                    // back on every refresh and every filter change.
+                    key: ValueKey('card-${prop.id}'),
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () => widget.onPropFocused?.call(prop),
@@ -3081,6 +3092,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     return cardFor(shown, fixedHeight: fixedHeight);
                   }
                   return Column(
+                    key: ValueKey('group-${group.groupId}'),
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
