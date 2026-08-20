@@ -83,6 +83,7 @@ from services.baseline_projection_service import (
 	MODEL_VERSION as BASELINE_MODEL_VERSION,
 )
 from services.odds_service import sport_coverage
+from services.line_movement_recorder import record_line_movements
 from services.prop_group_service import assign_prop_groups
 from services.prop_service import get_props
 from services.formatters import resolve_player_image
@@ -763,6 +764,19 @@ def _catalog_feed_state() -> dict[str, object]:
 	}
 
 
+def _record_line_movements_background(props: list[PropResponse]) -> None:
+	try:
+		result = record_line_movements(props)
+		if result.get("recorded"):
+			logging.info(
+				"Recorded %s line movements of %s pregame prices",
+				result["recorded"],
+				result["considered"],
+			)
+	except Exception:
+		logging.exception("Line movement capture thread failed")
+
+
 def _rebuild_prop_catalog_from_local(
 	*, fallback_version: object = None,
 	persist_snapshot: bool = True,
@@ -847,6 +861,17 @@ def _rebuild_prop_catalog_from_local(
 		if persist_snapshot:
 			Thread(
 				target=_persist_catalog_snapshot_background,
+				args=(props,),
+				daemon=True,
+			).start()
+			# Closing line value could not be computed at all: the table it
+			# reads was empty, because the pipeline that filled it is
+			# triggered from a test and from nowhere in production. The live
+			# sync already holds every book's price, so recording movement
+			# here costs no provider call. Off the request thread for the
+			# same reason the durable snapshot is.
+			Thread(
+				target=_record_line_movements_background,
 				args=(props,),
 				daemon=True,
 			).start()
