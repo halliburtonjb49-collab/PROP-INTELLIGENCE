@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../models/prop_data.dart';
 import '../models/slip_selection.dart';
 import '../services/api_service.dart';
+import '../services/prop_book_group.dart';
 import '../services/player_image_resolver.dart';
 import '../services/slip_manager.dart';
 import '../services/user_facing_error.dart';
@@ -106,6 +107,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   Timer? _lineRefreshTimer;
   bool _isLiveRefreshing = false;
   int _automaticRetryCount = 0;
+  // Which book the user switched a card to, by group. Absent means the
+  // best available book, which is what the card opens with.
+  final Map<String, String> _chosenBookByGroup = <String, String>{};
   int _visiblePropLimit = _visiblePropStep;
   final Set<String> _favoritePropIds = <String>{};
 
@@ -329,6 +333,98 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
 
   void _handleCardSelection(PropData prop, PickSide side) {
     widget.onSelect(prop, side);
+  }
+
+  /// The other books carrying this prop, and which one the card is showing.
+  ///
+  /// Collapsing duplicates is only safe while every alternative stays
+  /// reachable, so this is what earns the collapse: the books are listed
+  /// with their own numbers, and picking one changes which prop the card is
+  /// about. The pick handler receives that variant, so a bet lands on the
+  /// book the user chose rather than the one the card opened with.
+  Widget _buildBookSwitcher(PropBookGroup group, PropData shown) {
+    return Container(
+      key: ValueKey('book-switcher-${group.groupId}'),
+      height: 34,
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: app_colors.AppColors.sidebar,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: app_colors.AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 5),
+            child: Text(
+              group.linesDiffer ? 'LINES VARY' : '${group.bookCount} BOOKS',
+              style: const TextStyle(
+                color: app_colors.AppColors.silver,
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: group.variants.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 4),
+              itemBuilder: (context, index) {
+                final variant = group.variants[index];
+                final isShown = variant.id == shown.id;
+                final unavailable = !variant.isSelectable;
+                return Semantics(
+                  button: true,
+                  selected: isShown,
+                  label:
+                      '${variant.sportsbook} line ${variant.line}'
+                      '${unavailable ? ', unavailable' : ''}',
+                  child: InkWell(
+                    key: ValueKey('book-option-${variant.id}'),
+                    onTap: () => setState(() {
+                      _chosenBookByGroup[group.groupId] = variant.id;
+                    }),
+                    child: Container(
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: isShown
+                            ? app_colors.AppColors.gold
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isShown
+                              ? app_colors.AppColors.gold
+                              : app_colors.AppColors.border,
+                        ),
+                      ),
+                      child: Text(
+                        // A stale book is still listed: the user should see
+                        // it exists, and why it cannot be taken.
+                        '${variant.sportsbook.toUpperCase()} '
+                        '${variant.line.toStringAsFixed(1)}'
+                        '${unavailable ? ' ·' : ''}',
+                        style: TextStyle(
+                          color: isShown
+                              ? app_colors.AppColors.sidebar
+                              : unavailable
+                              ? app_colors.AppColors.silver
+                              : Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildPortraitPropCard(
@@ -2906,13 +3002,16 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 final columns = propGridColumnCount(constraints.maxWidth);
                 final cardSpacing = propGridSpacing(constraints.maxWidth);
 
-                final visibleCount = _visiblePropLimit.clamp(
-                  0,
-                  sortedProps.length,
+                // Collapse before paging, so a page counts cards rather
+                // than the 2.16 rows each card was arriving as.
+                final groups = collapsePropsByBook(sortedProps);
+                final visibleCount = _visiblePropLimit.clamp(0, groups.length);
+                final visibleGroups = groups.take(visibleCount).toList();
+                final anyAlternatives = visibleGroups.any(
+                  (group) => group.hasAlternatives,
                 );
-                final visibleProps = sortedProps.take(visibleCount).toList();
                 final hasMore =
-                    visibleCount < sortedProps.length ||
+                    visibleCount < groups.length ||
                     _preparedProps.length < _apiService.lastPropsCount;
 
                 Widget cardFor(PropData prop, {required bool fixedHeight}) {
@@ -2936,6 +3035,35 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   );
                 }
 
+                PropData shownFor(PropBookGroup group) {
+                  final chosen = _chosenBookByGroup[group.groupId];
+                  if (chosen == null) return group.representative;
+                  for (final variant in group.variants) {
+                    if (variant.id == chosen) return variant;
+                  }
+                  // The chosen book left the board. Fall back rather than
+                  // showing nothing.
+                  return group.representative;
+                }
+
+                Widget groupCardFor(
+                  PropBookGroup group, {
+                  required bool fixedHeight,
+                }) {
+                  final shown = shownFor(group);
+                  if (!group.hasAlternatives) {
+                    return cardFor(shown, fixedHeight: fixedHeight);
+                  }
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Flexible(child: cardFor(shown, fixedHeight: false)),
+                      _buildBookSwitcher(group, shown),
+                    ],
+                  );
+                }
+
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -2945,8 +3073,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     // padding needed to reach it is what pushed the buttons off
                     // the first screen. A list lets each card be its own size.
                     if (columns == 1)
-                      for (final prop in visibleProps) ...[
-                        cardFor(prop, fixedHeight: false),
+                      for (final group in visibleGroups) ...[
+                        groupCardFor(group, fixedHeight: false),
                         SizedBox(height: cardSpacing),
                       ]
                     else
@@ -2954,17 +3082,21 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                         shrinkWrap: true,
                         primary: false,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: visibleProps.length,
+                        itemCount: visibleGroups.length,
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: columns,
                           crossAxisSpacing: cardSpacing,
                           mainAxisSpacing: cardSpacing,
                           // Closed cards keep the decision, core metrics and
                           // pick buttons visible without a long evidence body.
-                          mainAxisExtent: 342,
+                          // The book strip needs its own room; a fixed cell
+                          // that ignored it would clip the switcher.
+                          mainAxisExtent: anyAlternatives ? 384 : 342,
                         ),
-                        itemBuilder: (context, index) =>
-                            cardFor(visibleProps[index], fixedHeight: true),
+                        itemBuilder: (context, index) => groupCardFor(
+                          visibleGroups[index],
+                          fixedHeight: true,
+                        ),
                       ),
                     if (hasMore) ...[
                       const SizedBox(height: 14),
