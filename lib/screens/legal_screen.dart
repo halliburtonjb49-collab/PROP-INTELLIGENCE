@@ -46,10 +46,6 @@ class LegalScreen extends StatelessWidget {
               _SectionList(
                 key: const ValueKey('legal-terms'),
                 sections: termsSections,
-                footer:
-                    'Play only where lawful and only if you meet the legal '
-                    'age in your location. Problem gambling? Call '
-                    '$legalHelpLine.',
               ),
               _SectionList(
                 key: const ValueKey('legal-privacy'),
@@ -64,10 +60,9 @@ class LegalScreen extends StatelessWidget {
 }
 
 class _SectionList extends StatelessWidget {
-  const _SectionList({super.key, required this.sections, this.footer});
+  const _SectionList({super.key, required this.sections});
 
   final List<LegalSection> sections;
-  final String? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -75,24 +70,6 @@ class _SectionList extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
       children: [
         for (final section in sections) LegalSectionView(section: section),
-        if (footer != null)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.sidebar,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.gold),
-            ),
-            child: Text(
-              footer!,
-              style: const TextStyle(
-                color: AppColors.gold,
-                fontSize: 11,
-                height: 1.5,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
       ],
     );
   }

@@ -15,10 +15,6 @@ class LegalSection {
   final String text;
 }
 
-/// The problem gambling line shown beside the disclaimer. The app carried no
-/// such resource anywhere before this.
-const legalHelpLine = '1-800-GAMBLER';
-
 const termsSections = <LegalSection>[
   LegalSection(
     title: 'SUBSCRIPTIONS & BILLING',

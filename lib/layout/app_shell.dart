@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
-import '../widgets/responsible_play_footer.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -166,10 +165,6 @@ class _AppShellState extends State<AppShell> {
                                 borderRadius: radius,
                                 child: widget.content,
                               ),
-                            ),
-                            ResponsiblePlayFooter(
-                              onOpenLegal: () =>
-                                  Navigator.of(context).pushNamed('/legal'),
                             ),
                           ],
                         ),
@@ -434,10 +429,7 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                       ),
                     ),
                   ),
-                  ResponsiblePlayFooter(
-                    onOpenLegal: () =>
-                        Navigator.of(context).pushNamed('/legal'),
-                  ),
+                  SizedBox(height: shellGap),
                   _MobileBottomNavigation(
                     selectedIndex: widget.selectedIndex,
                     activeSlipCount: widget.activeSlipCount,

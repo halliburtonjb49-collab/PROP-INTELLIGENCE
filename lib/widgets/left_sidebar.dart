@@ -343,8 +343,39 @@ class _LeftSidebarState extends State<LeftSidebar> {
               ),
             ),
           ),
+          const _SidebarLegalLink(),
           const _SidebarSignOut(),
         ],
+      ),
+    );
+  }
+}
+
+/// One way into the terms, in navigation rather than on every screen.
+///
+/// A banner repeated on every page is clutter that gets removed by whoever
+/// needs the space next. This sits with the other account controls, where
+/// somebody looks when they want it.
+class _SidebarLegalLink extends StatelessWidget {
+  const _SidebarLegalLink();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      child: TextButton.icon(
+        key: const ValueKey('sidebar-legal-link'),
+        onPressed: () => Navigator.of(context).pushNamed('/legal'),
+        icon: const Icon(Icons.gavel_rounded, size: 14),
+        label: const Text(
+          'TERMS & PRIVACY',
+          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800),
+        ),
+        style: TextButton.styleFrom(
+          foregroundColor: app_colors.AppColors.silver,
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        ),
       ),
     );
   }
