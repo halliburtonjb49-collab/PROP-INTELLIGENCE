@@ -826,6 +826,61 @@ def confidence_tier_calibration(
     return report
 
 
+def model_probability_reliability(
+    minimum_bucket: int = 300,
+) -> list[dict[str, object]]:
+    """Reliability of the model's own estimate, before the safety margin.
+
+    The groups elsewhere in this report measure hit_probability, which is
+    the calibrated probability minus an uncertainty margin -- a deliberately
+    conservative floor rather than an estimate of anything. Comparing a
+    floor against outcomes and calling the difference calibration error
+    describes the margin working as designed, not a defect, and reading it
+    as one sent an afternoon chasing a problem that did not exist.
+
+    This measures the estimate itself, which is the number that can be
+    right or wrong. Its known failure is the top: props the model calls
+    93% or more land nearer two thirds. Those remain profitable because the
+    ordering is sound and the prices are good, so the defect is in what the
+    number claims, not in which props it selects.
+    """
+
+    if not database_is_configured():
+        return []
+    with get_database_pool().connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+            select width_bucket(
+                     (inputs->>'modelProbability')::numeric, 0.3, 1.0, 7
+                   ) bucket,
+                   count(*) sample_size,
+                   avg((inputs->>'modelProbability')::numeric) predicted,
+                   avg(case when hit then 1.0 else 0.0 end) actual
+              from prediction_snapshots
+             where graded_at is not null and hit is not null
+               and (inputs->>'modelProbability') ~ '^[0-9.]+$'
+             group by 1
+             having count(*) >= %s
+             order by 1
+            """,
+            (minimum_bucket,),
+        )
+        rows = cursor.fetchall()
+    reliability: list[dict[str, object]] = []
+    for _bucket, sample_size, predicted, actual in rows:
+        claimed = float(predicted or 0)
+        observed = float(actual or 0)
+        reliability.append(
+            {
+                "sampleSize": int(sample_size),
+                "predictedProbability": round(claimed, 4),
+                "observedHitRate": round(observed, 4),
+                "overstatement": round(claimed - observed, 4),
+            }
+        )
+    return reliability
+
+
 def prediction_calibration_report(minimum_sample: int = 20) -> dict[str, object]:
     """Out-of-sample calibration, accuracy, and flat-stake ROI by market."""
     if not database_is_configured():
@@ -930,6 +985,20 @@ def prediction_calibration_report(minimum_sample: int = 20) -> dict[str, object]
         # the number the card actually showed, which is the claim a user
         # can hold the product to, and the two are not the same column.
         "confidenceTiers": confidence_tier_calibration(),
+        # What the groups above are actually measuring. Without this the
+        # numbers read as a broken model rather than a working safety
+        # margin, which is a conclusion this report has already caused.
+        "probabilityBasis": {
+            "column": "hit_probability",
+            "meaning": "calibrated probability minus an uncertainty margin",
+            "isAnEstimate": False,
+            "note": (
+                "A conservative floor understates outcomes by design. Use "
+                "modelReliability to judge the estimate, and "
+                "confidenceTiers to judge what the board actually claimed."
+            ),
+        },
+        "modelReliability": model_probability_reliability(),
         "coverage": coverage,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
     }
