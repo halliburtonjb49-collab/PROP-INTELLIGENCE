@@ -35,6 +35,8 @@ class _ParsedPropsPayload {
     required this.sportCategoryCounts,
     required this.totalSportCategoryCounts,
     required this.playableSportCategoryCounts,
+    required this.feedSource,
+    required this.feedIsRecovery,
     required this.rawMaps,
   });
 
@@ -56,7 +58,33 @@ class _ParsedPropsPayload {
   final Map<String, Map<String, int>> sportCategoryCounts;
   final Map<String, Map<String, int>> totalSportCategoryCounts;
   final Map<String, Map<String, int>> playableSportCategoryCounts;
+
+  /// Which backend layer produced these props: `live`, `shared-cache`,
+  /// `durable-snapshot` or `unavailable`. A shared-cache read is ordinary
+  /// multi-instance operation; a durable snapshot means the live catalog
+  /// could not be reached and the lines may be hours old.
+  final String feedSource;
+  final bool feedIsRecovery;
   final List<Map<String, dynamic>> rawMaps;
+}
+
+/// Which backend layer served a props payload.
+///
+/// A backend that predates the field sends no `feed` at all, which must read
+/// as "unknown", never as a recovery: a false stale-data warning on a healthy
+/// board teaches users to ignore the real one.
+({String source, bool isRecovery}) propFeedStateFromPayload(
+  Map<String, dynamic> payload,
+) {
+  final rawFeed = payload['feed'];
+  if (rawFeed is! Map) {
+    return (source: '', isRecovery: false);
+  }
+  final feed = Map<String, dynamic>.from(rawFeed);
+  return (
+    source: feed['source']?.toString() ?? '',
+    isRecovery: feed['recovery'] == true,
+  );
 }
 
 _ParsedPropsPayload _parsePropsPayload(String body) {
@@ -166,6 +194,8 @@ _ParsedPropsPayload _parsePropsPayload(String body) {
     decoded['playableSportCategoryCounts'] ?? rawSportCategoryCounts,
   );
 
+  final feedState = propFeedStateFromPayload(decoded);
+
   return _ParsedPropsPayload(
     props: propsById.values.toList(growable: false),
     count: totalCount,
@@ -181,6 +211,8 @@ _ParsedPropsPayload _parsePropsPayload(String body) {
     sportCategoryCounts: sportCategoryCounts,
     totalSportCategoryCounts: totalSportCategoryCounts,
     playableSportCategoryCounts: playableSportCategoryCounts,
+    feedSource: feedState.source,
+    feedIsRecovery: feedState.isRecovery,
     rawMaps: rawMaps,
   );
 }
@@ -237,6 +269,8 @@ class ApiService {
   static Map<String, Map<String, int>> _lastPlayableSportCategoryCounts =
       const {};
   static Map<String, dynamic> _lastProviderCoverage = const {};
+  static String _lastFeedSource = '';
+  static bool _lastFeedIsRecovery = false;
   static Map<String, dynamic> _lastProviderReliability = const {};
   static final ValueNotifier<BackendRefreshStatus> refreshStatusNotifier =
       ValueNotifier<BackendRefreshStatus>(const BackendRefreshStatus.empty());
@@ -277,6 +311,13 @@ class ApiService {
       });
   Map<String, dynamic> get lastProviderCoverage =>
       Map<String, dynamic>.unmodifiable(_lastProviderCoverage);
+
+  /// Which backend layer served the most recent board.
+  String get lastFeedSource => _lastFeedSource;
+
+  /// True only when the board came from the durable snapshot, meaning the
+  /// live catalog could not be reached at all.
+  bool get lastFeedIsRecovery => _lastFeedIsRecovery;
   Map<String, dynamic> get lastProviderReliability =>
       Map<String, dynamic>.unmodifiable(_lastProviderReliability);
 
@@ -567,10 +608,12 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> fetchLaunchControlPanel() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/operations/control-panel'),
-      headers: await _authenticatedHeaders(),
-    ).timeout(const Duration(seconds: 20));
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/api/operations/control-panel'),
+          headers: await _authenticatedHeaders(),
+        )
+        .timeout(const Duration(seconds: 20));
     if (response.statusCode != 200) {
       throw Exception('Unable to load launch control panel: ${response.body}');
     }
@@ -578,14 +621,14 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> fetchBillingCertification() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/operations/billing-certification'),
-      headers: await _authenticatedHeaders(),
-    ).timeout(const Duration(seconds: 12));
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/api/operations/billing-certification'),
+          headers: await _authenticatedHeaders(),
+        )
+        .timeout(const Duration(seconds: 12));
     if (response.statusCode != 200) {
-      throw Exception(
-        'Unable to load billing certification: ${response.body}',
-      );
+      throw Exception('Unable to load billing certification: ${response.body}');
     }
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
@@ -1344,6 +1387,8 @@ class ApiService {
         _lastVerdictCounts = verdictCounts;
         if (providerCoverage.isNotEmpty) {
           _lastProviderCoverage = providerCoverage;
+          _lastFeedSource = parsed.feedSource;
+          _lastFeedIsRecovery = parsed.feedIsRecovery;
         }
         if (providerReliability.isNotEmpty) {
           _lastProviderReliability = providerReliability;
@@ -1801,6 +1846,8 @@ class ApiService {
               }
             : const {};
         _lastProviderCoverage = const {};
+        _lastFeedSource = '';
+        _lastFeedIsRecovery = false;
         _lastProviderReliability = const {};
         final rawVerdictCounts = decoded['verdictCounts'];
         _lastVerdictCounts = rawVerdictCounts is Map
