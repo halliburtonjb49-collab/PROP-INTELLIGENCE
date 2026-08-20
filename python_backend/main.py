@@ -2988,7 +2988,15 @@ def injury_alerts(
 	return {"count": len(alerts), "alerts": alerts}
 @app.get("/api/props/readiness")
 def props_readiness(response: Response) -> dict[str, object]:
-	"""Expose feed health without exposing proprietary prop rows."""
+	"""Expose feed health without exposing proprietary prop rows.
+
+	The serving layer is deliberately public. It carries no prop rows and no
+	credentials -- strictly less than the inventory count and commit SHA
+	already returned here -- and the unauthenticated deploy smoke test is a
+	real consumer that gates production on this endpoint. The authenticated
+	/api/props copy is what the board reads; this one exists so operators can
+	see a degraded feed without holding a key.
+	"""
 	started_at = time.perf_counter()
 	summary = get_distributed_json(_PROP_CATALOG_SUMMARY_KEY)
 	if not isinstance(summary, dict) or int(summary.get("count") or 0) <= 0:
