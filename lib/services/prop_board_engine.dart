@@ -6,12 +6,21 @@ class PreparedBoardProp {
     required this.normalizedSport,
     required this.normalizedSite,
     required this.searchText,
+    required this.scheduledStart,
   });
 
   final PropData prop;
   final String normalizedSport;
   final String normalizedSite;
   final String searchText;
+
+  /// Parsed once here rather than inside the sort comparator.
+  ///
+  /// Every sort ordering starts with game time, so the comparator parsed two
+  /// date strings per comparison: about 350,000 parses for a full board, on
+  /// every rebuild, which is what made favouriting a prop or switching books
+  /// stall the screen.
+  final DateTime? scheduledStart;
 }
 
 String normalizePropSite(String value) {
@@ -103,6 +112,7 @@ List<PreparedBoardProp> prepareBoardProps(Iterable<PropData> props) {
           ),
           searchText: '${prop.player} ${prop.matchup} ${prop.sport} $market'
               .toLowerCase(),
+          scheduledStart: propScheduledStart(prop),
         );
       })
       .toList(growable: false);
@@ -154,17 +164,15 @@ List<PropData> filterAndSortBoardProps(
         // the research board so category totals and cards describe the same
         // catalog. PropData.isSelectable continues to guard the pick buttons,
         // so incomplete props cannot be added to a slip.
-        return sportMatches &&
-            siteMatches &&
-            searchMatches &&
-            verdictMatches;
+        return sportMatches && siteMatches && searchMatches && verdictMatches;
       })
-      .map((item) => item.prop)
       .toList(growable: true);
 
-  props.sort((left, right) {
-    final leftStart = propScheduledStart(left);
-    final rightStart = propScheduledStart(right);
+  props.sort((leftPrepared, rightPrepared) {
+    final left = leftPrepared.prop;
+    final right = rightPrepared.prop;
+    final leftStart = leftPrepared.scheduledStart;
+    final rightStart = rightPrepared.scheduledStart;
     if (leftStart == null && rightStart != null) return 1;
     if (leftStart != null && rightStart == null) return -1;
     if (leftStart != null && rightStart != null) {
@@ -216,7 +224,7 @@ List<PropData> filterAndSortBoardProps(
     final market = left.market.compareTo(right.market);
     return market != 0 ? market : left.id.compareTo(right.id);
   });
-  return props;
+  return props.map((item) => item.prop).toList(growable: false);
 }
 
 List<PropData> deprioritizeSoccerForAllSports(
