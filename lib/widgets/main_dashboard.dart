@@ -18,6 +18,7 @@ import '../pages/search_players_page.dart';
 import '../pages/track_record_page.dart';
 import '../screens/game_markets_screen.dart';
 import '../services/api_service.dart';
+import '../services/board_filter_memory.dart';
 import '../services/app_sound_service.dart';
 import '../services/prop_chat_service.dart';
 import '../services/auth_manager.dart';
@@ -2446,10 +2447,13 @@ class _MainDashboardState extends State<MainDashboard> {
       _searchFieldGeneration += 1;
       _selectedSite = 'ALL';
       _selectedSiteSport = '';
-      _selectedCategory = 'ALL';
-      _minConfidence = 0;
-      _sortBy = 'time';
-      _verdictFilter = 'ALL';
+      _selectedCategory = BoardFilters.defaults.category;
+      _minConfidence = BoardFilters.defaults.minConfidence;
+      // Clearing returned to time-ordered, every prop -- a place the board
+      // never opens in and the brief does not describe. Reset means the
+      // default the user first met: playable, ranked by trust.
+      _sortBy = BoardFilters.defaults.sortBy;
+      _verdictFilter = BoardFilters.defaults.verdict;
       _siteInventoryProps = const [];
       _siteSportCounts = const {};
       _siteSportCategoryCounts = const {};
