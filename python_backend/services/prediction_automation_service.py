@@ -11,6 +11,12 @@ from database.postgres import database_is_configured, get_database_pool
 from services.prop_service import get_props
 from services.baseline_projection_service import MODEL_VERSION
 from services.mlb_official_stats_service import historical_mlb_result, official_mlb_result
+# The thresholds come from the module that defines the tiers, so this
+# measurement can never grade a boundary the board no longer uses.
+from services.prop_recommendation_service import (
+    ACTIONABLE_CONFIDENCE_FLOOR,
+    PREMIUM_CONFIDENCE_FLOOR,
+)
 from services.live_stats_service import (
     STAT_MAP,
     get_live_player_stat_snapshot,
@@ -679,6 +685,80 @@ def grade_completed_predictions() -> dict[str, object]:
             "gradedAt": datetime.now(timezone.utc).isoformat()}
 
 
+def confidence_tier_calibration(
+    minimum_sample: int = 50,
+) -> list[dict[str, object]]:
+    """Check each displayed tier against the results it actually produced.
+
+    The board tells a user a number. This is the only measurement that asks
+    whether that number was true, and it reads the confidence the card
+    showed rather than the modelled probability behind it -- those are
+    different columns, and only one of them is a promise made to anyone.
+
+    It exists because the answer moved: a band claiming 57.9% delivered
+    54.0% and lost 9.1% flat-staked while being labelled playable, and
+    nobody knew until the question was asked by hand months in. A claim the
+    product makes continuously needs checking continuously.
+    """
+
+    if not database_is_configured():
+        return []
+    with get_database_pool().connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+            with graded as (
+              select (inputs->>'confidence')::int confidence, hit,
+                     nullif(inputs->>'entryOdds','')::numeric odds
+                from prediction_snapshots
+               where graded_at is not null and hit is not null
+                 and (inputs->>'confidence') ~ '^[0-9]+$'
+                 -- Confidence is floored at 50 wherever it is shown, so a
+                 -- lower value means no number reached the card. Averaging
+                 -- those in would compare a claim against rows that never
+                 -- made one.
+                 and (inputs->>'confidence')::int >= 50
+            )
+            select case when confidence >= %s then 'Premium'
+                        when confidence >= %s then 'Strong'
+                        else 'Pass' end tier,
+                   count(*) sample_size,
+                   avg(confidence) claimed,
+                   avg(case when hit then 1.0 else 0.0 end) actual,
+                   avg(case when hit
+                         then case when odds > 0 then odds / 100.0
+                                   else 100.0 / abs(odds) end
+                         else -1 end
+                   ) filter (where odds is not null and odds <> 0) roi
+              from graded
+             group by 1
+            """,
+            (PREMIUM_CONFIDENCE_FLOOR, ACTIONABLE_CONFIDENCE_FLOOR),
+        )
+        rows = cursor.fetchall()
+    report: list[dict[str, object]] = []
+    for tier, sample_size, claimed, actual, roi in rows:
+        if int(sample_size or 0) < minimum_sample:
+            continue
+        claimed_rate = float(claimed or 0) / 100.0
+        actual_rate = float(actual or 0)
+        report.append(
+            {
+                "tier": str(tier),
+                "sampleSize": int(sample_size),
+                "claimedHitRate": round(claimed_rate, 4),
+                "actualHitRate": round(actual_rate, 4),
+                # Negative means the tier promised more than it delivered.
+                "claimShortfall": round(actual_rate - claimed_rate, 4),
+                "flatStakeRoi": round(float(roi), 4) if roi is not None else None,
+                # A tier only sold as actionable if it is one.
+                "actionable": str(tier) in {"Premium", "Strong"},
+                "meetsItsClaim": actual_rate >= claimed_rate,
+            }
+        )
+    report.sort(key=lambda row: -float(row["claimedHitRate"]))
+    return report
+
+
 def prediction_calibration_report(minimum_sample: int = 20) -> dict[str, object]:
     """Out-of-sample calibration, accuracy, and flat-stake ROI by market."""
     if not database_is_configured():
@@ -779,6 +859,10 @@ def prediction_calibration_report(minimum_sample: int = 20) -> dict[str, object]
         "sampleSize": sum(len(values) for values in groups.values()),
         "minimumGroupSample": minimum_sample,
         "groups": output,
+        # The groups above measure the modelled probability. This measures
+        # the number the card actually showed, which is the claim a user
+        # can hold the product to, and the two are not the same column.
+        "confidenceTiers": confidence_tier_calibration(),
         "coverage": coverage,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
     }

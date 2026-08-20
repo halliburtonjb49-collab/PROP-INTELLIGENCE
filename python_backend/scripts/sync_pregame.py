@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
@@ -12,7 +13,10 @@ import requests
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from services.pipeline_run_service import finish_pipeline_run, start_pipeline_run
-from services.prediction_automation_service import grade_completed_predictions
+from services.prediction_automation_service import (
+    confidence_tier_calibration,
+    grade_completed_predictions,
+)
 from services.sync_service import run_global_sync_pipeline
 
 
@@ -119,6 +123,22 @@ def _full_sync_complete(payload: dict[str, object]) -> bool:
     )
 
 
+def _is_daily_measurement_window() -> bool:
+    """True for exactly one of the day's cron runs.
+
+    The scan reads every graded snapshot, which is far too heavy for a job
+    that runs every ten minutes and much cheaper than a second Render
+    service. The ten-minute cadence makes a single ten-minute window a
+    reliable once-a-day trigger without persisting any state to remember
+    whether today's measurement already ran.
+    """
+
+    now = datetime.now(timezone.utc)
+    return now.hour == int(
+        os.getenv("TIER_CALIBRATION_UTC_HOUR", "10")
+    ) and now.minute < 10
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO)
     identifier, started = start_pipeline_run("pregame-sync")
@@ -143,6 +163,19 @@ def main() -> int:
     except Exception as exc:
         logging.exception("Pregame grading failed")
         errors.append({"stage": "prediction-grading", "error": str(exc)})
+    if _is_daily_measurement_window():
+        # Whether a displayed tier still earns its number is the one claim
+        # the product makes to every user, and it went unchecked for months
+        # until somebody ran the query by hand. Recording it into the run
+        # history puts the answer where the other pipeline numbers already
+        # live, without standing up a service to ask it.
+        try:
+            metrics["confidenceTiers"] = confidence_tier_calibration()
+        except Exception as exc:
+            logging.exception("Confidence tier calibration failed")
+            errors.append(
+                {"stage": "tier-calibration", "error": str(exc)}
+            )
     result = finish_pipeline_run(identifier, started, metrics=metrics, errors=errors)
     print(json.dumps(result, indent=2, default=str))
     # A partial run contains at least one failed stage. Returning zero made
