@@ -3,7 +3,11 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 import main
-from services import api_auth_service, rate_limit_service
+from services import (
+    api_auth_service,
+    operations_notification_service,
+    rate_limit_service,
+)
 from services.api_auth_service import AccessLevel, Membership, require_core, require_pro
 
 
@@ -25,6 +29,11 @@ def authenticated_pro_dependencies():
     # reaches for live providers and hangs the suite rather than failing it.
     with main._prop_catalog_lock:
         saved_catalog = dict(main._prop_catalog)
+    # The last alert delivery is remembered so an operations page can say
+    # whether the channel works. Left standing between tests it makes a
+    # healthy webhook read as rejected purely because an earlier test
+    # rehearsed a failure.
+    operations_notification_service._LAST_DELIVERY.clear()
     yield
     if previous_core is None:
         main.app.dependency_overrides.pop(require_core, None)

@@ -84,6 +84,7 @@ from services.baseline_projection_service import (
 )
 from services.odds_service import sport_coverage
 from services.line_movement_recorder import record_line_movements
+from services.operations_notification_service import alert_channel_health
 from services.prop_group_service import assign_prop_groups
 from services.prop_service import get_props
 from services.formatters import resolve_player_image
@@ -2794,6 +2795,12 @@ def prop_feed_health(response: Response) -> dict[str, object]:
 		# panel is the thing failing to load. Counts only, no connection
 		# details.
 		"jobQueue": queue_summary,
+		# Whether a raised alert can actually reach anyone. Delivery
+		# failures are swallowed so an alert cannot take a pipeline down,
+		# which makes a misconfigured channel look exactly like a quiet
+		# one -- and it did, for a day, while the configured URL answered
+		# 405 because it was not a webhook endpoint. No URL is returned.
+		"alertChannel": alert_channel_health(),
 		# Which configured sports actually return props. An empty rail has
 		# three very different causes and they are indistinguishable from
 		# outside: out of season, not covered by the plan, or not requested.

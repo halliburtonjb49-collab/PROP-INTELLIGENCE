@@ -239,3 +239,79 @@ def test_a_rejected_alert_says_what_the_provider_said(monkeypatch, caplog):
     assert delivered is False
     assert "403" in caplog.text
     assert "feed_stalled" in caplog.text
+
+
+def test_a_channel_url_is_reported_as_undeliverable(monkeypatch):
+    """A channel URL and a webhook URL share a host and differ only in path.
+
+    That is exactly how one gets pasted in place of the other, and the
+    endpoint answers 405 rather than saying so. Delivery failures are
+    swallowed on purpose, so nothing surfaced it for a day.
+    """
+
+    monkeypatch.setenv(
+        "PIPELINE_ALERT_WEBHOOK_URL", "https://discord.com/channels/123/456"
+    )
+
+    health = notifications.alert_channel_health()
+
+    assert health["configured"] is True
+    assert health["looksLikeIncomingWebhook"] is False
+    assert health["deliverable"] is False
+    assert "incoming-webhook" in health["reason"]
+
+
+def test_a_real_webhook_reads_as_deliverable(monkeypatch):
+    monkeypatch.setenv(
+        "PIPELINE_ALERT_WEBHOOK_URL",
+        "https://discord.com/api/webhooks/123/abc",
+    )
+
+    health = notifications.alert_channel_health()
+
+    assert health["looksLikeIncomingWebhook"] is True
+    assert health["deliverable"] is True
+
+
+def test_slack_webhooks_are_recognised_too(monkeypatch):
+    monkeypatch.setenv(
+        "PIPELINE_ALERT_WEBHOOK_URL",
+        "https://hooks.slack.com/services/T000/B000/xyz",
+    )
+
+    assert notifications.alert_channel_health()["deliverable"] is True
+
+
+def test_the_health_report_never_returns_the_url(monkeypatch):
+    """It is a credential, and this is meant to be readable on an
+    operations page."""
+
+    secret = "https://discord.com/api/webhooks/123/super-secret-token"
+    monkeypatch.setenv("PIPELINE_ALERT_WEBHOOK_URL", secret)
+
+    rendered = str(notifications.alert_channel_health())
+
+    assert "super-secret-token" not in rendered
+    assert "/api/webhooks/123" not in rendered
+
+
+def test_a_rejection_is_remembered_for_the_health_report(monkeypatch):
+    from urllib.error import HTTPError
+
+    monkeypatch.setenv(
+        "PIPELINE_ALERT_WEBHOOK_URL",
+        "https://discord.com/api/webhooks/123/abc",
+    )
+
+    def _urlopen(request, timeout=None):
+        raise HTTPError("https://discord.com/api/webhooks/123/abc", 405,
+                        "Method Not Allowed", {}, None)
+
+    monkeypatch.setattr(notifications, "urlopen", _urlopen)
+    notifications.notify_operations_alert(kind="test", summary="probe")
+
+    health = notifications.alert_channel_health()
+
+    assert health["lastOutcome"] == "rejected"
+    assert health["lastStatus"] == 405
+    assert health["deliverable"] is False
