@@ -52,11 +52,39 @@ PASS = "PASS"
 # The bar is now the price plus a margin, because break-even differs by book:
 # a pick'em leg needs about 57.8%, a -110 line needs 52.4%, and clearing
 # either exactly is a coin flip that has already paid the vig.
-PLAY_MARGIN_OVER_BREAK_EVEN = 0.02
+#
+# The margin itself is now measured rather than assumed. Grouping 79,208
+# graded results by the model's edge over the price actually paid:
+#
+#     edge <= 0          n=74360   ROI  -8.4% to -10.8%
+#     edge 0.00 - 0.05   n= 3041   ROI  +2.0%   [-1.3, +5.3]
+#     edge 0.05 - 0.10   n= 1017   ROI  +8.4%   [+2.8, +13.9]
+#     edge 0.10 - 0.15   n=  788   ROI +26.0%   [+20.3, +31.8]
+#
+# Edge over price separates winners from losers cleanly, so the shape of
+# this gate was right; two points of it was not enough to clear the vig.
+# A two point margin lands inside the band whose return cannot be told
+# apart from zero, which is how the default board came to recommend bets
+# that lost money. Five points is the first margin whose entire interval
+# sits above break-even.
+PLAY_MARGIN_OVER_BREAK_EVEN = 0.05
 
 # A lean is the model's qualified directional threshold. It can be a modest
 # positive-value edge, or a strong direction whose current price is too
 # expensive. The latter must say so plainly and can never become PLAY NOW.
+#
+# Measured in finer bands, the cliff is at break-even itself rather than
+# anywhere above it:
+#
+#     edge <= 0             n=74469   ROI  -8.8%  [-9.4, -8.1]
+#     edge 0.000 - 0.005    n=  471   ROI  -7.7%  [-16.1, +0.6]
+#     edge 0.005 - 0.010    n=  430   ROI  +8.9%  [+0.2, +17.5]
+#     edge 0.010 - 0.020    n=  780   ROI  +5.0%  [-1.4, +11.4]
+#
+# So this bar stays where it was. Lifting it to two points looked prudent
+# and would have dropped 1,210 results returning +6.4% [+1.2, +11.5] -- an
+# expensive way to tidy a threshold. A prop that beats its price by half a
+# point is worth surfacing; it is the full play that has to clear more.
 LEAN_MARGIN_OVER_BREAK_EVEN = 0.005
 
 # Retained for callers and tests that still reason in absolute terms. These

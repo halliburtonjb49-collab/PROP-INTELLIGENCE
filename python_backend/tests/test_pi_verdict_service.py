@@ -172,9 +172,11 @@ def test_fallback_projection_copy_does_not_claim_to_be_a_model_pick():
 
 
 def test_a_modest_edge_is_a_lean_rather_than_a_play():
-    # The fixture is priced at 1.91, so break-even is 52.4% and a full play
-    # needs 54.4%. 53.5% is past the price but not far past it.
-    verdict = compute_verdict(_prop(uncertaintyAdjustedProbability=0.535))
+    # The fixture is priced at 1.91, so break-even is 52.4%, a lean needs
+    # 54.4% and a full play needs 57.4%. 55.5% is past the price by enough
+    # to watch and not by enough to stake: measured on 79,208 graded
+    # results, that band returns +2.0% with an interval spanning zero.
+    verdict = compute_verdict(_prop(uncertaintyAdjustedProbability=0.555))
 
     assert verdict.decision == LEAN
     assert verdict.is_actionable
@@ -330,7 +332,7 @@ def test_the_legacy_gate_does_not_cap_a_prop_that_clears_the_price():
 def test_a_lean_is_a_real_edge_that_falls_short_of_a_play():
     # Between the lean and play bars this price implies, and paying enough.
     verdict = compute_verdict(
-        _prop(uncertaintyAdjustedProbability=0.535, evPercentage=3.0)
+        _prop(uncertaintyAdjustedProbability=0.555, evPercentage=3.0)
     )
 
     assert verdict.decision == LEAN
@@ -424,12 +426,15 @@ def test_the_bar_follows_the_price_not_a_constant():
     57.8% -- one threshold cannot be right for both.
     """
 
+    # 57.8% clears a -110 line (52.4% break-even) by the measured five point
+    # play margin, and on a pick'em leg needing exactly 57.8% it does not
+    # clear the price at all: one threshold cannot serve both.
     sportsbook = compute_verdict(
-        _prop(uncertaintyAdjustedProbability=0.56, overDecimalOdds=1.91,
+        _prop(uncertaintyAdjustedProbability=0.578, overDecimalOdds=1.91,
               bestOverOdds=1.91, evPercentage=6.0)
     )
     pickem = compute_verdict(
-        _prop(uncertaintyAdjustedProbability=0.56, overDecimalOdds=1.73,
+        _prop(uncertaintyAdjustedProbability=0.578, overDecimalOdds=1.73,
               bestOverOdds=1.73, evPercentage=6.0)
     )
 
@@ -545,3 +550,68 @@ def test_every_pass_hands_the_choice_back():
             for phrase in ("your call", "yours to take", "your read")
         )
         assert defers, verdict.reason
+
+
+def test_the_play_bar_sits_where_the_money_actually_starts():
+    """The margin is measured, not assumed.
+
+    Grouped by the model's edge over the price actually paid, 79,208 graded
+    results split cleanly: at or below break-even the return is -8.4% to
+    -10.8%; nought to five points over returns +2.0% with an interval that
+    spans zero; five to ten points returns +8.4%; ten to fifteen returns
+    +26.0%. Two points over break-even -- the old bar -- sat inside the band
+    whose return cannot be told apart from zero, which is how the default
+    board came to recommend bets that lost money.
+    """
+
+    from services.pi_verdict_service import (
+        LEAN_MARGIN_OVER_BREAK_EVEN,
+        PLAY_MARGIN_OVER_BREAK_EVEN,
+    )
+
+    assert PLAY_MARGIN_OVER_BREAK_EVEN == 0.05
+    # The lean bar stays at break-even plus a half point. In finer bands the
+    # cliff is at break-even itself: 0.005-0.01 returns +8.9% and 0.01-0.02
+    # returns +5.0%, so lifting this would have dropped 1,210 results worth
+    # +6.4% [+1.2, +11.5] to tidy a threshold.
+    assert LEAN_MARGIN_OVER_BREAK_EVEN == 0.005
+
+
+def test_an_edge_at_or_below_the_price_is_not_playable():
+    # The measured cliff. At or under break-even the return is -8.8%
+    # [-9.4, -8.1] across 74,469 results; above it the board turns positive.
+    verdict = compute_verdict(_prop(uncertaintyAdjustedProbability=0.523))
+
+    assert verdict.decision == PASS
+    assert verdict.is_actionable is False
+
+
+def test_a_thin_but_real_edge_stays_on_the_playable_board():
+    """Inventory the tidier threshold would have thrown away.
+
+    Half a point to two points over the price returns +6.4% [+1.2, +11.5]
+    across 1,210 graded results. It is not a full play, and it is not
+    something to hide either.
+    """
+
+    verdict = compute_verdict(_prop(uncertaintyAdjustedProbability=0.535))
+
+    assert verdict.is_actionable
+    assert verdict.decision != PLAY_NOW
+
+
+def test_a_generous_price_keeps_a_lower_probability_playable():
+    """Inventory is protected by gating on edge rather than confidence.
+
+    A flat confidence floor would drop this prop; it is a play because the
+    price is generous, which is exactly the distinction that separates the
+    +26% band from the -10% one.
+    """
+
+    verdict = compute_verdict(
+        _prop(uncertaintyAdjustedProbability=0.58, overDecimalOdds=2.40,
+              bestOverOdds=2.40, evPercentage=20.0)
+    )
+
+    assert verdict.decision == PLAY_NOW
+    assert verdict.is_actionable
