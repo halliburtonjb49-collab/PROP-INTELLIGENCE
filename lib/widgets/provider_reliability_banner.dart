@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../services/auth_manager.dart';
 import '../theme/app_colors.dart';
 
 class ProviderReliabilityBanner extends StatelessWidget {
@@ -37,6 +38,22 @@ class ProviderReliabilityBanner extends StatelessWidget {
     final providers = (reliability['providerCount'] as num?)?.toInt() ?? 0;
     final expected =
         (reliability['expectedProviderCount'] as num?)?.toInt() ?? providers;
+    final withoutInventory = (expected - providers).clamp(0, expected);
+    final providerRows = (reliability['providers'] as List? ?? const [])
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList(growable: false);
+    final staleProviders = providerRows.where((provider) {
+      final providerStatus = provider['status']?.toString().toUpperCase() ?? '';
+      final providerAge = (provider['ageMinutes'] as num?)?.toInt();
+      return providerStatus == 'STALE' ||
+          providerStatus == 'OFFLINE' ||
+          providerStatus == 'ERROR' ||
+          (providerAge != null && providerAge >= 15);
+    }).toList(growable: false);
+    final showOwnerStaleAlert =
+        AuthManager.instance.sessionState.value.isOwner &&
+        staleProviders.isNotEmpty;
     final horizon =
         (reliability['futureDays'] as num?)?.toInt() ??
         (reliability['horizonDays'] as num?)?.toInt() ??
@@ -112,6 +129,41 @@ class ProviderReliabilityBanner extends StatelessWidget {
                 ],
               ),
             ),
+          if (showOwnerStaleAlert)
+            Container(
+              key: const ValueKey('owner-stale-provider-alert'),
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(11, 8, 11, 8),
+              decoration: const BoxDecoration(
+                color: Color(0xFF3A1D14),
+                border: Border(
+                  bottom: BorderSide(color: Color(0xFFFF8A80), width: 1),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.notification_important_rounded,
+                    color: Color(0xFFFF8A80),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'OWNER ALERT  |  STALE PROVIDER${staleProviders.length == 1 ? '' : 'S'}: '
+                      '${staleProviders.map((row) => row['provider']?.toString() ?? 'UNKNOWN').join(', ')}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           InkWell(
             borderRadius: BorderRadius.circular(8),
             onTap: onDetails,
@@ -131,7 +183,7 @@ class ProviderReliabilityBanner extends StatelessWidget {
                     child: Text(
                       '$freshnessState  |  $freshness  |  '
                       '$horizon-DAY: $events EVENTS  |  '
-                      '$providers/$expected PROVIDERS'
+                      '$providers ACTIVE  |  $withoutInventory WITHOUT CURRENT INVENTORY'
                       '${recovering ? '  |  RECOVERY RUNNING' : ''}',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -283,6 +335,12 @@ class _ProviderReliabilitySheetState extends State<ProviderReliabilitySheet> {
         ? health
         : health
               .where((row) => row['sport']?.toString() == activeSport)
+              .toList(growable: false);
+    final missingToday = days.isEmpty
+        ? const <String>[]
+        : (days.first['missingProviders'] as List? ?? const [])
+              .map((value) => value.toString())
+              .where((value) => value.trim().isNotEmpty)
               .toList(growable: false);
     final greenCount = health
         .where((row) => row['status']?.toString().toUpperCase() == 'GREEN')
@@ -452,13 +510,29 @@ class _ProviderReliabilitySheetState extends State<ProviderReliabilitySheet> {
             const _SectionLabel('PROVIDERS'),
             const SizedBox(height: 8),
             ...providers.map(
+              (provider) {
+                final age = (provider['ageMinutes'] as num?)?.toInt();
+                final rawStatus = provider['status']?.toString() ?? 'UNKNOWN';
+                final normalized = rawStatus.toUpperCase();
+                final stale = normalized == 'STALE' ||
+                    normalized == 'OFFLINE' ||
+                    normalized == 'ERROR' ||
+                    (age != null && age >= 15);
+                return _ReliabilityRow(
+                  title: provider['provider']?.toString() ?? 'UNKNOWN',
+                  detail:
+                      '${provider['propCount'] ?? 0} props | '
+                      '${provider['eventCount'] ?? 0} events | '
+                      'last successful update ${age == null ? 'unknown' : age == 0 ? 'now' : '${age}m ago'}',
+                  status: stale ? 'STALE FEED' : rawStatus,
+                );
+              },
+            ),
+            ...missingToday.map(
               (provider) => _ReliabilityRow(
-                title: provider['provider']?.toString() ?? 'UNKNOWN',
-                detail:
-                    '${provider['propCount'] ?? 0} props | '
-                    '${provider['eventCount'] ?? 0} events | '
-                    '${provider['ageMinutes'] == null ? 'age unknown' : '${provider['ageMinutes']}m old'}',
-                status: provider['status']?.toString() ?? 'UNKNOWN',
+                title: provider,
+                detail: '0 current props | Provider has no inventory for this slate',
+                status: 'NO INVENTORY',
               ),
             ),
           ],
@@ -734,7 +808,14 @@ class _ReliabilityRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final normalized = status.toUpperCase();
     final healthy = normalized == 'LIVE' || normalized == 'READY';
-    final color = healthy ? const Color(0xFF55D6A3) : AppColors.gold;
+    final failed = normalized.contains('STALE') ||
+        normalized == 'OFFLINE' ||
+        normalized == 'ERROR';
+    final color = failed
+        ? const Color(0xFFFF8A80)
+        : healthy
+        ? const Color(0xFF55D6A3)
+        : AppColors.gold;
     return Container(
       margin: const EdgeInsets.only(bottom: 7),
       padding: const EdgeInsets.all(11),
