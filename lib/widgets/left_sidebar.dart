@@ -343,7 +343,78 @@ class _LeftSidebarState extends State<LeftSidebar> {
               ),
             ),
           ),
+          const _SidebarLegalLink(),
+          const _SidebarSignOut(),
         ],
+      ),
+    );
+  }
+}
+
+/// One way into the terms, in navigation rather than on every screen.
+///
+/// A banner repeated on every page is clutter that gets removed by whoever
+/// needs the space next. This sits with the other account controls, where
+/// somebody looks when they want it.
+class _SidebarLegalLink extends StatelessWidget {
+  const _SidebarLegalLink();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      child: TextButton.icon(
+        key: const ValueKey('sidebar-legal-link'),
+        onPressed: () => Navigator.of(context).pushNamed('/legal'),
+        icon: const Icon(Icons.gavel_rounded, size: 14),
+        label: const Text(
+          'TERMS & PRIVACY',
+          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800),
+        ),
+        style: TextButton.styleFrom(
+          foregroundColor: app_colors.AppColors.silver,
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        ),
+      ),
+    );
+  }
+}
+
+/// Ends the session, from anywhere in the app.
+///
+/// signOut() existed but only the paywall screen called it, so a member with
+/// a working subscription had no way to leave: they would have had to lose
+/// access to be offered the button. That matters on a shared device, and it
+/// is the only way to recover from being signed in as the wrong account.
+class _SidebarSignOut extends StatelessWidget {
+  const _SidebarSignOut();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+      child: TextButton.icon(
+        key: const ValueKey('sidebar-sign-out'),
+        onPressed: () async {
+          final navigator = Navigator.of(context);
+          // Close the drawer first on the widths where this is one, so the
+          // sign-out does not leave an orphaned overlay behind it.
+          if (navigator.canPop()) {
+            navigator.pop();
+          }
+          await AuthManager.instance.signOut();
+        },
+        icon: const Icon(Icons.logout_rounded, size: 16),
+        label: const Text(
+          'SIGN OUT',
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+        ),
+        style: TextButton.styleFrom(
+          foregroundColor: app_colors.AppColors.silver,
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        ),
       ),
     );
   }

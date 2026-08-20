@@ -17,7 +17,7 @@ double mobileBottomBarHeight(double width) => width < 360
     ? 64
     : 66;
 
-class AppShell extends StatelessWidget {
+class AppShell extends StatefulWidget {
   const AppShell({
     super.key,
     required this.leftSidebar,
@@ -51,6 +51,16 @@ class AppShell extends StatelessWidget {
 
   static const double leftWidth = 244;
   static const double rightWidth = 332;
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  /// The account column is collapsed while no picks exist, which also hides
+  /// the member's identity, plan controls and the only sign-out in the app.
+  /// This lets it be opened without first drafting a pick to earn it back.
+  bool _accountColumnRevealed = false;
+
   static const double topHeight = 84;
 
   ({double left, double right, double gap, double padding}) _metrics(
@@ -62,7 +72,12 @@ class AppShell extends StatelessWidget {
     if (width < 1450) {
       return (left: 204, right: 270, gap: 9, padding: 9);
     }
-    return (left: leftWidth, right: rightWidth, gap: 12, padding: 12);
+    return (
+      left: AppShell.leftWidth,
+      right: AppShell.rightWidth,
+      gap: 12,
+      padding: 12,
+    );
   }
 
   Widget _surface({
@@ -77,7 +92,9 @@ class AppShell extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: borderRadius,
-        side: BorderSide(color: highlighted ? accentColor : AppColors.border),
+        side: BorderSide(
+          color: highlighted ? widget.accentColor : AppColors.border,
+        ),
       ),
       child: child,
     );
@@ -89,18 +106,18 @@ class AppShell extends StatelessWidget {
       builder: (context, constraints) {
         if (constraints.maxWidth < 1000) {
           return _MobileAppShell(
-            leftSidebar: leftSidebar,
-            topNavigation: topNavigation,
-            content: content,
-            rightSidebar: rightSidebar,
-            activeSlipCount: activeSlipCount,
-            watchedSlipCount: watchedSlipCount,
-            selectedIndex: mobileSelectedIndex,
-            routeKey: mobileRouteKey,
-            onWatchSlip: onMobileWatchSlip,
-            onDismissOverlay: onMobileDismissOverlay,
-            onNavigateIndex: onMobileNavigateIndex,
-            accentColor: accentColor,
+            leftSidebar: widget.leftSidebar,
+            topNavigation: widget.topNavigation,
+            content: widget.content,
+            rightSidebar: widget.rightSidebar,
+            activeSlipCount: widget.activeSlipCount,
+            watchedSlipCount: widget.watchedSlipCount,
+            selectedIndex: widget.mobileSelectedIndex,
+            routeKey: widget.mobileRouteKey,
+            onWatchSlip: widget.onMobileWatchSlip,
+            onDismissOverlay: widget.onMobileDismissOverlay,
+            onNavigateIndex: widget.onMobileNavigateIndex,
+            accentColor: widget.accentColor,
           );
         }
         final metrics = _metrics(constraints.maxWidth);
@@ -109,7 +126,9 @@ class AppShell extends StatelessWidget {
         // full column while no draft picks exist; selecting the first prop
         // rebuilds AppShell with a positive count and restores the slip.
         final showRightSidebar =
-            !collapseEmptyRightSidebar || activeSlipCount > 0;
+            !widget.collapseEmptyRightSidebar ||
+            widget.activeSlipCount > 0 ||
+            _accountColumnRevealed;
 
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -125,7 +144,7 @@ class AppShell extends StatelessWidget {
                         width: metrics.left,
                         child: _surface(
                           borderRadius: radius,
-                          child: leftSidebar,
+                          child: widget.leftSidebar,
                         ),
                       ),
                       SizedBox(width: metrics.gap),
@@ -137,14 +156,14 @@ class AppShell extends StatelessWidget {
                               child: _surface(
                                 borderRadius: radius,
                                 highlighted: true,
-                                child: topNavigation,
+                                child: widget.topNavigation,
                               ),
                             ),
                             SizedBox(height: metrics.gap),
                             Expanded(
                               child: _surface(
                                 borderRadius: radius,
-                                child: content,
+                                child: widget.content,
                               ),
                             ),
                           ],
@@ -156,8 +175,18 @@ class AppShell extends StatelessWidget {
                           width: metrics.right,
                           child: _surface(
                             borderRadius: radius,
-                            child: rightSidebar,
+                            child: widget.rightSidebar,
                           ),
+                        ),
+                      ] else ...[
+                        SizedBox(width: metrics.gap),
+                        // Collapsing the empty slip also hid the member's
+                        // identity, their plan controls and the only sign-out
+                        // in the app, with no way back but drafting a pick to
+                        // earn the column again. This is that way back.
+                        _AccountColumnHandle(
+                          onOpen: () =>
+                              setState(() => _accountColumnRevealed = true),
                         ),
                       ],
                     ],
@@ -168,6 +197,44 @@ class AppShell extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// The slim rail that brings the account column back.
+class _AccountColumnHandle extends StatelessWidget {
+  const _AccountColumnHandle({required this.onOpen});
+
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Open account and active slip',
+      child: Tooltip(
+        message: 'Account & active slip',
+        child: InkWell(
+          key: const ValueKey('account-column-handle'),
+          onTap: onOpen,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: 34,
+            decoration: BoxDecoration(
+              color: AppColors.sidebar,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.border),
+            ),
+            alignment: Alignment.topCenter,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: const Icon(
+              Icons.person_outline_rounded,
+              size: 18,
+              color: AppColors.gold,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

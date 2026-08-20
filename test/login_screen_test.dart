@@ -147,7 +147,7 @@ void main() {
 
     expect(find.text('TERMS & CONDITIONS'), findsOneWidget);
     expect(find.text('SUBSCRIPTIONS & BILLING'), findsOneWidget);
-    expect(find.text('RESPONSIBLE PLAY'), findsOneWidget);
+    expect(find.text('LAWFUL USE & YOUR DECISIONS'), findsOneWidget);
     expect(find.text('ACCOUNT RESPONSIBILITIES'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
