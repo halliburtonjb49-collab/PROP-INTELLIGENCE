@@ -12,6 +12,7 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from services.operations_notification_service import notify_operations_alert
 from services.pipeline_run_service import finish_pipeline_run, start_pipeline_run
 from services.prediction_automation_service import (
     confidence_tier_calibration,
@@ -59,10 +60,17 @@ def _request_json_with_retry(
     raise RuntimeError(f"Request failed without a response: {url}")
 
 
-def run_live_api_sync() -> dict[str, object] | None:
+def _api_base_url() -> str:
+    """Resolve the API this job drives, once, for every caller."""
+
     api_base_url = os.getenv("API_BASE_URL", "").strip().rstrip("/")
     if not api_base_url and os.getenv("RENDER", "").lower() == "true":
         api_base_url = "https://api.propsintell.com"
+    return api_base_url
+
+
+def run_live_api_sync() -> dict[str, object] | None:
+    api_base_url = _api_base_url()
     if not api_base_url:
         return None
     payload = _request_json_with_retry("POST", f"{api_base_url}/api/sync")
@@ -123,6 +131,86 @@ def _full_sync_complete(payload: dict[str, object]) -> bool:
     )
 
 
+_MAX_PUBLISHED_AGE_MINUTES = int(
+    os.getenv("FEED_STALE_ALERT_MINUTES", "45")
+)
+
+
+def _alert_on_a_stalled_feed(api_base_url: str) -> None:
+    """Raise a catalog that stopped publishing while the run looked healthy.
+
+    This is the shape of the outage that ran for six hours unnoticed: the
+    providers answered, the stages reported success, and the only symptom
+    was a publication timestamp that stopped moving. Nothing watched that
+    timestamp except a deploy that happened to run.
+    """
+
+    if not api_base_url:
+        return
+    try:
+        payload = _request_json_with_retry(
+            "GET", f"{api_base_url}/api/props/readiness", attempts=2
+        )
+    except Exception:
+        logging.exception("Feed freshness check could not reach the API")
+        return
+    published = str(payload.get("catalogPublishedAt") or "")
+    if not published:
+        return
+    try:
+        published_at = datetime.fromisoformat(published.replace("Z", "+00:00"))
+    except ValueError:
+        return
+    if published_at.tzinfo is None:
+        published_at = published_at.replace(tzinfo=timezone.utc)
+    age_minutes = (
+        datetime.now(timezone.utc) - published_at
+    ).total_seconds() / 60
+    recovery = bool(payload.get("recovery"))
+    if age_minutes <= _MAX_PUBLISHED_AGE_MINUTES and not recovery:
+        return
+    notify_operations_alert(
+        kind="feed_stalled",
+        summary=(
+            f"prop catalog last published {age_minutes:.0f} minutes ago"
+            + (" and the board is serving a recovery snapshot" if recovery else "")
+        ),
+        details={
+            "catalogPublishedAt": published,
+            "ageMinutes": round(age_minutes),
+            "servingLayer": payload.get("source"),
+            "recovery": recovery,
+            "count": payload.get("count"),
+        },
+    )
+
+
+def _alert_on_a_tier_that_stopped_paying(
+    tiers: list[dict[str, object]],
+) -> None:
+    """Raise an actionable tier the results no longer support.
+
+    A band claiming 57.9% delivered 54.0% and lost 9.1% flat-staked for
+    months while the card called it playable. Recording that number is not
+    the same as noticing it.
+    """
+
+    failing = [
+        tier
+        for tier in tiers
+        if tier.get("actionable")
+        and tier.get("profitability") == "proven_unprofitable"
+    ]
+    if not failing:
+        return
+    names = ", ".join(str(tier.get("tier")) for tier in failing)
+    notify_operations_alert(
+        kind="tier_unprofitable",
+        summary=f"actionable tier no longer pays: {names}",
+        details={"tiers": failing},
+    )
+
+
 def _is_daily_measurement_window() -> bool:
     """True for exactly one of the day's cron runs.
 
@@ -163,6 +251,7 @@ def main() -> int:
     except Exception as exc:
         logging.exception("Pregame grading failed")
         errors.append({"stage": "prediction-grading", "error": str(exc)})
+    _alert_on_a_stalled_feed(_api_base_url())
     if _is_daily_measurement_window():
         # Whether a displayed tier still earns its number is the one claim
         # the product makes to every user, and it went unchecked for months
@@ -170,7 +259,9 @@ def main() -> int:
         # history puts the answer where the other pipeline numbers already
         # live, without standing up a service to ask it.
         try:
-            metrics["confidenceTiers"] = confidence_tier_calibration()
+            tiers = confidence_tier_calibration()
+            metrics["confidenceTiers"] = tiers
+            _alert_on_a_tier_that_stopped_paying(tiers)
         except Exception as exc:
             logging.exception("Confidence tier calibration failed")
             errors.append(
