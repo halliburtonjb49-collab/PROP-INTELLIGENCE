@@ -13,6 +13,7 @@ from services.formatters import (
 	format_sport_label,
 	resolve_player_image,
 )
+from services.prop_recommendation_service import tier_from_confidence
 from services.time_utils import (
 	format_display_time,
 	parse_to_utc_iso,
@@ -202,15 +203,11 @@ def _normalize_game_status(raw_status: object, start_time_utc: str) -> str:
 
 
 def _tier_from_confidence(confidence: int, side: str) -> str:
+	# Fifth copy of the same ladder, and the last one still carrying the
+	# 57 floor that put a money-losing band on the board.
 	if side.upper() not in {"OVER", "UNDER"}:
 		return "No Pick"
-	if confidence >= 65:
-		return "Premium"
-	if confidence >= 60:
-		return "Strong"
-	if confidence >= 57:
-		return "Lean"
-	return "Pass"
+	return tier_from_confidence(confidence)
 
 
 def apply_prop_intelligence_recommendation(

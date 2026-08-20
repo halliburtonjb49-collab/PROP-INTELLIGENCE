@@ -16,16 +16,43 @@ def safe_float(value: object, default: float | None = None) -> float | None:
         return default
 
 
-def _tier_from_confidence(confidence: int, side: str) -> str:
+# Measured against 25,685 graded predictions carrying a displayed
+# confidence, grouped by the tier the board actually showed:
+#
+#   Premium 65+    n=2398   claimed 69.1%   hit 71.6%   flat ROI  +7.6%
+#   Strong  60-64  n=2464   claimed 61.6%   hit 60.3%   flat ROI  -2.2%
+#   Lean    57-59  n=2859   claimed 57.9%   hit 54.0%   flat ROI  -9.1%
+#   Pass    50-56  n=17964  claimed 51.9%   hit 47.0%   flat ROI -16.5%
+#
+# The ladder discriminates and the top of it beats its own claim, but the
+# 57-59 band did not: it was presented as playable, missed its stated hit
+# rate by four points, and lost money flat-staked. A tier that costs the
+# user money is worse than no tier, so that band is now Pass. The two
+# thresholds that survive keep the meaning they already had, so nothing a
+# user learned about Premium or Strong changes underneath them.
+ACTIONABLE_CONFIDENCE_FLOOR = 60
+PREMIUM_CONFIDENCE_FLOOR = 65
+
+
+def tier_from_confidence(confidence: int, side: str = "") -> str:
+    """Bucket a confidence into the strength label the board displays.
+
+    Single definition on purpose. This lived in four places, and the copy
+    behind the uncertainty gate had no floor at all, so a prop the gate
+    called actionable was labelled Lean at any confidence whatsoever.
+    """
+
     if side == "Pass":
         return "Pass"
-    if confidence >= 65:
+    if confidence >= PREMIUM_CONFIDENCE_FLOOR:
         return "Premium"
-    if confidence >= 60:
+    if confidence >= ACTIONABLE_CONFIDENCE_FLOOR:
         return "Strong"
-    if confidence >= 57:
-        return "Lean"
     return "Pass"
+
+
+def _tier_from_confidence(confidence: int, side: str) -> str:
+    return tier_from_confidence(confidence, side)
 
 
 def _pick_text(side: str, line: float | None, tier: str) -> str:

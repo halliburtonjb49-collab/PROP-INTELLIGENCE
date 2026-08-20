@@ -12,6 +12,7 @@ from services.projection_calibration_service import (
     contextual_projection,
 )
 from services.pi_verdict_service import compute_verdict, verdict_payload
+from services.prop_recommendation_service import tier_from_confidence
 from services.prop_probability_service import evaluate_market
 from services.probability_calibration_service import (
     calibrated_probability,
@@ -334,15 +335,7 @@ def apply_projection_context(prop: object) -> None:
     existing_tier = str(getattr(prop, "tier", "") or "").strip()
     if projection_sample_size > 0 or existing_confidence <= 0:
         prop.confidence = calculated_confidence
-        prop.tier = (
-            "Premium"
-            if prop.confidence >= 65
-            else "Strong"
-            if prop.confidence >= 60
-            else "Lean"
-            if prop.confidence >= 57
-            else "Pass"
-        )
+        prop.tier = tier_from_confidence(prop.confidence)
     else:
         prop.confidence = existing_confidence
         prop.tier = existing_tier or "No Pick"
@@ -350,15 +343,7 @@ def apply_projection_context(prop: object) -> None:
         analysis_confidence = int(strikeout_analysis.get("confidence") or 0)
         if analysis_confidence > 0:
             prop.confidence = analysis_confidence
-            prop.tier = (
-                "Premium"
-                if prop.confidence >= 65
-                else "Strong"
-                if prop.confidence >= 60
-                else "Lean"
-                if prop.confidence >= 57
-                else "Pass"
-            )
+            prop.tier = tier_from_confidence(prop.confidence)
         prop.evPercentage = float(strikeout_analysis.get("expectedValuePercent") or prop.evPercentage or 0)
         prop.recommendationEdge = float(strikeout_analysis.get("edgePercent") or prop.recommendationEdge or 0)
         prop.edge = round(abs(prop.edgeSigned), 2) if prop.edgeSigned else prop.recommendationEdge
@@ -403,11 +388,7 @@ def apply_projection_context(prop: object) -> None:
         prop.uncertaintyAdjustedProbability = gate.adjusted_probability
         prop.confidence = confidence_from_probability(gate.adjusted_probability)
         if gate.actionable:
-            prop.tier = (
-                "Premium" if prop.confidence >= 65
-                else "Strong" if prop.confidence >= 60
-                else "Lean"
-            )
+            prop.tier = tier_from_confidence(prop.confidence)
     if not gate.actionable:
         prop.recommendationAvailable = False
         prop.recommendationUnavailableReason = gate.reasons[0]
