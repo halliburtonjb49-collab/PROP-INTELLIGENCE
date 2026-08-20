@@ -13,7 +13,55 @@ from __future__ import annotations
 import json
 import logging
 import os
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
+
+
+# urllib announces itself as "Python-urllib/3.12", and Discord's edge
+# refuses that with a 403 before the webhook is ever reached. The failure is
+# indistinguishable from a quiet channel: delivery returns False, the caller
+# carries on, and the alerts simply never arrive. Any honest agent string is
+# accepted.
+_USER_AGENT = "PropIntelligenceAlerts/1.0 (+https://propsintell.com)"
+
+
+def _deliver(webhook: str, payload: bytes, *, kind: str) -> bool:
+    """POST one alert, and say why when it does not land.
+
+    Delivery failures are swallowed on purpose -- an alert that cannot be
+    sent must not take a pipeline down with it -- so the log line is the
+    only evidence that exists. It carries the status and the provider's own
+    message, because "delivery failed" cost an evening once already.
+    """
+
+    request = Request(
+        webhook,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": _USER_AGENT,
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=10) as response:  # noqa: S310 - operator-configured webhook
+            return 200 <= response.status < 300
+    except HTTPError as error:
+        detail = ""
+        try:
+            detail = error.read().decode("utf-8", "replace")[:200]
+        except Exception:
+            detail = ""
+        logging.error(
+            "Alert rejected kind=%s status=%s detail=%s",
+            kind,
+            error.code,
+            detail,
+        )
+        return False
+    except Exception:
+        logging.exception("Alert delivery failed kind=%s", kind)
+        return False
 
 
 def notify_pipeline_issue(pipeline: str, status: str, errors: list[dict[str, object]]) -> bool:
@@ -28,13 +76,7 @@ def notify_pipeline_issue(pipeline: str, status: str, errors: list[dict[str, obj
         "status": status,
         "errors": errors[:10],
     }).encode("utf-8")
-    try:
-        request = Request(webhook, data=payload, headers={"Content-Type": "application/json"}, method="POST")
-        with urlopen(request, timeout=10) as response:  # noqa: S310 - operator-configured webhook
-            return 200 <= response.status < 300
-    except Exception:
-        logging.exception("Pipeline alert delivery failed pipeline=%s", pipeline)
-        return False
+    return _deliver(webhook, payload, kind=f"pipeline:{pipeline}")
 
 
 def notify_operations_alert(
@@ -66,18 +108,7 @@ def notify_operations_alert(
         },
         default=str,
     ).encode("utf-8")
-    try:
-        request = Request(
-            webhook,
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urlopen(request, timeout=10) as response:  # noqa: S310 - operator-configured webhook
-            return 200 <= response.status < 300
-    except Exception:
-        logging.exception("Operations alert delivery failed kind=%s", kind)
-        return False
+    return _deliver(webhook, payload, kind=kind)
 
 
 def notify_member_signup(*, user_id: str, email: str = "", source: str = "") -> bool:
@@ -99,15 +130,4 @@ def notify_member_signup(*, user_id: str, email: str = "", source: str = "") -> 
             "source": source.strip()[:80] or "app",
         }
     ).encode("utf-8")
-    try:
-        request = Request(
-            webhook,
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urlopen(request, timeout=10) as response:  # noqa: S310 - operator-configured webhook
-            return 200 <= response.status < 300
-    except Exception:
-        logging.exception("Member signup alert delivery failed user_id=%s", user_id)
-        return False
+    return _deliver(webhook, payload, kind="member_signup")
