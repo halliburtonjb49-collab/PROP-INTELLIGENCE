@@ -22,8 +22,13 @@ void main() {
     // ends up in front of somebody.
     expect(termsSections, isNotEmpty);
     expect(privacySections, isNotEmpty);
+    // The terms describe a research service rather than a book, because
+    // that is what the product is: it takes no wagers, holds no funds and
+    // settles nothing.
     expect(
-      termsSections.any((section) => section.title.contains('RESPONSIBLE')),
+      termsSections.any(
+        (section) => section.text.contains('does not accept wagers'),
+      ),
       isTrue,
     );
   });

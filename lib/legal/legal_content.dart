@@ -37,9 +37,9 @@ const termsSections = <LegalSection>[
         'PROP INTELLIGENCE provides sports information, analytics, projections and organizational tools. Results are estimates, not guarantees. Nothing in the service is financial, legal or gambling advice.',
   ),
   LegalSection(
-    title: 'RESPONSIBLE PLAY',
+    title: 'LAWFUL USE & YOUR DECISIONS',
     text:
-        'Only participate where lawful and only if you meet the legal age requirement in your location. Set limits, never chase losses and seek help if play stops being recreational.',
+        'PROP INTELLIGENCE is a research, analytics and tracking service. It does not accept wagers, hold funds or settle outcomes. Any decision you make using the service is your own, and you are responsible for using it only where lawful and only if you meet the age requirement that applies to you.',
   ),
   LegalSection(
     title: 'ACCOUNT RESPONSIBILITIES',
