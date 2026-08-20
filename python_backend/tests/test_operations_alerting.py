@@ -182,3 +182,60 @@ def test_pipeline_failures_speak_both_dialects_too(monkeypatch):
 
     assert payload["text"] == payload["content"]
     assert "PARTIAL" in payload["content"]
+
+
+def test_alerts_identify_themselves_to_the_webhook(monkeypatch):
+    """Discord's edge answers 403 to urllib's default agent string.
+
+    The refusal never reaches the webhook, and the failure is
+    indistinguishable from a quiet channel: delivery returns False, the
+    caller carries on, and no alert ever arrives. Production returned
+    exactly that until this header existed.
+    """
+
+    captured: dict = {}
+
+    class _Response:
+        status = 204
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    def _urlopen(request, timeout=None):
+        captured["agent"] = request.get_header("User-agent")
+        return _Response()
+
+    monkeypatch.setenv("PIPELINE_ALERT_WEBHOOK_URL", "https://example.invalid/hook")
+    monkeypatch.setattr(notifications, "urlopen", _urlopen)
+
+    assert notifications.notify_operations_alert(
+        kind="test", summary="channel test"
+    ) is True
+    assert captured["agent"]
+    assert "python-urllib" not in captured["agent"].lower()
+
+
+def test_a_rejected_alert_says_what_the_provider_said(monkeypatch, caplog):
+    """Swallowing the failure is deliberate; hiding the reason is not."""
+
+    from urllib.error import HTTPError
+
+    def _urlopen(request, timeout=None):
+        raise HTTPError(
+            "https://example.invalid/hook", 403, "Forbidden", {}, None
+        )
+
+    monkeypatch.setenv("PIPELINE_ALERT_WEBHOOK_URL", "https://example.invalid/hook")
+    monkeypatch.setattr(notifications, "urlopen", _urlopen)
+
+    with caplog.at_level("ERROR"):
+        delivered = notifications.notify_operations_alert(
+            kind="feed_stalled", summary="catalog stalled"
+        )
+
+    assert delivered is False
+    assert "403" in caplog.text
+    assert "feed_stalled" in caplog.text
