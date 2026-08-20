@@ -19,6 +19,12 @@ def authenticated_pro_dependencies():
     rate_limit_service._memory_buckets.clear()
     with main._prop_response_cache_lock:
         main._prop_response_cache.clear()
+    # _prop_catalog is process-global. A test that leaves it mutated makes a
+    # later one either assert against another test's state or miss the
+    # in-memory cache entirely and fall through to a real rebuild, which
+    # reaches for live providers and hangs the suite rather than failing it.
+    with main._prop_catalog_lock:
+        saved_catalog = dict(main._prop_catalog)
     yield
     if previous_core is None:
         main.app.dependency_overrides.pop(require_core, None)
@@ -28,6 +34,9 @@ def authenticated_pro_dependencies():
         main.app.dependency_overrides.pop(require_pro, None)
     else:
         main.app.dependency_overrides[require_pro] = previous_pro
+    with main._prop_catalog_lock:
+        main._prop_catalog.clear()
+        main._prop_catalog.update(saved_catalog)
     api_auth_service.clear_membership_cache()
     with main._prop_response_cache_lock:
         main._prop_response_cache.clear()

@@ -322,11 +322,24 @@ app = FastAPI(
 APP_VERSION = os.getenv("RENDER_GIT_COMMIT", os.getenv("APP_VERSION", "development"))
 _prop_catalog_lock = Lock()
 _prop_catalog_load_lock = Lock()
+# Ordered from freshest to most degraded.
+_CATALOG_SOURCE_LIVE = "live"
+_CATALOG_SOURCE_SHARED = "shared-cache"
+_CATALOG_SOURCE_RECOVERY = "durable-snapshot"
+_CATALOG_SOURCE_EMPTY = "unavailable"
+_RECOVERY_SOURCES = frozenset({_CATALOG_SOURCE_RECOVERY})
+
+
 _prop_catalog: dict[str, object] = {
 	"loadedAt": 0.0,
 	"versionCheckedAt": 0.0,
 	"version": None,
 	"props": [],
+	# Which layer produced the props currently held. The board looked
+	# identical whether it came from a live sync or from a day-old durable
+	# snapshot, so a stalled feed presented as a healthy one -- exactly what
+	# happened while catalog publication was failing for six hours.
+	"source": _CATALOG_SOURCE_EMPTY,
 }
 _prop_metrics_lock = Lock()
 _prop_metrics: dict[str, object] = {
@@ -704,6 +717,7 @@ def _cached_prop_catalog_singleflight() -> list[PropResponse]:
 					versionCheckedAt=now,
 					version=shared_version or "unversioned",
 					props=props,
+					source=_CATALOG_SOURCE_SHARED,
 				)
 			return filter_owner_quarantined_props(props)
 		except Exception:
@@ -721,6 +735,7 @@ def _cached_prop_catalog_singleflight() -> list[PropResponse]:
 					versionCheckedAt=now,
 					version="postgres-snapshot",
 					props=props,
+					source=_CATALOG_SOURCE_RECOVERY,
 				)
 			return filter_owner_quarantined_props(props)
 		except Exception:
@@ -728,6 +743,23 @@ def _cached_prop_catalog_singleflight() -> list[PropResponse]:
 	return filter_owner_quarantined_props(
 		_rebuild_prop_catalog_from_local(fallback_version=shared_version)
 	)
+
+
+def _catalog_feed_state() -> dict[str, object]:
+	"""Describe which layer served the props a caller is holding.
+
+	A degraded feed is only honest if the client can see it. Callers get the
+	source rather than a bare boolean so a shared-cache read is not conflated
+	with a durable-snapshot recovery: one is normal multi-instance operation,
+	the other means the live catalog could not be reached at all.
+	"""
+
+	with _prop_catalog_lock:
+		source = str(_prop_catalog.get("source") or _CATALOG_SOURCE_EMPTY)
+	return {
+		"source": source,
+		"recovery": source in _RECOVERY_SOURCES,
+	}
 
 
 def _rebuild_prop_catalog_from_local(
@@ -748,6 +780,9 @@ def _rebuild_prop_catalog_from_local(
 			versionCheckedAt=now,
 			version=fallback_version,
 			props=props,
+			source=(
+				_CATALOG_SOURCE_LIVE if props else _CATALOG_SOURCE_EMPTY
+			),
 		)
 	if props:
 		catalog_version = (
@@ -887,6 +922,7 @@ def _invalidate_prop_catalog(*, delete_shared: bool = True) -> None:
 			versionCheckedAt=0.0,
 			version=None,
 			props=[],
+			source=_CATALOG_SOURCE_EMPTY,
 		)
 	if delete_shared:
 		delete_distributed_cache(_PROP_CATALOG_COMPRESSED_KEY)
@@ -2984,6 +3020,7 @@ def props_readiness(response: Response) -> dict[str, object]:
 		"version": APP_VERSION,
 		"responseMs": round((time.perf_counter() - started_at) * 1000),
 		"dataProtected": True,
+		**_catalog_feed_state(),
 	}
 
 
@@ -3720,6 +3757,7 @@ def props(
 				"includeReliability": includeReliability,
 			},
 			"version": APP_VERSION,
+			"feed": _catalog_feed_state(),
 		}
 		_remember_prop_response(
 			cache_key,

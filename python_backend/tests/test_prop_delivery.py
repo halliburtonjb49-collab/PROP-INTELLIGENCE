@@ -291,6 +291,12 @@ def test_prop_readiness_exposes_metadata_without_authentication(monkeypatch) -> 
         "version": main.APP_VERSION,
         "responseMs": response.json()["responseMs"],
         "dataProtected": True,
+        # Which layer served the board. Operational metadata of the same
+        # class as version and count -- no prop data, no credentials -- and
+        # the signal that was missing while a stalled feed served a
+        # day-old catalog that looked entirely healthy.
+        "source": "unavailable",
+        "recovery": False,
     }
     assert "no-store" in response.headers["cache-control"]
 
