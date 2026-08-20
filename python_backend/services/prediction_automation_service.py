@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from datetime import datetime, timezone
+from math import sqrt
 from threading import Lock
 
 from database.postgres import database_is_configured, get_database_pool
@@ -685,6 +686,40 @@ def grade_completed_predictions() -> dict[str, object]:
             "gradedAt": datetime.now(timezone.utc).isoformat()}
 
 
+def _wilson_interval(
+    successes: int, total: int, z: float = 1.96
+) -> tuple[float, float]:
+    """95% interval for a hit rate, usable at small samples.
+
+    The normal approximation misbehaves near 0 and 1 and at low counts,
+    which is exactly where a new market or a thin tier lives.
+    """
+
+    if total <= 0:
+        return (0.0, 0.0)
+    proportion = successes / total
+    denominator = 1 + (z * z) / total
+    centre = proportion + (z * z) / (2 * total)
+    spread = z * sqrt(
+        (proportion * (1 - proportion) + (z * z) / (4 * total)) / total
+    )
+    return (
+        max(0.0, (centre - spread) / denominator),
+        min(1.0, (centre + spread) / denominator),
+    )
+
+
+def _mean_interval(
+    mean: float | None, spread: float, count: int, z: float = 1.96
+) -> tuple[float | None, float | None]:
+    """95% interval for a mean return, or (None, None) without the sample."""
+
+    if mean is None or count < 2 or spread <= 0:
+        return (None, None)
+    margin = z * (spread / sqrt(count))
+    return (mean - margin, mean + margin)
+
+
 def confidence_tier_calibration(
     minimum_sample: int = 50,
 ) -> list[dict[str, object]]:
@@ -723,12 +758,20 @@ def confidence_tier_calibration(
                         else 'Pass' end tier,
                    count(*) sample_size,
                    avg(confidence) claimed,
-                   avg(case when hit then 1.0 else 0.0 end) actual,
+                   sum(case when hit then 1 else 0 end) hits,
+                   count(*) filter (
+                     where odds is not null and odds <> 0
+                   ) priced,
                    avg(case when hit
                          then case when odds > 0 then odds / 100.0
                                    else 100.0 / abs(odds) end
                          else -1 end
-                   ) filter (where odds is not null and odds <> 0) roi
+                   ) filter (where odds is not null and odds <> 0) roi,
+                   stddev_samp(case when hit
+                         then case when odds > 0 then odds / 100.0
+                                   else 100.0 / abs(odds) end
+                         else -1 end
+                   ) filter (where odds is not null and odds <> 0) roi_spread
               from graded
              group by 1
             """,
@@ -736,23 +779,47 @@ def confidence_tier_calibration(
         )
         rows = cursor.fetchall()
     report: list[dict[str, object]] = []
-    for tier, sample_size, claimed, actual, roi in rows:
-        if int(sample_size or 0) < minimum_sample:
+    for tier, sample_size, claimed, hits, priced, roi, roi_spread in rows:
+        total = int(sample_size or 0)
+        if total < minimum_sample:
             continue
         claimed_rate = float(claimed or 0) / 100.0
-        actual_rate = float(actual or 0)
+        actual_rate = int(hits or 0) / total
+        hit_low, hit_high = _wilson_interval(int(hits or 0), total)
+        roi_value = float(roi) if roi is not None else None
+        roi_low, roi_high = _mean_interval(
+            roi_value, float(roi_spread or 0), int(priced or 0)
+        )
+        # A point estimate is not evidence. The retired band sat about five
+        # standard errors below break-even; the tier beneath Premium sits
+        # within noise of it. Treating those two the same would either keep
+        # a loser or discard half the actionable board on a rounding error.
+        if roi_low is not None and roi_low > 0:
+            profitability = "proven_profitable"
+        elif roi_high is not None and roi_high < 0:
+            profitability = "proven_unprofitable"
+        else:
+            profitability = "not_distinguishable"
         report.append(
             {
                 "tier": str(tier),
-                "sampleSize": int(sample_size),
+                "sampleSize": total,
                 "claimedHitRate": round(claimed_rate, 4),
                 "actualHitRate": round(actual_rate, 4),
+                "hitRateLow": round(hit_low, 4),
+                "hitRateHigh": round(hit_high, 4),
                 # Negative means the tier promised more than it delivered.
                 "claimShortfall": round(actual_rate - claimed_rate, 4),
-                "flatStakeRoi": round(float(roi), 4) if roi is not None else None,
+                "flatStakeRoi": round(roi_value, 4) if roi_value is not None else None,
+                "flatStakeRoiLow": round(roi_low, 4) if roi_low is not None else None,
+                "flatStakeRoiHigh": round(roi_high, 4) if roi_high is not None else None,
+                "pricedSampleSize": int(priced or 0),
+                "profitability": profitability,
                 # A tier only sold as actionable if it is one.
                 "actionable": str(tier) in {"Premium", "Strong"},
-                "meetsItsClaim": actual_rate >= claimed_rate,
+                # Missing the stated rate only counts when the interval says
+                # so; a point estimate a hair under its claim is noise.
+                "meetsItsClaim": claimed_rate <= hit_high,
             }
         )
     report.sort(key=lambda row: -float(row["claimedHitRate"]))
