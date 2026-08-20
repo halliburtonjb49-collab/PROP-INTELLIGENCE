@@ -102,6 +102,12 @@ class PropData {
   final String lastUpdatedUtc;
   final int? dataAgeSeconds;
   final bool dataStale;
+
+  /// Identity shared with the same prop offered at other sportsbooks, and
+  /// how many books carry it. Assigned by the backend so every client
+  /// groups identically.
+  final String propGroupId;
+  final int propGroupBookCount;
   final String sourcePlayerId;
   final String canonicalPlayerId;
   final double playerIdentityConfidence;
@@ -281,6 +287,8 @@ class PropData {
     this.lastUpdatedUtc = '',
     this.dataAgeSeconds,
     this.dataStale = false,
+    this.propGroupId = '',
+    this.propGroupBookCount = 0,
     this.sourcePlayerId = '',
     this.canonicalPlayerId = '',
     this.playerIdentityConfidence = 0,
@@ -655,6 +663,8 @@ class PropData {
       sport: json['sport']?.toString() ?? '',
       matchup: json['matchup']?.toString() ?? '',
       sportsbook: json['sportsbook']?.toString() ?? '',
+      propGroupId: json['propGroupId']?.toString() ?? '',
+      propGroupBookCount: (json['propGroupBookCount'] as num?)?.toInt() ?? 0,
       market: json['market']?.toString() ?? '',
       marketName: json['market_name']?.toString() ?? '',
       statType: json['stat_type']?.toString() ?? '',
