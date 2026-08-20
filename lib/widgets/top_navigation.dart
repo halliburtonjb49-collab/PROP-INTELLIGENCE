@@ -555,7 +555,14 @@ class TopNavigation extends StatelessWidget {
                       if (label == 'SPORTS')
                         ..._buildVisibleSports()
                       else if (label == 'LIVE')
-                        _buildNavGroup(label, icon, entries),
+                        KeyedSubtree(
+                          key: const ValueKey('top-scoreboard'),
+                          child: _buildNavItem(
+                            label: 'SCOREBOARD',
+                            page: AppPage.scoreboard,
+                            icon: Icons.scoreboard_outlined,
+                          ),
+                        ),
                     if (AuthManager.instance.sessionState.value.isOwner)
                       _buildNavItem(
                         label: 'OWNER OPS',

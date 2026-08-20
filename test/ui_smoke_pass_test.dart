@@ -130,9 +130,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 800));
 
     // Sports and live tools stay on top; workflow groups move to the sidebar.
-    for (final group in ['LIVE', 'SPORTS']) {
-      expect(find.byKey(ValueKey('nav-group-$group')), findsOneWidget);
-    }
+    expect(find.byKey(const ValueKey('nav-group-SPORTS')), findsOneWidget);
+    expect(find.byKey(const ValueKey('top-scoreboard')), findsOneWidget);
     for (final group in ['RESEARCH', 'BUILD', 'HISTORY']) {
       expect(find.byKey(ValueKey('nav-group-$group')), findsNothing);
     }
@@ -195,9 +194,7 @@ void main() {
     expect(find.text('GAME TOTALS'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.byKey(const ValueKey('nav-group-LIVE')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('nav-entry-scoreboard')));
+    await tester.tap(find.byKey(const ValueKey('top-scoreboard')));
     await tester.pumpAndSettle();
     expect(find.text('ALL GAMES'), findsOneWidget);
     expect(tester.takeException(), isNull);
