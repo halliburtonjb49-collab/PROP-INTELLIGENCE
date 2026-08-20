@@ -200,6 +200,9 @@ class _MainDashboardState extends State<MainDashboard> {
   Map<String, Map<String, int>> _siteTotalSportCategoryCounts = const {};
   Map<String, Map<String, int>> _sitePlayableSportCategoryCounts = const {};
   Map<String, dynamic> _providerCoverage = const {};
+  // The board is served from the durable snapshot: real lines, but
+  // possibly hours old and otherwise indistinguishable from current ones.
+  bool _feedIsRecovery = false;
   Map<String, dynamic> _providerReliability = const {};
   Map<String, int> _categoryCounts = const {};
   Map<String, int> _totalCategoryCounts = const {};
@@ -587,6 +590,7 @@ class _MainDashboardState extends State<MainDashboard> {
       _verdictCounts = _apiService.lastVerdictCounts;
       _providerCoverage = _apiService.lastProviderCoverage;
       _providerReliability = _apiService.lastProviderReliability;
+      _feedIsRecovery = _apiService.lastFeedIsRecovery;
       if (_selectedSite != 'ALL' && _selectedCategory == 'ALL') {
         _siteInventoryProps = props;
         if (_selectedSiteSport.isEmpty) {
@@ -2610,6 +2614,7 @@ class _MainDashboardState extends State<MainDashboard> {
       reliability: _providerReliability,
       selectedSite: _selectedSite,
       coverageIssue: issue,
+      feedIsRecovery: _feedIsRecovery,
       onDetails: _providerReliability.isEmpty
           ? null
           : _showProviderReliabilityDetails,

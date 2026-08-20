@@ -169,4 +169,42 @@ void main() {
     expect(find.text('MISSING'), findsOne);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('a recovery feed announces itself even with no telemetry', (
+    tester,
+  ) async {
+    // The moment the catalog falls back to the durable snapshot is exactly
+    // when reliability telemetry is most likely to be missing too, and the
+    // banner used to render nothing at all in that case.
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ProviderReliabilityBanner(
+            reliability: <String, dynamic>{},
+            selectedSite: 'ALL',
+            feedIsRecovery: true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const ValueKey('feed-recovery-warning')), findsOneWidget);
+    expect(find.textContaining('RECOVERY FEED'), findsOneWidget);
+    expect(find.textContaining('CONFIRM AT THE SPORTSBOOK'), findsOneWidget);
+  });
+
+  testWidgets('a healthy feed shows no recovery warning', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ProviderReliabilityBanner(
+            reliability: <String, dynamic>{'status': 'HEALTHY'},
+            selectedSite: 'ALL',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const ValueKey('feed-recovery-warning')), findsNothing);
+  });
 }

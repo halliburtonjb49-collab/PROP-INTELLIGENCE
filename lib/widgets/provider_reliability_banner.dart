@@ -11,6 +11,7 @@ class ProviderReliabilityBanner extends StatelessWidget {
     required this.selectedSite,
     this.coverageIssue,
     this.onDetails,
+    this.feedIsRecovery = false,
   });
 
   final Map<String, dynamic> reliability;
@@ -18,9 +19,16 @@ class ProviderReliabilityBanner extends StatelessWidget {
   final Map<String, dynamic>? coverageIssue;
   final VoidCallback? onDetails;
 
+  /// The board is being served from the durable snapshot because the live
+  /// catalog could not be reached. The lines are real but may be hours old,
+  /// and nothing else on the card distinguishes them from current ones.
+  final bool feedIsRecovery;
+
   @override
   Widget build(BuildContext context) {
-    if (reliability.isEmpty && coverageIssue == null) {
+    // A recovery feed must announce itself even when no reliability
+    // telemetry arrived; those are the moments it matters most.
+    if (reliability.isEmpty && coverageIssue == null && !feedIsRecovery) {
       return const SizedBox.shrink();
     }
     final status = reliability['status']?.toString().toUpperCase() ?? 'UNKNOWN';
@@ -53,6 +61,44 @@ class ProviderReliabilityBanner extends StatelessWidget {
       ),
       child: Column(
         children: [
+          if (feedIsRecovery)
+            Container(
+              key: const ValueKey('feed-recovery-warning'),
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(11, 8, 11, 8),
+              decoration: const BoxDecoration(
+                color: Color(0xFF3A1D14),
+                border: Border(
+                  bottom: BorderSide(color: AppColors.gold, width: 1),
+                ),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(7)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.history_toggle_off_rounded,
+                    color: AppColors.gold,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'RECOVERY FEED  |  LINES MAY BE OUT OF DATE  |  '
+                      'CONFIRM AT THE SPORTSBOOK BEFORE BETTING',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.15,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           InkWell(
             borderRadius: BorderRadius.circular(8),
             onTap: onDetails,
