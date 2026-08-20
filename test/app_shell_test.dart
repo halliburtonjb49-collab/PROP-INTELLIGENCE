@@ -131,4 +131,36 @@ void main() {
     expect(find.text('2'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('an empty slip still leaves a way to the account column', (
+    tester,
+  ) async {
+    // Collapsing the empty column also hid the member's identity, their plan
+    // controls and the only sign-out in the app, with no way back but
+    // drafting a pick to earn the column again.
+    tester.view.physicalSize = const Size(1600, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: AppShell(
+          leftSidebar: SizedBox(),
+          topNavigation: SizedBox(),
+          content: SizedBox(),
+          rightSidebar: Text('ACCOUNT PANEL'),
+          activeSlipCount: 0,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('ACCOUNT PANEL'), findsNothing);
+    expect(find.byKey(const ValueKey('account-column-handle')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('account-column-handle')));
+    await tester.pump();
+
+    expect(find.text('ACCOUNT PANEL'), findsOneWidget);
+  });
 }
