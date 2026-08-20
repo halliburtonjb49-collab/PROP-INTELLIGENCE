@@ -18,6 +18,7 @@ import 'screens/prop_builder_screen.dart';
 import 'screens/strikeout_pro_gold_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/paywall_screen.dart';
+import 'screens/legal_screen.dart';
 import 'screens/password_recovery_screen.dart';
 import 'models/slip_selection.dart';
 import 'services/api_service.dart';
@@ -307,6 +308,10 @@ class _PropIntelligenceAppState extends State<PropIntelligenceApp> {
       debugShowCheckedModeBanner: false,
       scrollBehavior: const AppScrollBehavior(),
       theme: AppTheme.theme,
+      // Terms and privacy were reachable only from the login screen, which a
+      // signed-in member cannot return to. Terms a user cannot re-read are
+      // terms they cannot check.
+      routes: {LegalScreen.routeName: (_) => const LegalScreen()},
       home: const PropIntelligenceShell(),
     );
   }

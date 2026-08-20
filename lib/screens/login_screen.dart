@@ -130,6 +130,10 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
   final _authService = SportsAppAuthService();
   bool _isLoading = false;
   bool _isRegistering = false;
+  // Affirmed at signup, not assumed. The app previously said only that
+  // members "must meet applicable age requirements", which asks nobody
+  // anything and records nothing.
+  bool _ageAffirmed = false;
   bool _obscurePassword = true;
   int _resendCooldownSeconds = 0;
   Timer? _resendCooldownTimer;
@@ -179,6 +183,12 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
     }
     if (_isRegistering && password != _confirmPasswordController.text) {
       _showFeedbackMessage('The app passwords do not match.');
+      return;
+    }
+    if (_isRegistering && !_ageAffirmed) {
+      _showFeedbackMessage(
+        'Confirm you meet the legal age in your location to continue.',
+      );
       return;
     }
 
@@ -1189,6 +1199,39 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             ),
             if (_isRegistering) ...[
               const SizedBox(height: 10),
+              InkWell(
+                key: const ValueKey('age-affirmation'),
+                onTap: () => setState(() => _ageAffirmed = !_ageAffirmed),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Checkbox(
+                      value: _ageAffirmed,
+                      onChanged: (value) =>
+                          setState(() => _ageAffirmed = value ?? false),
+                      activeColor: _gold,
+                      checkColor: Colors.black,
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    const Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 10),
+                        child: Text(
+                          'I confirm I meet the legal age in my location and '
+                          'that this service is informational only.',
+                          style: TextStyle(
+                            color: _silver70,
+                            fontSize: 11,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
               const Text(
                 'Next: verify your email, then choose Core or Pro. You will not be charged on this screen.',
                 textAlign: TextAlign.center,
