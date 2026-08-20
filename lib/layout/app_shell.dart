@@ -198,7 +198,8 @@ class _AppShellState extends State<AppShell> {
                         }),
                         onOpenActiveSlip: () => setState(() {
                           _isRightPanelOpen = true;
-                          _activeRightPanelSection = _RightPanelSection.activeSlip;
+                          _activeRightPanelSection =
+                              _RightPanelSection.activeSlip;
                         }),
                         onClose: () => setState(() {
                           _isRightPanelOpen = false;
@@ -214,7 +215,6 @@ class _AppShellState extends State<AppShell> {
       },
     );
   }
-
 }
 
 /// The slim rail that brings the account column back.
@@ -258,10 +258,7 @@ class _DesktopRightPanel extends StatelessWidget {
           width: 1.2,
         ),
         boxShadow: [
-          BoxShadow(
-            color: accentColor.withValues(alpha: 0.12),
-            blurRadius: 14,
-          ),
+          BoxShadow(color: accentColor.withValues(alpha: 0.12), blurRadius: 14),
         ],
       ),
       child: ClipRRect(
@@ -308,8 +305,7 @@ class _DesktopRightPanelContent extends StatefulWidget {
       _DesktopRightPanelContentState();
 }
 
-class _DesktopRightPanelContentState
-    extends State<_DesktopRightPanelContent> {
+class _DesktopRightPanelContentState extends State<_DesktopRightPanelContent> {
   late _RightPanelSection _activeSection = widget.initialSection;
 
   @override
@@ -350,7 +346,9 @@ class _DesktopRightPanelContentState
                   selected: _activeSection == _RightPanelSection.activeSlip,
                   accentColor: widget.accentColor,
                   onTap: () {
-                    setState(() => _activeSection = _RightPanelSection.activeSlip);
+                    setState(
+                      () => _activeSection = _RightPanelSection.activeSlip,
+                    );
                   },
                   labelKey: const ValueKey('active-slip-tab'),
                 ),
@@ -362,10 +360,7 @@ class _DesktopRightPanelContentState
                   key: const ValueKey('right-panel-close'),
                   tooltip: 'Close panel',
                   onPressed: widget.onClose,
-                  icon: Icon(
-                    Icons.close_rounded,
-                    color: widget.accentColor,
-                  ),
+                  icon: Icon(Icons.close_rounded, color: widget.accentColor),
                 ),
               ),
             ],
@@ -555,11 +550,7 @@ class _RailButton extends StatelessWidget {
             children: [
               Icon(icon, size: 22),
               if (trailing != const SizedBox.shrink())
-                Positioned(
-                  right: 52,
-                  bottom: 2,
-                  child: trailing,
-                ),
+                Positioned(right: 52, bottom: 2, child: trailing),
               Positioned(
                 right: 0,
                 top: (buttonHeight - openActionSize).clamp(0, buttonHeight) / 2,
@@ -636,24 +627,33 @@ class ActiveSlipBadge extends StatefulWidget {
 
 class _ActiveSlipBadgeState extends State<ActiveSlipBadge>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _pulseController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 420),
-  );
-  late final Animation<double> _scaleAnimation = TweenSequence<double>([
-        TweenSequenceItem(
-          tween: Tween(begin: 1, end: 1.18).chain(
-            CurveTween(curve: Curves.easeOut),
-          ),
-          weight: 50,
-        ),
-        TweenSequenceItem(
-          tween: Tween(begin: 1.18, end: 1).chain(
-            CurveTween(curve: Curves.easeIn),
-          ),
-          weight: 50,
-        ),
-      ]).animate(_pulseController);
+  late final AnimationController _pulseController;
+  late final Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    );
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 1,
+          end: 1.18,
+        ).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 50,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(
+          begin: 1.18,
+          end: 1,
+        ).chain(CurveTween(curve: Curves.easeIn)),
+        weight: 50,
+      ),
+    ]).animate(_pulseController);
+  }
 
   @override
   void didUpdateWidget(covariant ActiveSlipBadge oldWidget) {
@@ -691,7 +691,12 @@ class _ActiveSlipBadgeState extends State<ActiveSlipBadge>
             shape: BoxShape.circle,
             boxShadow: muted
                 ? null
-                : [BoxShadow(color: badgeColor.withValues(alpha: 0.28), blurRadius: 9)],
+                : [
+                    BoxShadow(
+                      color: badgeColor.withValues(alpha: 0.28),
+                      blurRadius: 9,
+                    ),
+                  ],
           ),
           child: Text(
             '${widget.count}',

@@ -5,7 +5,7 @@ import 'package:prop_intelligence/services/auth_manager.dart';
 import 'package:prop_intelligence/widgets/left_sidebar.dart';
 
 void main() {
-  testWidgets('sidebar forwards navigation, sport and refresh actions', (
+  testWidgets('sidebar forwards navigation and refresh actions', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1000, 900);
@@ -16,7 +16,6 @@ void main() {
     final count = ValueNotifier<int>(42);
     addTearDown(count.dispose);
     AppPage? selectedPage;
-    String? selectedSport;
     var refreshes = 0;
 
     await tester.pumpWidget(
@@ -31,7 +30,6 @@ void main() {
               propCountListenable: count,
               onRefresh: () => refreshes++,
               onSelectPage: (value) => selectedPage = value,
-              onSelectSport: (value) => selectedSport = value,
             ),
           ),
         ),
@@ -44,8 +42,7 @@ void main() {
     expect(refreshes, 1);
     await tester.tap(find.text('GAME MARKETS'));
     expect(selectedPage, AppPage.gameMarkets);
-    await tester.tap(find.text('MLB'));
-    expect(selectedSport, 'MLB');
+    expect(find.text('MLB'), findsNothing);
 
     count.value = 57;
     await tester.pump();

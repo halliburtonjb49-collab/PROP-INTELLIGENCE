@@ -1122,6 +1122,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     final hasProAccess = AuthManager.instance.sessionState.value.hasEdgeAccess;
     return TopNavigation(
       selectedPage: _selectedPage,
+      selectedSport: _selectedBoardSport,
       soundService: AppSoundService.instance,
       accentColor: hasProAccess
           ? app_colors.AppColors.gold
@@ -1129,6 +1130,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       onTabSelected: (page) {
         _switchToPage(page, source: 'top-nav');
       },
+      onSportSelected: _selectBoardSport,
     );
   }
 
@@ -2071,7 +2073,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final tierName = AuthManager.instance.sessionState.value.subscriptionTier.name;
+    final tierName =
+        AuthManager.instance.sessionState.value.subscriptionTier.name;
     final membershipAccent = rightPanelAccentForTier(tierName);
     return LayoutBuilder(
       builder: (context, constraints) => Stack(

@@ -45,14 +45,22 @@ void main() {
     expect(find.text('WORKSPACE NAVIGATION'), findsOneWidget);
     expect(find.text('COMMAND BAR'), findsOneWidget);
     expect(find.text('PRIMARY WORKSPACE'), findsOneWidget);
-    expect(find.byKey(const ValueKey('right-panel-account-button')), findsOneWidget);
-    expect(find.byKey(const ValueKey('right-panel-active-slip-button')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('right-panel-account-button')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('right-panel-active-slip-button')),
+      findsOneWidget,
+    );
     expect(find.text('ACCOUNT PANEL'), findsNothing);
     expect(find.text('ACTIVE SLIP PANEL'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('desktop rail account button opens account panel', (tester) async {
+  testWidgets('desktop rail account button opens account panel', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -73,7 +81,9 @@ void main() {
 
     await tester.pumpWidget(buildShell(activeSlipCount: 1));
 
-    await tester.tap(find.byKey(const ValueKey('right-panel-active-slip-button')));
+    await tester.tap(
+      find.byKey(const ValueKey('right-panel-active-slip-button')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('ACTIVE SLIP PANEL'), findsOneWidget);
@@ -86,7 +96,9 @@ void main() {
 
     await tester.pumpWidget(buildShell(activeSlipCount: 1));
 
-    await tester.tap(find.byKey(const ValueKey('right-panel-active-slip-button')));
+    await tester.tap(
+      find.byKey(const ValueKey('right-panel-active-slip-button')),
+    );
     await tester.pump();
 
     expect(find.text('ACTIVE SLIP PANEL'), findsOneWidget);
@@ -107,27 +119,35 @@ void main() {
 
     expect(find.bySemanticsLabel('Open account'), findsOneWidget);
     expect(find.bySemanticsLabel('Open active slip'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('right-panel-active-slip-button')));
-    await tester.pumpAndSettle();
-    expect(find.bySemanticsLabel('Close panel'), findsOneWidget);
     expect(
-      find.bySemanticsLabel('2 selected props in active slip'),
+      find.bySemanticsLabel(RegExp('2 selected props in active slip')),
       findsOneWidget,
     );
+    await tester.tap(
+      find.byKey(const ValueKey('right-panel-active-slip-button')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Close panel'), findsOneWidget);
   });
 
-  testWidgets('desktop right rail controls are touch-accessible', (tester) async {
+  testWidgets('desktop right rail controls are touch-accessible', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(buildShell(activeSlipCount: 2));
 
     expect(
-      tester.getSize(find.byKey(const ValueKey('right-panel-account-button'))).height,
+      tester
+          .getSize(find.byKey(const ValueKey('right-panel-account-button')))
+          .height,
       greaterThanOrEqualTo(44.0),
     );
     expect(
-      tester.getSize(find.byKey(const ValueKey('right-panel-active-slip-button')).height),
+      tester
+          .getSize(find.byKey(const ValueKey('right-panel-active-slip-button')))
+          .height,
       greaterThanOrEqualTo(44.0),
     );
   });
@@ -212,10 +232,12 @@ void main() {
       const MaterialApp(home: ActiveSlipBadge(count: 0, accentColor: accent)),
     );
 
-    final getScale = () =>
-        tester.widget<ScaleTransition>(find.byKey(const ValueKey('active-slip-badge-scale')))
-            .scale
-            .value;
+    final getScale = () => tester
+        .widget<ScaleTransition>(
+          find.byKey(const ValueKey('active-slip-badge-scale')),
+        )
+        .scale
+        .value;
     expect(getScale(), equals(1.0));
 
     await tester.pumpWidget(

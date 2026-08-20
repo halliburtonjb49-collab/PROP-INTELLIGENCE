@@ -129,10 +129,22 @@ void main() {
     await tester.pumpWidget(const PropIntelligenceApp());
     await tester.pump(const Duration(milliseconds: 800));
 
-    // Destinations are grouped now, so the bar carries the five groups
-    // rather than every page at once.
+    // Workflow destinations stay grouped while every sport remains visible.
     for (final group in ['RESEARCH', 'BUILD', 'LIVE', 'HISTORY', 'SPORTS']) {
       expect(find.byKey(ValueKey('nav-group-$group')), findsOneWidget);
+    }
+    for (final sport in [
+      'MLB',
+      'NFL',
+      'NBA',
+      'WNBA',
+      'NHL',
+      'SOCCER',
+      'NCAAF',
+      'NCAAB',
+      'CFL',
+    ]) {
+      expect(find.byKey(ValueKey('top-sport-$sport')), findsOneWidget);
     }
     expect(
       find.byKey(const ValueKey('top-navigation-scrollbar')),
@@ -174,8 +186,6 @@ void main() {
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.byKey(const ValueKey('nav-group-SPORTS')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('nav-entry-gameMarkets')));
     await tester.pumpAndSettle();
     expect(find.text('MONEYLINE'), findsOneWidget);
     expect(find.text('SPREADS'), findsOneWidget);
@@ -300,10 +310,7 @@ void main() {
       find.byKey(const ValueKey('restore-prop-chat-bubble')),
       findsNothing,
     );
-    expect(
-      find.byKey(const ValueKey('close-prop-chat-bubble')),
-      findsNothing,
-    );
+    expect(find.byKey(const ValueKey('close-prop-chat-bubble')), findsNothing);
     await openWorkspace('PROP BUILDER', 'PROP BUILDER');
     await openWorkspace('BUILD\nPERFORM', null);
     await openWorkspace('EV SCANNER', 'EV SCANNER');

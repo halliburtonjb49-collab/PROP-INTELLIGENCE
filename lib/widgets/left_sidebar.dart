@@ -78,23 +78,6 @@ class _LeftSidebarState extends State<LeftSidebar> {
 
   @override
   Widget build(BuildContext context) {
-    // Every sport stays listed whether or not it currently has props.
-    // A season that has not started is not the same as a sport the app
-    // does not cover, and a rail that changes shape month to month is
-    // harder to navigate than one that does not. The board says when a
-    // sport is empty instead.
-    const sports = [
-      'MLB',
-      'NFL',
-      'NBA',
-      'WNBA',
-      'NHL',
-      'SOCCER',
-      'NCAAF',
-      'NCAAB',
-      'CFL',
-    ];
-
     return Container(
       color: app_colors.AppColors.sidebar,
       child: Column(
@@ -242,26 +225,6 @@ class _LeftSidebarState extends State<LeftSidebar> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 18),
-                  const _SidebarSectionLabel('SPORTS'),
-                  const SizedBox(height: 7),
-                  ...sports.map((sport) {
-                    final imagePath = _sportImagePath(sport);
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 3),
-                      child: SidebarButton(
-                        label: sport,
-                        leadingImagePath: imagePath,
-                        leadingEmojis: imagePath == null
-                            ? [_sportEmoji(sport)]
-                            : null,
-                        selected:
-                            widget.selectedPage == AppPage.board &&
-                            widget.selectedSport == sport,
-                        onTap: () => widget.onSelectSport?.call(sport),
-                      ),
-                    );
-                  }),
                   const SizedBox(height: 12),
                   const _SidebarSectionLabel('SPECIALTY'),
                   const SizedBox(height: 7),

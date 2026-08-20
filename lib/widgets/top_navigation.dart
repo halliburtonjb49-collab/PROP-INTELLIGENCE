@@ -13,6 +13,8 @@ class TopNavigation extends StatelessWidget {
   final ValueChanged<AppPage> onTabSelected;
   final AppSoundService soundService;
   final Color accentColor;
+  final String selectedSport;
+  final ValueChanged<String>? onSportSelected;
 
   const TopNavigation({
     super.key,
@@ -20,7 +22,21 @@ class TopNavigation extends StatelessWidget {
     required this.onTabSelected,
     required this.soundService,
     required this.accentColor,
+    this.selectedSport = 'ALL',
+    this.onSportSelected,
   });
+
+  static const _sports = [
+    'MLB',
+    'NFL',
+    'NBA',
+    'WNBA',
+    'NHL',
+    'SOCCER',
+    'NCAAF',
+    'NCAAB',
+    'CFL',
+  ];
 
   String get _pageHowTo => appPageHowTo(selectedPage);
 
@@ -165,6 +181,197 @@ class TopNavigation extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildSportsGroup() {
+    final holdsCurrentPage =
+        selectedPage == AppPage.gameMarkets ||
+        (selectedPage == AppPage.board && selectedSport != 'ALL');
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: PopupMenuButton<String>(
+        key: const ValueKey('nav-group-SPORTS'),
+        tooltip: 'Choose a sport or open game markets',
+        color: app_colors.AppColors.sidebar,
+        position: PopupMenuPosition.under,
+        onSelected: (value) {
+          if (value == 'GAME_MARKETS') {
+            onTabSelected(AppPage.gameMarkets);
+          } else {
+            onSportSelected?.call(value);
+          }
+        },
+        itemBuilder: (context) => [
+          _sportsMenuItem(
+            value: 'GAME_MARKETS',
+            label: 'GAME MARKETS',
+            icon: Icons.show_chart_rounded,
+            selected: selectedPage == AppPage.gameMarkets,
+          ),
+          const PopupMenuDivider(),
+          for (final sport in _sports)
+            _sportsMenuItem(
+              value: sport,
+              label: sport,
+              icon: _sportIcon(sport),
+              selected: selectedPage == AppPage.board && selectedSport == sport,
+            ),
+        ],
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.fromLTRB(11, 15, 11, 13),
+          decoration: BoxDecoration(
+            color: holdsCurrentPage
+                ? accentColor.withValues(alpha: .07)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: holdsCurrentPage ? accentColor : Colors.transparent,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.sports_rounded,
+                size: 16,
+                color: holdsCurrentPage
+                    ? accentColor
+                    : app_colors.AppColors.textSecondary,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                selectedPage == AppPage.board && selectedSport != 'ALL'
+                    ? selectedSport
+                    : 'SPORTS',
+                style: TextStyle(
+                  color: holdsCurrentPage
+                      ? accentColor
+                      : app_colors.AppColors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .5,
+                ),
+              ),
+              const SizedBox(width: 5),
+              Icon(
+                Icons.expand_more_rounded,
+                size: 13,
+                color: holdsCurrentPage
+                    ? accentColor
+                    : app_colors.AppColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildVisibleSports() {
+    return [
+      KeyedSubtree(
+        key: const ValueKey('nav-group-SPORTS'),
+        child: _buildNavItem(
+          label: 'SPORTS',
+          page: AppPage.gameMarkets,
+          icon: Icons.sports_rounded,
+          requiredTier: SubscriptionTier.core,
+        ),
+      ),
+      for (final sport in _sports) _buildVisibleSportItem(sport),
+    ];
+  }
+
+  Widget _buildVisibleSportItem(String sport) {
+    final selected = selectedPage == AppPage.board && selectedSport == sport;
+    return Padding(
+      padding: const EdgeInsets.only(right: 3),
+      child: Tooltip(
+        message: 'Show $sport props',
+        child: InkWell(
+          key: ValueKey('top-sport-$sport'),
+          onTap: () => onSportSelected?.call(sport),
+          borderRadius: BorderRadius.circular(8),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            constraints: const BoxConstraints(minHeight: 44),
+            padding: const EdgeInsets.symmetric(horizontal: 9),
+            decoration: BoxDecoration(
+              color: selected
+                  ? accentColor.withValues(alpha: .09)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: selected ? accentColor : Colors.transparent,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _sportIcon(sport),
+                  size: 15,
+                  color: selected
+                      ? accentColor
+                      : app_colors.AppColors.textSecondary,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  sport,
+                  style: TextStyle(
+                    color: selected ? accentColor : app_colors.AppColors.white,
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  PopupMenuItem<String> _sportsMenuItem({
+    required String value,
+    required String label,
+    required IconData icon,
+    required bool selected,
+  }) {
+    return PopupMenuItem<String>(
+      key: ValueKey('sports-entry-$value'),
+      value: value,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 17,
+            color: selected ? accentColor : app_colors.AppColors.textSecondary,
+          ),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            style: TextStyle(
+              color: selected ? accentColor : app_colors.AppColors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _sportIcon(String sport) => switch (sport) {
+    'MLB' => Icons.sports_baseball_rounded,
+    'NFL' || 'NCAAF' || 'CFL' => Icons.sports_football_rounded,
+    'NBA' || 'WNBA' || 'NCAAB' => Icons.sports_basketball_rounded,
+    'NHL' => Icons.sports_hockey_rounded,
+    'SOCCER' => Icons.sports_soccer_rounded,
+    _ => Icons.sports_rounded,
+  };
 
   Widget _buildNavItem({
     required String label,
@@ -345,7 +552,10 @@ class TopNavigation extends StatelessWidget {
                 child: _TopNavScroller(
                   children: [
                     for (final (label, icon, entries) in appNavigationGroups)
-                      _buildNavGroup(label, icon, entries),
+                      if (label == 'SPORTS')
+                        ..._buildVisibleSports()
+                      else
+                        _buildNavGroup(label, icon, entries),
                     if (AuthManager.instance.sessionState.value.isOwner)
                       _buildNavItem(
                         label: 'OWNER OPS',
