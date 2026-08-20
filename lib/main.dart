@@ -725,6 +725,9 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             onClearLabSelections: _clearCurrentSlip,
             onPropsRefreshed: _refreshActiveSlipProps,
             sportFilter: _selectedBoardSport,
+            // The same handler the sidebar rail uses, so the mobile chips
+            // and the rail can never disagree about the selected sport.
+            onSelectSport: _selectBoardSport,
             selectedPage: _selectedPage,
             onSelectPage: (page) =>
                 _switchToPage(page, source: 'board-toolbar'),
