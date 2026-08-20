@@ -40,10 +40,14 @@ void main() {
     expect(find.text('RESEARCH'), findsOneWidget);
     await tester.tap(find.byTooltip('Refresh props'));
     expect(refreshes, 1);
-    await tester.tap(find.text('GAME MARKETS'));
-    expect(selectedPage, AppPage.gameMarkets);
+    await tester.tap(find.text('MARKET BOARD'));
+    expect(selectedPage, AppPage.board);
     expect(find.text('MLB'), findsNothing);
 
+    await tester.drag(find.byType(ListView), const Offset(0, -650));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('BUILD'));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('SLIP WATCHER'),
       300,
@@ -51,6 +55,12 @@ void main() {
     );
     expect(find.text('BUILD'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
+    await tester.tap(find.text('BUILD'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -250));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('HISTORY'));
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('HISTORY'),
       300,

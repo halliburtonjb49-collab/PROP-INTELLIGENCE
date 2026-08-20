@@ -37,6 +37,7 @@ import 'scoreboard_view.dart';
 import 'ev_scanner_card.dart';
 import 'prop_grid.dart';
 import 'provider_reliability_banner.dart';
+import 'prop_board_loading.dart';
 import 'verdict_filter_bar.dart';
 
 class ChatUnreadBadge extends StatelessWidget {
@@ -456,17 +457,16 @@ class _MainDashboardState extends State<MainDashboard> {
 
   Widget _buildEvScanner() {
     if (_isEvScannerLoading && _evScannerProps.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: app_colors.AppColors.gold),
+      return const Padding(
+        padding: EdgeInsets.all(18),
+        child: PropLoadingSkeleton(),
       );
     }
     if (_evScannerError != null && _evScannerProps.isEmpty) {
-      return Center(
-        child: OutlinedButton.icon(
-          onPressed: _loadEvScannerProps,
-          icon: const Icon(Icons.refresh),
-          label: const Text('RETRY EV FEED'),
-        ),
+      return PropLoadError(
+        title: 'EV feed unavailable',
+        message: _evScannerError!,
+        onRetry: _loadEvScannerProps,
       );
     }
     final visible = _visibleEvProps;
@@ -567,10 +567,49 @@ class _MainDashboardState extends State<MainDashboard> {
             onChanged: (value) => setState(() => _evMinimum = value),
           ),
           if (visible.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(36),
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 34),
+              decoration: BoxDecoration(
+                color: app_colors.AppColors.panel,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: app_colors.AppColors.border),
+              ),
               child: Center(
-                child: Text('No props match the current EV filters.'),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.filter_alt_off_outlined,
+                      color: app_colors.AppColors.gold,
+                      size: 34,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'No props match these filters',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Broaden the EV threshold, sportsbook, or search to see more opportunities.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: app_colors.AppColors.textMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    OutlinedButton.icon(
+                      onPressed: () => setState(() {
+                        _evMinimum = 0;
+                        _evBook = 'ALL';
+                        _evSort = 'EV';
+                        _evSearchController.clear();
+                      }),
+                      icon: const Icon(Icons.restart_alt_rounded),
+                      label: const Text('RESET FILTERS'),
+                    ),
+                  ],
+                ),
               ),
             )
           else
@@ -2929,103 +2968,130 @@ class _MainDashboardState extends State<MainDashboard> {
       child: Column(
         children: [
           Expanded(
-            child: widget.selectedPage == AppPage.searchPlayers
-                ? SearchPlayersPage(props: _latestProps)
-                : widget.selectedPage == AppPage.gameMarkets
-                ? GameMarketsScreen(onAddToSlip: widget.onAddGameMarket)
-                : widget.selectedPage == AppPage.evScanner
-                ? _buildEvScanner()
-                : widget.selectedPage == AppPage.scoreboard
-                ? const LiveScoreboardTickerGridWidget()
-                : widget.selectedPage == AppPage.scoreboardWatchlist
-                ? const LiveScoreboardTickerGridWidget(watchedOnly: true)
-                : widget.selectedPage == AppPage.propAlerts
-                ? PropAlertsPage(alerts: alertsForPage)
-                : widget.selectedPage == AppPage.briefing
-                ? const BriefingPage()
-                : widget.selectedPage == AppPage.trackRecord
-                ? const TrackRecordPage()
-                : widget.selectedPage == AppPage.analytics
-                ? AnalyticsAdminWorkspace(selectedSport: widget.sportFilter)
-                : widget.selectedPage == AppPage.lineMovement
-                ? LineMovementPage(
-                    selectedSport: widget.sportFilter,
-                    hasProAccess:
-                        AuthManager.instance.sessionState.value.hasEdgeAccess,
-                  )
-                : widget.selectedPage == AppPage.injuryImpact
-                ? InjuryImpactPage(props: _latestProps, alerts: _injuryAlerts)
-                : widget.selectedPage == AppPage.dataAdmin
-                ? AnalyticsAdminWorkspace(
-                    selectedSport: widget.sportFilter,
-                    startInDataAdmin: true,
-                  )
-                : widget.selectedPage == AppPage.ownerOperations
-                ? const OwnerOperationsPage()
-                : widget.selectedPage == AppPage.intelligenceLab
-                ? IntelligenceLabPage(
-                    selections: widget.selections,
-                    onRemove: widget.onRemoveLabSelection,
-                    onClear: widget.onClearLabSelections,
-                  )
-                : widget.selectedPage == AppPage.refereeTracker
-                ? const RefereeTrackerPage()
-                : widget.selectedPage == AppPage.propChat
-                ? PropChatPage(
-                    onPopOut: widget.onFloatChat,
-                    onShowBubble: widget.onShowChatBubble,
-                    isBubbleVisible: widget.isChatBubbleVisible,
-                    sharedAnalysis: {
-                      'kind': widget.selections.length == 1 ? 'prop' : 'slip',
-                      'title': widget.selections.length == 1
-                          ? 'Prop analysis'
-                          : '${widget.selections.length}-leg slip',
-                      'legs': widget.selections
-                          .map(
-                            (selection) => {
-                              'player': selection.prop.player,
-                              'market': selection.prop.propType,
-                              'side': selection.sideLabel,
-                              'line': selection.prop.line,
-                              'odds': selection.odds,
-                            },
-                          )
-                          .toList(growable: false),
-                    },
-                  )
-                : Scrollbar(
-                    controller: _boardVerticalController,
-                    thumbVisibility: usePersistentBoardScrollbar(
-                      boardViewportWidth,
-                    ),
-                    trackVisibility: usePersistentBoardScrollbar(
-                      boardViewportWidth,
-                    ),
-                    interactive: usePersistentBoardScrollbar(
-                      boardViewportWidth,
-                    ),
-                    thickness: boardScrollbarThickness(boardViewportWidth),
-                    radius: const Radius.circular(8),
-                    scrollbarOrientation: ScrollbarOrientation.right,
-                    child: SingleChildScrollView(
-                      controller: _boardVerticalController,
-                      primary: false,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: boardContentPadding(boardViewportWidth),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          LayoutBuilder(
-                            builder: (context, constraints) =>
-                                _buildBoardSearchAndBooks(constraints.maxWidth),
-                          ),
-                          SizedBox(height: sectionGap),
-                          _buildProviderReliabilityBanner(),
-                          SizedBox(height: sectionGap),
-                          _buildBoardSports(),
-                          _buildBoardCategories(),
-                          SizedBox(height: sectionGap),
-                          /*Text(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              reverseDuration: const Duration(milliseconds: 160),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.012, 0),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              ),
+              child: KeyedSubtree(
+                key: ValueKey(widget.selectedPage),
+                child: widget.selectedPage == AppPage.searchPlayers
+                    ? SearchPlayersPage(props: _latestProps)
+                    : widget.selectedPage == AppPage.gameMarkets
+                    ? GameMarketsScreen(onAddToSlip: widget.onAddGameMarket)
+                    : widget.selectedPage == AppPage.evScanner
+                    ? _buildEvScanner()
+                    : widget.selectedPage == AppPage.scoreboard
+                    ? const LiveScoreboardTickerGridWidget()
+                    : widget.selectedPage == AppPage.scoreboardWatchlist
+                    ? const LiveScoreboardTickerGridWidget(watchedOnly: true)
+                    : widget.selectedPage == AppPage.propAlerts
+                    ? PropAlertsPage(alerts: alertsForPage)
+                    : widget.selectedPage == AppPage.briefing
+                    ? const BriefingPage()
+                    : widget.selectedPage == AppPage.trackRecord
+                    ? const TrackRecordPage()
+                    : widget.selectedPage == AppPage.analytics
+                    ? AnalyticsAdminWorkspace(selectedSport: widget.sportFilter)
+                    : widget.selectedPage == AppPage.lineMovement
+                    ? LineMovementPage(
+                        selectedSport: widget.sportFilter,
+                        hasProAccess: AuthManager
+                            .instance
+                            .sessionState
+                            .value
+                            .hasEdgeAccess,
+                      )
+                    : widget.selectedPage == AppPage.injuryImpact
+                    ? InjuryImpactPage(
+                        props: _latestProps,
+                        alerts: _injuryAlerts,
+                      )
+                    : widget.selectedPage == AppPage.dataAdmin
+                    ? AnalyticsAdminWorkspace(
+                        selectedSport: widget.sportFilter,
+                        startInDataAdmin: true,
+                      )
+                    : widget.selectedPage == AppPage.ownerOperations
+                    ? const OwnerOperationsPage()
+                    : widget.selectedPage == AppPage.intelligenceLab
+                    ? IntelligenceLabPage(
+                        selections: widget.selections,
+                        onRemove: widget.onRemoveLabSelection,
+                        onClear: widget.onClearLabSelections,
+                      )
+                    : widget.selectedPage == AppPage.refereeTracker
+                    ? const RefereeTrackerPage()
+                    : widget.selectedPage == AppPage.propChat
+                    ? PropChatPage(
+                        onPopOut: widget.onFloatChat,
+                        onShowBubble: widget.onShowChatBubble,
+                        isBubbleVisible: widget.isChatBubbleVisible,
+                        sharedAnalysis: {
+                          'kind': widget.selections.length == 1
+                              ? 'prop'
+                              : 'slip',
+                          'title': widget.selections.length == 1
+                              ? 'Prop analysis'
+                              : '${widget.selections.length}-leg slip',
+                          'legs': widget.selections
+                              .map(
+                                (selection) => {
+                                  'player': selection.prop.player,
+                                  'market': selection.prop.propType,
+                                  'side': selection.sideLabel,
+                                  'line': selection.prop.line,
+                                  'odds': selection.odds,
+                                },
+                              )
+                              .toList(growable: false),
+                        },
+                      )
+                    : Scrollbar(
+                        controller: _boardVerticalController,
+                        thumbVisibility: usePersistentBoardScrollbar(
+                          boardViewportWidth,
+                        ),
+                        trackVisibility: usePersistentBoardScrollbar(
+                          boardViewportWidth,
+                        ),
+                        interactive: usePersistentBoardScrollbar(
+                          boardViewportWidth,
+                        ),
+                        thickness: boardScrollbarThickness(boardViewportWidth),
+                        radius: const Radius.circular(8),
+                        scrollbarOrientation: ScrollbarOrientation.right,
+                        child: SingleChildScrollView(
+                          controller: _boardVerticalController,
+                          primary: false,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: boardContentPadding(boardViewportWidth),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              LayoutBuilder(
+                                builder: (context, constraints) =>
+                                    _buildBoardSearchAndBooks(
+                                      constraints.maxWidth,
+                                    ),
+                              ),
+                              SizedBox(height: sectionGap),
+                              _buildProviderReliabilityBanner(),
+                              SizedBox(height: sectionGap),
+                              _buildBoardSports(),
+                              _buildBoardCategories(),
+                              SizedBox(height: sectionGap),
+                              /*Text(
                             '${visibleProps.length} visible props • $_propCount total loaded',
                             style: const TextStyle(
                               color: app_colors.AppColors.textMuted,
@@ -3033,53 +3099,56 @@ class _MainDashboardState extends State<MainDashboard> {
                             ),
                           ),
                           const SizedBox(height: 10),*/
-                          if (canShowSystemRecommendation(
-                            hasEdgeAccess: AuthManager
-                                .instance
-                                .sessionState
-                                .value
-                                .hasEdgeAccess,
-                          )) ...[
-                            _buildVerdictFilter(),
-                            SizedBox(height: sectionGap),
-                          ],
-                          if (_activeBoardFilterLabels().isNotEmpty) ...[
-                            _buildActiveBoardFilters(),
-                            SizedBox(height: sectionGap),
-                          ],
-                          _buildBoardResultsSummary(),
-                          SizedBox(height: sectionGap),
-                          PropGrid(
-                            selections: widget.selections,
-                            onSelect: (prop, side) {
-                              setState(() => _focusedProp = prop);
-                              widget.onSelect(prop, side);
-                            },
-                            onPropFocused: _showPlayerPropsOverlay,
-                            refreshListenable: widget.refreshRequestNotifier,
-                            onStartupLog: widget.onStartupLog,
-                            sportFilter: _selectedSite == 'ALL'
-                                ? widget.sportFilter
-                                : _selectedSiteSport.isEmpty
-                                ? 'ALL'
-                                : _selectedSiteSport,
-                            displaySportFilter: _selectedSite == 'ALL'
-                                ? widget.sportFilter
-                                : _selectedSiteSport,
-                            searchQuery: _searchQuery,
-                            selectedSite: _selectedSite,
-                            selectedCategory: _effectiveSelectedCategory,
-                            selectedSide: _selectedSide,
-                            selectedTier: _selectedTier,
-                            minConfidence: _minConfidence,
-                            sortBy: _sortBy,
-                            verdictFilter: _verdictFilter,
-                            onPropsLoaded: _handlePropsLoaded,
+                              if (canShowSystemRecommendation(
+                                hasEdgeAccess: AuthManager
+                                    .instance
+                                    .sessionState
+                                    .value
+                                    .hasEdgeAccess,
+                              )) ...[
+                                _buildVerdictFilter(),
+                                SizedBox(height: sectionGap),
+                              ],
+                              if (_activeBoardFilterLabels().isNotEmpty) ...[
+                                _buildActiveBoardFilters(),
+                                SizedBox(height: sectionGap),
+                              ],
+                              _buildBoardResultsSummary(),
+                              SizedBox(height: sectionGap),
+                              PropGrid(
+                                selections: widget.selections,
+                                onSelect: (prop, side) {
+                                  setState(() => _focusedProp = prop);
+                                  widget.onSelect(prop, side);
+                                },
+                                onPropFocused: _showPlayerPropsOverlay,
+                                refreshListenable:
+                                    widget.refreshRequestNotifier,
+                                onStartupLog: widget.onStartupLog,
+                                sportFilter: _selectedSite == 'ALL'
+                                    ? widget.sportFilter
+                                    : _selectedSiteSport.isEmpty
+                                    ? 'ALL'
+                                    : _selectedSiteSport,
+                                displaySportFilter: _selectedSite == 'ALL'
+                                    ? widget.sportFilter
+                                    : _selectedSiteSport,
+                                searchQuery: _searchQuery,
+                                selectedSite: _selectedSite,
+                                selectedCategory: _effectiveSelectedCategory,
+                                selectedSide: _selectedSide,
+                                selectedTier: _selectedTier,
+                                minConfidence: _minConfidence,
+                                sortBy: _sortBy,
+                                verdictFilter: _verdictFilter,
+                                onPropsLoaded: _handlePropsLoaded,
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
+              ),
+            ),
           ),
         ],
       ),
