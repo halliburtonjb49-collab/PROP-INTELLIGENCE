@@ -73,10 +73,19 @@ PLAY_MARGIN_OVER_BREAK_EVEN = 0.05
 # positive-value edge, or a strong direction whose current price is too
 # expensive. The latter must say so plainly and can never become PLAY NOW.
 #
-# Half a point over break-even was inside the losing bands. Two points is
-# the floor of the band that at least breaks even (+2.0%), which is what a
-# slight edge should honestly mean: worth watching, not worth staking.
-LEAN_MARGIN_OVER_BREAK_EVEN = 0.02
+# Measured in finer bands, the cliff is at break-even itself rather than
+# anywhere above it:
+#
+#     edge <= 0             n=74469   ROI  -8.8%  [-9.4, -8.1]
+#     edge 0.000 - 0.005    n=  471   ROI  -7.7%  [-16.1, +0.6]
+#     edge 0.005 - 0.010    n=  430   ROI  +8.9%  [+0.2, +17.5]
+#     edge 0.010 - 0.020    n=  780   ROI  +5.0%  [-1.4, +11.4]
+#
+# So this bar stays where it was. Lifting it to two points looked prudent
+# and would have dropped 1,210 results returning +6.4% [+1.2, +11.5] -- an
+# expensive way to tidy a threshold. A prop that beats its price by half a
+# point is worth surfacing; it is the full play that has to clear more.
+LEAN_MARGIN_OVER_BREAK_EVEN = 0.005
 
 # Retained for callers and tests that still reason in absolute terms. These
 # are the pick'em equivalents of the margins above, not separate rules.

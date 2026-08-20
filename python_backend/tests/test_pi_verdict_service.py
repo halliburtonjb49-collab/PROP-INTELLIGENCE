@@ -426,15 +426,15 @@ def test_the_bar_follows_the_price_not_a_constant():
     57.8% -- one threshold cannot be right for both.
     """
 
-    # 59% clears a -110 line (52.4% break-even) by more than the measured
-    # five point margin, and does not even reach the lean bar on a pick'em
-    # leg needing 57.8%: one threshold cannot serve both prices.
+    # 57.8% clears a -110 line (52.4% break-even) by the measured five point
+    # play margin, and on a pick'em leg needing exactly 57.8% it does not
+    # clear the price at all: one threshold cannot serve both.
     sportsbook = compute_verdict(
-        _prop(uncertaintyAdjustedProbability=0.59, overDecimalOdds=1.91,
+        _prop(uncertaintyAdjustedProbability=0.578, overDecimalOdds=1.91,
               bestOverOdds=1.91, evPercentage=6.0)
     )
     pickem = compute_verdict(
-        _prop(uncertaintyAdjustedProbability=0.59, overDecimalOdds=1.73,
+        _prop(uncertaintyAdjustedProbability=0.578, overDecimalOdds=1.73,
               bestOverOdds=1.73, evPercentage=6.0)
     )
 
@@ -570,16 +570,34 @@ def test_the_play_bar_sits_where_the_money_actually_starts():
     )
 
     assert PLAY_MARGIN_OVER_BREAK_EVEN == 0.05
-    assert LEAN_MARGIN_OVER_BREAK_EVEN == 0.02
+    # The lean bar stays at break-even plus a half point. In finer bands the
+    # cliff is at break-even itself: 0.005-0.01 returns +8.9% and 0.01-0.02
+    # returns +5.0%, so lifting this would have dropped 1,210 results worth
+    # +6.4% [+1.2, +11.5] to tidy a threshold.
+    assert LEAN_MARGIN_OVER_BREAK_EVEN == 0.005
 
 
-def test_an_edge_inside_the_losing_band_is_no_longer_playable():
-    # 53.5% against a 52.4% break-even is 1.1 points of edge, which the old
-    # half-point lean bar called actionable and which measured out at a loss.
-    verdict = compute_verdict(_prop(uncertaintyAdjustedProbability=0.535))
+def test_an_edge_at_or_below_the_price_is_not_playable():
+    # The measured cliff. At or under break-even the return is -8.8%
+    # [-9.4, -8.1] across 74,469 results; above it the board turns positive.
+    verdict = compute_verdict(_prop(uncertaintyAdjustedProbability=0.523))
 
     assert verdict.decision == PASS
     assert verdict.is_actionable is False
+
+
+def test_a_thin_but_real_edge_stays_on_the_playable_board():
+    """Inventory the tidier threshold would have thrown away.
+
+    Half a point to two points over the price returns +6.4% [+1.2, +11.5]
+    across 1,210 graded results. It is not a full play, and it is not
+    something to hide either.
+    """
+
+    verdict = compute_verdict(_prop(uncertaintyAdjustedProbability=0.535))
+
+    assert verdict.is_actionable
+    assert verdict.decision != PLAY_NOW
 
 
 def test_a_generous_price_keeps_a_lower_probability_playable():
