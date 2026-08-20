@@ -109,7 +109,9 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
 
   Future<void> _load() async {
     setState(() {
-      _loading = true;
+      // Keep the current cards mounted during live/manual refreshes. Replacing
+      // the grid with a loader discarded every cached headshot every 45s.
+      _loading = _props.isEmpty;
       _error = null;
     });
     try {
@@ -264,7 +266,13 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                       mainAxisExtent: 410,
                     ),
                     delegate: SliverChildBuilderDelegate(
-                      (context, index) => _card(_visible[index]),
+                      (context, index) {
+                        final prop = _visible[index];
+                        return KeyedSubtree(
+                          key: ValueKey('strikeout-card-${prop.id}'),
+                          child: _card(prop),
+                        );
+                      },
                       childCount: _visible.length,
                     ),
                   );
@@ -628,6 +636,9 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   border: Border.all(color: AppColors.gold),
                 ),
                 child: PlayerAvatarWidget(
+                  key: ValueKey(
+                    'strikeout-avatar-${prop.id}-${prop.imagePath}',
+                  ),
                   imageUrl: prop.imagePath,
                   radius: 26,
                   fallbackIcon: Icons.person_rounded,

@@ -435,9 +435,15 @@ class _SelectedPropCard extends StatelessWidget {
     }
     if (imageUrl.isNotEmpty) {
       return CachedNetworkImage(
+        key: ValueKey(imageUrl),
         imageUrl: imageUrl,
         fit: BoxFit.cover,
         filterQuality: FilterQuality.high,
+        fadeInDuration: Duration.zero,
+        fadeOutDuration: Duration.zero,
+        useOldImageOnUrlChange: true,
+        placeholder: (_, _) =>
+            const Icon(Icons.person, color: Colors.white54),
         errorWidget: (_, _, _) =>
             const Icon(Icons.person, color: Colors.white54),
       );

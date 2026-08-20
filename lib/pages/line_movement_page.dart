@@ -543,32 +543,31 @@ class _LineMovementPageState extends State<LineMovementPage> {
   }
 
   Widget _playerPhoto(String player, String imagePath) {
+    final resolvedPath = resolvePlayerImagePath(imagePath);
+    Widget placeholder() => const ColoredBox(
+      color: AppColors.panelLight,
+      child: SizedBox(
+        width: 22,
+        height: 22,
+        child: Icon(Icons.person, size: 13, color: AppColors.textSecondary),
+      ),
+    );
+    if (resolvedPath.isEmpty) return ClipOval(child: placeholder());
     return ClipOval(
       child: CachedNetworkImage(
-        imageUrl: resolvePlayerImagePath(imagePath),
+        key: ValueKey(resolvedPath),
+        imageUrl: resolvedPath,
         width: 22,
         height: 22,
         fit: BoxFit.cover,
         filterQuality: FilterQuality.high,
         fadeInDuration: Duration.zero,
+        fadeOutDuration: Duration.zero,
+        useOldImageOnUrlChange: true,
         memCacheWidth: 44,
         memCacheHeight: 44,
-        placeholder: (_, _) => const ColoredBox(
-          color: AppColors.panelLight,
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: Icon(Icons.person, size: 13, color: AppColors.textSecondary),
-          ),
-        ),
-        errorWidget: (_, _, _) => const ColoredBox(
-          color: AppColors.panelLight,
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: Icon(Icons.person, size: 13, color: AppColors.textSecondary),
-          ),
-        ),
+        placeholder: (_, _) => placeholder(),
+        errorWidget: (_, _, _) => placeholder(),
       ),
     );
   }

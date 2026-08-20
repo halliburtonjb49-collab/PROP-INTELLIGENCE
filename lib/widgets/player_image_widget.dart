@@ -39,6 +39,7 @@ class PlayerImageWidget extends StatelessWidget {
     return ClipRRect(
       borderRadius: borderRadius ?? BorderRadius.zero,
       child: CachedNetworkImage(
+        key: ValueKey(primaryUrl),
         imageUrl: primaryUrl,
         width: width,
         height: height,
@@ -46,8 +47,8 @@ class PlayerImageWidget extends StatelessWidget {
         alignment: Alignment.center,
         // Enhanced rendering quality
         filterQuality: FilterQuality.high,
-        fadeInDuration: const Duration(milliseconds: 300),
-        fadeOutDuration: const Duration(milliseconds: 200),
+        fadeInDuration: Duration.zero,
+        fadeOutDuration: Duration.zero,
         useOldImageOnUrlChange: true,
         // Progressive loading placeholder
         placeholder: (context, url) =>
@@ -58,6 +59,7 @@ class PlayerImageWidget extends StatelessWidget {
             return _buildFallback();
           }
           return CachedNetworkImage(
+            key: ValueKey(retryUrl),
             imageUrl: retryUrl,
             width: width,
             height: height,
@@ -65,6 +67,7 @@ class PlayerImageWidget extends StatelessWidget {
             alignment: Alignment.center,
             filterQuality: FilterQuality.high,
             fadeInDuration: Duration.zero,
+            fadeOutDuration: Duration.zero,
             useOldImageOnUrlChange: true,
             memCacheWidth: width != null ? (width! * 2).toInt() : null,
             memCacheHeight: height != null ? (height! * 2).toInt() : null,
@@ -125,7 +128,7 @@ class PlayerImageWidget extends StatelessWidget {
         child: Icon(
           fallbackIcon,
           size: fallbackIconSize,
-          color: Colors.white.withValues(alpha: 0.3),
+          color: const Color(0xFFD4AF37).withValues(alpha: 0.72),
         ),
       ),
     );

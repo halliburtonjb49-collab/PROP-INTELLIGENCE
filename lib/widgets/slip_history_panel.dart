@@ -55,11 +55,14 @@ class _LegPhoto extends StatelessWidget {
       );
     }
     return CachedNetworkImage(
+      key: ValueKey(imagePath),
       imageUrl: imagePath,
       fit: BoxFit.cover,
       alignment: Alignment.center,
       filterQuality: FilterQuality.high,
       fadeInDuration: Duration.zero,
+      fadeOutDuration: Duration.zero,
+      useOldImageOnUrlChange: true,
       placeholder: (_, _) => _placeholder(),
       errorWidget: (_, _, _) => _placeholder(),
     );
