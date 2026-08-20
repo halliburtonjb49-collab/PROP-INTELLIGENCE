@@ -118,8 +118,9 @@ class _SelectedPropSlipState extends State<SelectedPropSlip> {
                 ? _buildEmptyState()
                 : RawScrollbar(
                     controller: _scrollController,
-                    thumbVisibility: true,
-                    trackVisibility: true,
+                    thumbVisibility: false,
+                    trackVisibility: false,
+                    interactive: false,
                     thickness: 7,
                     radius: const Radius.circular(10),
                     thumbColor: gold,

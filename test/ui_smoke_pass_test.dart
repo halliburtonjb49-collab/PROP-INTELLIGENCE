@@ -1,7 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:prop_intelligence/controllers/active_slip_controller.dart';
 import 'package:prop_intelligence/main.dart';
 import 'package:prop_intelligence/services/prop_chat_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,6 +19,71 @@ void main() {
   tearDown(() {
     PropChatService.unreadCount.value = 0;
   });
+
+  for (final viewport in const [
+    (label: 'mobile', size: Size(390, 844)),
+    (label: 'tablet', size: Size(768, 1024)),
+    (label: 'laptop', size: Size(1366, 768)),
+    (label: 'wide desktop', size: Size(1920, 1080)),
+  ]) {
+    testWidgets('visual QA: ${viewport.label} ${viewport.size.width.toInt()}x${viewport.size.height.toInt()}', (
+      tester,
+    ) async {
+      tester.view.physicalSize = viewport.size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(const PropIntelligenceApp());
+      await tester.pump(const Duration(milliseconds: 900));
+      final initialLayoutException = tester.takeException();
+      if (initialLayoutException is FlutterError) {
+        debugPrint(initialLayoutException.toStringDeep());
+        for (final element in find.byType(Row).evaluate()) {
+          final renderObject = element.renderObject;
+          if (renderObject is! RenderFlex || !renderObject.hasSize) continue;
+          var childRight = 0.0;
+          renderObject.visitChildren((child) {
+            if (child is! RenderBox || !child.hasSize) return;
+            final parentData = child.parentData;
+            if (parentData is! FlexParentData) return;
+            childRight = math.max(
+              childRight,
+              parentData.offset.dx + child.size.width,
+            );
+          });
+          if (childRight > renderObject.size.width + .5) {
+            debugPrint(
+              'Overflowing row: ${element.widget} '
+              'width=${renderObject.size.width} childrenRight=$childRight '
+              'creator=${renderObject.debugCreator}',
+            );
+          }
+        }
+      }
+      expect(initialLayoutException, isNull);
+      expect(
+        find.byKey(const ValueKey('board-player-search')),
+        findsWidgets,
+      );
+
+      if (viewport.size.width < 1000) {
+        expect(find.byKey(const ValueKey('mobile-nav-menu')), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('mobile-nav-menu')));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('mobile-sidebar-prop-chat')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      } else {
+        expect(find.text('CURRENT VIEW'), findsOneWidget);
+        expect(find.byKey(const ValueKey('mobile-nav-menu')), findsNothing);
+      }
+    });
+  }
 
   testWidgets('chat mentions and direct contacts show gold unread badges', (
     tester,
@@ -249,9 +317,20 @@ void main() {
     expect(find.text('ELITE ACTIVE'), findsNothing);
 
     Future<void> openWorkspace(String label, String? expected) async {
-      final destination = find.text(label);
+      var destination = find.text(label);
+      final section = switch (label) {
+        'PROP BUILDER' || 'BUILD\nPERFORM' || 'SLIP WATCHER' => 'BUILD',
+        'THE LAB' || 'EV SCANNER' => 'RESEARCH',
+        _ => null,
+      };
+      if (destination.evaluate().isEmpty && section != null) {
+        await tester.tap(find.text(section));
+        await tester.pumpAndSettle();
+        destination = find.text(label);
+      }
       expect(destination, findsOneWidget);
       await tester.ensureVisible(destination);
+      await tester.pumpAndSettle();
       await tester.tap(destination);
       await tester.pump(const Duration(milliseconds: 1200));
       if (expected != null) {

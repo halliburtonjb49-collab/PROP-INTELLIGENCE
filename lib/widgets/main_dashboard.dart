@@ -1740,7 +1740,7 @@ class _MainDashboardState extends State<MainDashboard> {
     final primaryControlWidth = compactLayout
         ? compactBoardControlWidth(availableWidth)
         : 210.0;
-    final shortControlLabels = primaryControlWidth < 132;
+    final shortControlLabels = compactLayout || primaryControlWidth < 132;
     final primaryControlPadding = EdgeInsets.symmetric(
       horizontal: shortControlLabels ? 6 : 13,
     );
@@ -2141,9 +2141,9 @@ class _MainDashboardState extends State<MainDashboard> {
                     },
                     child: Scrollbar(
                       controller: _bookHorizontalController,
-                      thumbVisibility: !compactLayout,
-                      trackVisibility: !compactLayout,
-                      interactive: true,
+                      thumbVisibility: false,
+                      trackVisibility: false,
+                      interactive: false,
                       scrollbarOrientation: ScrollbarOrientation.bottom,
                       thickness: 4,
                       radius: const Radius.circular(99),
@@ -3135,15 +3135,9 @@ class _MainDashboardState extends State<MainDashboard> {
                             )
                           : Scrollbar(
                               controller: _boardVerticalController,
-                              thumbVisibility: usePersistentBoardScrollbar(
-                                boardViewportWidth,
-                              ),
-                              trackVisibility: usePersistentBoardScrollbar(
-                                boardViewportWidth,
-                              ),
-                              interactive: usePersistentBoardScrollbar(
-                                boardViewportWidth,
-                              ),
+                              thumbVisibility: false,
+                              trackVisibility: false,
+                              interactive: false,
                               thickness: boardScrollbarThickness(
                                 boardViewportWidth,
                               ),

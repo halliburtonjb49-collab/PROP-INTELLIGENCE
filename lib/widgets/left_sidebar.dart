@@ -31,8 +31,6 @@ class LeftSidebar extends StatefulWidget {
 }
 
 class _LeftSidebarState extends State<LeftSidebar> {
-  final ScrollController _sidebarScrollController = ScrollController();
-
   static const _researchPages = {
     AppPage.briefing,
     AppPage.board,
@@ -90,12 +88,6 @@ class _LeftSidebarState extends State<LeftSidebar> {
   }
 
   @override
-  void dispose() {
-    _sidebarScrollController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Container(
       color: app_colors.AppColors.sidebar,
@@ -113,11 +105,9 @@ class _LeftSidebarState extends State<LeftSidebar> {
           const SizedBox(height: 8),
           Expanded(
             child: Scrollbar(
-              controller: _sidebarScrollController,
-              thumbVisibility: true,
-              interactive: true,
+              interactive: false,
               child: ListView(
-                controller: _sidebarScrollController,
+                primary: false,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 10,

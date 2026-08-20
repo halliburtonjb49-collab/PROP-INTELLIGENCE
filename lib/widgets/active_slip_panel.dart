@@ -129,8 +129,8 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
           ),
           child: Scrollbar(
             controller: _activeSlipScrollController,
-            thumbVisibility: true,
-            interactive: true,
+            thumbVisibility: false,
+            interactive: false,
             child: SingleChildScrollView(
               controller: _activeSlipScrollController,
               primary: false,

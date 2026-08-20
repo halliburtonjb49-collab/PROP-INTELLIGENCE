@@ -16,8 +16,8 @@ void main() {
       ),
     );
 
-    expect(find.text('OPEN RESEARCH'), findsOneWidget);
-    await tester.tap(find.text('OPEN RESEARCH'));
+    expect(find.text('VIEW RESEARCH'), findsOneWidget);
+    await tester.tap(find.text('VIEW RESEARCH'));
     expect(taps, 1);
 
     await tester.pumpWidget(

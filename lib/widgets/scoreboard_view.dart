@@ -426,9 +426,9 @@ class _LiveScoreboardTickerGridWidgetState
       ),
       child: Scrollbar(
         controller: _scrollController,
-        thumbVisibility: true,
-        trackVisibility: true,
-        interactive: true,
+        thumbVisibility: false,
+        trackVisibility: false,
+        interactive: false,
         child: SingleChildScrollView(
           controller: _scrollController,
           padding: const EdgeInsets.fromLTRB(18, 12, 24, 22),
