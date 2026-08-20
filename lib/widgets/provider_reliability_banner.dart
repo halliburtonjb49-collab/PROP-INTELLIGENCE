@@ -43,13 +43,26 @@ class ProviderReliabilityBanner extends StatelessWidget {
         3;
     final recovering =
         ((reliability['recovery'] as Map?)?['requested'] as bool?) == true;
-    final healthy = status == 'HEALTHY';
-    final color = healthy ? const Color(0xFF55D6A3) : AppColors.gold;
+    final stale = feedIsRecovery || (age != null && age >= 15);
+    final aging = !stale && age != null && age >= 8;
+    final healthy = status == 'HEALTHY' && !stale;
+    final color = stale
+        ? const Color(0xFFFF8A80)
+        : aging
+        ? AppColors.gold
+        : healthy
+        ? const Color(0xFF55D6A3)
+        : AppColors.gold;
     final freshness = age == null
         ? 'FRESHNESS UNKNOWN'
         : age == 0
         ? 'UPDATED NOW'
         : 'UPDATED ${age}M AGO';
+    final freshnessState = stale
+        ? 'STALE DATA'
+        : aging
+        ? 'REFRESH DUE'
+        : 'LIVE';
 
     return Container(
       key: const ValueKey('provider-reliability-banner'),
@@ -116,7 +129,8 @@ class ProviderReliabilityBanner extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '$freshness  |  $horizon-DAY: $events EVENTS  |  '
+                      '$freshnessState  |  $freshness  |  '
+                      '$horizon-DAY: $events EVENTS  |  '
                       '$providers/$expected PROVIDERS'
                       '${recovering ? '  |  RECOVERY RUNNING' : ''}',
                       maxLines: 2,

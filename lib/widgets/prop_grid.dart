@@ -184,6 +184,24 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     );
   }
 
+  Widget _playerPhotoFrame(
+    ImageProvider imageProvider,
+    String player, {
+    required double size,
+  }) => Stack(
+    fit: StackFit.expand,
+    children: [
+      _playerPlaceholder(player, size: size),
+      Image(
+        image: imageProvider,
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        filterQuality: FilterQuality.high,
+        gaplessPlayback: true,
+      ),
+    ],
+  );
+
   Widget _fastPlayerPhoto(PropData prop, {double size = 44}) {
     final imagePath = resolvePlayerImagePath(prop.imagePath);
     final retryImagePath = resolvePlayerImageFallbackPath(prop.imagePath);
@@ -202,6 +220,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           if (officialUrl != null) {
             return CachedNetworkImage(
               imageUrl: officialUrl,
+              imageBuilder: (_, imageProvider) => _playerPhotoFrame(
+                imageProvider,
+                prop.player,
+                size: size,
+              ),
               useOldImageOnUrlChange: true,
               fit: BoxFit.cover,
               alignment: Alignment.center,
@@ -222,6 +245,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
 
     return CachedNetworkImage(
       imageUrl: imagePath,
+      imageBuilder: (_, imageProvider) => _playerPhotoFrame(
+        imageProvider,
+        prop.player,
+        size: size,
+      ),
       fit: BoxFit.cover,
       alignment: Alignment.center,
       filterQuality: FilterQuality.high,
@@ -237,6 +265,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         if (retryImagePath.isNotEmpty && retryImagePath != imagePath) {
           return CachedNetworkImage(
             imageUrl: retryImagePath,
+            imageBuilder: (_, imageProvider) => _playerPhotoFrame(
+              imageProvider,
+              prop.player,
+              size: size,
+            ),
             fit: BoxFit.cover,
             alignment: Alignment.center,
             filterQuality: FilterQuality.high,

@@ -79,7 +79,9 @@ class _PropLoadingSkeletonState extends State<PropLoadingSkeleton> {
             crossAxisCount: columns,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: 220,
+            // Reserve approximately the final card footprint so the board
+            // does not jump when live content replaces the skeleton.
+            mainAxisExtent: 420,
           ),
           itemBuilder: (context, index) => Container(
             padding: const EdgeInsets.all(18),
@@ -91,9 +93,41 @@ class _PropLoadingSkeletonState extends State<PropLoadingSkeleton> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(height: 16, width: 150, color: AppColors.border),
+                Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: const BoxDecoration(
+                        color: AppColors.border,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        color: AppColors.gold,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(height: 16, width: 150, color: AppColors.border),
+                          const SizedBox(height: 8),
+                          Container(height: 10, width: 210, color: AppColors.border),
+                        ],
+                      ),
+                    ),
+                    Container(height: 54, width: 92, color: AppColors.border),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Container(height: 34, width: double.infinity, color: AppColors.border),
+                const SizedBox(height: 10),
+                Container(height: 34, width: double.infinity, color: AppColors.border),
                 const SizedBox(height: 14),
-                Container(height: 10, width: 210, color: AppColors.border),
+                Container(height: 76, width: double.infinity, color: AppColors.border),
                 const Spacer(),
                 Row(
                   children: [

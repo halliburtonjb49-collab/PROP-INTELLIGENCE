@@ -44,6 +44,19 @@ class PlayerImageWidget extends StatelessWidget {
         height: height,
         fit: fit,
         alignment: Alignment.center,
+        imageBuilder: (context, imageProvider) => Stack(
+          fit: StackFit.expand,
+          children: [
+            _buildFallback(),
+            Image(
+              image: imageProvider,
+              fit: fit,
+              alignment: Alignment.center,
+              filterQuality: FilterQuality.high,
+              gaplessPlayback: true,
+            ),
+          ],
+        ),
         // Enhanced rendering quality
         filterQuality: FilterQuality.high,
         fadeInDuration: Duration.zero,
@@ -63,6 +76,19 @@ class PlayerImageWidget extends StatelessWidget {
             height: height,
             fit: fit,
             alignment: Alignment.center,
+            imageBuilder: (context, imageProvider) => Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildFallback(),
+                Image(
+                  image: imageProvider,
+                  fit: fit,
+                  alignment: Alignment.center,
+                  filterQuality: FilterQuality.high,
+                  gaplessPlayback: true,
+                ),
+              ],
+            ),
             filterQuality: FilterQuality.high,
             fadeInDuration: Duration.zero,
             fadeOutDuration: Duration.zero,
