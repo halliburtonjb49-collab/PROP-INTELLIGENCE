@@ -29,7 +29,7 @@ class ResearchToggle extends StatelessWidget {
           constraints: const BoxConstraints(
             minHeight: PiDesign.minimumTouchTarget,
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           decoration: BoxDecoration(
             color: AppColors.gold.withValues(alpha: open ? .16 : .08),
             borderRadius: BorderRadius.circular(PiDesign.controlRadius),

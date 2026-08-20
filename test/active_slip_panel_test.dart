@@ -43,6 +43,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: SizedBox(
+            width: 320,
             height: 700,
             child: ActiveSlipPanel(controller: controller),
           ),
@@ -50,6 +51,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
 
     expect(find.text('1-PICK ENTRY'), findsOneWidget);
     expect(find.text('DRAFT SAVED ON THIS DEVICE'), findsOneWidget);

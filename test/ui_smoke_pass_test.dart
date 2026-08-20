@@ -21,10 +21,12 @@ void main() {
   });
 
   for (final viewport in const [
+    (label: 'narrow phone', size: Size(320, 700)),
     (label: 'mobile', size: Size(390, 844)),
     (label: 'tablet', size: Size(768, 1024)),
     (label: 'laptop', size: Size(1366, 768)),
     (label: 'wide desktop', size: Size(1920, 1080)),
+    (label: 'ultrawide', size: Size(2560, 1080)),
   ]) {
     testWidgets('visual QA: ${viewport.label} ${viewport.size.width.toInt()}x${viewport.size.height.toInt()}', (
       tester,
@@ -68,6 +70,7 @@ void main() {
         find.byKey(const ValueKey('board-player-search')),
         findsWidgets,
       );
+      expect(tester.takeException(), isNull);
 
       if (viewport.size.width < 1000) {
         expect(find.byKey(const ValueKey('mobile-nav-menu')), findsOneWidget);

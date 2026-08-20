@@ -58,12 +58,17 @@ class TopNavigation extends StatelessWidget {
           ],
         ),
         content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500),
-          child: Text(
-            _pageHowTo,
-            style: const TextStyle(
-              color: app_colors.AppColors.textSecondary,
-              height: 1.55,
+          constraints: BoxConstraints(
+            maxWidth: 500,
+            maxHeight: MediaQuery.sizeOf(context).height * .65,
+          ),
+          child: SingleChildScrollView(
+            child: Text(
+              _pageHowTo,
+              style: const TextStyle(
+                color: app_colors.AppColors.textSecondary,
+                height: 1.55,
+              ),
             ),
           ),
         ),
@@ -319,8 +324,8 @@ class TopNavigation extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            constraints: const BoxConstraints(minHeight: 44),
-            padding: const EdgeInsets.symmetric(horizontal: 9),
+            constraints: const BoxConstraints(minHeight: 48),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
               color: selected
                   ? accentColor.withValues(alpha: .09)
