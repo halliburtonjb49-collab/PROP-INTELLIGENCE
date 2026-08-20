@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 
 import '../navigation/app_navigation.dart';
 import '../services/auth_manager.dart';
-import '../services/prop_chat_service.dart';
 import '../theme/app_colors.dart' as app_colors;
 import 'sidebar_button.dart';
 
@@ -33,6 +32,26 @@ class LeftSidebar extends StatefulWidget {
 
 class _LeftSidebarState extends State<LeftSidebar> {
   final ScrollController _sidebarScrollController = ScrollController();
+
+  static const _researchPages = {
+    AppPage.briefing,
+    AppPage.board,
+    AppPage.searchPlayers,
+    AppPage.lineMovement,
+    AppPage.injuryImpact,
+    AppPage.analytics,
+    AppPage.propChat,
+    AppPage.scoreboardWatchlist,
+    AppPage.intelligenceLab,
+    AppPage.refereeTracker,
+    AppPage.evScanner,
+  };
+  static const _buildPages = {
+    AppPage.propBuilder,
+    AppPage.builderPerformance,
+    AppPage.watchlist,
+  };
+  static const _historyPages = {AppPage.pastSlipHistory, AppPage.trackRecord};
 
   String _sportEmoji(String sport) {
     switch (sport) {
@@ -78,23 +97,6 @@ class _LeftSidebarState extends State<LeftSidebar> {
 
   @override
   Widget build(BuildContext context) {
-    // Every sport stays listed whether or not it currently has props.
-    // A season that has not started is not the same as a sport the app
-    // does not cover, and a rail that changes shape month to month is
-    // harder to navigate than one that does not. The board says when a
-    // sport is empty instead.
-    const sports = [
-      'MLB',
-      'NFL',
-      'NBA',
-      'WNBA',
-      'NHL',
-      'SOCCER',
-      'NCAAF',
-      'NCAAB',
-      'CFL',
-    ];
-
     return Container(
       color: app_colors.AppColors.sidebar,
       child: Column(
@@ -121,147 +123,217 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   vertical: 10,
                 ),
                 children: [
-                  const _SidebarSectionLabel('RESEARCH'),
-                  const SizedBox(height: 7),
-                  SidebarButton(
-                    label: 'GAME MARKETS',
-                    leadingIcons: const [Icons.sports_rounded],
-                    leadingIconColors: const [app_colors.AppColors.gold],
-                    selected: widget.selectedPage == AppPage.gameMarkets,
-                    requiredTier: SubscriptionTier.core,
-                    showGoldBar: true,
-                    onTap: () => widget.onSelectPage?.call(AppPage.gameMarkets),
-                  ),
-                  const SizedBox(height: 6),
-                  SidebarButton(
-                    label: 'SCORE WATCH',
-                    leadingIcons: const [Icons.notifications_active_rounded],
-                    leadingIconColors: const [app_colors.AppColors.gold],
-                    trailingIcon: Icons.visibility_rounded,
-                    trailingIconKey: const ValueKey(
-                      'score-watch-trailing-icon',
+                  _CollapsibleSidebarSection(
+                    key: ValueKey(
+                      'research-${_researchPages.contains(widget.selectedPage)}',
                     ),
-                    selected:
-                        widget.selectedPage == AppPage.scoreboardWatchlist,
-                    requiredTier: SubscriptionTier.edge,
-                    showGoldBar: true,
-                    onTap: () =>
-                        widget.onSelectPage?.call(AppPage.scoreboardWatchlist),
-                  ),
-                  const SizedBox(height: 6),
-                  SidebarButton(
-                    label: 'THE LAB',
-                    leadingIcons: const [Icons.science_outlined],
-                    leadingIconColors: const [app_colors.AppColors.gold],
-                    selected: widget.selectedPage == AppPage.intelligenceLab,
-                    requiredTier: SubscriptionTier.edge,
-                    showGoldBar: true,
-                    onTap: () =>
-                        widget.onSelectPage?.call(AppPage.intelligenceLab),
-                  ),
-                  const SizedBox(height: 6),
-                  SidebarButton(
-                    label: 'REFEREE\nTRACKER',
-                    leadingIcons: const [Icons.sports_outlined],
-                    leadingIconColors: const [app_colors.AppColors.gold],
-                    selected: widget.selectedPage == AppPage.refereeTracker,
-                    requiredTier: SubscriptionTier.edge,
-                    showGoldBar: true,
-                    onTap: () =>
-                        widget.onSelectPage?.call(AppPage.refereeTracker),
-                  ),
-                  const SizedBox(height: 18),
-                  const _SidebarSectionLabel('BUILD & TRACK'),
-                  const SizedBox(height: 7),
-                  SidebarButton(
-                    label: 'PROP BUILDER',
-                    leadingIcons: const [Icons.category_outlined],
-                    selected: widget.selectedPage == AppPage.propBuilder,
-                    requiredTier: SubscriptionTier.core,
-                    showGoldBar: true,
-                    onTap: () => widget.onSelectPage?.call(AppPage.propBuilder),
-                  ),
-                  const SizedBox(height: 6),
-                  SidebarButton(
-                    label: 'BUILD\nPERFORM',
-                    leadingIcons: const [Icons.grid_view_rounded],
-                    selected: widget.selectedPage == AppPage.builderPerformance,
-                    requiredTier: SubscriptionTier.edge,
-                    showGoldBar: true,
-                    onTap: () =>
-                        widget.onSelectPage?.call(AppPage.builderPerformance),
-                  ),
-                  const SizedBox(height: 6),
-                  SidebarButton(
-                    label: 'SLIP WATCHER',
-                    badge: '${widget.lockedSlipCount}',
-                    leadingIcons: const [Icons.receipt_long_rounded],
-                    leadingIconColors: const [app_colors.AppColors.gold],
-                    selected: widget.selectedPage == AppPage.watchlist,
-                    requiredTier: SubscriptionTier.core,
-                    hasProUpgrade: true,
-                    showGoldBar: true,
-                    onTap: () => widget.onSelectPage?.call(AppPage.watchlist),
-                  ),
-                  const SizedBox(height: 6),
-                  SidebarButton(
-                    label: 'PAST SLIP\nHISTORY',
-                    leadingIcons: const [Icons.history_rounded],
-                    leadingIconColors: const [app_colors.AppColors.gold],
-                    selected: widget.selectedPage == AppPage.pastSlipHistory,
-                    requiredTier: SubscriptionTier.core,
-                    hasProUpgrade: true,
-                    showGoldBar: true,
-                    onTap: () =>
-                        widget.onSelectPage?.call(AppPage.pastSlipHistory),
-                  ),
-                  const SizedBox(height: 6),
-                  SidebarButton(
-                    label: 'EV SCANNER',
-                    selected: widget.selectedPage == AppPage.evScanner,
-                    requiredTier: SubscriptionTier.edge,
-                    showGoldBar: true,
-                    leadingIcons: const [Icons.auto_graph],
-                    leadingIconColors: const [app_colors.AppColors.blue],
-                    onTap: () => widget.onSelectPage?.call(AppPage.evScanner),
-                  ),
-                  if (MediaQuery.sizeOf(context).width < 700) ...[
-                    const SizedBox(height: 6),
-                    ValueListenableBuilder<int>(
-                      valueListenable: PropChatService.unreadCount,
-                      builder: (context, unread, _) => SidebarButton(
+                    title: 'RESEARCH',
+                    initiallyExpanded: _researchPages.contains(
+                      widget.selectedPage,
+                    ),
+                    children: [
+                      SidebarButton(
+                        label: "TODAY'S BRIEFING",
+                        leadingIcons: const [Icons.wb_sunny_outlined],
+                        selected: widget.selectedPage == AppPage.briefing,
+                        showGoldBar: true,
+                        onTap: () =>
+                            widget.onSelectPage?.call(AppPage.briefing),
+                      ),
+                      const SizedBox(height: 6),
+                      SidebarButton(
+                        label: 'MARKET BOARD',
+                        leadingIcons: const [Icons.dashboard_outlined],
+                        selected: widget.selectedPage == AppPage.board,
+                        showGoldBar: true,
+                        onTap: () => widget.onSelectPage?.call(AppPage.board),
+                      ),
+                      const SizedBox(height: 6),
+                      SidebarButton(
+                        label: 'SEARCH PLAYERS',
+                        leadingIcons: const [Icons.person_search_outlined],
+                        selected: widget.selectedPage == AppPage.searchPlayers,
+                        showGoldBar: true,
+                        onTap: () =>
+                            widget.onSelectPage?.call(AppPage.searchPlayers),
+                      ),
+                      const SizedBox(height: 6),
+                      SidebarButton(
+                        label: 'LINE MOVEMENT',
+                        leadingIcons: const [Icons.show_chart_rounded],
+                        selected: widget.selectedPage == AppPage.lineMovement,
+                        requiredTier: SubscriptionTier.core,
+                        showGoldBar: true,
+                        onTap: () =>
+                            widget.onSelectPage?.call(AppPage.lineMovement),
+                      ),
+                      const SizedBox(height: 6),
+                      SidebarButton(
+                        label: 'INJURY IMPACT',
+                        leadingIcons: const [Icons.health_and_safety_outlined],
+                        selected: widget.selectedPage == AppPage.injuryImpact,
+                        requiredTier: SubscriptionTier.edge,
+                        showGoldBar: true,
+                        onTap: () =>
+                            widget.onSelectPage?.call(AppPage.injuryImpact),
+                      ),
+                      const SizedBox(height: 6),
+                      SidebarButton(
+                        label: 'ANALYTICS',
+                        leadingIcons: const [Icons.analytics_outlined],
+                        selected: widget.selectedPage == AppPage.analytics,
+                        requiredTier: SubscriptionTier.core,
+                        showGoldBar: true,
+                        onTap: () =>
+                            widget.onSelectPage?.call(AppPage.analytics),
+                      ),
+                      const SizedBox(height: 6),
+                      SidebarButton(
                         key: const ValueKey('mobile-sidebar-prop-chat'),
                         label: 'PROP CHAT',
-                        badge: unread > 0 ? '$unread' : null,
+                        leadingIcons: const [Icons.forum_outlined],
                         selected: widget.selectedPage == AppPage.propChat,
+                        requiredTier: SubscriptionTier.core,
                         showGoldBar: true,
-                        leadingIcons: const [Icons.forum_rounded],
-                        leadingIconColors: const [app_colors.AppColors.gold],
                         onTap: () =>
                             widget.onSelectPage?.call(AppPage.propChat),
                       ),
-                    ),
-                  ],
-                  const SizedBox(height: 18),
-                  const _SidebarSectionLabel('SPORTS'),
-                  const SizedBox(height: 7),
-                  ...sports.map((sport) {
-                    final imagePath = _sportImagePath(sport);
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 3),
-                      child: SidebarButton(
-                        label: sport,
-                        leadingImagePath: imagePath,
-                        leadingEmojis: imagePath == null
-                            ? [_sportEmoji(sport)]
-                            : null,
+                      const SizedBox(height: 6),
+                      SidebarButton(
+                        label: 'SCORE WATCH',
+                        leadingIcons: const [
+                          Icons.notifications_active_rounded,
+                        ],
+                        leadingIconColors: const [app_colors.AppColors.gold],
+                        trailingIcon: Icons.visibility_rounded,
+                        trailingIconKey: const ValueKey(
+                          'score-watch-trailing-icon',
+                        ),
                         selected:
-                            widget.selectedPage == AppPage.board &&
-                            widget.selectedSport == sport,
-                        onTap: () => widget.onSelectSport?.call(sport),
+                            widget.selectedPage == AppPage.scoreboardWatchlist,
+                        requiredTier: SubscriptionTier.edge,
+                        showGoldBar: true,
+                        onTap: () => widget.onSelectPage?.call(
+                          AppPage.scoreboardWatchlist,
+                        ),
                       ),
-                    );
-                  }),
+                      const SizedBox(height: 6),
+                      SidebarButton(
+                        label: 'THE LAB',
+                        leadingIcons: const [Icons.science_outlined],
+                        leadingIconColors: const [app_colors.AppColors.gold],
+                        selected:
+                            widget.selectedPage == AppPage.intelligenceLab,
+                        requiredTier: SubscriptionTier.edge,
+                        showGoldBar: true,
+                        onTap: () =>
+                            widget.onSelectPage?.call(AppPage.intelligenceLab),
+                      ),
+                      const SizedBox(height: 6),
+                      SidebarButton(
+                        label: 'REFEREE\nTRACKER',
+                        leadingIcons: const [Icons.sports_outlined],
+                        leadingIconColors: const [app_colors.AppColors.gold],
+                        selected: widget.selectedPage == AppPage.refereeTracker,
+                        requiredTier: SubscriptionTier.edge,
+                        showGoldBar: true,
+                        onTap: () =>
+                            widget.onSelectPage?.call(AppPage.refereeTracker),
+                      ),
+                      const SizedBox(height: 6),
+                      SidebarButton(
+                        label: 'EV SCANNER',
+                        selected: widget.selectedPage == AppPage.evScanner,
+                        requiredTier: SubscriptionTier.edge,
+                        showGoldBar: true,
+                        leadingIcons: const [Icons.auto_graph],
+                        leadingIconColors: const [app_colors.AppColors.blue],
+                        onTap: () =>
+                            widget.onSelectPage?.call(AppPage.evScanner),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  _CollapsibleSidebarSection(
+                    key: ValueKey(
+                      'build-${_buildPages.contains(widget.selectedPage)}',
+                    ),
+                    title: 'BUILD',
+                    initiallyExpanded: _buildPages.contains(
+                      widget.selectedPage,
+                    ),
+                    children: [
+                      SidebarButton(
+                        label: 'PROP BUILDER',
+                        leadingIcons: const [Icons.category_outlined],
+                        selected: widget.selectedPage == AppPage.propBuilder,
+                        requiredTier: SubscriptionTier.core,
+                        showGoldBar: true,
+                        onTap: () =>
+                            widget.onSelectPage?.call(AppPage.propBuilder),
+                      ),
+                      const SizedBox(height: 6),
+                      SidebarButton(
+                        label: 'BUILD\nPERFORM',
+                        leadingIcons: const [Icons.grid_view_rounded],
+                        selected:
+                            widget.selectedPage == AppPage.builderPerformance,
+                        requiredTier: SubscriptionTier.edge,
+                        showGoldBar: true,
+                        onTap: () => widget.onSelectPage?.call(
+                          AppPage.builderPerformance,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      SidebarButton(
+                        label: 'SLIP WATCHER',
+                        badge: '${widget.lockedSlipCount}',
+                        leadingIcons: const [Icons.receipt_long_rounded],
+                        leadingIconColors: const [app_colors.AppColors.gold],
+                        selected: widget.selectedPage == AppPage.watchlist,
+                        requiredTier: SubscriptionTier.core,
+                        hasProUpgrade: true,
+                        showGoldBar: true,
+                        onTap: () =>
+                            widget.onSelectPage?.call(AppPage.watchlist),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  _CollapsibleSidebarSection(
+                    key: ValueKey(
+                      'history-${_historyPages.contains(widget.selectedPage)}',
+                    ),
+                    title: 'HISTORY',
+                    initiallyExpanded: _historyPages.contains(
+                      widget.selectedPage,
+                    ),
+                    children: [
+                      SidebarButton(
+                        label: 'PAST SLIP\nHISTORY',
+                        leadingIcons: const [Icons.history_rounded],
+                        leadingIconColors: const [app_colors.AppColors.gold],
+                        selected:
+                            widget.selectedPage == AppPage.pastSlipHistory,
+                        requiredTier: SubscriptionTier.core,
+                        hasProUpgrade: true,
+                        showGoldBar: true,
+                        onTap: () =>
+                            widget.onSelectPage?.call(AppPage.pastSlipHistory),
+                      ),
+                      const SizedBox(height: 6),
+                      SidebarButton(
+                        label: 'TRACK RECORD',
+                        leadingIcons: const [Icons.fact_check_outlined],
+                        leadingIconColors: const [app_colors.AppColors.gold],
+                        selected: widget.selectedPage == AppPage.trackRecord,
+                        requiredTier: SubscriptionTier.core,
+                        showGoldBar: true,
+                        onTap: () =>
+                            widget.onSelectPage?.call(AppPage.trackRecord),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   const _SidebarSectionLabel('SPECIALTY'),
                   const SizedBox(height: 7),
@@ -535,6 +607,41 @@ class _SidebarHeader extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _CollapsibleSidebarSection extends StatelessWidget {
+  const _CollapsibleSidebarSection({
+    super.key,
+    required this.title,
+    required this.initiallyExpanded,
+    required this.children,
+  });
+
+  final String title;
+  final bool initiallyExpanded;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: Material(
+        color: Colors.transparent,
+        child: ExpansionTile(
+          key: ValueKey('sidebar-section-$title'),
+          initiallyExpanded: initiallyExpanded,
+          maintainState: true,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 9),
+          childrenPadding: const EdgeInsets.only(top: 5),
+          minTileHeight: 42,
+          iconColor: app_colors.AppColors.gold,
+          collapsedIconColor: app_colors.AppColors.textMuted,
+          title: _SidebarSectionLabel(title),
+          children: children,
+        ),
+      ),
     );
   }
 }

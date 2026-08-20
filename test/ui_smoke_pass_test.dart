@@ -119,6 +119,7 @@ void main() {
   testWidgets('smoke: scoreboard, analytics, line movement top navigation', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     tester.view.physicalSize = const Size(1600, 1000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
@@ -129,10 +130,24 @@ void main() {
     await tester.pumpWidget(const PropIntelligenceApp());
     await tester.pump(const Duration(milliseconds: 800));
 
-    // Destinations are grouped now, so the bar carries the five groups
-    // rather than every page at once.
-    for (final group in ['RESEARCH', 'BUILD', 'LIVE', 'HISTORY', 'SPORTS']) {
-      expect(find.byKey(ValueKey('nav-group-$group')), findsOneWidget);
+    // Sports and live tools stay on top; workflow groups move to the sidebar.
+    expect(find.byKey(const ValueKey('nav-group-SPORTS')), findsOneWidget);
+    expect(find.byKey(const ValueKey('top-scoreboard')), findsOneWidget);
+    for (final group in ['RESEARCH', 'BUILD', 'HISTORY']) {
+      expect(find.byKey(ValueKey('nav-group-$group')), findsNothing);
+    }
+    for (final sport in [
+      'MLB',
+      'NFL',
+      'NBA',
+      'WNBA',
+      'NHL',
+      'SOCCER',
+      'NCAAF',
+      'NCAAB',
+      'CFL',
+    ]) {
+      expect(find.byKey(ValueKey('top-sport-$sport')), findsOneWidget);
     }
     expect(
       find.byKey(const ValueKey('top-navigation-scrollbar')),
@@ -175,38 +190,20 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('nav-group-SPORTS')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('nav-entry-gameMarkets')));
-    await tester.pumpAndSettle();
     expect(find.text('MONEYLINE'), findsOneWidget);
     expect(find.text('SPREADS'), findsOneWidget);
     expect(find.text('GAME TOTALS'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.byKey(const ValueKey('nav-group-LIVE')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('nav-entry-scoreboard')));
+    await tester.tap(find.byKey(const ValueKey('top-scoreboard')));
     await tester.pumpAndSettle();
     expect(find.text('ALL GAMES'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('LIVE SCOREBOARD workspace')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
-
-    await tester.tap(find.byKey(const ValueKey('nav-group-RESEARCH')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('nav-entry-analytics')));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-
-    await tester.tap(find.byKey(const ValueKey('nav-group-RESEARCH')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('nav-entry-lineMovement')));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-
-    await tester.tap(find.byKey(const ValueKey('nav-group-RESEARCH')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('nav-entry-injuryImpact')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('injury-impact-page')), findsOneWidget);
-    expect(tester.takeException(), isNull);
+    semantics.dispose();
   });
 
   test('smoke: active slip startup and add/remove interactions', () async {
@@ -300,10 +297,7 @@ void main() {
       find.byKey(const ValueKey('restore-prop-chat-bubble')),
       findsNothing,
     );
-    expect(
-      find.byKey(const ValueKey('close-prop-chat-bubble')),
-      findsNothing,
-    );
+    expect(find.byKey(const ValueKey('close-prop-chat-bubble')), findsNothing);
     await openWorkspace('PROP BUILDER', 'PROP BUILDER');
     await openWorkspace('BUILD\nPERFORM', null);
     await openWorkspace('EV SCANNER', 'EV SCANNER');

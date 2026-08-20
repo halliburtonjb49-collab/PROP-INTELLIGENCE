@@ -5,7 +5,7 @@ import 'package:prop_intelligence/services/auth_manager.dart';
 import 'package:prop_intelligence/widgets/left_sidebar.dart';
 
 void main() {
-  testWidgets('sidebar forwards navigation, sport and refresh actions', (
+  testWidgets('sidebar forwards navigation and refresh actions', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1000, 900);
@@ -16,7 +16,6 @@ void main() {
     final count = ValueNotifier<int>(42);
     addTearDown(count.dispose);
     AppPage? selectedPage;
-    String? selectedSport;
     var refreshes = 0;
 
     await tester.pumpWidget(
@@ -31,7 +30,6 @@ void main() {
               propCountListenable: count,
               onRefresh: () => refreshes++,
               onSelectPage: (value) => selectedPage = value,
-              onSelectSport: (value) => selectedSport = value,
             ),
           ),
         ),
@@ -39,13 +37,36 @@ void main() {
     );
 
     expect(find.text('42'), findsOneWidget);
-    expect(find.text('3'), findsOneWidget);
+    expect(find.text('RESEARCH'), findsOneWidget);
     await tester.tap(find.byTooltip('Refresh props'));
     expect(refreshes, 1);
-    await tester.tap(find.text('GAME MARKETS'));
-    expect(selectedPage, AppPage.gameMarkets);
-    await tester.tap(find.text('MLB'));
-    expect(selectedSport, 'MLB');
+    await tester.tap(find.text('MARKET BOARD'));
+    expect(selectedPage, AppPage.board);
+    expect(find.text('MLB'), findsNothing);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -650));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('BUILD'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('SLIP WATCHER'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('BUILD'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+    await tester.tap(find.text('BUILD'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, -250));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('HISTORY'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('HISTORY'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('HISTORY'), findsOneWidget);
 
     count.value = 57;
     await tester.pump();

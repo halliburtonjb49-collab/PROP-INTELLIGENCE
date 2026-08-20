@@ -1,6 +1,13 @@
 // Centralized OneSignal Website SDK integration.
 window.PropIntelligenceOneSignal = (() => {
   const appId = "917b088b-4a9f-472d-8b52-3ab0d06ab98e";
+  const developmentHosts = new Set(["localhost", "127.0.0.1", "::1"]);
+  const enabled = !developmentHosts.has(window.location.hostname);
+
+  const developmentResult = () => Promise.resolve({
+    supported: false,
+    reason: "development-host"
+  });
 
   async function initialize(OneSignal) {
     await OneSignal.init({
@@ -22,6 +29,7 @@ window.PropIntelligenceOneSignal = (() => {
   }
 
   function withOneSignal(action) {
+    if (!enabled) return developmentResult();
     return new Promise((resolve, reject) => {
       window.OneSignalDeferred = window.OneSignalDeferred || [];
       window.OneSignalDeferred.push(async (OneSignal) => {
@@ -34,10 +42,13 @@ window.PropIntelligenceOneSignal = (() => {
     });
   }
 
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  window.OneSignalDeferred.push(initialize);
+  if (enabled) {
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(initialize);
+  }
   return Object.freeze({
     appId,
+    enabled,
     requestPermission: () => withOneSignal(
       (OneSignal) => OneSignal.Notifications.requestPermission()
     ),

@@ -8,6 +8,9 @@ import '../theme/app_colors.dart' as app_colors;
 import 'feature_tier_badge.dart';
 
 class SidebarButton extends StatelessWidget {
+  static const double standardHeight = 44;
+  static const double standardIconSize = 17;
+  static const double standardFontSize = 10;
   final String label;
   final bool selected;
   final SubscriptionTier? requiredTier;
@@ -62,8 +65,8 @@ class SidebarButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        constraints: const BoxConstraints(minHeight: 42),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        constraints: const BoxConstraints(minHeight: standardHeight),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
           color: selected
               ? app_colors.AppColors.gold.withValues(alpha: 0.10)
@@ -164,7 +167,7 @@ class SidebarButton extends StatelessWidget {
                       : textColor;
                   return Padding(
                     padding: const EdgeInsets.only(right: 4),
-                    child: Icon(icon, size: 14, color: color),
+                    child: Icon(icon, size: standardIconSize, color: color),
                   );
                 }),
               ),
@@ -181,7 +184,7 @@ class SidebarButton extends StatelessWidget {
                         softWrap: false,
                         style: TextStyle(
                           color: textColor,
-                          fontSize: 10.5,
+                          fontSize: standardFontSize,
                           height: 1.15,
                           fontWeight: textWeight,
                           letterSpacing: 0.2,
@@ -195,7 +198,7 @@ class SidebarButton extends StatelessWidget {
                       overflow: TextOverflow.visible,
                       style: TextStyle(
                         color: textColor,
-                        fontSize: 10.5,
+                        fontSize: standardFontSize,
                         height: 1.15,
                         fontWeight: textWeight,
                         letterSpacing: 0.2,
