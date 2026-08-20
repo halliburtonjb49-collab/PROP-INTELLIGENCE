@@ -331,3 +331,72 @@ def test_statcast_fallback_covers_the_new_batter_markets() -> None:
     # market must stay ungraded instead of being graded as hits.
     assert stat("hits + runs + rbis") is None
     assert stat("runs") is None
+
+
+def test_a_provider_game_id_is_never_trusted_as_a_gamepk(monkeypatch) -> None:
+    """A numeric API-Sports id is not an MLB gamePk.
+
+    Returning it unchecked pointed the box score lookup at whatever game
+    happens to hold that number in the MLB Stats API, so a slip could be
+    verified against a different game entirely.
+    """
+
+    requested: list[str] = []
+
+    def fake_get(path, params=None):
+        requested.append(path)
+        if path == "/v1/schedule":
+            return {
+                "dates": [{
+                    "games": [{
+                        "gamePk": 776655,
+                        "status": {"abstractGameState": "Final"},
+                        "teams": {
+                            "away": {"team": {"name": "Toronto Blue Jays"}},
+                            "home": {"team": {"name": "Boston Red Sox"}},
+                        },
+                    }]
+                }]
+            }
+        return _boxscore({"hits": 2, "doubles": 0, "triples": 0, "homeRuns": 0})
+
+    monkeypatch.setattr(mlb_official_stats_service, "_get_json", fake_get)
+
+    result = mlb_official_stats_service.official_mlb_result(
+        player_name="Corey Seager",
+        market="Hits",
+        matchup="Toronto Blue Jays @ Boston Red Sox",
+        game_start_time="2026-07-26T18:00:00Z",
+        # A plausible provider id that is not this game's gamePk.
+        api_sports_game_id="123456",
+    )
+
+    assert result is not None
+    assert result.game_pk == "776655", "resolved from the schedule, not the caller"
+    assert "/v1/schedule" in requested
+    assert "/v1/game/123456/boxscore" not in requested
+
+
+def test_a_provider_id_cannot_bypass_the_final_game_check(monkeypatch) -> None:
+    # A game still in progress must not resolve at all, however confident
+    # the caller's identifier looks.
+    monkeypatch.setattr(
+        mlb_official_stats_service,
+        "_get_json",
+        lambda _path, _params=None: {"dates": [{"games": [{
+            "gamePk": 776655,
+            "status": {"abstractGameState": "Live"},
+            "teams": {
+                "away": {"team": {"name": "Toronto Blue Jays"}},
+                "home": {"team": {"name": "Boston Red Sox"}},
+            },
+        }]}]},
+    )
+
+    assert mlb_official_stats_service.official_mlb_result(
+        player_name="Corey Seager",
+        market="Hits",
+        matchup="Toronto Blue Jays @ Boston Red Sox",
+        game_start_time="2026-07-26T18:00:00Z",
+        api_sports_game_id="123456",
+    ) is None
