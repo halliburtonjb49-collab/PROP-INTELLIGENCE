@@ -145,9 +145,16 @@ def read_fresh_prop_readiness() -> tuple[object, bytes, float, dict, float]:
             return readiness, body, props_ms, payload, feed_age_minutes
         if time.monotonic() >= deadline:
             if not feed_is_ready:
+                # Name the serving layer. A stale feed served from the
+                # durable snapshot means the shared catalog could not be
+                # reached at all, which is a different failure from a sync
+                # that simply has not run -- and today that distinction cost
+                # an hour of looking in the wrong place.
+                source = str(payload.get("source") or "unreported")
                 raise RuntimeError(
                     "Production prop feed is stale: "
-                    f"{feed_age_minutes:.0f} minutes old"
+                    f"{feed_age_minutes:.0f} minutes old "
+                    f"(serving layer: {source})"
                 )
             if server_ms > 5_000:
                 raise RuntimeError(
