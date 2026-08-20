@@ -83,6 +83,7 @@ from services.baseline_projection_service import (
 	MODEL_VERSION as BASELINE_MODEL_VERSION,
 )
 from services.odds_service import sport_coverage
+from services.prop_group_service import assign_prop_groups
 from services.prop_service import get_props
 from services.formatters import resolve_player_image
 from services.owner_action_service import filter_owner_quarantined_props
@@ -774,6 +775,10 @@ def _rebuild_prop_catalog_from_local(
 	"""
 	now = time.monotonic()
 	props = get_props()
+	# Stamped once, here, where the catalog is assembled. Every reader of a
+	# published catalog then sees the same grouping without recomputing it,
+	# and a client cannot invent a different one.
+	assign_prop_groups(props)
 	with _prop_catalog_lock:
 		_prop_catalog.update(
 			loadedAt=now,

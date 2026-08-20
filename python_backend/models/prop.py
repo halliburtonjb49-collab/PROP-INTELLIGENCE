@@ -100,6 +100,11 @@ class PropResponse(BaseModel):
     marketOriginLine: float | None = None
     lineDiscrepancy: float | None = None
     marketBookCount: int = 0
+    # Identity shared by every book offering the same prop, and how many of
+    # them there are. The board renders one card per book today, which is
+    # 2.16 cards for every distinct prop.
+    propGroupId: str = ""
+    propGroupBookCount: int = 0
     bestOverOdds: float | None = None
     bestUnderOdds: float | None = None
     bestOverBook: str = ""
