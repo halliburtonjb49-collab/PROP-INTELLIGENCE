@@ -1,4 +1,12 @@
-"""Best-effort notifications for production pipeline failures."""
+"""Best-effort notifications for production pipeline failures.
+
+Every payload carries the message under both ``text`` and ``content``.
+Slack incoming webhooks read the first and Discord reads the second, and a
+webhook that speaks the other dialect does not fail loudly -- it returns a
+400 that this module swallows by design, so the alerts would simply never
+arrive and nothing would say why. Sending both costs a duplicated string
+and removes an entire class of silent misconfiguration.
+"""
 
 from __future__ import annotations
 
@@ -12,8 +20,10 @@ def notify_pipeline_issue(pipeline: str, status: str, errors: list[dict[str, obj
     webhook = os.getenv("PIPELINE_ALERT_WEBHOOK_URL", "").strip()
     if not webhook or status == "SUCCEEDED":
         return False
+    message = f"PROP INTELLIGENCE: {pipeline} finished {status}"
     payload = json.dumps({
-        "text": f"PROP INTELLIGENCE: {pipeline} finished {status}",
+        "text": message,
+        "content": message,
         "pipeline": pipeline,
         "status": status,
         "errors": errors[:10],
@@ -45,9 +55,11 @@ def notify_operations_alert(
     webhook = os.getenv("PIPELINE_ALERT_WEBHOOK_URL", "").strip()
     if not webhook:
         return False
+    message = f"PROP INTELLIGENCE: {summary}"
     payload = json.dumps(
         {
-            "text": f"PROP INTELLIGENCE: {summary}",
+            "text": message,
+            "content": message,
             "kind": kind,
             "summary": summary,
             "details": details or {},
@@ -76,9 +88,11 @@ def notify_member_signup(*, user_id: str, email: str = "", source: str = "") -> 
         return False
 
     identity = email.strip() or user_id.strip() or "unknown"
+    message = f"PROP INTELLIGENCE: New member signup {identity}"
     payload = json.dumps(
         {
-            "text": f"PROP INTELLIGENCE: New member signup {identity}",
+            "text": message,
+            "content": message,
             "event": "member_signup",
             "userId": user_id.strip()[:120],
             "email": email.strip()[:240],

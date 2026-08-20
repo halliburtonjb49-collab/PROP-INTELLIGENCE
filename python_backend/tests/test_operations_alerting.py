@@ -127,3 +127,58 @@ def test_no_webhook_configured_is_not_an_error(monkeypatch):
     assert notifications.notify_operations_alert(
         kind="feed_stalled", summary="anything"
     ) is False
+
+
+def _sent_payload(monkeypatch, send) -> dict:
+    import json
+
+    captured: dict = {}
+
+    class _Response:
+        status = 204
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    def _urlopen(request, timeout=None):
+        captured.update(json.loads(request.data.decode("utf-8")))
+        return _Response()
+
+    monkeypatch.setenv("PIPELINE_ALERT_WEBHOOK_URL", "https://example.invalid/hook")
+    monkeypatch.setattr(notifications, "urlopen", _urlopen)
+    send()
+    return captured
+
+
+def test_alerts_speak_both_webhook_dialects(monkeypatch):
+    """Slack reads `text`; Discord reads `content` and ignores `text`.
+
+    A webhook that speaks the other dialect answers 400, which this module
+    swallows on purpose, so the alerts would simply never arrive and nothing
+    would say why. One duplicated string removes that failure mode.
+    """
+
+    payload = _sent_payload(
+        monkeypatch,
+        lambda: notifications.notify_operations_alert(
+            kind="feed_stalled", summary="catalog last published 342 minutes ago"
+        ),
+    )
+
+    assert payload["text"] == payload["content"]
+    assert "342 minutes" in payload["content"]
+
+
+def test_pipeline_failures_speak_both_dialects_too(monkeypatch):
+    payload = _sent_payload(
+        monkeypatch,
+        lambda: notifications.notify_pipeline_issue(
+            "pregame-sync", "PARTIAL", [{"stage": "odds-sync", "error": "boom"}]
+        ),
+    )
+
+    assert payload["text"] == payload["content"]
+    assert "PARTIAL" in payload["content"]
