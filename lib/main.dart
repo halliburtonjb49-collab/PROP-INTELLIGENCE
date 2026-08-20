@@ -1119,7 +1119,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   }
 
   Widget _buildTopNavigation() {
-    final hasProAccess = AuthManager.instance.sessionState.value.hasEdgeAccess;
+    final session = AuthManager.instance.sessionState.value;
+    final hasProAccess = session.isOwner || session.hasEdgeAccess;
     return TopNavigation(
       selectedPage: _selectedPage,
       selectedSport: _selectedBoardSport,
@@ -2073,8 +2074,10 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final tierName =
-        AuthManager.instance.sessionState.value.subscriptionTier.name;
+    final session = AuthManager.instance.sessionState.value;
+    final tierName = session.isOwner
+        ? 'OWNER'
+        : session.effectiveSubscriptionTier.name;
     final membershipAccent = rightPanelAccentForTier(tierName);
     return LayoutBuilder(
       builder: (context, constraints) => Stack(

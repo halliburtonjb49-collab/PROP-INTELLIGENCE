@@ -269,6 +269,12 @@ class TopNavigation extends StatelessWidget {
   }
 
   List<Widget> _buildVisibleSports() {
+    final session = AuthManager.instance.sessionState.value;
+    final membershipLabel = session.isOwner
+        ? 'OWNER'
+        : session.hasEdgeAccess
+        ? 'PRO'
+        : null;
     return [
       KeyedSubtree(
         key: const ValueKey('nav-group-SPORTS'),
@@ -276,9 +282,27 @@ class TopNavigation extends StatelessWidget {
           label: 'SPORTS',
           page: AppPage.gameMarkets,
           icon: Icons.sports_rounded,
-          requiredTier: SubscriptionTier.core,
         ),
       ),
+      if (membershipLabel != null)
+        Container(
+          margin: const EdgeInsets.only(right: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+          decoration: BoxDecoration(
+            color: accentColor.withValues(alpha: .12),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: accentColor.withValues(alpha: .75)),
+          ),
+          child: Text(
+            membershipLabel,
+            style: TextStyle(
+              color: accentColor,
+              fontSize: 7,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .6,
+            ),
+          ),
+        ),
       for (final sport in _sports) _buildVisibleSportItem(sport),
     ];
   }

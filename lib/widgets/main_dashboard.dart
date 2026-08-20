@@ -698,7 +698,12 @@ class _MainDashboardState extends State<MainDashboard> {
       }
       _lastUpdated = DateTime.now();
     });
-    widget.propCountNotifier.value = propCount;
+    final catalogTotal = _apiService.lastTotalCategoryCounts['ALL'] ?? 0;
+    widget.propCountNotifier.value = catalogTotal > 0
+        ? catalogTotal
+        : facetTotal > 0
+        ? facetTotal
+        : propCount;
     unawaited(widget.onPropsRefreshed(props));
     unawaited(_loadPropAlerts(fallbackProps: props));
   }
@@ -2625,11 +2630,15 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Widget _buildBoardResultsSummary() {
-    final resultCount = _latestProps.length;
+    final loadedCount = _latestProps.length;
+    final matchingCount =
+        resolveVerdictFilterCount(_verdictCounts, _verdictFilter) ??
+        loadedCount;
     return Semantics(
       liveRegion: true,
       label:
-          '$resultCount results. Sorted by $_boardSortLabel. $_boardUpdatedLabel.',
+          '$matchingCount matching results. $loadedCount currently loaded. '
+          'Sorted by $_boardSortLabel. $_boardUpdatedLabel.',
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
@@ -2644,11 +2653,23 @@ class _MainDashboardState extends State<MainDashboard> {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(
-              '$resultCount RESULTS',
+              '$matchingCount MATCHING',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 9,
                 fontWeight: FontWeight.w900,
+              ),
+            ),
+            const Text(
+              '•',
+              style: TextStyle(color: app_colors.AppColors.textMuted),
+            ),
+            Text(
+              '$loadedCount LOADED',
+              style: const TextStyle(
+                color: app_colors.AppColors.blue,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
               ),
             ),
             const Text(
