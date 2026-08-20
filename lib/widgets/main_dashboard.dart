@@ -1995,6 +1995,94 @@ class _MainDashboardState extends State<MainDashboard> {
           child: playerSearchField(),
         ),
       if (compactLayout) buildAllSitesSelector(_selectedSite == 'ALL'),
+      if (_selectedSite != 'ALL')
+        Tooltip(
+          message: 'Choose a sport available from $_selectedSite',
+          child: PopupMenuButton<String>(
+            key: const ValueKey('selected-site-sport-menu'),
+            initialValue: _selectedSiteSport.isEmpty
+                ? 'ALL'
+                : _selectedSiteSport,
+            color: app_colors.AppColors.sidebar,
+            position: PopupMenuPosition.under,
+            onSelected: (sport) {
+              setState(() {
+                _selectedSiteSport = sport == 'ALL' ? '' : sport;
+                _selectedCategory = BoardFilters.defaults.category;
+                _focusedProp = null;
+              });
+            },
+            itemBuilder: (context) {
+              final sports = _siteSportCounts.entries
+                  .where((entry) => entry.value > 0)
+                  .map((entry) => entry.key)
+                  .toSet()
+                  .toList()
+                ..sort();
+              return [
+                const PopupMenuItem<String>(
+                  value: 'ALL',
+                  child: Text('ALL SPORTS'),
+                ),
+                for (final sport in sports)
+                  PopupMenuItem<String>(
+                    value: sport,
+                    child: Text('$sport  (${_siteSportCounts[sport]})'),
+                  ),
+              ];
+            },
+            child: Container(
+              height: 48,
+              constraints: BoxConstraints(
+                minWidth: primaryControlWidth,
+                maxWidth: primaryControlWidth + 28,
+              ),
+              padding: primaryControlPadding,
+              decoration: BoxDecoration(
+                color: _selectedSiteSport.isEmpty
+                    ? app_colors.AppColors.sidebar
+                    : app_colors.AppColors.gold.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(PiDesign.controlRadius),
+                border: Border.all(
+                  color: _selectedSiteSport.isEmpty
+                      ? app_colors.AppColors.border
+                      : app_colors.AppColors.gold,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.sports_rounded,
+                    size: 14,
+                    color: app_colors.AppColors.gold,
+                  ),
+                  const SizedBox(width: 7),
+                  Flexible(
+                    child: Text(
+                      _selectedSiteSport.isEmpty
+                          ? 'ALL SPORTS'
+                          : _selectedSiteSport,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: app_colors.AppColors.gold,
+                        fontSize: PiDesign.metadataFontSize,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.expand_more_rounded,
+                    size: 14,
+                    color: app_colors.AppColors.gold,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       Tooltip(
         message: 'Open PROP CHAT and join the community.',
         child: Stack(

@@ -593,7 +593,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     Widget sideButton(PickSide side) {
       final selected = selectedSide == side;
       final systemRecommended = advisedSide == side;
-      final label = side == PickSide.over ? 'OVER' : 'UNDER';
+      final sideLabel = side == PickSide.over ? 'OVER' : 'UNDER';
+      final label = selected ? 'REMOVE $sideLabel' : sideLabel;
       return Expanded(
         child: OutlinedButton(
           onPressed: prop.isSelectable && !prop.dataStale
@@ -1228,7 +1229,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     Widget sideButton(PickSide side) {
       final selected = side == selectedSide;
       final advised = hasSuggestion && side == advisedSide;
-      final label = side == PickSide.over ? 'OVER' : 'UNDER';
+      final sideLabel = side == PickSide.over ? 'OVER' : 'UNDER';
+      final label = selected ? 'REMOVE $sideLabel' : sideLabel;
 
       return Expanded(
         child: OutlinedButton(
