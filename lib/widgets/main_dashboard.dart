@@ -132,6 +132,29 @@ SnackBar buildInjuryImpactSnackBar({
   );
 }
 
+/// Whether the board should carry its own sport tabs at this width.
+///
+/// Above the shell's 1000px breakpoint the sidebar rail is rendered inline
+/// and already selects the sport, so a second control there costs a row of
+/// vertical space to duplicate something already visible. Below it the rail
+/// is a drawer behind the menu button, which leaves the board showing one
+/// sport's categories as its primary cut with no way to change sport in
+/// sight. One sport is not a choice, and a row that cannot change anything
+/// is just a row.
+bool wholeBoardSportsBelong({
+  required double viewportWidth,
+  required bool canSelectSport,
+  required int sportsWithInventory,
+}) {
+  if (!canSelectSport) {
+    return false;
+  }
+  if (viewportWidth >= 1000) {
+    return false;
+  }
+  return sportsWithInventory >= 2;
+}
+
 class MainDashboard extends StatefulWidget {
   final List<SlipSelection> selections;
   final void Function(PropData prop, PickSide side) onSelect;
@@ -149,6 +172,10 @@ class MainDashboard extends StatefulWidget {
   final ValueNotifier<int> refreshRequestNotifier;
   final ValueChanged<String>? onStartupLog;
 
+  /// Changes the board's sport. Wired to the same handler the sidebar rail
+  /// uses, so the two controls cannot disagree about what is selected.
+  final ValueChanged<String>? onSelectSport;
+
   const MainDashboard({
     super.key,
     required this.selections,
@@ -158,6 +185,7 @@ class MainDashboard extends StatefulWidget {
     required this.onClearLabSelections,
     required this.onPropsRefreshed,
     required this.sportFilter,
+    this.onSelectSport,
     required this.selectedPage,
     this.onSelectPage,
     this.onFloatChat,
@@ -203,6 +231,7 @@ class _MainDashboardState extends State<MainDashboard> {
   // The board is served from the durable snapshot: real lines, but
   // possibly hours old and otherwise indistinguishable from current ones.
   bool _feedIsRecovery = false;
+  Map<String, int> _boardSportCounts = const {};
   Map<String, dynamic> _providerReliability = const {};
   Map<String, int> _categoryCounts = const {};
   Map<String, int> _totalCategoryCounts = const {};
@@ -591,6 +620,7 @@ class _MainDashboardState extends State<MainDashboard> {
       _providerCoverage = _apiService.lastProviderCoverage;
       _providerReliability = _apiService.lastProviderReliability;
       _feedIsRecovery = _apiService.lastFeedIsRecovery;
+      _boardSportCounts = _apiService.lastSportCounts;
       if (_selectedSite != 'ALL' && _selectedCategory == 'ALL') {
         _siteInventoryProps = props;
         if (_selectedSiteSport.isEmpty) {
@@ -2621,6 +2651,90 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
+  Widget _buildWholeBoardSports(double viewportWidth) {
+    final onSelectSport = widget.onSelectSport;
+    final counts = <String, int>{};
+    for (final entry in _boardSportCounts.entries) {
+      final sport = _normalizeSport(entry.key);
+      if (sport.isEmpty || sport == 'ALL' || entry.value <= 0) {
+        continue;
+      }
+      counts[sport] = (counts[sport] ?? 0) + entry.value;
+    }
+    if (onSelectSport == null ||
+        !wholeBoardSportsBelong(
+          viewportWidth: viewportWidth,
+          canSelectSport: true,
+          sportsWithInventory: counts.length,
+        )) {
+      return const SizedBox.shrink();
+    }
+    final sports = counts.keys.toList()
+      ..sort((left, right) {
+        final byCount = counts[right]!.compareTo(counts[left]!);
+        return byCount != 0 ? byCount : left.compareTo(right);
+      });
+    final entries = <String>['ALL', ...sports];
+    final selected = widget.sportFilter.trim().toUpperCase();
+    final total = counts.values.fold<int>(0, (sum, count) => sum + count);
+    IconData sportIcon(String sport) => switch (sport) {
+      'ALL' => Icons.grid_view_rounded,
+      'NFL' || 'NCAAF' || 'CFL' => Icons.sports_football,
+      'NBA' || 'WNBA' || 'NCAAB' => Icons.sports_basketball,
+      'MLB' => Icons.sports_baseball,
+      'NHL' => Icons.sports_hockey,
+      'PGA' => Icons.sports_golf,
+      'UFC' => Icons.sports_mma,
+      'TENNIS' => Icons.sports_tennis,
+      'SOCCER' => Icons.sports_soccer,
+      _ => Icons.emoji_events_outlined,
+    };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: SizedBox(
+        height: boardFilterRailHeight(viewportWidth),
+        child: ListView.separated(
+          key: const ValueKey('whole-board-sport-tabs'),
+          scrollDirection: Axis.horizontal,
+          itemCount: entries.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 6),
+          itemBuilder: (context, index) {
+            final sport = entries[index];
+            final isAll = sport == 'ALL';
+            final chosen = isAll
+                ? selected.isEmpty || selected == 'ALL'
+                : selected == sport;
+            return OutlinedButton.icon(
+              key: ValueKey('whole-board-sport-$sport'),
+              onPressed: () => onSelectSport(sport),
+              icon: Icon(sportIcon(sport), size: 14),
+              label: Text('$sport  ${isAll ? total : counts[sport] ?? 0}'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: chosen
+                    ? app_colors.AppColors.sidebar
+                    : Colors.white,
+                backgroundColor: chosen
+                    ? app_colors.AppColors.gold
+                    : app_colors.AppColors.sidebar,
+                side: BorderSide(
+                  color: chosen
+                      ? app_colors.AppColors.gold
+                      : app_colors.AppColors.border,
+                  width: chosen ? 1.4 : 1,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 13),
+                textStyle: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   Widget _buildBoardCategories() {
     final viewportWidth = MediaQuery.sizeOf(context).width;
     final railHeight = boardFilterRailHeight(viewportWidth);
@@ -2717,12 +2831,24 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
+  /// Sport tabs for the board, in the two situations that need them.
+  ///
+  /// With a prop site selected these narrow the site's own inventory, which
+  /// is what they have always done. With no site selected the same control
+  /// only appears below the shell's 1000px breakpoint: above it the sidebar
+  /// rail is on screen and already carries this, so repeating it would cost
+  /// a row of vertical space to duplicate something visible. Below it the
+  /// rail is a drawer behind the menu button, which leaves the board
+  /// showing one sport's categories as its primary cut -- PRA and
+  /// DOUBLE-DOUBLE over a board that also holds baseball -- with no way to
+  /// change sport in sight.
   Widget _buildBoardSports() {
     final viewportWidth = MediaQuery.sizeOf(context).width;
-    final sports = _availableSiteSports;
-    if (sports.isEmpty) {
-      return const SizedBox.shrink();
+    final siteSports = _availableSiteSports;
+    if (siteSports.isEmpty) {
+      return _buildWholeBoardSports(viewportWidth);
     }
+    final sports = siteSports;
     int sportCount(String sport) =>
         _siteSportCounts[sport] ??
         _siteInventoryProps
@@ -2892,10 +3018,7 @@ class _MainDashboardState extends State<MainDashboard> {
                           SizedBox(height: sectionGap),
                           _buildProviderReliabilityBanner(),
                           SizedBox(height: sectionGap),
-                          if (_selectedSite != 'ALL') ...[
-                            _buildBoardSports(),
-                            SizedBox(height: sectionGap),
-                          ],
+                          _buildBoardSports(),
                           _buildBoardCategories(),
                           SizedBox(height: sectionGap),
                           /*Text(
