@@ -39,7 +39,6 @@ class PlayerImageWidget extends StatelessWidget {
     return ClipRRect(
       borderRadius: borderRadius ?? BorderRadius.zero,
       child: CachedNetworkImage(
-        key: ValueKey(primaryUrl),
         imageUrl: primaryUrl,
         width: width,
         height: height,
@@ -59,7 +58,6 @@ class PlayerImageWidget extends StatelessWidget {
             return _buildFallback();
           }
           return CachedNetworkImage(
-            key: ValueKey(retryUrl),
             imageUrl: retryUrl,
             width: width,
             height: height,

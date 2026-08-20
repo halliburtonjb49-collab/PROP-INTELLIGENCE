@@ -201,9 +201,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           final officialUrl = _officialMlbHeadshot(prop.player);
           if (officialUrl != null) {
             return CachedNetworkImage(
-              // Keyed to the URL so a genuine change swaps cleanly instead of
-              // reusing another player's loaded frame.
-              key: ValueKey(officialUrl),
               imageUrl: officialUrl,
               useOldImageOnUrlChange: true,
               fit: BoxFit.cover,
@@ -224,7 +221,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     }
 
     return CachedNetworkImage(
-      key: ValueKey(imagePath),
       imageUrl: imagePath,
       fit: BoxFit.cover,
       alignment: Alignment.center,
@@ -240,7 +236,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       errorWidget: (context, url, error) {
         if (retryImagePath.isNotEmpty && retryImagePath != imagePath) {
           return CachedNetworkImage(
-            key: ValueKey(retryImagePath),
             imageUrl: retryImagePath,
             fit: BoxFit.cover,
             alignment: Alignment.center,

@@ -2031,36 +2031,56 @@ class _MainDashboardState extends State<MainDashboard> {
           ],
         ),
       ),
-      OutlinedButton.icon(
-        key: const ValueKey('board-filter-button'),
-        onPressed: _showBoardFilterOptions,
-        icon: Icon(
-          Icons.filter_alt_outlined,
-          size: shortControlLabels ? 12 : 14,
-        ),
-        label: Text(
-          _activeBoardFilterLabels().isEmpty
-              ? 'FILTERS'
-              : 'FILTERS ${_activeBoardFilterLabels().length}',
-          style: const TextStyle(
-            fontSize: PiDesign.metadataFontSize,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: app_colors.AppColors.gold,
-          backgroundColor: _activeBoardFilterLabels().isEmpty
-              ? app_colors.AppColors.sidebar
-              : app_colors.AppColors.gold.withValues(alpha: .12),
-          side: BorderSide(
+      Semantics(
+        button: true,
+        label: 'Open prop filters',
+        child: SizedBox(
+          width: primaryControlWidth,
+          height: 48,
+          child: Material(
             color: _activeBoardFilterLabels().isEmpty
-                ? app_colors.AppColors.border
-                : app_colors.AppColors.gold,
-          ),
-          padding: primaryControlPadding,
-          fixedSize: Size(primaryControlWidth, 48),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(PiDesign.controlRadius),
+                ? app_colors.AppColors.sidebar
+                : app_colors.AppColors.gold.withValues(alpha: .12),
+            shape: RoundedRectangleBorder(
+              side: BorderSide(
+                color: _activeBoardFilterLabels().isEmpty
+                    ? app_colors.AppColors.border
+                    : app_colors.AppColors.gold,
+              ),
+              borderRadius: BorderRadius.circular(PiDesign.controlRadius),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              key: const ValueKey('board-filter-button'),
+              onTap: _showBoardFilterOptions,
+              child: Padding(
+                padding: primaryControlPadding,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.filter_alt_outlined,
+                      size: shortControlLabels ? 12 : 14,
+                      color: app_colors.AppColors.gold,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        _activeBoardFilterLabels().isEmpty
+                            ? 'FILTERS'
+                            : 'FILTERS ${_activeBoardFilterLabels().length}',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: app_colors.AppColors.gold,
+                          fontSize: PiDesign.metadataFontSize,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
