@@ -110,6 +110,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   // Which book the user switched a card to, by group. Absent means the
   // best available book, which is what the card opens with.
   final Map<String, String> _chosenBookByGroup = <String, String>{};
+
+  // Filtering, sorting and collapsing the board happens in build, so every
+  // setState paid for it: expanding one card's research or switching one
+  // card's book re-derived the whole board. None of those inputs change what
+  // the board contains, so the result is kept until something that does.
+  String _boardCacheKey = '';
+  List<PropBookGroup> _boardCacheGroups = const [];
   int _visiblePropLimit = _visiblePropStep;
   final Set<String> _favoritePropIds = <String>{};
 
@@ -2910,16 +2917,35 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 ? widget.sportFilter
                 : widget.displaySportFilter;
             final normalizedSport = normalizePropSport(selectedSport);
-            final sortedProps = filterAndSortBoardProps(
-              allPrepared,
-              selectedSport: selectedSport,
-              selectedSite: widget.selectedSite,
-              searchQuery: widget.searchQuery,
-              verdictFilter: widget.verdictFilter,
-              sortBy: widget.sortBy,
-              pinnedPropIds: _favoritePropIds,
-            );
-            final props = sortedProps;
+            final boardCacheKey = [
+              identityHashCode(allPrepared),
+              allPrepared.length,
+              selectedSport,
+              widget.selectedSite,
+              widget.searchQuery,
+              widget.verdictFilter,
+              widget.sortBy,
+              // Pinning reorders the board, so it belongs in the key.
+              _favoritePropIds.length,
+              _favoritePropIds.fold<int>(0, (sum, id) => sum ^ id.hashCode),
+            ].join('|');
+            if (boardCacheKey != _boardCacheKey) {
+              _boardCacheKey = boardCacheKey;
+              _boardCacheGroups = collapsePropsByBook(
+                filterAndSortBoardProps(
+                  allPrepared,
+                  selectedSport: selectedSport,
+                  selectedSite: widget.selectedSite,
+                  searchQuery: widget.searchQuery,
+                  verdictFilter: widget.verdictFilter,
+                  sortBy: widget.sortBy,
+                  pinnedPropIds: _favoritePropIds,
+                ),
+              );
+            }
+            final props = _boardCacheGroups
+                .map((group) => group.representative)
+                .toList(growable: false);
             _favoritePropIds.retainAll(props.map((prop) => prop.id).toSet());
             if (props.isEmpty) {
               const specialtySports = {'PGA', 'TENNIS', 'SOCCER', 'UFC'};
@@ -3002,9 +3028,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 final columns = propGridColumnCount(constraints.maxWidth);
                 final cardSpacing = propGridSpacing(constraints.maxWidth);
 
-                // Collapse before paging, so a page counts cards rather
-                // than the 2.16 rows each card was arriving as.
-                final groups = collapsePropsByBook(sortedProps);
+                // Collapsed above with the filter and sort, so a page counts
+                // cards rather than the 2.16 rows each card was arriving as.
+                final groups = _boardCacheGroups;
                 final visibleCount = _visiblePropLimit.clamp(0, groups.length);
                 final visibleGroups = groups.take(visibleCount).toList();
                 final anyAlternatives = visibleGroups.any(
@@ -3105,7 +3131,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                           onPressed: _isLoadingMore
                               ? null
                               : () {
-                                  if (visibleCount < sortedProps.length) {
+                                  if (visibleCount < groups.length) {
                                     setState(() {
                                       _visiblePropLimit += _visiblePropStep;
                                     });
