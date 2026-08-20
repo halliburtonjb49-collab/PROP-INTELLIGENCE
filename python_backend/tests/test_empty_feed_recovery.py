@@ -443,3 +443,62 @@ def test_catalog_publication_failure_reports_the_redis_cause(monkeypatch):
 
     with pytest.raises(RuntimeError, match="Timeout reading from socket"):
         main._rebuild_prop_catalog_from_local()
+
+
+def test_durable_snapshot_service_is_reported_as_recovery(monkeypatch):
+    """A degraded feed is only honest if the client can see it.
+
+    While catalog publication failed for six hours the board looked entirely
+    normal: same prop count, same cards, no indication the lines were a day
+    old. The source has to travel with the data.
+    """
+
+    monkeypatch.setattr(main, "get_distributed_compressed_json", lambda _key: None)
+    monkeypatch.setattr(main, "get_distributed_json", lambda _key: None)
+    monkeypatch.setattr(
+        main, "load_catalog_snapshot", lambda: [{"id": "p1"}]
+    )
+    monkeypatch.setattr(
+        main, "_recompute_runtime_verdicts", lambda props: props
+    )
+    monkeypatch.setattr(
+        main.PropResponse, "model_validate", staticmethod(lambda row: row)
+    )
+    monkeypatch.setattr(
+        main, "filter_owner_quarantined_props", lambda props: props
+    )
+    main._invalidate_prop_catalog(delete_shared=False)
+
+    main._cached_prop_catalog()
+
+    assert main._catalog_feed_state() == {
+        "source": "durable-snapshot",
+        "recovery": True,
+    }
+
+
+def test_a_shared_cache_read_is_not_called_a_recovery(monkeypatch):
+    """Multi-instance operation is normal, not degraded.
+
+    Collapsing both into one boolean would either cry wolf on every ordinary
+    shared read or stay silent during a real outage.
+    """
+
+    with main._prop_catalog_lock:
+        main._prop_catalog["source"] = main._CATALOG_SOURCE_SHARED
+
+    state = main._catalog_feed_state()
+
+    assert state["source"] == "shared-cache"
+    assert state["recovery"] is False
+
+
+def test_an_empty_catalog_is_never_reported_as_live(monkeypatch):
+    with main._prop_catalog_lock:
+        main._prop_catalog["source"] = main._CATALOG_SOURCE_LIVE
+    monkeypatch.setattr(main, "get_props", lambda: [])
+    monkeypatch.setattr(main, "set_distributed_json", lambda *a, **k: True)
+
+    main._rebuild_prop_catalog_from_local(persist_snapshot=False)
+
+    assert main._catalog_feed_state()["source"] == "unavailable"
