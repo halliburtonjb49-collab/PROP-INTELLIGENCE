@@ -6,6 +6,8 @@
 
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
     window.navigator.standalone === true;
+  const isDevelopmentHost = ['localhost', '127.0.0.1', '::1']
+    .includes(window.location.hostname);
 
   const card = document.getElementById('pwa-install-card');
   const action = document.getElementById('pwa-install-action');
@@ -55,7 +57,7 @@
 
   window.addEventListener('appinstalled', hide);
 
-  if ('serviceWorker' in navigator) {
+  if ('serviceWorker' in navigator && !isDevelopmentHost) {
     window.addEventListener('load', async () => {
       try {
         const registration = await navigator.serviceWorker.register(

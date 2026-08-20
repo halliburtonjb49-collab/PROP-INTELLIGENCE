@@ -119,6 +119,7 @@ void main() {
   testWidgets('smoke: scoreboard, analytics, line movement top navigation', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     tester.view.physicalSize = const Size(1600, 1000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
@@ -197,7 +198,12 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('top-scoreboard')));
     await tester.pumpAndSettle();
     expect(find.text('ALL GAMES'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('LIVE SCOREBOARD workspace')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
+    semantics.dispose();
   });
 
   test('smoke: active slip startup and add/remove interactions', () async {

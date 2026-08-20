@@ -58,6 +58,20 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('shared shell meets labeled desktop touch-target guidelines', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(buildShell(activeSlipCount: 2));
+
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    semantics.dispose();
+  });
+
   testWidgets('desktop rail account button opens account panel', (
     tester,
   ) async {
@@ -118,7 +132,7 @@ void main() {
     await tester.pumpWidget(buildShell(activeSlipCount: 2));
 
     expect(find.bySemanticsLabel('Open account'), findsOneWidget);
-    expect(find.bySemanticsLabel('Open active slip'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('Open active slip')), findsOneWidget);
     expect(
       find.bySemanticsLabel(RegExp('2 selected props in active slip')),
       findsOneWidget,

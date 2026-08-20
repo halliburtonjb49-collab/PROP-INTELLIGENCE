@@ -477,7 +477,8 @@ class _RightPanelRail extends StatelessWidget {
           const SizedBox(height: 7),
           _RailButton(
             key: const ValueKey('right-panel-active-slip-button'),
-            label: 'Open active slip',
+            label:
+                'Open active slip, $activeSlipCount selected props in active slip',
             tooltip: 'Open active slip',
             icon: Icons.receipt_long_outlined,
             accentColor: accentColor,
@@ -530,7 +531,8 @@ class _RailButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: tooltip,
+      label: label,
+      excludeSemantics: true,
       child: SizedBox(
         height: buttonHeight,
         width: double.infinity,
@@ -584,7 +586,8 @@ class _OpenPanelActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Open',
+      label: tooltip,
+      excludeSemantics: true,
       child: Tooltip(
         message: tooltip,
         child: InkWell(
