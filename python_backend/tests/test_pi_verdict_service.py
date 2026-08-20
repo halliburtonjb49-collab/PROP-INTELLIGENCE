@@ -172,9 +172,11 @@ def test_fallback_projection_copy_does_not_claim_to_be_a_model_pick():
 
 
 def test_a_modest_edge_is_a_lean_rather_than_a_play():
-    # The fixture is priced at 1.91, so break-even is 52.4% and a full play
-    # needs 54.4%. 53.5% is past the price but not far past it.
-    verdict = compute_verdict(_prop(uncertaintyAdjustedProbability=0.535))
+    # The fixture is priced at 1.91, so break-even is 52.4%, a lean needs
+    # 54.4% and a full play needs 57.4%. 55.5% is past the price by enough
+    # to watch and not by enough to stake: measured on 79,208 graded
+    # results, that band returns +2.0% with an interval spanning zero.
+    verdict = compute_verdict(_prop(uncertaintyAdjustedProbability=0.555))
 
     assert verdict.decision == LEAN
     assert verdict.is_actionable
@@ -330,7 +332,7 @@ def test_the_legacy_gate_does_not_cap_a_prop_that_clears_the_price():
 def test_a_lean_is_a_real_edge_that_falls_short_of_a_play():
     # Between the lean and play bars this price implies, and paying enough.
     verdict = compute_verdict(
-        _prop(uncertaintyAdjustedProbability=0.535, evPercentage=3.0)
+        _prop(uncertaintyAdjustedProbability=0.555, evPercentage=3.0)
     )
 
     assert verdict.decision == LEAN
@@ -424,12 +426,15 @@ def test_the_bar_follows_the_price_not_a_constant():
     57.8% -- one threshold cannot be right for both.
     """
 
+    # 59% clears a -110 line (52.4% break-even) by more than the measured
+    # five point margin, and does not even reach the lean bar on a pick'em
+    # leg needing 57.8%: one threshold cannot serve both prices.
     sportsbook = compute_verdict(
-        _prop(uncertaintyAdjustedProbability=0.56, overDecimalOdds=1.91,
+        _prop(uncertaintyAdjustedProbability=0.59, overDecimalOdds=1.91,
               bestOverOdds=1.91, evPercentage=6.0)
     )
     pickem = compute_verdict(
-        _prop(uncertaintyAdjustedProbability=0.56, overDecimalOdds=1.73,
+        _prop(uncertaintyAdjustedProbability=0.59, overDecimalOdds=1.73,
               bestOverOdds=1.73, evPercentage=6.0)
     )
 
@@ -545,3 +550,50 @@ def test_every_pass_hands_the_choice_back():
             for phrase in ("your call", "yours to take", "your read")
         )
         assert defers, verdict.reason
+
+
+def test_the_play_bar_sits_where_the_money_actually_starts():
+    """The margin is measured, not assumed.
+
+    Grouped by the model's edge over the price actually paid, 79,208 graded
+    results split cleanly: at or below break-even the return is -8.4% to
+    -10.8%; nought to five points over returns +2.0% with an interval that
+    spans zero; five to ten points returns +8.4%; ten to fifteen returns
+    +26.0%. Two points over break-even -- the old bar -- sat inside the band
+    whose return cannot be told apart from zero, which is how the default
+    board came to recommend bets that lost money.
+    """
+
+    from services.pi_verdict_service import (
+        LEAN_MARGIN_OVER_BREAK_EVEN,
+        PLAY_MARGIN_OVER_BREAK_EVEN,
+    )
+
+    assert PLAY_MARGIN_OVER_BREAK_EVEN == 0.05
+    assert LEAN_MARGIN_OVER_BREAK_EVEN == 0.02
+
+
+def test_an_edge_inside_the_losing_band_is_no_longer_playable():
+    # 53.5% against a 52.4% break-even is 1.1 points of edge, which the old
+    # half-point lean bar called actionable and which measured out at a loss.
+    verdict = compute_verdict(_prop(uncertaintyAdjustedProbability=0.535))
+
+    assert verdict.decision == PASS
+    assert verdict.is_actionable is False
+
+
+def test_a_generous_price_keeps_a_lower_probability_playable():
+    """Inventory is protected by gating on edge rather than confidence.
+
+    A flat confidence floor would drop this prop; it is a play because the
+    price is generous, which is exactly the distinction that separates the
+    +26% band from the -10% one.
+    """
+
+    verdict = compute_verdict(
+        _prop(uncertaintyAdjustedProbability=0.58, overDecimalOdds=2.40,
+              bestOverOdds=2.40, evPercentage=20.0)
+    )
+
+    assert verdict.decision == PLAY_NOW
+    assert verdict.is_actionable

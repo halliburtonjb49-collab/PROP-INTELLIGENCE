@@ -52,12 +52,31 @@ PASS = "PASS"
 # The bar is now the price plus a margin, because break-even differs by book:
 # a pick'em leg needs about 57.8%, a -110 line needs 52.4%, and clearing
 # either exactly is a coin flip that has already paid the vig.
-PLAY_MARGIN_OVER_BREAK_EVEN = 0.02
+#
+# The margin itself is now measured rather than assumed. Grouping 79,208
+# graded results by the model's edge over the price actually paid:
+#
+#     edge <= 0          n=74360   ROI  -8.4% to -10.8%
+#     edge 0.00 - 0.05   n= 3041   ROI  +2.0%   [-1.3, +5.3]
+#     edge 0.05 - 0.10   n= 1017   ROI  +8.4%   [+2.8, +13.9]
+#     edge 0.10 - 0.15   n=  788   ROI +26.0%   [+20.3, +31.8]
+#
+# Edge over price separates winners from losers cleanly, so the shape of
+# this gate was right; two points of it was not enough to clear the vig.
+# A two point margin lands inside the band whose return cannot be told
+# apart from zero, which is how the default board came to recommend bets
+# that lost money. Five points is the first margin whose entire interval
+# sits above break-even.
+PLAY_MARGIN_OVER_BREAK_EVEN = 0.05
 
 # A lean is the model's qualified directional threshold. It can be a modest
 # positive-value edge, or a strong direction whose current price is too
 # expensive. The latter must say so plainly and can never become PLAY NOW.
-LEAN_MARGIN_OVER_BREAK_EVEN = 0.005
+#
+# Half a point over break-even was inside the losing bands. Two points is
+# the floor of the band that at least breaks even (+2.0%), which is what a
+# slight edge should honestly mean: worth watching, not worth staking.
+LEAN_MARGIN_OVER_BREAK_EVEN = 0.02
 
 # Retained for callers and tests that still reason in absolute terms. These
 # are the pick'em equivalents of the margins above, not separate rules.
