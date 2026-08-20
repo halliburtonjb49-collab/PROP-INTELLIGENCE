@@ -1,9 +1,8 @@
 """Resolves official MLB headshot URLs from the free, public MLB Stats API.
 
 The name -> person-id mapping is refreshed by scripts/sync_mlb_headshots.py
-(a scheduled job) and cached to disk. Request-time lookups only ever read
-that local cache - never call the MLB API inline, since get_props() runs
-synchronously per request.
+(a scheduled job) and cached to disk. A bounded, process-cached official
+search repairs individual misses so a stale map cannot leave cards blank.
 """
 
 import json
@@ -24,6 +23,7 @@ from services.distributed_cache_service import (
 HEADSHOT_MAP_PATH = BASE_DIR / "data" / "mlb_headshot_map.json"
 
 _ROSTER_URL = "https://statsapi.mlb.com/api/v1/sports/1/players"
+_PLAYER_SEARCH_URL = "https://statsapi.mlb.com/api/v1/people/search"
 _HEADSHOT_URL_TEMPLATE = (
     "https://img.mlbstatic.com/mlb-photos/image/upload/"
     "w_240,d_people:generic:headshot:67:current.png,q_auto:best/"
@@ -34,6 +34,8 @@ _DISTRIBUTED_CACHE_KEY = "headshots:mlb:v1"
 _DISTRIBUTED_CACHE_TTL_SECONDS = 8 * 24 * 60 * 60
 _last_map_refresh_check = 0.0
 _MAP_REFRESH_CHECK_SECONDS = 300
+_LOOKUP_TIMEOUT_SECONDS = min(float(HTTP_TIMEOUT_SECONDS), 2.5)
+_runtime_player_ids: dict[str, int] = {}
 
 def _normalize_name(value: str) -> str:
     normalized = unicodedata.normalize("NFKD", value)
@@ -77,7 +79,43 @@ def mlb_headshot_url(player_name: str) -> str | None:
 
 def mlb_player_id(player_name: str) -> int | None:
     _ensure_map_fresh()
-    return _load_map().get(_normalize_name(player_name))
+    normalized = _normalize_name(player_name)
+    if not normalized:
+        return None
+    cached = _load_map().get(normalized) or _runtime_player_ids.get(normalized)
+    if cached is not None:
+        return cached
+    resolved = _search_official_player_id(player_name, normalized)
+    if resolved is not None:
+        _runtime_player_ids[normalized] = resolved
+    return resolved
+
+
+@lru_cache(maxsize=512)
+def _search_official_player_id(player_name: str, normalized: str) -> int | None:
+    """Resolve a cache miss against MLB, once per player and process."""
+    try:
+        response = requests.get(
+            _PLAYER_SEARCH_URL,
+            params={"names": player_name, "sportIds": 1},
+            timeout=_LOOKUP_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        people = response.json().get("people", [])
+    except (requests.RequestException, ValueError, TypeError):
+        return None
+
+    exact_matches = [
+        person
+        for person in people
+        if _normalize_name(str(person.get("fullName") or "")) == normalized
+    ]
+    candidates = exact_matches or people
+    for person in candidates:
+        person_id = person.get("id")
+        if isinstance(person_id, int):
+            return person_id
+    return None
 
 
 def refresh_mlb_headshot_map(season: int | None = None) -> int:

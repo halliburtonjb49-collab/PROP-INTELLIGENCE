@@ -271,47 +271,59 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 9),
-          _row('Pick', '$side ${prop.line.toStringAsFixed(1)} ${prop.market}'),
-          _row('PI Trust', trustLabel),
-          _row(
-            'Model',
-            '${_modelLabel()} | Calibration: ${(prop.probabilityCalibrationAdjustment * 100).toStringAsFixed(1)} pts',
-          ),
-          _row('Top Factors', factors.join(' | ')),
-          _row('Risk Flags', riskFlags),
-          _row(
-            'Recommendation Reason',
-            prop.recommendationExplanation.trim().isEmpty
-                ? prop.pickGradeExplanation
-                : prop.recommendationExplanation,
-          ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(
-                width: 156,
-                child: Text(
-                  'Action Status',
-                  style: TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
+          if (!expanded)
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: [
+                _summaryPill('PICK', '$side ${prop.line.toStringAsFixed(1)}'),
+                _summaryPill('TRUST', '${prop.piTrustScore}/100'),
+                _summaryPill('STATUS', action, valueColor: actionColor),
+              ],
+            )
+          else ...[
+            _row('Pick', '$side ${prop.line.toStringAsFixed(1)} ${prop.market}'),
+            _row('PI Trust', trustLabel),
+            _row(
+              'Model',
+              '${_modelLabel()} | Calibration: ${(prop.probabilityCalibrationAdjustment * 100).toStringAsFixed(1)} pts',
+            ),
+            _row('Top Factors', factors.join(' | ')),
+            _row('Risk Flags', riskFlags),
+            _row(
+              'Recommendation Reason',
+              prop.recommendationExplanation.trim().isEmpty
+                  ? prop.pickGradeExplanation
+                  : prop.recommendationExplanation,
+            ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(
+                  width: 156,
+                  child: Text(
+                    'Action Status',
+                    style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-              ),
-              Expanded(
-                child: Text(
-                  '$action (${_actionReason()})',
-                  style: TextStyle(
-                    color: actionColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35,
+                Expanded(
+                  child: Text(
+                    '$action (${_actionReason()})',
+                    style: TextStyle(
+                      color: actionColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -416,6 +428,44 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _summaryPill(
+    String label,
+    String value, {
+    Color valueColor = const Color(0xFFDCE8F4),
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.panelLight.withValues(alpha: .72),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: '$label  ',
+              style: const TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .35,
+              ),
+            ),
+            TextSpan(
+              text: value,
+              style: TextStyle(
+                color: valueColor,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

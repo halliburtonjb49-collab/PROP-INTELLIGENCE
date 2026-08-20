@@ -263,7 +263,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                       crossAxisCount: columns,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
-                      mainAxisExtent: 410,
+                      mainAxisExtent: 350,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
