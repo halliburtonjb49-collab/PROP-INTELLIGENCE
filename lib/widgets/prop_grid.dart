@@ -1063,6 +1063,43 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               sideButton(PickSide.over),
             ],
           ),
+          if (selectedSide != null) ...[
+            const SizedBox(height: 7),
+            Container(
+              key: ValueKey('remove-selection-${prop.id}'),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+              decoration: BoxDecoration(
+                color: app_colors.AppColors.gold.withValues(alpha: .1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: app_colors.AppColors.gold),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.close_rounded,
+                    size: 14,
+                    color: app_colors.AppColors.gold,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      '${selectedSide == PickSide.over ? 'OVER' : 'UNDER'} SELECTED - TAP REMOVE ${selectedSide == PickSide.over ? 'OVER' : 'UNDER'} TO UNDO',
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .25,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 7),
           // The decision ends here. Everything past this point is the working
           // behind it: worth reading second, and never worth making a reader
@@ -3051,9 +3088,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 final groups = _boardCacheGroups;
                 final visibleCount = _visiblePropLimit.clamp(0, groups.length);
                 final visibleGroups = groups.take(visibleCount).toList();
-                final anyAlternatives = visibleGroups.any(
-                  (group) => group.hasAlternatives,
-                );
                 final hasMore =
                     visibleCount < groups.length ||
                     _preparedProps.length < _apiService.lastPropsCount;
@@ -3114,6 +3148,92 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   );
                 }
 
+                Widget providerHeader(String provider, int count) => Container(
+                  key: ValueKey('provider-section-$provider'),
+                  margin: const EdgeInsets.only(top: 4, bottom: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: app_colors.AppColors.gold.withValues(alpha: .08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: app_colors.AppColors.gold),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.storefront_rounded,
+                        size: 16,
+                        color: app_colors.AppColors.gold,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          provider,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: .5,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '$count ${count == 1 ? 'PROP' : 'PROPS'}',
+                        style: const TextStyle(
+                          color: app_colors.AppColors.gold,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+
+                final providerSections = <String, List<PropBookGroup>>{};
+                for (final group in visibleGroups) {
+                  final shown = shownFor(group);
+                  final provider = shown.sportsbook.trim().isEmpty
+                      ? 'OTHER PROVIDER'
+                      : shown.sportsbook.trim().toUpperCase();
+                  providerSections
+                      .putIfAbsent(provider, () => <PropBookGroup>[])
+                      .add(group);
+                }
+
+                Widget providerCards(List<PropBookGroup> sectionGroups) {
+                  if (columns == 1) {
+                    return Column(
+                      children: [
+                        for (final group in sectionGroups) ...[
+                          groupCardFor(group, fixedHeight: false),
+                          SizedBox(height: cardSpacing),
+                        ],
+                      ],
+                    );
+                  }
+                  final sectionHasAlternatives = sectionGroups.any(
+                    (group) => group.hasAlternatives,
+                  );
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    primary: false,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: sectionGroups.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      crossAxisSpacing: cardSpacing,
+                      mainAxisSpacing: cardSpacing,
+                      mainAxisExtent: sectionHasAlternatives ? 438 : 396,
+                    ),
+                    itemBuilder: (context, index) => groupCardFor(
+                      sectionGroups[index],
+                      fixedHeight: true,
+                    ),
+                  );
+                }
+
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -3122,32 +3242,12 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     // lost: a collapsed card is far shorter than that, and the
                     // padding needed to reach it is what pushed the buttons off
                     // the first screen. A list lets each card be its own size.
-                    if (columns == 1)
-                      for (final group in visibleGroups) ...[
-                        groupCardFor(group, fixedHeight: false),
-                        SizedBox(height: cardSpacing),
-                      ]
-                    else
-                      GridView.builder(
-                        shrinkWrap: true,
-                        primary: false,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: visibleGroups.length,
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: columns,
-                          crossAxisSpacing: cardSpacing,
-                          mainAxisSpacing: cardSpacing,
-                          // Closed cards keep the decision, core metrics and
-                          // pick buttons visible without a long evidence body.
-                          // The book strip needs its own room; a fixed cell
-                          // that ignored it would clip the switcher.
-                          mainAxisExtent: anyAlternatives ? 438 : 396,
-                        ),
-                        itemBuilder: (context, index) => groupCardFor(
-                          visibleGroups[index],
-                          fixedHeight: true,
-                        ),
-                      ),
+                    for (final section in providerSections.entries) ...[
+                      if (widget.selectedSite == 'ALL')
+                        providerHeader(section.key, section.value.length),
+                      providerCards(section.value),
+                      SizedBox(height: cardSpacing),
+                    ],
                     if (hasMore) ...[
                       const SizedBox(height: 14),
                       Center(

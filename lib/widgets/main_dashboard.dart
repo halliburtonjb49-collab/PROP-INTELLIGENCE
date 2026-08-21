@@ -235,6 +235,7 @@ class _MainDashboardState extends State<MainDashboard> {
   // possibly hours old and otherwise indistinguishable from current ones.
   bool _feedIsRecovery = false;
   Map<String, int> _boardSportCounts = const {};
+  bool _didAutoSelectInitialSport = false;
   Map<String, dynamic> _providerReliability = const {};
   Map<String, int> _categoryCounts = const {};
   Map<String, int> _totalCategoryCounts = const {};
@@ -652,6 +653,22 @@ class _MainDashboardState extends State<MainDashboard> {
         'FIRST PROP: id=${first.id}, player=${first.player}, sport=${first.sport}, imagePath=${first.imagePath}',
       );
     }
+    String? initialSport;
+    if (!_didAutoSelectInitialSport &&
+        _normalizeSport(widget.sportFilter) == 'ALL' &&
+        widget.onSelectSport != null) {
+      final available = _apiService.lastSportCounts.entries
+          .where((entry) => entry.value > 0)
+          .toList()
+        ..sort((left, right) => right.value.compareTo(left.value));
+      if (available.isNotEmpty) {
+        final candidate = _normalizeSport(available.first.key);
+        if (candidate != 'ALL' && candidate != 'UNKNOWN') {
+          initialSport = candidate;
+        }
+      }
+      _didAutoSelectInitialSport = true;
+    }
     setState(() {
       _latestProps = props;
       _categoryCounts = categoryCounts;
@@ -698,6 +715,13 @@ class _MainDashboardState extends State<MainDashboard> {
       }
       _lastUpdated = DateTime.now();
     });
+    if (initialSport != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _normalizeSport(widget.sportFilter) == 'ALL') {
+          widget.onSelectSport?.call(initialSport!);
+        }
+      });
+    }
     final catalogTotal = _apiService.lastTotalCategoryCounts['ALL'] ?? 0;
     widget.propCountNotifier.value = catalogTotal > 0
         ? catalogTotal
