@@ -116,7 +116,7 @@ class _RefereeTrackerPageState extends State<RefereeTrackerPage> {
               _MessagePanel(
                 icon: Icons.sports_outlined,
                 message:
-                    '${_payload?['reason'] ?? 'No $_sport referee profiles are available yet.'}',
+                    '${_payload?['reason'] ?? 'No $_sport officiating profiles are available yet.'}',
                 action: _load,
               )
             else ...[
@@ -138,7 +138,10 @@ class _RefereeTrackerPageState extends State<RefereeTrackerPage> {
                       for (final official in _officials)
                         SizedBox(
                           width: width,
-                          child: _OfficialCard(official: official),
+                          child: _OfficialCard(
+                            official: official,
+                            sport: _sport,
+                          ),
                         ),
                     ],
                   );
@@ -182,7 +185,7 @@ class _RefereeTrackerPageState extends State<RefereeTrackerPage> {
                 children: [
                   Flexible(
                     child: Text(
-                      'REFEREE TRACKER',
+                      'OFFICIATING TRACKER',
                       style: TextStyle(
                         color: AppColors.white,
                         fontSize: 18,
@@ -196,7 +199,7 @@ class _RefereeTrackerPageState extends State<RefereeTrackerPage> {
               ),
               SizedBox(height: 4),
               Text(
-                'Compare sample-adjusted whistle tendencies and recent assignments.',
+                'Compare sample-adjusted referee and umpire tendencies.',
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
               ),
             ],
@@ -215,6 +218,7 @@ class _RefereeTrackerPageState extends State<RefereeTrackerPage> {
         segments: const [
           ButtonSegment(value: 'WNBA', label: Text('WNBA')),
           ButtonSegment(value: 'NBA', label: Text('NBA')),
+          ButtonSegment(value: 'MLB', label: Text('MLB')),
         ],
         selected: {_sport},
         onSelectionChanged: (selection) {
@@ -240,7 +244,7 @@ class _RefereeTrackerPageState extends State<RefereeTrackerPage> {
           onChanged: (value) => setState(() => _query = value),
           style: const TextStyle(color: AppColors.white),
           decoration: InputDecoration(
-            hintText: 'Search referees',
+            hintText: 'Search officials',
             hintStyle: const TextStyle(color: AppColors.textMuted),
             prefixIcon: const Icon(Icons.search, color: AppColors.textMuted),
             filled: true,
@@ -274,11 +278,21 @@ class _RefereeTrackerPageState extends State<RefereeTrackerPage> {
       spacing: 10,
       runSpacing: 10,
       children: [
-        _SummaryTile(label: 'REFEREES', value: '${officials.length}'),
-        _SummaryTile(label: 'PROFILE GAMES', value: '$sampleGames'),
         _SummaryTile(
-          label: 'LEAGUE WHISTLE AVG',
-          value: leagueRate.toStringAsFixed(1),
+          label: _sport == 'MLB' ? 'UMPIRES' : 'REFEREES',
+          value: '${officials.length}',
+        ),
+        _SummaryTile(
+          label: _sport == 'MLB' ? 'PROFILE PITCHES' : 'PROFILE GAMES',
+          value: '$sampleGames',
+        ),
+        _SummaryTile(
+          label: _sport == 'MLB'
+              ? 'LEAGUE CALLED-STRIKE AVG'
+              : 'LEAGUE WHISTLE AVG',
+          value: _sport == 'MLB'
+              ? '${(leagueRate * 100).toStringAsFixed(1)}%'
+              : leagueRate.toStringAsFixed(1),
         ),
       ],
     );
@@ -286,9 +300,10 @@ class _RefereeTrackerPageState extends State<RefereeTrackerPage> {
 }
 
 class _OfficialCard extends StatelessWidget {
-  const _OfficialCard({required this.official});
+  const _OfficialCard({required this.official, required this.sport});
 
   final Map<String, dynamic> official;
+  final String sport;
 
   double _number(Object? value) =>
       value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
@@ -297,11 +312,12 @@ class _OfficialCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final index = _number(official['tendencyIndex']);
     final delta = (index - 1) * 100;
+    final metric = sport == 'MLB' ? 'called-strike rate' : 'whistle rate';
     final tendency = delta >= 3
-        ? 'Above league whistle rate'
+        ? 'Above league $metric'
         : delta <= -3
-        ? 'Below league whistle rate'
-        : 'Near league whistle rate';
+        ? 'Below league $metric'
+        : 'Near league $metric';
     final recent = (official['recentAssignments'] as List? ?? const [])
         .whereType<Map>()
         .take(3)

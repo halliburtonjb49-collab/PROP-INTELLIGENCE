@@ -142,3 +142,34 @@ def test_an_incomplete_prop_is_skipped(monkeypatch):
 
     assert result["considered"] == 0
     assert written == []
+
+
+def test_recorded_opening_line_is_applied_to_live_prop(monkeypatch):
+    prop = _prop(line=22.5)
+
+    class _Cursor:
+        def __enter__(self): return self
+        def __exit__(self, *_args): return False
+        def execute(self, _query, _params): return None
+        def fetchall(self):
+            return [("evt-1", "Napheesa Collier", "player_points",
+                     "DRAFTKINGS", 21.5, datetime.now(timezone.utc))]
+
+    class _Connection:
+        def __enter__(self): return self
+        def __exit__(self, *_args): return False
+        def cursor(self): return _Cursor()
+
+    monkeypatch.setattr(recorder, "database_is_configured", lambda: True)
+    monkeypatch.setattr(
+        recorder,
+        "get_database_pool",
+        lambda: type("Pool", (), {"connection": lambda _self: _Connection()})(),
+    )
+
+    result = recorder.apply_recorded_line_history([prop])
+
+    assert result["hydrated"] == 1
+    assert prop.openingLine == 21.5
+    assert prop.currentLine == 22.5
+    assert prop.lineMovedAtUtc

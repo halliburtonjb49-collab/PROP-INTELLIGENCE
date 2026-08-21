@@ -83,7 +83,10 @@ from services.baseline_projection_service import (
 	MODEL_VERSION as BASELINE_MODEL_VERSION,
 )
 from services.odds_service import sport_coverage
-from services.line_movement_recorder import record_line_movements
+from services.line_movement_recorder import (
+	apply_recorded_line_history,
+	record_line_movements,
+)
 from services.operations_notification_service import alert_channel_health
 from services.prop_group_service import assign_prop_groups
 from services.prop_service import get_props
@@ -790,6 +793,7 @@ def _rebuild_prop_catalog_from_local(
 	"""
 	now = time.monotonic()
 	props = get_props()
+	apply_recorded_line_history(props)
 	# Stamped once, here, where the catalog is assembled. Every reader of a
 	# published catalog then sees the same grouping without recomputing it,
 	# and a client cannot invent a different one.

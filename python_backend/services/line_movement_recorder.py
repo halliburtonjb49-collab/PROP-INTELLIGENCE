@@ -109,3 +109,62 @@ def record_line_movements(props: list) -> dict[str, int]:
         LOGGER.exception("Line movement capture failed")
         return {"recorded": 0, "considered": len(rows)}
     return {"recorded": int(recorded), "considered": len(rows)}
+
+
+def apply_recorded_line_history(props: list) -> dict[str, int]:
+    """Apply the earliest persisted pregame line to each live prop."""
+
+    if not database_is_configured() or not props:
+        return {"hydrated": 0, "considered": len(props)}
+    event_ids = sorted({
+        str(getattr(prop, "eventId", "") or "").strip()
+        for prop in props
+        if str(getattr(prop, "eventId", "") or "").strip()
+    })
+    if not event_ids:
+        return {"hydrated": 0, "considered": len(props)}
+    try:
+        with get_database_pool().connection() as connection, connection.cursor() as cursor:
+            cursor.execute(
+                """select event_id, player, market, bookmaker,
+                          (array_agg(line order by observed_at asc))[1] opening_line,
+                          max(observed_at) last_observed_at
+                   from sportsbook_line_snapshots
+                   where event_id = any(%s)
+                   group by event_id, player, market, bookmaker""",
+                (event_ids,),
+            )
+            rows = cursor.fetchall()
+    except Exception:
+        LOGGER.exception("Recorded line history hydration failed")
+        return {"hydrated": 0, "considered": len(props)}
+
+    history = {
+        tuple(str(value or "").strip().lower() for value in row[:4]): row[4:]
+        for row in rows
+    }
+    hydrated = 0
+    for prop in props:
+        key = tuple(str(value or "").strip().lower() for value in (
+            getattr(prop, "eventId", ""),
+            getattr(prop, "player", ""),
+            getattr(prop, "marketKey", "") or getattr(prop, "market", ""),
+            getattr(prop, "sportsbook", ""),
+        ))
+        recorded = history.get(key)
+        if recorded is None:
+            continue
+        opening_line, last_observed_at = recorded
+        current_line = getattr(prop, "line", None)
+        if opening_line is None or current_line is None:
+            continue
+        prop.openingLine = float(opening_line)
+        prop.currentLine = float(current_line)
+        if abs(prop.currentLine - prop.openingLine) >= 0.01:
+            prop.lineMovedAtUtc = (
+                last_observed_at.isoformat()
+                if hasattr(last_observed_at, "isoformat")
+                else str(last_observed_at or "")
+            )
+            hydrated += 1
+    return {"hydrated": hydrated, "considered": len(props)}

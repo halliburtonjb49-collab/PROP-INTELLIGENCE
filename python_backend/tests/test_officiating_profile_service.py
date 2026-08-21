@@ -36,4 +36,4 @@ def test_tracker_rejects_unsupported_sports_without_querying_database() -> None:
     result = list_officiating_tracker("NFL")
     assert result["sport"] == "NFL"
     assert result["officials"] == []
-    assert "NBA and WNBA" in result["reason"]
+    assert "NBA, WNBA, and MLB" in result["reason"]

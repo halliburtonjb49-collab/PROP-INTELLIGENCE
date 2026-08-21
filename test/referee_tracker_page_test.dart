@@ -32,7 +32,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('REFEREE TRACKER'), findsOneWidget);
+    expect(find.text('OFFICIATING TRACKER'), findsOneWidget);
     expect(find.text('Jordan Example'), findsOneWidget);
     expect(find.text('+4.0%'), findsOneWidget);
     expect(find.text('42'), findsAtLeastNWidgets(1));
@@ -53,5 +53,17 @@ void main() {
     expect(find.text('Jordan Example'), findsOneWidget);
     expect(find.text('RECENT ASSIGNMENTS'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('offers MLB umpire tracking without an empty NFL control', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(home: RefereeTrackerPage(loader: (_) async => payload)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('MLB'), findsOneWidget);
+    expect(find.text('NFL'), findsNothing);
   });
 }

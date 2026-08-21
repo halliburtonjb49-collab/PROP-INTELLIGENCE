@@ -64,11 +64,11 @@ def get_officiating_profile(sport: str, official_id: str) -> dict[str, object] |
 
 def list_officiating_tracker(sport: str, limit: int = 100) -> dict[str, object]:
     normalized_sport = sport.strip().upper()
-    if normalized_sport not in {"NBA", "WNBA"}:
+    if normalized_sport not in {"NBA", "WNBA", "MLB"}:
         return {
             "sport": normalized_sport,
             "officials": [],
-            "reason": "Referee Tracker currently supports NBA and WNBA.",
+            "reason": "Officiating Tracker currently supports NBA, WNBA, and MLB.",
         }
     if not database_is_configured():
         return {
@@ -89,7 +89,7 @@ def list_officiating_tracker(sport: str, limit: int = 100) -> dict[str, object]:
         profile_rows = cursor.fetchall()
         official_ids = [row[0] for row in profile_rows]
         assignment_rows = []
-        if official_ids:
+        if official_ids and normalized_sport in {"NBA", "WNBA"}:
             cursor.execute(
                 """select official_id,league_game_id,game_date,total_fouls,
                     total_free_throw_attempts from (
