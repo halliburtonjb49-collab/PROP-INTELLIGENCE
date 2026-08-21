@@ -46,13 +46,22 @@ class SidebarButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final session = AuthManager.instance.sessionState.value;
+    final hasRequiredAccess = switch (requiredTier) {
+      null => true,
+      SubscriptionTier.free => true,
+      SubscriptionTier.core => session.hasCoreAccess,
+      SubscriptionTier.edge => session.hasEdgeAccess,
+    };
+    final isLockedUpgrade = requiredTier != null && !hasRequiredAccess;
     final isActiveWatchlist = label.toUpperCase() == 'SLIP WATCHER';
     final watchlistHasActiveSlips =
         isActiveWatchlist && (int.tryParse((badge ?? '0').trim()) ?? 0) > 0;
-    final textColor = selected || watchlistHasActiveSlips
+    final textColor = selected || watchlistHasActiveSlips || isLockedUpgrade
         ? app_colors.AppColors.gold
         : Colors.white;
-    final textWeight = selected || watchlistHasActiveSlips
+    final textWeight =
+        selected || watchlistHasActiveSlips || isLockedUpgrade
         ? FontWeight.w900
         : FontWeight.w700;
     return InkWell(
@@ -230,7 +239,7 @@ class SidebarButton extends StatelessWidget {
                   ),
                 ),
               ),
-            if (badge == null && requiredTier != null)
+            if (badge == null && isLockedUpgrade)
               FeatureTierBadge(
                 tier: requiredTier!,
                 hasProUpgrade: hasProUpgrade,

@@ -39,6 +39,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
     AppPage.injuryImpact,
     AppPage.analytics,
     AppPage.propChat,
+    AppPage.scoreboard,
     AppPage.scoreboardWatchlist,
     AppPage.intelligenceLab,
     AppPage.refereeTracker,
