@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
@@ -98,11 +99,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   static final Map<String, List<PropData>> _sessionViewCache =
       <String, List<PropData>>{};
   late final ApiService _apiService = widget.apiService ?? ApiService();
-  // Cards whose research detail the reader has opened. A card shows its
-  // conclusion and the two buttons that act on it; the fifteen chips and
-  // the explainability block are the working behind that conclusion and
-  // stay folded away until asked for.
-  final Set<String> _expandedResearch = <String>{};
   late Future<List<PropData>> _propsFuture;
   List<PreparedBoardProp> _preparedProps = const [];
   bool _isRefreshing = false;
@@ -454,6 +450,60 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     widget.onSelect(prop, side);
   }
 
+  Future<void> _showResearchOverlay(
+    PropData prop,
+    PickSide? selectedSide,
+  ) async {
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Close research',
+      barrierColor: Colors.black.withValues(alpha: .58),
+      transitionDuration: const Duration(milliseconds: 220),
+      transitionBuilder: (context, animation, secondaryAnimation, child) =>
+          FadeTransition(
+            opacity: CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            ),
+            child: ScaleTransition(
+              scale: Tween<double>(begin: .97, end: 1).animate(animation),
+              child: child,
+            ),
+          ),
+      pageBuilder: (context, animation, secondaryAnimation) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 7, sigmaY: 7),
+        child: SafeArea(
+          child: Material(
+            color: Colors.transparent,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 880,
+                  maxHeight: MediaQuery.sizeOf(context).height * .92,
+                ),
+                child: MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    textScaler: const TextScaler.linear(1.16),
+                  ),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: _buildPortraitPropCard(
+                      prop,
+                      selectedSide,
+                      fixedHeight: false,
+                      researchOverlay: true,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPortraitPropCard(
     PropData prop,
     PickSide? selectedSide, {
@@ -462,8 +512,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     // A single-column phone list gives each card its natural height instead,
     // where a Spacer has no bounded height to expand into and would throw.
     bool fixedHeight = true,
+    bool researchOverlay = false,
   }) {
-    final researchOpen = _expandedResearch.contains(prop.id);
+    final researchOpen = researchOverlay;
     final compactCard = MediaQuery.sizeOf(context).width < 600;
     final hasProAccess = canShowSystemRecommendation(
       hasEdgeAccess: AuthManager.instance.sessionState.value.hasEdgeAccess,
@@ -1092,11 +1143,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           // wade through before they know what the app thinks.
           ResearchToggle(
             open: researchOpen,
-            onTap: () => setState(() {
-              if (!_expandedResearch.remove(prop.id)) {
-                _expandedResearch.add(prop.id);
-              }
-            }),
+            onTap: researchOverlay
+                ? () => Navigator.of(context).pop()
+                : () => _showResearchOverlay(prop, selectedSide),
           ),
           if (researchOpen) ...[
             const SizedBox(height: 11),
