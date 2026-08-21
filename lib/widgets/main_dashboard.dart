@@ -1736,6 +1736,13 @@ class _MainDashboardState extends State<MainDashboard> {
                     _selectedSite == book,
               )
               .toList(growable: false);
+    final directBooks = books
+        .where((book) => book != 'ALL')
+        .take(5)
+        .toList(growable: false);
+    final overflowBooks = books
+        .where((book) => book != 'ALL' && !directBooks.contains(book))
+        .toList(growable: false);
     final compactLayout = useCompactBoardControls(availableWidth);
     final primaryControlWidth = compactLayout
         ? compactBoardControlWidth(availableWidth)
@@ -1788,7 +1795,7 @@ class _MainDashboardState extends State<MainDashboard> {
           contentPadding: const EdgeInsets.symmetric(vertical: 8),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(PiDesign.controlRadius),
-            borderSide: const BorderSide(color: app_colors.AppColors.gold),
+            borderSide: const BorderSide(color: app_colors.AppColors.silver),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(PiDesign.controlRadius),
@@ -1818,15 +1825,15 @@ class _MainDashboardState extends State<MainDashboard> {
         _ => ('D', const Color(0xFF8D4DFF)),
       };
       return Container(
-        width: 15,
-        height: 15,
+        width: 14,
+        height: 14,
         alignment: Alignment.center,
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         child: Text(
           letter,
           style: const TextStyle(
             color: app_colors.AppColors.bgBase,
-            fontSize: 7,
+            fontSize: 6.5,
             fontWeight: FontWeight.w900,
           ),
         ),
@@ -1956,7 +1963,9 @@ class _MainDashboardState extends State<MainDashboard> {
       return OutlinedButton(
         onPressed: () => selectSite(book),
         style: OutlinedButton.styleFrom(
-          foregroundColor: selected ? app_colors.AppColors.gold : Colors.white,
+          foregroundColor: selected
+              ? app_colors.AppColors.gold
+              : app_colors.AppColors.silver,
           backgroundColor: selected
               ? app_colors.AppColors.gold.withValues(alpha: .10)
               : app_colors.AppColors.sidebar,
@@ -1965,7 +1974,9 @@ class _MainDashboardState extends State<MainDashboard> {
                 ? app_colors.AppColors.gold
                 : app_colors.AppColors.border,
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 13),
+          padding: const EdgeInsets.symmetric(horizontal: 9),
+          minimumSize: const Size(44, 44),
+          fixedSize: const Size.fromHeight(44),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(PiDesign.controlRadius),
           ),
@@ -1974,7 +1985,7 @@ class _MainDashboardState extends State<MainDashboard> {
           mainAxisSize: MainAxisSize.min,
           children: [
             bookMark(book),
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
             Text(
               book,
               style: const TextStyle(
@@ -1991,7 +2002,7 @@ class _MainDashboardState extends State<MainDashboard> {
       if (!compactLayout)
         SizedBox(
           key: const ValueKey('board-player-search'),
-          width: 190,
+          width: 260,
           child: playerSearchField(),
         ),
       if (compactLayout) buildAllSitesSelector(_selectedSite == 'ALL'),
@@ -2013,12 +2024,13 @@ class _MainDashboardState extends State<MainDashboard> {
               });
             },
             itemBuilder: (context) {
-              final sports = _siteSportCounts.entries
-                  .where((entry) => entry.value > 0)
-                  .map((entry) => entry.key)
-                  .toSet()
-                  .toList()
-                ..sort();
+              final sports =
+                  _siteSportCounts.entries
+                      .where((entry) => entry.value > 0)
+                      .map((entry) => entry.key)
+                      .toSet()
+                      .toList()
+                    ..sort();
               return [
                 const PopupMenuItem<String>(
                   value: 'ALL',
@@ -2103,13 +2115,11 @@ class _MainDashboardState extends State<MainDashboard> {
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: app_colors.AppColors.gold,
-                backgroundColor: app_colors.AppColors.gold.withValues(
-                  alpha: .08,
-                ),
-                side: const BorderSide(color: app_colors.AppColors.gold),
+                foregroundColor: app_colors.AppColors.silver,
+                backgroundColor: app_colors.AppColors.sidebar,
+                side: const BorderSide(color: app_colors.AppColors.border),
                 padding: primaryControlPadding,
-                fixedSize: Size(primaryControlWidth, 48),
+                fixedSize: Size(primaryControlWidth * .82, 44),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(PiDesign.controlRadius),
                 ),
@@ -2149,7 +2159,9 @@ class _MainDashboardState extends State<MainDashboard> {
                     Icon(
                       Icons.filter_alt_outlined,
                       size: shortControlLabels ? 12 : 14,
-                      color: app_colors.AppColors.gold,
+                      color: _activeBoardFilterLabels().isEmpty
+                          ? app_colors.AppColors.silver
+                          : app_colors.AppColors.gold,
                     ),
                     const SizedBox(width: 8),
                     Flexible(
@@ -2158,8 +2170,10 @@ class _MainDashboardState extends State<MainDashboard> {
                             ? 'FILTERS'
                             : 'FILTERS ${_activeBoardFilterLabels().length}',
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: app_colors.AppColors.gold,
+                        style: TextStyle(
+                          color: _activeBoardFilterLabels().isEmpty
+                              ? app_colors.AppColors.silver
+                              : app_colors.AppColors.gold,
                           fontSize: PiDesign.metadataFontSize,
                           fontWeight: FontWeight.w800,
                         ),
@@ -2172,7 +2186,55 @@ class _MainDashboardState extends State<MainDashboard> {
           ),
         ),
       ),
-      if (!compactLayout) ...books.map(buildSiteButton),
+      if (!compactLayout) ...directBooks.map(buildSiteButton),
+      if (!compactLayout && overflowBooks.isNotEmpty)
+        PopupMenuButton<String>(
+          key: const ValueKey('more-prop-sites-menu'),
+          tooltip: 'More prop sites',
+          onSelected: selectSite,
+          color: app_colors.AppColors.sidebar,
+          itemBuilder: (context) => [
+            for (final book in overflowBooks)
+              PopupMenuItem<String>(
+                value: book,
+                child: Row(
+                  children: [
+                    bookMark(book),
+                    const SizedBox(width: 8),
+                    Text(book),
+                  ],
+                ),
+              ),
+          ],
+          child: Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: app_colors.AppColors.sidebar,
+              border: Border.all(color: app_colors.AppColors.silver),
+              borderRadius: BorderRadius.circular(PiDesign.controlRadius),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'MORE',
+                  style: TextStyle(
+                    color: app_colors.AppColors.silver,
+                    fontSize: PiDesign.metadataFontSize,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(width: 4),
+                Icon(
+                  Icons.expand_more_rounded,
+                  color: app_colors.AppColors.silver,
+                  size: 14,
+                ),
+              ],
+            ),
+          ),
+        ),
     ];
 
     return Column(
@@ -2247,26 +2309,48 @@ class _MainDashboardState extends State<MainDashboard> {
                         ),
                       );
                     },
-                    child: Scrollbar(
-                      controller: _bookHorizontalController,
-                      thumbVisibility: false,
-                      trackVisibility: false,
-                      interactive: false,
-                      scrollbarOrientation: ScrollbarOrientation.bottom,
-                      thickness: 4,
-                      radius: const Radius.circular(99),
-                      child: ListView.separated(
-                        key: const ValueKey('prop-sites-scroll-list'),
-                        controller: _bookHorizontalController,
-                        physics: compactLayout
-                            ? const NeverScrollableScrollPhysics()
-                            : const AlwaysScrollableScrollPhysics(),
-                        scrollDirection: Axis.horizontal,
-                        padding: EdgeInsets.only(bottom: compactLayout ? 0 : 6),
-                        itemCount: siteBarItems.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 6),
-                        itemBuilder: (context, index) => siteBarItems[index],
-                      ),
+                    child: Stack(
+                      children: [
+                        Scrollbar(
+                          controller: _bookHorizontalController,
+                          thumbVisibility: false,
+                          trackVisibility: false,
+                          interactive: false,
+                          scrollbarOrientation: ScrollbarOrientation.bottom,
+                          thickness: 4,
+                          radius: const Radius.circular(99),
+                          child: ListView.separated(
+                            key: const ValueKey('prop-sites-scroll-list'),
+                            controller: _bookHorizontalController,
+                            physics: compactLayout
+                                ? const NeverScrollableScrollPhysics()
+                                : const AlwaysScrollableScrollPhysics(),
+                            scrollDirection: Axis.horizontal,
+                            padding: EdgeInsets.only(
+                              bottom: compactLayout ? 0 : 6,
+                            ),
+                            itemCount: siteBarItems.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(width: 6),
+                            itemBuilder: (context, index) =>
+                                siteBarItems[index],
+                          ),
+                        ),
+                        const Positioned(
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: IgnorePointer(child: _ProviderEdgeFade()),
+                        ),
+                        const Positioned(
+                          right: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: IgnorePointer(
+                            child: _ProviderEdgeFade(reverse: true),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -3338,6 +3422,24 @@ class _MainDashboardState extends State<MainDashboard> {
       ),
     );
   }
+}
+
+class _ProviderEdgeFade extends StatelessWidget {
+  const _ProviderEdgeFade({this.reverse = false});
+
+  final bool reverse;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 18,
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: reverse ? Alignment.centerRight : Alignment.centerLeft,
+        end: reverse ? Alignment.centerLeft : Alignment.centerRight,
+        colors: const [app_colors.AppColors.sidebar, Colors.transparent],
+      ),
+    ),
+  );
 }
 
 class _BoardSparklinePainter extends CustomPainter {

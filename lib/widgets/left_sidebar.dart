@@ -467,13 +467,21 @@ class _SidebarSignOut extends StatelessWidget {
           }
           await AuthManager.instance.signOut();
         },
-        icon: const Icon(Icons.logout_rounded, size: 16),
+        icon: const Icon(
+          Icons.logout_rounded,
+          size: 16,
+          color: app_colors.AppColors.gold,
+        ),
         label: const Text(
           'SIGN OUT',
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+          style: TextStyle(
+            color: app_colors.AppColors.gold,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         style: TextButton.styleFrom(
-          foregroundColor: app_colors.AppColors.silver,
+          foregroundColor: app_colors.AppColors.gold,
           alignment: Alignment.centerLeft,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         ),

@@ -55,6 +55,7 @@ class AppShell extends StatefulWidget {
     this.onMobileDismissOverlay,
     this.onMobileNavigateIndex,
     this.accentColor = AppColors.gold,
+    this.membershipLabel = 'CORE',
   });
 
   final Widget leftSidebar;
@@ -70,6 +71,7 @@ class AppShell extends StatefulWidget {
   final VoidCallback? onMobileDismissOverlay;
   final ValueChanged<int>? onMobileNavigateIndex;
   final Color accentColor;
+  final String membershipLabel;
 
   static const double leftWidth = 244;
   static const double rightWidth = 332;
@@ -190,6 +192,7 @@ class _AppShellState extends State<AppShell> {
                         activePanelSection: _activeRightPanelSection,
                         activeSlipCount: widget.activeSlipCount,
                         accentColor: widget.accentColor,
+                        membershipLabel: widget.membershipLabel,
                         accountPanel: widget.accountPanel,
                         activeSlipPanel: widget.activeSlipPanel,
                         onOpenAccount: () => setState(() {
@@ -224,6 +227,7 @@ class _DesktopRightPanel extends StatelessWidget {
     required this.activePanelSection,
     required this.activeSlipCount,
     required this.accentColor,
+    required this.membershipLabel,
     required this.accountPanel,
     required this.activeSlipPanel,
     required this.onOpenAccount,
@@ -235,6 +239,7 @@ class _DesktopRightPanel extends StatelessWidget {
   final _RightPanelSection activePanelSection;
   final int activeSlipCount;
   final Color accentColor;
+  final String membershipLabel;
   final Widget accountPanel;
   final Widget activeSlipPanel;
   final VoidCallback onOpenAccount;
@@ -274,6 +279,7 @@ class _DesktopRightPanel extends StatelessWidget {
               )
             : _RightPanelRail(
                 accentColor: accentColor,
+                membershipLabel: membershipLabel,
                 activeSlipCount: activeSlipCount,
                 onOpenAccount: onOpenAccount,
                 onOpenActiveSlip: onOpenActiveSlip,
@@ -440,12 +446,14 @@ class _PanelTab extends StatelessWidget {
 class _RightPanelRail extends StatelessWidget {
   const _RightPanelRail({
     required this.accentColor,
+    required this.membershipLabel,
     required this.activeSlipCount,
     required this.onOpenAccount,
     required this.onOpenActiveSlip,
   });
 
   final Color accentColor;
+  final String membershipLabel;
   final int activeSlipCount;
   final VoidCallback onOpenAccount;
   final VoidCallback onOpenActiveSlip;
@@ -462,8 +470,9 @@ class _RightPanelRail extends StatelessWidget {
             label: 'Open account',
             tooltip: 'Open account',
             icon: Icons.person_outline_rounded,
+            visibleLabel: 'ACCOUNT',
             accentColor: accentColor,
-            buttonHeight: 44,
+            buttonHeight: 62,
             onTap: onOpenAccount,
             openActionSize: 44,
             openAction: _OpenPanelActionButton(
@@ -481,8 +490,9 @@ class _RightPanelRail extends StatelessWidget {
                 'Open active slip, $activeSlipCount selected props in active slip',
             tooltip: 'Open active slip',
             icon: Icons.receipt_long_outlined,
+            visibleLabel: 'SLIP',
             accentColor: accentColor,
-            buttonHeight: 54,
+            buttonHeight: 66,
             onTap: onOpenActiveSlip,
             openActionSize: 46,
             openAction: _OpenPanelActionButton(
@@ -497,6 +507,55 @@ class _RightPanelRail extends StatelessWidget {
               accentColor: accentColor,
             ),
           ),
+          const Spacer(),
+          Tooltip(
+            message: '$membershipLabel membership',
+            child: Semantics(
+              label: '$membershipLabel membership',
+              child: Container(
+                key: const ValueKey('right-panel-membership-badge'),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: .08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: accentColor.withValues(alpha: .55)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.workspace_premium_rounded,
+                      size: 18,
+                      color: accentColor,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'MEMBERSHIP',
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: accentColor,
+                        fontSize: 5.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      membershipLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: accentColor,
+                        fontSize: 7,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -509,6 +568,7 @@ class _RailButton extends StatelessWidget {
     required this.label,
     required this.tooltip,
     required this.icon,
+    required this.visibleLabel,
     required this.accentColor,
     required this.buttonHeight,
     required this.onTap,
@@ -520,6 +580,7 @@ class _RailButton extends StatelessWidget {
   final String label;
   final String tooltip;
   final IconData icon;
+  final String visibleLabel;
   final Color accentColor;
   final double buttonHeight;
   final VoidCallback onTap;
@@ -548,20 +609,26 @@ class _RailButton extends StatelessWidget {
           ),
           onPressed: onTap,
           child: Stack(
-            alignment: Alignment.centerLeft,
+            alignment: Alignment.center,
             children: [
-              Icon(icon, size: 22),
-              if (trailing != const SizedBox.shrink())
-                Positioned(right: 52, bottom: 2, child: trailing),
-              Positioned(
-                right: 0,
-                top: (buttonHeight - openActionSize).clamp(0, buttonHeight) / 2,
-                child: SizedBox(
-                  width: openActionSize,
-                  height: openActionSize,
-                  child: openAction,
-                ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 20),
+                  const SizedBox(height: 4),
+                  Text(
+                    visibleLabel,
+                    style: TextStyle(
+                      color: accentColor,
+                      fontSize: 6.5,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .25,
+                    ),
+                  ),
+                ],
               ),
+              if (trailing != const SizedBox.shrink())
+                Positioned(right: 0, top: 0, child: trailing),
             ],
           ),
         ),

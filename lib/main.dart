@@ -2134,6 +2134,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                 }
               },
               accentColor: membershipAccent,
+              membershipLabel: tierName.toUpperCase(),
             ),
           ),
           if (_chatFloating) _buildFloatingChat(constraints),

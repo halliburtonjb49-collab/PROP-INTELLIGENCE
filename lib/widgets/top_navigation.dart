@@ -166,7 +166,7 @@ class TopNavigation extends StatelessWidget {
                 style: TextStyle(
                   color: holdsCurrentPage
                       ? accentColor
-                      : app_colors.AppColors.white,
+                      : app_colors.AppColors.silver,
                   fontSize: 9,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 0.5,
@@ -252,7 +252,7 @@ class TopNavigation extends StatelessWidget {
                 style: TextStyle(
                   color: holdsCurrentPage
                       ? accentColor
-                      : app_colors.AppColors.white,
+                      : app_colors.AppColors.silver,
                   fontSize: 9,
                   fontWeight: FontWeight.w900,
                   letterSpacing: .5,
@@ -349,7 +349,7 @@ class TopNavigation extends StatelessWidget {
                 Text(
                   sport,
                   style: TextStyle(
-                    color: selected ? accentColor : app_colors.AppColors.white,
+                    color: selected ? accentColor : app_colors.AppColors.silver,
                     fontSize: 8.5,
                     fontWeight: FontWeight.w900,
                     letterSpacing: .35,
