@@ -461,24 +461,27 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   Widget _buildBookSwitcher(PropBookGroup group, PropData shown) {
     return Container(
       key: ValueKey('book-switcher-${group.groupId}'),
-      height: 34,
-      margin: const EdgeInsets.only(top: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      height: 40,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: app_colors.AppColors.sidebar,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: app_colors.AppColors.border),
+        color: app_colors.AppColors.gold.withValues(alpha: .055),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: app_colors.AppColors.gold.withValues(alpha: .42),
+        ),
       ),
       child: Row(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 5),
+            padding: const EdgeInsets.only(left: 2, right: 10),
             child: Text(
-              group.linesDiffer ? 'LINES VARY' : '${group.bookCount} BOOKS',
+              group.linesDiffer ? 'COMPARE LINES' : 'AVAILABLE AT',
               style: const TextStyle(
-                color: app_colors.AppColors.silver,
+                color: app_colors.AppColors.gold,
                 fontSize: 8,
                 fontWeight: FontWeight.w900,
+                letterSpacing: .35,
               ),
             ),
           ),
@@ -504,12 +507,12 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     }),
                     child: Container(
                       alignment: Alignment.center,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
                       decoration: BoxDecoration(
                         color: isShown
                             ? app_colors.AppColors.gold
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(6),
+                            : app_colors.AppColors.sidebar,
+                        borderRadius: BorderRadius.circular(7),
                         border: Border.all(
                           color: isShown
                               ? app_colors.AppColors.gold
@@ -3216,8 +3219,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Flexible(child: cardFor(shown, fixedHeight: false)),
                       _buildBookSwitcher(group, shown),
+                      Flexible(child: cardFor(shown, fixedHeight: false)),
                     ],
                   );
                 }
