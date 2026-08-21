@@ -904,10 +904,21 @@ class _MobileAppShell extends StatefulWidget {
 
 class _MobileAppShellState extends State<_MobileAppShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _openedInitialSidebar = false;
   DateTime? _lastHorizontalScrollSignal;
   double _dragNetX = 0;
   double _dragAbsX = 0;
   double _dragAbsY = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _openedInitialSidebar) return;
+      _openedInitialSidebar = true;
+      _scaffoldKey.currentState?.openDrawer();
+    });
+  }
 
   bool get _supportsSwipeRoute {
     // Swiping is intended only for top-level destinations represented in the
@@ -967,16 +978,15 @@ class _MobileAppShellState extends State<_MobileAppShell> {
   @override
   void didUpdateWidget(covariant _MobileAppShell oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // The main content widgets normally have no keys, so comparing their keys
-    // never closed an open drawer after mobile navigation. Close either drawer
-    // whenever the selected destination changes so its modal barrier cannot
-    // leave the user trapped on the previous screen.
+    // Keep the primary navigation open after a destination change. Mobile now
+    // mirrors the web workspace: the complete sidebar remains available until
+    // the member deliberately collapses it. The secondary slip drawer still
+    // closes after its destination changes.
     if (oldWidget.routeKey != widget.routeKey ||
         oldWidget.selectedIndex != widget.selectedIndex) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final scaffold = _scaffoldKey.currentState;
-        if (scaffold?.isDrawerOpen ?? false) scaffold?.closeDrawer();
         if (scaffold?.isEndDrawerOpen ?? false) scaffold?.closeEndDrawer();
       });
     }

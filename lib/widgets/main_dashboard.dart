@@ -1246,7 +1246,7 @@ class _MainDashboardState extends State<MainDashboard> {
     List<PropData> playerProps;
     try {
       final fetched = await _apiService.fetchProps(
-        selectedProp site: focused.sportsbook,
+        selectedSportsbook: focused.sportsbook,
         selectedSport: focused.sport,
         search: focused.player,
         sortBy: 'time',

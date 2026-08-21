@@ -244,7 +244,9 @@ class BackendRefreshStatus {
 
 class ApiService {
   static const String _lastStablePropsCacheKey = 'prop-feed-v5-last-stable';
-  static const Duration _propsCacheMaxAge = Duration(minutes: 30);
+  // Keep the last known first page available across browser restarts and
+  // ordinary provider gaps. Fresh data is still requested in the background.
+  static const Duration _propsCacheMaxAge = Duration(hours: 6);
   static const String appVersion = String.fromEnvironment(
     'APP_VERSION',
     defaultValue: 'development',
@@ -1249,6 +1251,7 @@ class ApiService {
     String verdictFilter = 'All',
     int limit = 75,
     int offset = 0,
+    bool includeReliability = true,
   }) async {
     Object? lastError;
     final sportsbookVariants = _sportsbookQueryVariants(selectedSportsbook);
@@ -1287,7 +1290,8 @@ class ApiService {
               'sortBy': sortBy,
               'verdict': verdictFilter,
               'includeReliability':
-                  (offset == 0 &&
+                  (includeReliability &&
+                          offset == 0 &&
                           selectedCategory.trim().toUpperCase() == 'ALL')
                       .toString(),
               'limit': requestLimit.toString(),
@@ -1343,7 +1347,8 @@ class ApiService {
               'sortBy': sortBy,
               'verdict': verdictFilter,
               'includeReliability':
-                  (offset == 0 &&
+                  (includeReliability &&
+                          offset == 0 &&
                           selectedCategory.trim().toUpperCase() == 'ALL')
                       .toString(),
               'limit': requestLimit.toString(),

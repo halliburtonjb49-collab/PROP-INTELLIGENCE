@@ -124,6 +124,48 @@ class ScoreboardService {
     return fallback;
   }
 
+  /// Loads a schedule window with one browser request. The backend performs
+  /// the bounded date fan-out and reuses its distributed day caches.
+  Future<List<ScoreboardGame>> fetchGamesRange({
+    required DateTime startDate,
+    int days = 15,
+  }) async {
+    final boundedDays = days.clamp(1, 31);
+    final response = await _getWithFallback(
+      '/api/scoreboard/range',
+      queryParameters: {
+        'startDate': _dateKey(startDate),
+        'days': '$boundedDays',
+      },
+      timeout: const Duration(seconds: 15),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      return const [];
+    }
+    final decoded = jsonDecode(response.body);
+    final rawGames = decoded is Map
+        ? decoded['games'] ?? decoded['events'] ?? decoded['data'] ?? []
+        : const [];
+    if (rawGames is! List) return const [];
+    final parsed = rawGames
+        .whereType<Map>()
+        .map((item) => ScoreboardGame.fromJson(Map<String, dynamic>.from(item)))
+        .toList(growable: false);
+    for (final game in parsed) {
+      final start = game.startTime;
+      if (start == null) continue;
+      final key = _dateKey(start.toLocal());
+      final existing = List<ScoreboardGame>.from(
+        _memoryCache[key] ?? const <ScoreboardGame>[],
+      );
+      if (!existing.any((candidate) => candidate.id == game.id)) {
+        existing.add(game);
+        _memoryCache[key] = List.unmodifiable(existing);
+      }
+    }
+    return parsed;
+  }
+
   Future<List<ScoreboardGame>> _fetchFallbackGamesFromProps() async {
     try {
       final response = await _getWithFallback(

@@ -2718,7 +2718,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final cached = await _apiService.loadCachedProps(
       selectedSide: widget.selectedSide,
       selectedTier: widget.selectedTier,
-      selectedProp site: widget.selectedSite,
+      selectedSportsbook: widget.selectedSite,
       selectedSport: widget.sportFilter,
       selectedCategory: widget.selectedCategory,
       search: widget.searchQuery,
@@ -2742,6 +2742,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         _apiService.lastCategoryCounts,
       );
       unawaited(_refreshFirstPageFromNetwork(requestKey));
+      unawaited(_loadProviderReliability(requestKey, activeCached));
       return activeCached;
     }
     final liveProps = await _fetchPropsPage();
@@ -2768,15 +2769,19 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       _apiService.lastFacetCount,
       _apiService.lastCategoryCounts,
     );
+    unawaited(_loadProviderReliability(requestKey, props));
     return props;
   }
 
-  Future<List<PropData>> _fetchPropsPage({int offset = 0}) {
+  Future<List<PropData>> _fetchPropsPage({
+    int offset = 0,
+    bool includeReliability = false,
+  }) {
     return _apiService
         .fetchProps(
           selectedSide: widget.selectedSide,
           selectedTier: widget.selectedTier,
-          selectedProp site: widget.selectedSite,
+          selectedSportsbook: widget.selectedSite,
           selectedSport: widget.sportFilter,
           selectedCategory: widget.selectedCategory,
           search: widget.searchQuery,
@@ -2785,6 +2790,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           sortBy: widget.sortBy,
           limit: _visiblePropStep,
           offset: offset,
+          includeReliability: includeReliability,
         )
         .timeout(
           propFetchTimeout,
@@ -2794,6 +2800,38 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             propFetchTimeout,
           ),
         );
+  }
+
+  Future<void> _loadProviderReliability(
+    String requestKey,
+    List<PropData> visibleProps,
+  ) async {
+    try {
+      await _apiService.fetchProps(
+        selectedSide: widget.selectedSide,
+        selectedTier: widget.selectedTier,
+        selectedSportsbook: widget.selectedSite,
+        selectedSport: widget.sportFilter,
+        selectedCategory: widget.selectedCategory,
+        search: widget.searchQuery,
+        minConfidence: widget.minConfidence,
+        verdictFilter: widget.verdictFilter,
+        sortBy: widget.sortBy,
+        // Keep the complete first page in persistent storage. A one-row
+        // metadata request would otherwise replace the cached 24-card page.
+        limit: _visiblePropStep,
+        includeReliability: true,
+      );
+      if (!mounted || requestKey != _queryKey) return;
+      widget.onPropsLoaded?.call(
+        visibleProps,
+        _apiService.lastPropsCount,
+        _apiService.lastFacetCount,
+        _apiService.lastCategoryCounts,
+      );
+    } catch (_) {
+      // Provider health is secondary metadata; cards remain usable without it.
+    }
   }
 
   Future<void> _refreshFirstPageFromNetwork(String requestKey) async {
@@ -2922,10 +2960,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   ) async {
     final service = ScoreboardService(baseUrl: ApiService.baseUrl);
     final now = DateTime.now();
-    final daily = await Future.wait([
-      for (var day = 0; day <= 14; day++)
-        service.fetchGames(date: now.add(Duration(days: day))),
-    ]);
+    final daily = <List<ScoreboardGame>>[
+      await service.fetchGamesRange(startDate: now, days: 15),
+    ];
     final normalized = normalizePropSport(sport);
     final unique = <String, ScoreboardGame>{};
     for (final game in daily.expand((games) => games)) {
@@ -3160,7 +3197,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               );
               if (!hasFilters && _automaticRetryCount < 3) {
                 _scheduleAutomaticRetry();
-                return const PropLoadingSkeleton();
               }
               if (!hasSecondaryFilters &&
                   normalizedSport.isNotEmpty &&

@@ -5075,6 +5075,55 @@ def scoreboard(
 	return payload
 
 
+@app.get("/api/scoreboard/range")
+def scoreboard_range(
+	start_date: str | None = Query(default=None, alias="startDate"),
+	days: int = Query(default=15, ge=1, le=31),
+) -> dict[str, object]:
+	try:
+		first_date = (
+			date.fromisoformat(start_date.strip())
+			if start_date and start_date.strip()
+			else datetime.now(_scoreboard_timezone()).date()
+		)
+	except ValueError as exc:
+		raise HTTPException(
+			status_code=400,
+			detail="startDate must be YYYY-MM-DD",
+		) from exc
+
+	target_dates = [first_date + timedelta(days=offset) for offset in range(days)]
+	with ThreadPoolExecutor(max_workers=min(4, days)) as executor:
+		payloads = list(
+			executor.map(
+				lambda target: scoreboard(game_date=target.isoformat()),
+				target_dates,
+			)
+		)
+	games_by_id: dict[str, dict[str, object]] = {}
+	for payload in payloads:
+		for game in payload.get("games", []):
+			if not isinstance(game, dict):
+				continue
+			key = _scoreboard_dedupe_key(game)
+			existing = games_by_id.get(key)
+			if existing is None or _scoreboard_preference(game) >= _scoreboard_preference(existing):
+				games_by_id[key] = game
+	games = sorted(
+		games_by_id.values(),
+		key=lambda game: (
+			str(game.get("start_time", "")),
+			str(game.get("sport", "")),
+		),
+	)
+	return {
+		"start_date": first_date.isoformat(),
+		"days": days,
+		"updated_at": datetime.now(timezone.utc).isoformat(),
+		"games": games,
+	}
+
+
 @app.post("/api/slips/{slip_id}/closing-lines")
 def save_slip_closing_lines(
 	slip_id: str,

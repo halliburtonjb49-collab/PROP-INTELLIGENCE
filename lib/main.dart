@@ -492,6 +492,9 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   @override
   void initState() {
     super.initState();
+    if (AuthManager.instance.sessionState.value.authenticated) {
+      unawaited(_prefetchStartupProps());
+    }
     EngagementTracker.instance.recordProduct('DASHBOARD_READY');
     PropChatService.latestNotification.addListener(_showChatNotification);
     ScoreboardWatchlistService.instance.latestAlert.addListener(
@@ -526,6 +529,20 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
       const Duration(seconds: 5),
       (_) => _removeClosedDraftSelections(),
     );
+  }
+
+  Future<void> _prefetchStartupProps() async {
+    try {
+      await _apiService.fetchProps(
+        selectedSport: _selectedBoardSport,
+        sortBy: 'time',
+        limit: 24,
+        includeReliability: false,
+      );
+      _startupLog('startup sport prefetched ($_selectedBoardSport)');
+    } catch (error) {
+      _startupLog('startup sport prefetch deferred: $error');
+    }
   }
 
   void _removeClosedDraftSelections() {
