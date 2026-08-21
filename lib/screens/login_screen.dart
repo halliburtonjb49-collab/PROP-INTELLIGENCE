@@ -345,7 +345,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             icon: Icons.auto_awesome_rounded,
             title: 'ADVANCED PRO TOOLS',
             items: [
-              'Actionable EV Scanner with fair-price and sportsbook comparison',
+              'Actionable EV Scanner with fair-price and prop-site comparison',
               'Strikeout Pro Gold with all-site and individual-site views',
               'Multi-sport Intelligence Lab and the updated PI Guide',
               'Owner monitoring for outages, stale providers and inventory gaps',
@@ -494,7 +494,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               'Manual prop builder and standard player research',
               'Live scoreboard and standard stat tracking',
               'Save, organize and track prop slips',
-              'Game-market and sportsbook comparisons',
+              'Game-market and prop-site comparisons',
               'Basic analytics and recent line changes',
               '14-day slip history with standard grading',
               'Multi-sport research across major leagues',
@@ -529,7 +529,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               'Advanced line intelligence and stale-line alerts',
               'Full history, profit tracking and model calibration',
               'Fatigue, travel, officiating and matchup context',
-              'Correlation engine and parlay compatibility flags',
+              'Correlation engine and multi-selection compatibility flags',
               'Game-script and Monte Carlo simulations',
               'Historical similarity matching and sentiment signals',
               'EV Scanner, Intelligence Lab and Strikeout Pro Gold',
@@ -575,7 +575,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
           const _AboutNotice(
             title: 'NO GUARANTEED OUTCOMES',
             text:
-                'Plans provide research, modeling and organizational tools. Predictions are informational and do not guarantee winning wagers.',
+                'Plans provide research, modeling, and organizational tools. Predictions are informational and do not guarantee successful outcomes.',
           ),
         ];
       case 'contact':
@@ -751,7 +751,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 _AboutNotice(
                   title: 'RESPONSIBLE USE',
                   text:
-                      'For informational and entertainment purposes only. Predictions are not guaranteed. Users must meet applicable age requirements and wager responsibly.',
+                      'For informational and entertainment purposes only. Predictions are not guaranteed. Users must meet applicable age requirements and follow all local rules.',
                 ),
               ],
             ),

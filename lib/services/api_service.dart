@@ -1412,7 +1412,7 @@ class ApiService {
           final isBroadQuery = _isBroadPropsQuery(
             selectedSide: selectedSide,
             selectedTier: selectedTier,
-            selectedSportsbook: selectedSportsbook,
+            selectedProp site: selectedSportsbook,
             selectedSport: selectedSport,
             selectedCategory: selectedCategory,
             search: search,
@@ -1778,7 +1778,7 @@ class ApiService {
     final broadQuery = _isBroadPropsQuery(
       selectedSide: selectedSide,
       selectedTier: selectedTier,
-      selectedSportsbook: selectedSportsbook,
+      selectedProp site: selectedSportsbook,
       selectedSport: selectedSport,
       selectedCategory: selectedCategory,
       search: search,

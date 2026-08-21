@@ -401,7 +401,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
       final report = SlipDoctorService.analyze(legs);
       final site = _activeSlipSite(legs);
       final candidates = await _apiService.fetchProps(
-        selectedSportsbook: site.isEmpty ? 'All' : site,
+        selectedProp site: site.isEmpty ? 'All' : site,
         minConfidence: 0,
         sortBy: 'trust',
         limit: 350,
@@ -1060,7 +1060,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   Widget _buildTicketHeader(List<Map<String, dynamic>> legs) {
     final label = legs.length == 1
         ? 'SINGLE PICK'
-        : '${legs.length} LEG PARLAY';
+        : '${legs.length}-SELECTION RESEARCH TICKET';
     final sport = legs.isEmpty ? '' : (legs.first['sport'] ?? '').toString();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
@@ -1294,7 +1294,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                'PAYOUT',
+                'ESTIMATED RETURN',
                 style: TextStyle(
                   color: brand_colors.AppColors.textSecondary,
                   fontSize: 8,
@@ -1952,9 +1952,9 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               children: [
                 Text(
                   legs.length == 1
-                      ? 'STRAIGHT BET'
+                      ? 'SINGLE SELECTION'
                       : isSgp
-                      ? 'SAME GAME PARLAY'
+                      ? 'SAME-GAME RESEARCH TICKET'
                       : '${legs.length}-LEG PARLAY',
                   style: const TextStyle(
                     color: Colors.white,
@@ -1992,7 +1992,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               ),
             ),
           IconButton(
-            tooltip: 'Clear bet slip',
+            tooltip: 'Clear research ticket',
             onPressed: legs.isEmpty ? null : _clearSlip,
             icon: const Icon(Icons.close, size: 18),
           ),
@@ -2250,7 +2250,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 borderRadius: BorderRadius.circular(7),
               ),
               child: const Text(
-                'BETSLIP',
+                'RESEARCH TICKET',
                 style: TextStyle(
                   color: PropIntelligenceColors.deepBackground,
                   fontSize: 9,
@@ -2319,7 +2319,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                   children: [
                     Text(
                       legs.length == 1
-                          ? 'STRAIGHT BET'
+                          ? 'SINGLE SELECTION'
                           : '${legs.length}-LEG PARLAY',
                       style: const TextStyle(
                         color: Colors.white,
@@ -2342,7 +2342,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
               _buildDraftKingsStatusBadge(status),
               const SizedBox(width: 3),
               IconButton(
-                tooltip: 'Clear bet slip',
+                tooltip: 'Clear research ticket',
                 visualDensity: VisualDensity.compact,
                 onPressed: legs.isEmpty ? null : _clearSlip,
                 icon: const Icon(Icons.close, size: 18),

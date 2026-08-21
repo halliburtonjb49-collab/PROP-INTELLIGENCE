@@ -536,11 +536,11 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
         content: const SizedBox(
           width: 470,
           child: Text(
-            '1. Compare two props and enter your projections and sportsbook lines.\n\n'
+            '1. Compare two props and enter your projections and prop-site lines.\n\n'
             '2. Choose the game environment you want to test.\n\n'
             '3. Add recent results for historical matching.\n\n'
             '4. Run the analysis and review each result card.\n\n'
-            'Results are decision support—not guaranteed outcomes. Always verify live lines before placing a wager.',
+            'Results are decision support, not guaranteed outcomes. Always verify live lines before recording a selection.',
             style: TextStyle(color: AppColors.textSecondary, height: 1.5),
           ),
         ),
@@ -1066,7 +1066,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
             description:
                 'Review the strength and direction of the relationship.',
             help:
-                'Coefficients range from -1 to +1. Values near zero have little measured relationship; stronger positive or negative values matter more when building a parlay.',
+                'Coefficients range from -1 to +1. Values near zero have little measured relationship; stronger positive or negative values matter more when combining selections.',
           ),
         if (_simulation != null)
           _card(

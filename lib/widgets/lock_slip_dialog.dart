@@ -119,7 +119,7 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
         setState(() {
           _loadingPreview = false;
           _error =
-              'This entry contains provider-specific multipliers. Confirm the exact payout shown by $_selectedSite before locking.';
+              'This research ticket contains provider-specific multipliers. Confirm the exact return shown by $_selectedSite before saving.';
           _potentialPayout = null;
           _potentialProfit = null;
         });
@@ -139,7 +139,7 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
       setState(() {
         _loadingPreview = false;
         _error =
-            'DraftKings Pick6 is pool-based. Its final prize cannot be calculated from leg odds; use the payout displayed by Pick6.';
+            'DraftKings Pick6 is pool-based. Its final result cannot be calculated from selection prices; use the return displayed by Pick6.';
         _potentialPayout = null;
         _potentialProfit = null;
       });
@@ -240,7 +240,7 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
         ? _entryType
         : entryTypes.first;
     final entryTypeLabel = switch (selectedEntryType) {
-      'PARLAY' => 'Parlay',
+      'PARLAY' => 'Multi-selection',
       'POWER' => 'Power Play',
       'STANDARD' => 'Standard',
       'PERFECT' => 'Perfect Play',
@@ -366,7 +366,7 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
                     decimal: true,
                   ),
                   decoration: const InputDecoration(
-                    labelText: 'Stake',
+                    labelText: 'Entry amount',
                     prefixText: r'$',
                     border: OutlineInputBorder(),
                   ),
@@ -375,7 +375,7 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
                       value?.replaceAll(r'$', '').trim() ?? '',
                     );
                     return stake == null || stake <= 0
-                        ? r'Enter a stake greater than $0.'
+                        ? r'Enter an entry amount greater than $0.'
                         : null;
                   },
                   onChanged: (_) => _updatePreview(),
@@ -383,8 +383,8 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
                 const SizedBox(height: 18),
                 _PreviewRow(
                   label: outcomes.isEmpty
-                      ? 'Potential payout'
-                      : 'Base max payout',
+                      ? 'Estimated return'
+                      : 'Base maximum return',
                   value: _potentialPayout,
                   loading: _loadingPreview,
                 ),
@@ -413,7 +413,7 @@ class _LockSlipDialogState extends State<LockSlipDialog> {
                 if (outcomes.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   const Text(
-                    'Standard selections only. Special picks, promotions, correlations, ties, and voids can change the payout; the prop site display is final.',
+                    'Standard selections only. Special picks, promotions, correlations, ties, and voids can change the return; the prop site display is final.',
                     style: TextStyle(
                       color: AppColors.textMuted,
                       fontSize: 9,

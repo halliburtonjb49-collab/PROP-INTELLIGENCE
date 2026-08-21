@@ -118,13 +118,13 @@ String appPageHowTo(AppPage page) => switch (page) {
   AppPage.board =>
     'Use the sport, category and prop-site filters to narrow today\'s board. Compare the posted line with the projection, edge and confidence, then choose Over or Under to add a prop to the active tracking slip.',
   AppPage.gameMarkets =>
-    'Choose a sport and game, then compare moneyline, spread and total prices across sites. Use the best available number and confirm it again at the sportsbook before playing.',
+    'Choose a sport and game, then compare moneyline, spread, and total prices across sites. Use the best available number and confirm it again with the named prop site.',
   AppPage.propBuilder =>
     'Select sports, prop sites and categories, set your minimum edge and confidence, then build. Review the recommended 3-6 leg size and remove or replace any leg before saving the slip.',
   AppPage.watchlist =>
     'Saved slips appear here automatically while they\'re still unresolved. Refresh to update live scoring, and once a slip is marked Won or Lost it moves to Past Slip History.',
   AppPage.pastSlipHistory =>
-    'Resolved slips live here. Use All, Won and Lost to filter, and track totals and sportsbook profit across your settled tickets.',
+    'Resolved research tickets live here. Use All, Won, and Lost to filter and review totals and tracked results.',
   AppPage.builderPerformance =>
     'Start with 30 days, then filter by sport, site, market or player. Compare slip win rate with individual-leg hit rate and use only meaningful sample sizes when changing your strategy.',
   AppPage.strikeoutProGold =>
@@ -205,7 +205,7 @@ String appPageSubtitle(AppPage page) => switch (page) {
   AppPage.searchPlayers => 'Open focused player and market research',
   AppPage.propAlerts => 'Review monitored conditions and changes',
   AppPage.propBuilder => 'Build a disciplined, research-backed slip',
-  AppPage.watchlist => 'Track live props, ticket results and sportsbook profit',
+  AppPage.watchlist => 'Track live props, research-ticket results, and recorded performance',
   AppPage.pastSlipHistory =>
     'Review resolved slips, outcomes and performance',
   AppPage.builderPerformance => 'Review outcomes and improve your process',
@@ -231,7 +231,7 @@ String appPageTooltip(AppPage page, {required String fallback}) =>
         'Review analytics and, for owners, manage platform data',
       AppPage.ownerOperations =>
         'Open the private owner production operations center',
-      AppPage.lineMovement => 'Track changes across sportsbook lines',
+      AppPage.lineMovement => 'Track changes across prop-site lines',
       AppPage.injuryImpact =>
         'Review verified availability and role-impact warnings',
       AppPage.intelligenceLab =>

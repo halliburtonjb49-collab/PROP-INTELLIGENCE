@@ -480,7 +480,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
         const ContextHelp(
           title: 'Line movement',
           message:
-              'Line movement shows how a sportsbook number changed over time. A move can reflect new information, market demand, or risk management. Compare books and confirm the current line before acting.',
+              'Line movement shows how a prop-site number changed over time. A move can reflect new information, market demand, or risk management. Compare sites and confirm the current line before acting.',
         ),
         const SizedBox(width: 6),
         OutlinedButton.icon(

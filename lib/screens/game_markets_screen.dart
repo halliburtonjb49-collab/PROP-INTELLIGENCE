@@ -146,7 +146,7 @@ class _GameMarketsScreenState extends State<GameMarketsScreen> {
         content: Text(
           added == 1
               ? '${outcome.name} added to Active Slip.'
-              : 'This selection is already in the slip, or the slip uses another sportsbook.',
+              : 'This selection is already in the research ticket, or the ticket uses another prop site.',
           style: TextStyle(
             color: added == 1 ? brand_colors.AppColors.bgBase : Colors.white,
             fontWeight: FontWeight.w800,

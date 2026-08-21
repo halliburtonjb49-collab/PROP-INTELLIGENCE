@@ -127,7 +127,7 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
   ];
 
   static const List<String> _quickLabels = [
-    'Best Bet',
+    'Top Research Selection',
     'High Confidence',
     'Watch Injury News',
     'Late Game',
@@ -1040,7 +1040,7 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
                   maxLength: 30,
                   decoration: const InputDecoration(
                     labelText: 'Custom label',
-                    hintText: 'Best Bet',
+                    hintText: 'Top Research Selection',
                     border: OutlineInputBorder(),
                   ),
                 ),

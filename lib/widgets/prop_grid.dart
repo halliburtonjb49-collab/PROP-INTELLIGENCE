@@ -572,7 +572,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         ? 'PI PICK: the projection suggests a definite OVER or UNDER direction using the available evidence. Evidence source and PI Trust remain visible.'
         : usesResearchFallback
         ? 'RESEARCH PICK: a stable OVER or UNDER research direction is shown because no released model or priced market edge is available. It is low evidence and the PI Verdict remains the action guide.'
-        : 'MARKET LEAN: direction inferred from sportsbook pricing, not a released model pick. Follow the PI Verdict for the action decision.';
+        : 'MARKET LEAN: direction inferred from prop-site pricing, not a released model selection. Follow the PI Verdict for the research decision.';
     final signalColor = prop.dataStale
         ? app_colors.AppColors.warning
         : noPiPick
@@ -1175,7 +1175,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 if (!hasModelPick && prop.proSuggestionUsesHistoricalStats)
                   chip('EVIDENCE: 5/10/20 PROJECTION'),
                 if (!hasModelPick && prop.proSuggestionUsesMarket)
-                  chip('EVIDENCE: SPORTSBOOK PRICING'),
+                  chip('EVIDENCE: PROP-SITE PRICING'),
                 if (usesResearchFallback)
                   chip('EVIDENCE: LOW-EVIDENCE RESEARCH'),
                 if (prop.displayModelIsMarketBaseline) chip('MODEL: BASELINE'),
@@ -2718,7 +2718,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final cached = await _apiService.loadCachedProps(
       selectedSide: widget.selectedSide,
       selectedTier: widget.selectedTier,
-      selectedSportsbook: widget.selectedSite,
+      selectedProp site: widget.selectedSite,
       selectedSport: widget.sportFilter,
       selectedCategory: widget.selectedCategory,
       search: widget.searchQuery,
@@ -2776,7 +2776,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         .fetchProps(
           selectedSide: widget.selectedSide,
           selectedTier: widget.selectedTier,
-          selectedSportsbook: widget.selectedSite,
+          selectedProp site: widget.selectedSite,
           selectedSport: widget.sportFilter,
           selectedCategory: widget.selectedCategory,
           search: widget.searchQuery,
@@ -3765,7 +3765,7 @@ class _SeasonStatusPanel extends StatelessWidget {
                       width: width,
                       icon: Icons.lock_clock_rounded,
                       title: 'OPENING SOON',
-                      detail: 'Sportsbook markets commonly appear 1-7 days before games.',
+                      detail: 'Prop-site markets commonly appear 1-7 days before games.',
                     ),
                     _SeasonInfoTile(
                       width: width,

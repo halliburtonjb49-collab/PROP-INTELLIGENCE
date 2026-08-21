@@ -91,7 +91,7 @@ class PositiveEvScannerCard extends StatelessWidget {
                   const ContextHelp(
                     title: 'Expected value (+EV)',
                     message:
-                        'Positive expected value means the model believes the offered odds are better than the estimated fair odds. EV is a long-run mathematical estimate; an individual wager can still lose.',
+                        'Positive expected value means the model believes the offered price is better than the estimated fair price. EV is a long-run mathematical estimate; an individual selection can still be unsuccessful.',
                   ),
                 ],
               ),
@@ -127,7 +127,7 @@ class PositiveEvScannerCard extends StatelessWidget {
                 children: [
                   const Tooltip(
                     message:
-                        'Model-estimated probability before sportsbook margin',
+                        'Model-estimated probability before market-source margin',
                     child: Text(
                       'FAIR PROB',
                       style: TextStyle(

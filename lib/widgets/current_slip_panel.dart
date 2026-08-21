@@ -264,7 +264,7 @@ class _CurrentSlipPanelContainerState extends State<CurrentSlipPanelContainer> {
                     ),
                   ),
                   child: const Text(
-                    'OPEN SPORTSBOOK (OPTIONAL)',
+                    'OPEN PROP SITE (OPTIONAL)',
                     style: TextStyle(
                       color: Colors.black,
                       fontWeight: FontWeight.bold,

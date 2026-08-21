@@ -320,8 +320,8 @@ class _PropChatPageState extends State<PropChatPage> {
         _ => '',
       };
       final isTicket = await _confirm(
-        'Betting-ticket screenshot?',
-        'Select CONFIRM if this image is a betting-ticket screenshot. '
+        'Research-ticket screenshot?',
+        'Select CONFIRM if this image is a research-ticket screenshot. '
             'Remove account numbers, balances, barcodes, and personal information before uploading.',
       );
       final path = await _service.uploadChatImage(
@@ -1494,7 +1494,7 @@ class _MobileDirectMessagesDialogState
         await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('BETTING-TICKET SCREENSHOT?'),
+            title: const Text('RESEARCH-TICKET SCREENSHOT?'),
             content: const Text(
               'Remove balances, barcodes, account numbers, and personal '
               'information before sharing.',
@@ -1793,7 +1793,7 @@ class _DirectMessagesDialogState extends State<_DirectMessagesDialog> {
         await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('BETTING-TICKET SCREENSHOT?'),
+            title: const Text('RESEARCH-TICKET SCREENSHOT?'),
             content: const Text(
               'Remove balances, barcodes, account numbers, and personal '
               'information before sharing.',

@@ -613,7 +613,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   'Rolling pitcher form: 3-game and 5-game K%, whiff rate, pitch count, and velocity movement',
                   'Opponent lineup strikeout rate versus pitcher handedness and projected plate appearances',
                   'Rest, travel, workload, park, weather, and confirmed lineup context',
-                  'Home-plate umpire tendency and sportsbook line/price movement',
+                  'Home-plate umpire tendency and prop-site line/price movement',
                 ],
               );
               final stack = _MethodologyPanel(
@@ -759,7 +759,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                           : prop.proSuggestionUsesHistoricalStats
                           ? '5/10/20 PROJECTION'
                           : prop.proSuggestionUsesMarket
-                          ? 'SPORTSBOOK PRICING'
+                          ? 'PROP-SITE PRICING'
                           : 'LIVE FEED',
                       style: const TextStyle(
                         color: AppColors.textMuted,

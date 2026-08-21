@@ -117,7 +117,7 @@ class ProviderReliabilityBanner extends StatelessWidget {
                   const Expanded(
                     child: Text(
                       'RECOVERY FEED  |  LINES MAY BE OUT OF DATE  |  '
-                      'CONFIRM AT THE SPORTSBOOK BEFORE BETTING',
+                      'CONFIRM WITH THE NAMED PROP SITE BEFORE ACTING',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

@@ -326,7 +326,7 @@ class GeneratedBuilderLegCard extends StatelessWidget {
                       TextButton.icon(
                         onPressed: onToggleLock,
                         icon: Icon(isLocked ? Icons.lock : Icons.lock_open),
-                        label: Text(isLocked ? 'LOCKED' : 'LOCK PICK'),
+                        label: Text(isLocked ? 'SAVED' : 'SAVE SELECTION'),
                       ),
                       const SizedBox(height: 8),
                       TextButton.icon(

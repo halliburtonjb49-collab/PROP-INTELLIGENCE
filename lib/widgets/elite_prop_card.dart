@@ -399,7 +399,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
                 ),
               const Divider(color: Colors.white10, height: 16),
               const Text(
-                'Verify the live line, injury status, and lineup before placing a wager.',
+                'Verify the live line, injury status, and lineup before recording a research selection.',
                 style: TextStyle(
                   color: brand_colors.AppColors.textSecondary,
                   fontSize: 10,
@@ -491,7 +491,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
               ContextHelp(
                 title: 'Line shopping',
                 message:
-                    'Books can offer different prices for the same market. This comparison ranks the available American odds for the recommended side; a larger positive number or a number closer to zero is generally a better payout. Confirm availability in your state and inside the sportsbook.',
+                    'Prop sites can offer different prices for the same market. This comparison ranks the available American prices for the recommended side; a larger positive number or a number closer to zero generally represents a better available return. Confirm the current value directly with the named prop site.',
               ),
             ],
           ),
@@ -583,7 +583,7 @@ class _ElitePropCardState extends State<ElitePropCard> {
             const SizedBox(height: 12),
             if (publicBets != null)
               _volumeBar(
-                'PUBLIC BETS',
+                'PUBLIC SELECTIONS',
                 publicBets,
                 brand_colors.AppColors.blue,
               ),

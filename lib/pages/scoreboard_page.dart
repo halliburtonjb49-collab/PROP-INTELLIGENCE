@@ -100,7 +100,7 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
           const ContextHelp(
             title: 'Live scoreboard',
             message:
-                'Scores and game status refresh automatically while live updates are connected. Use the date controls to review other slates. Sportsbook grading can differ from unofficial live statistics.',
+                'Scores and game status refresh automatically while live updates are connected. Use the date controls to review other slates. Prop-site settlement rules can differ from unofficial live statistics.',
           ),
           IconButton(
             onPressed: _previousDay,

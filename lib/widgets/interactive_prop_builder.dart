@@ -21,7 +21,7 @@ class _InteractiveConstructorEngineWidgetState
   void _addLeg() {
     SlipManager.togglePropSelection({
       'id': 'custom_${DateTime.now().millisecondsSinceEpoch}',
-      'player_name': 'Custom Parlay Leg',
+      'player_name': 'Custom Research Selection',
       'market_type': selectedStatCategory,
       'line': targetThresholdValue,
       'sportsbook': 'CUSTOM',

@@ -330,7 +330,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                   ContextHelp(
                     title: 'Analytics',
                     message:
-                        'Core shows player, sport, market, and sportsbook coverage. Pro adds projections, confidence, and edge metrics.',
+                        'Core shows player, sport, market, and prop-site coverage. Pro adds projections, confidence, and edge metrics.',
                   ),
                 ],
               ),

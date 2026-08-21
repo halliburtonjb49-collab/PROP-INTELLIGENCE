@@ -182,7 +182,7 @@ class _CentralPropsDisplayGridCanvasState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'SPORTSBOOK',
+              'PROP SITE',
               style: TextStyle(
                 color: brand_colors.AppColors.textMuted,
                 fontSize: 9,

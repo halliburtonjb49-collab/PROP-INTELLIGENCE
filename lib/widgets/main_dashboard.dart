@@ -415,7 +415,7 @@ class _MainDashboardState extends State<MainDashboard> {
         content: SizedBox(
           width: 430,
           child: Text(
-            'Sportsbook: ${prop.sportsbook}\n'
+            'Prop site: ${prop.sportsbook}\n'
             'Recommended side: ${side.name.toUpperCase()} ${prop.line.toStringAsFixed(1)}\n'
             'Available odds: ${(availableOdds ?? -110).round()}\n'
             'Model probability: ${((prop.modelProbability ?? probability) * 100).toStringAsFixed(1)}%\n'
@@ -590,7 +590,7 @@ class _MainDashboardState extends State<MainDashboard> {
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'Broaden the EV threshold, sportsbook, or search to see more opportunities.',
+                      'Broaden the EV threshold, prop site, or search to see more opportunities.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: app_colors.AppColors.textMuted,
@@ -1246,7 +1246,7 @@ class _MainDashboardState extends State<MainDashboard> {
     List<PropData> playerProps;
     try {
       final fetched = await _apiService.fetchProps(
-        selectedSportsbook: focused.sportsbook,
+        selectedProp site: focused.sportsbook,
         selectedSport: focused.sport,
         search: focused.player,
         sortBy: 'time',
