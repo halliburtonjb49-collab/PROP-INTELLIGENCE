@@ -997,6 +997,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             _FieldLabel(
               label: 'Email Address',
               child: TextField(
+                key: const ValueKey('login-email-field'),
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
@@ -1012,6 +1013,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             _FieldLabel(
               label: _isRegistering ? 'Create App Password' : 'Password',
               child: TextField(
+                key: const ValueKey('login-password-field'),
                 controller: _passwordController,
                 obscureText: _obscurePassword,
                 onSubmitted: (_) => _handleAuthentication(),
@@ -1089,6 +1091,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               width: double.infinity,
               height: dense ? 48 : 52,
               child: ElevatedButton(
+                key: const ValueKey('login-submit-action'),
                 onPressed: _isLoading ? null : _handleAuthentication,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _gold,
@@ -1488,10 +1491,12 @@ class _TopNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accessibleCompact =
+        compact || MediaQuery.textScalerOf(context).scale(1) > 1.3;
     return Container(
-      height: compact ? 58 : 66,
+      height: accessibleCompact ? 58 : 66,
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? 12 : (tight ? 18 : 42),
+        horizontal: accessibleCompact ? 8 : (tight ? 18 : 42),
       ),
       decoration: const BoxDecoration(
         color: Color(0xD9000305),
@@ -1501,28 +1506,36 @@ class _TopNavigation extends StatelessWidget {
         children: [
           Tooltip(
             message: 'About PROP INTELLIGENCE',
-            child: OutlinedButton.icon(
+            child: OutlinedButton(
               onPressed: onBrandTap,
-              icon: Icon(
-                Icons.query_stats_rounded,
-                color: _gold,
-                size: compact ? 14 : 18,
-              ),
-              label: Text(
-                'PROP INTELLIGENCE',
-                style: TextStyle(
-                  color: _gold,
-                  fontSize: compact ? 8 : 11,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: compact ? 0.3 : 1,
-                ),
-              ),
+              child: accessibleCompact
+                  ? const Icon(
+                      Icons.query_stats_rounded,
+                      color: _gold,
+                      size: 18,
+                    )
+                  : const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.query_stats_rounded, color: _gold, size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          'PROP INTELLIGENCE',
+                          style: TextStyle(
+                            color: _gold,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: _gold,
                 side: BorderSide(color: _gold.withValues(alpha: 0.65)),
                 padding: EdgeInsets.symmetric(
-                  horizontal: compact ? 5 : (tight ? 10 : 16),
-                  vertical: compact ? 9 : (tight ? 10 : 12),
+                  horizontal: accessibleCompact ? 9 : (tight ? 10 : 16),
+                  vertical: accessibleCompact ? 9 : (tight ? 10 : 12),
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6),
@@ -1531,7 +1544,7 @@ class _TopNavigation extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          if (!compact) ...[
+          if (!accessibleCompact) ...[
             for (final item in [
               const ('FEATURES', 'features'),
               const ('HOW IT WORKS', 'how-it-works'),
@@ -1568,15 +1581,15 @@ class _TopNavigation extends StatelessWidget {
             ),
             const SizedBox(width: 4),
           ],
-          SizedBox(width: compact ? 4 : 10),
+          SizedBox(width: accessibleCompact ? 2 : 10),
           TextButton(
             key: const ValueKey('header-login-action'),
             onPressed: onLogin,
             style: TextButton.styleFrom(
               foregroundColor: _gold,
               padding: EdgeInsets.symmetric(
-                horizontal: compact ? 8 : 14,
-                vertical: compact ? 9 : 12,
+                horizontal: accessibleCompact ? 5 : 14,
+                vertical: accessibleCompact ? 9 : 12,
               ),
             ),
             child: const Text(
@@ -1588,15 +1601,15 @@ class _TopNavigation extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(width: compact ? 2 : 6),
+          SizedBox(width: accessibleCompact ? 0 : 6),
           OutlinedButton(
             onPressed: onSignUp,
             style: OutlinedButton.styleFrom(
               foregroundColor: _gold,
               side: BorderSide(color: _gold.withValues(alpha: 0.65)),
               padding: EdgeInsets.symmetric(
-                horizontal: compact ? 10 : (tight ? 14 : 22),
-                vertical: compact ? 9 : (tight ? 11 : 15),
+                horizontal: accessibleCompact ? 7 : (tight ? 14 : 22),
+                vertical: accessibleCompact ? 9 : (tight ? 11 : 15),
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(6),
@@ -1645,18 +1658,21 @@ class _HeroBrand extends StatelessWidget {
               borderRadius: BorderRadius.circular(99),
               border: Border.all(color: _gold.withValues(alpha: .55)),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.query_stats_rounded, color: _gold, size: 15),
-                SizedBox(width: 7),
-                Text(
-                  'LIVE MULTI-SPORT RESEARCH',
+                const Icon(Icons.query_stats_rounded, color: _gold, size: 15),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                  compact ? 'LIVE SPORTS RESEARCH' : 'LIVE MULTI-SPORT RESEARCH',
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: _gold,
                     fontSize: 9,
                     fontWeight: FontWeight.w900,
                     letterSpacing: .8,
+                  ),
                   ),
                 ),
               ],

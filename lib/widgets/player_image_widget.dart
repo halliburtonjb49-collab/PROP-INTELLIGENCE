@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../services/engagement_tracker.dart';
 import '../services/player_image_resolver.dart';
 
 /// Professional player image widget with enhanced rendering quality,
@@ -98,7 +99,13 @@ class PlayerImageWidget extends StatelessWidget {
             maxWidthDiskCache: 800,
             maxHeightDiskCache: 800,
             placeholder: (_, _) => _buildShimmerPlaceholder(),
-            errorWidget: (_, _, _) => _buildFallback(),
+            errorWidget: (_, failedUrl, _) {
+              EngagementTracker.instance.recordProductOncePer(
+                'PLAYER_IMAGE_FAILURE:${failedUrl.hashCode}',
+                const Duration(minutes: 30),
+              );
+              return _buildFallback();
+            },
           );
         },
         // Memory cache configuration

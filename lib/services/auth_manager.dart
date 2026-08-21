@@ -349,7 +349,7 @@ class AuthManager {
     try {
       await client.auth.signOut();
     } finally {
-      // A failed remote sign-out must not trap an expired user on an screen.
+      // A failed remote sign-out must not trap an expired user on a screen.
       passwordRecoveryRequested.value = false;
       sessionState.value = const AuthSessionState.signedOut();
     }
