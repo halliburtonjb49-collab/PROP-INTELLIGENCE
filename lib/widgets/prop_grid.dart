@@ -3322,35 +3322,44 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                       ],
                     );
                   }
-                  final hasUnpairedCard = sectionGroups.length.isOdd;
-                  final pairedCardCount = hasUnpairedCard
-                      ? sectionGroups.length - 1
-                      : sectionGroups.length;
+                  final rowCount = (sectionGroups.length / columns).ceil();
+                  final minimumPerRow = sectionGroups.length ~/ rowCount;
+                  final fullerRows = sectionGroups.length % rowCount;
+                  var groupIndex = 0;
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (pairedCardCount > 0)
-                        GridView.builder(
-                          shrinkWrap: true,
-                          primary: false,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: pairedCardCount,
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: columns,
-                                crossAxisSpacing: cardSpacing,
-                                mainAxisSpacing: cardSpacing,
-                                mainAxisExtent: 428,
-                              ),
-                          itemBuilder: (context, index) => groupCardFor(
-                            sectionGroups[index],
-                            fixedHeight: true,
-                          ),
+                      for (var rowIndex = 0; rowIndex < rowCount; rowIndex++) ...[
+                        if (rowIndex > 0) SizedBox(height: cardSpacing),
+                        Builder(
+                          builder: (context) {
+                            final cardsInRow = minimumPerRow +
+                                (rowIndex < fullerRows ? 1 : 0);
+                            final rowGroups = sectionGroups.sublist(
+                              groupIndex,
+                              groupIndex += cardsInRow,
+                            );
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                for (var index = 0;
+                                    index < rowGroups.length;
+                                    index++) ...[
+                                  if (index > 0) SizedBox(width: cardSpacing),
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 428,
+                                      child: groupCardFor(
+                                        rowGroups[index],
+                                        fixedHeight: true,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
                         ),
-                      if (hasUnpairedCard) ...[
-                        if (pairedCardCount > 0)
-                          SizedBox(height: cardSpacing),
-                        groupCardFor(sectionGroups.last, fixedHeight: false),
                       ],
                     ],
                   );
