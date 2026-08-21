@@ -3293,19 +3293,39 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   final sectionHasAlternatives = sectionGroups.any(
                     (group) => group.hasAlternatives,
                   );
-                  return GridView.builder(
-                    shrinkWrap: true,
-                    primary: false,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: sectionGroups.length,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: columns,
-                      crossAxisSpacing: cardSpacing,
-                      mainAxisSpacing: cardSpacing,
-                      mainAxisExtent: sectionHasAlternatives ? 438 : 396,
-                    ),
-                    itemBuilder: (context, index) =>
-                        groupCardFor(sectionGroups[index], fixedHeight: true),
+                  final hasUnpairedCard = sectionGroups.length.isOdd;
+                  final pairedCardCount = hasUnpairedCard
+                      ? sectionGroups.length - 1
+                      : sectionGroups.length;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (pairedCardCount > 0)
+                        GridView.builder(
+                          shrinkWrap: true,
+                          primary: false,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: pairedCardCount,
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: columns,
+                                crossAxisSpacing: cardSpacing,
+                                mainAxisSpacing: cardSpacing,
+                                mainAxisExtent: sectionHasAlternatives
+                                    ? 438
+                                    : 396,
+                              ),
+                          itemBuilder: (context, index) => groupCardFor(
+                            sectionGroups[index],
+                            fixedHeight: true,
+                          ),
+                        ),
+                      if (hasUnpairedCard) ...[
+                        if (pairedCardCount > 0)
+                          SizedBox(height: cardSpacing),
+                        groupCardFor(sectionGroups.last, fixedHeight: false),
+                      ],
+                    ],
                   );
                 }
 
