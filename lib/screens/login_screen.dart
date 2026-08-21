@@ -979,6 +979,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               size: dense ? 26 : 28,
               fontSize: dense ? 10.5 : 11.5,
               textColor: _silver70.withValues(alpha: 0.38),
+              alwaysShowNotice: true,
             ),
             const SizedBox(height: 12),
             Container(

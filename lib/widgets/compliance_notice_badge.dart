@@ -28,6 +28,9 @@ class ComplianceNoticeBadge extends StatefulWidget {
   /// Horizontal placement of the badge within its parent.
   final CrossAxisAlignment alignment;
 
+  /// Keeps the full notice visible without requiring badge interaction.
+  final bool alwaysShowNotice;
+
   const ComplianceNoticeBadge({
     super.key,
     this.size = 26,
@@ -35,6 +38,7 @@ class ComplianceNoticeBadge extends StatefulWidget {
     this.fontSize = 10.5,
     this.textColor,
     this.alignment = CrossAxisAlignment.center,
+    this.alwaysShowNotice = false,
   });
 
   @override
@@ -49,25 +53,28 @@ class _ComplianceNoticeBadgeState extends State<ComplianceNoticeBadge> {
     final textColor =
         widget.textColor ?? const Color(0xFFC5C8CC).withValues(alpha: 0.42);
     final centred = widget.alignment == CrossAxisAlignment.center;
+    final showNotice = widget.alwaysShowNotice || _open;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: widget.alignment,
       children: [
         Semantics(
-          button: true,
+          button: !widget.alwaysShowNotice,
           label: 'Compliance notice',
           child: Tooltip(
             message: kComplianceNotice,
             child: InkResponse(
-              onTap: () => setState(() => _open = !_open),
+              onTap: widget.alwaysShowNotice
+                  ? null
+                  : () => setState(() => _open = !_open),
               customBorder: const CircleBorder(),
               radius: widget.size * 0.75,
               child: Padding(
                 padding: const EdgeInsets.all(3),
                 child: ResearchOnlyBadge(
                   size: widget.size,
-                  opacity: _open ? 0.9 : widget.opacity,
+                  opacity: showNotice ? 0.9 : widget.opacity,
                 ),
               ),
             ),
@@ -77,7 +84,7 @@ class _ComplianceNoticeBadgeState extends State<ComplianceNoticeBadge> {
           duration: const Duration(milliseconds: 170),
           curve: Curves.easeOut,
           alignment: Alignment.topCenter,
-          child: _open
+          child: showNotice
               ? Padding(
                   padding: const EdgeInsets.only(top: 5),
                   child: Text(
