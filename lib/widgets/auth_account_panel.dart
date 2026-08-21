@@ -853,6 +853,9 @@ class _SignedInView extends StatelessWidget {
               ),
             TextButton.icon(
               onPressed: onSignOut,
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFD4AF37),
+              ),
               icon: const Icon(Icons.logout_rounded, size: 15),
               label: const Text('SIGN OUT'),
             ),

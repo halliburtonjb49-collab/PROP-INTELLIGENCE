@@ -452,6 +452,22 @@ class DesktopDashboard extends StatefulWidget {
   State<DesktopDashboard> createState() => _DesktopDashboardState();
 }
 
+String inSeasonLaunchSport(DateTime now) {
+  final month = now.month;
+  final sports = <String>[];
+
+  // Broad league windows keep startup useful through regular seasons and
+  // postseasons without requiring a schedule request before the first frame.
+  if (month >= 3 && month <= 10) sports.add('MLB');
+  if (month >= 10 || month <= 6) sports.add('NBA');
+  if (month >= 5 && month <= 10) sports.add('WNBA');
+  if (month >= 9 || month <= 2) sports.add('NFL');
+
+  if (sports.isEmpty) return 'MLB';
+  final dayOfYear = now.difference(DateTime(now.year)).inDays;
+  return sports[dayOfYear % sports.length];
+}
+
 class _DesktopDashboardState extends State<DesktopDashboard> {
   final ApiService _apiService = ApiService();
   final ActiveSlipController _activeSlipController = ActiveSlipController();
@@ -462,7 +478,9 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   Timer? _selectionExpiryTimer;
   Timer? _ticketSyncRetryTimer;
   AppPage _selectedPage = AppPage.board;
-  String _selectedBoardSport = 'ALL';
+  // Open directly on one active league and rotate when seasons overlap,
+  // instead of fetching ALL and replacing it with a second request.
+  String _selectedBoardSport = inSeasonLaunchSport(DateTime.now());
   bool _chatFloating = false;
   bool _chatMinimized = false;
   bool _chatBubbleVisible = true;

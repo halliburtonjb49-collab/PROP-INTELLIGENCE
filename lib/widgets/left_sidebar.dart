@@ -434,7 +434,7 @@ class _SidebarLegalLink extends StatelessWidget {
           style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800),
         ),
         style: TextButton.styleFrom(
-          foregroundColor: app_colors.AppColors.silver,
+          foregroundColor: app_colors.AppColors.gold,
           alignment: Alignment.centerLeft,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         ),
