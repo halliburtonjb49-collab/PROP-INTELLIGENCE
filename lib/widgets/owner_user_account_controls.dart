@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/auth_manager.dart';
+import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 
 Future<void> showOwnerUserRoleManager(
@@ -10,6 +11,7 @@ Future<void> showOwnerUserRoleManager(
   final emailController = TextEditingController();
   final founderNumberController = TextEditingController();
   var selectedRole = 'admin';
+  var sendPasswordSetupEmail = true;
   var saving = false;
 
   await showDialog<void>(
@@ -37,7 +39,7 @@ Future<void> showOwnerUserRoleManager(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'The user must create an account first. Core, Pro, and Pro Founder grant complimentary access without changing billing.',
+                'Create or update any non-owner account. Core, Pro, Pro Founder, and Admin grant complimentary access without requiring payment.',
                 style: TextStyle(color: Color(0xFFE0E0E0), fontSize: 12),
               ),
               const SizedBox(height: 16),
@@ -88,6 +90,29 @@ Future<void> showOwnerUserRoleManager(
                   decoration: _fieldDecoration('Founder number (1-999)'),
                 ),
               ],
+              const SizedBox(height: 8),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: sendPasswordSetupEmail,
+                onChanged: saving
+                    ? null
+                    : (value) => setDialogState(
+                        () => sendPasswordSetupEmail = value,
+                      ),
+                activeTrackColor: AppColors.gold,
+                title: const Text(
+                  'SEND PASSWORD SETUP EMAIL',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                subtitle: const Text(
+                  'New users receive an invitation. Existing users receive a secure password-change link.',
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 10),
+                ),
+              ),
             ],
           ),
         ),
@@ -103,17 +128,18 @@ Future<void> showOwnerUserRoleManager(
                 : () async {
                     setDialogState(() => saving = true);
                     try {
-                      final result = await AuthManager.instance.assignUserRole(
+                      final result = await ApiService().inviteOrUpdateUserAccess(
                         email: emailController.text,
                         role: selectedRole,
                         founderNumber: int.tryParse(
                           founderNumberController.text.trim(),
                         ),
+                        sendPasswordSetupEmail: sendPasswordSetupEmail,
                       );
                       if (!dialogContext.mounted) return;
                       Navigator.pop(dialogContext);
                       showMessage(
-                        '${result['email']} is now ${result['role'].toString().toUpperCase()}.',
+                        '${result['email']} is now ${result['role'].toString().toUpperCase()}. ${result['emailSent'] == true ? 'A secure password setup email was sent.' : 'No password email was requested.'}',
                       );
                     } catch (error) {
                       if (!dialogContext.mounted) return;
@@ -155,7 +181,7 @@ class OwnerUserAccountControls extends StatelessWidget {
           ),
           SizedBox(height: 5),
           Text(
-            'Assign Admin, Core, Pro, Pro Founder, or standard User access. Complimentary roles bypass payment without changing Stripe billing.',
+            'Create accounts; assign Admin, Core, Pro, Pro Founder, or standard User access; bypass payment for complimentary roles; and send secure password setup emails.',
             style: TextStyle(color: AppColors.textMuted, fontSize: 11),
           ),
         ],

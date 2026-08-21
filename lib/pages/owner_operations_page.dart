@@ -378,7 +378,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             ),
             const SizedBox(height: 22),
             _sectionTitle(
-              'OWNER TOP 4 PICKS BY SPORT',
+              'OWNER TOP 5 PICKS BY SPORT',
               'Live, owner-only research shortlist ranked by PI Trust and edge for content preparation',
             ),
             const SizedBox(height: 10),
@@ -581,7 +581,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     final sports = grouped.keys.toList()..sort();
     for (final sport in sports) {
       final picks = grouped[sport]!..sort(_compareOwnerPicks);
-      ranked.addAll(picks.take(4));
+      ranked.addAll(picks.take(5));
     }
     return ranked;
   }

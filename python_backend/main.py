@@ -5300,6 +5300,133 @@ def refresh_mlb_headshots(
 	return {**queued, "message": "MLB headshot refresh queued on the worker."}
 
 
+@app.post("/api/admin/user-access")
+def owner_user_access(
+	body: dict[str, object] = Body(default={}),
+	owner_user_id: str = Depends(require_owner),
+) -> dict[str, object]:
+	"""Create/update a non-owner account and optionally send password setup."""
+	supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+	service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+	if not supabase_url or not service_key:
+		raise HTTPException(status_code=503, detail="Supabase administration is not configured")
+
+	email = str(body.get("email") or "").strip().lower()
+	role = str(body.get("role") or "").strip().lower()
+	founder_number = body.get("founderNumber")
+	send_email = body.get("sendPasswordSetupEmail") is not False
+	if not email or "@" not in email:
+		raise HTTPException(status_code=400, detail="Enter a valid user email address")
+	if role not in {"admin", "core", "pro", "pro_founder", "user"}:
+		raise HTTPException(status_code=400, detail="Owner access cannot be assigned from this control")
+	if role == "pro_founder":
+		try:
+			founder_number = int(founder_number)
+		except (TypeError, ValueError) as exc:
+			raise HTTPException(status_code=400, detail="Pro Founder requires a number from 1 to 999") from exc
+		if not 1 <= founder_number <= 999:
+			raise HTTPException(status_code=400, detail="Pro Founder requires a number from 1 to 999")
+	else:
+		founder_number = None
+
+	headers = {
+		"apikey": service_key,
+		"Authorization": f"Bearer {service_key}",
+		"Content-Type": "application/json",
+	}
+	try:
+		users_response = requests.get(
+			f"{supabase_url}/auth/v1/admin/users",
+			params={"page": 1, "per_page": 1000},
+			headers=headers,
+			timeout=HTTP_TIMEOUT_SECONDS,
+		)
+		users_response.raise_for_status()
+		users_payload = users_response.json()
+		users = users_payload.get("users", []) if isinstance(users_payload, dict) else []
+		user = next(
+			(item for item in users if str(item.get("email") or "").strip().lower() == email),
+			None,
+		)
+		created = user is None
+		if created:
+			invite_response = requests.post(
+				f"{supabase_url}/auth/v1/invite",
+				headers=headers,
+				json={
+					"email": email,
+					"data": {"invited_by_owner": True},
+					"redirect_to": os.getenv("AUTH_EMAIL_REDIRECT_URL", "https://app.propsintell.com"),
+				},
+				timeout=HTTP_TIMEOUT_SECONDS,
+			)
+			if invite_response.status_code >= 400:
+				raise HTTPException(status_code=502, detail="Supabase could not create or invite this user")
+			user = invite_response.json()
+		user_id = str((user or {}).get("id") or "")
+		metadata = (user or {}).get("app_metadata") or {}
+		if str(metadata.get("role") or "").lower() == "owner":
+			raise HTTPException(status_code=403, detail="Owner accounts cannot be modified here")
+		if not user_id:
+			raise HTTPException(status_code=502, detail="Supabase did not return a user identifier")
+
+		account_role = "admin" if role == "admin" else "user"
+		update_response = requests.put(
+			f"{supabase_url}/auth/v1/admin/users/{user_id}",
+			headers=headers,
+			json={"app_metadata": {**metadata, "role": account_role}},
+			timeout=HTTP_TIMEOUT_SECONDS,
+		)
+		update_response.raise_for_status()
+
+		member_role = role if role in {"core", "pro", "pro_founder"} else None
+		profile_response = requests.post(
+			f"{supabase_url}/rest/v1/user_profiles",
+			params={"on_conflict": "id"},
+			headers={**headers, "Prefer": "resolution=merge-duplicates,return=minimal"},
+			json={
+				"id": user_id,
+				"email": email,
+				"assigned_member_role": member_role,
+				"founder_number": founder_number,
+				"is_premium": member_role is not None,
+				"access_granted_by": owner_user_id if member_role is not None or role == "admin" else None,
+				"access_granted_at": datetime.now(timezone.utc).isoformat() if member_role is not None or role == "admin" else None,
+			},
+			timeout=HTTP_TIMEOUT_SECONDS,
+		)
+		if profile_response.status_code >= 400:
+			detail = "That founder number may already be assigned" if profile_response.status_code == 409 else "User profile access could not be updated"
+			raise HTTPException(status_code=409 if profile_response.status_code == 409 else 502, detail=detail)
+
+		email_sent = created
+		if send_email and not created:
+			recovery_response = requests.post(
+				f"{supabase_url}/auth/v1/recover",
+				headers=headers,
+				json={
+					"email": email,
+					"redirect_to": os.getenv("AUTH_EMAIL_REDIRECT_URL", "https://app.propsintell.com"),
+				},
+				timeout=HTTP_TIMEOUT_SECONDS,
+			)
+			recovery_response.raise_for_status()
+			email_sent = True
+		return {
+			"email": email,
+			"role": role,
+			"created": created,
+			"emailSent": email_sent,
+			"paymentBypass": role in {"admin", "core", "pro", "pro_founder"},
+			"founderNumber": founder_number,
+		}
+	except HTTPException:
+		raise
+	except requests.RequestException as exc:
+		logging.exception("Owner user access update failed email=%s", email)
+		raise HTTPException(status_code=502, detail="Account service could not complete this request") from exc
+
+
 @app.get("/api/admin/refresh-mlb-headshots/status")
 def refresh_mlb_headshots_status(_owner: str = Depends(require_owner)) -> dict[str, object]:
 	return {

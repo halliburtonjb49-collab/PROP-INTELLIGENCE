@@ -2442,9 +2442,9 @@ class _MainDashboardState extends State<MainDashboard> {
         selection.prop.id: selection.prop,
     }.values.toList(growable: false);
     // Once a user adds props, the intelligence row summarizes the active
-    // selection instead of remaining pinned to whichever card was last
-    // focused. With no active selection, a card tap still opens the focused
-    // single-prop view.
+    // selection. Player-wide focus is intentionally set only by the EP
+    // control; ordinary card and OVER/UNDER interactions must not open or
+    // scope the view to every prop for that player.
     final props = boardIntelligenceScope(
       selections: widget.selections,
       visibleProps: _visibleProps,
@@ -3214,7 +3214,6 @@ class _MainDashboardState extends State<MainDashboard> {
                                     PropGrid(
                                       selections: widget.selections,
                                       onSelect: (prop, side) {
-                                        setState(() => _focusedProp = prop);
                                         widget.onSelect(prop, side);
                                       },
                                       onPropFocused: _showPlayerPropsOverlay,

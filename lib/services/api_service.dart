@@ -692,6 +692,30 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> inviteOrUpdateUserAccess({
+    required String email,
+    required String role,
+    int? founderNumber,
+    bool sendPasswordSetupEmail = true,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/admin/user-access'),
+      headers: await _authenticatedHeaders(json: true),
+      body: jsonEncode({
+        'email': email.trim().toLowerCase(),
+        'role': role.trim().toLowerCase(),
+        'founderNumber': founderNumber,
+        'sendPasswordSetupEmail': sendPasswordSetupEmail,
+      }),
+    );
+    if (response.statusCode != 200) {
+      final body = jsonDecode(response.body);
+      final detail = body is Map ? body['detail'] : null;
+      throw Exception(detail ?? 'Unable to update user access.');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> updateOwnerPropControl({
     required Map item,
     required bool quarantined,
