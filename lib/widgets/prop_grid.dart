@@ -205,6 +205,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   Widget _fastPlayerPhoto(PropData prop, {double size = 44}) {
     final imagePath = resolvePlayerImagePath(prop.imagePath);
     final retryImagePath = resolvePlayerImageFallbackPath(prop.imagePath);
+    final playerIdentity = prop.canonicalPlayerId.trim().isNotEmpty
+        ? prop.canonicalPlayerId.trim()
+        : prop.playerId.trim().isNotEmpty
+        ? prop.playerId.trim()
+        : prop.player.trim().toLowerCase();
+    String photoKey(String path) =>
+        'player-photo:${prop.sport}:$playerIdentity:${prop.sportsbook}:$path';
     final pixelRatio = MediaQuery.devicePixelRatioOf(context).clamp(1.0, 3.0);
     final cacheSize = (size * pixelRatio * 2.0).round().clamp(128, 512);
     final isNetwork =
@@ -220,11 +227,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           if (officialUrl != null) {
             return CachedNetworkImage(
               imageUrl: officialUrl,
-              imageBuilder: (_, imageProvider) => _playerPhotoFrame(
-                imageProvider,
-                prop.player,
-                size: size,
-              ),
+              imageBuilder: (_, imageProvider) =>
+                  _playerPhotoFrame(imageProvider, prop.player, size: size),
               useOldImageOnUrlChange: true,
               fit: BoxFit.cover,
               alignment: Alignment.center,
@@ -243,13 +247,85 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       );
     }
 
+    if (kIsWeb) {
+      final proxiedWebPath = resolvePlayerImagePath(
+        prop.imagePath,
+        useApiProxyForRemoteImages: true,
+      );
+
+      Widget webImage(String url, {String? retryUrl}) {
+        return Image.network(
+          key: ValueKey(photoKey(url)),
+          url,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
+          filterQuality: FilterQuality.high,
+          gaplessPlayback: true,
+          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+            if (wasSynchronouslyLoaded || frame != null) {
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  _playerPlaceholder(prop.player, size: size),
+                  child,
+                  Positioned(
+                    right: 2,
+                    bottom: 2,
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: app_colors.AppColors.gold,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: app_colors.AppColors.background,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Text(
+                        prop.player.trim().isEmpty
+                            ? '?'
+                            : prop.player.trim().substring(0, 1).toUpperCase(),
+                        style: const TextStyle(
+                          color: app_colors.AppColors.background,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+            return _playerPlaceholder(prop.player, size: size);
+          },
+          errorBuilder: (_, _, _) {
+            if (retryUrl != null && retryUrl.isNotEmpty && retryUrl != url) {
+              return webImage(retryUrl);
+            }
+            EngagementTracker.instance.recordProductOncePer(
+              'PLAYER_IMAGE_FAILURE:${url.hashCode}',
+              const Duration(minutes: 30),
+            );
+            return _playerPlaceholder(prop.player, size: size);
+          },
+        );
+      }
+
+      return webImage(
+        proxiedWebPath.isEmpty ? imagePath : proxiedWebPath,
+        retryUrl: imagePath,
+      );
+    }
+
     return CachedNetworkImage(
+      key: ValueKey(photoKey(imagePath)),
       imageUrl: imagePath,
-      imageBuilder: (_, imageProvider) => _playerPhotoFrame(
-        imageProvider,
-        prop.player,
-        size: size,
-      ),
+      imageBuilder: (_, imageProvider) =>
+          _playerPhotoFrame(imageProvider, prop.player, size: size),
       fit: BoxFit.cover,
       alignment: Alignment.center,
       filterQuality: FilterQuality.high,
@@ -264,12 +340,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       errorWidget: (context, url, error) {
         if (retryImagePath.isNotEmpty && retryImagePath != imagePath) {
           return CachedNetworkImage(
+            key: ValueKey(photoKey(retryImagePath)),
             imageUrl: retryImagePath,
-            imageBuilder: (_, imageProvider) => _playerPhotoFrame(
-              imageProvider,
-              prop.player,
-              size: size,
-            ),
+            imageBuilder: (_, imageProvider) =>
+                _playerPhotoFrame(imageProvider, prop.player, size: size),
             fit: BoxFit.cover,
             alignment: Alignment.center,
             filterQuality: FilterQuality.high,
@@ -3227,10 +3301,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                       mainAxisSpacing: cardSpacing,
                       mainAxisExtent: sectionHasAlternatives ? 438 : 396,
                     ),
-                    itemBuilder: (context, index) => groupCardFor(
-                      sectionGroups[index],
-                      fixedHeight: true,
-                    ),
+                    itemBuilder: (context, index) =>
+                        groupCardFor(sectionGroups[index], fixedHeight: true),
                   );
                 }
 
