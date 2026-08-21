@@ -3092,14 +3092,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     // headshot reloads from scratch: the photos blink out and
                     // back on every refresh and every filter change.
                     key: ValueKey('card-${prop.id}'),
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => widget.onPropFocused?.call(prop),
-                      child: _buildPortraitPropCard(
-                        prop,
-                        selected?.side,
-                        fixedHeight: fixedHeight,
-                      ),
+                    child: _buildPortraitPropCard(
+                      prop,
+                      selected?.side,
+                      fixedHeight: fixedHeight,
                     ),
                   );
                 }

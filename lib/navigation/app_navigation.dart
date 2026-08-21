@@ -207,7 +207,7 @@ String appPageSubtitle(AppPage page) => switch (page) {
   AppPage.propBuilder => 'Build a disciplined, research-backed slip',
   AppPage.watchlist => 'Track live props, ticket results and sportsbook profit',
   AppPage.pastSlipHistory =>
-    'Review resolved slips, win/loss totals and sportsbook profit',
+    'Review resolved slips, outcomes and performance',
   AppPage.builderPerformance => 'Review outcomes and improve your process',
   AppPage.evScanner => 'Surface estimated positive-value opportunities',
   AppPage.strikeoutProGold =>

@@ -31,27 +31,6 @@ class LeftSidebar extends StatefulWidget {
 }
 
 class _LeftSidebarState extends State<LeftSidebar> {
-  static const _researchPages = {
-    AppPage.briefing,
-    AppPage.board,
-    AppPage.searchPlayers,
-    AppPage.lineMovement,
-    AppPage.injuryImpact,
-    AppPage.analytics,
-    AppPage.propChat,
-    AppPage.scoreboard,
-    AppPage.scoreboardWatchlist,
-    AppPage.intelligenceLab,
-    AppPage.refereeTracker,
-    AppPage.evScanner,
-  };
-  static const _buildPages = {
-    AppPage.propBuilder,
-    AppPage.builderPerformance,
-    AppPage.watchlist,
-  };
-  static const _historyPages = {AppPage.pastSlipHistory, AppPage.trackRecord};
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -79,13 +58,9 @@ class _LeftSidebarState extends State<LeftSidebar> {
                 ),
                 children: [
                   _CollapsibleSidebarSection(
-                    key: ValueKey(
-                      'research-${_researchPages.contains(widget.selectedPage)}',
-                    ),
+                    key: const ValueKey('sidebar-research'),
                     title: 'RESEARCH',
-                    initiallyExpanded: _researchPages.contains(
-                      widget.selectedPage,
-                    ),
+                    initiallyExpanded: true,
                     children: [
                       SidebarButton(
                         label: "TODAY'S BRIEFING",
@@ -210,13 +185,9 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   ),
                   const SizedBox(height: 18),
                   _CollapsibleSidebarSection(
-                    key: ValueKey(
-                      'build-${_buildPages.contains(widget.selectedPage)}',
-                    ),
+                    key: const ValueKey('sidebar-build'),
                     title: 'BUILD',
-                    initiallyExpanded: _buildPages.contains(
-                      widget.selectedPage,
-                    ),
+                    initiallyExpanded: true,
                     children: [
                       SidebarButton(
                         label: 'PROP BUILDER',
@@ -256,13 +227,9 @@ class _LeftSidebarState extends State<LeftSidebar> {
                   ),
                   const SizedBox(height: 18),
                   _CollapsibleSidebarSection(
-                    key: ValueKey(
-                      'history-${_historyPages.contains(widget.selectedPage)}',
-                    ),
+                    key: const ValueKey('sidebar-history'),
                     title: 'HISTORY',
-                    initiallyExpanded: _historyPages.contains(
-                      widget.selectedPage,
-                    ),
+                    initiallyExpanded: true,
                     children: [
                       SidebarButton(
                         label: 'PAST SLIP\nHISTORY',

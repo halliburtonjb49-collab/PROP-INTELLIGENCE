@@ -133,6 +133,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   DateTime? _lastUpdated;
   Map<String, Map<String, dynamic>> _liveStats = const {};
   List<SavedSlip> _lastGoodSlips = const [];
+  List<SavedSlip> _historySummarySlips = const [];
   final Set<String> _earlyWinNotified = <String>{};
   final Set<String> _updatingSlipIds = <String>{};
 
@@ -151,15 +152,21 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     if (!_isHistory) {
       final slips = await _apiService.fetchSlips(status: 'active');
       result = widget.activeSlipController.mergeWithRecentLockedSlips(slips);
-    } else if (tab == 'all') {
+    } else {
       final all = await _apiService.fetchSlips();
       final resolved = all
           .where((slip) => slip.status.toLowerCase() != 'active')
           .toList();
-      result = limitHistoryForCore(resolved, hasProAccess: widget.hasProAccess);
-    } else {
-      final slips = await _apiService.fetchSlips(status: tab);
-      result = limitHistoryForCore(slips, hasProAccess: widget.hasProAccess);
+      final available = limitHistoryForCore(
+        resolved,
+        hasProAccess: widget.hasProAccess,
+      );
+      _historySummarySlips = available;
+      result = tab == 'all'
+          ? available
+          : available
+                .where((slip) => slip.status.toLowerCase() == tab)
+                .toList(growable: false);
     }
     _rememberSlips(result);
     return result;
@@ -614,39 +621,43 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
         Row(
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 12, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   Text(
-                    _isHistory
-                        ? 'PAST TRACKING TICKET HISTORY'
-                        : 'TRACKING WATCHER',
+                    _isHistory ? 'PAST SLIP HISTORY' : 'SLIP WATCHER',
                     style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    _isHistory
-                        ? 'Settled tracking tickets and final results'
-                        : 'Saved tracking tickets with live grading',
-                    style: const TextStyle(
-                      color: brand_colors.AppColors.textMuted,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .25,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'PROP INTELLIGENCE provides independent sports research, analytics, pick tracking, and community features. We do not accept wagers, operate a sportsbook, or facilitate betting transactions.',
-                    style: TextStyle(
+                  Text(
+                    _isHistory
+                        ? 'Settled slips and final outcomes'
+                        : 'Saved slips with live grading',
+                    style: const TextStyle(
                       color: brand_colors.AppColors.textMuted,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
                     ),
                   ),
-                ],
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Independent sports research and tracking only. Prop Intelligence does not accept wagers, operate a sportsbook, or facilitate betting transactions.',
+                    style: TextStyle(
+                      color: brand_colors.AppColors.textMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      height: 1.4,
+                    ),
+                  ),
+                  ],
+                ),
               ),
             ),
             Column(
@@ -824,11 +835,24 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                   ? _lastGoodSlips
                   : snapshot.data ?? const <SavedSlip>[];
               final totals = _buildTotals(slips);
+              final now = DateTime.now();
+              final todaySlips = _historySummarySlips.where((slip) {
+                final created = slip.createdAt?.toLocal();
+                return created != null &&
+                    created.year == now.year &&
+                    created.month == now.month &&
+                    created.day == now.day;
+              }).toList(growable: false);
+              final todayTotals = _buildTotals(todaySlips);
               if (slips.isEmpty) {
                 return const Center(child: Text('No slips in this view.'));
               }
               return Column(
                 children: [
+                  if (_isHistory) ...[
+                    _TodayPickPerformance(totals: todayTotals),
+                    const SizedBox(height: 10),
+                  ],
                   if (_showInsights) ...[
                     _TotalsBar(totals: totals),
                     const SizedBox(height: 8),
@@ -1085,6 +1109,77 @@ class _SlipTotals {
   final int measuredClvLegs;
   final int beatCloseLegs;
   final double averageClvPercent;
+}
+
+class _TodayPickPerformance extends StatelessWidget {
+  const _TodayPickPerformance({required this.totals});
+
+  final _SlipTotals totals;
+
+  @override
+  Widget build(BuildContext context) {
+    final graded = totals.wonLegs + totals.lostLegs;
+    final winRate = graded == 0 ? 0.0 : totals.wonLegs / graded * 100;
+    final lossRate = graded == 0 ? 0.0 : totals.lostLegs / graded * 100;
+
+    Widget metric(String label, String value, Color color) => Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: brand_colors.AppColors.textMuted,
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .3,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: brand_colors.AppColors.bgPanel,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: brand_colors.AppColors.gold.withValues(alpha: .62),
+        ),
+      ),
+      child: Row(
+        children: [
+          metric('TODAY\'S GRADED PICKS', '$graded', Colors.white),
+          metric(
+            'WINS',
+            '${totals.wonLegs}  |  ${winRate.toStringAsFixed(1)}%',
+            brand_colors.AppColors.success,
+          ),
+          metric(
+            'LOSSES',
+            '${totals.lostLegs}  |  ${lossRate.toStringAsFixed(1)}%',
+            brand_colors.AppColors.danger,
+          ),
+          metric(
+            'PENDING',
+            '${totals.pendingLegs}',
+            brand_colors.AppColors.warning,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ClvSummary extends StatelessWidget {

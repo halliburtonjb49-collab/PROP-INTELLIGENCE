@@ -220,6 +220,14 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final visible = _visible;
+    final providerSections = <String, List<PropData>>{};
+    for (final prop in visible) {
+      final provider = prop.sportsbook.trim().isEmpty
+          ? 'OTHER PROVIDER'
+          : prop.sportsbook.trim().toUpperCase();
+      providerSections.putIfAbsent(provider, () => <PropData>[]).add(prop);
+    }
     return RefreshIndicator(
       color: AppColors.gold,
       onRefresh: _load,
@@ -238,7 +246,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
             )
           else if (_error != null)
             SliverFillRemaining(child: _errorState())
-          else if (_visible.isEmpty)
+          else if (visible.isEmpty)
             const SliverFillRemaining(
               child: Center(
                 child: Text(
@@ -247,42 +255,84 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                 ),
               ),
             )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(14, 4, 14, 24),
-              sliver: SliverLayoutBuilder(
-                builder: (context, constraints) {
-                  final width = constraints.crossAxisExtent;
-                  final columns = width >= 1050
-                      ? 3
-                      : width >= 650
-                      ? 2
-                      : 1;
-                  return SliverGrid(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: columns,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      mainAxisExtent: 350,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final prop = _visible[index];
+          else ...[
+            for (final section in providerSections.entries) ...[
+              SliverToBoxAdapter(
+                child: _providerDivider(section.key, section.value.length),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
+                sliver: SliverLayoutBuilder(
+                  builder: (context, constraints) {
+                    final width = constraints.crossAxisExtent;
+                    final columns = width >= 1050
+                        ? 3
+                        : width >= 650
+                        ? 2
+                        : 1;
+                    return SliverGrid(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: columns,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        mainAxisExtent: 350,
+                      ),
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final prop = section.value[index];
                         return KeyedSubtree(
                           key: ValueKey('strikeout-card-${prop.id}'),
                           child: _card(prop),
                         );
-                      },
-                      childCount: _visible.length,
-                    ),
-                  );
-                },
+                      }, childCount: section.value.length),
+                    );
+                  },
+                ),
               ),
-            ),
+            ],
+          ],
         ],
       ),
     );
   }
+
+  Widget _providerDivider(String provider, int count) => Container(
+    margin: const EdgeInsets.fromLTRB(14, 4, 14, 10),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+    decoration: BoxDecoration(
+      color: AppColors.gold.withValues(alpha: .08),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: AppColors.gold.withValues(alpha: .72)),
+    ),
+    child: Row(
+      children: [
+        const Icon(
+          Icons.storefront_rounded,
+          size: 16,
+          color: AppColors.gold,
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Text(
+            provider,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .5,
+            ),
+          ),
+        ),
+        Text(
+          '$count ${count == 1 ? 'PROP' : 'PROPS'}',
+          style: const TextStyle(
+            color: AppColors.gold,
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _header() {
     final modeled = _props.where((prop) => prop.projection != null).length;

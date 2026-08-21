@@ -213,7 +213,7 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
         : prop.recommendationExplanation;
   }
 
-  Widget _buildContent({bool expanded = false}) {
+  Widget _buildContent({bool expanded = false, VoidCallback? onExplain}) {
     final suggestedSide = prop.proSuggestedSide;
     final side =
         suggestedSide ??
@@ -259,13 +259,23 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
                 ),
               ),
               if (!expanded)
-                const Text(
-                  'TAP TO EXPAND',
-                  style: TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: .4,
+                TextButton.icon(
+                  key: ValueKey('explain-pick-${prop.id}'),
+                  onPressed: onExplain,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.gold,
+                    minimumSize: const Size(0, 30),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  icon: const Icon(Icons.info_outline_rounded, size: 13),
+                  label: const Text(
+                    'TAP TO EXPLAIN',
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .4,
+                    ),
                   ),
                 ),
             ],
@@ -386,16 +396,16 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = _buildContent();
     if (!expandOnTap) {
-      return content;
+      return _buildContent();
     }
+    final explain = () => _showExpandedDialog(context);
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
-        onTap: () => _showExpandedDialog(context),
-        child: content,
+        onTap: explain,
+        child: _buildContent(onExplain: explain),
       ),
     );
   }
