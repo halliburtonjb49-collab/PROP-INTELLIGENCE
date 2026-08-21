@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/layout/app_shell.dart';
@@ -16,6 +17,7 @@ void main() {
   Widget buildShell({
     int activeSlipCount = 0,
     int watchedSlipCount = 0,
+    ValueListenable<int>? currentViewCountListenable,
     VoidCallback? onMobileWatchSlip,
     ValueChanged<int>? onMobileNavigateIndex,
   }) {
@@ -27,6 +29,7 @@ void main() {
         accountPanel: const Center(child: Text('ACCOUNT PANEL')),
         activeSlipPanel: const Center(child: Text('ACTIVE SLIP PANEL')),
         activeSlipCount: activeSlipCount,
+        currentViewCountListenable: currentViewCountListenable,
         watchedSlipCount: watchedSlipCount,
         onMobileWatchSlip: onMobileWatchSlip,
         onMobileNavigateIndex: onMobileNavigateIndex,
@@ -39,12 +42,24 @@ void main() {
   ) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
+    final currentViewCount = ValueNotifier<int>(42);
+    addTearDown(currentViewCount.dispose);
 
-    await tester.pumpWidget(buildShell(activeSlipCount: 1));
+    await tester.pumpWidget(
+      buildShell(
+        activeSlipCount: 1,
+        currentViewCountListenable: currentViewCount,
+      ),
+    );
 
     expect(find.text('WORKSPACE NAVIGATION'), findsOneWidget);
     expect(find.text('COMMAND BAR'), findsOneWidget);
     expect(find.text('PRIMARY WORKSPACE'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('right-panel-current-view')),
+      findsOneWidget,
+    );
+    expect(find.text('42'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('right-panel-account-button')),
       findsOneWidget,

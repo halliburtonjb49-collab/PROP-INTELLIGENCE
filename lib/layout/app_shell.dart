@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
@@ -277,7 +278,6 @@ class _DesktopRightPanel extends StatelessWidget {
         child: isOpen
             ? _DesktopRightPanelContent(
                 activeSlipCount: activeSlipCount,
-                currentViewCountListenable: currentViewCountListenable,
                 accentColor: accentColor,
                 accountPanel: accountPanel,
                 activeSlipPanel: activeSlipPanel,
@@ -288,6 +288,7 @@ class _DesktopRightPanel extends StatelessWidget {
                 accentColor: accentColor,
                 membershipLabel: membershipLabel,
                 activeSlipCount: activeSlipCount,
+                currentViewCountListenable: currentViewCountListenable,
                 onOpenAccount: onOpenAccount,
                 onOpenActiveSlip: onOpenActiveSlip,
               ),
@@ -299,7 +300,6 @@ class _DesktopRightPanel extends StatelessWidget {
 class _DesktopRightPanelContent extends StatefulWidget {
   const _DesktopRightPanelContent({
     required this.activeSlipCount,
-    required this.currentViewCountListenable,
     required this.accentColor,
     required this.accountPanel,
     required this.activeSlipPanel,
@@ -308,7 +308,6 @@ class _DesktopRightPanelContent extends StatefulWidget {
   });
 
   final int activeSlipCount;
-  final ValueListenable<int>? currentViewCountListenable;
   final Color accentColor;
   final Widget accountPanel;
   final Widget activeSlipPanel;
@@ -457,6 +456,7 @@ class _RightPanelRail extends StatelessWidget {
     required this.accentColor,
     required this.membershipLabel,
     required this.activeSlipCount,
+    required this.currentViewCountListenable,
     required this.onOpenAccount,
     required this.onOpenActiveSlip,
   });
@@ -464,6 +464,7 @@ class _RightPanelRail extends StatelessWidget {
   final Color accentColor;
   final String membershipLabel;
   final int activeSlipCount;
+  final ValueListenable<int>? currentViewCountListenable;
   final VoidCallback onOpenAccount;
   final VoidCallback onOpenActiveSlip;
 

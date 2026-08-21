@@ -36,7 +36,7 @@ void main() {
       ),
     );
 
-    expect(find.text('42'), findsOneWidget);
+    expect(find.text('42'), findsNothing);
     expect(find.text('RESEARCH'), findsOneWidget);
     await tester.tap(find.byTooltip('Refresh props'));
     expect(refreshes, 1);
@@ -70,7 +70,7 @@ void main() {
 
     count.value = 57;
     await tester.pump();
-    expect(find.text('57'), findsOneWidget);
+    expect(find.text('57'), findsNothing);
   });
 
   testWidgets('sidebar fits a mobile viewport', (tester) async {
