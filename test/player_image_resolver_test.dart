@@ -43,15 +43,8 @@ void main() {
     );
 
     expect(resolved.origin, 'https://a.espncdn.com');
-    expect(resolved.path, '/combiner/i');
-    expect(
-      resolved.queryParameters['img'],
-      '/i/headshots/nba/players/full/1.png',
-    );
-    expect(resolved.queryParameters['w'], '160');
-    expect(resolved.queryParameters['h'], '160');
-    expect(resolved.queryParameters['scale'], 'fit');
-    expect(resolved.queryParameters.containsKey('location'), isFalse);
+    expect(resolved.path, '/i/headshots/nba/players/full/1.png');
+    expect(resolved.queryParameters, isEmpty);
   });
 
   test('does not proxy unknown image hosts', () {

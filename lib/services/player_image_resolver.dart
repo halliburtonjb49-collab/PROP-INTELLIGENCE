@@ -13,7 +13,7 @@ String resolvePlayerImagePath(
     // Browser image requests can use these CORS-enabled sports CDNs directly,
     // avoiding a second network hop through Render for every player card.
     if (!(useApiProxyForRemoteImages ?? !kIsWeb)) {
-      return _optimizedWebPlayerImage(trimmed);
+      return trimmed;
     }
     return _proxySupportedPlayerImage(
       trimmed,
@@ -39,10 +39,7 @@ String resolvePlayerImagePath(
 /// Returns a server-proxied retry URL for supported remote player images.
 /// Web cards use the smaller direct CDN image first, then this path if the
 /// browser/CDN request fails. Native clients already use the proxy first.
-String resolvePlayerImageFallbackPath(
-  String rawPath, {
-  String? apiBaseUrl,
-}) {
+String resolvePlayerImageFallbackPath(String rawPath, {String? apiBaseUrl}) {
   final trimmed = rawPath.trim();
   if (!trimmed.startsWith('https://')) return '';
   final fallback = _proxySupportedPlayerImage(
@@ -50,27 +47,6 @@ String resolvePlayerImageFallbackPath(
     apiBaseUrl: apiBaseUrl ?? ApiService.baseUrl,
   );
   return fallback == trimmed ? '' : fallback;
-}
-
-String _optimizedWebPlayerImage(String imageUrl) {
-  final imageUri = Uri.tryParse(imageUrl);
-  if (imageUri == null ||
-      imageUri.host.toLowerCase() != 'a.espncdn.com' ||
-      !imageUri.path.startsWith('/i/headshots/')) {
-    return imageUrl;
-  }
-  // ESPN originals can exceed 300 KB. The official combiner returns a
-  // card-sized CORS-enabled image, cutting first-paint transfer dramatically.
-  return Uri.https('a.espncdn.com', '/combiner/i', {
-    'img': imageUri.path,
-    'w': '160',
-    'h': '160',
-    // ESPN portraits use transparent landscape canvases; a crop anchored at
-    // the origin shifts the athlete out of a circular avatar.
-    // Fit preserves the full portrait on a centered square canvas.
-    'scale': 'fit',
-    'cquality': '80',
-  }).toString();
 }
 
 String _proxySupportedPlayerImage(

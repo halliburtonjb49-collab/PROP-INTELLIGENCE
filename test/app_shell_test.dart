@@ -260,6 +260,11 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(home: ActiveSlipBadge(count: 0, accentColor: accent)),
     );
+    expect(
+      find.byKey(const ValueKey('active-slip-badge-empty')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('active-slip-badge-scale')), findsNothing);
 
     final getScale = () => tester
         .widget<ScaleTransition>(
@@ -267,8 +272,6 @@ void main() {
         )
         .scale
         .value;
-    expect(getScale(), equals(1.0));
-
     await tester.pumpWidget(
       const MaterialApp(home: ActiveSlipBadge(count: 1, accentColor: accent)),
     );

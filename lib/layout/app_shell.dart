@@ -821,6 +821,9 @@ class _ActiveSlipBadgeState extends State<ActiveSlipBadge>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.count <= 0) {
+      return const SizedBox.shrink(key: ValueKey('active-slip-badge-empty'));
+    }
     final muted = widget.count == 0;
     final badgeColor = muted
         ? widget.accentColor.withValues(alpha: 0.42)
