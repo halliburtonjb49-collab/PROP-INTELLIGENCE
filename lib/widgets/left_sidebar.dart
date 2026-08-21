@@ -51,42 +51,6 @@ class _LeftSidebarState extends State<LeftSidebar> {
   };
   static const _historyPages = {AppPage.pastSlipHistory, AppPage.trackRecord};
 
-  String _sportEmoji(String sport) {
-    switch (sport) {
-      case 'MLB':
-        return '⚾';
-      case 'NBA':
-        return '🏀';
-      case 'WNBA':
-        return '🏀';
-      case 'NCAAB':
-        return '\u{1F3C0}';
-      case 'SOCCER':
-        return '⚽';
-      default:
-        return '•';
-    }
-  }
-
-  // Branded gold icons for sports with custom artwork; sports without an
-  // entry here fall back to _sportEmoji.
-  String? _sportImagePath(String sport) {
-    switch (sport) {
-      case 'NFL':
-        return 'assets/branding/sport_icons/nfl.png';
-      case 'NCAAF':
-        return 'assets/branding/sport_icons/ncaaf.png';
-      case 'NCAAB':
-        return 'assets/branding/sport_icons/ncaab.png';
-      case 'CFL':
-        return 'assets/branding/sport_icons/cfl.png';
-      case 'NHL':
-        return 'assets/branding/sport_icons/nhl.png';
-      default:
-        return null;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
