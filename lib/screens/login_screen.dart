@@ -302,28 +302,30 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             icon: Icons.travel_explore_rounded,
             title: 'DISCOVER & COMPARE',
             items: [
-              'Live player props, moneylines, spreads, totals and multi-sportsbook lines',
-              'Player search, market comparison and line-movement tracking',
+              'Sport-first market board that opens on an active in-season league',
+              'Provider-separated props with site-specific sport filtering',
+              'Live player props, moneylines, spreads, totals and line comparison',
               'Live, upcoming and final scoreboards across major sports',
-              'Freshness labels, stale-data protection and monitored provider fallbacks',
+              'Provider freshness, no-inventory, stale-feed and recovery indicators',
             ],
           ),
           _FeatureGroup(
             icon: Icons.psychology_alt_rounded,
             title: 'MODEL INTELLIGENCE',
             items: [
-              'Projections, confidence, edge and expected-value signals',
+              'PI Trust, projections, edge and expected-value research signals',
               'Matchup, fatigue, travel, officiating and game-script context',
               'Correlation analysis, simulations and historical analogs',
               'Poisson and Monte Carlo modeling with de-vigged market probabilities',
-              'Model-version, calibration and closing-line-value reporting',
+              'Transparent model-version, calibration and evidence reporting',
             ],
           ),
           _FeatureGroup(
             icon: Icons.receipt_long_rounded,
             title: 'BUILD & TRACK',
             items: [
-              'Guided prop builder with same-sportsbook slip protection',
+              'Add or remove Over and Under research picks directly from each card',
+              'Provider-safe active slips with same-site protection and clear undo controls',
               'Slip Watcher with live scoring, ticket results and profit by site',
               'Build Performance by sport, player, site and category',
               'Shared props and slips with a clear path from research to tracking',
@@ -346,13 +348,13 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               'Actionable EV Scanner with fair-price and sportsbook comparison',
               'Strikeout Pro Gold with all-site and individual-site views',
               'Multi-sport Intelligence Lab and the updated PI Guide',
-              'Real-time feed monitoring for failures, duplicates and provider limits',
+              'Owner monitoring for outages, stale providers and inventory gaps',
             ],
           ),
           _AboutNotice(
             title: 'BUILT FOR INFORMED DECISIONS',
             text:
-                'PROP INTELLIGENCE is your all-in-one sports-prop command center. Discover live insights, research player props, track picks made on other platforms, measure performance, connect with the community, and use powerful tools without placing bets.',
+                'PROP INTELLIGENCE is a professional sports-research workspace. Start with an in-season sport, review props organized by provider, inspect the evidence, and organize the selections you want to monitor.',
           ),
           _AboutNotice(
             title: 'INDEPENDENT ANALYTICS ONLY',
@@ -367,26 +369,27 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
         content = const [
           _OverlayStep(
             number: '01',
-            title: 'CHOOSE YOUR MARKET',
-            text: 'Select a sport, game, player and prop market to research.',
+            title: 'START WITH A LIVE SPORT',
+            text:
+                'The board opens on an in-season league. Switch sports at any time from the top banner.',
           ),
           _OverlayStep(
             number: '02',
-            title: 'COMPARE THE INFORMATION',
+            title: 'CHOOSE A PROVIDER',
             text:
-                'Review lines, projections, confidence, trends and market movement in one place.',
+                'Review separated provider sections or filter to one prop site and its available sports.',
           ),
           _OverlayStep(
             number: '03',
-            title: 'BUILD YOUR SLIP',
+            title: 'RESEARCH THE PICK',
             text:
-                'Save the props that stand out and organize them before making a decision.',
+                'Compare the line, PI Trust, recommendation, context and detailed research before selecting a side.',
           ),
           _OverlayStep(
             number: '04',
-            title: 'TRACK AND LEARN',
+            title: 'ORGANIZE AND REVIEW',
             text:
-                'Follow results over time and use performance history to improve your process.',
+                'Add or remove picks, monitor changes, and review graded history to improve your process.',
           ),
         ];
       case 'install':
@@ -423,17 +426,17 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
         icon = Icons.person_outline_rounded;
         content = [
           const Text(
-            'I created PROP INTELLIGENCE after spending money on prop bets and realizing I was not getting as much useful information as I needed before making a pick.',
+            'I created PROP INTELLIGENCE because serious sports research should not require jumping between disconnected feeds, spreadsheets and generic pick pages.',
             style: TextStyle(color: _silver70, fontSize: 14, height: 1.65),
           ),
           SizedBox(height: 14),
           Text(
-            'The information was often scattered across different places, difficult to compare, or presented in a way that felt more complicated than it needed to be. I wanted a simpler way to see the lines, trends, projections and other details that could help me make a more informed decision.',
+            'The product brings live markets, provider-separated props, scoreboards, model context, active-slip organization and performance review into one consistent workspace.',
             style: TextStyle(color: _silver70, fontSize: 14, height: 1.65),
           ),
           SizedBox(height: 14),
           Text(
-            'That idea became PROP INTELLIGENCE: one place that brings the most important prop research together in a clear, practical format. It does not promise a winning bet. It is designed to help people understand the information in front of them before they spend their money.',
+            'PROP INTELLIGENCE does not promise outcomes or place wagers. It is designed to make information clearer, expose freshness and limitations, and help members follow a disciplined research process.',
             style: TextStyle(color: _silver70, fontSize: 14, height: 1.65),
           ),
           SizedBox(height: 26),
@@ -478,7 +481,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
         icon = Icons.workspace_premium_outlined;
         content = [
           const Text(
-            'Choose Core for everyday research and organization, or Pro for model-driven intelligence. An active subscription is required; there is no permanent free tier.',
+            'Choose Core for live research, provider comparison and organization, or Pro for deeper model intelligence, advanced scanners and specialty research tools. An active subscription is required; there is no permanent free tier.',
             style: TextStyle(color: _silver70, fontSize: 14, height: 1.65),
           ),
           const SizedBox(height: 20),
@@ -581,7 +584,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
         icon = Icons.forum_outlined;
         content = const [
           Text(
-            'PROP INTELLIGENCE is being shaped with real user feedback. If you have a question, find an issue or want to share an idea, we want to hear it.',
+            'PROP INTELLIGENCE is actively improved using member feedback and reliability monitoring. Contact us for account support, provider-data concerns, accessibility issues or product suggestions.',
             style: TextStyle(color: _silver70, fontSize: 14, height: 1.65),
           ),
           SizedBox(height: 16),
@@ -590,7 +593,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
           _AboutNotice(
             title: 'MEMBER FEEDBACK',
             text:
-                'Members can also continue using the support channel where they received assistance.',
+                'Signed-in members can also use Prop Chat and the in-app feedback controls to report workflow issues.',
           ),
         ];
       case 'terms':
@@ -832,6 +835,11 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                       tight: tightDesktop,
                       onBrandTap: _showAboutDialog,
                       onNavigate: _openSiteSection,
+                      onLogin: () {
+                        if (_isRegistering) {
+                          setState(() => _isRegistering = false);
+                        }
+                      },
                       onSignUp: _startRegistration,
                     ),
                     Expanded(
@@ -900,6 +908,8 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                                         ),
                                       SizedBox(height: compact ? 34 : 48),
                                       _InstallAnywhereSection(compact: compact),
+                                      SizedBox(height: compact ? 24 : 34),
+                                      _Footer(onNavigate: _openSiteSection),
                                     ],
                                   ),
                                 ),
@@ -909,7 +919,6 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                         },
                       ),
                     ),
-                    const _Footer(),
                   ],
                 );
               },
@@ -1407,6 +1416,7 @@ class _TopNavigation extends StatelessWidget {
   final bool tight;
   final VoidCallback onBrandTap;
   final Future<void> Function(String section) onNavigate;
+  final VoidCallback onLogin;
   final VoidCallback onSignUp;
 
   const _TopNavigation({
@@ -1414,6 +1424,7 @@ class _TopNavigation extends StatelessWidget {
     required this.tight,
     required this.onBrandTap,
     required this.onNavigate,
+    required this.onLogin,
     required this.onSignUp,
   });
 
@@ -1526,9 +1537,6 @@ class _TopNavigation extends StatelessWidget {
               const ('HOW IT WORKS', 'how-it-works'),
               const ('PRICING', 'pricing'),
               const ('ABOUT', 'about'),
-              const ('TERMS', 'terms'),
-              if (!tight) const ('PRIVACY', 'privacy'),
-              if (!tight) const ('CONTACT', 'contact'),
             ])
               TextButton(
                 onPressed: () => onNavigate(item.$2),
@@ -1561,6 +1569,26 @@ class _TopNavigation extends StatelessWidget {
             const SizedBox(width: 4),
           ],
           SizedBox(width: compact ? 4 : 10),
+          TextButton(
+            key: const ValueKey('header-login-action'),
+            onPressed: onLogin,
+            style: TextButton.styleFrom(
+              foregroundColor: _gold,
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 8 : 14,
+                vertical: compact ? 9 : 12,
+              ),
+            ),
+            child: const Text(
+              'LOG IN',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .8,
+              ),
+            ),
+          ),
+          SizedBox(width: compact ? 2 : 6),
           OutlinedButton(
             onPressed: onSignUp,
             style: OutlinedButton.styleFrom(
@@ -1604,51 +1632,289 @@ class _HeroBrand extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: compact
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
       children: [
         GestureDetector(
           onLongPress: onLongPress,
-          child: Image.asset(
-            'assets/branding/Final_Master_Logo_Modern_PI.png',
-            width: compact ? (dense ? 180 : 290) : (dense ? 355 : 450),
-            height: compact ? (dense ? 180 : 290) : (dense ? 355 : 450),
-            fit: BoxFit.contain,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+            decoration: BoxDecoration(
+              color: _gold.withValues(alpha: .08),
+              borderRadius: BorderRadius.circular(99),
+              border: Border.all(color: _gold.withValues(alpha: .55)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.query_stats_rounded, color: _gold, size: 15),
+                SizedBox(width: 7),
+                Text(
+                  'LIVE MULTI-SPORT RESEARCH',
+                  style: TextStyle(
+                    color: _gold,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .8,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        SizedBox(height: compact ? 8 : 12),
+        SizedBox(height: compact ? 16 : 20),
+        Text(
+          'RESEARCH THE MARKET.\nBUILD WITH CLARITY.',
+          textAlign: compact ? TextAlign.center : TextAlign.left,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: compact ? 30 : (dense ? 34 : 44),
+            height: 1.02,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -.8,
+          ),
+        ),
+        const SizedBox(height: 13),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 650),
+          child: Text(
+            'Compare live props by sport and provider, understand every PI signal, and organize your research in one professional workspace.',
+            textAlign: compact ? TextAlign.center : TextAlign.left,
+            style: TextStyle(
+              color: _silver70,
+              fontSize: compact ? 14 : 16,
+              height: 1.5,
+            ),
+          ),
+        ),
+        SizedBox(height: compact ? 18 : 22),
         Wrap(
-          alignment: WrapAlignment.center,
-          spacing: compact ? 24 : (dense ? 10 : 30),
-          runSpacing: 22,
-          children: [
-            _Feature(
-              width: dense ? 108 : 120,
-              icon: Icons.query_stats_rounded,
-              title: 'REAL-TIME DATA',
-              detail: 'Up-to-the-minute\nplayer & line data',
-            ),
-            _Feature(
-              width: dense ? 108 : 120,
-              icon: Icons.gps_fixed_rounded,
-              title: 'SHARP ANALYTICS',
-              detail: 'AI-powered models\nto find value',
-            ),
-            _Feature(
-              width: dense ? 108 : 120,
-              icon: Icons.emoji_events_outlined,
-              title: 'HIGHER HIT RATE',
-              detail: 'Data-driven picks\nthat win',
-            ),
-            _Feature(
-              width: dense ? 108 : 120,
-              icon: Icons.verified_user_outlined,
-              title: 'MULTI-SPORT',
-              detail: 'NBA, NFL, MLB, WNBA,\nNHL, Soccer & more',
-            ),
+          alignment: compact ? WrapAlignment.center : WrapAlignment.start,
+          spacing: 8,
+          runSpacing: 8,
+          children: const [
+            _HeroCapability(Icons.sports_rounded, 'SPORT-FIRST BOARD'),
+            _HeroCapability(Icons.storefront_rounded, 'PROVIDER SECTIONS'),
+            _HeroCapability(Icons.scoreboard_rounded, 'LIVE SCOREBOARD'),
+            _HeroCapability(Icons.receipt_long_rounded, 'ACTIVE SLIPS'),
           ],
         ),
+        SizedBox(height: compact ? 20 : 26),
+        _ProductPreview(compact: compact),
       ],
     );
   }
+}
+
+class _HeroCapability extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _HeroCapability(this.icon, this.label);
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    decoration: BoxDecoration(
+      color: const Color(0xCC08141D),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: _silver.withValues(alpha: .16)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: _gold),
+        const SizedBox(width: 7),
+        Text(
+          label,
+          style: const TextStyle(
+            color: _silver,
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .45,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _ProductPreview extends StatelessWidget {
+  final bool compact;
+
+  const _ProductPreview({required this.compact});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    constraints: const BoxConstraints(maxWidth: 720),
+    padding: EdgeInsets.all(compact ? 13 : 16),
+    decoration: BoxDecoration(
+      color: const Color(0xF2071119),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: _gold.withValues(alpha: .55)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: .45),
+          blurRadius: 30,
+          offset: const Offset(0, 16),
+        ),
+      ],
+    ),
+    child: Column(
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.grid_view_rounded, color: _gold, size: 16),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'MARKET BOARD',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .7,
+                ),
+              ),
+            ),
+            Icon(Icons.circle, color: Color(0xFF55D6A3), size: 8),
+            SizedBox(width: 6),
+            Text(
+              'LIVE',
+              style: TextStyle(
+                color: Color(0xFF55D6A3),
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 13),
+        const Row(
+          children: [
+            _PreviewSport('MLB', true),
+            SizedBox(width: 7),
+            _PreviewSport('NBA', false),
+            SizedBox(width: 7),
+            _PreviewSport('WNBA', false),
+            SizedBox(width: 7),
+            _PreviewSport('NFL', false),
+          ],
+        ),
+        const SizedBox(height: 13),
+        const _PreviewProvider(
+          provider: 'DRAFTKINGS',
+          player: 'PLAYER PROPS',
+          signal: 'PI TRUST 91',
+        ),
+        const SizedBox(height: 8),
+        const _PreviewProvider(
+          provider: 'FANDUEL',
+          player: 'MARKET COMPARISON',
+          signal: 'LIVE LINES',
+        ),
+      ],
+    ),
+  );
+}
+
+class _PreviewSport extends StatelessWidget {
+  final String label;
+  final bool selected;
+  const _PreviewSport(this.label, this.selected);
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: selected ? _gold.withValues(alpha: .16) : _fieldBackground,
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: selected ? _gold : const Color(0xFF293640)),
+      ),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: selected ? _gold : _silver70,
+          fontSize: 8,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    ),
+  );
+}
+
+class _PreviewProvider extends StatelessWidget {
+  final String provider;
+  final String player;
+  final String signal;
+  const _PreviewProvider({
+    required this.provider,
+    required this.player,
+    required this.signal,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+    decoration: BoxDecoration(
+      color: _fieldBackground,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: const Color(0xFF293640)),
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _gold.withValues(alpha: .12),
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            provider.substring(0, 1),
+            style: const TextStyle(
+              color: _gold,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                provider,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                player,
+                style: const TextStyle(color: _silver54, fontSize: 8),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          signal,
+          style: const TextStyle(
+            color: Color(0xFF55D6A3),
+            fontSize: 8,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _AboutBullet extends StatelessWidget {
@@ -2162,7 +2428,9 @@ class _OrDivider extends StatelessWidget {
 }
 
 class _Footer extends StatelessWidget {
-  const _Footer();
+  final Future<void> Function(String section) onNavigate;
+
+  const _Footer({required this.onNavigate});
 
   @override
   Widget build(BuildContext context) {
@@ -2173,10 +2441,33 @@ class _Footer extends StatelessWidget {
         color: Color(0xB3000305),
         border: Border(top: BorderSide(color: Color(0xFF111619))),
       ),
-      child: const Column(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 4,
+            children: [
+              for (final item in const [
+                ('ABOUT', 'about'),
+                ('TERMS', 'terms'),
+                ('PRIVACY', 'privacy'),
+                ('CONTACT', 'contact'),
+              ])
+                TextButton(
+                  onPressed: () => onNavigate(item.$2),
+                  child: Text(
+                    item.$1,
+                    style: const TextStyle(
+                      color: _silver70,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.lock_outline_rounded, color: _gold, size: 12),
@@ -2196,8 +2487,8 @@ class _Footer extends StatelessWidget {
           ),
           // The one place the notice stays permanently visible: fine print
           // under the copyright line, where it can't cover any UI.
-          SizedBox(height: 5),
-          Padding(
+          const SizedBox(height: 5),
+          const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20),
             child: Text(
               kComplianceNotice,
@@ -2223,45 +2514,21 @@ class _AnalyticsBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final showSportsAtmosphere = constraints.maxWidth >= 900;
         return Stack(
           fit: StackFit.expand,
           children: [
             const ColoredBox(color: _pageBackground),
-            const ColoredBox(color: Color(0xFF12364D)),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF0B2B40), Color(0xFF07151F)],
+                ),
+              ),
+            ),
 
             CustomPaint(painter: _MarketGridPainter()),
-            if (showSportsAtmosphere) ...[
-              const Positioned(
-                left: 24,
-                top: 120,
-                child: _BackgroundSportIcon(
-                  icon: Icons.sports_basketball_rounded,
-                  size: 116,
-                  rotation: -0.18,
-                  opacity: 0.48,
-                ),
-              ),
-              const Positioned(
-                left: 42,
-                bottom: 90,
-                child: _BackgroundSportIcon(
-                  icon: Icons.sports_baseball_rounded,
-                  size: 104,
-                  rotation: 0.16,
-                  opacity: 0.48,
-                ),
-              ),
-              const Positioned(
-                right: 34,
-                top: 155,
-                child: _BackgroundSportIcon(
-                  icon: Icons.sports_football_rounded,
-                  size: 94,
-                  rotation: -0.48,
-                ),
-              ),
-            ],
           ],
         );
       },
