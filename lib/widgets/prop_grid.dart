@@ -108,10 +108,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   Timer? _lineRefreshTimer;
   bool _isLiveRefreshing = false;
   int _automaticRetryCount = 0;
-  // Which book the user switched a card to, by group. Absent means the
-  // best available book, which is what the card opens with.
-  final Map<String, String> _chosenBookByGroup = <String, String>{};
-
   // Filtering, sorting and collapsing the board happens in build, so every
   // setState paid for it: expanding one card's research or switching one
   // card's book re-derived the whole board. None of those inputs change what
@@ -449,101 +445,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
 
   void _handleCardSelection(PropData prop, PickSide side) {
     widget.onSelect(prop, side);
-  }
-
-  /// The other books carrying this prop, and which one the card is showing.
-  ///
-  /// Collapsing duplicates is only safe while every alternative stays
-  /// reachable, so this is what earns the collapse: the books are listed
-  /// with their own numbers, and picking one changes which prop the card is
-  /// about. The pick handler receives that variant, so a bet lands on the
-  /// book the user chose rather than the one the card opened with.
-  Widget _buildBookSwitcher(PropBookGroup group, PropData shown) {
-    return Container(
-      key: ValueKey('book-switcher-${group.groupId}'),
-      height: 40,
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: app_colors.AppColors.gold.withValues(alpha: .055),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: app_colors.AppColors.gold.withValues(alpha: .42),
-        ),
-      ),
-      child: Row(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 2, right: 10),
-            child: Text(
-              group.linesDiffer ? 'COMPARE LINES' : 'AVAILABLE AT',
-              style: const TextStyle(
-                color: app_colors.AppColors.gold,
-                fontSize: 8,
-                fontWeight: FontWeight.w900,
-                letterSpacing: .35,
-              ),
-            ),
-          ),
-          Expanded(
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: group.variants.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 4),
-              itemBuilder: (context, index) {
-                final variant = group.variants[index];
-                final isShown = variant.id == shown.id;
-                final unavailable = !variant.isSelectable;
-                return Semantics(
-                  button: true,
-                  selected: isShown,
-                  label:
-                      '${variant.sportsbook} line ${variant.line}'
-                      '${unavailable ? ', unavailable' : ''}',
-                  child: InkWell(
-                    key: ValueKey('book-option-${variant.id}'),
-                    onTap: () => setState(() {
-                      _chosenBookByGroup[group.groupId] = variant.id;
-                    }),
-                    child: Container(
-                      alignment: Alignment.center,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        color: isShown
-                            ? app_colors.AppColors.gold
-                            : app_colors.AppColors.sidebar,
-                        borderRadius: BorderRadius.circular(7),
-                        border: Border.all(
-                          color: isShown
-                              ? app_colors.AppColors.gold
-                              : app_colors.AppColors.border,
-                        ),
-                      ),
-                      child: Text(
-                        // A stale book is still listed: the user should see
-                        // it exists, and why it cannot be taken.
-                        '${variant.sportsbook.toUpperCase()} '
-                        '${variant.line.toStringAsFixed(1)}'
-                        '${unavailable ? ' ·' : ''}',
-                        style: TextStyle(
-                          color: isShown
-                              ? app_colors.AppColors.sidebar
-                              : unavailable
-                              ? app_colors.AppColors.silver
-                              : Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildPortraitPropCard(
@@ -3160,9 +3061,17 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 final columns = propGridColumnCount(constraints.maxWidth);
                 final cardSpacing = propGridSpacing(constraints.maxWidth);
 
-                // Collapsed above with the filter and sort, so a page counts
-                // cards rather than the 2.16 rows each card was arriving as.
-                final groups = _boardCacheGroups;
+                // Provider offers remain separate on the board. The backend
+                // grouping is still useful for sorting and identity, but the
+                // interface must not hide providers behind a card switcher.
+                final groups = [
+                  for (final group in _boardCacheGroups)
+                    for (final variant in group.variants)
+                      PropBookGroup(
+                        representative: variant,
+                        variants: [variant],
+                      ),
+                ];
                 final visibleCount = _visiblePropLimit.clamp(0, groups.length);
                 final visibleGroups = groups.take(visibleCount).toList();
                 final hasMore =
@@ -3195,35 +3104,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   );
                 }
 
-                PropData shownFor(PropBookGroup group) {
-                  final chosen = _chosenBookByGroup[group.groupId];
-                  if (chosen == null) return group.representative;
-                  for (final variant in group.variants) {
-                    if (variant.id == chosen) return variant;
-                  }
-                  // The chosen book left the board. Fall back rather than
-                  // showing nothing.
-                  return group.representative;
-                }
-
                 Widget groupCardFor(
                   PropBookGroup group, {
                   required bool fixedHeight,
-                }) {
-                  final shown = shownFor(group);
-                  if (!group.hasAlternatives) {
-                    return cardFor(shown, fixedHeight: fixedHeight);
-                  }
-                  return Column(
-                    key: ValueKey('group-${group.groupId}'),
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildBookSwitcher(group, shown),
-                      Flexible(child: cardFor(shown, fixedHeight: false)),
-                    ],
-                  );
-                }
+                }) => cardFor(group.representative, fixedHeight: fixedHeight);
 
                 Widget providerHeader(String provider, int count) => Container(
                   key: ValueKey('provider-section-$provider'),
@@ -3270,7 +3154,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
 
                 final providerSections = <String, List<PropBookGroup>>{};
                 for (final group in visibleGroups) {
-                  final shown = shownFor(group);
+                  final shown = group.representative;
                   final provider = shown.sportsbook.trim().isEmpty
                       ? 'OTHER PROVIDER'
                       : shown.sportsbook.trim().toUpperCase();
@@ -3290,9 +3174,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                       ],
                     );
                   }
-                  final sectionHasAlternatives = sectionGroups.any(
-                    (group) => group.hasAlternatives,
-                  );
                   final hasUnpairedCard = sectionGroups.length.isOdd;
                   final pairedCardCount = hasUnpairedCard
                       ? sectionGroups.length - 1
@@ -3311,9 +3192,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                                 crossAxisCount: columns,
                                 crossAxisSpacing: cardSpacing,
                                 mainAxisSpacing: cardSpacing,
-                                mainAxisExtent: sectionHasAlternatives
-                                    ? 438
-                                    : 396,
+                                mainAxisExtent: 396,
                               ),
                           itemBuilder: (context, index) => groupCardFor(
                             sectionGroups[index],
