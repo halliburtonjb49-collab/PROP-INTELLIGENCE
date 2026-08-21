@@ -48,6 +48,7 @@ class AppShell extends StatefulWidget {
     required this.accountPanel,
     required this.activeSlipPanel,
     this.activeSlipCount = 0,
+    this.currentViewCountListenable,
     this.watchedSlipCount = 0,
     this.mobileSelectedIndex = 0,
     this.mobileRouteKey,
@@ -64,6 +65,7 @@ class AppShell extends StatefulWidget {
   final Widget accountPanel;
   final Widget activeSlipPanel;
   final int activeSlipCount;
+  final ValueListenable<int>? currentViewCountListenable;
   final int watchedSlipCount;
   final int mobileSelectedIndex;
   final Object? mobileRouteKey;
@@ -191,6 +193,8 @@ class _AppShellState extends State<AppShell> {
                         isOpen: _isRightPanelOpen,
                         activePanelSection: _activeRightPanelSection,
                         activeSlipCount: widget.activeSlipCount,
+                        currentViewCountListenable:
+                            widget.currentViewCountListenable,
                         accentColor: widget.accentColor,
                         membershipLabel: widget.membershipLabel,
                         accountPanel: widget.accountPanel,
@@ -226,6 +230,7 @@ class _DesktopRightPanel extends StatelessWidget {
     required this.isOpen,
     required this.activePanelSection,
     required this.activeSlipCount,
+    required this.currentViewCountListenable,
     required this.accentColor,
     required this.membershipLabel,
     required this.accountPanel,
@@ -238,6 +243,7 @@ class _DesktopRightPanel extends StatelessWidget {
   final bool isOpen;
   final _RightPanelSection activePanelSection;
   final int activeSlipCount;
+  final ValueListenable<int>? currentViewCountListenable;
   final Color accentColor;
   final String membershipLabel;
   final Widget accountPanel;
@@ -271,6 +277,7 @@ class _DesktopRightPanel extends StatelessWidget {
         child: isOpen
             ? _DesktopRightPanelContent(
                 activeSlipCount: activeSlipCount,
+                currentViewCountListenable: currentViewCountListenable,
                 accentColor: accentColor,
                 accountPanel: accountPanel,
                 activeSlipPanel: activeSlipPanel,
@@ -292,6 +299,7 @@ class _DesktopRightPanel extends StatelessWidget {
 class _DesktopRightPanelContent extends StatefulWidget {
   const _DesktopRightPanelContent({
     required this.activeSlipCount,
+    required this.currentViewCountListenable,
     required this.accentColor,
     required this.accountPanel,
     required this.activeSlipPanel,
@@ -300,6 +308,7 @@ class _DesktopRightPanelContent extends StatefulWidget {
   });
 
   final int activeSlipCount;
+  final ValueListenable<int>? currentViewCountListenable;
   final Color accentColor;
   final Widget accountPanel;
   final Widget activeSlipPanel;
@@ -507,6 +516,13 @@ class _RightPanelRail extends StatelessWidget {
               accentColor: accentColor,
             ),
           ),
+          if (currentViewCountListenable != null) ...[
+            const SizedBox(height: 7),
+            ValueListenableBuilder<int>(
+              valueListenable: currentViewCountListenable!,
+              builder: (context, count, _) => _CurrentViewRail(count: count),
+            ),
+          ],
           const Spacer(),
           Tooltip(
             message: '$membershipLabel membership',
@@ -609,42 +625,95 @@ class _RailButton extends StatelessWidget {
             ),
           ),
           onPressed: onTap,
-          child: Stack(
-            alignment: Alignment.center,
+          child: Column(
             children: [
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (hasBadge) const SizedBox(height: 12),
-                  Icon(icon, size: 20),
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    width: 32,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        visibleLabel,
-                        maxLines: 1,
-                        softWrap: false,
-                        style: TextStyle(
-                          color: accentColor,
-                          fontSize: 7,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0,
+              if (hasBadge)
+                SizedBox(
+                  height: 22,
+                  child: Align(alignment: Alignment.topRight, child: trailing),
+                ),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, size: 20),
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      width: 32,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          visibleLabel,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: TextStyle(
+                            color: accentColor,
+                            fontSize: 7,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              if (trailing != const SizedBox.shrink())
-                Positioned(right: -4, top: -5, child: trailing),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+class _CurrentViewRail extends StatelessWidget {
+  const _CurrentViewRail({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'Current view, $count live props',
+    child: Container(
+      key: const ValueKey('right-panel-current-view'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
+      decoration: BoxDecoration(
+        color: piGold.withValues(alpha: .09),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: piGold.withValues(alpha: .65)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.query_stats_rounded, color: piGold, size: 17),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              '$count',
+              maxLines: 1,
+              style: const TextStyle(
+                color: piGold,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          const Text(
+            'LIVE',
+            style: TextStyle(
+              color: piGold,
+              fontSize: 6.5,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .35,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _OpenPanelActionButton extends StatelessWidget {

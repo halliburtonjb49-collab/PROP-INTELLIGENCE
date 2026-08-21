@@ -319,56 +319,6 @@ class _LeftSidebarState extends State<LeftSidebar> {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-            child: ValueListenableBuilder<int>(
-              valueListenable: widget.propCountListenable,
-              builder: (context, count, _) => Container(
-                padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-                decoration: BoxDecoration(
-                  color: app_colors.AppColors.sidebar,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: app_colors.AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'CURRENT VIEW',
-                      style: TextStyle(
-                        color: app_colors.AppColors.textMuted,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '$count',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                        const Text(
-                          'LIVE',
-                          style: TextStyle(
-                            color: app_colors.AppColors.blue,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
           const _SidebarLegalLink(),
           const _SidebarSignOut(),
         ],

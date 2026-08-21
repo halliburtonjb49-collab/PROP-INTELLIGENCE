@@ -2109,6 +2109,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
               accountPanel: _buildAccountPanel(),
               activeSlipPanel: _buildActiveSlipPanel(),
               activeSlipCount: _activeSlipController.legCount,
+              currentViewCountListenable: boardPropCountNotifier,
               watchedSlipCount: _activeSlipController.lockedSlipCount,
               mobileSelectedIndex: switch (_selectedPage) {
                 AppPage.board => 0,
