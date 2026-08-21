@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/prop_data.dart';
+import '../models/scoreboard_game.dart';
 import '../models/slip_selection.dart';
 import '../services/api_service.dart';
 import '../services/prop_book_group.dart';
@@ -16,6 +17,7 @@ import '../services/engagement_tracker.dart';
 import '../services/prop_board_engine.dart';
 import '../services/prop_market_identity.dart';
 import '../services/recommendation_access.dart';
+import '../services/scoreboard_service.dart';
 import '../theme/app_colors.dart' as app_colors;
 import '../theme/app_spacing.dart';
 import 'injury_impact_alert.dart';
@@ -63,6 +65,7 @@ class PropGrid extends StatefulWidget {
   final ValueListenable<int> refreshListenable;
   final ValueChanged<String>? onStartupLog;
   final ApiService? apiService;
+  final Future<List<ScoreboardGame>> Function(String sport)? scheduleLoader;
 
   const PropGrid({
     super.key,
@@ -83,6 +86,7 @@ class PropGrid extends StatefulWidget {
     required this.refreshListenable,
     this.onStartupLog,
     this.apiService,
+    this.scheduleLoader,
   });
 
   @override
@@ -116,6 +120,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   List<PropBookGroup> _boardCacheGroups = const [];
   int _visiblePropLimit = _visiblePropStep;
   final Set<String> _favoritePropIds = <String>{};
+  Future<_SportSeasonStatus>? _seasonStatusFuture;
+  String _seasonStatusSport = '';
+  bool _seasonNotificationEnabled = false;
 
   String get _queryKey => [
     widget.sportFilter,
@@ -2623,6 +2630,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       _visiblePropLimit = _visiblePropStep;
       _autoRetryTimer?.cancel();
       _automaticRetryCount = 0;
+      _seasonStatusFuture = null;
+      _seasonStatusSport = '';
+      _seasonNotificationEnabled = false;
       _startQueryLoad();
     }
   }
@@ -2846,6 +2856,99 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     });
   }
 
+  Future<_SportSeasonStatus> _loadSeasonStatus(String sport) async {
+    try {
+      final games = widget.scheduleLoader == null
+          ? await _loadUpcomingScoreboardGames(sport)
+          : await widget.scheduleLoader!(sport);
+      return _SportSeasonStatus.fromGames(sport, games);
+    } catch (_) {
+      return _SportSeasonStatus.unavailable(sport);
+    }
+  }
+
+  Future<List<ScoreboardGame>> _loadUpcomingScoreboardGames(
+    String sport,
+  ) async {
+    final service = ScoreboardService(baseUrl: ApiService.baseUrl);
+    final now = DateTime.now();
+    final daily = await Future.wait([
+      for (var day = 0; day <= 14; day++)
+        service.fetchGames(date: now.add(Duration(days: day))),
+    ]);
+    final normalized = normalizePropSport(sport);
+    final unique = <String, ScoreboardGame>{};
+    for (final game in daily.expand((games) => games)) {
+      final gameSport = normalizePropSport(
+        game.sport.isEmpty ? game.league : game.sport,
+      );
+      if (gameSport != normalized || !game.isUpcoming) continue;
+      unique[game.id] = game;
+    }
+    final games = unique.values.toList()
+      ..sort(
+        (a, b) => (a.startTime ?? DateTime(2100)).compareTo(
+          b.startTime ?? DateTime(2100),
+        ),
+      );
+    return games;
+  }
+
+  Future<_SportSeasonStatus> _seasonStatus(String sport) {
+    final normalized = normalizePropSport(sport);
+    if (_seasonStatusFuture == null || _seasonStatusSport != normalized) {
+      _seasonStatusSport = normalized;
+      _seasonStatusFuture = _loadSeasonStatus(normalized);
+    }
+    return _seasonStatusFuture!;
+  }
+
+  Future<void> _showUpcomingSchedule(_SportSeasonStatus status) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF0B1822),
+        title: Text(
+          '${status.sport} UPCOMING GAMES',
+          style: const TextStyle(color: Colors.white),
+        ),
+        content: SizedBox(
+          width: 440,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final game in status.games.take(3))
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.event_rounded,
+                    color: app_colors.AppColors.gold,
+                  ),
+                  title: Text(
+                    status.matchup(game),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  subtitle: Text(
+                    status.gameDate(game),
+                    style: const TextStyle(
+                      color: app_colors.AppColors.textMuted,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CLOSE'),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Whether the board has been narrowed by a filter.
   ///
   /// An empty response means opposite things either side of this. With
@@ -2995,9 +3098,57 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 search: widget.searchQuery,
                 minConfidence: widget.minConfidence,
               );
+              final hasSecondaryFilters = hasActiveBoardFilters(
+                sport: '',
+                site: widget.selectedSite,
+                category: widget.selectedCategory,
+                side: widget.selectedSide,
+                tier: widget.selectedTier,
+                verdict: widget.verdictFilter,
+                search: widget.searchQuery,
+                minConfidence: widget.minConfidence,
+              );
               if (!hasFilters && _automaticRetryCount < 3) {
                 _scheduleAutomaticRetry();
                 return const PropLoadingSkeleton();
+              }
+              if (!hasSecondaryFilters &&
+                  normalizedSport.isNotEmpty &&
+                  normalizedSport != 'ALL') {
+                return FutureBuilder<_SportSeasonStatus>(
+                  future: _seasonStatus(normalizedSport),
+                  builder: (context, statusSnapshot) {
+                    if (statusSnapshot.connectionState ==
+                        ConnectionState.waiting) {
+                      return const PropLoadingSkeleton();
+                    }
+                    final status = statusSnapshot.data ??
+                        _SportSeasonStatus.unavailable(normalizedSport);
+                    return _SeasonStatusPanel(
+                      status: status,
+                      notificationEnabled: _seasonNotificationEnabled,
+                      onCheckAgain: _retryLoad,
+                      onViewSchedule: status.games.isEmpty
+                          ? null
+                          : () => _showUpcomingSchedule(status),
+                      onNotify: () {
+                        setState(
+                          () => _seasonNotificationEnabled =
+                              !_seasonNotificationEnabled,
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              _seasonNotificationEnabled
+                                  ? '${status.sport} market notifications enabled for this session.'
+                                  : '${status.sport} market notifications disabled.',
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
               }
               return Container(
                 margin: const EdgeInsets.only(top: 18),
@@ -3021,7 +3172,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     Text(
                       specialtyFeedEmpty
                           ? 'NO LICENSED $normalizedSport PROPS AVAILABLE'
-                          : hasFilters
+                          : hasSecondaryFilters
                           ? 'NO LIVE PROPS MATCH THESE FILTERS'
                           : 'NO LIVE PROPS AVAILABLE',
                       textAlign: TextAlign.center,
@@ -3035,7 +3186,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     Text(
                       specialtyFeedEmpty
                           ? 'The selected prop sites returned no current $normalizedSport player props. Categories remain available above and props will appear automatically when an authorized feed posts them.'
-                          : hasFilters
+                          : hasSecondaryFilters
                           ? 'Try ALL sports, ALL sites and ALL categories. A sport may also be between games or out of season.'
                           : 'The live provider has no current or upcoming props. Refresh again when new games are posted.',
                       textAlign: TextAlign.center,
@@ -3327,5 +3478,322 @@ Future<void> _showPropMetricInfoDialog(
         ),
       );
     },
+  );
+}
+
+class _SportSeasonStatus {
+  const _SportSeasonStatus({
+    required this.sport,
+    required this.state,
+    required this.title,
+    required this.message,
+    required this.games,
+  });
+
+  final String sport;
+  final String state;
+  final String title;
+  final String message;
+  final List<ScoreboardGame> games;
+
+  static const _continuousSports = {'SOCCER', 'TENNIS'};
+
+  factory _SportSeasonStatus.fromGames(
+    String sport,
+    List<ScoreboardGame> games,
+  ) {
+    final normalized = normalizePropSport(sport);
+    final ordered = [...games]
+      ..sort(
+        (a, b) => (a.startTime ?? DateTime(2100)).compareTo(
+          b.startTime ?? DateTime(2100),
+        ),
+      );
+    if (ordered.isEmpty) {
+      final continuous = _continuousSports.contains(normalized);
+      return _SportSeasonStatus(
+        sport: normalized,
+        state: continuous ? 'no_upcoming_markets' : 'offseason',
+        title: continuous
+            ? '$normalized NO UPCOMING MARKETS'
+            : '$normalized OFFSEASON',
+        message: continuous
+            ? 'No upcoming supported events are currently available. PI will update this board automatically when a new market is posted.'
+            : 'The next schedule is not available yet. PI will update this board automatically when the season calendar is released.',
+        games: const [],
+      );
+    }
+    final first = ordered.first.startTime;
+    final until = first == null ? Duration.zero : first.difference(DateTime.now());
+    final imminent = until <= const Duration(days: 1);
+    final continuous = _continuousSports.contains(normalized);
+    return _SportSeasonStatus(
+      sport: normalized,
+      state: imminent ? 'unavailable' : 'awaiting_markets',
+      title: imminent
+          ? '$normalized MARKETS CURRENTLY UNAVAILABLE'
+          : continuous
+          ? '$normalized EVENTS COMING SOON'
+          : '$normalized PRESEASON - MARKETS OPENING SOON',
+      message: imminent
+          ? 'Games are scheduled, but supported books have not returned player props. The board will keep checking automatically.'
+          : 'Player props will appear automatically when supported books release their markets.',
+      games: List.unmodifiable(ordered),
+    );
+  }
+
+  factory _SportSeasonStatus.unavailable(String sport) => _SportSeasonStatus(
+    sport: normalizePropSport(sport),
+    state: 'schedule_unavailable',
+    title: '${normalizePropSport(sport)} SCHEDULE TEMPORARILY UNAVAILABLE',
+    message: 'The schedule feed could not be confirmed. Current prop markets will continue refreshing automatically.',
+    games: const [],
+  );
+
+  ScoreboardGame? get nextGame => games.isEmpty ? null : games.first;
+
+  String matchup(ScoreboardGame game) {
+    if (game.isUfc) {
+      return '${game.fighterOne ?? ''} vs ${game.fighterTwo ?? ''}'.trim();
+    }
+    return '${game.awayTeam} @ ${game.homeTeam}'.trim();
+  }
+
+  String gameDate(ScoreboardGame game) {
+    final date = game.startTime?.toLocal();
+    if (date == null) return game.displayTime ?? 'Time to be announced';
+    const months = [
+      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+    ];
+    final hour = date.hour == 0 ? 12 : date.hour > 12 ? date.hour - 12 : date.hour;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final suffix = date.hour >= 12 ? 'PM' : 'AM';
+    return '${months[date.month - 1]} ${date.day} - $hour:$minute $suffix';
+  }
+
+  String get countdown {
+    final start = nextGame?.startTime;
+    if (start == null) return 'SCHEDULE PENDING';
+    final duration = start.difference(DateTime.now());
+    if (duration.isNegative) return 'STARTING SOON';
+    if (duration.inDays > 0) {
+      return '${duration.inDays} ${duration.inDays == 1 ? 'DAY' : 'DAYS'} AWAY';
+    }
+    return '${duration.inHours.clamp(1, 23)} HOURS AWAY';
+  }
+}
+
+class _SeasonStatusPanel extends StatelessWidget {
+  const _SeasonStatusPanel({
+    required this.status,
+    required this.notificationEnabled,
+    required this.onCheckAgain,
+    required this.onViewSchedule,
+    required this.onNotify,
+  });
+
+  final _SportSeasonStatus status;
+  final bool notificationEnabled;
+  final VoidCallback onCheckAgain;
+  final VoidCallback? onViewSchedule;
+  final VoidCallback onNotify;
+
+  @override
+  Widget build(BuildContext context) {
+    final next = status.nextGame;
+    return Container(
+      key: const ValueKey('season-status-panel'),
+      margin: const EdgeInsets.only(top: 18),
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: const Color(0xFF09141E),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: app_colors.AppColors.borderGold),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            next == null ? Icons.event_busy_rounded : Icons.event_available_rounded,
+            color: app_colors.AppColors.gold,
+            size: 32,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            status.title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .5,
+            ),
+          ),
+          if (next != null) ...[
+            const SizedBox(height: 16),
+            const Text(
+              'FIRST SCHEDULED GAME',
+              style: TextStyle(
+                color: app_colors.AppColors.textMuted,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .8,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${status.gameDate(next)}  |  ${status.countdown}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: app_colors.AppColors.gold,
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Text(
+            status.message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: app_colors.AppColors.textMuted,
+              fontSize: 12,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              if (onViewSchedule != null)
+                OutlinedButton.icon(
+                  onPressed: onViewSchedule,
+                  icon: const Icon(Icons.calendar_month_rounded, size: 17),
+                  label: const Text('VIEW SCHEDULE'),
+                ),
+              OutlinedButton.icon(
+                onPressed: onNotify,
+                icon: Icon(
+                  notificationEnabled
+                      ? Icons.notifications_active_rounded
+                      : Icons.notifications_none_rounded,
+                  size: 17,
+                ),
+                label: Text(notificationEnabled ? 'NOTIFYING' : 'NOTIFY ME'),
+              ),
+              TextButton.icon(
+                onPressed: onCheckAgain,
+                icon: const Icon(Icons.refresh_rounded, size: 17),
+                label: const Text('CHECK AGAIN'),
+              ),
+            ],
+          ),
+          if (status.games.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth < 720
+                    ? constraints.maxWidth
+                    : (constraints.maxWidth - 20) / 3;
+                final games = status.games.take(3).toList();
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _SeasonInfoTile(
+                      width: width,
+                      icon: Icons.lock_clock_rounded,
+                      title: 'OPENING SOON',
+                      detail: 'Sportsbook markets commonly appear 1-7 days before games.',
+                    ),
+                    _SeasonInfoTile(
+                      width: width,
+                      icon: Icons.sports_score_rounded,
+                      title: 'UPCOMING GAMES',
+                      detail: games.map(status.matchup).join('  |  '),
+                    ),
+                    _SeasonInfoTile(
+                      width: width,
+                      icon: Icons.history_rounded,
+                      title: 'LAST SEASON RESEARCH',
+                      detail: 'Historical results remain available in Track Record.',
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+          const SizedBox(height: 12),
+          Text(
+            'Schedule checked ${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}',
+            style: const TextStyle(
+              color: app_colors.AppColors.textMuted,
+              fontSize: 9,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SeasonInfoTile extends StatelessWidget {
+  const _SeasonInfoTile({
+    required this.width,
+    required this.icon,
+    required this.title,
+    required this.detail,
+  });
+
+  final double width;
+  final IconData icon;
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: width,
+    constraints: const BoxConstraints(minHeight: 92),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: app_colors.AppColors.panel,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: app_colors.AppColors.border),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: app_colors.AppColors.gold, size: 18),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                detail,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: app_colors.AppColors.textMuted,
+                  fontSize: 10,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
   );
 }
