@@ -457,7 +457,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   Widget _buildPortraitPropCard(
     PropData prop,
     PickSide? selectedSide, {
-    // A grid cell is a fixed 410px box, so the card fills it with a Spacer.
+    // A desktop grid cell reserves 428px so the research control remains
+    // inside the card border instead of overlapping the provider section.
     // A single-column phone list gives each card its natural height instead,
     // where a Spacer has no bounded height to expand into and would throw.
     bool fixedHeight = true,
@@ -3020,7 +3021,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     ? widget.sportFilter
                     : widget.displaySportFilter,
               );
-              const specialtySports = {'PGA', 'TENNIS', 'SOCCER', 'UFC'};
+              const specialtySports = {'PGA', 'TENNIS', 'SOCCER'};
               final specialtyFeedUnavailable = specialtySports.contains(
                 normalizedSport,
               );
@@ -3099,7 +3100,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 minConfidence: widget.minConfidence,
               );
               final hasSecondaryFilters = hasActiveBoardFilters(
-                sport: '',
+                sport: 'ALL',
                 site: widget.selectedSite,
                 category: widget.selectedCategory,
                 side: widget.selectedSide,
@@ -3339,7 +3340,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                                 crossAxisCount: columns,
                                 crossAxisSpacing: cardSpacing,
                                 mainAxisSpacing: cardSpacing,
-                                mainAxisExtent: 396,
+                                mainAxisExtent: 428,
                               ),
                           itemBuilder: (context, index) => groupCardFor(
                             sectionGroups[index],
