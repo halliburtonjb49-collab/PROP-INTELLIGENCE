@@ -492,7 +492,7 @@ class _RightPanelRail extends StatelessWidget {
             icon: Icons.receipt_long_outlined,
             visibleLabel: 'SLIP',
             accentColor: accentColor,
-            buttonHeight: 66,
+            buttonHeight: 74,
             onTap: onOpenActiveSlip,
             openActionSize: 46,
             openAction: _OpenPanelActionButton(
@@ -590,6 +590,7 @@ class _RailButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasBadge = visibleLabel == 'SLIP';
     return Semantics(
       button: true,
       label: label,
@@ -614,21 +615,30 @@ class _RailButton extends StatelessWidget {
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  if (hasBadge) const SizedBox(height: 12),
                   Icon(icon, size: 20),
                   const SizedBox(height: 4),
-                  Text(
-                    visibleLabel,
-                    style: TextStyle(
-                      color: accentColor,
-                      fontSize: 6.5,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: .25,
+                  SizedBox(
+                    width: 32,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        visibleLabel,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(
+                          color: accentColor,
+                          fontSize: 7,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0,
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
               if (trailing != const SizedBox.shrink())
-                Positioned(right: 0, top: 0, child: trailing),
+                Positioned(right: -4, top: -5, child: trailing),
             ],
           ),
         ),

@@ -1,12 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/main.dart';
+import 'package:prop_intelligence/models/prop_data.dart';
 import 'package:prop_intelligence/pages/owner_operations_page.dart';
 import 'package:prop_intelligence/services/api_service.dart';
 import 'package:prop_intelligence/widgets/owner_user_account_controls.dart';
 
 class _FakeOperationsApi extends ApiService {
   int recoveryRequests = 0;
+
+  @override
+  Future<List<PropData>> fetchProps({
+    String selectedSide = 'All',
+    String selectedTier = 'All',
+    String selectedSportsbook = 'All',
+    String selectedSport = 'All',
+    String selectedCategory = 'All',
+    String search = '',
+    int minConfidence = 0,
+    String sortBy = 'confidence',
+    String verdictFilter = 'All',
+    int limit = 75,
+    int offset = 0,
+  }) async => const [];
 
   @override
   Future<Map<String, dynamic>> fetchBillingCertification() async => {

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../models/prop_data.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_colors.dart' as brand_colors;
@@ -28,6 +29,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   Map<String, dynamic>? _review;
   Map<String, dynamic>? _providerAvailability;
   Map<String, dynamic>? _providerRecovery;
+  List<PropData> _ownerTopPicks = const [];
   bool _recoverySubmitting = false;
   Map<String, dynamic> _strikeoutControlsDraft = const {};
   bool _savingStrikeoutControls = false;
@@ -95,6 +97,14 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       });
     }
     try {
+      final topPicksRequest = _api
+          .fetchProps(
+            selectedSport: 'All',
+            sortBy: 'trust',
+            verdictFilter: 'ACTIONABLE',
+            limit: 500,
+          )
+          .catchError((_) => <PropData>[]);
       final results = await Future.wait([
         _optionalSnapshot(_api.fetchLaunchControlPanel()),
         _optionalSnapshot(_api.fetchBillingCertification()),
@@ -116,6 +126,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         _optionalSnapshot(_api.fetchProviderAvailability()),
         _optionalSnapshot(_api.fetchProviderRecovery()),
       ]);
+      final topPicks = await topPicksRequest;
       if (!mounted) return;
       setState(() {
         _control = results[0];
@@ -125,6 +136,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         _review = results[4];
         _providerAvailability = results[5];
         _providerRecovery = results[6];
+        _ownerTopPicks = _rankOwnerTopPicks(topPicks);
         final ownerInsights =
             _control?['ownerOnlyInsights'] as Map? ?? const {};
         final controlPayload =
@@ -362,6 +374,13 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             OwnerCommandCenterOverview(
               data: _commandCenter ?? const <String, dynamic>{},
             ),
+            const SizedBox(height: 22),
+            _sectionTitle(
+              'OWNER TOP 4 PICKS BY SPORT',
+              'Live, owner-only research shortlist ranked by PI Trust and edge for content preparation',
+            ),
+            const SizedBox(height: 10),
+            _ownerTopPicksPanel(),
             const SizedBox(height: 14),
             const OwnerUserAccountControls(),
             const SizedBox(height: 22),
@@ -526,6 +545,98 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     recoverySubmitting: _recoverySubmitting,
     onRecover: _requestProviderRecovery,
   );
+
+  List<PropData> _rankOwnerTopPicks(List<PropData> props) {
+    final eligible = props.where((prop) {
+      final side = prop.proSuggestedSide?.trim().toUpperCase();
+      return prop.isSelectable &&
+          prop.verdict.actionable &&
+          (side == 'OVER' || side == 'UNDER');
+    }).toList(growable: false);
+    final unique = <String, PropData>{};
+    for (final prop in eligible) {
+      final key = [
+        prop.sport.trim().toUpperCase(),
+        prop.player.trim().toUpperCase(),
+        (prop.displayMarket.isEmpty ? prop.market : prop.displayMarket)
+            .trim()
+            .toUpperCase(),
+        prop.line.toStringAsFixed(2),
+        prop.proSuggestedSide?.trim().toUpperCase() ?? '',
+      ].join('|');
+      final current = unique[key];
+      if (current == null || _compareOwnerPicks(prop, current) < 0) {
+        unique[key] = prop;
+      }
+    }
+    final grouped = <String, List<PropData>>{};
+    for (final prop in unique.values) {
+      final sport = prop.sport.trim().toUpperCase();
+      if (sport.isEmpty) continue;
+      grouped.putIfAbsent(sport, () => []).add(prop);
+    }
+    final ranked = <PropData>[];
+    final sports = grouped.keys.toList()..sort();
+    for (final sport in sports) {
+      final picks = grouped[sport]!..sort(_compareOwnerPicks);
+      ranked.addAll(picks.take(4));
+    }
+    return ranked;
+  }
+
+  int _compareOwnerPicks(PropData left, PropData right) {
+    final trust = right.piTrustScore.compareTo(left.piTrustScore);
+    if (trust != 0) return trust;
+    final edge = right.edge.abs().compareTo(left.edge.abs());
+    if (edge != 0) return edge;
+    return left.player.compareTo(right.player);
+  }
+
+  Widget _ownerTopPicksPanel() {
+    if (_loading && _ownerTopPicks.isEmpty) {
+      return const _OwnerTopPicksLoading();
+    }
+    if (_ownerTopPicks.isEmpty) {
+      return _notice(
+        Icons.hourglass_empty_rounded,
+        'NO QUALIFYING PICKS RIGHT NOW',
+        'The live feed has no selectable actionable picks. This section updates automatically every 30 seconds.',
+        AppColors.gold,
+      );
+    }
+    final grouped = <String, List<PropData>>{};
+    for (final prop in _ownerTopPicks) {
+      grouped.putIfAbsent(prop.sport.trim().toUpperCase(), () => []).add(prop);
+    }
+    return Column(
+      key: const ValueKey('owner-top-picks-by-sport'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color: AppColors.gold.withValues(alpha: .07),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.gold.withValues(alpha: .45)),
+          ),
+          child: const Text(
+            'OWNER USE ONLY  |  RESEARCH SIGNALS, NOT GUARANTEED OUTCOMES  |  VERIFY LIVE LINES BEFORE PUBLISHING',
+            style: TextStyle(
+              color: AppColors.gold,
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        for (final entry in grouped.entries) ...[
+          _OwnerSportPickGroup(sport: entry.key, picks: entry.value),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
   Widget _syncCertification() {
     final certification = _map('syncCertification');
     final checks = (certification['checks'] as List? ?? const [])
@@ -1858,6 +1969,146 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
 ///
 /// Rendered from the columns the backend declares rather than a fixed layout,
 /// so a new tile detail needs no matching change here.
+class _OwnerTopPicksLoading extends StatelessWidget {
+  const _OwnerTopPicksLoading();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 112,
+    decoration: BoxDecoration(
+      color: const Color(0xFF0C1823),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: AppColors.gunmetalLight),
+    ),
+    child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+  );
+}
+
+class _OwnerSportPickGroup extends StatelessWidget {
+  const _OwnerSportPickGroup({required this.sport, required this.picks});
+
+  final String sport;
+  final List<PropData> picks;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFF0C1823),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: AppColors.gunmetalLight),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.auto_awesome_rounded, color: AppColors.gold, size: 16),
+            const SizedBox(width: 7),
+            Text(
+              '$sport  |  TOP ${picks.length}',
+              style: const TextStyle(
+                color: AppColors.gold,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 9),
+        for (var index = 0; index < picks.length; index++)
+          _OwnerPickRow(rank: index + 1, prop: picks[index]),
+      ],
+    ),
+  );
+}
+
+class _OwnerPickRow extends StatelessWidget {
+  const _OwnerPickRow({required this.rank, required this.prop});
+
+  final int rank;
+  final PropData prop;
+
+  @override
+  Widget build(BuildContext context) {
+    final side = prop.proSuggestedSide?.trim().toUpperCase() ?? 'REVIEW';
+    final market = prop.displayMarket.isEmpty ? prop.market : prop.displayMarket;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: AppColors.panel,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.gunmetalLight),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: AppColors.gold,
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              '$rank',
+              style: const TextStyle(
+                color: AppColors.background,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  prop.player,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '$market  |  ${prop.matchup}  |  ${prop.sportsbook}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppColors.silver, fontSize: 9),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$side ${prop.line.toStringAsFixed(1)}',
+                style: const TextStyle(
+                  color: AppColors.gold,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                'TRUST ${prop.piTrustScore}  |  EDGE ${prop.edge.toStringAsFixed(1)}',
+                style: const TextStyle(color: AppColors.silver, fontSize: 8),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DetailSheet extends StatelessWidget {
   const _DetailSheet({required this.title, required this.future});
 
