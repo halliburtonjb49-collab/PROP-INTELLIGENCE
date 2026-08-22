@@ -1147,6 +1147,18 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                   ? null
                   : () => _handleSocialSignIn(OAuthProvider.google),
             ),
+            const SizedBox(height: 10),
+            _SocialButton(
+              label: 'Continue with Apple',
+              leading: const Icon(
+                Icons.apple,
+                size: 22,
+                color: Colors.white,
+              ),
+              onPressed: _isLoading
+                  ? null
+                  : () => _handleSocialSignIn(OAuthProvider.apple),
+            ),
             const SizedBox(height: 13),
             Wrap(
               alignment: WrapAlignment.center,

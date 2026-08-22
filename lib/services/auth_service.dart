@@ -282,6 +282,7 @@ class SportsAppAuthService {
       final launched = await client.auth.signInWithOAuth(
         provider,
         redirectTo: _redirectUrlOrNull,
+        scopes: provider == OAuthProvider.apple ? 'email name' : null,
         queryParams: provider == OAuthProvider.google
             ? const {'prompt': 'select_account'}
             : const {},
