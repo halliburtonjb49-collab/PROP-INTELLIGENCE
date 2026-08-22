@@ -1965,6 +1965,47 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       ],
     ),
   );
+
+  Widget _ownerViewSelector() {
+    const views = <({String label, String metric, IconData icon})>[
+      (label: 'USERS', metric: 'activeUsers', icon: Icons.people_alt_outlined),
+      (label: 'SIGNUPS', metric: 'newSignups', icon: Icons.person_add_alt_1),
+      (label: 'PAYMENTS', metric: 'failedPayments', icon: Icons.payments_outlined),
+      (label: 'SLIPS', metric: 'unsettledSlips', icon: Icons.receipt_long_outlined),
+      (label: 'PROVIDERS', metric: 'providers', icon: Icons.hub_outlined),
+      (label: 'INVENTORY', metric: 'propFreshness', icon: Icons.inventory_2_outlined),
+    ];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: views
+            .map(
+              (view) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: OutlinedButton.icon(
+                  key: ValueKey('owner-view-${view.metric}'),
+                  onPressed: () => _openDetail(view.metric, view.label),
+                  icon: Icon(view.icon, size: 15),
+                  label: Text(view.label),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.gold,
+                    minimumSize: const Size(118, 44),
+                    side: BorderSide(
+                      color: AppColors.gold.withValues(alpha: .55),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .7,
+                    ),
+                  ),
+                ),
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
+  }
 }
 
 /// The rows behind one operations tile.
@@ -2110,46 +2151,6 @@ class _OwnerPickRow extends StatelessWidget {
     );
   }
 
-  Widget _ownerViewSelector() {
-    const views = <({String label, String metric, IconData icon})>[
-      (label: 'USERS', metric: 'activeUsers', icon: Icons.people_alt_outlined),
-      (label: 'SIGNUPS', metric: 'newSignups', icon: Icons.person_add_alt_1),
-      (label: 'PAYMENTS', metric: 'failedPayments', icon: Icons.payments_outlined),
-      (label: 'SLIPS', metric: 'unsettledSlips', icon: Icons.receipt_long_outlined),
-      (label: 'PROVIDERS', metric: 'providers', icon: Icons.hub_outlined),
-      (label: 'INVENTORY', metric: 'propFreshness', icon: Icons.inventory_2_outlined),
-    ];
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: views
-            .map(
-              (view) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: OutlinedButton.icon(
-                  key: ValueKey('owner-view-${view.metric}'),
-                  onPressed: () => _openDetail(view.metric, view.label),
-                  icon: Icon(view.icon, size: 15),
-                  label: Text(view.label),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.gold,
-                    minimumSize: const Size(118, 44),
-                    side: BorderSide(
-                      color: AppColors.gold.withValues(alpha: .55),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: .7,
-                    ),
-                  ),
-                ),
-              ),
-            )
-            .toList(growable: false),
-      ),
-    );
-  }
 }
 
 class _DetailSheet extends StatelessWidget {
