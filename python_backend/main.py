@@ -19,6 +19,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from brotli_asgi import BrotliMiddleware
 import requests
+import jwt
 from threading import Event, Lock, Thread
 
 from config import (
@@ -5300,6 +5301,67 @@ def refresh_mlb_headshots(
 	return {**queued, "message": "MLB headshot refresh queued on the worker."}
 
 
+def _revoke_apple_authorization(token: str, *, token_type_hint: str) -> None:
+	"""Revoke an Apple OAuth token before its associated account is deleted."""
+	team_id = os.getenv("APPLE_TEAM_ID", "").strip()
+	key_id = os.getenv("APPLE_KEY_ID", "").strip()
+	private_key = os.getenv("APPLE_PRIVATE_KEY", "").replace("\\n", "\n").strip()
+	configured_client_ids = [
+		value.strip()
+		for value in os.getenv(
+			"APPLE_CLIENT_IDS",
+			os.getenv("APPLE_CLIENT_ID", ""),
+		).split(",")
+		if value.strip()
+	]
+	if not team_id or not key_id or not private_key or not configured_client_ids:
+		raise HTTPException(
+			status_code=503,
+			detail="Apple account revocation is not configured",
+		)
+
+	client_id = configured_client_ids[0]
+	try:
+		claims = jwt.decode(token, options={"verify_signature": False})
+		audience = str(claims.get("aud") or "").strip()
+		if audience in configured_client_ids:
+			client_id = audience
+	except jwt.PyJWTError:
+		pass
+
+	now = datetime.now(timezone.utc)
+	client_secret = jwt.encode(
+		{
+			"iss": team_id,
+			"iat": int(now.timestamp()),
+			"exp": int((now + timedelta(minutes=5)).timestamp()),
+			"aud": "https://appleid.apple.com",
+			"sub": client_id,
+		},
+		private_key,
+		algorithm="ES256",
+		headers={"kid": key_id},
+	)
+	try:
+		response = requests.post(
+			"https://appleid.apple.com/auth/revoke",
+			data={
+				"client_id": client_id,
+				"client_secret": client_secret,
+				"token": token,
+				"token_type_hint": token_type_hint,
+			},
+			timeout=HTTP_TIMEOUT_SECONDS,
+		)
+		response.raise_for_status()
+	except requests.RequestException as exc:
+		logging.exception("Apple authorization revocation failed")
+		raise HTTPException(
+			status_code=502,
+			detail="Apple authorization could not be revoked; account was not deleted",
+		) from exc
+
+
 @app.delete("/api/account")
 def delete_current_account(
 	body: dict[str, object] = Body(default={}),
@@ -5320,6 +5382,31 @@ def delete_current_account(
 		"Content-Type": "application/json",
 	}
 	try:
+		user_response = requests.get(
+			f"{supabase_url}/auth/v1/admin/users/{user_id}",
+			headers=headers,
+			timeout=HTTP_TIMEOUT_SECONDS,
+		)
+		user_response.raise_for_status()
+		identities = user_response.json().get("identities") or []
+		uses_apple = any(
+			str(identity.get("provider") or "").lower() == "apple"
+			for identity in identities
+			if isinstance(identity, dict)
+		)
+		if uses_apple:
+			refresh_token = str(body.get("appleProviderRefreshToken") or "").strip()
+			access_token = str(body.get("appleProviderToken") or "").strip()
+			if refresh_token:
+				_revoke_apple_authorization(refresh_token, token_type_hint="refresh_token")
+			elif access_token:
+				_revoke_apple_authorization(access_token, token_type_hint="access_token")
+			else:
+				raise HTTPException(
+					status_code=409,
+					detail="Sign in with Apple again before deleting this account",
+				)
+
 		response = requests.delete(
 			f"{supabase_url}/auth/v1/admin/users/{user_id}",
 			params={"should_soft_delete": "false"},

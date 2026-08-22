@@ -717,10 +717,17 @@ class ApiService {
   }
 
   Future<void> deleteCurrentAccount() async {
+    final session = SupabaseService.client?.auth.currentSession;
     final response = await http.delete(
       Uri.parse('$baseUrl/api/account'),
       headers: await _authenticatedHeaders(json: true),
-      body: jsonEncode({'confirmation': 'DELETE'}),
+      body: jsonEncode({
+        'confirmation': 'DELETE',
+        if ((session?.providerToken ?? '').isNotEmpty)
+          'appleProviderToken': session!.providerToken,
+        if ((session?.providerRefreshToken ?? '').isNotEmpty)
+          'appleProviderRefreshToken': session!.providerRefreshToken,
+      }),
     );
     if (response.statusCode != 200) {
       Object? detail;
