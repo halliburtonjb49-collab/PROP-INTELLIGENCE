@@ -716,6 +716,24 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  Future<void> deleteCurrentAccount() async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/api/account'),
+      headers: await _authenticatedHeaders(json: true),
+      body: jsonEncode({'confirmation': 'DELETE'}),
+    );
+    if (response.statusCode != 200) {
+      Object? detail;
+      try {
+        final body = jsonDecode(response.body);
+        detail = body is Map ? body['detail'] : null;
+      } catch (_) {
+        detail = null;
+      }
+      throw Exception(detail ?? 'Unable to delete this account.');
+    }
+  }
+
   Future<Map<String, dynamic>> updateOwnerPropControl({
     required Map item,
     required bool quarantined,

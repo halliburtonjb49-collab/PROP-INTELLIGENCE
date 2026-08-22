@@ -4,6 +4,7 @@ import '../models/member_identity.dart';
 import '../screens/paywall_screen.dart';
 import '../services/auth_manager.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 import '../services/billing_service.dart';
 import '../services/prop_watchlist_service.dart';
 import 'member_identity_badge.dart';
@@ -113,6 +114,64 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
 
   Future<void> _manageSubscription() async {
     await RevenueCatBillingService().openSubscriptionManagement(context);
+  }
+
+  Future<void> _deleteAccount() async {
+    final confirmationController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: brand_colors.AppColors.sidebar,
+        title: const Text('DELETE ACCOUNT'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This permanently deletes your account and associated research data. '
+              'Deleting the account does not cancel an Apple subscription; manage '
+              'that subscription first if one is active.',
+            ),
+            const SizedBox(height: 14),
+            const Text('Type DELETE to confirm.'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: confirmationController,
+              autofocus: true,
+              decoration: _fieldDecoration('Confirmation'),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.pop(
+              dialogContext,
+              confirmationController.text.trim() == 'DELETE',
+            ),
+            child: const Text('DELETE PERMANENTLY'),
+          ),
+        ],
+      ),
+    );
+    confirmationController.dispose();
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _submitting = true);
+    try {
+      await ApiService().deleteCurrentAccount();
+      await AuthManager.instance.signOut();
+      _showMessage('Your account and associated data were deleted.');
+    } catch (error) {
+      _showMessage('Account deletion failed: $error');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   void _setOwnerPreview(String selection) {
@@ -516,6 +575,7 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
                   onSubmitChangeRequest: state.isAdmin
                       ? _submitChangeRequest
                       : null,
+                  onDeleteAccount: _submitting ? null : _deleteAccount,
                   onSignOut: () async {
                     try {
                       await AuthManager.instance.signOut();
@@ -651,6 +711,7 @@ class _SignedInView extends StatelessWidget {
   final VoidCallback? onManageRoles;
   final VoidCallback? onChangeRequests;
   final VoidCallback? onSubmitChangeRequest;
+  final Future<void> Function()? onDeleteAccount;
   final Future<void> Function() onSignOut;
 
   const _SignedInView({
@@ -666,6 +727,7 @@ class _SignedInView extends StatelessWidget {
     required this.onManageRoles,
     required this.onChangeRequests,
     required this.onSubmitChangeRequest,
+    required this.onDeleteAccount,
     required this.onSignOut,
   });
 
@@ -851,6 +913,13 @@ class _SignedInView extends StatelessWidget {
                   normalizedRole == 'owner' ? 'APPROVALS' : 'REQUESTS',
                 ),
               ),
+            TextButton.icon(
+              key: const ValueKey('delete-account-button'),
+              onPressed: onDeleteAccount,
+              style: TextButton.styleFrom(foregroundColor: Colors.red.shade300),
+              icon: const Icon(Icons.delete_forever_outlined, size: 15),
+              label: const Text('DELETE ACCOUNT'),
+            ),
             TextButton.icon(
               onPressed: onSignOut,
               style: TextButton.styleFrom(

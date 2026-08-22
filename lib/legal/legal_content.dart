@@ -92,7 +92,7 @@ const privacySections = <LegalSection>[
   LegalSection(
     title: 'YOUR CHOICES',
     text:
-        'You can disable notifications in device or browser settings, manage or cancel subscriptions through the purchase platform, and request access, correction, or deletion of eligible account information by contacting support.',
+        'You can disable notifications in device or browser settings and manage or cancel subscriptions through the purchase platform. You may permanently delete your account and associated eligible data from Account > Delete Account. You may also contact support to request access or correction.',
   ),
   LegalSection(
     title: 'CONTACT & EFFECTIVE DATE',

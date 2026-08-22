@@ -5300,6 +5300,41 @@ def refresh_mlb_headshots(
 	return {**queued, "message": "MLB headshot refresh queued on the worker."}
 
 
+@app.delete("/api/account")
+def delete_current_account(
+	body: dict[str, object] = Body(default={}),
+	user_id: str = Depends(require_user_id),
+) -> dict[str, object]:
+	"""Permanently remove the authenticated account and cascading Supabase data."""
+	if str(body.get("confirmation") or "") != "DELETE":
+		raise HTTPException(status_code=400, detail="Type DELETE to confirm account deletion")
+
+	supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+	service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+	if not supabase_url or not service_key:
+		raise HTTPException(status_code=503, detail="Account deletion is temporarily unavailable")
+
+	headers = {
+		"apikey": service_key,
+		"Authorization": f"Bearer {service_key}",
+		"Content-Type": "application/json",
+	}
+	try:
+		response = requests.delete(
+			f"{supabase_url}/auth/v1/admin/users/{user_id}",
+			params={"should_soft_delete": "false"},
+			headers=headers,
+			timeout=HTTP_TIMEOUT_SECONDS,
+		)
+		if response.status_code == 404:
+			return {"deleted": True}
+		response.raise_for_status()
+		return {"deleted": True}
+	except requests.RequestException as exc:
+		logging.exception("Account deletion failed user_id=%s", user_id)
+		raise HTTPException(status_code=502, detail="Account service could not delete this account") from exc
+
+
 @app.post("/api/admin/user-access")
 def owner_user_access(
 	body: dict[str, object] = Body(default={}),
