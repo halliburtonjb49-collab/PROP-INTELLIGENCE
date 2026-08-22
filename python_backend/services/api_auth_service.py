@@ -91,21 +91,13 @@ def _remember_membership(token: str, membership: Membership) -> Membership:
 
 
 def _owner_emails() -> set[str]:
-    configured = {
-        value.strip().lower()
-        for value in os.getenv("OWNER_EMAILS", "").split(",")
-        if value.strip()
-    }
-    return _DEFAULT_OWNER_EMAILS | configured
+    """Return the single immutable production owner email."""
+    return _DEFAULT_OWNER_EMAILS
 
 
 def _owner_user_ids() -> set[str]:
-    configured = {
-        value.strip().lower()
-        for value in os.getenv("OWNER_USER_IDS", "").split(",")
-        if value.strip()
-    }
-    return _DEFAULT_OWNER_USER_IDS | configured
+    """Return the single immutable production owner user ID."""
+    return _DEFAULT_OWNER_USER_IDS
 
 
 def _token_claims(token: str) -> dict[str, object]:
@@ -199,7 +191,7 @@ def _resolve_membership_uncached(authorization: str) -> Membership:
         if isinstance(metadata, dict)
         else ""
     )
-    if user_id.lower() in _owner_user_ids() or email in _owner_emails() or role == "owner":
+    if user_id.lower() in _owner_user_ids() or email in _owner_emails():
         return Membership(user_id, AccessLevel.OWNER, "pro", "owner")
     if role == "admin":
         return Membership(user_id, AccessLevel.ADMIN, "pro", "admin")
@@ -285,7 +277,7 @@ def require_admin(x_admin_key: str = Header(default=""), authorization: str = He
     email = str((user or {}).get("email") or "").strip().lower()
     user_id = str((user or {}).get("id") or "").strip().lower()
     if user and (
-        role in {"owner", "admin"}
+        role == "admin"
         or email in _owner_emails()
         or user_id in _owner_user_ids()
     ):
@@ -299,15 +291,10 @@ def require_owner(authorization: str = Header(default="")) -> str:
         user = _supabase_user(token)
     except requests.RequestException as exc:
         raise HTTPException(status_code=503, detail="Authentication service unavailable") from exc
-    metadata = (user or {}).get("app_metadata") or {}
-    # Only app_metadata is authoritative. Trusting user_metadata here would
-    # allow a normal account to self-assert an owner role.
-    role = str(metadata.get("role") or "").lower() if isinstance(metadata, dict) else ""
     email = str((user or {}).get("email") or "").strip().lower()
     user_id = str((user or {}).get("id") or "").strip().lower()
     if user and (
-        role == "owner"
-        or email in _owner_emails()
+        email in _owner_emails()
         or user_id in _owner_user_ids()
     ):
         return str(user.get("id"))

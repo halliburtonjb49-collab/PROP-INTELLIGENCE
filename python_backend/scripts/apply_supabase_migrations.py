@@ -59,6 +59,7 @@ MIGRATIONS = (
     "supabase_member_signup_notifications.sql",
     "supabase_owner_operations_security.sql",
     "supabase_provider_availability_snapshots.sql",
+    "supabase_single_owner_enforcement.sql",
 )
 
 

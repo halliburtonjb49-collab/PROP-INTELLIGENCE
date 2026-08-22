@@ -29,7 +29,9 @@ String resolveAccountRole({
     return 'owner';
   }
   final normalizedRole = role?.toString().trim().toLowerCase() ?? '';
-  return const {'owner', 'admin', 'tester'}.contains(normalizedRole)
+  // Owner access is bound only to the verified UUID/email above. Never let
+  // mutable token metadata promote a second account to owner.
+  return const {'admin', 'tester'}.contains(normalizedRole)
       ? normalizedRole
       : 'user';
 }
