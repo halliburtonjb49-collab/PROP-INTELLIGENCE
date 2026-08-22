@@ -19,7 +19,7 @@ const termsSections = <LegalSection>[
   LegalSection(
     title: 'SUBSCRIPTIONS & BILLING',
     text:
-        'Core is \$24.99 per month, Pro is \$59.99 per month, and Founding Pro is \$49.99 per month for the first 100 members. Monthly plans include a 2-day free trial; annual plans include a 7-day free trial. Subscriptions renew automatically until canceled. Prices and applicable taxes are shown before purchase.',
+        'Core is \$24.99 per month, Pro is \$59.99 per month, and Founding Pro is \$49.99 per month for the first 100 members. Monthly plans include a 3-day free trial; annual plans include a 7-day free trial. Subscriptions renew automatically until canceled. Prices and applicable taxes are shown before purchase.',
   ),
   LegalSection(
     title: 'CANCELLATION & ACCESS',

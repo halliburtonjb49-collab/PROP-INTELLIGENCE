@@ -10,10 +10,10 @@ abstract final class SubscriptionPricing {
   static const proAnnual = r'$599.99 / YEAR';
   static const foundingProAnnual = r'$499.99 / YEAR';
 
-  static const monthlyTrialDays = 2;
+  static const monthlyTrialDays = 3;
   static const annualTrialDays = 7;
   static const foundingProMemberLimit = 100;
 
-  static const monthlyTrialLabel = '2-DAY FREE TRIAL';
+  static const monthlyTrialLabel = '3-DAY FREE TRIAL';
   static const annualTrialLabel = '7-DAY FREE TRIAL WITH ANNUAL';
 }

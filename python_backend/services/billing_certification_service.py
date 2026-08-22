@@ -17,7 +17,7 @@ EXPECTED_CATALOG = {
         "entitlement": "edge_tier",
         "memberLimit": 100,
     },
-    "monthlyTrialDays": 2,
+    "monthlyTrialDays": 3,
     "annualTrialDays": 7,
 }
 
@@ -98,7 +98,7 @@ def billing_release_certification() -> dict[str, object]:
     add("checkout_terms", "Stripe / RevenueCat checkout terms", external_verified,
         (f"External checkout prices and trials were certified at {external_verified_at or 'an unrecorded time'}."
          if external_verified else
-         "Dashboard prices and trials still require recorded external verification: monthly 2 days, annual 7 days, Core $24.99, Pro $59.99, Founding Pro $49.99."),
+         "Dashboard prices and trials still require recorded external verification: monthly 3 days, annual 7 days, Core $24.99, Pro $59.99, Founding Pro $49.99."),
         warning=True, value=external_verified_at)
     failures = sum(check["status"] == "FAIL" for check in checks)
     warnings = sum(check["status"] == "WARN" for check in checks)

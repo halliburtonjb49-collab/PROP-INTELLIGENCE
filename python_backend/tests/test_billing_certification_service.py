@@ -21,7 +21,7 @@ def test_billing_certification_passes_complete_recorded_catalog(monkeypatch):
     assert result["status"] == "PASS"
     assert result["releaseReady"] is True
     assert result["expectedCatalog"]["pro"]["monthlyUsd"] == 59.99
-    assert result["expectedCatalog"]["monthlyTrialDays"] == 2
+    assert result["expectedCatalog"]["monthlyTrialDays"] == 3
 
 
 def test_billing_certification_blocks_missing_mappings_and_wrong_cap(monkeypatch):

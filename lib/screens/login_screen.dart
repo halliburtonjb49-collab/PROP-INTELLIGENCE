@@ -560,7 +560,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               'Everything in Pro',
               'Founding price while the subscription remains active',
               'Limited to the first 100 members',
-              '2-day monthly trial or 7-day annual trial',
+              '3-day monthly trial or 7-day annual trial',
             ],
             onPressed: (dialogContext) =>
                 _choosePlan(dialogContext, PurchaseTier.foundingEdge),
@@ -2217,7 +2217,7 @@ class _PricingTierCard extends StatelessWidget {
           ),
           const Center(
             child: Text(
-              'Monthly plans start with a 2-day free trial',
+              'Monthly plans start with a 3-day free trial',
               style: TextStyle(color: _silver60, fontSize: 10),
             ),
           ),

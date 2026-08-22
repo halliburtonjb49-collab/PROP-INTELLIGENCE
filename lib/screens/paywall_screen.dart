@@ -26,7 +26,7 @@ class SubscriptionRequiredScreen extends StatelessWidget {
                   const BrandedPaywallModalSheet(
                     heading: 'CHOOSE A PLAN TO CONTINUE',
                     supportingText:
-                        'PROP INTELLIGENCE is your all-in-one sports-prop command center for research, tracking, analytics, and community. Monthly plans start with 2 days free; annual plans start with 7 days free.',
+                        'PROP INTELLIGENCE is your all-in-one sports-prop command center for research, tracking, analytics, and community. Monthly plans start with 3 days free; annual plans start with 7 days free.',
                     scrollable: false,
                   ),
                   const SizedBox(height: 12),
@@ -228,7 +228,7 @@ class BrandedPaywallModalSheet extends StatelessWidget {
             ),
           ),
           const Text(
-            'Monthly plans include a 2-day free trial. Founding Pro is limited to the first 100 members.',
+            'Monthly plans include a 3-day free trial. Founding Pro is limited to the first 100 members.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white70, fontSize: 11),
           ),
