@@ -3606,13 +3606,18 @@ class _SportSeasonStatus {
       );
     if (ordered.isEmpty) {
       final continuous = _continuousSports.contains(normalized);
+      final nhlOffseason = normalized == 'NHL';
       return _SportSeasonStatus(
         sport: normalized,
         state: continuous ? 'no_upcoming_markets' : 'offseason',
-        title: continuous
+        title: nhlOffseason
+            ? 'NHL OFFSEASON - NO CURRENT INVENTORY'
+            : continuous
             ? '$normalized NO UPCOMING MARKETS'
             : '$normalized OFFSEASON',
-        message: continuous
+        message: nhlOffseason
+            ? 'No current NHL player-prop inventory is posted. PI will keep checking automatically and restore the board when preseason or regular-season markets open.'
+            : continuous
             ? 'No upcoming supported events are currently available. PI will update this board automatically when a new market is posted.'
             : 'The next schedule is not available yet. PI will update this board automatically when the season calendar is released.',
         games: const [],
@@ -3622,15 +3627,20 @@ class _SportSeasonStatus {
     final until = first == null ? Duration.zero : first.difference(DateTime.now());
     final imminent = until <= const Duration(days: 1);
     final continuous = _continuousSports.contains(normalized);
+    final soccerWithoutPlayerMarkets = normalized == 'SOCCER' && imminent;
     return _SportSeasonStatus(
       sport: normalized,
       state: imminent ? 'unavailable' : 'awaiting_markets',
-      title: imminent
+      title: soccerWithoutPlayerMarkets
+          ? 'SOCCER GAMES AVAILABLE - PLAYER PROPS UNAVAILABLE'
+          : imminent
           ? '$normalized MARKETS CURRENTLY UNAVAILABLE'
           : continuous
           ? '$normalized EVENTS COMING SOON'
           : '$normalized PRESEASON - MARKETS OPENING SOON',
-      message: imminent
+      message: soccerWithoutPlayerMarkets
+          ? 'Games are scheduled, but supported feeds have not posted player-prop markets for the selected league, including Bundesliga when applicable. PI will keep checking automatically.'
+          : imminent
           ? 'Games are scheduled, but supported books have not returned player props. The board will keep checking automatically.'
           : 'Player props will appear automatically when supported books release their markets.',
       games: List.unmodifiable(ordered),

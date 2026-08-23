@@ -256,6 +256,19 @@ class _MainDashboardState extends State<MainDashboard> {
   List<Map<String, dynamic>> _injuryAlerts = const [];
   final Set<String> _seenInjuryAlertIds = <String>{};
 
+  Set<String> get _providersUnavailableForBoard {
+    final rows = (_providerReliability['providers'] as List? ?? const [])
+        .whereType<Map>();
+    const unavailableStates = {'MISSING', 'STALE', 'OFFLINE', 'ERROR'};
+    return {
+      for (final row in rows)
+        if (unavailableStates.contains(
+          row['status']?.toString().trim().toUpperCase() ?? '',
+        ))
+          row['provider']?.toString().trim().toUpperCase() ?? '',
+    }..remove('');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -660,6 +673,20 @@ class _MainDashboardState extends State<MainDashboard> {
       _providerCoverage = _apiService.lastProviderCoverage;
       _providerReliability = _apiService.lastProviderReliability;
       _feedIsRecovery = _apiService.lastFeedIsRecovery;
+      // Cached counts can outlive a provider's freshness window. Do not keep
+      // a stale provider selected or visible as if its inventory were live;
+      // reliability polling continues and restores it automatically later.
+      if (_selectedSite != 'ALL' &&
+          _providersUnavailableForBoard.contains(_selectedSite)) {
+        _selectedSite = 'ALL';
+        _selectedSiteSport = '';
+        _selectedCategory = 'ALL';
+        _siteInventoryProps = const [];
+        _siteSportCounts = const {};
+        _siteSportCategoryCounts = const {};
+        _siteTotalSportCategoryCounts = const {};
+        _sitePlayableSportCategoryCounts = const {};
+      }
       if (_selectedSite != 'ALL' && _selectedCategory == 'ALL') {
         _siteInventoryProps = props;
         if (_selectedSiteSport.isEmpty) {
@@ -1724,14 +1751,21 @@ class _MainDashboardState extends State<MainDashboard> {
     // sportsbook filter narrows it, so choosing one site does not hide
     // all the others.
     final bookCounts = ApiService().lastSportsbookCounts;
+    final unavailableProviders = _providersUnavailableForBoard;
     final books = bookCounts.isEmpty
         ? allBooks
+              .where(
+                (book) =>
+                    book == 'ALL' || !unavailableProviders.contains(book),
+              )
+              .toList(growable: false)
         : allBooks
               .where(
                 (book) =>
                     book == 'ALL' ||
-                    (bookCounts[book] ?? 0) > 0 ||
-                    _selectedSite == book,
+                    (!unavailableProviders.contains(book) &&
+                        ((bookCounts[book] ?? 0) > 0 ||
+                            _selectedSite == book)),
               )
               .toList(growable: false);
     final directBooks = books
