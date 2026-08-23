@@ -33,6 +33,7 @@ class _FailingPropsApi extends ApiService {
     String verdictFilter = 'All',
     int limit = 75,
     int offset = 0,
+    bool includeReliability = true,
   }) {
     fetchCalls += 1;
     return Future<List<PropData>>.error(StateError('test feed unavailable'));

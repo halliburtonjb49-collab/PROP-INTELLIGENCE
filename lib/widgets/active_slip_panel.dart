@@ -401,7 +401,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
       final report = SlipDoctorService.analyze(legs);
       final site = _activeSlipSite(legs);
       final candidates = await _apiService.fetchProps(
-        selectedProp site: site.isEmpty ? 'All' : site,
+        selectedSportsbook: site.isEmpty ? 'All' : site,
         minConfidence: 0,
         sortBy: 'trust',
         limit: 350,

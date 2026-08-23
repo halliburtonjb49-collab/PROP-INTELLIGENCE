@@ -399,7 +399,7 @@ class RecommendationExplainabilityBlock extends StatelessWidget {
     if (!expandOnTap) {
       return _buildContent();
     }
-    final explain = () => _showExpandedDialog(context);
+    void explain() => _showExpandedDialog(context);
     return Material(
       color: Colors.transparent,
       child: InkWell(

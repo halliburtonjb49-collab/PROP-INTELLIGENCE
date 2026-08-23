@@ -266,7 +266,7 @@ void main() {
     );
     expect(find.byKey(const ValueKey('active-slip-badge-scale')), findsNothing);
 
-    final getScale = () => tester
+    double getScale() => tester
         .widget<ScaleTransition>(
           find.byKey(const ValueKey('active-slip-badge-scale')),
         )

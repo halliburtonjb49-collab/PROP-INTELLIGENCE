@@ -22,6 +22,7 @@ class _FakeOperationsApi extends ApiService {
     String verdictFilter = 'All',
     int limit = 75,
     int offset = 0,
+    bool includeReliability = true,
   }) async => const [];
 
   @override

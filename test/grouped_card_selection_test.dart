@@ -35,6 +35,7 @@ class _TwoBookApi extends ApiService {
     String verdictFilter = 'All',
     int limit = 75,
     int offset = 0,
+    bool includeReliability = true,
   }) async => props;
 }
 

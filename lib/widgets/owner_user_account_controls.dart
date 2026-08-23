@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../services/auth_manager.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 

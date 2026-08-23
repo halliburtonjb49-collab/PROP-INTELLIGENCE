@@ -1521,6 +1521,17 @@ class _TopNavigation extends StatelessWidget {
             message: 'About PROP INTELLIGENCE',
             child: OutlinedButton(
               onPressed: onBrandTap,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _gold,
+                side: BorderSide(color: _gold.withValues(alpha: 0.65)),
+                padding: EdgeInsets.symmetric(
+                  horizontal: accessibleCompact ? 9 : (tight ? 10 : 16),
+                  vertical: accessibleCompact ? 9 : (tight ? 10 : 12),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
               child: accessibleCompact
                   ? const Icon(
                       Icons.query_stats_rounded,
@@ -1543,17 +1554,6 @@ class _TopNavigation extends StatelessWidget {
                         ),
                       ],
                     ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: _gold,
-                side: BorderSide(color: _gold.withValues(alpha: 0.65)),
-                padding: EdgeInsets.symmetric(
-                  horizontal: accessibleCompact ? 9 : (tight ? 10 : 16),
-                  vertical: accessibleCompact ? 9 : (tight ? 10 : 12),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
             ),
           ),
           const Spacer(),
@@ -2338,48 +2338,6 @@ class _AboutNotice extends StatelessWidget {
   }
 }
 
-class _Feature extends StatelessWidget {
-  final double width;
-  final IconData icon;
-  final String title;
-  final String detail;
-
-  const _Feature({
-    required this.width,
-    required this.icon,
-    required this.title,
-    required this.detail,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: Column(
-        children: [
-          Icon(icon, color: _gold, size: 36),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: _gold,
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            detail,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: _silver54, fontSize: 11, height: 1.5),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _FieldLabel extends StatelessWidget {
   final String label;
   final Widget child;
@@ -2561,35 +2519,6 @@ class _AnalyticsBackground extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _BackgroundSportIcon extends StatelessWidget {
-  final IconData icon;
-  final double size;
-  final double rotation;
-  final double opacity;
-
-  const _BackgroundSportIcon({
-    required this.icon,
-    required this.size,
-    required this.rotation,
-    this.opacity = 0.055,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Transform.rotate(
-      angle: rotation,
-      child: Icon(
-        icon,
-        size: size,
-        color: _gold.withValues(alpha: opacity),
-        shadows: [
-          Shadow(color: _gold.withValues(alpha: opacity * 0.9), blurRadius: 28),
-        ],
-      ),
     );
   }
 }
