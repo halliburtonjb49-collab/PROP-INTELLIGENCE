@@ -259,7 +259,7 @@ class ApiService {
   );
   static const String _configuredBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: '',
+    defaultValue: 'https://api.propsintell.com',
   );
   static String? _resolvedBaseUrl;
   static Future<String?>? _sessionRefresh;
@@ -986,7 +986,7 @@ class ApiService {
   static List<String> get _candidateBaseUrls {
     final configured = _normalizeBaseUrl(_configuredBaseUrl);
     final candidates = <String>{
-      if (kIsWeb) 'https://api.propsintell.com',
+      'https://api.propsintell.com',
       configured,
     };
     return candidates
