@@ -680,7 +680,7 @@ class _PropChatPageState extends State<PropChatPage> {
             child: StreamBuilder<List<PropChatMessage>>(
               stream: _service.watchMessages(roomId: _roomId),
               builder: (context, snapshot) {
-                if (snapshot.hasError) {
+                if (snapshot.hasError && !snapshot.hasData) {
                   return const _ChatNotice(
                     icon: Icons.cloud_off_rounded,
                     text: 'Live chat temporarily disconnected. Retrying…',

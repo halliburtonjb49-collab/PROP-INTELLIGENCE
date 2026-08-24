@@ -360,10 +360,12 @@ class PropChatService {
     StreamSubscription<List<Map<String, dynamic>>>? reactions;
     LiveUpdateService? discordUpdates;
     StreamSubscription<dynamic>? discordEvents;
+    Timer? refreshRetry;
     List<PropChatMessage> storedMessages = const [];
     final externalMessages = <String, PropChatMessage>{};
     var refreshing = false;
     var refreshQueued = false;
+    var refreshAttempts = 0;
 
     void emitMessages() {
       if (controller.isClosed) return;
@@ -430,9 +432,21 @@ class PropChatService {
         storedMessages = await _attachReactions(
           (rows as List).cast<Map<String, dynamic>>(),
         );
+        refreshRetry?.cancel();
+        refreshRetry = null;
+        refreshAttempts = 0;
         emitMessages();
       } catch (error, stackTrace) {
         if (!controller.isClosed) controller.addError(error, stackTrace);
+        if (!controller.isClosed && refreshRetry == null) {
+          final exponent = refreshAttempts > 4 ? 4 : refreshAttempts;
+          final delay = Duration(seconds: 1 << exponent);
+          refreshAttempts++;
+          refreshRetry = Timer(delay, () {
+            refreshRetry = null;
+            if (!controller.isClosed) unawaited(refresh());
+          });
+        }
       } finally {
         refreshing = false;
         if (refreshQueued) {
@@ -464,6 +478,7 @@ class PropChatService {
         unawaited(refresh());
       },
       onCancel: () async {
+        refreshRetry?.cancel();
         await messages?.cancel();
         await reactions?.cancel();
         await discordEvents?.cancel();
@@ -601,10 +616,18 @@ class PropChatService {
         .toList(growable: false);
     if (messages.isEmpty || _client == null) return messages;
     final ids = messages.map((message) => message.id).toList();
-    final reactionRows = await _client!
-        .from('prop_chat_reactions')
-        .select('message_id, emoji')
-        .inFilter('message_id', ids);
+    dynamic reactionRows;
+    try {
+      reactionRows = await _client!
+          .from('prop_chat_reactions')
+          .select('message_id, emoji')
+          .inFilter('message_id', ids);
+    } catch (error) {
+      // Reactions are optional enrichment. A missing migration, temporary RLS
+      // failure, or realtime outage must never hide otherwise valid messages.
+      debugPrint('PROP CHAT reactions unavailable: $error');
+      return _attachSignedUrls(messages);
+    }
     final counts = <int, Map<String, int>>{};
     for (final raw in reactionRows as List) {
       final row = raw as Map<String, dynamic>;
