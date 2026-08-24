@@ -10,6 +10,7 @@ import '../widgets/owner_command_center_overview.dart';
 import '../widgets/owner_model_audit_panel.dart';
 import '../widgets/owner_user_account_controls.dart';
 import '../widgets/provider_availability_dashboard.dart';
+import '../widgets/provider_reliability_banner.dart';
 
 class OwnerOperationsPage extends StatefulWidget {
   const OwnerOperationsPage({super.key, this.apiService});
@@ -29,6 +30,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   Map<String, dynamic>? _review;
   Map<String, dynamic>? _providerAvailability;
   Map<String, dynamic>? _providerRecovery;
+  Map<String, dynamic> _providerReliability = const {};
   List<PropData> _ownerTopPicks = const [];
   bool _recoverySubmitting = false;
   Map<String, dynamic> _strikeoutControlsDraft = const {};
@@ -103,6 +105,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             sortBy: 'trust',
             verdictFilter: 'ACTIONABLE',
             limit: 500,
+            includeReliability: true,
           )
           .catchError((_) => <PropData>[]);
       final results = await Future.wait([
@@ -136,6 +139,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         _review = results[4];
         _providerAvailability = results[5];
         _providerRecovery = results[6];
+        _providerReliability = _api.lastProviderReliability;
         _ownerTopPicks = _rankOwnerTopPicks(topPicks);
         final ownerInsights =
             _control?['ownerOnlyInsights'] as Map? ?? const {};
@@ -354,6 +358,21 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
           padding: const EdgeInsets.all(20),
           children: [
             _header(),
+            if (_providerReliability.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ProviderReliabilityBanner(
+                reliability: _providerReliability,
+                selectedSite: 'ALL',
+                onDetails: () => showModalBottomSheet<void>(
+                  context: context,
+                  backgroundColor: AppColors.background,
+                  isScrollControlled: true,
+                  builder: (_) => ProviderReliabilitySheet(
+                    reliability: _providerReliability,
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             _timeFilter(),
             const SizedBox(height: 10),

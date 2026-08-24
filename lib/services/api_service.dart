@@ -337,12 +337,16 @@ class ApiService {
   }) async {
     final client = SupabaseService.client;
     var session = client?.auth.currentSession;
-    // Immediately after login the dashboard can build one frame before the
-    // Supabase client publishes its restored session. Give that handoff a
-    // short window instead of failing the first prop request as signed out.
+    // Native OAuth can return control to Flutter before the Supabase client
+    // publishes the new session. Wait for the auth event instead of allowing
+    // the first protected prop request to fail during that handoff.
     if (client != null && session == null) {
-      for (var attempt = 0; attempt < 12 && session == null; attempt++) {
-        await Future<void>.delayed(const Duration(milliseconds: 150));
+      try {
+        final authState = await client.auth.onAuthStateChange
+            .firstWhere((event) => event.session != null)
+            .timeout(const Duration(seconds: 10));
+        session = authState.session;
+      } on TimeoutException {
         session = client.auth.currentSession;
       }
     }

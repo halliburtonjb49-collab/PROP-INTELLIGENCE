@@ -305,6 +305,7 @@ class _DesktopRightPanelContent extends StatefulWidget {
     required this.activeSlipPanel,
     required this.initialSection,
     this.onClose,
+    this.mobileCloseInsideContent = false,
   });
 
   final int activeSlipCount;
@@ -313,6 +314,7 @@ class _DesktopRightPanelContent extends StatefulWidget {
   final Widget activeSlipPanel;
   final _RightPanelSection initialSection;
   final VoidCallback? onClose;
+  final bool mobileCloseInsideContent;
 
   @override
   State<_DesktopRightPanelContent> createState() =>
@@ -367,35 +369,69 @@ class _DesktopRightPanelContentState extends State<_DesktopRightPanelContent> {
                   labelKey: const ValueKey('active-slip-tab'),
                 ),
               ),
-              Semantics(
-                button: true,
-                label: 'Close panel',
-                child: IconButton(
-                  key: const ValueKey('right-panel-close'),
-                  tooltip: 'Close panel',
-                  onPressed: widget.onClose,
-                  icon: Icon(Icons.close_rounded, color: widget.accentColor),
+              if (!widget.mobileCloseInsideContent)
+                Semantics(
+                  button: true,
+                  label: 'Close panel',
+                  child: IconButton(
+                    key: const ValueKey('right-panel-close'),
+                    tooltip: 'Close panel',
+                    onPressed: widget.onClose,
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: widget.accentColor,
+                    ),
+                  ),
                 ),
-              ),
             ],
           ),
         ),
         Expanded(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 170),
-            child: _activeSection == _RightPanelSection.account
-                ? Container(
-                    key: const ValueKey('account-tab-content'),
-                    color: piPanelNavy,
-                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-                    child: widget.accountPanel,
-                  )
-                : Container(
-                    key: const ValueKey('active-slip-tab-content'),
-                    color: piPanelNavy,
-                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-                    child: widget.activeSlipPanel,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 170),
+                  child: _activeSection == _RightPanelSection.account
+                      ? Container(
+                          key: const ValueKey('account-tab-content'),
+                          color: piPanelNavy,
+                          padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                          child: widget.accountPanel,
+                        )
+                      : Container(
+                          key: const ValueKey('active-slip-tab-content'),
+                          color: piPanelNavy,
+                          padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+                          child: widget.activeSlipPanel,
+                        ),
+                ),
+              ),
+              if (widget.mobileCloseInsideContent)
+                Positioned(
+                  top: 66,
+                  right: 16,
+                  child: Semantics(
+                    button: true,
+                    label: 'Close active slip',
+                    child: IconButton.filledTonal(
+                      key: const ValueKey('mobile-active-slip-close'),
+                      tooltip: 'Close active slip',
+                      onPressed: widget.onClose,
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(38, 38),
+                        backgroundColor: piPanelNavy.withValues(alpha: .92),
+                        side: BorderSide(color: widget.accentColor),
+                      ),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        size: 20,
+                        color: widget.accentColor,
+                      ),
+                    ),
                   ),
+                ),
+            ],
           ),
         ),
       ],
@@ -1014,16 +1050,24 @@ class _MobileAppShellState extends State<_MobileAppShell> {
       ),
       endDrawer: SizedBox(
         width: drawerWidth,
-        child: Drawer(
-          backgroundColor: Colors.transparent,
-          child: SafeArea(
-            child: _DesktopRightPanelContent(
-              activeSlipCount: widget.activeSlipCount,
-              accentColor: widget.accentColor,
-              accountPanel: widget.accountPanel,
-              activeSlipPanel: widget.activeSlipPanel,
-              initialSection: _RightPanelSection.activeSlip,
-              onClose: () => _scaffoldKey.currentState?.closeEndDrawer(),
+        child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              top: mobileTopBarHeight(screenWidth) + shellGap + shellInset,
+              bottom:
+                  mobileBottomBarHeight(screenWidth) + shellGap + shellInset,
+            ),
+            child: Drawer(
+              backgroundColor: Colors.transparent,
+              child: _DesktopRightPanelContent(
+                activeSlipCount: widget.activeSlipCount,
+                accentColor: widget.accentColor,
+                accountPanel: widget.accountPanel,
+                activeSlipPanel: widget.activeSlipPanel,
+                initialSection: _RightPanelSection.activeSlip,
+                mobileCloseInsideContent: true,
+                onClose: () => _scaffoldKey.currentState?.closeEndDrawer(),
+              ),
             ),
           ),
         ),
@@ -1174,7 +1218,7 @@ class _MobileBottomNavigation extends StatelessWidget {
             child: _MobileNavItem(
               key: const ValueKey('mobile-nav-games'),
               icon: Icons.sports_score_outlined,
-              label: 'GAMES',
+              label: 'ML GAMES',
               selected: selectedIndex == 1,
               onTap: () => onNavigateIndex(1),
               accentColor: accentColor,

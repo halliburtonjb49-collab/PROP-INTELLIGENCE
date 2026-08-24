@@ -7,7 +7,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_service.dart';
 
-const Set<String> _ownerEmails = {'halliburtonjb49@gmail.com'};
+const Set<String> _ownerEmails = {
+  'halliburtonjb49@gmail.com',
+  'propsintell@icloud.com',
+};
 const Set<String> _ownerUserIds = {'84a76503-f704-46b6-be87-760ea8c9f2f5'};
 
 @visibleForTesting

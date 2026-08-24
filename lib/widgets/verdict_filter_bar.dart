@@ -10,6 +10,7 @@ class VerdictFilterBar extends StatelessWidget {
     required this.onSelected,
     required this.onShowGuide,
     required this.shouldWrap,
+    this.trailing,
   });
 
   final String selected;
@@ -17,6 +18,7 @@ class VerdictFilterBar extends StatelessWidget {
   final ValueChanged<String> onSelected;
   final VoidCallback onShowGuide;
   final bool Function(double width) shouldWrap;
+  final Widget? trailing;
 
   static const options = <(String, String)>[
     ('ACTIONABLE', 'PLAYABLE'),
@@ -32,6 +34,7 @@ class VerdictFilterBar extends StatelessWidget {
     final chips = <Widget>[
       for (final (value, label) in options) _chip(value, label),
       _guideButton(),
+      if (trailing != null) trailing!,
     ];
     return LayoutBuilder(
       builder: (context, constraints) {

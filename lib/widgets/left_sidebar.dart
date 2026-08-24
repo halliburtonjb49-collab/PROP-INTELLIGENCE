@@ -287,12 +287,72 @@ class _LeftSidebarState extends State<LeftSidebar> {
               ),
             ),
           ),
+          if (MediaQuery.sizeOf(context).width < 1000)
+            ValueListenableBuilder<int>(
+              valueListenable: widget.propCountListenable,
+              builder: (context, count, _) => _SidebarPropInventory(
+                count: count,
+              ),
+            ),
           const _SidebarLegalLink(),
           const _SidebarSignOut(),
         ],
       ),
     );
   }
+}
+
+class _SidebarPropInventory extends StatelessWidget {
+  const _SidebarPropInventory({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    label: '$count total props available',
+    child: Container(
+      key: const ValueKey('mobile-sidebar-total-props'),
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+      decoration: BoxDecoration(
+        color: app_colors.AppColors.gold.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: app_colors.AppColors.gold.withValues(alpha: .65),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.query_stats_rounded,
+            color: app_colors.AppColors.gold,
+            size: 19,
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'TOTAL PROP INVENTORY',
+              style: TextStyle(
+                color: app_colors.AppColors.gold,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .45,
+              ),
+            ),
+          ),
+          Text(
+            '$count',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// One way into the terms, in navigation rather than on every screen.

@@ -12,7 +12,10 @@ import requests
 from fastapi import Header, HTTPException
 from config import HTTP_TIMEOUT_SECONDS
 
-_DEFAULT_OWNER_EMAILS = {"halliburtonjb49@gmail.com"}
+_DEFAULT_OWNER_EMAILS = {
+    "halliburtonjb49@gmail.com",
+    "propsintell@icloud.com",
+}
 _DEFAULT_OWNER_USER_IDS = {"84a76503-f704-46b6-be87-760ea8c9f2f5"}
 
 
@@ -91,8 +94,13 @@ def _remember_membership(token: str, membership: Membership) -> Membership:
 
 
 def _owner_emails() -> set[str]:
-    """Return the single immutable production owner email."""
-    return _DEFAULT_OWNER_EMAILS
+    """Return the immutable production owner email allowlist."""
+    configured = {
+        email.strip().lower()
+        for email in os.getenv("OWNER_EMAILS", "").split(",")
+        if email.strip()
+    }
+    return _DEFAULT_OWNER_EMAILS | configured
 
 
 def _owner_user_ids() -> set[str]:

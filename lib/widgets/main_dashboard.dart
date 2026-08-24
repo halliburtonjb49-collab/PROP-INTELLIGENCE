@@ -309,6 +309,10 @@ class _MainDashboardState extends State<MainDashboard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.sportFilter != widget.sportFilter && mounted) {
       setState(() {
+        _selectedSiteSport = _selectedSite == 'ALL' ||
+                widget.sportFilter.trim().toUpperCase() == 'ALL'
+            ? ''
+            : _normalizeSport(widget.sportFilter);
         _selectedCategory = 'ALL';
         _focusedProp = null;
         _latestProps = const [];
@@ -715,10 +719,6 @@ class _MainDashboardState extends State<MainDashboard> {
               _apiService.lastTotalSportCategoryCounts;
           _sitePlayableSportCategoryCounts =
               _apiService.lastPlayableSportCategoryCounts;
-        }
-        final sports = _availableSiteSports;
-        if (sports.isNotEmpty && !sports.contains(_selectedSiteSport)) {
-          _selectedSiteSport = sports.first;
         }
       }
       _lastUpdated = DateTime.now();
@@ -1894,7 +1894,10 @@ class _MainDashboardState extends State<MainDashboard> {
       setState(() {
         _selectedSite = book;
         EngagementTracker.instance.recordProduct('SITE_FILTER');
-        _selectedSiteSport = '';
+        _selectedSiteSport = book == 'ALL' ||
+                widget.sportFilter.trim().toUpperCase() == 'ALL'
+            ? ''
+            : _normalizeSport(widget.sportFilter);
         _selectedCategory = 'ALL';
         _siteInventoryProps = const [];
         _siteSportCounts = const {};
@@ -2054,6 +2057,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 _selectedCategory = BoardFilters.defaults.category;
                 _focusedProp = null;
               });
+              widget.onSelectSport?.call(sport);
             },
             itemBuilder: (context) {
               final sports =
@@ -2833,6 +2837,150 @@ class _MainDashboardState extends State<MainDashboard> {
         setState(() => _verdictFilter = value);
       },
       onShowGuide: () => ProductOnboarding.showDecisionGuide(context),
+      trailing: _buildCategoryPickerButton(),
+    );
+  }
+
+  Widget _buildCategoryPickerButton() => Padding(
+    padding: const EdgeInsets.only(right: 7),
+    child: OutlinedButton.icon(
+      key: const ValueKey('category-site-picker-button'),
+      onPressed: _showCategoryAndSitePicker,
+      icon: const Icon(Icons.tune_rounded, size: 14),
+      label: const Text(
+        'CATEGORIES',
+        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
+      ),
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 32),
+        foregroundColor: app_colors.AppColors.gold,
+        backgroundColor: app_colors.AppColors.gold.withValues(alpha: .10),
+        side: const BorderSide(color: app_colors.AppColors.gold),
+        padding: const EdgeInsets.symmetric(horizontal: 11),
+        shape: const StadiumBorder(),
+      ),
+    ),
+  );
+
+  Future<void> _showCategoryAndSitePicker() async {
+    const sites = <String>[
+      'ALL',
+      'PRIZEPICKS',
+      'UNDERDOG',
+      'FANDUEL',
+      'PICK6',
+      'DRAFTKINGS',
+      'BETR',
+    ];
+    final categories = _currentCategories.isEmpty
+        ? const <String>['ALL']
+        : _currentCategories;
+    var pendingSite = sites.contains(_selectedSite) ? _selectedSite : 'ALL';
+    var pendingCategory = categories.contains(_effectiveSelectedCategory)
+        ? _effectiveSelectedCategory
+        : 'ALL';
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: app_colors.AppColors.sidebar,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              18,
+              18,
+              18,
+              18 + MediaQuery.viewInsetsOf(context).bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'PROP CATEGORY & SITE',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Choose a source and category to load every matching prop.',
+                  style: TextStyle(
+                    color: app_colors.AppColors.textMuted,
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: pendingSite,
+                  dropdownColor: app_colors.AppColors.sidebar,
+                  decoration: const InputDecoration(labelText: 'PROP SITE'),
+                  items: [
+                    for (final site in sites)
+                      DropdownMenuItem(
+                        value: site,
+                        child: Text(site == 'ALL' ? 'ALL PROP SITES' : site),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setSheetState(() => pendingSite = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: pendingCategory,
+                  dropdownColor: app_colors.AppColors.sidebar,
+                  decoration: const InputDecoration(labelText: 'CATEGORY'),
+                  items: [
+                    for (final category in categories)
+                      DropdownMenuItem(
+                        value: category,
+                        child: Text(
+                          category == 'ALL' ? 'ALL CATEGORIES' : category,
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setSheetState(() => pendingCategory = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 18),
+                FilledButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _selectedSite = pendingSite;
+                      _selectedSiteSport = pendingSite == 'ALL' ||
+                              widget.sportFilter.trim().toUpperCase() == 'ALL'
+                          ? ''
+                          : _normalizeSport(widget.sportFilter);
+                      _selectedCategory = pendingCategory;
+                      _verdictFilter = 'ALL';
+                      _focusedProp = null;
+                      _latestProps = const [];
+                      _lastUpdated = null;
+                    });
+                    Navigator.pop(sheetContext);
+                  },
+                  icon: const Icon(Icons.grid_view_rounded),
+                  label: const Text('SHOW ALL MATCHING PROPS'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: app_colors.AppColors.gold,
+                    foregroundColor: app_colors.AppColors.bgBase,
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -2964,6 +3112,9 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Widget _buildProviderReliabilityBanner() {
+    if (AuthManager.instance.sessionState.value.isOwner) {
+      return const SizedBox.shrink();
+    }
     final issue = _selectedSite == 'ALL'
         ? null
         : providerCoverageIssueForSport(
@@ -2998,13 +3149,9 @@ class _MainDashboardState extends State<MainDashboard> {
       _ => Icons.apps,
     };
     final totalCounts = _selectedSportTotalCategoryCounts;
-    final playableCounts = _selectedSportPlayableCategoryCounts;
     int totalCount(String category) => category == 'ALL'
         ? totalCounts.values.fold<int>(0, (sum, count) => sum + count)
         : totalCounts[category] ?? 0;
-    int playableCount(String category) => category == 'ALL'
-        ? playableCounts.values.fold<int>(0, (sum, count) => sum + count)
-        : playableCounts[category] ?? 0;
     return SizedBox(
       height: railHeight,
       child: Row(
@@ -3021,7 +3168,6 @@ class _MainDashboardState extends State<MainDashboard> {
                 return BoardCategoryChip(
                   category: category,
                   count: totalCount(category),
-                  playableCount: playableCount(category),
                   icon: categoryIcon(category),
                   selected: selected,
                   onPressed: () => setState(() {

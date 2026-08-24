@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'supabase_service.dart';
 import 'captcha_service.dart';
@@ -282,6 +283,11 @@ class SportsAppAuthService {
       final launched = await client.auth.signInWithOAuth(
         provider,
         redirectTo: _redirectUrlOrNull,
+        authScreenLaunchMode: !kIsWeb &&
+                (defaultTargetPlatform == TargetPlatform.iOS ||
+                    defaultTargetPlatform == TargetPlatform.android)
+            ? LaunchMode.externalApplication
+            : LaunchMode.platformDefault,
         scopes: provider == OAuthProvider.apple ? 'email name' : null,
         queryParams: provider == OAuthProvider.google
             ? const {'prompt': 'select_account'}

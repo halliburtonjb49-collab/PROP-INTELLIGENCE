@@ -93,7 +93,7 @@ class TopNavigation extends StatelessWidget {
       KeyedSubtree(
         key: const ValueKey('nav-group-SPORTS'),
         child: _buildNavItem(
-          label: 'SPORTS',
+          label: 'ML SPORTS',
           page: AppPage.gameMarkets,
           icon: Icons.sports_rounded,
         ),

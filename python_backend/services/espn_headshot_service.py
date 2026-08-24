@@ -55,9 +55,22 @@ EVENT_LEAGUES: dict[str, tuple[str, str]] = {}
 # Team rosters expose athlete ids but require one core-athlete request to
 # retrieve each available headshot.
 DETAIL_ROSTER_LEAGUES: dict[str, tuple[str, str]] = {
-    "SOCCER": ("soccer", "usa.1"),
     "CFL": ("football", "cfl"),
 }
+
+# Soccer props span several domestic and international competitions. Merge
+# their rosters into one app-level SOCCER catalog so a La Liga, Premier
+# League, Bundesliga, Serie A, Ligue 1, MLS, or Champions League prop can use
+# the same name-based resolver as every other sport.
+SOCCER_DETAIL_LEAGUES: tuple[tuple[str, str], ...] = (
+    ("soccer", "usa.1"),
+    ("soccer", "eng.1"),
+    ("soccer", "esp.1"),
+    ("soccer", "ger.1"),
+    ("soccer", "ita.1"),
+    ("soccer", "fra.1"),
+    ("soccer", "uefa.champions"),
+)
 
 
 def _normalize_name(value: str) -> str:
@@ -422,6 +435,18 @@ def refresh_espn_headshot_map() -> dict[str, int]:
             merged_players.update(players)
             leagues[sport_label] = merged_players
         counts[sport_label] = len(leagues.get(sport_label, {}))
+
+    soccer_players = dict(leagues.get("SOCCER", {}))
+    for espn_sport, espn_league in SOCCER_DETAIL_LEAGUES:
+        try:
+            soccer_players.update(
+                _fetch_detail_roster_athletes(espn_sport, espn_league)
+            )
+        except requests.RequestException:
+            continue
+    if soccer_players:
+        leagues["SOCCER"] = soccer_players
+    counts["SOCCER"] = len(soccer_players)
 
     payload = {
         "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
