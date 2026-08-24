@@ -3737,6 +3737,10 @@ def props(
 		)
 		system_pick_count = model_pick_count + market_pick_count
 		payload = {
+			# Global current inventory before any customer board filters. The
+			# utility rail uses this value so it never mislabels a selected
+			# sport's count as the application's complete prop catalog.
+			"catalogCount": len(prop_list),
 			"count": total_count,
 			"facetCount": len(facet_props),
 			"categoryCounts": dict(sorted(category_counts.items())),

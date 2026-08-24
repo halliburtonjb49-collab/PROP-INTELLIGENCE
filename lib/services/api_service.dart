@@ -22,6 +22,7 @@ Map<String, dynamic> savedSlipPayload(Map<String, dynamic> response) {
 class _ParsedPropsPayload {
   const _ParsedPropsPayload({
     required this.props,
+    required this.catalogCount,
     required this.count,
     required this.facetCount,
     required this.categoryCounts,
@@ -41,6 +42,7 @@ class _ParsedPropsPayload {
   });
 
   final List<PropData> props;
+  final int catalogCount;
   final int count;
   final int facetCount;
   final Map<String, int> categoryCounts;
@@ -109,6 +111,9 @@ _ParsedPropsPayload _parsePropsPayload(String body) {
   final totalCount = decoded['count'] is num
       ? (decoded['count'] as num).toInt()
       : rawMaps.length;
+  final catalogCount = decoded['catalogCount'] is num
+      ? (decoded['catalogCount'] as num).toInt()
+      : totalCount;
   final facetCount = (decoded['facetCount'] as num?)?.toInt() ?? totalCount;
   final rawCategoryCounts = decoded['categoryCounts'];
   final categoryCounts = rawCategoryCounts is Map
@@ -198,6 +203,7 @@ _ParsedPropsPayload _parsePropsPayload(String body) {
 
   return _ParsedPropsPayload(
     props: propsById.values.toList(growable: false),
+    catalogCount: catalogCount,
     count: totalCount,
     facetCount: facetCount,
     categoryCounts: categoryCounts,
@@ -261,6 +267,7 @@ class ApiService {
   static final Map<String, List<PropData>> _lastSuccessfulPropsByQuery =
       <String, List<PropData>>{};
   static int _lastFacetCount = 0;
+  static int _lastCatalogCount = 0;
   static Map<String, int> _lastCategoryCounts = const {};
   static Map<String, int> _lastTotalCategoryCounts = const {};
   static Map<String, int> _lastPlayableCategoryCounts = const {};
@@ -280,6 +287,7 @@ class ApiService {
 
   static String get baseUrl => _resolvedBaseUrl ?? _configuredBaseUrl;
   int get lastPropsCount => _lastPropsCount;
+  int get lastCatalogCount => _lastCatalogCount;
   int get lastFacetCount => _lastFacetCount;
   Map<String, int> get lastCategoryCounts =>
       Map.unmodifiable(_lastCategoryCounts);
@@ -1362,6 +1370,7 @@ class ApiService {
           continue;
         }
         var props = parsed.props;
+        final catalogCount = parsed.catalogCount;
         var totalCount = parsed.count;
         var facetCount = parsed.facetCount;
         var categoryCounts = parsed.categoryCounts;
@@ -1435,6 +1444,7 @@ class ApiService {
         }
 
         _lastFacetCount = facetCount;
+        if (catalogCount > 0) _lastCatalogCount = catalogCount;
         _lastCategoryCounts = categoryCounts;
         _lastTotalCategoryCounts = totalCategoryCounts;
         _lastPlayableCategoryCounts = playableCategoryCounts;
@@ -1492,6 +1502,7 @@ class ApiService {
                       sortBy,
                     ),
               parsed.rawMaps,
+              _lastCatalogCount,
               _lastPropsCount,
               _lastFacetCount,
               _lastCategoryCounts,
@@ -1775,6 +1786,7 @@ class ApiService {
   Future<void> _savePropsCache(
     String key,
     List<Map<String, dynamic>> rawProps,
+    int catalogCount,
     int total,
     int facetTotal,
     Map<String, int> categoryCounts,
@@ -1791,6 +1803,7 @@ class ApiService {
       key,
       jsonEncode({
         'savedAt': DateTime.now().toUtc().toIso8601String(),
+        'catalogCount': catalogCount,
         'total': total,
         'facetTotal': facetTotal,
         'categoryCounts': categoryCounts,
@@ -1865,6 +1878,8 @@ class ApiService {
             .toList(growable: false);
         if (cached.isEmpty) continue;
         _lastPropsCount = (decoded['total'] as num?)?.toInt() ?? cached.length;
+        _lastCatalogCount =
+            (decoded['catalogCount'] as num?)?.toInt() ?? _lastPropsCount;
         _lastFacetCount =
             (decoded['facetTotal'] as num?)?.toInt() ?? _lastPropsCount;
         final rawCategoryCounts = decoded['categoryCounts'];

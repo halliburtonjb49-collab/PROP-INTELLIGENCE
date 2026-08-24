@@ -723,7 +723,7 @@ class _MainDashboardState extends State<MainDashboard> {
       }
       _lastUpdated = DateTime.now();
     });
-    final catalogTotal = _apiService.lastTotalCategoryCounts['ALL'] ?? 0;
+    final catalogTotal = _apiService.lastCatalogCount;
     widget.propCountNotifier.value = catalogTotal > 0
         ? catalogTotal
         : facetTotal > 0
