@@ -352,12 +352,13 @@ class PropChatService {
 
   Stream<List<PropChatMessage>> watchMessages({String roomId = 'general'}) {
     final client = _client;
-    if (client == null || currentUserId == null) {
+    if (client == null) {
       return Stream<List<PropChatMessage>>.value(const []);
     }
     late final StreamController<List<PropChatMessage>> controller;
     StreamSubscription<List<Map<String, dynamic>>>? messages;
     StreamSubscription<List<Map<String, dynamic>>>? reactions;
+    StreamSubscription<AuthState>? authChanges;
     LiveUpdateService? discordUpdates;
     StreamSubscription<dynamic>? discordEvents;
     Timer? refreshRetry;
@@ -367,6 +368,7 @@ class PropChatService {
     var refreshing = false;
     var refreshQueued = false;
     var refreshAttempts = 0;
+    var realtimeAttached = false;
 
     void emitMessages() {
       if (controller.isClosed) return;
@@ -418,6 +420,7 @@ class PropChatService {
     }
 
     Future<void> refresh() async {
+      if (currentUserId == null) return;
       if (refreshing) {
         refreshQueued = true;
         return;
@@ -438,7 +441,7 @@ class PropChatService {
         refreshAttempts = 0;
         emitMessages();
       } catch (error, stackTrace) {
-        if (!controller.isClosed) controller.addError(error, stackTrace);
+        debugPrint('PROP CHAT message refresh unavailable: $error');
         if (!controller.isClosed && refreshRetry == null) {
           final exponent = refreshAttempts > 4 ? 4 : refreshAttempts;
           final delay = Duration(seconds: 1 << exponent);
@@ -457,23 +460,51 @@ class PropChatService {
       }
     }
 
-    controller = StreamController<List<PropChatMessage>>(
-      onListen: () {
+    Future<void> attachAuthenticatedStreams() async {
+      if (controller.isClosed || currentUserId == null) return;
+      if (!realtimeAttached) {
+        realtimeAttached = true;
         messages = client
             .from('prop_chat_messages')
             .stream(primaryKey: ['id'])
             .eq('room_id', roomId)
             .listen(
               (_) => unawaited(refresh()),
-              onError: (_, _) => unawaited(refresh()),
+              onError: (error, _) {
+                debugPrint('PROP CHAT message realtime unavailable: $error');
+                unawaited(refresh());
+              },
             );
         reactions = client
             .from('prop_chat_reactions')
             .stream(primaryKey: ['message_id', 'user_id', 'emoji'])
             .listen(
               (_) => unawaited(refresh()),
-              onError: (_, _) => unawaited(refresh()),
+              onError: (error, _) {
+                debugPrint('PROP CHAT reaction realtime unavailable: $error');
+                unawaited(refresh());
+              },
             );
+      }
+      await refresh();
+    }
+
+    controller = StreamController<List<PropChatMessage>>(
+      onListen: () {
+        authChanges = client.auth.onAuthStateChange.listen((event) {
+          if (event.session == null) {
+            realtimeAttached = false;
+            final activeMessages = messages;
+            final activeReactions = reactions;
+            if (activeMessages != null) unawaited(activeMessages.cancel());
+            if (activeReactions != null) unawaited(activeReactions.cancel());
+            messages = null;
+            reactions = null;
+            if (!controller.isClosed) controller.add(const []);
+            return;
+          }
+          unawaited(attachAuthenticatedStreams());
+        });
         if (roomId == 'general') {
           discordUpdates = LiveUpdateService(channels: const {'chat'});
           discordEvents = discordUpdates!.stream.listen(
@@ -490,13 +521,14 @@ class PropChatService {
           (_) => unawaited(refresh()),
         );
         emitMessages();
-        unawaited(refresh());
+        unawaited(attachAuthenticatedStreams());
       },
       onCancel: () async {
         refreshRetry?.cancel();
         pollingRefresh?.cancel();
         await messages?.cancel();
         await reactions?.cancel();
+        await authChanges?.cancel();
         await discordEvents?.cancel();
         await discordUpdates?.dispose();
       },
