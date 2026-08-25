@@ -79,7 +79,7 @@ bool supportsEnhancedSlipWatcher({
   required SlipHistoryMode mode,
   required bool hasProAccess,
 }) {
-  return mode == SlipHistoryMode.active && hasProAccess;
+  return mode == SlipHistoryMode.active;
 }
 
 @visibleForTesting
@@ -203,7 +203,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   void _startPolling() {
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(
-      const Duration(seconds: 30),
+      const Duration(seconds: 20),
       (_) => _refreshGameStatuses(),
     );
     if (_hasEnhancedLiveTracking) _startLiveStatsTracking();
@@ -219,7 +219,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     unawaited(_refreshLiveStats());
     _liveStatsTimer?.cancel();
     _liveStatsTimer = Timer.periodic(
-      const Duration(seconds: 15),
+      const Duration(seconds: 20),
       (_) => _refreshLiveStats(),
     );
   }
@@ -2087,80 +2087,57 @@ class _SavedSlipCard extends StatelessWidget {
                   );
                 }),
                 if (normalizedStatus == 'active' && terminalStatus == null) ...[
-                  const SizedBox(height: 4),
-                  if (isLiveWinning)
-                    SizedBox(
-                      width: double.infinity,
-                      height: 32,
-                      child: FilledButton.icon(
-                        onPressed: isUpdating ? null : onWon,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: brand_colors.AppColors.gold,
-                          foregroundColor: brand_colors.AppColors.bgBase,
-                        ),
-                        icon: const Icon(Icons.verified_rounded, size: 16),
-                        label: const Text(
-                          'ACKNOWLEDGE WIN',
-                          style: TextStyle(fontWeight: FontWeight.w900),
-                        ),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF071520),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isLiveWinning
+                            ? brand_colors.AppColors.gold
+                            : const Color(0xFF2A3B48),
                       ),
-                    )
-                  else
-                    Row(
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 30,
-                            child: OutlinedButton(
-                              onPressed: isUpdating ? null : onWon,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: brand_colors.AppColors.gold,
-                                side: const BorderSide(
-                                  color: brand_colors.AppColors.gold,
-                                ),
-                                padding: EdgeInsets.zero,
-                                visualDensity: VisualDensity.compact,
-                                textStyle: const TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              child: isUpdating
-                                  ? const SizedBox.square(
-                                      dimension: 14,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: brand_colors.AppColors.gold,
-                                      ),
-                                    )
-                                  : const Text('MARK WON'),
+                        if (isUpdating)
+                          const SizedBox.square(
+                            dimension: 13,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: brand_colors.AppColors.gold,
                             ),
+                          )
+                        else
+                          Icon(
+                            Icons.sync_rounded,
+                            size: 14,
+                            color: isLiveWinning
+                                ? brand_colors.AppColors.gold
+                                : const Color(0xFF8FA5B5),
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: SizedBox(
-                            height: 30,
-                            child: OutlinedButton(
-                              onPressed: isUpdating ? null : onLost,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: brand_colors.AppColors.danger,
-                                side: const BorderSide(
-                                  color: brand_colors.AppColors.danger,
-                                ),
-                                padding: EdgeInsets.zero,
-                                visualDensity: VisualDensity.compact,
-                                textStyle: const TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              child: const Text('MARK LOST'),
-                            ),
+                        const SizedBox(width: 7),
+                        Text(
+                          isUpdating
+                              ? 'FINALIZING RESULT'
+                              : 'AUTO-GRADING • REFRESHES EVERY 20 SEC',
+                          style: TextStyle(
+                            color: isLiveWinning
+                                ? brand_colors.AppColors.gold
+                                : const Color(0xFF8FA5B5),
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
                       ],
                     ),
+                  ),
                 ],
               ],
             ),
