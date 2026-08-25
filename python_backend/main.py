@@ -244,6 +244,7 @@ from services.api_auth_service import (
 	require_core,
 	require_owner,
 	require_pro,
+	require_slip_user_id,
 	require_user_id,
 )
 from routers.intelligence import router as intelligence_router
@@ -4800,7 +4801,7 @@ def submit_ticket_sync_diagnostic(
 
 
 @app.post("/api/slips")
-def save_slip(request: SlipCreate, user_id: str = Depends(require_user_id)) -> dict[str, object]:
+def save_slip(request: SlipCreate, user_id: str = Depends(require_slip_user_id)) -> dict[str, object]:
 	try:
 		# Reconcile the client snapshot with the current authoritative feed before
 		# enforcing the server-side start-time lock.
@@ -4845,7 +4846,7 @@ def save_slip(request: SlipCreate, user_id: str = Depends(require_user_id)) -> d
 @app.get("/api/slips")
 def list_slips(
 	status: str | None = Query(default=None),
-	user_id: str = Depends(require_user_id),
+	user_id: str = Depends(require_slip_user_id),
 ) -> dict[str, object]:
 	slips = get_slips(status, user_id=user_id)
 	return {
@@ -4860,7 +4861,7 @@ def list_slips(
 @app.get("/api/active-ticket")
 def get_active_ticket(
 	season: str = Query(default=str(datetime.now().year)),
-	user_id: str = Depends(require_user_id),
+	user_id: str = Depends(require_slip_user_id),
 ) -> dict[str, object]:
 	return _active_ticket_payload(season=season, user_id=user_id)
 
@@ -4868,7 +4869,7 @@ def get_active_ticket(
 @app.get("/api/slips/live-stats")
 def get_live_slip_stats(
 	season: str = Query(default=str(datetime.now().year)),
-	user_id: str = Depends(require_user_id),
+	user_id: str = Depends(require_slip_user_id),
 ) -> dict[str, object]:
 	return _live_slip_stats_payload(season=season, user_id=user_id)
 
@@ -4877,7 +4878,7 @@ def get_live_slip_stats(
 def change_slip_status(
 	slip_id: str,
 	status: str,
-	user_id: str = Depends(require_user_id),
+	user_id: str = Depends(require_slip_user_id),
 ) -> dict[str, object]:
 	try:
 		updated = update_slip_status(
@@ -4913,7 +4914,7 @@ def change_slip_status(
 @app.delete("/api/slips/{slip_id}")
 def unlock_slip(
 	slip_id: str,
-	user_id: str = Depends(require_user_id),
+	user_id: str = Depends(require_slip_user_id),
 ) -> dict[str, object]:
 	deleted = delete_slip(slip_id, user_id=user_id)
 	if not deleted:
@@ -4934,7 +4935,7 @@ def unlock_slip(
 @app.post("/api/slips/results")
 def process_slip_results(
 	updates: list[LegResultUpdate],
-	user_id: str = Depends(require_user_id),
+	user_id: str = Depends(require_slip_user_id),
 ) -> dict[str, object]:
 	updated = update_slip_results(updates, user_id=user_id)
 	return {
@@ -4944,7 +4945,7 @@ def process_slip_results(
 
 
 @app.post("/api/slips/grade")
-def grade_slips(user_id: str = Depends(require_user_id)) -> dict[str, object]:
+def grade_slips(user_id: str = Depends(require_slip_user_id)) -> dict[str, object]:
 	try:
 		return grade_active_slips(user_id=user_id)
 	except Exception as exc:
@@ -4956,7 +4957,7 @@ def grade_slips(user_id: str = Depends(require_user_id)) -> dict[str, object]:
 
 
 @app.post("/api/slips/reconcile")
-def reconcile_slips(user_id: str = Depends(require_user_id)) -> dict[str, object]:
+def reconcile_slips(user_id: str = Depends(require_slip_user_id)) -> dict[str, object]:
 	try:
 		return reconcile_user_slips(user_id=user_id)
 	except Exception as exc:

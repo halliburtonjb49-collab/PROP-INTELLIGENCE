@@ -361,6 +361,7 @@ class PropChatService {
     LiveUpdateService? discordUpdates;
     StreamSubscription<dynamic>? discordEvents;
     Timer? refreshRetry;
+    Timer? pollingRefresh;
     List<PropChatMessage> storedMessages = const [];
     final externalMessages = <String, PropChatMessage>{};
     var refreshing = false;
@@ -462,11 +463,17 @@ class PropChatService {
             .from('prop_chat_messages')
             .stream(primaryKey: ['id'])
             .eq('room_id', roomId)
-            .listen((_) => unawaited(refresh()));
+            .listen(
+              (_) => unawaited(refresh()),
+              onError: (_, _) => unawaited(refresh()),
+            );
         reactions = client
             .from('prop_chat_reactions')
             .stream(primaryKey: ['message_id', 'user_id', 'emoji'])
-            .listen((_) => unawaited(refresh()));
+            .listen(
+              (_) => unawaited(refresh()),
+              onError: (_, _) => unawaited(refresh()),
+            );
         if (roomId == 'general') {
           discordUpdates = LiveUpdateService(channels: const {'chat'});
           discordEvents = discordUpdates!.stream.listen(
@@ -475,10 +482,19 @@ class PropChatService {
           );
           discordUpdates!.connect();
         }
+        // Realtime delivery is an enhancement, not a single point of failure.
+        // Polling keeps chat usable when a proxy, mobile network, or Supabase
+        // websocket briefly drops without creating duplicate subscriptions.
+        pollingRefresh = Timer.periodic(
+          const Duration(seconds: 12),
+          (_) => unawaited(refresh()),
+        );
+        emitMessages();
         unawaited(refresh());
       },
       onCancel: () async {
         refreshRetry?.cancel();
+        pollingRefresh?.cancel();
         await messages?.cancel();
         await reactions?.cancel();
         await discordEvents?.cancel();
@@ -1006,21 +1022,72 @@ class PropChatService {
     final userId = currentUserId;
     final client = _client;
     if (userId == null || client == null) return;
-    await client.from('prop_chat_presence').upsert({
-      'user_id': userId,
-      'room_id': roomId,
-      'is_typing': isTyping,
-      'last_seen_at': DateTime.now().toUtc().toIso8601String(),
-    });
+    try {
+      await client.from('prop_chat_presence').upsert({
+        'user_id': userId,
+        'room_id': roomId,
+        'is_typing': isTyping,
+        'last_seen_at': DateTime.now().toUtc().toIso8601String(),
+      });
+    } catch (error) {
+      // Presence must never interrupt messages or surface an unhandled async
+      // error when the presence table/realtime channel is temporarily down.
+      debugPrint('PROP CHAT presence update unavailable: $error');
+    }
   }
 
   Stream<List<Map<String, dynamic>>> watchPresence(String roomId) {
     final client = _client;
     if (client == null) return Stream.value(const []);
-    return client
-        .from('prop_chat_presence')
-        .stream(primaryKey: ['user_id'])
-        .eq('room_id', roomId);
+    late final StreamController<List<Map<String, dynamic>>> controller;
+    StreamSubscription<List<Map<String, dynamic>>>? realtime;
+    Timer? polling;
+
+    Future<void> refresh() async {
+      if (controller.isClosed) return;
+      try {
+        final rows = await client
+            .from('prop_chat_presence')
+            .select('user_id, room_id, is_typing, last_seen_at')
+            .eq('room_id', roomId)
+            .gte(
+              'last_seen_at',
+              DateTime.now()
+                  .toUtc()
+                  .subtract(const Duration(minutes: 2))
+                  .toIso8601String(),
+            );
+        if (!controller.isClosed) {
+          controller.add((rows as List).cast<Map<String, dynamic>>());
+        }
+      } catch (error) {
+        debugPrint('PROP CHAT presence unavailable: $error');
+        if (!controller.isClosed) controller.add(const []);
+      }
+    }
+
+    controller = StreamController<List<Map<String, dynamic>>>(
+      onListen: () {
+        realtime = client
+            .from('prop_chat_presence')
+            .stream(primaryKey: ['user_id'])
+            .eq('room_id', roomId)
+            .listen(
+              (_) => unawaited(refresh()),
+              onError: (_, _) => unawaited(refresh()),
+            );
+        polling = Timer.periodic(
+          const Duration(seconds: 20),
+          (_) => unawaited(refresh()),
+        );
+        unawaited(refresh());
+      },
+      onCancel: () async {
+        polling?.cancel();
+        await realtime?.cancel();
+      },
+    );
+    return controller.stream;
   }
 
   Stream<List<PropChatModerationNotice>> watchModerationNotices() {

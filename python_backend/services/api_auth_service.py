@@ -268,6 +268,14 @@ def require_user_id(authorization: str = Header(default="")) -> str:
     return user_id
 
 
+def require_slip_user_id(authorization: str = Header(default="")) -> str:
+    """Resolve the durable ticket owner shared by approved owner identities."""
+    membership = resolve_membership(authorization)
+    if membership.level >= AccessLevel.OWNER:
+        return next(iter(_DEFAULT_OWNER_USER_IDS))
+    return membership.user_id
+
+
 def require_admin(x_admin_key: str = Header(default=""), authorization: str = Header(default="")) -> str:
     expected = os.getenv("ADMIN_API_KEY", "").strip()
     if expected and x_admin_key and __import__("hmac").compare_digest(x_admin_key, expected):

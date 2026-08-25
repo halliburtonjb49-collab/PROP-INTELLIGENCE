@@ -336,40 +336,44 @@ class _DesktopRightPanelContentState extends State<_DesktopRightPanelContent> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          height: 54,
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: accentWithOpacity(widget.accentColor)),
+        if (!widget.mobileCloseInsideContent)
+          Container(
+            height: 54,
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: accentWithOpacity(widget.accentColor),
+                ),
+              ),
             ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: _PanelTab(
-                  label: 'ACCOUNT',
-                  selected: _activeSection == _RightPanelSection.account,
-                  accentColor: widget.accentColor,
-                  onTap: () {
-                    setState(() => _activeSection = _RightPanelSection.account);
-                  },
-                  labelKey: const ValueKey('account-tab'),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _PanelTab(
+                    label: 'ACCOUNT',
+                    selected: _activeSection == _RightPanelSection.account,
+                    accentColor: widget.accentColor,
+                    onTap: () {
+                      setState(
+                        () => _activeSection = _RightPanelSection.account,
+                      );
+                    },
+                    labelKey: const ValueKey('account-tab'),
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _PanelTab(
-                  label: 'ACTIVE SLIP',
-                  selected: _activeSection == _RightPanelSection.activeSlip,
-                  accentColor: widget.accentColor,
-                  onTap: () {
-                    setState(
-                      () => _activeSection = _RightPanelSection.activeSlip,
-                    );
-                  },
-                  labelKey: const ValueKey('active-slip-tab'),
+                Expanded(
+                  child: _PanelTab(
+                    label: 'ACTIVE SLIP',
+                    selected: _activeSection == _RightPanelSection.activeSlip,
+                    accentColor: widget.accentColor,
+                    onTap: () {
+                      setState(
+                        () => _activeSection = _RightPanelSection.activeSlip,
+                      );
+                    },
+                    labelKey: const ValueKey('active-slip-tab'),
+                  ),
                 ),
-              ),
-              if (!widget.mobileCloseInsideContent)
                 Semantics(
                   button: true,
                   label: 'Close panel',
@@ -383,9 +387,9 @@ class _DesktopRightPanelContentState extends State<_DesktopRightPanelContent> {
                     ),
                   ),
                 ),
-            ],
+              ],
+            ),
           ),
-        ),
         Expanded(
           child: Stack(
             children: [
@@ -409,23 +413,22 @@ class _DesktopRightPanelContentState extends State<_DesktopRightPanelContent> {
               ),
               if (widget.mobileCloseInsideContent)
                 Positioned(
-                  top: 66,
-                  right: 16,
+                  top: 17,
+                  right: 52,
                   child: Semantics(
                     button: true,
                     label: 'Close active slip',
-                    child: IconButton.filledTonal(
+                    child: IconButton(
                       key: const ValueKey('mobile-active-slip-close'),
                       tooltip: 'Close active slip',
                       onPressed: widget.onClose,
                       style: IconButton.styleFrom(
-                        minimumSize: const Size(38, 38),
-                        backgroundColor: piPanelNavy.withValues(alpha: .92),
-                        side: BorderSide(color: widget.accentColor),
+                        minimumSize: const Size(34, 34),
+                        backgroundColor: Colors.transparent,
                       ),
                       icon: Icon(
                         Icons.close_rounded,
-                        size: 20,
+                        size: 22,
                         color: widget.accentColor,
                       ),
                     ),
