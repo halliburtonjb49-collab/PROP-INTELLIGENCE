@@ -322,6 +322,38 @@ class PropChatOperationalAlert {
 }
 
 class PropChatService {
+  static const List<PropChatRoom> _standardRooms = [
+    PropChatRoom(
+      id: 'general',
+      name: 'General',
+      roomType: 'general',
+      requiredTier: 'core',
+    ),
+    PropChatRoom(id: 'mlb', name: 'MLB', sport: 'MLB', requiredTier: 'core'),
+    PropChatRoom(id: 'nfl', name: 'NFL', sport: 'NFL', requiredTier: 'core'),
+    PropChatRoom(id: 'nba', name: 'NBA', sport: 'NBA', requiredTier: 'core'),
+    PropChatRoom(id: 'wnba', name: 'WNBA', sport: 'WNBA', requiredTier: 'core'),
+    PropChatRoom(id: 'nhl', name: 'NHL', sport: 'NHL', requiredTier: 'core'),
+    PropChatRoom(
+      id: 'soccer',
+      name: 'Soccer',
+      sport: 'SOCCER',
+      requiredTier: 'core',
+    ),
+    PropChatRoom(
+      id: 'ncaaf',
+      name: 'NCAAF',
+      sport: 'NCAAF',
+      requiredTier: 'core',
+    ),
+    PropChatRoom(
+      id: 'ncaab',
+      name: 'NCAAB',
+      sport: 'NCAAB',
+      requiredTier: 'core',
+    ),
+    PropChatRoom(id: 'cfl', name: 'CFL', sport: 'CFL', requiredTier: 'core'),
+  ];
   static final ValueNotifier<int> unreadCount = ValueNotifier<int>(0);
   static final ValueNotifier<Map<String, int>> unreadByRoom =
       ValueNotifier<Map<String, int>>(const {});
@@ -338,16 +370,26 @@ class PropChatService {
   Future<List<PropChatRoom>> loadRooms() async {
     final client = _client;
     if (client == null) {
-      return const [PropChatRoom(id: 'general', name: 'General')];
+      return _standardRooms;
     }
-    final rows = await client
-        .from('prop_chat_rooms')
-        .select('id, name, room_type, sport, event_id, required_tier')
-        .eq('is_active', true)
-        .order('position');
-    return (rows as List)
-        .map((row) => PropChatRoom.fromJson(row as Map<String, dynamic>))
-        .toList(growable: false);
+    try {
+      final rows = await client
+          .from('prop_chat_rooms')
+          .select('id, name, room_type, sport, event_id, required_tier')
+          .eq('is_active', true)
+          .order('position');
+      final liveRooms = (rows as List)
+          .map((row) => PropChatRoom.fromJson(row as Map<String, dynamic>))
+          .toList(growable: false);
+      final liveById = {for (final room in liveRooms) room.id: room};
+      return [
+        for (final room in _standardRooms) liveById.remove(room.id) ?? room,
+        ...liveById.values,
+      ];
+    } catch (error) {
+      debugPrint('PROP CHAT rooms unavailable; using standard rooms: $error');
+      return _standardRooms;
+    }
   }
 
   Stream<List<PropChatMessage>> watchMessages({String roomId = 'general'}) {
