@@ -69,13 +69,14 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
   Map<String, dynamic>? _activeTicketPayload;
   bool _hideRemoteActiveTicket = true;
   bool _improvingSlip = false;
+  bool _refreshingLiveSlip = false;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_refreshActiveTicket());
+    unawaited(_refreshLiveSlip());
     _liveTicketSubscription = _liveUpdates.stream.listen(
-      (_) => unawaited(_refreshActiveTicket()),
+      (_) => unawaited(_refreshLiveSlip()),
       onError: (_) {},
     );
     _liveUpdates.connect();
@@ -84,7 +85,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
       // cadence keeps ticket progress current without multiplying provider
       // traffic for every open client.
       const Duration(seconds: 20),
-      (_) => _refreshActiveTicket(),
+      (_) => unawaited(_refreshLiveSlip()),
     );
   }
 
@@ -236,6 +237,32 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
       });
     } catch (_) {
       // Keep the current local ticket rendering if live ticket fetch fails.
+    }
+  }
+
+  Future<void> _refreshLiveSlip() async {
+    if (_refreshingLiveSlip) return;
+    _refreshingLiveSlip = true;
+    try {
+      await Future.wait([
+        _refreshActiveTicket(),
+        _refreshDraftLegs(),
+      ]);
+    } finally {
+      _refreshingLiveSlip = false;
+    }
+  }
+
+  Future<void> _refreshDraftLegs() async {
+    if (widget.controller.legs.isEmpty) return;
+    try {
+      final latestProps = await _apiService.fetchProps(
+        includeReliability: false,
+      );
+      if (!mounted) return;
+      await widget.controller.refreshFromProps(latestProps);
+    } catch (_) {
+      // Preserve the last confirmed lines and totals while the feed recovers.
     }
   }
 
