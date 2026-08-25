@@ -31,6 +31,32 @@ create unique index if not exists prop_chat_rooms_event_id_unique
 
 alter table public.prop_chat_presence enable row level security;
 
+alter table public.prop_chat_rooms enable row level security;
+alter table public.prop_chat_messages enable row level security;
+
+drop policy if exists prop_chat_rooms_member_read on public.prop_chat_rooms;
+drop policy if exists prop_chat_rooms_read on public.prop_chat_rooms;
+create policy prop_chat_rooms_member_read on public.prop_chat_rooms
+for select to authenticated
+using (is_active = true);
+
+drop policy if exists prop_chat_messages_read on public.prop_chat_messages;
+create policy prop_chat_messages_read on public.prop_chat_messages
+for select to authenticated
+using ((deleted_at is null) or is_prop_chat_moderator());
+
+drop policy if exists prop_chat_messages_send on public.prop_chat_messages;
+create policy prop_chat_messages_send on public.prop_chat_messages
+for insert to authenticated
+with check (
+  auth.uid() = user_id
+  and exists (
+    select 1
+    from public.prop_chat_rooms room
+    where room.id = room_id and room.is_active = true
+  )
+);
+
 drop policy if exists prop_chat_presence_read on public.prop_chat_presence;
 create policy prop_chat_presence_read on public.prop_chat_presence
 for select to authenticated
