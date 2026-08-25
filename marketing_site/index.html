@@ -7,7 +7,11 @@
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-    gtag('config', 'G-D59HLSCCGG');
+    gtag('config', 'G-D59HLSCCGG', {
+      linker: {
+        domains: ['pipropsintell.com', 'app.propsintell.com']
+      }
+    });
   </script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -43,5 +47,43 @@
   </main>
   <footer><div class="wrap foot"><span>© 2026 PI PROP INTELLIGENCE. ALL RIGHTS RESERVED.</span><span><a href="#features">FEATURES</a> · <a href="#pricing">PRICING</a> · <a href="#about">ABOUT</a> · TERMS · PRIVACY · CONTACT</span></div></footer>
   <script>document.querySelectorAll('[data-campaign]').forEach(function(link){link.addEventListener('click',function(){window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:'trial_cta_click',campaign:this.dataset.campaign,destination:this.href});});});</script>
+  <script>
+    (() => {
+      const sendEvent = (name, parameters = {}) => {
+        if (typeof window.gtag === 'function') {
+          window.gtag('event', name, parameters);
+        }
+      };
+
+      const campaignVideo = document.querySelector('.campaign video');
+      if (campaignVideo) {
+        let started = false;
+        campaignVideo.addEventListener('play', () => {
+          if (started) return;
+          started = true;
+          sendEvent('video_start', {
+            video_title: 'PI Prop Intelligence Product Overview',
+            campaign_name: 'product_video'
+          });
+        });
+        campaignVideo.addEventListener('ended', () => {
+          sendEvent('video_complete', {
+            video_title: 'PI Prop Intelligence Product Overview',
+            campaign_name: 'product_video'
+          });
+        });
+      }
+
+      document.querySelectorAll('a[href*="app.propsintell.com"]').forEach((link) => {
+        const label = link.textContent.trim().toLowerCase();
+        if (label.includes('log in') || label.includes('login')) {
+          link.addEventListener('click', () => sendEvent('login_click', { link_url: link.href }));
+        }
+        if (label.includes('sign up')) {
+          link.addEventListener('click', () => sendEvent('signup_click', { link_url: link.href }));
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
