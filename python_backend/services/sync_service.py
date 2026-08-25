@@ -314,6 +314,26 @@ def _mark_coverage_synced(now: float | None = None) -> None:
 
 _DEFAULT_DISABLED_SGO_LEAGUES = {"ATP", "WTA", "PGA_MEN", "UFC"}
 
+# SportsGameOdds is a supplemental feed, so keep its catalog aligned with the
+# sports customers can actually select.  The provider mapping contains the
+# primary US leagues; these additions give SOCCER complete product coverage
+# without exposing separate league tabs in the client.
+_PRODUCT_SGO_LEAGUES = {
+    **LEAGUE_TO_SPORT,
+    "NHL": "icehockey_nhl",
+    "MLS": "soccer_usa_mls",
+    "EPL": "soccer_epl",
+    "BUNDESLIGA": "soccer_germany_bundesliga",
+    "UEFA_CHAMPIONS_LEAGUE": "soccer_uefa_champs_league",
+    "IT_SERIE_A": "soccer_italy_serie_a",
+}
+
+_SGO_PRIORITY = (
+    "MLB", "NFL", "NCAAF", "WNBA", "NHL",
+    "MLS", "EPL", "BUNDESLIGA", "UEFA_CHAMPIONS_LEAGUE", "IT_SERIE_A",
+    "NBA", "NCAAB", "CFL",
+)
+
 
 def _disabled_sgo_leagues() -> set[str]:
     configured = os.getenv("SPORTSGAMEODDS_DISABLED_LEAGUES")
@@ -332,10 +352,14 @@ def next_sgo_leagues(limit: int | None = None) -> list[tuple[str, str]]:
     """Rotate bounded provider calls so one worker run stays memory-safe."""
     global _sgo_league_cursor
     disabled = _disabled_sgo_leagues()
-    leagues = [
-        item for item in LEAGUE_TO_SPORT.items()
-        if item[0].upper() not in disabled
-    ]
+    priority = {league: index for index, league in enumerate(_SGO_PRIORITY)}
+    leagues = sorted(
+        (
+            item for item in _PRODUCT_SGO_LEAGUES.items()
+            if item[0].upper() not in disabled
+        ),
+        key=lambda item: (priority.get(item[0].upper(), len(priority)), item[0]),
+    )
     if not leagues:
         return []
     # This feed is supplemental to the primary board. Processing every league
@@ -367,6 +391,26 @@ def sgo_entity_quota_exhausted(usage: object) -> bool:
     maximum = monthly.get("max-entities")
     current = monthly.get("current-entities")
     return isinstance(maximum, int) and isinstance(current, int) and current >= maximum
+
+
+def sgo_quota_safe_league_limit(usage: object, configured_limit: int) -> int:
+    """Broaden coverage while preserving enough monthly capacity for launch."""
+    if not isinstance(usage, dict):
+        return max(1, configured_limit)
+    limits = usage.get("rateLimits")
+    monthly = limits.get("per-month") if isinstance(limits, dict) else None
+    if not isinstance(monthly, dict):
+        return max(1, configured_limit)
+    maximum = monthly.get("max-entities")
+    current = monthly.get("current-entities")
+    if not isinstance(maximum, int) or not isinstance(current, int) or maximum <= 0:
+        return max(1, configured_limit)
+    usage_ratio = current / maximum
+    if usage_ratio >= 0.90:
+        return 1
+    if usage_ratio >= 0.75:
+        return min(2, max(1, configured_limit))
+    return max(1, configured_limit)
 
 
 def _with_retries(operation, *, attempts: int = 3, label: str = "provider call"):
@@ -664,12 +708,17 @@ def sync_sportsgameodds() -> dict[str, object]:
         return {
             "sport": "sportsgameodds", "events": 0, "props": 0,
             "skipped": "monthly entity quota exhausted",
-            "attemptedLeagues": [], "rotationSize": len(LEAGUE_TO_SPORT),
+            "attemptedLeagues": [], "rotationSize": len(_PRODUCT_SGO_LEAGUES),
             "providerUsage": sgo_usage_snapshot(), "accountUsage": account_usage,
             "durationMs": int((time.perf_counter() - started) * 1000),
             "contribution": _sportsgameodds_contribution(),
         }
-    selected_leagues = next_sgo_leagues()
+    configured_league_limit = max(
+        1, int(os.getenv("SPORTSGAMEODDS_LEAGUES_PER_SYNC", "3")),
+    )
+    selected_leagues = next_sgo_leagues(
+        sgo_quota_safe_league_limit(account_usage, configured_league_limit)
+    )
     events_per_league = max(
         1,
         int(os.getenv("SPORTSGAMEODDS_EVENTS_PER_LEAGUE", "3")),
@@ -790,7 +839,7 @@ def sync_sportsgameodds() -> dict[str, object]:
         "leagueResults": league_results,
         "attemptedLeagues": [league for league, _ in selected_leagues],
         "disabledLeagues": sorted(_disabled_sgo_leagues()),
-        "rotationSize": len(LEAGUE_TO_SPORT),
+        "rotationSize": len(_PRODUCT_SGO_LEAGUES),
         "eventsPerLeague": events_per_league,
         "durationMs": int((time.perf_counter() - started) * 1000),
         "contribution": _sportsgameodds_contribution(),

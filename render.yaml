@@ -104,7 +104,7 @@ services:
       - key: ODDS_COVERAGE_REFRESH_SECONDS
         value: 1800
       - key: SPORTSGAMEODDS_LEAGUES_PER_SYNC
-        value: 1
+        value: 3
       - key: SPORTSGAMEODDS_EVENTS_PER_LEAGUE
         value: 3
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES
@@ -238,7 +238,7 @@ services:
       - key: ODDS_COVERAGE_REFRESH_SECONDS
         value: 1800
       - key: SPORTSGAMEODDS_LEAGUES_PER_SYNC
-        value: 1
+        value: 3
       - key: SPORTSGAMEODDS_EVENTS_PER_LEAGUE
         value: 3
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES
