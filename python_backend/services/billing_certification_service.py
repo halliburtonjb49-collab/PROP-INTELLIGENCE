@@ -62,9 +62,17 @@ def billing_release_certification() -> dict[str, object]:
     pro_products = _csv_count("REVENUECAT_EDGE_PRODUCT_IDS")
     founding_products = _csv_count("REVENUECAT_FOUNDING_PRODUCT_IDS")
     webhook_configured = bool(os.getenv("REVENUECAT_WEBHOOK_SECRET", "").strip())
-    public_key_configured = bool(os.getenv("REVENUECAT_PUBLIC_API_KEY", "").strip())
     external_verified = os.getenv("BILLING_CATALOG_VERIFIED", "").strip().lower() == "true"
     external_verified_at = os.getenv("BILLING_CATALOG_VERIFIED_AT", "").strip() or None
+    public_key_configured = bool(
+        os.getenv("REVENUECAT_WEB_PUBLIC_API_KEY", "").strip()
+        or os.getenv("REVENUECAT_PUBLIC_API_KEY", "").strip()
+    )
+    # The web key is compiled into the Vercel Flutter bundle and is not
+    # normally present in the Render API environment. A recorded production
+    # catalog/checkout verification is authoritative evidence that the web
+    # build was configured successfully.
+    web_key_verified = public_key_configured or external_verified
     limit = founding_member_limit()
     delivery = _delivery_snapshot()
     checks: list[dict[str, object]] = []
@@ -80,8 +88,18 @@ def billing_release_certification() -> dict[str, object]:
 
     add("webhook_auth", "Webhook authentication", webhook_configured,
         "RevenueCat webhook authentication is configured." if webhook_configured else "REVENUECAT_WEBHOOK_SECRET is missing.")
-    add("public_billing_key", "Web billing key", public_key_configured,
-        "The production web billing key is configured." if public_key_configured else "REVENUECAT_PUBLIC_API_KEY is missing from the web deployment.")
+    add(
+        "public_billing_key",
+        "Web billing key",
+        web_key_verified,
+        (
+            "The production web billing key is configured."
+            if public_key_configured
+            else f"The production web checkout was externally verified at {external_verified_at or 'the recorded certification time'}."
+            if external_verified
+            else "The Vercel web build has not recorded a RevenueCat key or a verified checkout."
+        ),
+    )
     for key, label, count in (
         ("core_packages", "Core monthly + annual products", core_products),
         ("pro_packages", "Pro monthly + annual products", pro_products),

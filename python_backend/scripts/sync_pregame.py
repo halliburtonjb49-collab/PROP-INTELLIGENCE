@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from services.operations_notification_service import notify_operations_alert
 from services.pipeline_run_service import finish_pipeline_run, start_pipeline_run
+from services.multi_sport_grading_service import grade_all_active_slips
 from services.prediction_automation_service import (
     confidence_tier_calibration,
     grade_completed_predictions,
@@ -282,6 +283,19 @@ def main() -> int:
     except Exception as exc:
         logging.exception("Pregame grading failed")
         errors.append({"stage": "prediction-grading", "error": str(exc)})
+    try:
+        slip_grading = grade_all_active_slips()
+        metrics["slipGrading"] = slip_grading
+        if slip_grading.get("failures"):
+            errors.append(
+                {
+                    "stage": "slip-grading",
+                    "error": f"{len(slip_grading['failures'])} user grading pass(es) failed",
+                }
+            )
+    except Exception as exc:
+        logging.exception("Active slip grading failed")
+        errors.append({"stage": "slip-grading", "error": str(exc)})
     _alert_on_a_stalled_feed(_api_base_url())
     if _is_daily_measurement_window():
         # Whether a displayed tier still earns its number is the one claim

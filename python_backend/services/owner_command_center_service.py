@@ -13,6 +13,7 @@ from services.distributed_cache_service import health as cache_health
 from services.espn_headshot_service import espn_headshot_cache_health
 from services.job_queue_service import health as queue_health
 from services.pipeline_run_service import recent_pipeline_runs, summarize_pipeline_health
+from services.prop_catalog_snapshot_service import load_catalog_snapshot
 from services.provider_availability_monitor_service import provider_availability_snapshot
 from services.scoreboard_metrics_service import scoreboard_latency_snapshot
 from services.owner_action_service import owner_action_snapshot, prop_control_key
@@ -357,6 +358,8 @@ def owner_command_center_snapshot(
     rows: list[object] = []
     try:
         rows = list(_PROP_CACHE.load_props())
+        if not rows:
+            rows = load_catalog_snapshot()
         prop_metrics = _prop_metrics(rows)
     except Exception as exc:
         prop_metrics = {

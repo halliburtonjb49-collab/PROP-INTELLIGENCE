@@ -1908,7 +1908,9 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   }
 
   Widget _reviewCard(Map item) {
-    final reasons = (item['reasons'] as List? ?? const []).join(', ');
+    final reasons = (item['reasons'] as List? ?? const [])
+        .map((reason) => reason.toString().replaceAll('_', ' '))
+        .join(', ');
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: _notice(

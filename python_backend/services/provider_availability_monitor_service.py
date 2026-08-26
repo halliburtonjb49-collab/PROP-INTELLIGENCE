@@ -97,10 +97,15 @@ def _sport_for(provider: str) -> str | None:
 
 def _authorization(row: dict[str, object]) -> str:
     skipped = str(row.get("skipped") or "").lower()
+    error = str(row.get("error") or "").lower()
     if "not entitled" in skipped:
         return "NOT_ENTITLED"
     if "not configured" in skipped:
         return "NOT_CONFIGURED"
+    if "403" in error or "not entitled" in error:
+        return "NOT_ENTITLED"
+    if "429" in error or "too many requests" in error:
+        return "THROTTLED"
     if row.get("error"):
         return "ERROR"
     return "AUTHORIZED"
@@ -134,6 +139,8 @@ def record_provider_availability(
             authorization = "NOT_ENTITLED"
         elif "NOT_CONFIGURED" in authorizations or not rows:
             authorization = "NOT_CONFIGURED"
+        elif "THROTTLED" in authorizations:
+            authorization = "THROTTLED"
         else:
             authorization = "ERROR"
 
@@ -160,6 +167,8 @@ def record_provider_availability(
             missing.append("Provider plan does not include this sport.")
         elif authorization == "NOT_CONFIGURED":
             missing.append("Provider credentials are not configured.")
+        elif authorization == "THROTTLED":
+            missing.append("Optional provider is rate limited; fallback feeds remain active.")
         elif authorization == "ERROR":
             missing.append("The latest provider request failed.")
         if games_checked > 0 and confirmed_players == 0:
@@ -171,7 +180,9 @@ def record_provider_availability(
         if errors:
             missing.extend(errors[:2])
 
-        if authorization in {"NOT_ENTITLED", "NOT_CONFIGURED", "ERROR"}:
+        if authorization in {"NOT_ENTITLED", "NOT_CONFIGURED", "THROTTLED"}:
+            status = "OPTIONAL"
+        elif authorization == "ERROR":
             status = "NOT_ENTITLED" if authorization == "NOT_ENTITLED" else "UNAVAILABLE"
         elif missing:
             status = "PARTIAL"
@@ -211,7 +222,7 @@ def record_provider_availability(
             ],
         }
         sports.append(item)
-        if status != "HEALTHY":
+        if status not in {"HEALTHY", "OPTIONAL"}:
             alerts.append({
                 "sport": sport,
                 "status": status,
@@ -295,6 +306,9 @@ def provider_availability_snapshot(
         if not isinstance(raw, dict):
             continue
         item = dict(raw)
+        authorization = str(item.get("authorizationStatus") or "").upper()
+        if authorization in {"NOT_ENTITLED", "NOT_CONFIGURED", "THROTTLED"}:
+            item["status"] = "OPTIONAL"
         last_attempt = item.get("lastAttemptAt")
         try:
             observed = datetime.fromisoformat(str(last_attempt).replace("Z", "+00:00"))
@@ -302,14 +316,14 @@ def provider_availability_snapshot(
         except (TypeError, ValueError):
             stale = True
         item["stale"] = stale
-        if stale:
+        if stale and item.get("status") != "OPTIONAL":
             item["status"] = "UNAVAILABLE"
             missing = list(item.get("missingData") or [])
             if "Latest availability data is stale." not in missing:
                 missing.append("Latest availability data is stale.")
             item["missingData"] = missing
         sports.append(item)
-        if item.get("status") != "HEALTHY":
+        if item.get("status") not in {"HEALTHY", "OPTIONAL"}:
             alerts.append({
                 "sport": item.get("sport"),
                 "status": item.get("status"),

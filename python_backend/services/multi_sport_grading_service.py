@@ -5,11 +5,54 @@ from datetime import datetime, timezone
 
 from models.slip import LegResultUpdate
 from services.live_stats_service import get_live_player_stat_snapshot
-from services.slip_service import get_slips, update_slip_results
+from services.slip_service import (
+    _connect,
+    get_slips,
+    initialize_slip_table,
+    update_slip_results,
+)
 from services.result_reconciliation_service import reconcile_user_slips
 
 
 SUPPORTED_SPORTS = {"NBA", "WNBA", "MLB", "NFL", "NHL"}
+
+
+def grade_all_active_slips() -> dict[str, object]:
+    """Settle every user's active slips during the background sync cycle."""
+    initialize_slip_table()
+    with _connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT DISTINCT user_id
+            FROM slips
+            WHERE status = 'active'
+              AND user_id IS NOT NULL
+              AND TRIM(user_id) <> ''
+            """
+        ).fetchall()
+
+    totals = Counter()
+    pending_reasons = Counter()
+    failures: list[dict[str, str]] = []
+    for row in rows:
+        user_id = str(row["user_id"])
+        try:
+            result = grade_active_slips(user_id=user_id)
+            totals["users_checked"] += 1
+            totals["slips_checked"] += int(result["slips_checked"])
+            totals["slips_updated"] += int(result["slips_updated"])
+            totals["legs_checked"] += int(result["legs_checked"])
+            totals["legs_graded"] += int(result["legs_graded"])
+            pending_reasons.update(result.get("pending_reasons", {}))
+        except Exception as exc:
+            failures.append({"error": f"{type(exc).__name__}: {exc}"})
+
+    return {
+        "status": "partial" if failures else "complete",
+        **dict(totals),
+        "pending_reasons": dict(pending_reasons),
+        "failures": failures,
+    }
 
 
 def grade_active_slips(*, user_id: str) -> dict[str, object]:

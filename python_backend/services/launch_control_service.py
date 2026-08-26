@@ -13,6 +13,7 @@ from services.distributed_cache_service import health as cache_health
 from services.game_market_service import game_market_health
 from services.job_queue_service import health as queue_health
 from services.pipeline_run_service import recent_pipeline_runs, summarize_pipeline_health
+from services.prop_catalog_snapshot_service import load_catalog_snapshot
 from services.scoreboard_metrics_service import scoreboard_latency_snapshot
 from services.grading_review_service import grading_review_queue
 from services.provider_quality_service import provider_quality_score
@@ -341,8 +342,11 @@ def launch_control_snapshot() -> dict[str, object]:
     database_counts = _database_counts()
     billing_certification = billing_release_certification()
     try:
+        certification_rows = list(_prop_cache.load_props())
+        if not certification_rows:
+            certification_rows = load_catalog_snapshot()
         data_certification = production_data_certification(
-            _prop_cache.load_props(),
+            certification_rows,
             expected_providers=PREFERRED_BOOKMAKERS,
         )
     except Exception as exc:
@@ -470,6 +474,23 @@ def launch_control_snapshot() -> dict[str, object]:
         feedback_inbox = {
             "available": False,
             "reason": type(exc).__name__,
+            "summary": {
+                "last24Hours": 0,
+                "last7Days": 0,
+                "new": 0,
+                "total": 0,
+            },
+            "items": [],
+        }
+    # Feedback is operationally independent from model and strikeout reports.
+    # A failure in one of those reports must not make a healthy inbox appear
+    # unconfigured.
+    try:
+        feedback_inbox = list_feedback(limit=20)
+    except Exception as exc:
+        feedback_inbox = {
+            "available": False,
+            "reason": f"{type(exc).__name__}: {str(exc)[:180]}",
             "summary": {
                 "last24Hours": 0,
                 "last7Days": 0,
