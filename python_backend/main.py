@@ -3279,7 +3279,6 @@ def props(
 				len(prop_list),
 				catalog_updated_at,
 				catalog_version,
-				membership.user_id,
 				int(membership.level),
 				subscription_tier,
 				side_filter,

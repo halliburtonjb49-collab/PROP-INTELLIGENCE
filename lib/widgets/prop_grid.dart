@@ -483,9 +483,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   maxHeight: MediaQuery.sizeOf(context).height * .92,
                 ),
                 child: MediaQuery(
-                  data: MediaQuery.of(context).copyWith(
-                    textScaler: const TextScaler.linear(1.16),
-                  ),
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: const TextScaler.linear(1.16)),
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
                     child: _buildPortraitPropCard(
@@ -2715,17 +2715,28 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final requestKey = _queryKey;
     final fetchTimer = Stopwatch()..start();
     widget.onStartupLog?.call('fetchProps() start');
-    final cached = await _apiService.loadCachedProps(
-      selectedSide: widget.selectedSide,
-      selectedTier: widget.selectedTier,
-      selectedSportsbook: widget.selectedSite,
-      selectedSport: widget.sportFilter,
-      selectedCategory: widget.selectedCategory,
-      search: widget.searchQuery,
-      minConfidence: widget.minConfidence,
-      verdictFilter: widget.verdictFilter,
-      sortBy: widget.sortBy,
-    );
+    // Start the live request immediately instead of making mobile startup
+    // wait for SharedPreferences and cached JSON decoding first. A fast cache
+    // still paints instantly; otherwise the already-running network request
+    // wins without paying both waits serially.
+    final liveRequest = _fetchPropsPage(includeReliability: true);
+    final cached = await _apiService
+        .loadCachedProps(
+          selectedSide: widget.selectedSide,
+          selectedTier: widget.selectedTier,
+          selectedSportsbook: widget.selectedSite,
+          selectedSport: widget.sportFilter,
+          selectedCategory: widget.selectedCategory,
+          search: widget.searchQuery,
+          minConfidence: widget.minConfidence,
+          verdictFilter: widget.verdictFilter,
+          sortBy: widget.sortBy,
+        )
+        .catchError((_) => <PropData>[])
+        .timeout(
+          const Duration(milliseconds: 350),
+          onTimeout: () => <PropData>[],
+        );
     if (!mounted || requestKey != _queryKey) return const [];
     if (shouldRenderCachedPropsOnLaunch(
       cached,
@@ -2741,11 +2752,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         _apiService.lastFacetCount,
         _apiService.lastCategoryCounts,
       );
-      unawaited(_refreshFirstPageFromNetwork(requestKey));
-      unawaited(_loadProviderReliability(requestKey, activeCached));
+      unawaited(_refreshFirstPageFromNetwork(requestKey, pending: liveRequest));
       return activeCached;
     }
-    final liveProps = await _fetchPropsPage();
+    final liveProps = await liveRequest;
     if (liveProps.isNotEmpty) {
       _automaticRetryCount = 0;
     }
@@ -2769,7 +2779,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       _apiService.lastFacetCount,
       _apiService.lastCategoryCounts,
     );
-    unawaited(_loadProviderReliability(requestKey, props));
     return props;
   }
 
@@ -2802,41 +2811,14 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         );
   }
 
-  Future<void> _loadProviderReliability(
-    String requestKey,
-    List<PropData> visibleProps,
-  ) async {
+  Future<void> _refreshFirstPageFromNetwork(
+    String requestKey, {
+    Future<List<PropData>>? pending,
+  }) async {
     try {
-      await _apiService.fetchProps(
-        selectedSide: widget.selectedSide,
-        selectedTier: widget.selectedTier,
-        selectedSportsbook: widget.selectedSite,
-        selectedSport: widget.sportFilter,
-        selectedCategory: widget.selectedCategory,
-        search: widget.searchQuery,
-        minConfidence: widget.minConfidence,
-        verdictFilter: widget.verdictFilter,
-        sortBy: widget.sortBy,
-        // Keep the complete first page in persistent storage. A one-row
-        // metadata request would otherwise replace the cached 24-card page.
-        limit: _visiblePropStep,
-        includeReliability: true,
+      final fresh = activePropsInChronologicalOrder(
+        await (pending ?? _fetchPropsPage()),
       );
-      if (!mounted || requestKey != _queryKey) return;
-      widget.onPropsLoaded?.call(
-        visibleProps,
-        _apiService.lastPropsCount,
-        _apiService.lastFacetCount,
-        _apiService.lastCategoryCounts,
-      );
-    } catch (_) {
-      // Provider health is secondary metadata; cards remain usable without it.
-    }
-  }
-
-  Future<void> _refreshFirstPageFromNetwork(String requestKey) async {
-    try {
-      final fresh = activePropsInChronologicalOrder(await _fetchPropsPage());
       if (!mounted || requestKey != _queryKey) return;
       // Keeping the last page through an empty response protects the
       // board from a blip in the feed. Applied to a narrowed query it
@@ -2918,11 +2900,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     });
 
     try {
-      await SlipManager.refreshSelectedProps(_apiService);
-      if (!mounted) {
-        return;
-      }
-      await _refreshFirstPageFromNetwork(_queryKey);
+      // Ticket reconciliation and the visible board refresh are independent.
+      // Running them together removes the pause where mobile users waited for
+      // every saved leg before the first fresh prop card could appear.
+      await Future.wait<void>([
+        SlipManager.refreshSelectedProps(_apiService),
+        _refreshFirstPageFromNetwork(_queryKey),
+      ]);
     } catch (_) {
       if (!mounted) {
         return;
@@ -3208,7 +3192,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                         ConnectionState.waiting) {
                       return const PropLoadingSkeleton();
                     }
-                    final status = statusSnapshot.data ??
+                    final status =
+                        statusSnapshot.data ??
                         _SportSeasonStatus.unavailable(normalizedSport);
                     return _SeasonStatusPanel(
                       status: status,
@@ -3414,12 +3399,16 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      for (var rowIndex = 0; rowIndex < rowCount; rowIndex++) ...[
+                      for (
+                        var rowIndex = 0;
+                        rowIndex < rowCount;
+                        rowIndex++
+                      ) ...[
                         if (rowIndex > 0) SizedBox(height: cardSpacing),
                         Builder(
                           builder: (context) {
-                            final cardsInRow = minimumPerRow +
-                                (rowIndex < fullerRows ? 1 : 0);
+                            final cardsInRow =
+                                minimumPerRow + (rowIndex < fullerRows ? 1 : 0);
                             final rowGroups = sectionGroups.sublist(
                               groupIndex,
                               groupIndex += cardsInRow,
@@ -3427,9 +3416,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                             return Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                for (var index = 0;
-                                    index < rowGroups.length;
-                                    index++) ...[
+                                for (
+                                  var index = 0;
+                                  index < rowGroups.length;
+                                  index++
+                                ) ...[
                                   if (index > 0) SizedBox(width: cardSpacing),
                                   Expanded(
                                     child: SizedBox(
@@ -3624,7 +3615,9 @@ class _SportSeasonStatus {
       );
     }
     final first = ordered.first.startTime;
-    final until = first == null ? Duration.zero : first.difference(DateTime.now());
+    final until = first == null
+        ? Duration.zero
+        : first.difference(DateTime.now());
     final imminent = until <= const Duration(days: 1);
     final continuous = _continuousSports.contains(normalized);
     final soccerWithoutPlayerMarkets = normalized == 'SOCCER' && imminent;
@@ -3651,7 +3644,8 @@ class _SportSeasonStatus {
     sport: normalizePropSport(sport),
     state: 'schedule_unavailable',
     title: '${normalizePropSport(sport)} SCHEDULE TEMPORARILY UNAVAILABLE',
-    message: 'The schedule feed could not be confirmed. Current prop markets will continue refreshing automatically.',
+    message:
+        'The schedule feed could not be confirmed. Current prop markets will continue refreshing automatically.',
     games: const [],
   );
 
@@ -3668,10 +3662,24 @@ class _SportSeasonStatus {
     final date = game.startTime?.toLocal();
     if (date == null) return game.displayTime ?? 'Time to be announced';
     const months = [
-      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
     ];
-    final hour = date.hour == 0 ? 12 : date.hour > 12 ? date.hour - 12 : date.hour;
+    final hour = date.hour == 0
+        ? 12
+        : date.hour > 12
+        ? date.hour - 12
+        : date.hour;
     final minute = date.minute.toString().padLeft(2, '0');
     final suffix = date.hour >= 12 ? 'PM' : 'AM';
     return '${months[date.month - 1]} ${date.day} - $hour:$minute $suffix';
@@ -3719,7 +3727,9 @@ class _SeasonStatusPanel extends StatelessWidget {
       child: Column(
         children: [
           Icon(
-            next == null ? Icons.event_busy_rounded : Icons.event_available_rounded,
+            next == null
+                ? Icons.event_busy_rounded
+                : Icons.event_available_rounded,
             color: app_colors.AppColors.gold,
             size: 32,
           ),
@@ -3811,7 +3821,8 @@ class _SeasonStatusPanel extends StatelessWidget {
                       width: width,
                       icon: Icons.lock_clock_rounded,
                       title: 'OPENING SOON',
-                      detail: 'Prop-site markets commonly appear 1-7 days before games.',
+                      detail:
+                          'Prop-site markets commonly appear 1-7 days before games.',
                     ),
                     _SeasonInfoTile(
                       width: width,
@@ -3823,7 +3834,8 @@ class _SeasonStatusPanel extends StatelessWidget {
                       width: width,
                       icon: Icons.history_rounded,
                       title: 'LAST SEASON RESEARCH',
-                      detail: 'Historical results remain available in Track Record.',
+                      detail:
+                          'Historical results remain available in Track Record.',
                     ),
                   ],
                 );
