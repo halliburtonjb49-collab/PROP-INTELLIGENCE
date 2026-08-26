@@ -4,6 +4,7 @@ import '../services/auth_manager.dart';
 import '../services/billing_service.dart';
 import '../services/subscription_pricing.dart';
 import '../services/engagement_tracker.dart';
+import '../legal/legal_content.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -57,6 +58,38 @@ class BrandedPaywallModalSheet extends StatelessWidget {
   final String heading;
   final String supportingText;
   final bool scrollable;
+
+  Future<void> _showLegal(
+    BuildContext context,
+    String title,
+    List<LegalSection> sections,
+  ) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF101923),
+        title: Text(title),
+        content: SizedBox(
+          width: 560,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final section in sections)
+                  LegalSectionView(section: section),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('CLOSE'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -236,6 +269,28 @@ class BrandedPaywallModalSheet extends StatelessWidget {
           TextButton(
             onPressed: () => billingService.restorePurchases(context),
             child: const Text('RESTORE PURCHASES'),
+          ),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            children: [
+              TextButton(
+                onPressed: () => _showLegal(
+                  context,
+                  'TERMS OF USE',
+                  termsSections,
+                ),
+                child: const Text('TERMS OF USE'),
+              ),
+              TextButton(
+                onPressed: () => _showLegal(
+                  context,
+                  'PRIVACY POLICY',
+                  privacySections,
+                ),
+                child: const Text('PRIVACY POLICY'),
+              ),
+            ],
           ),
           Text(
             'Cancel anytime. Purchases and renewals are managed securely by the billing platform available on your device.',
