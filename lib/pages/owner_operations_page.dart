@@ -572,6 +572,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       final side = prop.proSuggestedSide?.trim().toUpperCase();
       return prop.isSelectable &&
           prop.verdict.actionable &&
+          _ownerMarketPriority(prop) < 100 &&
           (side == 'OVER' || side == 'UNDER');
     }).toList(growable: false);
     final unique = <String, PropData>{};
@@ -606,11 +607,75 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   }
 
   int _compareOwnerPicks(PropData left, PropData right) {
+    final marketPriority = _ownerMarketPriority(
+      left,
+    ).compareTo(_ownerMarketPriority(right));
+    if (marketPriority != 0) return marketPriority;
+    final bookCoverage = right.marketBookCount.compareTo(left.marketBookCount);
+    if (bookCoverage != 0) return bookCoverage;
     final trust = right.piTrustScore.compareTo(left.piTrustScore);
     if (trust != 0) return trust;
     final edge = right.edge.abs().compareTo(left.edge.abs());
     if (edge != 0) return edge;
     return left.player.compareTo(right.player);
+  }
+
+  int _ownerMarketPriority(PropData prop) {
+    final sport = prop.sport.trim().toUpperCase();
+    final market = (prop.marketKey.isNotEmpty
+            ? prop.marketKey
+            : prop.displayMarket.isNotEmpty
+            ? prop.displayMarket
+            : prop.market)
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .trim();
+
+    bool hasAny(List<String> names) => names.any(market.contains);
+
+    switch (sport) {
+      case 'NBA':
+      case 'WNBA':
+      case 'NCAAB':
+        if (hasAny(['points rebounds assists', 'pra'])) return 0;
+        if (hasAny(['points rebounds', 'points assists'])) return 1;
+        if (hasAny(['player points', 'points'])) return 2;
+        if (hasAny(['player rebounds', 'rebounds'])) return 3;
+        if (hasAny(['player assists', 'assists'])) return 4;
+        if (hasAny(['three pointers made', '3 pointers made', 'threes'])) {
+          return 5;
+        }
+        return 100;
+      case 'NFL':
+      case 'NCAAF':
+      case 'CFL':
+        if (hasAny(['passing yards'])) return 0;
+        if (hasAny(['receiving yards'])) return 1;
+        if (hasAny(['rushing yards'])) return 2;
+        if (hasAny(['receptions'])) return 3;
+        if (hasAny(['passing touchdowns', 'passing tds'])) return 4;
+        if (hasAny(['completions', 'passing attempts'])) return 5;
+        if (hasAny(['rushing receiving yards'])) return 6;
+        return 100;
+      case 'MLB':
+        if (hasAny(['pitcher strikeouts', 'strikeouts'])) return 0;
+        if (hasAny(['total bases'])) return 1;
+        if (hasAny(['hits runs rbis', 'hits runs rbi'])) return 2;
+        if (hasAny(['player hits', 'hits'])) return 3;
+        if (hasAny(['runs batted in', 'rbis', 'rbi'])) return 4;
+        if (hasAny(['runs scored', 'player runs'])) return 5;
+        if (hasAny(['home runs'])) return 6;
+        return 100;
+      case 'NHL':
+        if (hasAny(['shots on goal', 'player shots'])) return 0;
+        if (hasAny(['goalie saves', 'saves'])) return 1;
+        if (hasAny(['player points', 'points'])) return 2;
+        if (hasAny(['player assists', 'assists'])) return 3;
+        if (hasAny(['player goals', 'goals'])) return 4;
+        return 100;
+      default:
+        return 100;
+    }
   }
 
   Widget _ownerTopPicksPanel() {
