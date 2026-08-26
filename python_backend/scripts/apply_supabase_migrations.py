@@ -5,9 +5,9 @@ from __future__ import annotations
 import hashlib
 import os
 import sys
-import socket
 from pathlib import Path
-from urllib.parse import quote, urlparse
+import socket
+from urllib.parse import quote, parse_qsl, urlencode, urlparse, urlunparse
 
 import psycopg
 from dotenv import load_dotenv
@@ -102,6 +102,33 @@ def main() -> int:
                     f"{parsed.scheme}://{parsed.username}:{password}@{direct_host}:{parsed.port}{parsed.path}"
                 )
                 urls.append(direct_db_url)
+
+    normalized_urls: list[str] = []
+    for candidate_url in urls:
+        if candidate_url in normalized_urls:
+            continue
+        normalized_urls.append(candidate_url)
+        parsed_candidate = urlparse(candidate_url)
+        try:
+            infos = socket.getaddrinfo(
+                parsed_candidate.hostname,
+                parsed_candidate.port,
+                socket.AF_INET,
+                socket.SOCK_STREAM,
+            )
+        except Exception:
+            infos = []
+        for entry in infos:
+            ipv4 = entry[4][0]
+            query = dict(parse_qsl(parsed_candidate.query, keep_blank_values=True))
+            query["hostaddr"] = ipv4
+            hostaddr_candidate = parsed_candidate._replace(
+                query=urlencode(query, doseq=True)
+            )
+            hostaddr_url = urlunparse(hostaddr_candidate)
+            if hostaddr_url not in normalized_urls:
+                normalized_urls.append(hostaddr_url)
+    urls = normalized_urls
 
     for candidate_url in urls:
         try:
