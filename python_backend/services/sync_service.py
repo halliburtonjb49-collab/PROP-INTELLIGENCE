@@ -316,7 +316,7 @@ def _mark_coverage_synced(now: float | None = None) -> None:
         _last_coverage_sync_monotonic = time.monotonic() if now is None else now
 
 
-_DEFAULT_DISABLED_SGO_LEAGUES = {"ATP", "WTA", "PGA_MEN", "UFC"}
+_DEFAULT_DISABLED_SGO_LEAGUES: set[str] = set()
 
 # SportsGameOdds is a supplemental feed, so keep its catalog aligned with the
 # sports customers can actually select.  The provider mapping contains the
@@ -806,7 +806,7 @@ def sync_sportsgameodds() -> dict[str, object]:
                 )
             else:
                 # A temporary empty specialty response must not erase the
-                # last healthy PGA/Tennis/UFC slate. Normal board expiry rules
+                # last healthy specialty slate. Normal board expiry rules
                 # still hide events after they start or finish.
                 logger.warning(
                     "sportsgameodds preserved cache league=%s reason=no_active_events",

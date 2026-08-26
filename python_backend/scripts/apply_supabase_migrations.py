@@ -7,7 +7,7 @@ import os
 import sys
 from pathlib import Path
 import socket
-from urllib.parse import quote, parse_qsl, urlencode, urlparse, urlunparse
+from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlunparse
 
 import psycopg
 from dotenv import load_dotenv
@@ -103,12 +103,34 @@ def main() -> int:
                 )
                 urls.append(direct_db_url)
 
+    raw_manual_hostaddrs = [
+        addr.strip()
+        for addr in os.getenv("DATABASE_HOSTADDRS", "").split(",")
+        if addr.strip()
+    ]
+    manual_hostaddrs = []
+    for addr in raw_manual_hostaddrs:
+        try:
+            socket.inet_pton(socket.AF_INET, addr)
+        except OSError:
+            print(f"Ignoring invalid IPv4 hostaddr: {addr}", file=sys.stderr)
+            continue
+        manual_hostaddrs.append(addr)
+
     normalized_urls: list[str] = []
     for candidate_url in urls:
         if candidate_url in normalized_urls:
             continue
         normalized_urls.append(candidate_url)
         parsed_candidate = urlparse(candidate_url)
+        base_query = dict(parse_qsl(parsed_candidate.query, keep_blank_values=True))
+        for ipv4 in manual_hostaddrs:
+            query = dict(base_query)
+            query["hostaddr"] = ipv4
+            hostaddr_candidate = parsed_candidate._replace(query=urlencode(query, doseq=True))
+            hostaddr_url = urlunparse(hostaddr_candidate)
+            if hostaddr_url not in normalized_urls:
+                normalized_urls.append(hostaddr_url)
         try:
             infos = socket.getaddrinfo(
                 parsed_candidate.hostname,

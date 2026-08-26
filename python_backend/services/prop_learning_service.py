@@ -14,8 +14,7 @@ from services.prop_service import get_props
 
 
 _TRACKED_SPORTS = {
-    "NBA", "WNBA", "MLB", "NFL", "NHL", "PGA", "GOLF",
-    "TENNIS", "UFC", "MMA", "SOCCER",
+    "NBA", "WNBA", "MLB", "NFL", "NHL", "SOCCER",
 }
 
 

@@ -24,10 +24,6 @@ from services.distributed_cache_service import get_json, set_json
 LOGGER = logging.getLogger(__name__)
 BASE_URL = "https://api.sportsgameodds.com/v2"
 LEAGUE_TO_SPORT = {
-    "ATP": "tennis_atp",
-    "WTA": "tennis_wta",
-    "PGA_MEN": "golf_pga",
-    "UFC": "mma_mixed_martial_arts",
     "MLB": "baseball_mlb",
     "NBA": "basketball_nba",
     "WNBA": "basketball_wnba",
@@ -458,7 +454,7 @@ def fetch_upcoming_events(
     request_timeout_seconds: float | None = None,
 ) -> list[dict[str, Any]]:
     now = datetime.now(timezone.utc)
-    specialty_horizon_days = 10 if league_id in {"PGA_MEN", "UFC"} else 4
+    specialty_horizon_days = 4
     params: dict[str, object] = {
         "leagueID": league_id,
         "oddsAvailable": "true",
@@ -716,7 +712,7 @@ def normalize_event(
     odds_map = odds if isinstance(odds, dict) else {}
 
     books: dict[str, dict[str, dict[tuple[str, float], list[dict[str, Any]]]]] = {}
-    # Temporary: ATP/WTA/UFC fetch events successfully but yield zero props in
+    # Specialty feeds can yield zero props in production, so sample the first
     # production, meaning every odd is being dropped by one of the filters
     # below. Sample the first few drops per event so the next sync's logs
     # reveal the real periodID/statID/betTypeID values instead of guessing.

@@ -3107,7 +3107,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     ? widget.sportFilter
                     : widget.displaySportFilter,
               );
-              const specialtySports = {'PGA', 'TENNIS', 'SOCCER'};
+              const specialtySports = {'SOCCER'};
               final specialtyFeedUnavailable = specialtySports.contains(
                 normalizedSport,
               );
@@ -3171,7 +3171,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 .toList(growable: false);
             _favoritePropIds.retainAll(props.map((prop) => prop.id).toSet());
             if (props.isEmpty) {
-              const specialtySports = {'PGA', 'TENNIS', 'SOCCER', 'UFC'};
+              const specialtySports = {'SOCCER'};
               final specialtyFeedEmpty = specialtySports.contains(
                 normalizedSport,
               );
@@ -3591,7 +3591,7 @@ class _SportSeasonStatus {
   final String message;
   final List<ScoreboardGame> games;
 
-  static const _continuousSports = {'SOCCER', 'TENNIS'};
+  static const _continuousSports = {'SOCCER'};
 
   factory _SportSeasonStatus.fromGames(
     String sport,

@@ -202,6 +202,9 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
 
   void _startPolling() {
     _refreshTimer?.cancel();
+    // Opening Watch should reconcile and archive completed tickets now,
+    // rather than leaving a stale FINAL/PENDING card until the first timer.
+    unawaited(_refreshGameStatuses());
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 20),
       (_) => _refreshGameStatuses(),

@@ -113,6 +113,18 @@ Render and use the Supabase direct database connection string for migrations.
 
 The command exits successfully only when required tables exist, minimum data
 coverage is present, and at least 100 prediction snapshots have been graded.
+### DB password rotation checklist
+
+After resetting the Supabase DB password, update these tracked settings:
+
+- Render service environment variables (`DATABASE_URL`) for every service in `render.yaml`.
+- `python_backend/.env` (local/dev only).
+- Any CI/CD secret stores that run DB-connected tasks.
+- Any migration/smoke scripts that pass a literal connection URL.
+
+Use the new password in this connection template:
+
+`postgresql://postgres.doncoxjilytojmnpukxi:<NEW_DB_PASSWORD>@aws-0-us-east-1.pooler.supabase.com:5432/postgres`
 
 Saved tickets and closing-line snapshots use PostgreSQL in production. Local
 development may fall back to `SLIP_DATABASE_PATH`, but a release is accepted
@@ -158,3 +170,4 @@ Expected minimum fields:
 - `snapshot` response: `created`, `snapshotDate`, `skipped`
 - `grade` response: `graded`, `pendingChecked`, `stateCounts`, `gradedAt`
 - `performance` response: `available`, `windowDays`, `totals`, `metrics`
+

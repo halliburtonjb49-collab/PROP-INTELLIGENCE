@@ -54,14 +54,38 @@ SPORT_CONFIG = {
 
 STAT_MAP = {
     "pass yards": ["PassingYards", "PassingYardsDraftKings"],
+    "pass yds": ["PassingYards", "PassingYardsDraftKings"],
     "passing yards": ["PassingYards", "PassingYardsDraftKings"],
+    "passing touchdowns": ["PassingTouchdowns"],
+    "pass touchdowns": ["PassingTouchdowns"],
+    "pass tds": ["PassingTouchdowns"],
+    "passing interceptions": ["PassingInterceptions", "Interceptions"],
+    "pass interceptions": ["PassingInterceptions", "Interceptions"],
     "rush yards": ["RushingYards", "RushingYardsDraftKings"],
+    "rush yds": ["RushingYards", "RushingYardsDraftKings"],
     "rushing yards": ["RushingYards", "RushingYardsDraftKings"],
     "receiving yards": ["ReceivingYards", "ReceivingYardsDraftKings"],
+    "reception yards": ["ReceivingYards", "ReceivingYardsDraftKings"],
+    "reception yds": ["ReceivingYards", "ReceivingYardsDraftKings"],
+    "rush reception yards": ["RushingYards", "ReceivingYards"],
+    "rush receiving yards": ["RushingYards", "ReceivingYards"],
     "receptions": ["Receptions", "ReceptionsDraftKings"],
     "pass attempts": ["PassingAttempts"],
     "pass completions": ["PassingCompletions"],
+    "rush attempts": ["RushingAttempts"],
+    "rushing attempts": ["RushingAttempts"],
+    "receiving touchdowns": ["ReceivingTouchdowns"],
+    "reception touchdowns": ["ReceivingTouchdowns"],
+    "reception tds": ["ReceivingTouchdowns"],
+    "rushing touchdowns": ["RushingTouchdowns"],
+    "rush touchdowns": ["RushingTouchdowns"],
+    "rush tds": ["RushingTouchdowns"],
+    "anytime td": ["Touchdowns"],
+    "anytime touchdown": ["Touchdowns"],
     "touchdowns": ["Touchdowns"],
+    "sacks": ["Sacks"],
+    "solo tackles": ["SoloTackles"],
+    "tackles assists": ["AssistedTackles", "TackleAssists"],
     "points": ["Points"],
     "rebounds": ["Rebounds"],
     "assists": ["Assists"],
@@ -74,8 +98,14 @@ STAT_MAP = {
     "steals": ["Steals"],
     "blocks & steals": ["BlockedShots", "Blocks", "Steals"],
     "blocks steals": ["BlockedShots", "Blocks", "Steals"],
+    "turnovers": ["Turnovers"],
+    "field goals": ["FieldGoalsMade"],
+    "fantasy points": ["FantasyPoints", "FantasyPointsDraftKings"],
     "three-pointers made": ["ThreePointersMade"],
+    "three pointers made": ["ThreePointersMade"],
     "3-pointers made": ["ThreePointersMade"],
+    "3 pointers made": ["ThreePointersMade"],
+    "threes": ["ThreePointersMade"],
     "pitcher strikeouts": ["PitchingStrikeouts", "Strikeouts"],
     "strikeouts": ["PitchingStrikeouts", "Strikeouts"],
     "pitcher outs recorded": ["PitchingOuts"],
@@ -88,14 +118,19 @@ STAT_MAP = {
     "goals": ["Goals"],
     "shots on goal": ["ShotsOnGoal"],
     "player shots on goal": ["ShotsOnGoal"],
+    "blocked shots": ["BlockedShots"],
+    "power play points": ["PowerPlayPoints"],
     "goalie saves": ["GoaltendingSaves", "Saves"],
+    "total saves": ["GoaltendingSaves", "Saves"],
     "saves": ["GoaltendingSaves", "Saves"],
     "birdies": ["Birdies"],
     "birdies or better": ["Birdies"],
     "bogeys": ["Bogeys"],
     "pars": ["Pars"],
     "fairways": ["FairwaysHit"],
+    "fairways hit": ["FairwaysHit"],
     "greens": ["GreensInRegulation"],
+    "greens in regulation": ["GreensInRegulation"],
     "strokes": ["Score"],
     "round score": ["Score"],
 }
@@ -414,24 +449,41 @@ def _espn_completed_basketball_snapshot(
     except (TypeError, ValueError):
         return LiveStatSnapshot(None, False, "invalid_game_date")
 
-    cache_key = f"{sport}:{target_date.isoformat()}"
-    cached = _espn_logs_cache.get(cache_key)
-    now = time.time()
-    if cached and now - float(cached.get("time", 0)) < 60:
-        logs = cached.get("data", [])
-    else:
+    # Saved start times are UTC while ESPN scoreboards are keyed by the
+    # venue's calendar date. A 9 PM Pacific game is therefore commonly saved
+    # as the following UTC day. Search the adjacent dates so a completed late
+    # game does not remain FINAL/PENDING forever in Slip Watcher.
+    logs: list[dict[str, object]] = []
+    provider = EspnBasketballStatisticsProvider()
+    for game_date in (
+        target_date - timedelta(days=1),
+        target_date,
+        target_date + timedelta(days=1),
+    ):
+        cache_key = f"{sport}:{game_date.isoformat()}"
+        cached = _espn_logs_cache.get(cache_key)
+        now = time.time()
+        if cached and now - float(cached.get("time", 0)) < 60:
+            cached_logs = cached.get("data", [])
+            if isinstance(cached_logs, list):
+                logs.extend(cached_logs)
+            continue
         try:
-            logs = EspnBasketballStatisticsProvider().daily_game_logs(
+            daily_logs = provider.daily_game_logs(
                 sport=sport,
-                target_date=target_date,
+                target_date=game_date,
                 include_in_progress=True,
             )
         except (requests.RequestException, KeyError, ValueError):
-            return LiveStatSnapshot(None, False, "espn_boxscore_unavailable")
-        _espn_logs_cache[cache_key] = {"time": now, "data": logs}
+            continue
+        _espn_logs_cache[cache_key] = {"time": now, "data": daily_logs}
+        logs.extend(daily_logs)
+
+    if not logs:
+        return LiveStatSnapshot(None, False, "espn_boxscore_unavailable")
 
     return _espn_snapshot_from_logs(
-        logs=logs if isinstance(logs, list) else [],
+        logs=logs,
         player_name=player_name,
         prop_type=prop_type,
         event_id=event_id,

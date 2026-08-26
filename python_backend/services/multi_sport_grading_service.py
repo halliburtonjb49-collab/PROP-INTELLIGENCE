@@ -9,7 +9,7 @@ from services.slip_service import get_slips, update_slip_results
 from services.result_reconciliation_service import reconcile_user_slips
 
 
-SUPPORTED_SPORTS = {"NBA", "WNBA", "MLB", "NHL", "PGA", "GOLF"}
+SUPPORTED_SPORTS = {"NBA", "WNBA", "MLB", "NFL", "NHL"}
 
 
 def grade_active_slips(*, user_id: str) -> dict[str, object]:

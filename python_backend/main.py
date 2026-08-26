@@ -1729,7 +1729,6 @@ SCOREBOARD_SPORT_KEYS: list[tuple[str, str]] = [
 	("NHL", "icehockey_nhl"),
 	("EPL", "soccer_epl"),
 	("MLS", "soccer_usa_mls"),
-	("UFC", "mma_mixed_martial_arts"),
 ]
 
 ESPN_SCOREBOARD_PATHS: dict[str, str] = {
@@ -1740,7 +1739,6 @@ ESPN_SCOREBOARD_PATHS: dict[str, str] = {
 	"NHL": "hockey/nhl",
 	"EPL": "soccer/eng.1",
 	"MLS": "soccer/usa.1",
-	"UFC": "mma/ufc",
 }
 
 VALID_BULK_MODES = {"merge", "replace"}

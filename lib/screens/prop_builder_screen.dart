@@ -71,12 +71,9 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
     'MLB',
     'NFL',
     'NBA',
-    'PGA',
     'WNBA',
-    'TENNIS',
     'SOCCER',
     'NHL',
-    'UFC',
   ];
 
   static const List<String> _availablePropSites = [

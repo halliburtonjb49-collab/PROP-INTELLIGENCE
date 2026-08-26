@@ -135,6 +135,15 @@ In sync logs/results, confirm both step labels appear.
   - Confirm source services are healthy.
   - Backfill / replay grading cycle after source recovery.
 
+### Credential rotation
+
+If the Supabase DB password is reset, rotate this single value everywhere before continuing:
+
+`postgresql://postgres.doncoxjilytojmnpukxi:<NEW_DB_PASSWORD>@aws-0-us-east-1.pooler.supabase.com:5432/postgres`
+
+- Update Render service secret `DATABASE_URL` for all services (API, workers, schedulers).
+- Re-run migrations with the same new URL.
+
 ## Rollback plan
 
 - **Code rollback:** revert this repository commit and redeploy backend.

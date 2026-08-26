@@ -1127,9 +1127,6 @@ class ApiService {
         .trim()
         .toUpperCase();
     final isSpecialtySport = const {
-      'PGA',
-      'TENNIS',
-      'UFC',
       'SOCCER',
     }.contains(sport);
     // Specialty feeds can legitimately be empty between events. Avoid making

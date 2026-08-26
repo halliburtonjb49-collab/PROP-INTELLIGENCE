@@ -87,10 +87,29 @@ class WnbaPlayerStatsProvider(PlayerStatsProvider):
                 points + assists + rebounds
             )
 
+        points_rebounds = (
+            points + rebounds
+            if points is not None and rebounds is not None
+            else None
+        )
+        points_assists = (
+            points + assists
+            if points is not None and assists is not None
+            else None
+        )
+        rebounds_assists = (
+            rebounds + assists
+            if rebounds is not None and assists is not None
+            else None
+        )
+
         return {
             "points": points,
             "assists": assists,
             "rebounds": rebounds,
+            "points_rebounds": points_rebounds,
+            "points_assists": points_assists,
+            "rebounds_assists": rebounds_assists,
             "pra": points_rebounds_assists,
             "three_pointers_made": self._number(
                 item.get("tpm")

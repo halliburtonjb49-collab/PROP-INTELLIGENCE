@@ -467,9 +467,6 @@ class _LiveScoreboardTickerGridWidgetState
       'MLB',
       'NHL',
       'SOCCER',
-      'TENNIS',
-      'PGA',
-      'UFC',
     ];
     int countFor(String sport) => sport == 'ALL SPORTS'
         ? _controller.games.length
@@ -483,9 +480,6 @@ class _LiveScoreboardTickerGridWidgetState
       'MLB' => Icons.sports_baseball,
       'NHL' => Icons.sports_hockey,
       'SOCCER' => Icons.sports_soccer,
-      'TENNIS' => Icons.sports_tennis,
-      'PGA' => Icons.sports_golf,
-      'UFC' => Icons.sports_mma,
       _ => Icons.apps_rounded,
     };
     return SizedBox(
