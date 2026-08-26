@@ -30,6 +30,10 @@ from services.prediction_automation_service import (
     capture_prediction_closing_lines,
     snapshot_live_predictions,
 )
+from services.prop_learning_service import (
+    grade_learning_results,
+    snapshot_all_props_for_learning,
+)
 from services.memory_telemetry_service import record_memory_checkpoint
 from services.compound_alert_service import evaluate_all_alerts
 from services.prop_service import get_props
@@ -1188,6 +1192,11 @@ def run_global_sync_pipeline(
             record_projection_grade()
         except Exception as exc:
             logger.warning("projection grade failed error=%s", exc)
+        try:
+            report_post_processing("prop_learning_grade")
+            grade_learning_results()
+        except Exception as exc:
+            logger.warning("prop learning grade failed error=%s", exc)
         finally:
             _mark_graded()
     report_post_processing("alerts")
@@ -1213,4 +1222,18 @@ def run_global_sync_pipeline(
         ",".join(fast_sports),
         ",".join(coverage_sports),
     )
+    # Closed-loop learning includes all live candidate props, not just
+    # recommendation finalists. Keeping this after grading avoids creating
+    # training labels for props the board has not had a chance to resolve.
+    report_post_processing("prop_learning_snapshot")
+    try:
+        learning_snapshot = snapshot_all_props_for_learning()
+        results.append({"sport": "prop_learning_snapshots", "events": 0,
+                        "props": int(learning_snapshot.get("created", 0))})
+    except Exception as exc:
+        logger.warning("prop learning snapshot failed error=%s", exc)
+        results.append({
+            "sport": "prop_learning_snapshots", "events": 0, "props": 0,
+            "error": str(exc),
+        })
     return results

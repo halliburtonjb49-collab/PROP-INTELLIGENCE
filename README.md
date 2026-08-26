@@ -131,3 +131,30 @@ default). Events skipped by this guard are reported in sync status rather than
 failing the entire board refresh.
 Events are processed by nearest start time first, so a quota-limited refresh
 completes the most actionable portion of the current slate before later games.
+
+### Prop learning rollout
+
+For migration, endpoint, and incident-safe rollout steps for closed-loop prop
+learning, use:
+
+- [PROP Learning System Runbook](./docs/PROP_LEARNING_SYSTEM_ROLLBACK_AND_ROLLFORWARD_RUNBOOK.md)
+
+Quick smoke test (after deploy):
+
+```powershell
+curl -s -H "Authorization: Bearer <OWNER_JWT>" `
+  https://api.propsintell.com/api/operations/prop-learning/snapshot | ConvertFrom-Json | ConvertTo-Json
+
+curl -s -X POST -H "Authorization: Bearer <OWNER_JWT>" `
+  https://api.propsintell.com/api/operations/prop-learning/grade | ConvertFrom-Json | ConvertTo-Json
+
+curl -s -H "Authorization: Bearer <OWNER_JWT>" `
+  "https://api.propsintell.com/api/operations/prop-learning/performance?days=30" `
+  | ConvertFrom-Json | ConvertTo-Json
+```
+
+Expected minimum fields:
+
+- `snapshot` response: `created`, `snapshotDate`, `skipped`
+- `grade` response: `graded`, `pendingChecked`, `stateCounts`, `gradedAt`
+- `performance` response: `available`, `windowDays`, `totals`, `metrics`

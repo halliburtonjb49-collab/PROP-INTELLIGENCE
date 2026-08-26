@@ -22,6 +22,11 @@ from services.acceptance_service import production_acceptance_snapshot
 from services.launch_control_service import launch_control_snapshot
 from services.billing_certification_service import billing_release_certification
 from services.grading_review_service import grading_review_queue
+from services.prop_learning_service import (
+    grade_learning_results,
+    learning_performance_summary,
+    snapshot_all_props_for_learning,
+)
 from services.user_feedback_service import list_feedback, submit_feedback
 from services.member_signup_service import record_member_join
 from services.strikeout_quality_service import (
@@ -180,6 +185,22 @@ def control_panel_detail(metric: str, limit: int = 50) -> dict[str, object]:
 @router.get("/grading-review", dependencies=[Depends(require_owner)])
 def grading_review() -> dict[str, object]:
     return grading_review_queue()
+
+
+@router.post("/prop-learning/snapshot", dependencies=[Depends(require_owner)])
+def run_prop_learning_snapshot() -> dict[str, object]:
+    return snapshot_all_props_for_learning()
+
+
+@router.post("/prop-learning/grade", dependencies=[Depends(require_owner)])
+def run_prop_learning_grade() -> dict[str, object]:
+    return grade_learning_results()
+
+
+@router.get("/prop-learning/performance", dependencies=[Depends(require_owner)])
+def get_prop_learning_performance(days: int = 30) -> dict[str, object]:
+    bounded_days = max(1, min(int(days), 365))
+    return learning_performance_summary(bounded_days)
 
 
 @router.get("/strikeout-controls", dependencies=[Depends(require_owner)])
