@@ -1412,6 +1412,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         Icons.psychology_alt_outlined,
         'PI learning report is warming up',
         learning['reason']?.toString() ?? 'Settled prediction data is not available yet.',
+        AppColors.gold,
       );
     }
     final promoted = (summary['promoted'] as num?)?.toInt() ?? 0;
@@ -1424,6 +1425,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
           Icons.auto_graph_rounded,
           'PI learning is active',
           '${learning['settledPredictions'] ?? 0} settled predictions | $promoted promoted | $developing developing | $rejected rejected',
+          const Color(0xFF8CFFB2),
         ),
         const SizedBox(height: 8),
         ...findings.map((finding) {
@@ -1438,6 +1440,11 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                       : Icons.hourglass_top_rounded,
               '$status | ${finding['sport'] ?? ''} ${finding['market'] ?? ''}',
               finding['explanation']?.toString() ?? 'Pattern details unavailable.',
+              status == 'PROMOTED'
+                  ? const Color(0xFF8CFFB2)
+                  : status == 'REJECTED'
+                  ? const Color(0xFFFF7B7B)
+                  : AppColors.gold,
             ),
           );
         }),
