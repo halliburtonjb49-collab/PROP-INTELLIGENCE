@@ -37,6 +37,9 @@ class SavedSlipLeg {
   final String piChangeStatus;
   final List<Map<String, dynamic>> piChanges;
   final String piRecalculatedAt;
+  final bool? piRecalculationCorrect;
+  final double? piEntryError;
+  final double? piRecalculatedError;
 
   const SavedSlipLeg({
     required this.propId,
@@ -77,6 +80,9 @@ class SavedSlipLeg {
     this.piChangeStatus = 'UNCHANGED',
     this.piChanges = const [],
     this.piRecalculatedAt = '',
+    this.piRecalculationCorrect,
+    this.piEntryError,
+    this.piRecalculatedError,
   });
 
   factory SavedSlipLeg.fromJson(Map<String, dynamic> json) {
@@ -129,6 +135,9 @@ class SavedSlipLeg {
           .map((item) => Map<String, dynamic>.from(item))
           .toList(growable: false),
       piRecalculatedAt: json['pi_recalculated_at']?.toString() ?? '',
+      piRecalculationCorrect: json['pi_recalculation_correct'] as bool?,
+      piEntryError: (json['pi_entry_error'] as num?)?.toDouble(),
+      piRecalculatedError: (json['pi_recalculated_error'] as num?)?.toDouble(),
     );
   }
 }

@@ -157,6 +157,7 @@ from services.prop_builder_service import (
 from services.prop_line_movement_service import (
 	check_prop_line_movement,
 )
+from services.pi_recalculation_notification_service import notify_material_weakening
 from services.prop_builder_preset_service import (
 	create_prop_builder_preset,
 	delete_prop_builder_preset,
@@ -2566,6 +2567,13 @@ def _graded_slip_legs(
 			if current_confidence is not None and leg.confidence is not None
 			else 0
 		)
+		projection_threshold = max(0.0, float(os.getenv("PI_MATERIAL_PROJECTION_DELTA", "0.5")))
+		confidence_threshold = max(0, int(os.getenv("PI_MATERIAL_CONFIDENCE_DELTA", "3")))
+		material_change = (
+			abs(projection_delta) >= projection_threshold
+			or abs(confidence_delta) >= confidence_threshold
+			or any(change["label"] in {"Injury", "Lineup"} for change in pi_changes)
+		)
 		projection_improved = (
 			projection_delta > 0
 			if leg.side.upper() == "OVER"
@@ -2609,6 +2617,7 @@ def _graded_slip_legs(
 				"current_confidence": current_confidence,
 				"pi_change_status": pi_change_status,
 				"pi_changes": pi_changes,
+				"pi_material_change": material_change,
 			}
 		)
 	return legs
@@ -2644,14 +2653,16 @@ def _live_slip_stats_payload(*, season: str, user_id: str) -> dict[str, object]:
 	current_props = {str(prop.id): prop for prop in get_props()}
 	slips: dict[str, object] = {}
 	for slip in active_slips:
+		live_legs = _graded_slip_legs(
+			slip,
+			season=season,
+			current_props=current_props,
+		)
+		notify_material_weakening(user_id=user_id, legs=live_legs)
 		slips[slip.id] = {
 			"slip_title": f"{len(slip.legs)}-Pick Ticket",
 			"status": slip.status,
-			"legs": _graded_slip_legs(
-				slip,
-				season=season,
-				current_props=current_props,
-			),
+			"legs": live_legs,
 		}
 	return {"slips": slips}
 

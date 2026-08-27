@@ -334,7 +334,11 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       final slipStats = stats[slip.id] ?? const <String, dynamic>{};
       for (final leg in slip.legs) {
         final live = slipStats[leg.propId];
-        if (live is! Map || live['pi_change_status'] != 'WEAKENED') continue;
+        if (live is! Map ||
+            live['pi_change_status'] != 'WEAKENED' ||
+            live['pi_material_change'] != true) {
+          continue;
+        }
         final key = '${slip.id}:${leg.propId}:${live['current_projection']}:${live['current_confidence']}';
         if (!_piWeakeningNotified.add(key)) continue;
         ScaffoldMessenger.of(context).showSnackBar(

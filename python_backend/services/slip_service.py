@@ -723,6 +723,14 @@ def update_slip_results(
                     leg["result_verified"] = result_update.result_verified
                     leg["result_source"] = result_update.result_source
                     leg["result_verified_at"] = result_update.result_verified_at
+                    entry_projection = leg.get("projection")
+                    current_projection = leg.get("current_projection")
+                    if entry_projection is not None and current_projection is not None:
+                        entry_error = abs(float(result_value) - float(entry_projection))
+                        current_error = abs(float(result_value) - float(current_projection))
+                        leg["pi_entry_error"] = round(entry_error, 4)
+                        leg["pi_recalculated_error"] = round(current_error, 4)
+                        leg["pi_recalculation_correct"] = current_error < entry_error
                     changed = True
 
                 leg_statuses.append(
@@ -801,6 +809,14 @@ def reconcile_verified_slip_results(
                     leg["result_verified"] = True
                     leg["result_source"] = source
                     leg["result_verified_at"] = verified_at
+                    entry_projection = leg.get("projection")
+                    current_projection = leg.get("current_projection")
+                    if entry_projection is not None and current_projection is not None:
+                        entry_error = abs(float(value) - float(entry_projection))
+                        current_error = abs(float(value) - float(current_projection))
+                        leg["pi_entry_error"] = round(entry_error, 4)
+                        leg["pi_recalculated_error"] = round(current_error, 4)
+                        leg["pi_recalculation_correct"] = current_error < entry_error
                     legs_verified += 1
                     changed = True
                 statuses.append(str(leg.get("result_status", "pending")))

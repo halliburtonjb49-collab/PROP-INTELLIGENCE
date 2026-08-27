@@ -45,6 +45,12 @@ class OwnerCommandCenterOverview extends StatelessWidget {
     final services = (data['services'] as List? ?? const [])
         .whereType<Map>()
         .toList(growable: false);
+    final recalculations = (data['piRecalculationDetails'] as List? ?? const [])
+        .whereType<Map>()
+        .toList(growable: false);
+    final learning = (data['piRecalculationLearning'] as List? ?? const [])
+        .whereType<Map>()
+        .toList(growable: false);
     if (metrics.isEmpty && services.isEmpty) {
       return _empty();
     }
@@ -78,6 +84,14 @@ class OwnerCommandCenterOverview extends StatelessWidget {
             },
           ),
           const SizedBox(height: 18),
+          if (recalculations.isNotEmpty) ...[
+            _recalculationDrilldown(recalculations),
+            const SizedBox(height: 18),
+          ],
+          if (learning.isNotEmpty) ...[
+            _recalculationLearning(learning),
+            const SizedBox(height: 18),
+          ],
           Row(
             children: [
               const Icon(
@@ -122,6 +136,38 @@ class OwnerCommandCenterOverview extends StatelessWidget {
       ),
     );
   }
+
+  Widget _recalculationDrilldown(List<Map> rows) => ExpansionTile(
+    key: const ValueKey('owner-pi-recalculation-drilldown'),
+    tilePadding: EdgeInsets.zero,
+    title: const Text('PI RECALCULATION DRILL-DOWN', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
+    subtitle: Text('${rows.length} active improved or weakened props', style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
+    children: rows.map((row) {
+      final weakened = row['status'] == 'WEAKENED';
+      final color = weakened ? const Color(0xFFFF8A65) : const Color(0xFF65E6B4);
+      return ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        title: Text('${row['player']} • ${row['side']} ${row['line']} ${row['market']}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+        subtitle: Text('${row['sport']} • projection ${row['entryProjection']} → ${row['currentProjection']} • confidence ${row['entryConfidence']} → ${row['currentConfidence']}', style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
+        trailing: Text('${row['status']}', style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w900)),
+      );
+    }).toList(growable: false),
+  );
+
+  Widget _recalculationLearning(List<Map> rows) => ExpansionTile(
+    key: const ValueKey('owner-pi-recalculation-learning'),
+    tilePadding: EdgeInsets.zero,
+    title: const Text('PI RECALCULATION LEARNING', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
+    subtitle: const Text('Verified impact by sport and market', style: TextStyle(color: AppColors.textMuted, fontSize: 9)),
+    children: rows.map((row) => ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      title: Text('${row['sport']} • ${row['market']}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+      subtitle: Text('Accuracy ${row['accuracy']}% • entry MAE ${row['entryMae']} → recalculated MAE ${row['recalculatedMae']}', style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
+      trailing: Text('N=${row['sampleSize']}', style: const TextStyle(color: AppColors.gold, fontSize: 9, fontWeight: FontWeight.w900)),
+    )).toList(growable: false),
+  );
 
   Widget _empty() => Container(
     width: double.infinity,

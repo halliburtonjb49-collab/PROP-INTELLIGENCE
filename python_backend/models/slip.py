@@ -50,6 +50,9 @@ class SlipLeg(BaseModel):
     pi_change_status: str = "UNCHANGED"
     pi_changes: list[dict[str, object]] = Field(default_factory=list)
     pi_recalculated_at: str = ""
+    pi_recalculation_correct: bool | None = None
+    pi_entry_error: float | None = None
+    pi_recalculated_error: float | None = None
     closing_odds: float | None = None
     line_clv: float | None = None
     line_clv_percent: float | None = None
