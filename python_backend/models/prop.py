@@ -64,6 +64,11 @@ class PropResponse(BaseModel):
     piTrustResearchReady: bool = False
     piTrustFactors: list[dict[str, object]] = Field(default_factory=list)
     piTrustWarnings: list[str] = Field(default_factory=list)
+    driftStatus: str = "COLLECTING"
+    driftConfidencePenalty: float = 0.0
+    driftRecentSample: int = 0
+    driftBaselineSample: int = 0
+    driftReason: str = ""
     researchCapsule: dict[str, object] = Field(default_factory=dict)
     opportunityScore: float = Field(default=0.0, ge=0, le=1)
     opportunityStatus: str = "SYSTEM_LEAN"

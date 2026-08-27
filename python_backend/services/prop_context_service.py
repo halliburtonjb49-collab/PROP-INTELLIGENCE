@@ -12,6 +12,7 @@ from services.projection_calibration_service import (
     contextual_projection,
 )
 from services.pi_verdict_service import compute_verdict, verdict_payload
+from services.pi_drift_service import drift_profile_for
 from services.prop_recommendation_service import tier_from_confidence
 from services.prop_probability_service import evaluate_market
 from services.probability_calibration_service import (
@@ -53,6 +54,34 @@ def _apply_wnba_research(prop: object) -> None:
     prop.wnbaResearchWarnings = list(wnba.warnings)
     if prop.confidence > 0:
         prop.confidence = min(prop.confidence, wnba.score)
+
+
+def _apply_drift_guardrail(prop: object) -> None:
+    profile = drift_profile_for(
+        model_version=str(getattr(prop, "projectionModelVersion", "") or "baseline-v3"),
+        sport=str(getattr(prop, "sport", "") or ""),
+        market=str(getattr(prop, "marketKey", "") or getattr(prop, "market", "") or ""),
+        side=str(getattr(prop, "recommendedSide", "") or ""),
+        provider=str(getattr(prop, "sourceProvider", "") or ""),
+    )
+    prop.driftStatus = profile.status
+    prop.driftConfidencePenalty = profile.penalty
+    prop.driftRecentSample = profile.recent_sample
+    prop.driftBaselineSample = profile.baseline_sample
+    prop.driftReason = profile.reason
+    if profile.penalty >= 0 or int(getattr(prop, "confidence", 0) or 0) <= 0:
+        return
+    penalty_points = round(abs(profile.penalty) * 100)
+    prop.confidence = max(0, int(prop.confidence) - penalty_points)
+    prop.tier = tier_from_confidence(prop.confidence)
+    existing = str(getattr(prop, "recommendationExplanation", "") or "").strip()
+    prop.recommendationExplanation = (
+        f"{existing} PI drift protection reduced confidence by {penalty_points} points: "
+        f"{profile.reason}".strip()
+    )
+    reasons = list(getattr(prop, "opportunityReasons", []) or [])
+    reasons.append(f"PI {profile.status.lower()}: {profile.reason}")
+    prop.opportunityReasons = list(dict.fromkeys(reasons))
 
 
 def _apply_strikeout_release_gate(prop: object) -> bool:
@@ -408,6 +437,7 @@ def apply_projection_context(prop: object) -> None:
         prop.pickText = "No Pick"
         prop.tier = "No Pick"
         prop.confidence = 0
+    _apply_drift_guardrail(prop)
     _apply_wnba_research(prop)
     _apply_strikeout_release_gate(prop)
     # Last, so the verdict reads the finished prop rather than a half-built

@@ -184,6 +184,14 @@ def build_prop_trust(row: object, *, now_utc: datetime | None = None) -> dict[st
         warnings.append("Model sample size is limited or unavailable.")
 
     score = round(sum(float(factor["score"]) for factor in factors))
+    drift_status = str(_value(row, "driftStatus", "drift_status", default="COLLECTING") or "COLLECTING").upper()
+    drift_penalty = abs(_number(_value(row, "driftConfidencePenalty", "drift_confidence_penalty")) or 0)
+    if drift_status in {"MONITOR", "RECALIBRATE"}:
+        trust_penalty = round(drift_penalty * 100)
+        score = max(0, score - trust_penalty)
+        warnings.append(
+            f"PI model segment is under {drift_status.lower()} review; trust reduced by {trust_penalty} points."
+        )
     band = "EXCELLENT" if score >= 85 else "STRONG" if score >= 70 else "CAUTION" if score >= 55 else "LIMITED"
     return {
         "score": score,
