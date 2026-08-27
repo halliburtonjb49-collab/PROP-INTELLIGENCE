@@ -13,6 +13,7 @@ from typing import Callable, TypeVar
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from services.pipeline_run_service import finish_pipeline_run, start_pipeline_run
+from services.pi_tendency_service import pi_tendency_report
 from services.prop_learning_service import (
     grade_learning_results,
     snapshot_all_props_for_learning,
@@ -88,6 +89,15 @@ def main() -> int:
     except Exception as exc:
         logging.exception("Prop-learning result grading failed")
         errors.append({"stage": "grading", "error": str(exc)})
+
+    try:
+        metrics["intelligence"] = _retry(
+            "PI tendency evaluation",
+            pi_tendency_report,
+        )
+    except Exception as exc:
+        logging.exception("PI tendency evaluation failed")
+        errors.append({"stage": "intelligence", "error": str(exc)})
 
     result = _retry(
         "learning pipeline telemetry finish",

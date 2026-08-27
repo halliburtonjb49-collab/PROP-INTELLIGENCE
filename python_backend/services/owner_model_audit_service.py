@@ -10,6 +10,7 @@ from typing import Iterable, Mapping
 from database.postgres import database_is_configured, get_database_pool
 from services.owner_command_center_service import command_center_window
 from services.model_performance_service import QUARANTINE_SQL
+from services.pi_tendency_service import pi_tendency_report
 
 _MAX_ROWS = 10_000
 
@@ -404,11 +405,28 @@ def owner_model_audit_snapshot(
     audit = summarize_model_audit(rows)
     predictions = list(audit["predictions"])
     audit["predictions"] = predictions[:row_limit]
+    newest_model = next(
+        (
+            str(row.get("modelVersion"))
+            for row in predictions
+            if row.get("modelVersion") not in (None, "", "UNKNOWN")
+        ),
+        "baseline-v3",
+    )
+    try:
+        learning = pi_tendency_report(newest_model)
+    except Exception as exc:
+        learning = {
+            "available": False,
+            "modelVersion": newest_model,
+            "reason": f"PI learning scorecard is temporarily unavailable: {exc}",
+        }
     return {
         "available": True, "generatedAt": current.isoformat(),
         "window": {"key": window, "label": range_label,
                    "start": range_start.isoformat(), "end": range_end.isoformat()},
         "truncated": calculation_truncated,
         "predictionListTruncated": len(predictions) > row_limit,
-        "auditedRows": len(rows), "returned": len(audit["predictions"]), **audit,
+        "auditedRows": len(rows), "returned": len(audit["predictions"]),
+        "learning": learning, **audit,
     }

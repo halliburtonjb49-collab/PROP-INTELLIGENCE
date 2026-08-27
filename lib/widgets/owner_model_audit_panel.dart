@@ -106,6 +106,8 @@ class _OwnerModelAuditPanelState extends State<OwnerModelAuditPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _summary(summary),
+          const SizedBox(height: 14),
+          _learningScorecard(widget.data['learning'] as Map? ?? const {}),
           const SizedBox(height: 12),
           _filters(),
           if (calibration.isNotEmpty) ...[
@@ -246,6 +248,212 @@ class _OwnerModelAuditPanelState extends State<OwnerModelAuditPanel> {
       );
     },
   );
+
+  Widget _learningScorecard(Map learning) {
+    if (learning['available'] != true) {
+      return _empty(
+        learning['reason']?.toString() ??
+            'PI learning evidence is still accumulating.',
+      );
+    }
+    final summary = learning['summary'] as Map? ?? const {};
+    final clv = learning['closingLineQuality'] as Map? ?? const {};
+    final findings = (learning['findings'] as List? ?? const [])
+        .whereType<Map>()
+        .take(8)
+        .toList(growable: false);
+    final metrics = [
+      ('SETTLED', '${learning['settledPredictions'] ?? 0}', AppColors.gold),
+      ('PROMOTED', '${summary['promoted'] ?? 0}', const Color(0xFF65E6B4)),
+      ('DEVELOPING', '${summary['developing'] ?? 0}', const Color(0xFF73BFFF)),
+      ('REJECTED', '${summary['rejected'] ?? 0}', const Color(0xFFFFA970)),
+      (
+        'CALIBRATION',
+        '${summary['calibrationSegmentsPromoted'] ?? 0}',
+        const Color(0xFF65E6B4),
+      ),
+      (
+        'BEAT CLOSE',
+        _percent(clv['beatCloseRate']),
+        clv['beatCloseRate'] is num && (clv['beatCloseRate'] as num) >= .5
+            ? const Color(0xFF65E6B4)
+            : AppColors.gold,
+      ),
+    ];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: const Color(0xFF08141F),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: AppColors.gold.withValues(alpha: .38)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.psychology_alt_rounded, color: AppColors.gold),
+              const SizedBox(width: 8),
+              const Expanded(child: _AuditHeading('PI LEARNING SCORECARD')),
+              Text(
+                '${learning['modelVersion'] ?? '--'}',
+                style: const TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'Verified outcomes train guarded market patterns. Only patterns that clear sample, uncertainty, lift, and out-of-sample checks can affect future PI rankings.',
+            style: TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 9,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 11),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 760 ? 6 : 3;
+              final width =
+                  (constraints.maxWidth - ((columns - 1) * 7)) / columns;
+              return Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: metrics
+                    .map(
+                      (metric) => Container(
+                        width: width,
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0C1823),
+                          borderRadius: BorderRadius.circular(9),
+                          border: Border.all(
+                            color: metric.$3.withValues(alpha: .25),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              metric.$1,
+                              style: const TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 7,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              metric.$2,
+                              style: TextStyle(
+                                color: metric.$3,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(growable: false),
+              );
+            },
+          ),
+          const SizedBox(height: 9),
+          Text(
+            'CLV COVERAGE ${clv['measured'] ?? 0} PICKS | ${clv['beatClose'] ?? 0} BEAT THE CLOSE',
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          if (findings.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'LEARNED PATTERNS',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 7),
+            ...findings.map(_learningFinding),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _learningFinding(Map finding) {
+    final status = '${finding['status'] ?? 'DEVELOPING'}';
+    final color = status == 'PROMOTED'
+        ? const Color(0xFF65E6B4)
+        : status == 'REJECTED'
+        ? const Color(0xFFFFA970)
+        : const Color(0xFF73BFFF);
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0C1823),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: .22)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: Text(
+              status,
+              style: TextStyle(
+                color: color,
+                fontSize: 7,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${finding['sport']} | ${finding['market']} | ${finding['dimension']}: ${finding['label']}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${finding['explanation'] ?? ''}',
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 8,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _filters() => Container(
     width: double.infinity,
