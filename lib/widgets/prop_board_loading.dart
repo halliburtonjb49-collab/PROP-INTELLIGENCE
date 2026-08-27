@@ -42,13 +42,30 @@ class PropLoadingSkeleton extends StatefulWidget {
   State<PropLoadingSkeleton> createState() => _PropLoadingSkeletonState();
 }
 
-class _PropLoadingSkeletonState extends State<PropLoadingSkeleton> {
+class _PropLoadingSkeletonState extends State<PropLoadingSkeleton>
+    with SingleTickerProviderStateMixin {
+  static const _stages = <String>[
+    'SYNCING LIVE MARKETS',
+    'ANALYZING PLAYER DATA',
+    'CALCULATING PI TRUST',
+    'PREPARING TOP PROPS',
+  ];
+
   final Stopwatch _elapsed = Stopwatch()..start();
   Timer? _ticker;
+  late final AnimationController _scanController;
 
   @override
   void initState() {
     super.initState();
+    _scanController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    );
+    if (!WidgetsBinding
+        .instance.platformDispatcher.accessibilityFeatures.disableAnimations) {
+      _scanController.repeat();
+    }
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
@@ -57,93 +74,190 @@ class _PropLoadingSkeletonState extends State<PropLoadingSkeleton> {
   @override
   void dispose() {
     _ticker?.cancel();
+    _scanController.dispose();
     _elapsed.stop();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 1050
-            ? 3
-            : constraints.maxWidth >= 650
-            ? 2
-            : 1;
-        return GridView.builder(
-          shrinkWrap: true,
-          primary: false,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: columns * 2,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            // Reserve approximately the final card footprint so the board
-            // does not jump when live content replaces the skeleton.
-            mainAxisExtent: 420,
+    final stage = _stages[(_elapsed.elapsed.inSeconds ~/ 2) % _stages.length];
+    return Semantics(
+      liveRegion: true,
+      label: 'Prop Intelligence is loading. $stage',
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 410),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0B2230),
+              Color(0xFF071722),
+              Color(0xFF040D14),
+            ],
+            stops: [0, 0.56, 1],
           ),
-          itemBuilder: (context, index) => Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppColors.panel,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.gold.withValues(alpha: 0.72)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.28),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
             ),
+          ],
+        ),
+        child: CustomPaint(
+          painter: const _PiLoadingGridPainter(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 38),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: const BoxDecoration(
-                        color: AppColors.border,
-                        shape: BoxShape.circle,
+                SizedBox(
+                  width: 142,
+                  height: 142,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF09131C),
+                          borderRadius: BorderRadius.circular(26),
+                          border: Border.all(
+                            color: AppColors.gold.withValues(alpha: 0.82),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.gold.withValues(alpha: 0.2),
+                              blurRadius: 30,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.person_rounded,
-                        color: AppColors.gold,
-                        size: 24,
+                      Padding(
+                        padding: const EdgeInsets.all(7),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Image.asset(
+                            'assets/branding/Prop_Intelligence_Master_Logo.png',
+                            width: 128,
+                            height: 128,
+                            fit: BoxFit.cover,
+                            filterQuality: FilterQuality.high,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Center(
+                                  child: Text(
+                                    'PI',
+                                    style: TextStyle(
+                                      color: AppColors.goldHighlight,
+                                      fontSize: 48,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(height: 16, width: 150, color: AppColors.border),
-                          const SizedBox(height: 8),
-                          Container(height: 10, width: 210, color: AppColors.border),
-                        ],
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: AnimatedBuilder(
+                          animation: _scanController,
+                          builder: (context, child) => Align(
+                            alignment: Alignment(
+                              0,
+                              (_scanController.value * 2) - 1,
+                            ),
+                            child: child,
+                          ),
+                          child: Container(
+                            width: 126,
+                            height: 1.5,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF7D878),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0xFFF7D878),
+                                  blurRadius: 8,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    Container(height: 54, width: 92, color: AppColors.border),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'PROP INTELLIGENCE',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFFF3F6F9),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.8,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'INITIALIZING PROP ENGINE',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.goldHighlight,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: const [
+                    _PiEngineChip(label: 'LIVE LINES'),
+                    _PiEngineChip(label: 'MODEL DATA'),
+                    _PiEngineChip(label: 'PI TRUST'),
                   ],
                 ),
-                const SizedBox(height: 18),
-                Container(height: 34, width: double.infinity, color: AppColors.border),
+                const SizedBox(height: 22),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 360),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: const LinearProgressIndicator(
+                      minHeight: 3,
+                      color: AppColors.gold,
+                      backgroundColor: AppColors.border,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 280),
+                  child: Text(
+                    stage,
+                    key: ValueKey(stage),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFFB8C4CF),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 10),
-                Container(height: 34, width: double.infinity, color: AppColors.border),
-                const SizedBox(height: 14),
-                Container(height: 76, width: double.infinity, color: AppColors.border),
-                const Spacer(),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(height: 44, color: AppColors.border),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Container(height: 44, color: AppColors.border),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
                 Text(
                   loadProgressMessage(_elapsed.elapsed),
                   key: const ValueKey('prop-loading-progress'),
+                  textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -151,13 +265,96 @@ class _PropLoadingSkeletonState extends State<PropLoadingSkeleton> {
                     fontSize: 10,
                   ),
                 ),
+                const SizedBox(height: 16),
+                const Text(
+                  'FIND THE EDGE.',
+                  style: TextStyle(
+                    color: AppColors.gold,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2.2,
+                  ),
+                ),
               ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
+}
+
+class _PiEngineChip extends StatelessWidget {
+  const _PiEngineChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFB9C4CF).withValues(alpha: 0.055),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFB9C4CF).withValues(alpha: 0.16),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 5,
+            height: 5,
+            decoration: const BoxDecoration(
+              color: AppColors.goldHighlight,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFFB8C4CF),
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.9,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PiLoadingGridPainter extends CustomPainter {
+  const _PiLoadingGridPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final grid = Paint()
+      ..color = const Color(0xFFB9C4CF).withValues(alpha: 0.055)
+      ..strokeWidth = 1;
+    const spacing = 38.0;
+    for (double x = 0; x <= size.width; x += spacing) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
+    }
+    for (double y = 0; y <= size.height; y += spacing) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+
+    final accent = Paint()
+      ..color = AppColors.gold.withValues(alpha: 0.16)
+      ..strokeWidth = 1.2;
+    canvas.drawLine(
+      Offset(size.width * 0.76, 0),
+      Offset(size.width * 0.58, size.height),
+      accent,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class PropLoadError extends StatelessWidget {
