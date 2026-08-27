@@ -157,6 +157,8 @@ def current_profiles() -> dict[tuple[str, str], RecalculationProfile]:
             return _cached_profiles
         from services.slip_service import get_slips
         _cached_profiles = profiles_from_slips(get_slips())
+        from services.pi_learning_ledger_service import persist_recalculation_profiles
+        persist_recalculation_profiles(_cached_profiles.values())
         _cached_at = now
         return _cached_profiles
 

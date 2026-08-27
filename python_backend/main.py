@@ -159,6 +159,7 @@ from services.prop_line_movement_service import (
 )
 from services.pi_recalculation_notification_service import notify_material_weakening
 from services.pi_recalculation_learning_service import profile_for as pi_recalculation_profile_for
+from services.pi_learning_ledger_service import persist_recalculation_event
 from services.prop_builder_preset_service import (
 	create_prop_builder_preset,
 	delete_prop_builder_preset,
@@ -2552,6 +2553,14 @@ def _graded_slip_legs(
 			current_confidence = min(
 				100,
 				int(current_confidence) + learning_profile.ranking_influence,
+			)
+			persist_recalculation_event(
+				event_type="INFLUENCE", status="PROMOTED", sport=leg.sport,
+				market=leg.market, segment_label=leg.player,
+				sample_size=learning_profile.sample_size,
+				evidence={"propId": leg.prop_id, "confidenceInfluence": learning_profile.ranking_influence},
+				explanation="Qualified PI recalculation influence applied.",
+				event_key=f"{leg.prop_id}:{current_projection}:{current_confidence}",
 			)
 		current_injury = str(getattr(current_prop, "injuryStatus", "") or "")
 		current_lineup = str(getattr(current_prop, "lineupStatus", "") or "")

@@ -7,6 +7,8 @@ import os
 from datetime import datetime, timedelta, timezone
 from urllib.request import Request, urlopen
 
+from services.pi_learning_ledger_service import persist_recalculation_event
+
 
 _LAST_SENT: dict[str, datetime] = {}
 _COOLDOWN = timedelta(hours=6)
@@ -45,6 +47,26 @@ def notify_material_weakening(*, user_id: str, legs: list[dict[str, object]]) ->
                 if 200 <= response.status < 300:
                     _LAST_SENT[key] = now
                     delivered += 1
-        except Exception:
+                    persist_recalculation_event(
+                        event_type="PUSH_DELIVERED", status="PROMOTED",
+                        sport=leg.get("sport"), market=leg.get("market"),
+                        segment_label=player, evidence={"propId": leg.get("prop_id")},
+                        explanation="Material weakening push delivered.", event_key=key,
+                    )
+                else:
+                    persist_recalculation_event(
+                        event_type="PUSH_FAILED", status="REJECTED",
+                        sport=leg.get("sport"), market=leg.get("market"),
+                        segment_label=player, evidence={"propId": leg.get("prop_id"), "httpStatus": response.status},
+                        explanation="OneSignal rejected the weakening push.", event_key=key,
+                    )
+        except Exception as exc:
+            persist_recalculation_event(
+                event_type="PUSH_FAILED", status="REJECTED",
+                sport=leg.get("sport"), market=leg.get("market"),
+                segment_label=player,
+                evidence={"propId": leg.get("prop_id"), "errorType": type(exc).__name__},
+                explanation="Weakening push delivery failed.", event_key=key,
+            )
             continue
     return delivered

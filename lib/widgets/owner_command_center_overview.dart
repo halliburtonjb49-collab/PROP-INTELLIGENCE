@@ -52,6 +52,9 @@ class OwnerCommandCenterOverview extends StatelessWidget {
         .whereType<Map>()
         .toList(growable: false);
     final learningControl = (data['piLearningControl'] as Map?) ?? const {};
+    final learningAudit = (data['piLearningAudit'] as List? ?? const [])
+        .whereType<Map>()
+        .toList(growable: false);
     if (metrics.isEmpty && services.isEmpty) {
       return _empty();
     }
@@ -93,6 +96,10 @@ class OwnerCommandCenterOverview extends StatelessWidget {
           ],
           if (learning.isNotEmpty) ...[
             _recalculationLearning(learning),
+            const SizedBox(height: 18),
+          ],
+          if (learningAudit.isNotEmpty) ...[
+            _learningAuditLedger(learningAudit),
             const SizedBox(height: 18),
           ],
           Row(
@@ -216,6 +223,28 @@ class OwnerCommandCenterOverview extends StatelessWidget {
       border: Border.all(color: color.withValues(alpha: .35)),
     ),
     child: Text(label, style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w900)),
+  );
+
+  Widget _learningAuditLedger(List<Map> rows) => ExpansionTile(
+    key: const ValueKey('owner-pi-learning-audit-ledger'),
+    tilePadding: EdgeInsets.zero,
+    title: const Text('PI LEARNING AUDIT LEDGER', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
+    subtitle: Text('${rows.length} immutable learning events', style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
+    children: rows.map((row) {
+      final event = '${row['eventType'] ?? 'SAMPLE'}';
+      final rejected = row['status'] == 'REJECTED';
+      final promoted = row['status'] == 'PROMOTED';
+      final color = rejected ? const Color(0xFFFF7474) : promoted ? const Color(0xFF65E6B4) : AppColors.gold;
+      final evidence = (row['evidence'] as Map?) ?? const {};
+      return ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(rejected ? Icons.undo_rounded : promoted ? Icons.verified_outlined : Icons.science_outlined, color: color, size: 17),
+        title: Text('$event • ${row['sport']} ${row['market']}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+        subtitle: Text('${row['explanation'] ?? ''} • N=${row['sampleSize'] ?? 0}${evidence['confidenceInfluence'] == null ? '' : ' • influence +${evidence['confidenceInfluence']}'}', style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
+        trailing: Text(_time(row['createdAt']), style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w800)),
+      );
+    }).toList(growable: false),
   );
 
   Widget _recalculationDrilldown(List<Map> rows) => ExpansionTile(

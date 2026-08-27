@@ -22,6 +22,7 @@ from services.pi_recalculation_learning_service import (
     learning_control_summary,
     learning_summary,
 )
+from services.pi_learning_ledger_service import recent_recalculation_audit
 
 _PROP_CACHE = PropCache(DB_PATH)
 _WINDOWS = {"live", "today", "yesterday", "7d", "30d", "custom"}
@@ -538,5 +539,6 @@ def owner_command_center_snapshot(
         "piRecalculationDetails": pi_recalculation_details[:100],
         "piRecalculationLearning": pi_learning[:100],
         "piLearningControl": pi_learning_control,
+        "piLearningAudit": recent_recalculation_audit(50),
         "headshots": headshots,
     }
