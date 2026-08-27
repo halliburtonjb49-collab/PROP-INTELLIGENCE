@@ -313,6 +313,8 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
             icon: Icons.psychology_alt_rounded,
             title: 'MODEL INTELLIGENCE',
             items: [
+              'PI Adaptive Intelligence grades outcomes and learns from verified wins and losses',
+              'Guarded challenger calibration must improve on unseen results before promotion',
               'PI Trust, projections, edge and expected-value research signals',
               'Matchup, fatigue, travel, officiating and game-script context',
               'Correlation analysis, simulations and historical analogs',
@@ -709,7 +711,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'FIND THE EDGE',
+                  'PREDICT. GRADE. LEARN. IMPROVE.',
                   style: TextStyle(
                     color: _gold,
                     fontSize: 12,
@@ -719,7 +721,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 ),
                 SizedBox(height: 12),
                 Text(
-                  'PROP INTELLIGENCE transforms live player, matchup and market data into clear prop research. Compare lines, monitor movement, review model confidence and build smarter slips across multiple sports.',
+                  'PI Adaptive Intelligence transforms live player, matchup and market data into clear prop research, grades verified outcomes, and uses proven lessons from wins and losses to improve future confidence rankings.',
                   style: TextStyle(
                     color: _silver70,
                     fontSize: 14,
@@ -737,6 +739,8 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                 ),
                 SizedBox(height: 10),
                 _AboutBullet('Access real-time player and line data'),
+                _AboutBullet('Learn from verified wins and losses'),
+                _AboutBullet('Promote only validated model improvements'),
                 _AboutBullet('Identify positive-value opportunities'),
                 _AboutBullet('Compare projections and market movement'),
                 _AboutBullet('Build, save and track prop slips'),
