@@ -20,7 +20,7 @@ class ResearchToggle extends StatelessWidget {
     return Semantics(
       button: true,
       expanded: open,
-      label: open ? 'Close research' : 'Open research',
+      label: open ? 'Close PI Intelligence' : 'Open PI Intelligence details',
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(PiDesign.controlRadius),
@@ -48,7 +48,7 @@ class ResearchToggle extends StatelessWidget {
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
-                  open ? 'CLOSE RESEARCH' : 'VIEW RESEARCH',
+                  open ? 'CLOSE PI INTELLIGENCE' : 'OPEN PI INTELLIGENCE',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

@@ -1149,6 +1149,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           ),
           if (researchOpen) ...[
             const SizedBox(height: 11),
+            _buildPiIntelligenceDetail(prop),
+            const SizedBox(height: 11),
             Wrap(
               spacing: 6,
               runSpacing: 6,
@@ -2228,6 +2230,138 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPiIntelligenceDetail(PropData prop) {
+    final adjustment = prop.probabilityCalibrationAdjustment;
+    final learned = adjustment.abs() >= .005;
+    final risks = <String>{
+      ...prop.piTrustWarnings.where((value) => value.trim().isNotEmpty),
+      ...prop.verificationReasons.where((value) => value.trim().isNotEmpty),
+      ...prop.opportunityReasons.where((value) => value.trim().isNotEmpty),
+    }.take(4).toList(growable: false);
+    final explanation = prop.recommendationExplanation.trim().isNotEmpty
+        ? prop.recommendationExplanation.trim()
+        : prop.pickGradeExplanation.trim();
+    Widget metric(String label, String value) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF06131D),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: app_colors.AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: const TextStyle(
+            color: app_colors.AppColors.textMuted,
+            fontSize: 8,
+            fontWeight: FontWeight.w800,
+          )),
+          const SizedBox(height: 3),
+          Text(value, style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+          )),
+        ],
+      ),
+    );
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0C2230), Color(0xFF07131D)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: app_colors.AppColors.borderGold),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            Icon(Icons.psychology_alt_rounded,
+                color: app_colors.AppColors.gold, size: 17),
+            SizedBox(width: 7),
+            Expanded(child: Text('PI INTELLIGENCE DETAIL', style: TextStyle(
+              color: app_colors.AppColors.gold,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .8,
+            ))),
+          ]),
+          const SizedBox(height: 10),
+          Wrap(spacing: 7, runSpacing: 7, children: [
+            metric('PI DECISION', prop.pickText.trim().isEmpty ? 'NO PICK' : prop.pickText),
+            metric('CONFIDENCE', '${prop.confidence}%'),
+            metric('PI TRUST', '${prop.piTrustScore}/100'),
+            metric('MODEL SAMPLE', '${prop.projectionSampleSize} games'),
+            metric('PROJECTION', prop.projection?.toStringAsFixed(2) ?? '--'),
+            metric('LINE', prop.line.toStringAsFixed(1)),
+            metric('OPEN / CURRENT',
+                '${prop.openingLine.toStringAsFixed(1)} / ${prop.currentLine.toStringAsFixed(1)}'),
+            metric('DATA STATUS', prop.verificationStatus.toUpperCase()),
+          ]),
+          const SizedBox(height: 11),
+          Text(
+            explanation.isEmpty
+                ? 'PI is still gathering enough verified evidence to explain this decision.'
+                : explanation,
+            style: const TextStyle(color: Colors.white, fontSize: 10.5, height: 1.45),
+          ),
+          if (learned) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: app_colors.AppColors.gold.withValues(alpha: .1),
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: app_colors.AppColors.gold.withValues(alpha: .55)),
+              ),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.auto_graph_rounded,
+                    color: app_colors.AppColors.gold, size: 15),
+                const SizedBox(width: 7),
+                Expanded(child: Text(
+                  'PI LEARNED ADJUSTMENT: Confidence was '
+                  '${adjustment > 0 ? 'increased' : 'reduced'} by '
+                  '${(adjustment.abs() * 100).toStringAsFixed(1)} points after '
+                  'guarded validation on unseen settled results.',
+                  style: const TextStyle(
+                    color: app_colors.AppColors.gold,
+                    fontSize: 9.5,
+                    height: 1.4,
+                    fontWeight: FontWeight.w800,
+                  ),
+                )),
+              ]),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Text('WHAT COULD MAKE THIS WRONG', style: TextStyle(
+            color: risks.isEmpty ? app_colors.AppColors.textMuted : const Color(0xFFFFB36B),
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .5,
+          )),
+          const SizedBox(height: 5),
+          Text(
+            risks.isEmpty
+                ? 'No elevated data-quality warning is currently attached. Normal player and game variance still applies.'
+                : risks.map((risk) => '• $risk').join('\n'),
+            style: const TextStyle(
+              color: app_colors.AppColors.textMuted,
+              fontSize: 9.5,
+              height: 1.45,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
