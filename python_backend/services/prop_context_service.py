@@ -313,6 +313,17 @@ def apply_projection_context(prop: object) -> None:
     prop.probabilityMarketWeight = evaluation.market_weight
     prop.probabilityUncertainty = evaluation.uncertainty
     base_calibration_adjustment = float(evaluation.calibration_adjustment or 0.0)
+    if abs(base_calibration_adjustment) >= 0.005:
+        direction = "increased" if base_calibration_adjustment > 0 else "reduced"
+        learned_explanation = (
+            f"PI Adaptive Intelligence {direction} model confidence by "
+            f"{abs(base_calibration_adjustment) * 100:.1f} points after guarded "
+            "out-of-sample calibration for this sport and market."
+        )
+        existing_explanation = str(getattr(prop, "recommendationExplanation", "") or "").strip()
+        prop.recommendationExplanation = (
+            f"{existing_explanation} {learned_explanation}".strip()
+        )
     strikeout_adjustment = 0.0
     conservative_probability = max(
         0.0, min(1.0, probability - evaluation.uncertainty)

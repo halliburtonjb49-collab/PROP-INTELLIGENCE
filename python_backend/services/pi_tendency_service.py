@@ -9,6 +9,10 @@ from threading import Lock
 
 from database.postgres import database_is_configured, get_database_pool
 from services.adaptive_calibration_service import adaptive_calibration_summary
+from services.pi_learning_ledger_service import (
+    closing_line_learning_summary,
+    persist_learning_decisions,
+)
 
 
 WINDOW_DAYS = 60
@@ -163,7 +167,7 @@ def _build_report(model_version: str) -> dict[str, object]:
     order = {"PROMOTED": 0, "DEVELOPING": 1, "REJECTED": 2}
     findings.sort(key=lambda item: (order[str(item["status"])], -abs(float(item["lift"])), -int(item["sampleSize"])))
     calibration = adaptive_calibration_summary(model_version)
-    return {
+    report = {
         "available": True,
         "modelVersion": model_version,
         "windowDays": WINDOW_DAYS,
@@ -177,8 +181,11 @@ def _build_report(model_version: str) -> dict[str, object]:
         },
         "findings": findings[:150],
         "calibration": calibration,
+        "closingLineQuality": closing_line_learning_summary(model_version, WINDOW_DAYS),
         "generatedAt": datetime.now(timezone.utc).isoformat(),
     }
+    report["ledger"] = persist_learning_decisions(report)
+    return report
 
 
 def pi_tendency_report(model_version: str = "baseline-v3") -> dict[str, object]:

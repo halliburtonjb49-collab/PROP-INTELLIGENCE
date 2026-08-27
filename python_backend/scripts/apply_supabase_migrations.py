@@ -63,6 +63,7 @@ MIGRATIONS = (
     "supabase_provider_availability_snapshots.sql",
     "supabase_single_owner_enforcement.sql",
     "supabase_prop_learning_system.sql",
+    "supabase_pi_learning_ledger.sql",
 )
 
 
