@@ -19,7 +19,7 @@ class OneSignalService {
   OneSignalService._();
 
   static final OneSignalService instance = OneSignalService._();
-  static const appId = '917b088b-4a9f-472d-8b52-3ab0d06ab98e';
+  static const appId = 'b7d55e15-969b-40c2-b7d4-62e6c201e7d9';
 
   final OneSignalPlatform _platform = implementation.createOneSignalPlatform();
   bool _initialized = false;
