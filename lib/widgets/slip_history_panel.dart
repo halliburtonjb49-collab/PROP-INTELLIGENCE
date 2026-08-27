@@ -329,6 +329,31 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     }
   }
 
+  void _notifyPiWeakening(Map<String, Map<String, dynamic>> stats) {
+    for (final slip in _lastGoodSlips) {
+      final slipStats = stats[slip.id] ?? const <String, dynamic>{};
+      for (final leg in slip.legs) {
+        final live = slipStats[leg.propId];
+        if (live is! Map || live['pi_change_status'] != 'WEAKENED') continue;
+        final key = '${slip.id}:${leg.propId}:${live['current_projection']}:${live['current_confidence']}';
+        if (!_piWeakeningNotified.add(key)) continue;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFFFF8A65),
+            content: Text(
+              'PI UPDATE: ${leg.player} has weakened. Open Watch to review what changed.',
+              style: const TextStyle(
+                color: brand_colors.AppColors.bgBase,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   void _rememberSlips(List<SavedSlip> slips) {
     _lastGoodSlips = slips;
     if (!_isHistory) {
@@ -1201,30 +1226,6 @@ class _TodayPickPerformance extends StatelessWidget {
     );
   }
 
-  void _notifyPiWeakening(Map<String, Map<String, dynamic>> stats) {
-    for (final slip in _lastGoodSlips) {
-      final slipStats = stats[slip.id] ?? const <String, dynamic>{};
-      for (final leg in slip.legs) {
-        final live = slipStats[leg.propId];
-        if (live is! Map || live['pi_change_status'] != 'WEAKENED') continue;
-        final key = '${slip.id}:${leg.propId}:${live['current_projection']}:${live['current_confidence']}';
-        if (!_piWeakeningNotified.add(key)) continue;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: const Color(0xFFFF8A65),
-            content: Text(
-              'PI UPDATE: ${leg.player} has weakened. Open Watch to review what changed.',
-              style: const TextStyle(
-                color: brand_colors.AppColors.bgBase,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        );
-      }
-    }
-  }
 }
 
 class _ClvSummary extends StatelessWidget {
