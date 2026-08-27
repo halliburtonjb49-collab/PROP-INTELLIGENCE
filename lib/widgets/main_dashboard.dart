@@ -220,9 +220,10 @@ class _MainDashboardState extends State<MainDashboard> {
   final String _selectedTier = 'All';
   int _minConfidence = 0;
   String _sortBy = 'trust';
-  // Open on the smaller, decision-ready set. This keeps the first request and
-  // first render focused while ALL PROPS remains one tap away.
-  String _verdictFilter = 'ACTIONABLE';
+  // Inventory comes first: show every current site line and let PI rate it.
+  // PLAYABLE remains an optional one-tap filter rather than silently hiding
+  // WAIT/PASS props that users still expect to find on the board.
+  String _verdictFilter = 'ALL';
   DateTime? _lastUpdated;
   List<PropData> _latestProps = const [];
   List<PropData> _siteInventoryProps = const [];
@@ -2717,11 +2718,7 @@ class _MainDashboardState extends State<MainDashboard> {
       'LEAN': 'LEAN',
       'WAIT': 'WAIT',
     };
-    // PLAYABLE is the board's normal starting state, so the selected tab is
-    // enough feedback; repeating it here makes the default look like a filter.
-    final verdict = _verdictFilter == 'ACTIONABLE'
-        ? null
-        : verdictLabels[_verdictFilter];
+    final verdict = verdictLabels[_verdictFilter];
     if (verdict != null) labels.add(verdict);
     if (_sortBy != 'time') labels.add('SORT: ${_sortBy.toUpperCase()}');
     if (_minConfidence > 0) labels.add('CONFIDENCE $_minConfidence+');
@@ -2738,9 +2735,8 @@ class _MainDashboardState extends State<MainDashboard> {
       _selectedSiteSport = '';
       _selectedCategory = BoardFilters.defaults.category;
       _minConfidence = BoardFilters.defaults.minConfidence;
-      // Clearing returned to time-ordered, every prop -- a place the board
-      // never opens in and the brief does not describe. Reset means the
-      // default the user first met: playable, ranked by trust.
+      // Reset to complete inventory ranked by PI Trust. Low-rated props stay
+      // visible and clearly labelled instead of disappearing from the board.
       _sortBy = BoardFilters.defaults.sortBy;
       _verdictFilter = BoardFilters.defaults.verdict;
       _siteInventoryProps = const [];
@@ -2821,12 +2817,7 @@ class _MainDashboardState extends State<MainDashboard> {
     }
   }
 
-  /// The row that turns two thousand props into the ones worth acting on.
-  ///
-  /// PLAYABLE is deliberately first and deliberately broad: it is every
-  /// verdict the model would actually stand behind -- plays, prices worth
-  /// shopping, and leans -- rather than PLAY NOW alone. A reader who only
-  /// ever taps this one chip should still see everything actionable.
+  /// Optional rating filters for narrowing the complete prop inventory.
   Widget _buildVerdictFilter() {
     return VerdictFilterBar(
       selected: _verdictFilter,

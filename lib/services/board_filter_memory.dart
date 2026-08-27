@@ -13,12 +13,12 @@ class BoardFilters {
     this.site = 'ALL',
     this.category = 'ALL',
     this.sortBy = 'trust',
-    this.verdict = 'ACTIONABLE',
+    this.verdict = 'ALL',
     this.minConfidence = 0,
   });
 
-  /// Playable, ranked by trust. Where the board opens, and so also where
-  /// clearing the filters has to land.
+  /// Every current prop, ranked by trust. Rating quality changes its label and
+  /// order, never whether the market exists on the default board.
   static const BoardFilters defaults = BoardFilters();
 
   static const sortOptions = {'trust', 'edge', 'source', 'premium', 'time'};
@@ -90,7 +90,9 @@ class BoardFilters {
 }
 
 class BoardFilterMemory {
-  const BoardFilterMemory({this.storageKey = 'board_filters_v1'});
+  // v2 intentionally drops the old ACTIONABLE-first preference so existing
+  // installs also receive the complete-inventory default.
+  const BoardFilterMemory({this.storageKey = 'board_filters_v2'});
 
   final String storageKey;
 
