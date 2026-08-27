@@ -158,6 +158,7 @@ from services.prop_line_movement_service import (
 	check_prop_line_movement,
 )
 from services.pi_recalculation_notification_service import notify_material_weakening
+from services.pi_recalculation_learning_service import profile_for as pi_recalculation_profile_for
 from services.prop_builder_preset_service import (
 	create_prop_builder_preset,
 	delete_prop_builder_preset,
@@ -2546,6 +2547,12 @@ def _graded_slip_legs(
 		current_prop = (current_props or {}).get(leg.prop_id)
 		current_projection = getattr(current_prop, "projection", None)
 		current_confidence = getattr(current_prop, "confidence", None)
+		learning_profile = pi_recalculation_profile_for(leg.sport, leg.market)
+		if current_confidence is not None and learning_profile.promoted:
+			current_confidence = min(
+				100,
+				int(current_confidence) + learning_profile.ranking_influence,
+			)
 		current_injury = str(getattr(current_prop, "injuryStatus", "") or "")
 		current_lineup = str(getattr(current_prop, "lineupStatus", "") or "")
 		pi_changes: list[dict[str, object]] = []
@@ -2618,6 +2625,9 @@ def _graded_slip_legs(
 				"pi_change_status": pi_change_status,
 				"pi_changes": pi_changes,
 				"pi_material_change": material_change,
+				"pi_learning_promoted": learning_profile.promoted,
+				"pi_ranking_influence": learning_profile.ranking_influence,
+				"pi_learning_reason": learning_profile.reason,
 			}
 		)
 	return legs

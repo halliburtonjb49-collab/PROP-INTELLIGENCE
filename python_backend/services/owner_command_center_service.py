@@ -17,6 +17,7 @@ from services.prop_catalog_snapshot_service import load_catalog_snapshot
 from services.provider_availability_monitor_service import provider_availability_snapshot
 from services.scoreboard_metrics_service import scoreboard_latency_snapshot
 from services.owner_action_service import owner_action_snapshot, prop_control_key
+from services.pi_recalculation_learning_service import learning_summary
 
 _PROP_CACHE = PropCache(DB_PATH)
 _WINDOWS = {"live", "today", "yesterday", "7d", "30d", "custom"}
@@ -435,30 +436,7 @@ def owner_command_center_snapshot(
                     "entryConfidence": leg.confidence, "currentConfidence": current_confidence,
                     "status": key.upper(),
                 })
-    learning_groups: dict[str, dict[str, object]] = {}
-    for slip in get_slips():
-        for leg in slip.legs:
-            if leg.pi_recalculation_correct is None:
-                continue
-            group_key = f"{leg.sport}|{leg.market}"
-            group = learning_groups.setdefault(group_key, {
-                "sport": leg.sport, "market": leg.market, "sampleSize": 0,
-                "correct": 0, "entryError": 0.0, "recalculatedError": 0.0,
-            })
-            group["sampleSize"] = int(group["sampleSize"]) + 1
-            group["correct"] = int(group["correct"]) + int(leg.pi_recalculation_correct)
-            group["entryError"] = float(group["entryError"]) + float(leg.pi_entry_error or 0)
-            group["recalculatedError"] = float(group["recalculatedError"]) + float(leg.pi_recalculated_error or 0)
-    pi_learning = []
-    for group in learning_groups.values():
-        sample = int(group["sampleSize"])
-        pi_learning.append({
-            **group,
-            "accuracy": round(int(group["correct"]) / sample * 100, 1),
-            "entryMae": round(float(group["entryError"]) / sample, 3),
-            "recalculatedMae": round(float(group["recalculatedError"]) / sample, 3),
-        })
-    pi_learning.sort(key=lambda item: (-int(item["sampleSize"]), str(item["sport"]), str(item["market"])))
+    pi_learning = learning_summary(get_slips())
     redis = cache_health()
     workers = queue_health()
     worker_online = bool(

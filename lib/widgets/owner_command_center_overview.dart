@@ -160,13 +160,26 @@ class OwnerCommandCenterOverview extends StatelessWidget {
     tilePadding: EdgeInsets.zero,
     title: const Text('PI RECALCULATION LEARNING', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
     subtitle: const Text('Verified impact by sport and market', style: TextStyle(color: AppColors.textMuted, fontSize: 9)),
-    children: rows.map((row) => ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text('${row['sport']} • ${row['market']}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
-      subtitle: Text('Accuracy ${row['accuracy']}% • entry MAE ${row['entryMae']} → recalculated MAE ${row['recalculatedMae']}', style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
-      trailing: Text('N=${row['sampleSize']}', style: const TextStyle(color: AppColors.gold, fontSize: 9, fontWeight: FontWeight.w900)),
-    )).toList(growable: false),
+    children: rows.map((row) {
+      final promoted = row['promoted'] == true;
+      final rolledBack = row['reason'] == 'recent-performance-rollback';
+      final status = promoted ? 'ACTIVE +${row['rankingInfluence']}' : rolledBack ? 'ROLLED BACK' : 'COLLECTING';
+      final statusColor = promoted ? const Color(0xFF65E6B4) : rolledBack ? const Color(0xFFFF7474) : AppColors.gold;
+      return ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        title: Text('${row['sport']} • ${row['market']}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+        subtitle: Text('Accuracy ${row['accuracy']}% • MAE ${row['entryMae']} → ${row['recalculatedMae']} • improvement ${row['maeImprovement']}% • recent ${row['recentAccuracy']}%', style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(status, style: TextStyle(color: statusColor, fontSize: 8, fontWeight: FontWeight.w900)),
+            Text('N=${row['sampleSize']}', style: const TextStyle(color: AppColors.textMuted, fontSize: 8, fontWeight: FontWeight.w800)),
+          ],
+        ),
+      );
+    }).toList(growable: false),
   );
 
   Widget _empty() => Container(
