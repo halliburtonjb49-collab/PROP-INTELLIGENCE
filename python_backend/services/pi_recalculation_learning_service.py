@@ -175,3 +175,25 @@ def learning_summary(slips: Iterable[object]) -> list[dict[str, object]]:
         )
     ]
 
+
+def learning_control_summary(slips: Iterable[object]) -> dict[str, object]:
+    profiles = list(profiles_from_slips(slips).values())
+    promoted = [profile for profile in profiles if profile.promoted]
+    rolled_back = [
+        profile for profile in profiles
+        if profile.reason == "recent-performance-rollback"
+    ]
+    return {
+        "minimumSample": MINIMUM_SAMPLE,
+        "minimumAccuracy": round(MINIMUM_ACCURACY * 100, 1),
+        "minimumMaeImprovement": round(MINIMUM_MAE_IMPROVEMENT * 100, 1),
+        "rollbackSample": ROLLBACK_SAMPLE,
+        "rollbackMinimumAccuracy": round(ROLLBACK_MINIMUM_ACCURACY * 100, 1),
+        "segments": len(profiles),
+        "promotedSegments": len(promoted),
+        "rolledBackSegments": len(rolled_back),
+        "collectingSegments": len(profiles) - len(promoted) - len(rolled_back),
+        "verifiedSamples": sum(profile.sample_size for profile in profiles),
+        "maximumRankingInfluence": 3,
+        "automaticInfluenceEnabled": bool(promoted),
+    }

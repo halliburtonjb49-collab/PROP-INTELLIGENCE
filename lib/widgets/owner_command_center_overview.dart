@@ -51,6 +51,7 @@ class OwnerCommandCenterOverview extends StatelessWidget {
     final learning = (data['piRecalculationLearning'] as List? ?? const [])
         .whereType<Map>()
         .toList(growable: false);
+    final learningControl = (data['piLearningControl'] as Map?) ?? const {};
     if (metrics.isEmpty && services.isEmpty) {
       return _empty();
     }
@@ -83,6 +84,8 @@ class OwnerCommandCenterOverview extends StatelessWidget {
               );
             },
           ),
+          const SizedBox(height: 18),
+          _learningControlPanel(learningControl),
           const SizedBox(height: 18),
           if (recalculations.isNotEmpty) ...[
             _recalculationDrilldown(recalculations),
@@ -136,6 +139,84 @@ class OwnerCommandCenterOverview extends StatelessWidget {
       ),
     );
   }
+
+  Widget _learningControlPanel(Map control) {
+    final active = (control['promotedSegments'] as num?)?.toInt() ?? 0;
+    final rolledBack = (control['rolledBackSegments'] as num?)?.toInt() ?? 0;
+    final notificationsReady = control['notificationConfigured'] == true;
+    Widget stat(String label, Object? value, Color color) => Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF08131D),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: color.withValues(alpha: .28)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$value', style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 3),
+            Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 8, fontWeight: FontWeight.w800)),
+          ],
+        ),
+      ),
+    );
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0C1823),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gold.withValues(alpha: .35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('PI LEARNING CONTROL', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: .6)),
+          const SizedBox(height: 4),
+          Text(
+            'Promotion: N≥${control['minimumSample'] ?? 30} • accuracy ≥${control['minimumAccuracy'] ?? 55}% • MAE improvement ≥${control['minimumMaeImprovement'] ?? 5}%',
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 9),
+          ),
+          const SizedBox(height: 10),
+          Row(children: [
+            stat('VERIFIED SAMPLES', control['verifiedSamples'] ?? 0, AppColors.gold),
+            const SizedBox(width: 8),
+            stat('ACTIVE SEGMENTS', active, const Color(0xFF65E6B4)),
+            const SizedBox(width: 8),
+            stat('ROLLED BACK', rolledBack, rolledBack > 0 ? const Color(0xFFFF7474) : AppColors.textMuted),
+          ]),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              _controlBadge(
+                active > 0 ? 'RANKING INFLUENCE ACTIVE' : 'RANKING INFLUENCE GATED',
+                active > 0 ? const Color(0xFF65E6B4) : AppColors.gold,
+              ),
+              _controlBadge('ROLLBACK WINDOW ${control['rollbackSample'] ?? 15}', AppColors.gold),
+              _controlBadge(
+                notificationsReady ? 'PUSH ALERTS READY' : 'PUSH KEY REQUIRED',
+                notificationsReady ? const Color(0xFF65E6B4) : const Color(0xFFFF8A65),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _controlBadge(String label, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: .08),
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: color.withValues(alpha: .35)),
+    ),
+    child: Text(label, style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w900)),
+  );
 
   Widget _recalculationDrilldown(List<Map> rows) => ExpansionTile(
     key: const ValueKey('owner-pi-recalculation-drilldown'),

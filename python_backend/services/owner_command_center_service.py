@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
+import os
 from typing import Iterable, Mapping
 
 from config import DB_PATH
@@ -17,7 +18,10 @@ from services.prop_catalog_snapshot_service import load_catalog_snapshot
 from services.provider_availability_monitor_service import provider_availability_snapshot
 from services.scoreboard_metrics_service import scoreboard_latency_snapshot
 from services.owner_action_service import owner_action_snapshot, prop_control_key
-from services.pi_recalculation_learning_service import learning_summary
+from services.pi_recalculation_learning_service import (
+    learning_control_summary,
+    learning_summary,
+)
 
 _PROP_CACHE = PropCache(DB_PATH)
 _WINDOWS = {"live", "today", "yesterday", "7d", "30d", "custom"}
@@ -436,7 +440,13 @@ def owner_command_center_snapshot(
                     "entryConfidence": leg.confidence, "currentConfidence": current_confidence,
                     "status": key.upper(),
                 })
-    pi_learning = learning_summary(get_slips())
+    all_slips = get_slips()
+    pi_learning = learning_summary(all_slips)
+    pi_learning_control = learning_control_summary(all_slips)
+    pi_learning_control["notificationConfigured"] = bool(
+        os.getenv("ONESIGNAL_APP_ID", "").strip()
+        and os.getenv("ONESIGNAL_REST_API_KEY", "").strip()
+    )
     redis = cache_health()
     workers = queue_health()
     worker_online = bool(
@@ -527,5 +537,6 @@ def owner_command_center_snapshot(
         "piRecalculations": pi_recalculations,
         "piRecalculationDetails": pi_recalculation_details[:100],
         "piRecalculationLearning": pi_learning[:100],
+        "piLearningControl": pi_learning_control,
         "headshots": headshots,
     }
