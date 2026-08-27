@@ -328,10 +328,10 @@ def _refresh_model_metrics(
           from public.prop_results r
           join public.prop_prediction_snapshots s on s.id = r.prop_prediction_snapshot_id
           where (
-            (r.graded_at is not null and r.graded_at >= now() - interval %s)
+            (r.graded_at is not null and r.graded_at >= now() - %s::interval)
             or (
               r.graded_at is null and r.grade_state = 'PENDING'
-              and s.event_time >= now() - interval %s
+              and s.event_time >= now() - %s::interval
             )
           )
           group by 1,2,3,4
@@ -624,7 +624,7 @@ def learning_performance_summary(days: int = 30) -> dict[str, object]:
                    win_count, loss_count, push_count, void_count, pending_count,
                    win_rate, push_rate
               from public.model_performance_metrics
-             where metric_date >= (now() at time zone 'UTC')::date - interval %s
+             where metric_date >= (now() at time zone 'UTC')::date - %s::interval
              order by metric_date desc, sample_size desc
             """,
             (f"{window_days} days",),
