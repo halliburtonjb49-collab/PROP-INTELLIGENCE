@@ -481,6 +481,13 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             _modelAccountability(),
             const SizedBox(height: 22),
             _sectionTitle(
+              'PI ADAPTIVE LEARNING',
+              'Promoted, developing and rejected tendencies from verified prediction results',
+            ),
+            const SizedBox(height: 10),
+            _piAdaptiveLearning(),
+            const SizedBox(height: 22),
+            _sectionTitle(
               'OWNER-ONLY STRIKEOUT INTELLIGENCE',
               'Log5 and binomial validation with environmental adjustments for MLB strikeout props',
             ),
@@ -1388,6 +1395,52 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             );
           }),
         ],
+      ],
+    );
+  }
+
+  Widget _piAdaptiveLearning() {
+    final ownerInsights = _control?['ownerOnlyInsights'] as Map? ?? const {};
+    final learning = ownerInsights['piAdaptiveLearning'] as Map? ?? const {};
+    final summary = learning['summary'] as Map? ?? const {};
+    final findings = (learning['findings'] as List? ?? const [])
+        .whereType<Map>()
+        .take(10)
+        .toList(growable: false);
+    if (learning['available'] != true) {
+      return _notice(
+        Icons.psychology_alt_outlined,
+        'PI learning report is warming up',
+        learning['reason']?.toString() ?? 'Settled prediction data is not available yet.',
+      );
+    }
+    final promoted = (summary['promoted'] as num?)?.toInt() ?? 0;
+    final developing = (summary['developing'] as num?)?.toInt() ?? 0;
+    final rejected = (summary['rejected'] as num?)?.toInt() ?? 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _notice(
+          Icons.auto_graph_rounded,
+          'PI learning is active',
+          '${learning['settledPredictions'] ?? 0} settled predictions | $promoted promoted | $developing developing | $rejected rejected',
+        ),
+        const SizedBox(height: 8),
+        ...findings.map((finding) {
+          final status = finding['status']?.toString() ?? 'DEVELOPING';
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _notice(
+              status == 'PROMOTED'
+                  ? Icons.verified_outlined
+                  : status == 'REJECTED'
+                      ? Icons.block_outlined
+                      : Icons.hourglass_top_rounded,
+              '$status | ${finding['sport'] ?? ''} ${finding['market'] ?? ''}',
+              finding['explanation']?.toString() ?? 'Pattern details unavailable.',
+            ),
+          );
+        }),
       ],
     );
   }

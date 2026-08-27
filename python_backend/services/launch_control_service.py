@@ -18,6 +18,7 @@ from services.scoreboard_metrics_service import scoreboard_latency_snapshot
 from services.grading_review_service import grading_review_queue
 from services.provider_quality_service import provider_quality_score
 from services.model_performance_service import model_performance, operations_summary
+from services.pi_tendency_service import pi_tendency_report
 from services.sync_diagnostic_service import ticket_sync_diagnostic_summary
 from services.sync_certification_service import sync_certification
 from services.odds_service import active_key_snapshot, sport_coverage
@@ -486,6 +487,15 @@ def launch_control_snapshot() -> dict[str, object]:
     # A failure in one of those reports must not make a healthy inbox appear
     # unconfigured.
     try:
+        pi_learning = pi_tendency_report()
+    except Exception as exc:
+        pi_learning = {
+            "available": False,
+            "reason": f"{type(exc).__name__}: {str(exc)[:180]}",
+            "findings": [],
+            "summary": {},
+        }
+    try:
         feedback_inbox = list_feedback(limit=20)
     except Exception as exc:
         feedback_inbox = {
@@ -542,6 +552,7 @@ def launch_control_snapshot() -> dict[str, object]:
         "modelPerformance": performance,
         "predictionOperations": prediction_operations,
         "ownerOnlyInsights": {
+            "piAdaptiveLearning": pi_learning,
             "strikeoutIntelligence": strikeout_intelligence,
             "strikeoutInputCoverage": strikeout_input_coverage,
             "strikeoutMethodAudit": strikeout_method_audit,
