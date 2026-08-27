@@ -135,6 +135,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   List<SavedSlip> _lastGoodSlips = const [];
   List<SavedSlip> _historySummarySlips = const [];
   final Set<String> _earlyWinNotified = <String>{};
+  final Set<String> _piWeakeningNotified = <String>{};
   final Set<String> _updatingSlipIds = <String>{};
 
   bool get _isHistory => widget.mode == SlipHistoryMode.history;
@@ -279,6 +280,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
         _liveStats = stats;
       });
       _notifyEarlyWinners(stats);
+      _notifyPiWeakening(stats);
       unawaited(_settleCompletedTickets(stats));
     } catch (_) {
       // Keep the last known live stats on a transient failure.
@@ -428,7 +430,13 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
     }
     setState(() => _updatingSlipIds.add(slip.id));
     try {
-      await _apiService.updateSlipStatus(slipId: slip.id, status: status);
+      await _apiService.updateSlipStatus(
+        slipId: slip.id,
+        status: status,
+        recalculation: Map<String, dynamic>.from(
+          _liveStats[slip.id] ?? const <String, dynamic>{},
+        ),
+      );
       if (!mounted) return;
       final remaining = _lastGoodSlips
           .where((item) => item.id != slip.id)
@@ -1192,6 +1200,31 @@ class _TodayPickPerformance extends StatelessWidget {
       ),
     );
   }
+
+  void _notifyPiWeakening(Map<String, Map<String, dynamic>> stats) {
+    for (final slip in _lastGoodSlips) {
+      final slipStats = stats[slip.id] ?? const <String, dynamic>{};
+      for (final leg in slip.legs) {
+        final live = slipStats[leg.propId];
+        if (live is! Map || live['pi_change_status'] != 'WEAKENED') continue;
+        final key = '${slip.id}:${leg.propId}:${live['current_projection']}:${live['current_confidence']}';
+        if (!_piWeakeningNotified.add(key)) continue;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFFFF8A65),
+            content: Text(
+              'PI UPDATE: ${leg.player} has weakened. Open Watch to review what changed.',
+              style: const TextStyle(
+                color: brand_colors.AppColors.bgBase,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        );
+      }
+    }
+  }
 }
 
 class _ClvSummary extends StatelessWidget {
@@ -1448,6 +1481,10 @@ typedef _LiveLegState = ({
   String gameStatus,
   String gameDetail,
   bool gameCompleted,
+  double? currentProjection,
+  int? currentConfidence,
+  String piChangeStatus,
+  List<Map<String, dynamic>> piChanges,
 });
 
 /// Merges a leg's persisted (graded) result with its live in-progress
@@ -1465,6 +1502,10 @@ _LiveLegState _effectiveLegState(
       gameStatus: leg.gameStatus,
       gameDetail: '',
       gameCompleted: leg.gameCompleted,
+      currentProjection: leg.currentProjection ?? leg.projection,
+      currentConfidence: leg.currentConfidence ?? leg.confidence,
+      piChangeStatus: leg.piChangeStatus,
+      piChanges: leg.piChanges,
     );
   }
   final rawGameStatus = live['game_status']?.toString() ?? leg.gameStatus;
@@ -1474,7 +1515,21 @@ _LiveLegState _effectiveLegState(
     gameStatus: rawGameStatus,
     gameDetail: live['game_detail']?.toString() ?? '',
     gameCompleted: rawGameStatus.toLowerCase() == 'final',
+    currentProjection: (live['current_projection'] as num?)?.toDouble(),
+    currentConfidence: (live['current_confidence'] as num?)?.toInt(),
+    piChangeStatus: live['pi_change_status']?.toString() ?? 'UNCHANGED',
+    piChanges: (live['pi_changes'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList(growable: false),
   );
+}
+
+String _piChangeSummary(_LiveLegState live) {
+  return live.piChanges.map((change) {
+    final label = change['label']?.toString() ?? 'Evidence';
+    return '$label ${change['original']} -> ${change['current']}';
+  }).join('  •  ');
 }
 
 /// Live projection for an active slip as a whole, from its legs' live
@@ -2071,6 +2126,32 @@ class _SavedSlipCard extends StatelessWidget {
                           ),
                         if (leg.projection != null || leg.piTrustScore > 0)
                           const SizedBox(height: 6),
+                        if (live.piChangeStatus != 'UNCHANGED') ...[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(9),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF091620),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: live.piChangeStatus == 'IMPROVED'
+                                    ? brand_colors.AppColors.success
+                                    : live.piChangeStatus == 'WEAKENED'
+                                    ? const Color(0xFFFF8A65)
+                                    : brand_colors.AppColors.blue,
+                              ),
+                            ),
+                            child: Text(
+                              'WHAT CHANGED • PI ${live.piChangeStatus}\n${_piChangeSummary(live)}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                        ],
                         if (showDetails && leg.closingLine == null)
                           const Text(
                             'CLV: pending closing line',
@@ -2148,6 +2229,23 @@ class _SavedSlipCard extends StatelessWidget {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                ],
+                if (live.piChangeStatus != 'UNCHANGED') ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    'PI ${live.piChangeStatus}: ${_piChangeSummary(live)}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: live.piChangeStatus == 'IMPROVED'
+                          ? brand_colors.AppColors.success
+                          : live.piChangeStatus == 'WEAKENED'
+                          ? const Color(0xFFFF8A65)
+                          : brand_colors.AppColors.blue,
+                      fontSize: 7,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ],

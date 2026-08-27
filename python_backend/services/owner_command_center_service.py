@@ -396,6 +396,35 @@ def owner_command_center_snapshot(
             "error": type(exc).__name__,
         }
     inventory = _inventory_snapshot(rows, now=current)
+    from services.slip_service import get_slips
+    current_by_id = {str(getattr(prop, "id", "")): prop for prop in rows}
+    pi_recalculations = {"improved": 0, "weakened": 0, "updated": 0, "unchanged": 0}
+    for slip in get_slips("active"):
+        for leg in slip.legs:
+            prop = current_by_id.get(leg.prop_id)
+            current_projection = getattr(prop, "projection", None)
+            current_confidence = getattr(prop, "confidence", None)
+            projection_delta = (
+                float(current_projection) - float(leg.projection)
+                if current_projection is not None and leg.projection is not None else 0.0
+            )
+            confidence_delta = (
+                int(current_confidence) - int(leg.confidence)
+                if current_confidence is not None and leg.confidence is not None else 0
+            )
+            if projection_delta:
+                improved = projection_delta > 0 if leg.side == "OVER" else projection_delta < 0
+                key = "improved" if improved else "weakened"
+            elif confidence_delta:
+                key = "improved" if confidence_delta > 0 else "weakened"
+            elif prop is not None and (
+                str(getattr(prop, "injuryStatus", "unknown")) != leg.injury_status
+                or str(getattr(prop, "lineupStatus", "unknown")) != leg.lineup_status
+            ):
+                key = "updated"
+            else:
+                key = "unchanged"
+            pi_recalculations[key] += 1
     redis = cache_health()
     workers = queue_health()
     worker_online = bool(
@@ -446,6 +475,9 @@ def owner_command_center_snapshot(
         _metric("apiRequests", "Tracked API activity", database.get("apiRequests"), range_label, "healthy" if database.get("apiRequests") is not None else "unavailable"),
         _metric("averageConfidence", "Average confidence", prop_metrics.get("averageConfidence"), "Across current props"),
         _metric("recommendedPicks", "Recommended picks", prop_metrics.get("recommendedPicks"), "Current non-wait predictions"),
+        _metric("piImproved", "PI improved", pi_recalculations["improved"], "Active watched recommendations strengthened"),
+        _metric("piWeakened", "PI weakened", pi_recalculations["weakened"], "Active watched recommendations needing review", "warning" if pi_recalculations["weakened"] else "healthy"),
+        _metric("piUpdated", "PI context updates", pi_recalculations["updated"], "Active injury or lineup evidence changes"),
         _metric("openAlerts", "Open alerts", len(worker_alerts) + len(provider_alerts) + len(active_failures) + len(headshot_alerts), "Worker, provider, pipeline, and photo-refresh alerts", "healthy" if not worker_alerts and not provider_alerts and not active_failures and not headshot_alerts else "warning"),
     ]
 
@@ -480,5 +512,6 @@ def owner_command_center_snapshot(
         "database": database,
         "propInventory": prop_metrics,
         "inventory": inventory,
+        "piRecalculations": pi_recalculations,
         "headshots": headshots,
     }

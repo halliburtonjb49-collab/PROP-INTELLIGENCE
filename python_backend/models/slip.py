@@ -45,6 +45,11 @@ class SlipLeg(BaseModel):
     injury_status: str = "unknown"
     lineup_status: str = "unknown"
     calculation_inputs: dict[str, object] = Field(default_factory=dict)
+    current_projection: float | None = None
+    current_confidence: int | None = Field(default=None, ge=0, le=100)
+    pi_change_status: str = "UNCHANGED"
+    pi_changes: list[dict[str, object]] = Field(default_factory=list)
+    pi_recalculated_at: str = ""
     closing_odds: float | None = None
     line_clv: float | None = None
     line_clv_percent: float | None = None

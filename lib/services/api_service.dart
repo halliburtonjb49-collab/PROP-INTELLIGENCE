@@ -2996,10 +2996,18 @@ class ApiService {
   Future<void> updateSlipStatus({
     required String slipId,
     required String status,
+    Map<String, dynamic> recalculation = const {},
   }) async {
     final uri = Uri.parse('$baseUrl/api/slips/$slipId/status?status=$status');
     final response = await http
-        .patch(uri, headers: await _authenticatedHeaders())
+        .patch(
+          uri,
+          headers: {
+            ...await _authenticatedHeaders(),
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(recalculation),
+        )
         .timeout(const Duration(seconds: 12));
 
     if (response.statusCode != 200) {

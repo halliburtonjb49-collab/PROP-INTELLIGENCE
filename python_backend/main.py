@@ -2508,7 +2508,12 @@ def _grade_active_ticket_leg(
 	return "live"
 
 
-def _graded_slip_legs(slip: SlipResponse, *, season: str) -> list[dict[str, object]]:
+def _graded_slip_legs(
+	slip: SlipResponse,
+	*,
+	season: str,
+	current_props: dict[str, object] | None = None,
+) -> list[dict[str, object]]:
 	legs: list[dict[str, object]] = []
 	for leg in slip.legs:
 		snapshot = get_live_player_stat_snapshot(
@@ -2537,6 +2542,43 @@ def _graded_slip_legs(slip: SlipResponse, *, season: str) -> list[dict[str, obje
 			line=leg.line,
 			game_status=game_status,
 		)
+		current_prop = (current_props or {}).get(leg.prop_id)
+		current_projection = getattr(current_prop, "projection", None)
+		current_confidence = getattr(current_prop, "confidence", None)
+		current_injury = str(getattr(current_prop, "injuryStatus", "") or "")
+		current_lineup = str(getattr(current_prop, "lineupStatus", "") or "")
+		pi_changes: list[dict[str, object]] = []
+		for label, original, current in (
+			("Projection", leg.projection, current_projection),
+			("Confidence", leg.confidence, current_confidence),
+			("Injury", leg.injury_status, current_injury),
+			("Lineup", leg.lineup_status, current_lineup),
+		):
+			if original not in (None, "", "unknown") and current not in (None, "", "unknown") and original != current:
+				pi_changes.append({"label": label, "original": original, "current": current})
+		projection_delta = (
+			float(current_projection) - float(leg.projection)
+			if current_projection is not None and leg.projection is not None
+			else 0.0
+		)
+		confidence_delta = (
+			int(current_confidence) - int(leg.confidence)
+			if current_confidence is not None and leg.confidence is not None
+			else 0
+		)
+		projection_improved = (
+			projection_delta > 0
+			if leg.side.upper() == "OVER"
+			else projection_delta < 0
+		)
+		pi_change_status = "UNCHANGED"
+		if pi_changes:
+			if projection_delta != 0:
+				pi_change_status = "IMPROVED" if projection_improved else "WEAKENED"
+			elif confidence_delta != 0:
+				pi_change_status = "IMPROVED" if confidence_delta > 0 else "WEAKENED"
+			else:
+				pi_change_status = "UPDATED"
 		legs.append(
 			{
 				"id": leg.prop_id,
@@ -2561,6 +2603,12 @@ def _graded_slip_legs(slip: SlipResponse, *, season: str) -> list[dict[str, obje
 				"live_stat_status": snapshot.status,
 				"game_detail": snapshot.game_detail,
 				"odds": leg.odds,
+				"entry_projection": leg.projection,
+				"current_projection": current_projection,
+				"entry_confidence": leg.confidence,
+				"current_confidence": current_confidence,
+				"pi_change_status": pi_change_status,
+				"pi_changes": pi_changes,
 			}
 		)
 	return legs
@@ -2593,12 +2641,17 @@ def _live_slip_stats_payload(*, season: str, user_id: str) -> dict[str, object]:
 	slip id. Powers Slip Watcher's PrizePicks-style progress bars for all
 	locked slips, not just the first one."""
 	active_slips = get_slips("active", user_id=user_id)
+	current_props = {str(prop.id): prop for prop in get_props()}
 	slips: dict[str, object] = {}
 	for slip in active_slips:
 		slips[slip.id] = {
 			"slip_title": f"{len(slip.legs)}-Pick Ticket",
 			"status": slip.status,
-			"legs": _graded_slip_legs(slip, season=season),
+			"legs": _graded_slip_legs(
+				slip,
+				season=season,
+				current_props=current_props,
+			),
 		}
 	return {"slips": slips}
 
@@ -4881,6 +4934,7 @@ def get_live_slip_stats(
 def change_slip_status(
 	slip_id: str,
 	status: str,
+	recalculation: dict[str, object] = Body(default={}),
 	user_id: str = Depends(require_slip_user_id),
 ) -> dict[str, object]:
 	try:
@@ -4888,6 +4942,7 @@ def change_slip_status(
 			slip_id,
 			status,
 			user_id=user_id,
+			recalculation=recalculation,
 		)
 	except ValueError as exc:
 		raise HTTPException(

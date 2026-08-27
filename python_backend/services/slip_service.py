@@ -479,6 +479,7 @@ def update_slip_status(
     slip_id: str,
     status: str,
     user_id: str | None = None,
+    recalculation: dict[str, object] | None = None,
 ) -> bool:
     if status not in {"active", "won", "lost"}:
         raise ValueError("Invalid slip status.")
@@ -486,13 +487,33 @@ def update_slip_status(
     initialize_slip_table()
     with _connect() as connection:
         owner_clause = "" if user_id is None else " AND user_id = ?"
-        parameters: tuple[object, ...] = (status, slip_id)
+        select_parameters: tuple[object, ...] = (slip_id,)
+        if user_id is not None:
+            select_parameters += (user_id,)
+        row = connection.execute(
+            f"SELECT legs_json FROM slips WHERE id = ?{owner_clause}",
+            select_parameters,
+        ).fetchone()
+        if row is None:
+            return False
+        legs = _decoded_legs(row["legs_json"])
+        evidence = recalculation or {}
+        for leg in legs:
+            live = evidence.get(str(leg.get("prop_id", "")))
+            if not isinstance(live, dict):
+                continue
+            leg["current_projection"] = live.get("current_projection")
+            leg["current_confidence"] = live.get("current_confidence")
+            leg["pi_change_status"] = live.get("pi_change_status", "UNCHANGED")
+            leg["pi_changes"] = live.get("pi_changes", [])
+            leg["pi_recalculated_at"] = datetime.now(timezone.utc).isoformat()
+        parameters: tuple[object, ...] = (status, json.dumps(legs), slip_id)
         if user_id is not None:
             parameters += (user_id,)
         cursor = connection.execute(
             f"""
             UPDATE slips
-            SET status = ?
+            SET status = ?, legs_json = ?
             WHERE id = ?{owner_clause}
             """,
             parameters,
