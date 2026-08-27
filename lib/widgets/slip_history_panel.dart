@@ -2233,23 +2233,6 @@ class _SavedSlipCard extends StatelessWidget {
                     ),
                   ),
                 ],
-                if (live.piChangeStatus != 'UNCHANGED') ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    'PI ${live.piChangeStatus}: ${_piChangeSummary(live)}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: live.piChangeStatus == 'IMPROVED'
-                          ? brand_colors.AppColors.success
-                          : live.piChangeStatus == 'WEAKENED'
-                          ? const Color(0xFFFF8A65)
-                          : brand_colors.AppColors.blue,
-                      fontSize: 7,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
