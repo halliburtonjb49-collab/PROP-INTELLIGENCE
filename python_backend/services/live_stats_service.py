@@ -497,10 +497,13 @@ def _espn_snapshot_from_logs(
 ) -> LiveStatSnapshot:
     wanted_player = normalize_name(player_name)
     wanted_matchup = _normalize_matchup_identity(matchup)
-    candidates = [
+    player_rows = [
         row for row in logs
         if normalize_name(row.get("PLAYER_NAME", "")) == wanted_player
-        and (
+    ]
+    candidates = [
+        row for row in player_rows
+        if (
             (event_id and str(row.get("GAME_ID", "")) == event_id)
             or (
                 wanted_matchup
@@ -509,6 +512,14 @@ def _espn_snapshot_from_logs(
             )
         )
     ]
+    # Prop sites and ESPN do not share event IDs, and expansion-team or site
+    # matchup labels can differ even for the same game. The surrounding fetch
+    # is already restricted to the saved game's adjacent calendar dates. If
+    # that window contains exactly one row for this player, it is a safe,
+    # authoritative match and should power live progress instead of leaving
+    # the leg at SCHEDULED/0. Multiple rows remain unresolved by design.
+    if len(candidates) != 1 and len(player_rows) == 1:
+        candidates = player_rows
     if len(candidates) != 1:
         return LiveStatSnapshot(None, False, "espn_player_not_found")
 

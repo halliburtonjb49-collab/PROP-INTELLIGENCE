@@ -54,20 +54,48 @@ class DetailQuery:
 
 def _new_signups(cursor: object, limit: int) -> list[dict[str, object]]:
     cursor.execute(
-        """select email, display_name, created_at
-           from public.user_profiles
-           where created_at >= now() - interval '24 hours'
-           order by created_at desc
-           limit %s""",
+        "select to_regclass('public.member_signup_notifications') is not null"
+    )
+    if bool(cursor.fetchone()[0]):
+        cursor.execute(
+            """select email, user_id, first_seen_at, source, delivery_status
+               from public.member_signup_notifications
+               where first_seen_at >= now() - interval '24 hours'
+               order by first_seen_at desc limit %s""",
+            (limit,),
+        )
+        rows = [
+            {"account": mask_email(email), "member": str(user_id)[:12],
+             "signedUpAt": _isoformat(created_at), "source": str(source or "--"),
+             "notification": str(status or "--")}
+            for email, user_id, created_at, source, status in cursor.fetchall()
+        ]
+        if rows:
+            return rows
+    cursor.execute(
+        """select column_name from information_schema.columns
+           where table_schema='public' and table_name='user_profiles'"""
+    )
+    columns = {str(row[0]) for row in cursor.fetchall()}
+    if "created_at" not in columns:
+        return []
+    identity = "email" if "email" in columns else (
+        "user_id" if "user_id" in columns else "id"
+    )
+    name = "display_name" if "display_name" in columns else (
+        "full_name" if "full_name" in columns else "''"
+    )
+    cursor.execute(
+        f"""select {identity}, {name}, created_at from public.user_profiles
+            where created_at >= now() - interval '24 hours'
+            order by created_at desc limit %s""",
         (limit,),
     )
     return [
-        {
-            "account": mask_email(email),
-            "name": str(display_name or "--"),
-            "signedUpAt": _isoformat(created_at),
-        }
-        for email, display_name, created_at in cursor.fetchall()
+        {"account": mask_email(account) if "email" in columns else "--",
+         "member": str(account)[:12], "signedUpAt": _isoformat(created_at),
+         "source": str(display_name or "profile"), "notification": "historical"}
+        for account, display_name, created_at in cursor.fetchall()
     ]
 
 
@@ -139,7 +167,7 @@ DETAILS: Mapping[str, DetailQuery] = {
     "newSignups": DetailQuery(
         title="New signups",
         description="Accounts created in the last 24 hours.",
-        columns=("account", "name", "signedUpAt"),
+        columns=("account", "member", "signedUpAt", "source", "notification"),
         build=_new_signups,
     ),
     "activeUsers": DetailQuery(
@@ -176,6 +204,27 @@ def operations_detail(
 
     key = str(metric or "").strip()
     query = DETAILS.get(key)
+    if key in {"providers", "propFreshness"}:
+        try:
+            from services.owner_command_center_service import owner_command_center_snapshot
+            inventory = owner_command_center_snapshot().get("inventory") or {}
+            if key == "providers":
+                rows = list(inventory.get("providers") or [])[:MAXIMUM_LIMIT]
+                return {"metric": key, "supported": True,
+                        "title": "Provider inventory",
+                        "description": "Live prop volume and quality by provider.",
+                        "columns": ["provider", "status", "props", "sports", "stale", "suspicious", "lastUpdate"],
+                        "rows": rows, "returned": len(rows), "truncated": False}
+            rows = list(inventory.get("items") or [])[:MAXIMUM_LIMIT]
+            return {"metric": key, "supported": True,
+                    "title": "Prop freshness",
+                    "description": "Most recent catalog records and their quality state.",
+                    "columns": ["player", "sport", "market", "provider", "line", "qualityStatus", "lastUpdate"],
+                    "rows": rows, "returned": len(rows),
+                    "truncated": bool(inventory.get("truncated"))}
+        except Exception as exc:
+            return {"metric": key, "supported": True,
+                    "reason": type(exc).__name__, "rows": []}
     if query is None:
         return {
             "metric": key,

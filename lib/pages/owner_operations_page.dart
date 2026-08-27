@@ -2319,15 +2319,27 @@ class _DetailSheet extends StatelessWidget {
               // Say why rather than showing an empty box that could equally
               // mean "none" or "failed".
               final reason = data['reason']?.toString();
+              final friendlyReason = switch (reason) {
+                'database_not_configured' =>
+                  'The production database connection is not configured.',
+                'no_detail_for_metric' =>
+                  'This metric does not have a drilldown data source yet.',
+                null || '' => 'No records were found for this time window.',
+                _ => 'The data source is temporarily unavailable ($reason).',
+              };
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   header,
                   const SizedBox(height: 24),
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    color: AppColors.gold,
+                    size: 28,
+                  ),
+                  const SizedBox(height: 12),
                   Text(
-                    reason == null || reason.isEmpty
-                        ? 'Nothing to show for this window.'
-                        : 'No records available ($reason).',
+                    friendlyReason,
                     style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 12,

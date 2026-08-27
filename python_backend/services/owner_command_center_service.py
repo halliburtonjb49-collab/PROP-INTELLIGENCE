@@ -92,24 +92,43 @@ def _database_metrics(start: datetime, end: datetime) -> dict[str, object]:
                      and actor_hash is not null"""
             )
             metrics["activeUsers"] = int(cursor.fetchone()[0] or 0)
-            cursor.execute("select to_regclass('public.user_profiles') is not null")
-            if bool(cursor.fetchone()[0]):
+            cursor.execute(
+                """select column_name from information_schema.columns
+                   where table_schema='public' and table_name='user_profiles'"""
+            )
+            profile_columns = {str(row[0]) for row in cursor.fetchall()}
+            if profile_columns:
+                cursor.execute("select count(*) from public.user_profiles")
+                metrics["totalUsers"] = int(cursor.fetchone()[0] or 0)
+                if "created_at" in profile_columns:
+                    cursor.execute(
+                        """select count(*) from public.user_profiles
+                           where created_at >= %s and created_at < %s""",
+                        (start, end),
+                    )
+                    metrics["newUsers"] = int(cursor.fetchone()[0] or 0)
+                if "subscription_tier" in profile_columns:
+                    cursor.execute(
+                        """select
+                               count(*) filter(where lower(coalesce(subscription_tier,'')) = 'core'),
+                               count(*) filter(where lower(coalesce(subscription_tier,'')) = any(%s))
+                           from public.user_profiles""",
+                        (list(_PRO_TIERS),),
+                    )
+                    core, pro = cursor.fetchone()
+                    metrics["coreSubscribers"] = int(core or 0)
+                    metrics["proSubscribers"] = int(pro or 0)
+            if metrics["newUsers"] is None:
                 cursor.execute(
-                    """select
-                           count(*) filter(where created_at >= %s and created_at < %s),
-                           count(*),
-                           count(*) filter(where lower(coalesce(subscription_tier,'')) = 'core'),
-                           count(*) filter(where lower(coalesce(subscription_tier,'')) = any(%s))
-                       from public.user_profiles""",
-                    (start, end, list(_PRO_TIERS)),
+                    "select to_regclass('public.member_signup_notifications') is not null"
                 )
-                new_users, total_users, core, pro = cursor.fetchone()
-                metrics.update({
-                    "newUsers": int(new_users or 0),
-                    "totalUsers": int(total_users or 0),
-                    "coreSubscribers": int(core or 0),
-                    "proSubscribers": int(pro or 0),
-                })
+                if bool(cursor.fetchone()[0]):
+                    cursor.execute(
+                        """select count(*) from public.member_signup_notifications
+                           where first_seen_at >= %s and first_seen_at < %s""",
+                        (start, end),
+                    )
+                    metrics["newUsers"] = int(cursor.fetchone()[0] or 0)
             cursor.execute("select to_regclass('public.prediction_snapshots') is not null")
             if bool(cursor.fetchone()[0]):
                 cursor.execute(
@@ -172,6 +191,14 @@ def _row_value(row: object, key: str, default: object = None) -> object:
         return default
 
 
+def _first_row_value(row: object, *keys: str) -> object:
+    for key in keys:
+        value = _row_value(row, key)
+        if value not in (None, ""):
+            return value
+    return None
+
+
 def _instant(value: object) -> datetime | None:
     if value in (None, ""):
         return None
@@ -188,10 +215,10 @@ def _inventory_snapshot(
     duplicate_counts: Counter[tuple[str, str, str, str]] = Counter()
     market_lines: defaultdict[tuple[str, str, str], list[float]] = defaultdict(list)
     for row in props:
-        game_id = str(_row_value(row, "game_id", "") or "")
-        player = str(_row_value(row, "player_name", "") or "").strip()
-        market = str(_row_value(row, "prop_type", "") or "").strip()
-        provider = str(_row_value(row, "bookmaker", "") or "").strip()
+        game_id = str(_first_row_value(row, "game_id", "gameId", "event_id") or "")
+        player = str(_first_row_value(row, "player_name", "player") or "").strip()
+        market = str(_first_row_value(row, "prop_type", "market", "stat_type", "category") or "").strip()
+        provider = str(_first_row_value(row, "bookmaker", "sportsbook", "source_provider", "provider") or "").strip()
         duplicate_counts[(game_id, player.lower(), market.lower(), provider.lower())] += 1
         current_line = _row_value(row, "current_line") or _row_value(row, "line")
         if current_line is not None:
@@ -208,15 +235,16 @@ def _inventory_snapshot(
     )
     flagged_total = 0
     for row in props:
-        game_id = str(_row_value(row, "game_id", "") or "")
-        player = str(_row_value(row, "player_name", "") or "").strip()
-        market = str(_row_value(row, "prop_type", "") or "").strip()
-        provider = str(_row_value(row, "bookmaker", "") or "Unknown").strip()
+        game_id = str(_first_row_value(row, "game_id", "gameId", "event_id") or "")
+        player = str(_first_row_value(row, "player_name", "player") or "").strip()
+        market = str(_first_row_value(row, "prop_type", "market", "stat_type", "category") or "").strip()
+        provider = str(_first_row_value(row, "bookmaker", "sportsbook", "source_provider", "provider") or "Unknown").strip()
         sport = str(_row_value(row, "sport", "") or "Unknown").strip().upper()
         home = str(_row_value(row, "home_team", "") or "").strip()
         away = str(_row_value(row, "away_team", "") or "").strip()
-        prediction = str(_row_value(row, "prediction", "") or "").strip().upper()
-        confidence = _row_value(row, "confidence")
+        matchup = str(_first_row_value(row, "matchup", "game") or "").strip()
+        prediction = str(_first_row_value(row, "prediction", "recommended_side", "recommendedSide", "pro_suggested_side") or "").strip().upper()
+        confidence = _first_row_value(row, "confidence", "confidence_rating", "pi_trust_score", "piTrustScore")
         current_line = _row_value(row, "current_line") or _row_value(row, "line")
         opening_line = _row_value(row, "opening_line")
         updated_at = _instant(
@@ -224,15 +252,15 @@ def _inventory_snapshot(
         )
         warnings: list[str] = []
         duplicate_key = (game_id, player.lower(), market.lower(), provider.lower())
-        if duplicate_counts[duplicate_key] > 1:
+        if game_id and duplicate_counts[duplicate_key] > 1:
             warnings.append("duplicate")
         if not player:
             warnings.append("missing_player")
-        if not home or not away:
+        if (not home or not away) and not matchup:
             warnings.append("missing_matchup")
-        if not prediction or confidence is None:
+        if not prediction and confidence is None:
             warnings.append("missing_projection")
-        if updated_at is None or now - updated_at > timedelta(minutes=_STALE_LINE_MINUTES):
+        if updated_at is not None and now - updated_at > timedelta(minutes=_STALE_LINE_MINUTES):
             warnings.append("stale_line")
         try:
             opening = float(opening_line) if opening_line is not None else None
@@ -244,7 +272,7 @@ def _inventory_snapshot(
         if line_delta is not None and abs(line_delta) >= suspicious_threshold:
             warnings.append("extreme_line_change")
         peer_lines = market_lines[(game_id, player.lower(), market.lower())]
-        if len(peer_lines) > 1 and max(peer_lines) - min(peer_lines) >= suspicious_threshold:
+        if game_id and len(peer_lines) > 1 and max(peer_lines) - min(peer_lines) >= suspicious_threshold:
             warnings.append("provider_conflict")
         game_status = str(_row_value(row, "game_status", "") or "").strip().lower()
         if game_status in {"final", "completed", "cancelled", "canceled", "postponed"}:
@@ -277,7 +305,7 @@ def _inventory_snapshot(
             items.append({
                 "id": control_key, "gameId": game_id,
                 "sport": sport,
-                "matchup": " vs ".join(value for value in (away, home) if value) or "Unknown matchup",
+                "matchup": matchup or " vs ".join(value for value in (away, home) if value) or "Unknown matchup",
                 "player": player or "Unknown player", "market": market or "Unknown market",
                 "provider": provider, "line": current_line, "openingLine": opening_line,
                 "lineMovement": round(line_delta, 3) if line_delta is not None else None,

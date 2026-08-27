@@ -290,7 +290,16 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   ) async {
     if (_isHistory) return;
     for (final slip in List<SavedSlip>.from(_lastGoodSlips)) {
-      final status = terminalSlipStatus(slip, stats[slip.id] ?? const {});
+      final slipStats = stats[slip.id] ?? const <String, dynamic>{};
+      // A ticket can become mathematically lost before every game ends, but
+      // moving it to history at that moment stops live polling for its other
+      // legs. Keep it in Watch until every leg has an authoritative FINAL so
+      // all progress and permanent result values are recorded correctly.
+      final allLegsFinal = slip.legs.every(
+        (leg) => _effectiveLegState(leg, slipStats).gameCompleted,
+      );
+      if (!allLegsFinal) continue;
+      final status = terminalSlipStatus(slip, slipStats);
       if (status == null || _updatingSlipIds.contains(slip.id)) continue;
       await _changeStatus(slip, status, automatic: true);
     }

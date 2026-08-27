@@ -16,7 +16,10 @@ class OwnerCommandCenterOverview extends StatelessWidget {
 
   String _value(Map metric) {
     final raw = metric['value'];
-    if (raw == null) return '--';
+    if (raw == null) {
+      final status = '${metric['status'] ?? ''}'.toUpperCase();
+      return status == 'UNAVAILABLE' ? 'NOT CONNECTED' : 'PENDING';
+    }
     if (metric['key'] == 'averageConfidence' && raw is num) {
       return '${(raw.toDouble() * 100).toStringAsFixed(1)}%';
     }
@@ -56,7 +59,7 @@ class OwnerCommandCenterOverview extends StatelessWidget {
                   ? 4
                   : constraints.maxWidth >= 700
                   ? 3
-                  : constraints.maxWidth >= 440
+                  : constraints.maxWidth >= 300
                   ? 2
                   : 1;
               final width = columns == 1
@@ -138,8 +141,8 @@ class OwnerCommandCenterOverview extends StatelessWidget {
     final status = '${metric['status'] ?? 'unavailable'}'.toUpperCase();
     final color = _color(status);
     return Container(
-      constraints: const BoxConstraints(minHeight: 116),
-      padding: const EdgeInsets.all(14),
+      constraints: const BoxConstraints(minHeight: 108),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFF0C1823),
         borderRadius: BorderRadius.circular(12),
@@ -164,7 +167,7 @@ class OwnerCommandCenterOverview extends StatelessWidget {
             _value(metric),
             style: TextStyle(
               color: color,
-              fontSize: 24,
+              fontSize: status == 'UNAVAILABLE' ? 12 : 22,
               fontWeight: FontWeight.w900,
             ),
           ),
