@@ -322,6 +322,34 @@ services:
         value: https://api.propsintell.com
 
   - type: cron
+    name: prop-intelligence-learning
+    runtime: python
+    # Offset from the pregame sync so catalog publication and learning do not
+    # compete for the same database connection and memory at the same moment.
+    schedule: "7,37 * * * *"
+    buildCommand: pip install -r requirements.txt -r requirements-historical.txt
+    startCommand: python python_backend/scripts/run_prop_learning.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSLMODE
+        value: require
+      - key: SPORTSDATAIO_API_KEY
+        sync: false
+      - key: BALLDONTLIE_API_KEY
+        sync: false
+      - key: PROP_LEARNING_DB_ATTEMPTS
+        value: 4
+      - key: PROP_LEARNING_RETRY_SECONDS
+        value: 5
+      - key: PROP_LEARNING_GRADE_BATCH_SIZE
+        value: 2000
+      - key: PIPELINE_ALERT_WEBHOOK_URL
+        sync: false
+
+  - type: cron
     name: prop-intelligence-mlb-headshot-sync
     runtime: python
     schedule: "0 9 * * *"

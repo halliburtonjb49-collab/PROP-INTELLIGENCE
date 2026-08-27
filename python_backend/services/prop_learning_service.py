@@ -365,7 +365,7 @@ def _refresh_model_metrics(
     )
 
 
-def grade_learning_results() -> dict[str, object]:
+def grade_learning_results(*, batch_size: int = 500) -> dict[str, object]:
     if not database_is_configured():
         return {"graded": 0, "reason": "DATABASE_URL is not configured"}
 
@@ -375,7 +375,7 @@ def grade_learning_results() -> dict[str, object]:
     errors = 0
     reason_counts: Counter[str] = Counter()
     state_counts: Counter[str] = Counter()
-    batch_size = 500
+    batch_size = max(100, min(int(batch_size), 5000))
 
     with get_database_pool().connection() as connection, connection.cursor() as cursor:
         cursor.execute(
@@ -389,7 +389,7 @@ def grade_learning_results() -> dict[str, object]:
              where r.grade_state = 'PENDING'
                and s.event_time < now() - interval '3 hours'
                and s.event_time >= now() - interval '14 days'
-             order by s.event_time asc
+             order by r.graded_at asc nulls first, s.event_time asc
              limit %s
             """,
             (batch_size,),
