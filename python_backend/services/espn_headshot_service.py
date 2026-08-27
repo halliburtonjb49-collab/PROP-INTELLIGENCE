@@ -403,9 +403,13 @@ def refresh_espn_headshot_map() -> dict[str, int]:
     }
     counts: dict[str, int] = {}
     for sport_label, (espn_sport, espn_league) in LEAGUES.items():
-        players = _fetch_league_roster_headshots(
-            espn_sport, espn_league
-        )
+        try:
+            players = _fetch_league_roster_headshots(
+                espn_sport, espn_league
+            )
+        except requests.RequestException:
+            counts[sport_label] = len(leagues.get(sport_label, {}))
+            continue
         if players:
             # A partial roster refresh must not erase previously working
             # portraits from teams whose ESPN request failed.
