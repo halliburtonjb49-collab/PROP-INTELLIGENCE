@@ -34,6 +34,7 @@ from services.projection_calibration_service import (
     shrink_toward_prior,
     shrinkage_k_for,
 )
+from services.adaptive_calibration_service import adaptive_calibration_for
 from services.prop_probability_service import evaluate_market
 from services.distributed_cache_service import (
     get_compressed_json,
@@ -342,18 +343,26 @@ def compute_baseline_projection(
         side="OVER" if side_is_over else "UNDER",
         weights=recency_weights_for(sport, market),
     )
+    side = "OVER" if side_is_over else "UNDER"
+    adaptive = adaptive_calibration_for(
+        model_version=MODEL_VERSION,
+        sport=sport,
+        market=market,
+        side=side,
+    )
     evaluation = evaluate_market(
         projection=projection,
         line=line,
         volatility=volatility,
-        side="OVER" if side_is_over else "UNDER",
+        side=side,
         sample_size=len(ordered),
         sport=sport,
         market=market,
-        model_calibrated=False,
+        model_calibrated=adaptive.promoted,
         empirical_hit_rate=recent_hit_rate,
         sharp_probability=None,
         decimal_odds=None,
+        calibration_adjustment=adaptive.adjustment,
         # The observed share of blanked games is what distinguishes a player
         # who scores steadily from one who is shut out half the time and
         # compensates when they do produce.
@@ -368,6 +377,7 @@ def compute_baseline_projection(
         historical_hit_rate=historical_hit_rate,
         recent_hit_rate=round(recent_hit_rate * 100),
         hit_probability=hit_probability,
+        calibrated=adaptive.promoted,
         prior=None if prior is None else round(float(prior), 3),
         prior_weight=round(own_weight, 4),
         decomposed=decomposed,
