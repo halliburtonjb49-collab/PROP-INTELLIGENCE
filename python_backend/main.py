@@ -4534,6 +4534,12 @@ def replace_prop_builder_leg(
 				"image_path": row.get("imagePath", ""),
 				"over_odds": row.get("overOdds"),
 				"under_odds": row.get("underOdds"),
+				"projection": row.get("projection"),
+				"confidence": row.get("confidence"),
+				"injury_status": row.get("injuryStatus", ""),
+				"lineup_status": row.get("lineupStatus", ""),
+				"role_change": row.get("roleChange", ""),
+				"pregame_availability": row.get("pregameAvailability", {}),
 			}
 		)
 

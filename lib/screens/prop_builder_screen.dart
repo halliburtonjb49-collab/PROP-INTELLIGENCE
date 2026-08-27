@@ -1525,7 +1525,26 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
       'current_line': (leg['current_line'] as num?)?.toDouble(),
       'current_odds': (leg['current_odds'] as num?)?.toInt(),
       'last_line_check': leg['last_line_check']?.toString(),
+      'pregame_change_signature': _pregameChangeSignature(leg),
     };
+  }
+
+  String _pregameChangeSignature(Map<String, dynamic> leg) {
+    final changes = leg['pregame_changes'] as List<dynamic>? ?? const [];
+    return changes.map((change) {
+      if (change is! Map) return '';
+      return '${change['field']}:${change['original']}:${change['current']}';
+    }).join('|');
+  }
+
+  String _pregameChangeMessage(Map<String, dynamic> leg) {
+    final player = leg['player']?.toString() ?? 'Unknown player';
+    final changes = leg['pregame_changes'] as List<dynamic>? ?? const [];
+    final details = changes.whereType<Map>().map((change) {
+      final label = change['label']?.toString() ?? 'Context';
+      return '$label ${change['original']} -> ${change['current']}';
+    }).join(', ');
+    return '$player pregame evidence changed: $details.';
   }
 
   Map<String, Map<String, dynamic>> _currentLineSnapshots() {
@@ -1596,7 +1615,8 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
         leg['movement_status']?.toString().toUpperCase() ?? 'UNCHANGED';
     final currentLine = leg['current_line']?.toString() ?? '';
     final currentOdds = leg['current_odds']?.toString() ?? '';
-    final alertId = '$propId-$status-$currentLine-$currentOdds';
+    final contextSignature = _pregameChangeSignature(leg);
+    final alertId = '$propId-$status-$currentLine-$currentOdds-$contextSignature';
     final alreadyExists = _lineMovementAlerts.any(
       (alert) => alert.id == alertId,
     );
@@ -1641,6 +1661,15 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
       final oddsDifference = previousOdds != null && currentOdds != null
           ? (currentOdds - previousOdds).abs()
           : 0;
+      final previousContext = previous?['pregame_change_signature']?.toString() ?? '';
+      final currentContext = _pregameChangeSignature(leg);
+      if (currentContext.isNotEmpty && currentContext != previousContext) {
+        _addLineMovementAlert(
+          leg: leg,
+          message: _pregameChangeMessage(leg),
+          severity: 'WARNING',
+        );
+      }
 
       if (currentStatus == 'WORSE' &&
           _alertOnWorseMovement &&

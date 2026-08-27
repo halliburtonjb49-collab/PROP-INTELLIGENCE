@@ -84,6 +84,20 @@ class PropBuilderLeg(BaseModel):
     odds_change: int = 0
     movement_status: str = "UNCHANGED"
     last_line_check: str | None = None
+    original_projection: float | None = None
+    current_projection: float | None = None
+    original_confidence: int | None = None
+    current_confidence: int | None = None
+    original_injury_status: str = ""
+    current_injury_status: str = ""
+    original_lineup_status: str = ""
+    current_lineup_status: str = ""
+    original_role_change: str = ""
+    current_role_change: str = ""
+    original_pregame_availability: str = ""
+    current_pregame_availability: str = ""
+    pregame_change_status: str = "UNCHANGED"
+    pregame_changes: list[dict[str, object]] = Field(default_factory=list)
     result_status: str = "pending"
     result_value: float | None = None
     event_id: str = ""

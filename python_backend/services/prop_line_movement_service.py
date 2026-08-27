@@ -33,6 +33,23 @@ def _safe_int_or_none(
         return None
 
 
+def _context_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, dict):
+        for key in ("status", "availability", "label", "state"):
+            if value.get(key) not in (None, ""):
+                return str(value[key]).strip()
+        return ""
+    return str(value).strip()
+
+
+def _change(field: str, label: str, original: Any, current: Any) -> dict[str, object] | None:
+    if original in (None, "") or current in (None, "") or original == current:
+        return None
+    return {"field": field, "label": label, "original": original, "current": current}
+
+
 def _row_value(
     row: Any,
     key: str,
@@ -235,6 +252,48 @@ def check_prop_line_movement(
             current_odds=current_odds,
         )
         leg.last_line_check = checked_at
+
+        current_projection = _safe_float_or_none(_row_value(matching_row, "projection"))
+        current_confidence = _safe_int_or_none(_row_value(matching_row, "confidence"))
+        current_injury = _context_text(_row_value(matching_row, "injury_status"))
+        current_lineup = _context_text(_row_value(matching_row, "lineup_status"))
+        current_role = _context_text(_row_value(matching_row, "role_change"))
+        current_availability = _context_text(
+            _row_value(matching_row, "pregame_availability")
+        )
+        leg.original_projection = (
+            leg.original_projection if leg.original_projection is not None else current_projection
+        )
+        leg.original_confidence = (
+            leg.original_confidence if leg.original_confidence is not None else current_confidence
+        )
+        leg.original_injury_status = leg.original_injury_status or current_injury
+        leg.original_lineup_status = leg.original_lineup_status or current_lineup
+        leg.original_role_change = leg.original_role_change or current_role
+        leg.original_pregame_availability = (
+            leg.original_pregame_availability or current_availability
+        )
+        leg.current_projection = current_projection
+        leg.current_confidence = current_confidence
+        leg.current_injury_status = current_injury
+        leg.current_lineup_status = current_lineup
+        leg.current_role_change = current_role
+        leg.current_pregame_availability = current_availability
+        changes = [
+            _change("projection", "Projection", leg.original_projection, current_projection),
+            _change("confidence", "Confidence", leg.original_confidence, current_confidence),
+            _change("injuryStatus", "Injury status", leg.original_injury_status, current_injury),
+            _change("lineupStatus", "Lineup status", leg.original_lineup_status, current_lineup),
+            _change("roleChange", "Role", leg.original_role_change, current_role),
+            _change(
+                "pregameAvailability",
+                "Availability",
+                leg.original_pregame_availability,
+                current_availability,
+            ),
+        ]
+        leg.pregame_changes = [change for change in changes if change is not None]
+        leg.pregame_change_status = "CHANGED" if leg.pregame_changes else "UNCHANGED"
 
         if leg.movement_status not in {
             "UNCHANGED",
