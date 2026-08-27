@@ -41,6 +41,42 @@ from services.strikeout_quality_service import (
 logger = logging.getLogger(__name__)
 
 
+def _record_context_provenance(prop: object) -> None:
+    def evidence(value: object, *, source: object, updated: object = "") -> dict[str, object]:
+        present = value not in (None, "", "unknown", "UNKNOWN", {}, [])
+        return {
+            "status": "VERIFIED" if present and source not in (None, "") else "PARTIAL" if present else "MISSING",
+            "source": str(source or "unknown"),
+            "updatedAt": str(updated or ""),
+        }
+
+    provider = getattr(prop, "sourceProvider", "")
+    updated = getattr(prop, "sourceUpdatedUtc", "") or getattr(prop, "lastUpdatedUtc", "")
+    pregame = getattr(prop, "pregameAvailability", {}) or {}
+    pregame_source = pregame.get("source") if isinstance(pregame, dict) else ""
+    prop.contextEvidenceProvenance = {
+        "projection": evidence(getattr(prop, "projection", None), source=getattr(prop, "projectionSource", "")),
+        "injury": evidence(getattr(prop, "injuryStatus", "unknown"), source=pregame_source or provider, updated=updated),
+        "lineup": evidence(getattr(prop, "lineupStatus", "unknown"), source=pregame_source or provider, updated=updated),
+        "opportunity": evidence(getattr(prop, "projectedOpportunity", None), source=getattr(prop, "opportunitySource", ""), updated=updated),
+        "matchup": evidence(getattr(prop, "matchupContext", "") or getattr(prop, "opponentAllowanceByPosition", None), source="persisted-matchup-context", updated=updated),
+        "weather": evidence(getattr(prop, "weatherStatus", ""), source=getattr(prop, "weatherSource", ""), updated=getattr(prop, "weatherForecastForUtc", "")),
+        "line_history": evidence(getattr(prop, "openingLine", None), source=provider, updated=updated),
+        "live_feed": evidence(updated, source=provider, updated=updated),
+    }
+    conflicts: list[str] = []
+    discrepancy = getattr(prop, "lineDiscrepancy", None)
+    if discrepancy is not None and abs(float(discrepancy)) >= 1:
+        conflicts.append(f"Provider lines differ by {abs(float(discrepancy)):g}.")
+    if bool(getattr(prop, "dataStale", False)):
+        conflicts.append("The live provider record is stale.")
+    if str(getattr(prop, "injuryStatus", "unknown")).lower() == "unknown":
+        conflicts.append("Injury evidence is not verified.")
+    if str(getattr(prop, "lineupStatus", "unknown")).lower() == "unknown":
+        conflicts.append("Lineup evidence is not verified.")
+    prop.contextEvidenceConflicts = conflicts
+
+
 def _apply_wnba_research(prop: object) -> None:
     if str(getattr(prop, "sport", "")).strip().upper() != "WNBA":
         return
@@ -396,6 +432,7 @@ def apply_projection_context(prop: object) -> None:
     prop.contextDataQualityScore = context_quality.score
     prop.contextPresentFields = list(context_quality.present)
     prop.contextMissingFields = list(context_quality.missing)
+    _record_context_provenance(prop)
     provider_quality = float(getattr(prop, "dataQualityScore", 0) or 0)
     combined_quality = provider_quality * .60 + context_quality.score * .40
     gate = evaluate_opportunity_gate(

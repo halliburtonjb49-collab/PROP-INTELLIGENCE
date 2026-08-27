@@ -256,6 +256,9 @@ def summarize_model_audit(rows: Iterable[Mapping[str, object]]) -> dict[str, obj
     profits: list[float] = []
     side_totals: defaultdict[str, dict[str, int]] = defaultdict(lambda: {"sampleSize": 0, "hits": 0, "pushes": 0})
     normalized: list[dict[str, object]] = []
+    coverage: defaultdict[tuple[str, str], dict[str, object]] = defaultdict(
+        lambda: {"predictions": 0, "qualityTotal": 0.0, "conflicts": 0, "covered": defaultdict(int)}
+    )
     for row in predictions:
         probability = _number(row.get("hitProbability"))
         actual = _number(row.get("actualValue"))
@@ -266,6 +269,21 @@ def summarize_model_audit(rows: Iterable[Mapping[str, object]]) -> dict[str, obj
         sport = str(_value(row, "sport", "UNKNOWN")).upper()
         market = str(_value(row, "market", "UNKNOWN"))
         model_version = str(_value(row, "modelVersion", "UNKNOWN"))
+        features = _mapping(row.get("featureSnapshot"))
+        provenance = _mapping(features.get("contextEvidenceProvenance"))
+        coverage_row = coverage[(sport, market)]
+        coverage_row["predictions"] = int(coverage_row["predictions"]) + 1
+        coverage_row["qualityTotal"] = float(coverage_row["qualityTotal"]) + float(
+            _number(features.get("contextDataQualityScore")) or 0
+        )
+        conflicts = features.get("contextEvidenceConflicts")
+        if isinstance(conflicts, list) and conflicts:
+            coverage_row["conflicts"] = int(coverage_row["conflicts"]) + 1
+        covered = coverage_row["covered"]
+        if isinstance(covered, defaultdict):
+            for evidence_key, raw in provenance.items():
+                if str(_mapping(raw).get("status") or "") == "VERIFIED":
+                    covered[str(evidence_key)] += 1
         confidence_tier = _tier(probability)
         if is_push:
             pushes += 1
@@ -327,6 +345,21 @@ def summarize_model_audit(rows: Iterable[Mapping[str, object]]) -> dict[str, obj
             "side": side, **values,
             "accuracy": round(values["hits"] / side_decisions, 4) if side_decisions else None,
         })
+    evidence_keys = ("projection", "injury", "lineup", "opportunity", "matchup", "weather", "line_history", "live_feed")
+    coverage_segments = []
+    for (coverage_sport, coverage_market), values in coverage.items():
+        sample = int(values["predictions"])
+        covered = values["covered"]
+        coverage_segments.append({
+            "sport": coverage_sport, "market": coverage_market, "sampleSize": sample,
+            "averageQuality": round(float(values["qualityTotal"]) / sample, 4) if sample else None,
+            "conflictPredictions": int(values["conflicts"]),
+            "coverage": {
+                key: round(int(covered[key]) / sample, 4) if sample and isinstance(covered, defaultdict) else 0
+                for key in evidence_keys
+            },
+        })
+    coverage_segments.sort(key=lambda row: (-int(row["sampleSize"]), str(row["sport"]), str(row["market"])))
     return {
         "summary": {
             "graded": len(predictions), "decisions": decisions, "hits": hits,
@@ -338,6 +371,7 @@ def summarize_model_audit(rows: Iterable[Mapping[str, object]]) -> dict[str, obj
         },
         "calibration": calibration_rows,
         "sidePerformance": side_rows,
+        "contextCoverage": {"segments": coverage_segments, "evidenceKeys": list(evidence_keys)},
         "dimensions": {key: sorted(values) for key, values in dimensions.items()},
         "predictions": normalized,
     }

@@ -108,6 +108,8 @@ class _OwnerModelAuditPanelState extends State<OwnerModelAuditPanel> {
           _summary(summary),
           const SizedBox(height: 14),
           _learningScorecard(widget.data['learning'] as Map? ?? const {}),
+          const SizedBox(height: 14),
+          _contextCoverage(widget.data['contextCoverage'] as Map? ?? const {}),
           const SizedBox(height: 12),
           _filters(),
           if (calibration.isNotEmpty) ...[
@@ -248,6 +250,97 @@ class _OwnerModelAuditPanelState extends State<OwnerModelAuditPanel> {
       );
     },
   );
+
+  Widget _contextCoverage(Map report) {
+    final segments = (report['segments'] as List? ?? const [])
+        .whereType<Map>()
+        .take(12)
+        .toList(growable: false);
+    if (segments.isEmpty) {
+      return _empty('Context coverage is accumulating with new pregame prediction snapshots.');
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: const Color(0xFF08141F),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: const Color(0xFF73BFFF).withValues(alpha: .35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.fact_check_outlined, color: Color(0xFF73BFFF), size: 19),
+              SizedBox(width: 8),
+              Expanded(child: _AuditHeading('PI CONTEXT COVERAGE')),
+            ],
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'Evidence captured before each event. Missing and conflicting inputs remain visible instead of being treated as confirmed.',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 8, height: 1.35),
+          ),
+          const SizedBox(height: 9),
+          ...segments.map(_contextCoverageRow),
+        ],
+      ),
+    );
+  }
+
+  Widget _contextCoverageRow(Map row) {
+    final coverage = row['coverage'] as Map? ?? const {};
+    final quality = (row['averageQuality'] as num?)?.toDouble();
+    final color = quality == null
+        ? AppColors.textMuted
+        : quality >= .75
+        ? const Color(0xFF65E6B4)
+        : quality >= .5
+        ? AppColors.gold
+        : const Color(0xFFFFA970);
+    const labels = {
+      'injury': 'INJ', 'lineup': 'LINEUP', 'opportunity': 'ROLE',
+      'matchup': 'MATCH', 'weather': 'WX', 'line_history': 'LINE', 'live_feed': 'FRESH',
+    };
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 7),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0C1823),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: .24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${row['sport']} | ${row['market']} | ${row['sampleSize']} SNAPSHOTS',
+                  style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900),
+                ),
+              ),
+              Text(
+                'QUALITY ${_percent(quality)} | CONFLICTS ${row['conflictPredictions'] ?? 0}',
+                style: TextStyle(color: color, fontSize: 7, fontWeight: FontWeight.w900),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 9,
+            runSpacing: 4,
+            children: labels.entries
+                .map((entry) => _detail(entry.value, _percent(coverage[entry.key])))
+                .toList(growable: false),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _learningScorecard(Map learning) {
     if (learning['available'] != true) {

@@ -433,6 +433,8 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
                 "contextDataQualityScore": prop.contextDataQualityScore,
                 "contextPresentFields": prop.contextPresentFields,
                 "contextMissingFields": prop.contextMissingFields,
+                "contextEvidenceProvenance": prop.contextEvidenceProvenance,
+                "contextEvidenceConflicts": prop.contextEvidenceConflicts,
             }
             cursor.execute(
                 """insert into matchup_feature_snapshots
@@ -445,6 +447,8 @@ def snapshot_live_predictions(model_version: str = MODEL_VERSION) -> dict[str, o
                      "projection": snapshot_model_version,
                      "opportunity": prop.opportunitySource,
                      "selection": prop.selectionMethod,
+                     "provider": prop.sourceProvider,
+                     "weather": prop.weatherSource,
                  })),
             )
             if _paper_trade_eligible(prop.pickGrade):
