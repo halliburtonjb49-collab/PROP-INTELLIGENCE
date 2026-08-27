@@ -258,6 +258,7 @@ class _OwnerModelAuditPanelState extends State<OwnerModelAuditPanel> {
     }
     final summary = learning['summary'] as Map? ?? const {};
     final clv = learning['closingLineQuality'] as Map? ?? const {};
+    final arena = learning['arena'] as Map? ?? const {};
     final findings = (learning['findings'] as List? ?? const [])
         .whereType<Map>()
         .take(8)
@@ -373,6 +374,10 @@ class _OwnerModelAuditPanelState extends State<OwnerModelAuditPanel> {
               fontWeight: FontWeight.w800,
             ),
           ),
+          if (arena['available'] == true) ...[
+            const SizedBox(height: 14),
+            _modelArena(arena),
+          ],
           if (findings.isNotEmpty) ...[
             const SizedBox(height: 12),
             const Text(
@@ -386,6 +391,115 @@ class _OwnerModelAuditPanelState extends State<OwnerModelAuditPanel> {
             const SizedBox(height: 7),
             ...findings.map(_learningFinding),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _modelArena(Map arena) {
+    final competitors = (arena['competitors'] as List? ?? const [])
+        .whereType<Map>()
+        .toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(child: _AuditHeading('PI MODEL ARENA')),
+            Text(
+              '${arena['eligibleChallengers'] ?? 0} ELIGIBLE',
+              style: const TextStyle(
+                color: Color(0xFF65E6B4),
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        Text(
+          '${arena['windowDays'] ?? 60}-day chronological comparison. Promotion requires ${arena['minimumPromotionSample'] ?? 200} settled results and ${arena['minimumOverlap'] ?? 100} directly comparable props.',
+          style: const TextStyle(
+            color: AppColors.textMuted,
+            fontSize: 8,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 7),
+        ...competitors.map(_arenaCompetitor),
+      ],
+    );
+  }
+
+  Widget _arenaCompetitor(Map row) {
+    final status = '${row['status'] ?? 'OBSERVING'}';
+    final color = status == 'PRODUCTION'
+        ? AppColors.gold
+        : status == 'ELIGIBLE'
+        ? const Color(0xFF65E6B4)
+        : status == 'REJECTED'
+        ? const Color(0xFFFFA970)
+        : status == 'BASELINE'
+        ? AppColors.textMuted
+        : const Color(0xFF73BFFF);
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0C1823),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: .25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${row['modelVersion'] ?? '--'}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                status,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 7,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Wrap(
+            spacing: 10,
+            runSpacing: 4,
+            children: [
+              _detail('SAMPLE', row['sampleSize']),
+              _detail('OVERLAP', row['overlapWithProduction']),
+              _detail('ACCURACY', _percent(row['accuracy'])),
+              _detail('MAE', _number(row['projectionMae'])),
+              _detail('BRIER', _number(row['brierScore'], decimals: 3)),
+              _detail('CAL GAP', _percent(row['calibrationGap'])),
+              _detail('AVG CLV', _number(row['averageClv'])),
+              _detail('POS CLV', _percent(row['positiveClvRate'])),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            '${row['reason'] ?? ''}',
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 8,
+              height: 1.3,
+            ),
+          ),
         ],
       ),
     );

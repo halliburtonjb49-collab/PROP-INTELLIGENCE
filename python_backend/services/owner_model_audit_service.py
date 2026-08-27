@@ -11,6 +11,7 @@ from database.postgres import database_is_configured, get_database_pool
 from services.owner_command_center_service import command_center_window
 from services.model_performance_service import QUARANTINE_SQL
 from services.pi_tendency_service import pi_tendency_report
+from services.pi_model_arena_service import pi_model_arena_report
 
 _MAX_ROWS = 10_000
 
@@ -414,7 +415,10 @@ def owner_model_audit_snapshot(
         "baseline-v3",
     )
     try:
-        learning = pi_tendency_report(newest_model)
+        learning = {
+            **pi_tendency_report(newest_model),
+            "arena": pi_model_arena_report(newest_model),
+        }
     except Exception as exc:
         learning = {
             "available": False,
