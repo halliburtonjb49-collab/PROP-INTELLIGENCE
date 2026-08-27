@@ -711,7 +711,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'PREDICT. GRADE. LEARN. IMPROVE.',
+                  'PI LEARNING INTELLIGENCE\nPREDICT. GRADE. LEARN. IMPROVE.',
                   style: TextStyle(
                     color: _gold,
                     fontSize: 12,
@@ -1257,7 +1257,7 @@ class _InstallAnywhereSection extends StatelessWidget {
       (
         Icons.phone_iphone_rounded,
         'IPHONE & IPAD',
-        'Open in Safari, tap Share, then choose Add to Home Screen.',
+        'Install PI Prop Intelligence from the Apple App Store, or add the secure web app from Safari.',
       ),
       (
         Icons.tablet_mac_rounded,
@@ -1291,7 +1291,7 @@ class _InstallAnywhereSection extends StatelessWidget {
           const Icon(Icons.install_mobile_rounded, color: _gold, size: 34),
           const SizedBox(height: 10),
           Text(
-            'INSTALL ON ANY DEVICE',
+            'INSTALL PI YOUR WAY',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: _gold,
@@ -1302,7 +1302,7 @@ class _InstallAnywhereSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'PROP INTELLIGENCE is a secure Progressive Web App. Install it directly from your browser—no app-store download required.',
+            'Use the native iPhone and iPad app or install the secure PI web app from your browser. The same account and research follow you everywhere.',
             textAlign: TextAlign.center,
             style: TextStyle(color: _silver70, fontSize: 14, height: 1.5),
           ),
@@ -1451,7 +1451,7 @@ class _TopNavigation extends StatelessWidget {
   Future<void> _showMobileMenu(BuildContext context) async {
     const items = <(String, String, IconData)>[
       ('FEATURES', 'features', Icons.query_stats_rounded),
-      ('HOW IT WORKS', 'how-it-works', Icons.route_rounded),
+      ('HOW PI LEARNS', 'how-it-works', Icons.route_rounded),
       ('PRICING', 'pricing', Icons.workspace_premium_outlined),
       ('ABOUT', 'about', Icons.info_outline_rounded),
       ('INSTALL APP', 'install', Icons.install_mobile_rounded),
@@ -1564,7 +1564,7 @@ class _TopNavigation extends StatelessWidget {
           if (!accessibleCompact) ...[
             for (final item in [
               const ('FEATURES', 'features'),
-              const ('HOW IT WORKS', 'how-it-works'),
+              const ('HOW PI LEARNS', 'how-it-works'),
               const ('PRICING', 'pricing'),
               const ('ABOUT', 'about'),
             ])
@@ -1610,7 +1610,7 @@ class _TopNavigation extends StatelessWidget {
               ),
             ),
             child: const Text(
-              'LOG IN',
+              'LOGIN TO APP',
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w900,
@@ -1633,7 +1633,7 @@ class _TopNavigation extends StatelessWidget {
               ),
             ),
             child: const Text(
-              'SIGN UP',
+              'CREATE ACCOUNT',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w900,

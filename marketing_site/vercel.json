@@ -3,5 +3,22 @@
   "buildCommand": "echo \"Static marketing site ready\"",
   "installCommand": "echo \"No dependencies to install\"",
   "outputDirectory": ".",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "redirects": [
+    {
+      "source": "/app",
+      "destination": "https://app.propsintell.com",
+      "permanent": false
+    },
+    {
+      "source": "/login",
+      "destination": "https://app.propsintell.com",
+      "permanent": false
+    },
+    {
+      "source": "/signup",
+      "destination": "https://app.propsintell.com",
+      "permanent": false
+    }
+  ]
 }
