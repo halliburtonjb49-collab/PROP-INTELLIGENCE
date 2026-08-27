@@ -88,7 +88,7 @@ class OwnerCommandCenterOverview extends StatelessWidget {
             },
           ),
           const SizedBox(height: 18),
-          _learningControlPanel(learningControl),
+          _learningControlPanel(learningControl, learning, learningAudit),
           const SizedBox(height: 18),
           if (recalculations.isNotEmpty) ...[
             _recalculationDrilldown(recalculations),
@@ -147,10 +147,30 @@ class OwnerCommandCenterOverview extends StatelessWidget {
     );
   }
 
-  Widget _learningControlPanel(Map control) {
+  Widget _learningControlPanel(
+    Map control,
+    List<Map> learning,
+    List<Map> audit,
+  ) {
     final active = (control['promotedSegments'] as num?)?.toInt() ?? 0;
     final rolledBack = (control['rolledBackSegments'] as num?)?.toInt() ?? 0;
     final notificationsReady = control['notificationConfigured'] == true;
+    final promotions = audit.where((row) =>
+      row['status'] == 'PROMOTED' || row['eventType'] == 'PROMOTION'
+    ).length;
+    final alerts = audit.where((row) =>
+      '${row['eventType'] ?? ''}'.startsWith('PUSH_') ||
+      row['eventType'] == 'ALERT'
+    ).length;
+    final maeImprovements = learning
+        .map((row) => row['maeImprovement'])
+        .whereType<num>()
+        .map((value) => value.toDouble())
+        .toList(growable: false);
+    final averageMaeImprovement = maeImprovements.isEmpty
+        ? 0.0
+        : maeImprovements.reduce((total, value) => total + value) /
+            maeImprovements.length;
     Widget stat(String label, Object? value, Color color) => Expanded(
       child: Container(
         padding: const EdgeInsets.all(10),
@@ -193,6 +213,20 @@ class OwnerCommandCenterOverview extends StatelessWidget {
             stat('ACTIVE SEGMENTS', active, const Color(0xFF65E6B4)),
             const SizedBox(width: 8),
             stat('ROLLED BACK', rolledBack, rolledBack > 0 ? const Color(0xFFFF7474) : AppColors.textMuted),
+          ]),
+          const SizedBox(height: 8),
+          Row(children: [
+            stat('PROMOTIONS', promotions, const Color(0xFF65E6B4)),
+            const SizedBox(width: 8),
+            stat('ALERTS', alerts, alerts > 0 ? AppColors.gold : AppColors.textMuted),
+            const SizedBox(width: 8),
+            stat(
+              'AVG MAE GAIN',
+              '${averageMaeImprovement.toStringAsFixed(1)}%',
+              averageMaeImprovement > 0
+                  ? const Color(0xFF65E6B4)
+                  : AppColors.textMuted,
+            ),
           ]),
           const SizedBox(height: 10),
           Wrap(
