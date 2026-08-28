@@ -21,7 +21,7 @@ void main() {
       ),
     );
 
-    final text = tester.widget<Text>(find.text('REBOUNDS 96 · PLAYABLE 0'));
+    final text = tester.widget<Text>(find.text('REBOUNDS 96'));
     expect(text.style?.fontSize, 9);
     expect(text.style?.fontWeight, FontWeight.w900);
 
