@@ -707,7 +707,6 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
 
   Widget _card(PropData prop) {
     final systemSide = _recommendedSide(prop);
-    final selectedSide = _selectedSides[prop.id];
     final projection = prop.projection?.toStringAsFixed(1) ?? '--';
     final learned = prop.probabilityCalibrationAdjustment.abs() >= .005;
     final sideText = systemSide == null
@@ -1117,48 +1116,6 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
       ),
     );
   }
-
-  Widget _datum(String label, String value) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        label,
-        style: const TextStyle(
-          color: AppColors.textMuted,
-          fontSize: 7,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-      const SizedBox(height: 3),
-      Text(
-        value,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    ],
-  );
-
-  Widget _chip(String text) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-    decoration: BoxDecoration(
-      color: AppColors.gold.withValues(alpha: .07),
-      borderRadius: BorderRadius.circular(99),
-      border: Border.all(color: AppColors.border),
-    ),
-    child: Text(
-      text,
-      style: const TextStyle(
-        color: AppColors.textSecondary,
-        fontSize: 7,
-        fontWeight: FontWeight.w800,
-      ),
-    ),
-  );
 
   Widget _errorState() => Center(
     child: Padding(

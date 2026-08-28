@@ -482,7 +482,7 @@ class PropChatService {
         refreshRetry = null;
         refreshAttempts = 0;
         emitMessages();
-      } catch (error, stackTrace) {
+      } catch (error) {
         debugPrint('PROP CHAT message refresh unavailable: $error');
         if (!controller.isClosed && refreshRetry == null) {
           final exponent = refreshAttempts > 4 ? 4 : refreshAttempts;

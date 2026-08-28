@@ -13,7 +13,6 @@ void main() {
           body: BoardCategoryChip(
             category: 'REBOUNDS',
             count: 96,
-            playableCount: 0,
             icon: Icons.sports_basketball,
             selected: true,
             onPressed: () => selected = true,

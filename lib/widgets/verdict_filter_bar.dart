@@ -34,7 +34,7 @@ class VerdictFilterBar extends StatelessWidget {
     final chips = <Widget>[
       for (final (value, label) in options) _chip(value, label),
       _guideButton(),
-      if (trailing != null) trailing!,
+      ?trailing,
     ];
     return LayoutBuilder(
       builder: (context, constraints) {

@@ -206,7 +206,7 @@ class PiSectionLabel extends StatelessWidget {
           ],
         ),
       ),
-      if (trailing != null) trailing!,
+      ?trailing,
     ],
   );
 }
