@@ -303,9 +303,7 @@ class _MainDashboardState extends State<MainDashboard> {
     if (!mounted || saved == null || saved.isEmpty) return;
     setState(() {
       _selectedSite = saved;
-      _selectedSiteSport = widget.sportFilter.trim().toUpperCase() == 'ALL'
-          ? ''
-          : _normalizeSport(widget.sportFilter);
+      _selectedSiteSport = '';
       _selectedCategory = 'ALL';
     });
   }
@@ -2472,10 +2470,7 @@ class _MainDashboardState extends State<MainDashboard> {
       setState(() {
         _selectedSite = site;
         _siteDiscoveryExpanded = true;
-        _selectedSiteSport = site == 'ALL' ||
-                widget.sportFilter.trim().toUpperCase() == 'ALL'
-            ? ''
-            : _normalizeSport(widget.sportFilter);
+        _selectedSiteSport = '';
         _selectedCategory = 'ALL';
         _verdictFilter = 'ALL';
         _siteInventoryProps = const [];
@@ -3015,8 +3010,9 @@ class _MainDashboardState extends State<MainDashboard> {
                 runSpacing: 7,
                 children: [
                   step(1, 'SELECT SITE', true),
-                  step(2, 'SELECT CATEGORY', _selectedCategory != 'ALL'),
-                  step(3, 'COMPARE PI PICKS', _latestProps.isNotEmpty),
+                  step(2, 'SELECT SPORT', _selectedSiteSport.isNotEmpty),
+                  step(3, 'SELECT CATEGORY', _selectedCategory != 'ALL'),
+                  step(4, 'COMPARE PI PICKS', _latestProps.isNotEmpty),
                 ],
               ),
             ],
@@ -3064,8 +3060,53 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
           ),
           const SizedBox(height: 16),
+          const Text(
+            'CHOOSE YOUR SPORT',
+            style: TextStyle(
+              color: app_colors.AppColors.gold,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .3,
+            ),
+          ),
+          const SizedBox(height: 9),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final sport in const [
+                  'MLB',
+                  'NFL',
+                  'NBA',
+                  'WNBA',
+                  'NHL',
+                  'SOCCER',
+                  'NCAAF',
+                  'NCAAB',
+                  'CFL',
+                ]) ...[
+                  ChoiceChip(
+                    key: ValueKey('site-sport-$sport'),
+                    selected: _selectedSiteSport == sport,
+                    avatar: const Icon(Icons.sports_rounded, size: 15),
+                    label: Text(sport),
+                    onSelected: (_) => setState(() {
+                      _selectedSiteSport = sport;
+                      _selectedCategory = 'ALL';
+                      _verdictFilter = 'ALL';
+                      _latestProps = const [];
+                      _lastUpdated = null;
+                    }),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+          if (_selectedSiteSport.isNotEmpty) ...[
+          const SizedBox(height: 16),
           Text(
-            'MOST POPULAR ON ${siteLabel(_selectedSite)}',
+            'MOST POPULAR ${_selectedSiteSport.toUpperCase()} CATEGORIES ON ${siteLabel(_selectedSite)}',
             style: const TextStyle(
               color: app_colors.AppColors.gold,
               fontSize: 12,
@@ -3101,6 +3142,7 @@ class _MainDashboardState extends State<MainDashboard> {
               },
             ),
           ),
+          ],
           ],
           const SizedBox(height: 12),
           SingleChildScrollView(
