@@ -8,6 +8,8 @@ import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/player_image_widget.dart';
 import '../widgets/recommendation_explainability_block.dart';
+import '../widgets/prop_research_assistant.dart';
+import '../widgets/prop_trust_widgets.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -47,7 +49,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
     super.initState();
     _load();
     _refreshTimer = Timer.periodic(
-      const Duration(seconds: 45),
+      const Duration(seconds: 20),
       (_) => unawaited(_refreshLive()),
     );
     _expiryTimer = Timer.periodic(const Duration(seconds: 5), (_) {
@@ -275,7 +277,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                         crossAxisCount: columns,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
-                        mainAxisExtent: 350,
+                        mainAxisExtent: 430,
                       ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final prop = section.value[index];
@@ -937,6 +939,38 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
               ),
             ),
           const SizedBox(height: 10),
+          _piLearningStatus(prop),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: ValueKey('strikeout-pi-detail-${prop.id}'),
+                  onPressed: () => _showPiIntelligence(prop),
+                  icon: const Icon(Icons.psychology_alt_rounded, size: 15),
+                  label: const Text('PI INTELLIGENCE'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.gold,
+                    side: BorderSide(
+                      color: AppColors.gold.withValues(alpha: .7),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: PropResearchAiButton(
+                  prop: prop,
+                  comparisonCandidates: _props,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           RecommendationExplainabilityBlock(
             prop: prop,
             title: 'STANDARDIZED EXPLAINABILITY',
@@ -946,6 +980,110 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
       ),
     );
   }
+
+  Widget _piLearningStatus(PropData prop) {
+    final adjustment = prop.probabilityCalibrationAdjustment;
+    final active = adjustment.abs() >= .005;
+    final sample = prop.probabilityCalibrationSampleSize;
+    final color = active ? brand_colors.AppColors.success : AppColors.gold;
+    final direction = adjustment > 0
+        ? 'STRENGTHENED'
+        : adjustment < 0
+        ? 'WEAKENED'
+        : 'COLLECTING';
+    final adjustmentLabel = active
+        ? ' • ${(adjustment * 100).abs().toStringAsFixed(1)}% $direction'
+        : '';
+    return Container(
+      key: ValueKey('strikeout-pi-learning-${prop.id}'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: color.withValues(alpha: .55)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            active ? Icons.model_training_rounded : Icons.hourglass_top_rounded,
+            color: color,
+            size: 15,
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              '${active ? 'PI LEARNING ACTIVE' : 'PI LEARNING COLLECTING'}$adjustmentLabel • $sample VERIFIED SAMPLES',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .3,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showPiIntelligence(PropData prop) => showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: const Color(0xFF06111A),
+    builder: (context) => SafeArea(
+      child: FractionallySizedBox(
+        heightFactor: .88,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.psychology_alt_rounded,
+                    color: AppColors.gold,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${prop.player.toUpperCase()} • PI INTELLIGENCE',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _piLearningStatus(prop),
+              const SizedBox(height: 12),
+              WhyThisPropCapsule(prop: prop),
+              const SizedBox(height: 12),
+              RecommendationExplainabilityBlock(
+                prop: prop,
+                title: 'STANDARDIZED EXPLAINABILITY',
+              ),
+              const SizedBox(height: 12),
+              PropResearchAiButton(
+                prop: prop,
+                comparisonCandidates: _props,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 
   Widget _lineDisplay(PropData prop) {
     return Container(
