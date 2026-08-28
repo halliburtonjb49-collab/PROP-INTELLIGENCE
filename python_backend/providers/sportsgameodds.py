@@ -33,6 +33,17 @@ LEAGUE_TO_SPORT = {
     "MLS": "soccer_usa_mls",
 }
 
+# SportsGameOdds uses its own league IDs, while the rest of the application
+# uses canonical Odds-API-style sport keys. Translate only at the provider
+# boundary so market normalization and persisted sport labels stay stable.
+_SPORTSGAMEODDS_LEAGUE_IDS = {
+    "soccer_epl": "EPL",
+    "soccer_usa_mls": "MLS",
+    "soccer_germany_bundesliga": "BUNDESLIGA",
+    "soccer_italy_serie_a": "IT_SERIE_A",
+    "soccer_uefa_champs_league": "UEFA_CHAMPIONS_LEAGUE",
+}
+
 from services.market_config import SPORT_MARKETS
 
 # Stats whose meaning depends on the sport. `shots` is a shot on target in
@@ -456,7 +467,7 @@ def fetch_upcoming_events(
     now = datetime.now(timezone.utc)
     specialty_horizon_days = 4
     params: dict[str, object] = {
-        "leagueID": league_id,
+        "leagueID": _SPORTSGAMEODDS_LEAGUE_IDS.get(league_id, league_id),
         "oddsAvailable": "true",
         "started": "false",
         "includeOpposingOdds": "true",

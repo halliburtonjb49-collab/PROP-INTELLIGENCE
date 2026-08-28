@@ -26,7 +26,7 @@ from services.live_stats_service import (
 from services.clv_service import odds_clv_expected_value, vig_free_probability
 
 TRACKED_SPORTS = {
-    "NBA", "WNBA", "MLB", "NFL", "NHL", "SOCCER",
+    "NBA", "WNBA", "MLB", "NFL", "NHL", "SOCCER", "CFL",
 }
 
 

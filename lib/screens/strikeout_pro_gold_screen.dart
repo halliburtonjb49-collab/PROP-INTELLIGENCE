@@ -277,7 +277,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                         crossAxisCount: columns,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
-                        mainAxisExtent: 430,
+                        mainAxisExtent: 180,
                       ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final prop = section.value[index];
@@ -549,6 +549,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
         Icon(
           selected ? Icons.emoji_events_rounded : Icons.shield_outlined,
           size: 23,
+          color: selected ? AppColors.gold : AppColors.silver,
         ),
         const SizedBox(width: 10),
         Column(
@@ -707,9 +708,8 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
   Widget _card(PropData prop) {
     final systemSide = _recommendedSide(prop);
     final selectedSide = _selectedSides[prop.id];
-    final projection = prop.projection;
-    final delta = projection == null ? null : projection - prop.line;
-    final isExpired = !prop.isSelectable;
+    final projection = prop.projection?.toStringAsFixed(1) ?? '--';
+    final learned = prop.probabilityCalibrationAdjustment.abs() >= .005;
     final sideText = systemSide == null
         ? 'NO PICK'
         : systemSide == PickSide.over
@@ -720,318 +720,126 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
         : systemSide == PickSide.over
         ? brand_colors.AppColors.success
         : const Color(0xFF6DB8FF);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF08151F),
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: AppColors.borderGold),
+    return Material(
+      key: ValueKey('strikeout-card-${prop.id}'),
+      color: const Color(0xFF081620),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _showPiIntelligence(prop),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
+          child: Column(
             children: [
-              Container(
-                key: ValueKey('strikeout-player-photo-${prop.id}'),
-                width: 58,
-                height: 58,
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF2B2100),
-                  border: Border.all(color: AppColors.gold),
-                ),
-                child: PlayerAvatarWidget(
-                  key: ValueKey(
-                    'strikeout-avatar-${prop.id}-${prop.imagePath}',
-                  ),
-                  imageUrl: prop.imagePath,
-                  radius: 26,
-                  fallbackIcon: Icons.person_rounded,
-                ),
-              ),
-              const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Text(
-                      prop.player,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 14,
+                    SizedBox(
+                      width: 112,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          const DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0x00081620), Color(0xFF0E2330)],
+                              ),
+                            ),
+                          ),
+                          Align(
+                            alignment: Alignment.bottomCenter,
+                            child: PlayerImageWidget(
+                              key: ValueKey('strikeout-photo-${prop.id}-${prop.imagePath}'),
+                              imageUrl: prop.imagePath,
+                              width: 108,
+                              height: 116,
+                              fit: BoxFit.contain,
+                              fallbackIcon: Icons.person_rounded,
+                              fallbackIconSize: 38,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    Text(
-                      '${prop.matchup} • ${prop.sportsbook}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 9,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 4,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(prop.player, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)),
+                          const SizedBox(height: 3),
+                          Text(prop.matchup, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
+                          const SizedBox(height: 5),
+                          Row(children: [
+                            const Icon(Icons.emoji_events_outlined, size: 12, color: AppColors.gold),
+                            const SizedBox(width: 4),
+                            Expanded(child: Text(prop.sportsbook.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900))),
+                          ]),
+                        ],
                       ),
                     ),
+                    const VerticalDivider(color: AppColors.border, width: 18),
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(_signalLabel(prop, systemSide), style: TextStyle(color: signalColor, fontSize: 7.5, fontWeight: FontWeight.w900)),
+                          Text('$sideText ${prop.line.toStringAsFixed(1)}', style: TextStyle(color: signalColor, fontSize: 14, fontWeight: FontWeight.w900)),
+                          const Text('PITCHER STRIKEOUTS', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.textMuted, fontSize: 8, fontWeight: FontWeight.w800)),
+                        ],
+                      ),
+                    ),
+                    const VerticalDivider(color: AppColors.border, width: 18),
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('PI TRUST', style: TextStyle(color: AppColors.textMuted, fontSize: 7.5, fontWeight: FontWeight.w800)),
+                          Text('${prop.piTrustScore}', style: const TextStyle(color: brand_colors.AppColors.success, fontSize: 14, fontWeight: FontWeight.w900)),
+                          const SizedBox(height: 3),
+                          const Text('PROJECTION', style: TextStyle(color: AppColors.textMuted, fontSize: 7, fontWeight: FontWeight.w800)),
+                          Text(projection, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.star_border_rounded, color: AppColors.gold, size: 20),
                   ],
                 ),
               ),
-              Container(
-                key: const ValueKey('strikeout-pro-pick'),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: signalColor.withValues(alpha: .10),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: signalColor),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      _signalLabel(prop, systemSide),
-                      style: TextStyle(
-                        color: signalColor,
-                        fontSize: 7,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: .6,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '$sideText ${prop.line.toStringAsFixed(1)}',
-                      style: TextStyle(
-                        color: signalColor,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 13,
-                      ),
-                    ),
-                    Text(
-                      prop.proSuggestionUsesModel
-                          ? 'VERIFIED MODEL'
-                          : prop.proSuggestionUsesHistoricalStats
-                          ? '5/10/20 PROJECTION'
-                          : prop.proSuggestionUsesMarket
-                          ? 'PROP-SITE PRICING'
-                          : 'LIVE FEED',
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 6.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              const Icon(
-                Icons.schedule_rounded,
-                color: AppColors.gold,
-                size: 14,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  prop.localGameDateTimeDisplay.isEmpty
-                      ? 'GAME TIME PENDING'
-                      : prop.localGameDateTimeDisplay,
-                  key: ValueKey('strikeout-game-time-${prop.id}'),
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (prop.lastUpdatedLocalDisplay.isNotEmpty) ...[
-            const SizedBox(height: 3),
-            Text(
-              'UPDATED ${prop.lastUpdatedLocalDisplay}',
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 7,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-          const SizedBox(height: 10),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.gold.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.gold),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.storefront_rounded,
-                  color: AppColors.gold,
-                  size: 17,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'SPORT: ${prop.sport.trim().isEmpty ? 'MLB' : prop.sport.toUpperCase()}  •  '
-                    'PROP SITE: ${prop.sportsbook.trim().isEmpty ? 'UNKNOWN' : prop.sportsbook.toUpperCase()}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.gold,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: .35,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _datum(
-                  'MODEL',
-                  prop.displayModelValue.toStringAsFixed(2),
-                ),
-              ),
-              Expanded(child: _datum('LINE', prop.line.toStringAsFixed(1))),
-              Expanded(child: _datum('PI TRUST', '${prop.piTrustScore}/100')),
-              Expanded(
-                child: _datum(
-                  'EDGE',
-                  delta == null
-                      ? '--'
-                      : '${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(2)} K',
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          if (!isExpired)
-            Row(
-              children: [
-                Expanded(
-                  child: _sideButton(
-                    prop: prop,
-                    side: PickSide.under,
-                    selected: selectedSide == PickSide.under,
-                    systemPick: systemSide == PickSide.under,
-                  ),
-                ),
-                const SizedBox(width: 7),
-                _lineDisplay(prop),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: _sideButton(
-                    prop: prop,
-                    side: PickSide.over,
-                    selected: selectedSide == PickSide.over,
-                    systemPick: systemSide == PickSide.over,
-                  ),
-                ),
-              ],
-            ),
-          if (!isExpired) const SizedBox(height: 8),
-          if (!isExpired)
-            const Text(
-              'Tap OVER or UNDER to add it to the active slip. Tap the selected side again to remove it.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textMuted, fontSize: 8),
-            ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _chip('LINEUP ${prop.lineupStatus.toUpperCase()}'),
-              _chip(prop.injuryDisplayLabel),
-              if (prop.displayModelIsMarketBaseline) _chip('MODEL: BASELINE'),
-              if (prop.currentLine != 0 && prop.openingLine != 0)
-                _chip('OPEN ${prop.openingLine.toStringAsFixed(1)}'),
-            ],
-          ),
-          const Spacer(),
-          if (isExpired)
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: .15),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.withValues(alpha: .5)),
-              ),
-              child: Row(
+              Row(
                 children: [
-                  const Icon(Icons.lock_clock, color: Colors.red, size: 14),
-                  const SizedBox(width: 6),
+                  if (learned)
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      decoration: BoxDecoration(color: const Color(0xFF31245C), borderRadius: BorderRadius.circular(99)),
+                      child: const Text('PI LEARNING ACTIVE', style: TextStyle(color: AppColors.silver, fontSize: 7, fontWeight: FontWeight.w900)),
+                    ),
                   Expanded(
-                    child: Text(
-                      prop.gameStatus.toLowerCase() == 'live' ||
-                              prop.gameStatus.toLowerCase() == 'in progress'
-                          ? 'GAME IS LIVE — No new selections allowed'
-                          : 'GAME HAS STARTED — No new selections allowed',
-                      style: const TextStyle(
-                        color: Colors.red,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    child: FilledButton.icon(
+                      key: ValueKey('strikeout-pi-detail-${prop.id}'),
+                      onPressed: () => _showPiIntelligence(prop),
+                      icon: const Icon(Icons.psychology_alt_rounded, size: 14),
+                      label: const Text('OPEN PI INTELLIGENCE'),
+                      style: FilledButton.styleFrom(backgroundColor: AppColors.gold, foregroundColor: AppColors.background, minimumSize: const Size(0, 34), textStyle: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900)),
                     ),
                   ),
                 ],
               ),
-            ),
-          const SizedBox(height: 10),
-          _piLearningStatus(prop),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  key: ValueKey('strikeout-pi-detail-${prop.id}'),
-                  onPressed: () => _showPiIntelligence(prop),
-                  icon: const Icon(Icons.psychology_alt_rounded, size: 15),
-                  label: const Text('PI INTELLIGENCE'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.gold,
-                    side: BorderSide(
-                      color: AppColors.gold.withValues(alpha: .7),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: PropResearchAiButton(
-                  prop: prop,
-                  comparisonCandidates: _props,
-                ),
-              ),
             ],
           ),
-          const SizedBox(height: 10),
-          RecommendationExplainabilityBlock(
-            prop: prop,
-            title: 'STANDARDIZED EXPLAINABILITY',
-          ),
-          const SizedBox(height: 4),
-        ],
+        ),
       ),
     );
   }
@@ -1122,6 +930,37 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
               const SizedBox(height: 12),
               _piLearningStatus(prop),
               const SizedBox(height: 12),
+              if (prop.isSelectable) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: _sideButton(
+                        prop: prop,
+                        side: PickSide.under,
+                        selected: _selectedSides[prop.id] == PickSide.under,
+                        systemPick: _recommendedSide(prop) == PickSide.under,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _lineDisplay(prop),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _sideButton(
+                        prop: prop,
+                        side: PickSide.over,
+                        selected: _selectedSides[prop.id] == PickSide.over,
+                        systemPick: _recommendedSide(prop) == PickSide.over,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Choose OVER or UNDER to add this strikeout line to the active slip.',
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 9),
+                ),
+                const SizedBox(height: 12),
+              ],
               WhyThisPropCapsule(prop: prop),
               const SizedBox(height: 12),
               RecommendationExplainabilityBlock(

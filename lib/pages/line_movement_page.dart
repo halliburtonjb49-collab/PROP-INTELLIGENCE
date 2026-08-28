@@ -1300,7 +1300,7 @@ class _LineMovementPageState extends State<LineMovementPage> {
     // have actually moved off their opening line, out of how many are
     // tracked for that sport. Replaces a purely decorative fixed-gradient
     // grid that had no relationship to the underlying data.
-    final sportsToShow = ['MLB', 'NBA', 'NFL', 'WNBA', 'NHL', 'SOCCER'];
+    final sportsToShow = ['MLB', 'NBA', 'NFL', 'WNBA', 'NHL', 'SOCCER', 'CFL'];
     final sportStats = <String, (int moved, int total)>{};
     for (final sport in sportsToShow) {
       final forSport = items

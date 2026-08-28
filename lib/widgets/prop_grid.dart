@@ -1796,17 +1796,38 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     SizedBox(
-                      width: 78,
-                      child: Align(
+                      width: 112,
+                      child: Stack(
+                        fit: StackFit.expand,
                         alignment: Alignment.bottomCenter,
-                        child: PlayerAvatarWidget(
-                          imageUrl: prop.imagePath,
-                          radius: 35,
-                          fallbackIcon: Icons.person_rounded,
-                        ),
+                        children: [
+                          const DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Color(0x00081620),
+                                  Color(0xFF0E2330),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Align(
+                            alignment: Alignment.bottomCenter,
+                            child: PlayerImageWidget(
+                              imageUrl: prop.imagePath,
+                              width: 108,
+                              height: 116,
+                              fit: BoxFit.contain,
+                              fallbackIcon: Icons.person_rounded,
+                              fallbackIconSize: 38,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 9),
+                    const SizedBox(width: 10),
                     Expanded(
                       flex: 4,
                       child: Column(

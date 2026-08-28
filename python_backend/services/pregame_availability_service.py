@@ -6,8 +6,8 @@ from typing import Iterable
 
 from services.player_role_service import build_player_role
 
-SUPPORTED_SPORTS = frozenset({"WNBA", "NBA", "MLB", "NFL", "NHL", "SOCCER", "MLS"})
-SPORT_PRIORITY = {"WNBA": 1, "NBA": 1, "MLB": 2, "NFL": 3, "NHL": 4, "SOCCER": 4, "MLS": 4}
+SUPPORTED_SPORTS = frozenset({"WNBA", "NBA", "MLB", "NFL", "NHL", "SOCCER", "MLS", "CFL"})
+SPORT_PRIORITY = {"WNBA": 1, "NBA": 1, "MLB": 2, "NFL": 3, "CFL": 3, "NHL": 4, "SOCCER": 4, "MLS": 4}
 _UNAVAILABLE = frozenset({"out", "inactive", "suspended", "ruled out"})
 _UNRESOLVED = frozenset({"questionable", "doubtful", "day-to-day", "day_to_day", "probable", "injury reported"})
 

@@ -217,6 +217,7 @@ class _MainDashboardState extends State<MainDashboard> {
   String _selectedSite = 'PRIZEPICKS';
   String _selectedSiteSport = '';
   String _selectedCategory = 'ALL';
+  bool _siteDiscoveryExpanded = false;
   String _selectedSide = 'All';
   final String _selectedTier = 'All';
   int _minConfidence = 0;
@@ -2470,6 +2471,7 @@ class _MainDashboardState extends State<MainDashboard> {
     void selectSite(String site) {
       setState(() {
         _selectedSite = site;
+        _siteDiscoveryExpanded = true;
         _selectedSiteSport = site == 'ALL' ||
                 widget.sportFilter.trim().toUpperCase() == 'ALL'
             ? ''
@@ -2538,6 +2540,9 @@ class _MainDashboardState extends State<MainDashboard> {
                     height: 36,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
+                      color: selected
+                          ? app_colors.AppColors.gold.withValues(alpha: .14)
+                          : Colors.transparent,
                       border: Border.all(
                         color: selected
                             ? app_colors.AppColors.gold
@@ -2635,6 +2640,7 @@ class _MainDashboardState extends State<MainDashboard> {
             key: ValueKey('site-first-category-${entry.key}'),
             onTap: () => setState(() {
               _selectedCategory = entry.key;
+              _siteDiscoveryExpanded = false;
               _verdictFilter = 'ALL';
               _focusedProp = null;
               _latestProps = const [];
@@ -2716,9 +2722,26 @@ class _MainDashboardState extends State<MainDashboard> {
       context: context,
       isScrollControlled: true,
       backgroundColor: app_colors.AppColors.panel,
-      builder: (sheetContext) => SafeArea(
+      builder: (sheetContext) {
+        final groupedCategories = <String, Map<String, int>>{};
+        for (final sportEntry in _siteTotalSportCategoryCounts.entries) {
+          final markets = Map<String, int>.from(sportEntry.value)
+            ..removeWhere((market, count) => market == 'ALL' || count <= 0);
+          if (markets.isNotEmpty) {
+            groupedCategories[sportEntry.key] = markets;
+          }
+        }
+        if (groupedCategories.isEmpty && _selectedSiteSport.isNotEmpty) {
+          groupedCategories[_selectedSiteSport] = Map<String, int>.from(
+            categoryCounts,
+          )..remove('ALL');
+        }
+        final sports = groupedCategories.keys.toList()
+          ..sort((left, right) => left.compareTo(right));
+
+        return SafeArea(
         child: FractionallySizedBox(
-          heightFactor: .72,
+          heightFactor: .82,
           child: Column(
             children: [
               Padding(
@@ -2727,7 +2750,7 @@ class _MainDashboardState extends State<MainDashboard> {
                   children: [
                     Expanded(
                       child: Text(
-                        'ALL ${siteLabel(_selectedSite)} CATEGORIES',
+                        '${siteLabel(_selectedSite)} CATEGORIES BY SPORT',
                         style: const TextStyle(
                           color: app_colors.AppColors.gold,
                           fontSize: 13,
@@ -2753,31 +2776,73 @@ class _MainDashboardState extends State<MainDashboard> {
                       ),
                       title: const Text('ALL PROPS'),
                       trailing: Text(
-                        '${categoryCounts.values.fold<int>(0, (sum, value) => sum + value)}',
+                        '${counts[_selectedSite] ?? 0}',
                       ),
                       onTap: () {
-                        setState(() => _selectedCategory = 'ALL');
+                        setState(() {
+                          _selectedSiteSport = '';
+                          _selectedCategory = 'ALL';
+                          _siteDiscoveryExpanded = false;
+                          _latestProps = const [];
+                          _lastUpdated = null;
+                        });
                         Navigator.of(sheetContext).pop();
                       },
                     ),
-                    for (final entry in rankedCategories)
-                      ListTile(
-                        leading: Icon(
-                          categoryIcon(entry.key),
+                    for (final sport in sports)
+                      ExpansionTile(
+                        initiallyExpanded: sport == _selectedSiteSport ||
+                            (sports.length == 1),
+                        leading: const Icon(
+                          Icons.sports_rounded,
                           color: app_colors.AppColors.gold,
                         ),
-                        title: Text(entry.key),
-                        trailing: Text('${entry.value}'),
-                        selected: _effectiveSelectedCategory == entry.key,
-                        onTap: () {
-                          setState(() {
-                            _selectedCategory = entry.key;
-                            _verdictFilter = 'ALL';
-                            _latestProps = const [];
-                            _lastUpdated = null;
-                          });
-                          Navigator.of(sheetContext).pop();
-                        },
+                        title: Text(
+                          sport,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        subtitle: Text(
+                          '${groupedCategories[sport]!.values.fold<int>(0, (sum, value) => sum + value)} available props',
+                        ),
+                        children: [
+                          ListTile(
+                            contentPadding: const EdgeInsets.only(left: 38, right: 16),
+                            leading: const Icon(Icons.grid_view_rounded),
+                            title: Text('ALL $sport PROPS'),
+                            onTap: () {
+                              setState(() {
+                                _selectedSiteSport = sport;
+                                _selectedCategory = 'ALL';
+                                _siteDiscoveryExpanded = false;
+                                _verdictFilter = 'ALL';
+                                _latestProps = const [];
+                                _lastUpdated = null;
+                              });
+                              Navigator.of(sheetContext).pop();
+                            },
+                          ),
+                          for (final entry in (groupedCategories[sport]!.entries.toList()
+                                ..sort((left, right) => right.value.compareTo(left.value))))
+                            ListTile(
+                              contentPadding: const EdgeInsets.only(left: 38, right: 16),
+                              leading: Icon(categoryIcon(entry.key)),
+                              title: Text(entry.key),
+                              trailing: Text('${entry.value}'),
+                              selected: _selectedSiteSport == sport &&
+                                  _effectiveSelectedCategory == entry.key,
+                              onTap: () {
+                                setState(() {
+                                  _selectedSiteSport = sport;
+                                  _selectedCategory = entry.key;
+                                  _siteDiscoveryExpanded = false;
+                                  _verdictFilter = 'ALL';
+                                  _latestProps = const [];
+                                  _lastUpdated = null;
+                                });
+                                Navigator.of(sheetContext).pop();
+                              },
+                            ),
+                        ],
                       ),
                   ],
                 ),
@@ -2785,7 +2850,8 @@ class _MainDashboardState extends State<MainDashboard> {
             ],
           ),
         ),
-      ),
+      );
+      },
     );
 
     Widget step(int number, String label, bool active) => Row(
@@ -2840,6 +2906,73 @@ class _MainDashboardState extends State<MainDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Material(
+            color: const Color(0xFF091722),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(11),
+              side: const BorderSide(color: app_colors.AppColors.border),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => setState(
+                () => _siteDiscoveryExpanded = !_siteDiscoveryExpanded,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.storefront_outlined,
+                      color: app_colors.AppColors.gold,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${siteLabel(_selectedSite)}  •  ${_selectedSiteSport.isEmpty ? widget.sportFilter.toUpperCase() : _selectedSiteSport}  •  ${_effectiveSelectedCategory == 'ALL' ? 'TOP PI PICKS' : _effectiveSelectedCategory}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            _siteDiscoveryExpanded
+                                ? 'Choose a prop site, sport, and market category'
+                                : 'Tap to change site or browse categories',
+                            style: const TextStyle(
+                              color: app_colors.AppColors.textMuted,
+                              fontSize: 8.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => setState(
+                        () => _siteDiscoveryExpanded = !_siteDiscoveryExpanded,
+                      ),
+                      child: Text(_siteDiscoveryExpanded ? 'COLLAPSE' : 'CHANGE'),
+                    ),
+                    Icon(
+                      _siteDiscoveryExpanded
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
+                      color: app_colors.AppColors.gold,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (_siteDiscoveryExpanded) ...[
+          const SizedBox(height: 15),
           Wrap(
             spacing: 16,
             runSpacing: 10,
@@ -2968,6 +3101,7 @@ class _MainDashboardState extends State<MainDashboard> {
               },
             ),
           ),
+          ],
           const SizedBox(height: 12),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
