@@ -41,6 +41,7 @@ class PlayerImageWidget extends StatelessWidget {
       borderRadius: borderRadius ?? BorderRadius.zero,
       child: CachedNetworkImage(
         imageUrl: primaryUrl,
+        cacheKey: primaryUrl,
         width: width,
         height: height,
         fit: fit,
@@ -62,7 +63,7 @@ class PlayerImageWidget extends StatelessWidget {
         filterQuality: FilterQuality.high,
         fadeInDuration: Duration.zero,
         fadeOutDuration: Duration.zero,
-        useOldImageOnUrlChange: true,
+        useOldImageOnUrlChange: false,
         // Progressive loading placeholder
         placeholder: (context, url) =>
             showShimmer ? _buildShimmerPlaceholder() : _buildFallback(),
@@ -73,6 +74,7 @@ class PlayerImageWidget extends StatelessWidget {
           }
           return CachedNetworkImage(
             imageUrl: retryUrl,
+            cacheKey: retryUrl,
             width: width,
             height: height,
             fit: fit,
@@ -93,7 +95,7 @@ class PlayerImageWidget extends StatelessWidget {
             filterQuality: FilterQuality.high,
             fadeInDuration: Duration.zero,
             fadeOutDuration: Duration.zero,
-            useOldImageOnUrlChange: true,
+            useOldImageOnUrlChange: false,
             memCacheWidth: width != null ? (width! * 2).toInt() : null,
             memCacheHeight: height != null ? (height! * 2).toInt() : null,
             maxWidthDiskCache: 800,

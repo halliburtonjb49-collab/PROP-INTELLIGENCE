@@ -1816,6 +1816,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                           Align(
                             alignment: Alignment.bottomCenter,
                             child: PlayerImageWidget(
+                              key: ValueKey(
+                                'prop-photo-${prop.id}-${prop.imagePath}',
+                              ),
                               imageUrl: prop.imagePath,
                               width: 108,
                               height: 116,
