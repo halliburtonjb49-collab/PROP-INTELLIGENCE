@@ -355,8 +355,10 @@ class _OfficialCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _Metric(
-                  label: 'AVG WHISTLES',
-                  value: _number(official['rawRate']).toStringAsFixed(1),
+                  label: sport == 'MLB' ? 'CALLED STRIKE %' : 'AVG WHISTLES',
+                  value: sport == 'MLB'
+                      ? '${(_number(official['rawRate']) * 100).toStringAsFixed(1)}%'
+                      : _number(official['rawRate']).toStringAsFixed(1),
                 ),
               ),
               Expanded(
