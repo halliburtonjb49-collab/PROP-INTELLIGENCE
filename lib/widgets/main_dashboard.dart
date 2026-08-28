@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -33,7 +32,6 @@ import '../theme/app_colors.dart' as app_colors;
 import '../theme/app_spacing.dart';
 import 'active_board_filters.dart';
 import 'analytics_admin_workspace.dart';
-import 'board_category_chip.dart';
 import 'onboarding_dialog.dart';
 import 'scoreboard_view.dart';
 import 'ev_scanner_card.dart';
@@ -207,7 +205,6 @@ class MainDashboard extends StatefulWidget {
 class _MainDashboardState extends State<MainDashboard> {
   final ApiService _apiService = ApiService();
   final TextEditingController _searchController = TextEditingController();
-  int _searchFieldGeneration = 0;
   final ScrollController _boardVerticalController = ScrollController();
   final ScrollController _bookHorizontalController = ScrollController();
   final ScrollController _categoryHorizontalController = ScrollController();
@@ -230,10 +227,8 @@ class _MainDashboardState extends State<MainDashboard> {
   DateTime? _lastUpdated;
   List<PropData> _latestProps = const [];
   List<PropData> _siteInventoryProps = const [];
-  Map<String, int> _siteSportCounts = const {};
   Map<String, Map<String, int>> _siteSportCategoryCounts = const {};
   Map<String, Map<String, int>> _siteTotalSportCategoryCounts = const {};
-  Map<String, Map<String, int>> _sitePlayableSportCategoryCounts = const {};
   Map<String, dynamic> _providerCoverage = const {};
   // The board is served from the durable snapshot: real lines, but
   // possibly hours old and otherwise indistinguishable from current ones.
@@ -241,14 +236,12 @@ class _MainDashboardState extends State<MainDashboard> {
   Map<String, dynamic> _providerReliability = const {};
   Map<String, int> _categoryCounts = const {};
   Map<String, int> _totalCategoryCounts = const {};
-  Map<String, int> _playableCategoryCounts = const {};
   Map<String, int> _verdictCounts = const {};
   List<PropData> _evScannerProps = const [];
   final TextEditingController _evSearchController = TextEditingController();
   String _evBook = 'ALL';
   String _evSort = 'EV';
   double _evMinimum = 0;
-  PropData? _focusedProp;
   bool _isEvScannerLoading = false;
   String? _evScannerError;
   List<PropAlertData> _propAlerts = const [];
@@ -360,11 +353,9 @@ class _MainDashboardState extends State<MainDashboard> {
             ? ''
             : _normalizeSport(widget.sportFilter);
         _selectedCategory = 'ALL';
-        _focusedProp = null;
         _latestProps = const [];
         _categoryCounts = const {};
         _totalCategoryCounts = const {};
-        _playableCategoryCounts = const {};
         _lastUpdated = null;
       });
       if (widget.selectedPage == AppPage.evScanner) {
@@ -718,7 +709,6 @@ class _MainDashboardState extends State<MainDashboard> {
       _latestProps = props;
       _categoryCounts = categoryCounts;
       _totalCategoryCounts = _apiService.lastTotalCategoryCounts;
-      _playableCategoryCounts = _apiService.lastPlayableCategoryCounts;
       _verdictCounts = _apiService.lastVerdictCounts;
       _providerCoverage = _apiService.lastProviderCoverage;
       _providerReliability = _apiService.lastProviderReliability;
@@ -732,20 +722,12 @@ class _MainDashboardState extends State<MainDashboard> {
         _selectedSiteSport = '';
         _selectedCategory = 'ALL';
         _siteInventoryProps = const [];
-        _siteSportCounts = const {};
         _siteSportCategoryCounts = const {};
         _siteTotalSportCategoryCounts = const {};
-        _sitePlayableSportCategoryCounts = const {};
       }
       if (_selectedSite != 'ALL' && _selectedCategory == 'ALL') {
         _siteInventoryProps = props;
         if (_selectedSiteSport.isEmpty) {
-          final normalizedSportCounts = <String, int>{};
-          for (final entry in _apiService.lastSportCounts.entries) {
-            final sport = _normalizeSport(entry.key);
-            normalizedSportCounts[sport] =
-                (normalizedSportCounts[sport] ?? 0) + entry.value;
-          }
           final normalizedCategoryCounts = <String, Map<String, int>>{};
           for (final sportEntry
               in _apiService.lastSportCategoryCounts.entries) {
@@ -759,12 +741,9 @@ class _MainDashboardState extends State<MainDashboard> {
                   (target[categoryEntry.key] ?? 0) + categoryEntry.value;
             }
           }
-          _siteSportCounts = normalizedSportCounts;
           _siteSportCategoryCounts = normalizedCategoryCounts;
           _siteTotalSportCategoryCounts =
               _apiService.lastTotalSportCategoryCounts;
-          _sitePlayableSportCategoryCounts =
-              _apiService.lastPlayableSportCategoryCounts;
         }
       }
       _lastUpdated = DateTime.now();
@@ -931,39 +910,6 @@ class _MainDashboardState extends State<MainDashboard> {
         _propAlerts = _fallbackPropAlertsFromProps(fallbackProps);
       });
     }
-  }
-
-  String _formatLocalDate(DateTime value) {
-    const months = [
-      'JAN',
-      'FEB',
-      'MAR',
-      'APR',
-      'MAY',
-      'JUN',
-      'JUL',
-      'AUG',
-      'SEP',
-      'OCT',
-      'NOV',
-      'DEC',
-    ];
-    return '${months[value.month - 1]} ${value.day}, ${value.year}';
-  }
-
-  String _formatLastUpdated(DateTime? value) {
-    if (value == null) {
-      return 'Not updated';
-    }
-    final localValue = value.toLocal();
-    final hour = localValue.hour == 0
-        ? 12
-        : localValue.hour > 12
-        ? localValue.hour - 12
-        : localValue.hour;
-    final minute = localValue.minute.toString().padLeft(2, '0');
-    final period = localValue.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute $period';
   }
 
   String _normalizeSite(String value) {
@@ -1222,42 +1168,7 @@ class _MainDashboardState extends State<MainDashboard> {
     return marketCategoryFor(_normalizeSport(prop.sport), _propMarket(prop));
   }
 
-  List<PropData> get _propsBeforeCategoryFilter {
-    final selectedSport =
-        _selectedSite != 'ALL' && _selectedSiteSport.isNotEmpty
-        ? _selectedSiteSport
-        : _normalizeSport(widget.sportFilter);
-    final selectedSite = _normalizeSite(_selectedSite);
-    final searchText = _searchQuery;
-
-    return _latestProps.where((prop) {
-      final propSport = _normalizeSport(prop.sport);
-      final sportMatches = selectedSport == 'ALL' || propSport == selectedSport;
-      final propSite = _normalizeSite(
-        '${prop.sportsbook} ${prop.sourceProvider}',
-      );
-      final siteMatches = selectedSite == 'ALL' || propSite == selectedSite;
-      final market = _propMarket(prop).toLowerCase();
-      final searchMatches =
-          searchText.isEmpty ||
-          prop.player.toLowerCase().contains(searchText) ||
-          market.contains(searchText);
-      return sportMatches && siteMatches && searchMatches;
-    }).toList();
-  }
-
-  List<PropData> get _visibleProps {
-    final base = _propsBeforeCategoryFilter;
-    if (_effectiveSelectedCategory == 'ALL') {
-      return base;
-    }
-    return base
-        .where((prop) => _marketCategory(prop) == _effectiveSelectedCategory)
-        .toList();
-  }
-
   Future<void> _showPlayerPropsOverlay(PropData focused) async {
-    setState(() => _focusedProp = focused);
     List<PropData> playerProps;
     try {
       final fetched = await _apiService.fetchProps(
@@ -1756,15 +1667,11 @@ class _MainDashboardState extends State<MainDashboard> {
         _selectedCategory = 'ALL';
         _verdictFilter = 'ALL';
         _siteInventoryProps = const [];
-        _siteSportCounts = const {};
         _siteSportCategoryCounts = const {};
         _siteTotalSportCategoryCounts = const {};
-        _sitePlayableSportCategoryCounts = const {};
-        _focusedProp = null;
         _latestProps = const [];
         _categoryCounts = const {};
         _totalCategoryCounts = const {};
-        _playableCategoryCounts = const {};
         _lastUpdated = null;
       });
       EngagementTracker.instance.recordProduct('SITE_FILTER');
@@ -1919,7 +1826,6 @@ class _MainDashboardState extends State<MainDashboard> {
               _selectedCategory = entry.key;
               _siteDiscoveryExpanded = false;
               _verdictFilter = 'ALL';
-              _focusedProp = null;
               _latestProps = const [];
               _lastUpdated = null;
             }),
@@ -2556,7 +2462,6 @@ class _MainDashboardState extends State<MainDashboard> {
     _searchController.clear();
     setState(() {
       _searchQuery = '';
-      _searchFieldGeneration += 1;
       _selectedSite = 'ALL';
       _selectedSiteSport = '';
       _selectedCategory = BoardFilters.defaults.category;
@@ -2566,10 +2471,8 @@ class _MainDashboardState extends State<MainDashboard> {
       _sortBy = BoardFilters.defaults.sortBy;
       _verdictFilter = BoardFilters.defaults.verdict;
       _siteInventoryProps = const [];
-      _siteSportCounts = const {};
       _siteSportCategoryCounts = const {};
       _providerCoverage = const {};
-      _focusedProp = null;
       _latestProps = const [];
       _categoryCounts = const {};
       _lastUpdated = null;
@@ -2779,7 +2682,6 @@ class _MainDashboardState extends State<MainDashboard> {
                           : _normalizeSport(widget.sportFilter);
                       _selectedCategory = pendingCategory;
                       _verdictFilter = 'ALL';
-                      _focusedProp = null;
                       _latestProps = const [];
                       _lastUpdated = null;
                     });
@@ -3158,50 +3060,6 @@ class _MainDashboardState extends State<MainDashboard> {
       ),
     );
   }
-}
-
-class _ProviderEdgeFade extends StatelessWidget {
-  const _ProviderEdgeFade({this.reverse = false});
-
-  final bool reverse;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 18,
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: reverse ? Alignment.centerRight : Alignment.centerLeft,
-        end: reverse ? Alignment.centerLeft : Alignment.centerRight,
-        colors: const [app_colors.AppColors.sidebar, Colors.transparent],
-      ),
-    ),
-  );
-}
-
-class _BoardSparklinePainter extends CustomPainter {
-  const _BoardSparklinePainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = app_colors.AppColors.blue
-      ..strokeWidth = 1.3
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    final path = Path()
-      ..moveTo(0, size.height * .82)
-      ..lineTo(size.width * .12, size.height * .58)
-      ..lineTo(size.width * .25, size.height * .70)
-      ..lineTo(size.width * .42, size.height * .25)
-      ..lineTo(size.width * .57, size.height * .47)
-      ..lineTo(size.width * .72, size.height * .18)
-      ..lineTo(size.width * .86, size.height * .28)
-      ..lineTo(size.width, 0);
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 /// Finds the most important live-feed coverage issue for the active sport.
