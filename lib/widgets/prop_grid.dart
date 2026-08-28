@@ -777,7 +777,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 child: ClipOval(child: _fastPlayerPhoto(prop, size: 46)),
               ),
               const SizedBox(width: 10),
-              Expanded(
+              SizedBox(
+                height: 116,
                 child: Row(
                   children: [
                     Expanded(
