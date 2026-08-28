@@ -22,6 +22,7 @@ import '../services/scoreboard_service.dart';
 import '../theme/app_colors.dart' as app_colors;
 import '../theme/app_spacing.dart';
 import 'injury_impact_alert.dart';
+import 'player_image_widget.dart';
 import 'prop_board_loading.dart';
 import 'prop_research_assistant.dart';
 import 'prop_research_controls.dart';
@@ -1765,8 +1766,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     PropData prop,
     PickSide? selectedSide,
   ) {
-    final pickSide = prop.proSuggestedSide.trim().isNotEmpty
-        ? prop.proSuggestedSide.trim().toUpperCase()
+    final suggestedSide = prop.proSuggestedSide?.trim() ?? '';
+    final pickSide = suggestedSide.isNotEmpty
+        ? suggestedSide.toUpperCase()
         : prop.pickText.trim().toUpperCase();
     final pickLabel = pickSide.contains('UNDER') ? 'UNDER' : 'OVER';
     final market = prop.displayMarket.trim().isEmpty
