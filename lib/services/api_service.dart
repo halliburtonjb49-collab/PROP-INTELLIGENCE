@@ -1678,6 +1678,47 @@ class ApiService {
     return counts;
   }
 
+  Future<Map<String, int>> fetchSportCategoryCatalog({
+    required String selectedSportsbook,
+    required String selectedSport,
+  }) async {
+    Object? lastError;
+    for (final candidate in _candidateBaseUrls) {
+      for (final sportsbook in _sportsbookQueryVariants(selectedSportsbook)) {
+        try {
+          final uri = Uri.parse('$candidate/api/props').replace(
+            queryParameters: {
+              'side': 'All',
+              'tier': 'All',
+              'sportsbook': sportsbook,
+              'sport': selectedSport,
+              'category': 'All',
+              'search': '',
+              'minConfidence': '0',
+              'sortBy': 'confidence',
+              'verdict': 'All',
+              'includeReliability': 'false',
+              'limit': '1',
+              'offset': '0',
+            },
+          );
+          final response = await _getPropsPage(uri);
+          final parsed = await compute(_parsePropsPayload, response.body);
+          final counts = parsed.totalCategoryCounts.isNotEmpty
+              ? parsed.totalCategoryCounts
+              : parsed.categoryCounts;
+          if (counts.isNotEmpty) {
+            return Map<String, int>.unmodifiable(counts);
+          }
+        } catch (error) {
+          lastError = error;
+        }
+      }
+    }
+    if (lastError != null) throw lastError;
+    return const <String, int>{};
+  }
+
   Map<String, Map<String, int>> _sportCategoryCountsFromProps(
     List<PropData> props,
   ) {

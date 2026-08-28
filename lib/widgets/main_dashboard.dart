@@ -313,6 +313,28 @@ class _MainDashboardState extends State<MainDashboard> {
     await preferences.setString('pi_market_board_preferred_site', site);
   }
 
+  Future<void> _loadSelectedSiteSportCategoryCatalog(String sport) async {
+    final site = _selectedSite;
+    if (site == 'ALL' || sport.isEmpty) return;
+    try {
+      final counts = await _apiService.fetchSportCategoryCatalog(
+        selectedSportsbook: site,
+        selectedSport: sport,
+      );
+      if (!mounted || _selectedSite != site || _selectedSiteSport != sport) {
+        return;
+      }
+      setState(() {
+        _siteTotalSportCategoryCounts = {
+          ..._siteTotalSportCategoryCounts,
+          sport: counts,
+        };
+      });
+    } catch (_) {
+      // Keep the currently loaded categories available if a facet refresh fails.
+    }
+  }
+
   @override
   void dispose() {
     _searchDebounce?.cancel();
@@ -3090,13 +3112,20 @@ class _MainDashboardState extends State<MainDashboard> {
                     selected: _selectedSiteSport == sport,
                     avatar: const Icon(Icons.sports_rounded, size: 15),
                     label: Text(sport),
-                    onSelected: (_) => setState(() {
-                      _selectedSiteSport = sport;
-                      _selectedCategory = 'ALL';
-                      _verdictFilter = 'ALL';
-                      _latestProps = const [];
-                      _lastUpdated = null;
-                    }),
+                    onSelected: (_) {
+                      setState(() {
+                        _selectedSiteSport = sport;
+                        _selectedCategory = 'ALL';
+                        _verdictFilter = 'ALL';
+                        _latestProps = const [];
+                        _lastUpdated = null;
+                      });
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        unawaited(
+                          _loadSelectedSiteSportCategoryCatalog(sport),
+                        );
+                      });
+                    },
                   ),
                   const SizedBox(width: 8),
                 ],
