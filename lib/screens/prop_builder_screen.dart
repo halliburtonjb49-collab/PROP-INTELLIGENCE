@@ -24,6 +24,7 @@ import '../widgets/recommendation_explainability_block.dart';
 import 'prop_watchlist_screen.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
+import '../widgets/pi_feature_chrome.dart';
 
 enum SlipExportAction { copyText, saveImage, savePdf, printSlip }
 
@@ -4001,17 +4002,14 @@ class _PropBuilderScreenState extends State<PropBuilderScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'PROP BUILDER',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
+              const PiFeatureHeader(
+                eyebrow: 'PI WORKSPACE / GUIDED BUILD',
+                title: 'Prop Builder',
+                subtitle:
+                    'Build a disciplined research slip from ranked, compatible props while PI monitors confidence, correlation, and line movement.',
+                icon: Icons.receipt_long_rounded,
+                steps: ['Choose strategy', 'Review PI picks', 'Build slip'],
+                actions: [
                   ContextHelp(
                     title: 'Prop Builder',
                     message:

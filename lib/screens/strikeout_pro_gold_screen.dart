@@ -342,54 +342,78 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
       margin: const EdgeInsets.fromLTRB(14, 14, 14, 10),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2B2100), Color(0xFF0A1721)],
-        ),
+        color: const Color(0xFF07141E),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.gold, width: 1.2),
+        border: Border.all(color: AppColors.borderGold, width: 1.1),
       ),
-      child: Wrap(
-        spacing: 22,
-        runSpacing: 12,
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(
-            width: 480,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          const Text(
+            'MLB  /  STRIKEOUT PRO GOLD  /  TOP PI PICKS',
+            style: TextStyle(
+              color: AppColors.gold,
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .7,
+            ),
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) => Wrap(
+              spacing: 18,
+              runSpacing: 14,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.sports_baseball, color: AppColors.gold),
-                    SizedBox(width: 9),
-                    Flexible(
-                      child: Text(
-                        'STRIKEOUT PRO GOLD',
+                const SizedBox(
+                  width: 510,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'CHOOSE YOUR STRIKEOUT SITE',
                         style: TextStyle(
-                          color: AppColors.gold,
+                          color: Colors.white,
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
-                          letterSpacing: .8,
+                          letterSpacing: .3,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 7),
-                Text(
-                  'MLB pitcher strikeout over/under research ranked by the current live signal. Numeric model projections are shown only when supplied—never invented.',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    height: 1.35,
+                      SizedBox(height: 5),
+                      Text(
+                        'Start with the board you use. PI ranks every available MLB pitcher strikeout line by its current live signal.',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: const [
+                    _StrikeoutStep(number: '1', label: 'SELECT SITE', active: true),
+                    _StrikeoutStep(number: '2', label: 'SELECT SIDE'),
+                    _StrikeoutStep(number: '3', label: 'COMPARE PI PICKS'),
+                  ],
                 ),
               ],
             ),
           ),
-          _metric('LIVE LINES', '${_props.length}'),
-          _metric('MODELED', '$modeled'),
-          _metric('PRO ACCESS', 'GOLD'),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 22,
+            runSpacing: 10,
+            children: [
+              _metric('LIVE STRIKEOUT LINES', '${_props.length}'),
+              _metric('MODELED', '$modeled'),
+              _metric('REFRESH', '20 SEC'),
+              _metric('ACCESS', 'PRO GOLD'),
+            ],
+          ),
         ],
       ),
     );
@@ -458,8 +482,10 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'PROP SITES',
+        Text(
+          _selectedSite == null
+              ? 'CHOOSE YOUR PROP SITE'
+              : 'TOP STRIKEOUT PICKS ON $_selectedSite',
           style: TextStyle(
             color: AppColors.gold,
             fontSize: 10,
@@ -473,7 +499,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
           child: Row(
             children: [
               _siteTab(
-                label: 'ALL STRIKEOUT PROPS',
+                label: 'ALL SITES',
                 count: _props.length,
                 selected: _selectedSite == null,
                 onTap: () => setState(() => _selectedSite = null),
@@ -513,11 +539,40 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
         color: selected ? AppColors.gold : AppColors.borderGold,
         width: selected ? 1.5 : 1,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      minimumSize: const Size(170, 76),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
     ),
-    child: Text(
-      '$label  $count',
-      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          selected ? Icons.emoji_events_rounded : Icons.shield_outlined,
+          size: 23,
+        ),
+        const SizedBox(width: 10),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$count strikeout props',
+              style: TextStyle(
+                color: selected
+                    ? brand_colors.AppColors.sidebar.withValues(alpha: .72)
+                    : AppColors.textMuted,
+                fontSize: 8,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ],
     ),
   );
 
@@ -1289,6 +1344,55 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
         ],
       ),
     ),
+  );
+}
+
+class _StrikeoutStep extends StatelessWidget {
+  const _StrikeoutStep({
+    required this.number,
+    required this.label,
+    this.active = false,
+  });
+
+  final String number;
+  final String label;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 30,
+        height: 30,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: active ? AppColors.gold : Colors.transparent,
+          border: Border.all(
+            color: active ? AppColors.gold : AppColors.border,
+          ),
+        ),
+        child: Text(
+          number,
+          style: TextStyle(
+            color: active ? brand_colors.AppColors.sidebar : AppColors.textMuted,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+      const SizedBox(width: 7),
+      Text(
+        label,
+        style: TextStyle(
+          color: active ? AppColors.gold : AppColors.textMuted,
+          fontSize: 8,
+          fontWeight: FontWeight.w900,
+          letterSpacing: .35,
+        ),
+      ),
+    ],
   );
 }
 

@@ -10,6 +10,7 @@ import '../widgets/slip_history_panel.dart';
 import '../widgets/context_help.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
+import '../widgets/pi_feature_chrome.dart';
 
 class PropWatchlistScreen extends StatefulWidget {
   const PropWatchlistScreen({super.key, required this.activeSlipController});
@@ -896,7 +897,7 @@ class _PropWatchlistScreenState extends State<PropWatchlistScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Prop Watchlist'),
+        title: const Text('PROP WATCHLIST'),
         actions: [
           const ContextHelp(
             title: 'Watchlist',
@@ -919,6 +920,15 @@ class _PropWatchlistScreenState extends State<PropWatchlistScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
+            const PiFeatureHeader(
+              eyebrow: 'PI TRACKING / SAVED RESEARCH',
+              title: 'Prop Watchlist',
+              subtitle:
+                  'Monitor saved props, meaningful line changes, and availability before moving qualified selections into your active slip.',
+              icon: Icons.visibility_outlined,
+              steps: ['Save prop', 'Monitor movement', 'Add to slip'],
+            ),
+            const SizedBox(height: 14),
             Wrap(
               spacing: 10,
               runSpacing: 10,

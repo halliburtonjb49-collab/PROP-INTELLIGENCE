@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/prop_data.dart';
 import '../models/slip_selection.dart';
@@ -213,10 +214,10 @@ class _MainDashboardState extends State<MainDashboard> {
   final ScrollController _sportHorizontalController = ScrollController();
   Timer? _searchDebounce;
   String _searchQuery = '';
-  String _selectedSite = 'ALL';
+  String _selectedSite = 'PRIZEPICKS';
   String _selectedSiteSport = '';
   String _selectedCategory = 'ALL';
-  final String _selectedSide = 'All';
+  String _selectedSide = 'All';
   final String _selectedTier = 'All';
   int _minConfidence = 0;
   String _sortBy = 'trust';
@@ -224,6 +225,7 @@ class _MainDashboardState extends State<MainDashboard> {
   // PLAYABLE remains an optional one-tap filter rather than silently hiding
   // WAIT/PASS props that users still expect to find on the board.
   String _verdictFilter = 'ALL';
+  String _marketQuickFilter = 'TOP PI PICKS';
   DateTime? _lastUpdated;
   List<PropData> _latestProps = const [];
   List<PropData> _siteInventoryProps = const [];
@@ -273,6 +275,7 @@ class _MainDashboardState extends State<MainDashboard> {
   @override
   void initState() {
     super.initState();
+    unawaited(_restorePreferredPropSite());
     unawaited(_loadPropAlerts());
     if (AuthManager.instance.sessionState.value.hasEdgeAccess) {
       _injuryAlertSubscription = _injuryAlertUpdates.stream.listen(
@@ -288,6 +291,27 @@ class _MainDashboardState extends State<MainDashboard> {
     if (widget.selectedPage == AppPage.evScanner) {
       unawaited(_loadEvScannerProps());
     }
+  }
+
+  Future<void> _restorePreferredPropSite() async {
+    final preferences = await SharedPreferences.getInstance();
+    final saved = preferences
+        .getString('pi_market_board_preferred_site')
+        ?.trim()
+        .toUpperCase();
+    if (!mounted || saved == null || saved.isEmpty) return;
+    setState(() {
+      _selectedSite = saved;
+      _selectedSiteSport = widget.sportFilter.trim().toUpperCase() == 'ALL'
+          ? ''
+          : _normalizeSport(widget.sportFilter);
+      _selectedCategory = 'ALL';
+    });
+  }
+
+  Future<void> _rememberPreferredPropSite(String site) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString('pi_market_board_preferred_site', site);
   }
 
   @override
@@ -2420,6 +2444,625 @@ class _MainDashboardState extends State<MainDashboard> {
   // Retained for reference while the per-prop E+ intelligence panels are
   // validated in production.
   // ignore: unused_element
+  Widget _buildSiteFirstMarketBoard(double availableWidth) {
+    final compact = availableWidth < 720;
+    final counts = ApiService().lastSportsbookCounts;
+    const preferredOrder = [
+      'PRIZEPICKS',
+      'UNDERDOG',
+      'PICK6',
+      'FANDUEL',
+      'HARDROCKBET',
+      'DRAFTKINGS',
+      'BETR',
+    ];
+    final availableSites = preferredOrder
+        .where(
+          (site) =>
+              counts.isEmpty ||
+              (counts[site] ?? 0) > 0 ||
+              _selectedSite == site,
+        )
+        .toList(growable: false);
+    final primarySites = availableSites.take(5).toList(growable: false);
+    final moreSites = availableSites.skip(5).toList(growable: false);
+
+    void selectSite(String site) {
+      setState(() {
+        _selectedSite = site;
+        _selectedSiteSport = site == 'ALL' ||
+                widget.sportFilter.trim().toUpperCase() == 'ALL'
+            ? ''
+            : _normalizeSport(widget.sportFilter);
+        _selectedCategory = 'ALL';
+        _verdictFilter = 'ALL';
+        _siteInventoryProps = const [];
+        _siteSportCounts = const {};
+        _siteSportCategoryCounts = const {};
+        _siteTotalSportCategoryCounts = const {};
+        _sitePlayableSportCategoryCounts = const {};
+        _focusedProp = null;
+        _latestProps = const [];
+        _categoryCounts = const {};
+        _totalCategoryCounts = const {};
+        _playableCategoryCounts = const {};
+        _lastUpdated = null;
+      });
+      EngagementTracker.instance.recordProduct('SITE_FILTER');
+      unawaited(_rememberPreferredPropSite(site));
+    }
+
+    IconData siteIcon(String site) => switch (site) {
+      'PRIZEPICKS' => Icons.emoji_events_outlined,
+      'UNDERDOG' => Icons.shield_outlined,
+      'PICK6' => Icons.workspace_premium_outlined,
+      'FANDUEL' => Icons.security_outlined,
+      'HARDROCKBET' => Icons.diamond_outlined,
+      _ => Icons.storefront_outlined,
+    };
+
+    String siteLabel(String site) => switch (site) {
+      'PICK6' => 'DRAFTKINGS PICK6',
+      'HARDROCKBET' => 'HARD ROCK BET',
+      _ => site,
+    };
+
+    Widget siteCard(String site) {
+      final selected = _selectedSite == site;
+      final count = counts[site] ?? 0;
+      return SizedBox(
+        width: compact ? 174 : 202,
+        child: Material(
+          color: selected
+              ? app_colors.AppColors.gold.withValues(alpha: .18)
+              : const Color(0xFF091722),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: selected
+                  ? app_colors.AppColors.gold
+                  : app_colors.AppColors.border,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: ValueKey('site-first-$site'),
+            onTap: () => selectSite(site),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: selected
+                            ? app_colors.AppColors.gold
+                            : app_colors.AppColors.gunmetalLight,
+                      ),
+                    ),
+                    child: Icon(
+                      siteIcon(site),
+                      color: selected
+                          ? app_colors.AppColors.gold
+                          : app_colors.AppColors.silver,
+                      size: 19,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          siteLabel(site),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: selected
+                                ? app_colors.AppColors.gold
+                                : Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          count > 0 ? '$count props' : 'Live inventory',
+                          style: const TextStyle(
+                            color: app_colors.AppColors.textMuted,
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (selected)
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      color: app_colors.AppColors.gold,
+                      size: 18,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final categoryCounts = _selectedSportTotalCategoryCounts;
+    final rankedCategories = categoryCounts.entries
+        .where((entry) => entry.key != 'ALL' && entry.value > 0)
+        .toList()
+      ..sort((left, right) => right.value.compareTo(left.value));
+    final topCategories = rankedCategories.take(5).toList(growable: false);
+    final highestCount = topCategories.isEmpty ? 1 : topCategories.first.value;
+
+    IconData categoryIcon(String category) => switch (category) {
+      'POINTS' => Icons.control_point_rounded,
+      'REBOUNDS' => Icons.sports_basketball_rounded,
+      'ASSISTS' => Icons.hub_outlined,
+      'PRA' => Icons.person_pin_circle_outlined,
+      '3PT MADE' => Icons.grid_view_rounded,
+      _ => Icons.apps_rounded,
+    };
+
+    Widget categoryCard(MapEntry<String, int> entry) {
+      final selected = _effectiveSelectedCategory == entry.key;
+      final popularity = ((entry.value / highestCount) * 100).round();
+      return SizedBox(
+        width: compact ? 152 : 174,
+        child: Material(
+          color: selected
+              ? app_colors.AppColors.gold.withValues(alpha: .14)
+              : const Color(0xFF081620),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(
+              color: selected
+                  ? app_colors.AppColors.gold
+                  : app_colors.AppColors.border,
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: ValueKey('site-first-category-${entry.key}'),
+            onTap: () => setState(() {
+              _selectedCategory = entry.key;
+              _verdictFilter = 'ALL';
+              _focusedProp = null;
+              _latestProps = const [];
+              _lastUpdated = null;
+            }),
+            child: Padding(
+              padding: const EdgeInsets.all(11),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        categoryIcon(entry.key),
+                        color: selected
+                            ? app_colors.AppColors.gold
+                            : app_colors.AppColors.silver,
+                        size: 17,
+                      ),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          entry.key,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    '${entry.value} props',
+                    style: const TextStyle(
+                      color: app_colors.AppColors.textMuted,
+                      fontSize: 8.5,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(99),
+                          child: LinearProgressIndicator(
+                            minHeight: 4,
+                            value: popularity / 100,
+                            backgroundColor: app_colors.AppColors.gunmetal,
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              app_colors.AppColors.gold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        '$popularity%',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Future<void> showAllCategories() => showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: app_colors.AppColors.panel,
+      builder: (sheetContext) => SafeArea(
+        child: FractionallySizedBox(
+          heightFactor: .72,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 16, 10, 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'ALL ${siteLabel(_selectedSite)} CATEGORIES',
+                        style: const TextStyle(
+                          color: app_colors.AppColors.gold,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                  children: [
+                    ListTile(
+                      leading: const Icon(
+                        Icons.grid_view_rounded,
+                        color: app_colors.AppColors.gold,
+                      ),
+                      title: const Text('ALL PROPS'),
+                      trailing: Text(
+                        '${categoryCounts.values.fold<int>(0, (sum, value) => sum + value)}',
+                      ),
+                      onTap: () {
+                        setState(() => _selectedCategory = 'ALL');
+                        Navigator.of(sheetContext).pop();
+                      },
+                    ),
+                    for (final entry in rankedCategories)
+                      ListTile(
+                        leading: Icon(
+                          categoryIcon(entry.key),
+                          color: app_colors.AppColors.gold,
+                        ),
+                        title: Text(entry.key),
+                        trailing: Text('${entry.value}'),
+                        selected: _effectiveSelectedCategory == entry.key,
+                        onTap: () {
+                          setState(() {
+                            _selectedCategory = entry.key;
+                            _verdictFilter = 'ALL';
+                            _latestProps = const [];
+                            _lastUpdated = null;
+                          });
+                          Navigator.of(sheetContext).pop();
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    Widget step(int number, String label, bool active) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 25,
+          height: 25,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: active ? app_colors.AppColors.gold : Colors.transparent,
+            border: Border.all(
+              color: active
+                  ? app_colors.AppColors.gold
+                  : app_colors.AppColors.gunmetalLight,
+            ),
+          ),
+          child: Text(
+            '$number',
+            style: TextStyle(
+              color: active
+                  ? app_colors.AppColors.bgBase
+                  : app_colors.AppColors.silver,
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            color: active
+                ? app_colors.AppColors.gold
+                : app_colors.AppColors.textMuted,
+            fontSize: 8.5,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+
+    return Container(
+      key: const ValueKey('site-first-market-board'),
+      padding: EdgeInsets.all(compact ? 13 : 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF06131D),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: app_colors.AppColors.borderGold),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 16,
+            runSpacing: 10,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${widget.sportFilter.toUpperCase()}  /  ${siteLabel(_selectedSite)}  /  MOST POPULAR',
+                    style: const TextStyle(
+                      color: app_colors.AppColors.gold,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'CHOOSE YOUR PROP SITE',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Start with the board you use. PI ranks the most popular markets first.',
+                    style: TextStyle(
+                      color: app_colors.AppColors.textSecondary,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+              Wrap(
+                spacing: 12,
+                runSpacing: 7,
+                children: [
+                  step(1, 'SELECT SITE', true),
+                  step(2, 'SELECT CATEGORY', _selectedCategory != 'ALL'),
+                  step(3, 'COMPARE PI PICKS', _latestProps.isNotEmpty),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          SizedBox(
+            height: 68,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: primarySites.length + 1,
+              separatorBuilder: (_, _) => const SizedBox(width: 9),
+              itemBuilder: (context, index) {
+                if (index < primarySites.length) {
+                  return siteCard(primarySites[index]);
+                }
+                return SizedBox(
+                  width: compact ? 150 : 168,
+                  child: PopupMenuButton<String>(
+                    tooltip: 'View all prop sites',
+                    onSelected: selectSite,
+                    color: app_colors.AppColors.sidebar,
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(value: 'ALL', child: Text('ALL PROP SITES')),
+                      for (final site in moreSites)
+                        PopupMenuItem(value: site, child: Text(siteLabel(site))),
+                    ],
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 13),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF091722),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: app_colors.AppColors.border),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.more_horiz_rounded, color: app_colors.AppColors.silver),
+                          SizedBox(width: 9),
+                          Expanded(child: Text('MORE SITES', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900))),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'MOST POPULAR ON ${siteLabel(_selectedSite)}',
+            style: const TextStyle(
+              color: app_colors.AppColors.gold,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .3,
+            ),
+          ),
+          const SizedBox(height: 9),
+          SizedBox(
+            height: 88,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: topCategories.length + 1,
+              separatorBuilder: (_, _) => const SizedBox(width: 9),
+              itemBuilder: (context, index) {
+                if (index < topCategories.length) {
+                  return categoryCard(topCategories[index]);
+                }
+                return SizedBox(
+                  width: compact ? 152 : 174,
+                  child: OutlinedButton.icon(
+                    onPressed: showAllCategories,
+                    icon: const Icon(Icons.apps_rounded),
+                    label: const Text('VIEW ALL\nCATEGORIES', textAlign: TextAlign.center),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: app_colors.AppColors.gold,
+                      side: const BorderSide(color: app_colors.AppColors.gold),
+                      textStyle: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final label in const [
+                  'TOP PI PICKS',
+                  'TRENDING',
+                  'NEW LINES',
+                  'OVER',
+                  'UNDER',
+                  'ALL',
+                ]) ...[
+                  ChoiceChip(
+                    key: ValueKey('market-quick-filter-$label'),
+                    selected: _marketQuickFilter == label,
+                    avatar: Icon(
+                      switch (label) {
+                        'TOP PI PICKS' => Icons.star_outline_rounded,
+                        'TRENDING' => Icons.trending_up_rounded,
+                        'NEW LINES' => Icons.fiber_new_rounded,
+                        'OVER' => Icons.arrow_circle_up_outlined,
+                        'UNDER' => Icons.arrow_circle_down_outlined,
+                        _ => Icons.grid_view_rounded,
+                      },
+                      size: 15,
+                    ),
+                    label: Text(label),
+                    onSelected: (_) => setState(() {
+                      _marketQuickFilter = label;
+                      _selectedSide = switch (label) {
+                        'OVER' => 'Over',
+                        'UNDER' => 'Under',
+                        _ => 'All',
+                      };
+                      _verdictFilter = label == 'TOP PI PICKS'
+                          ? 'PLAYABLE'
+                          : 'ALL';
+                      _sortBy = switch (label) {
+                        'TRENDING' => 'edge',
+                        'NEW LINES' => 'latest',
+                        _ => 'trust',
+                      };
+                      _latestProps = const [];
+                      _lastUpdated = null;
+                    }),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (value) {
+                    _searchDebounce?.cancel();
+                    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+                      if (!mounted) return;
+                      setState(() {
+                        _searchQuery = value.trim().toLowerCase();
+                        _latestProps = const [];
+                        _lastUpdated = null;
+                      });
+                    });
+                  },
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    prefixIcon: Icon(Icons.search_rounded, size: 18),
+                    hintText: 'Search this site',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 9),
+              OutlinedButton.icon(
+                onPressed: _showBoardFilterOptions,
+                icon: const Icon(Icons.tune_rounded, size: 16),
+                label: const Text('FILTERS'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: app_colors.AppColors.gold,
+                  side: const BorderSide(color: app_colors.AppColors.gold),
+                  minimumSize: const Size(108, 48),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBoardIntelligence() {
     if (!AuthManager.instance.sessionState.value.hasEdgeAccess) {
       return LayoutBuilder(
@@ -3350,14 +3993,12 @@ class _MainDashboardState extends State<MainDashboard> {
                                   children: [
                                     LayoutBuilder(
                                       builder: (context, constraints) =>
-                                          _buildBoardSearchAndBooks(
+                                          _buildSiteFirstMarketBoard(
                                             constraints.maxWidth,
                                           ),
                                     ),
                                     SizedBox(height: sectionGap),
                                     _buildProviderReliabilityBanner(),
-                                    SizedBox(height: sectionGap),
-                                    _buildBoardCategories(),
                                     SizedBox(height: sectionGap),
                                     /*Text(
                             '${visibleProps.length} visible props • $_propCount total loaded',
@@ -3408,6 +4049,7 @@ class _MainDashboardState extends State<MainDashboard> {
                                       minConfidence: _minConfidence,
                                       sortBy: _sortBy,
                                       verdictFilter: _verdictFilter,
+                                      siteFirstLayout: true,
                                       onPropsLoaded: _handlePropsLoaded,
                                     ),
                                   ],

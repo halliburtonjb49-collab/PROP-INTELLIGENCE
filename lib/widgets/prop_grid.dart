@@ -67,6 +67,7 @@ class PropGrid extends StatefulWidget {
   final ValueChanged<String>? onStartupLog;
   final ApiService? apiService;
   final Future<List<ScoreboardGame>> Function(String sport)? scheduleLoader;
+  final bool siteFirstLayout;
 
   const PropGrid({
     super.key,
@@ -88,6 +89,7 @@ class PropGrid extends StatefulWidget {
     this.onStartupLog,
     this.apiService,
     this.scheduleLoader,
+    this.siteFirstLayout = false,
   });
 
   @override
@@ -1755,6 +1757,252 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSiteFirstPropCard(
+    PropData prop,
+    PickSide? selectedSide,
+  ) {
+    final pickSide = prop.proSuggestedSide.trim().isNotEmpty
+        ? prop.proSuggestedSide.trim().toUpperCase()
+        : prop.pickText.trim().toUpperCase();
+    final pickLabel = pickSide.contains('UNDER') ? 'UNDER' : 'OVER';
+    final market = prop.displayMarket.trim().isEmpty
+        ? _marketCategory(prop)
+        : prop.displayMarket.trim().toUpperCase();
+    final projection = prop.projection?.toStringAsFixed(1) ?? '--';
+    final learned = prop.probabilityCalibrationAdjustment.abs() >= .005;
+    final favorite = _favoritePropIds.contains(prop.id);
+    return Material(
+      key: ValueKey('site-first-prop-card-${prop.id}'),
+      color: const Color(0xFF081620),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: app_colors.AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _showResearchOverlay(prop, selectedSide),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
+          child: Column(
+            children: [
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 78,
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: PlayerAvatarWidget(
+                          imageUrl: prop.imagePath,
+                          radius: 35,
+                          fallbackIcon: Icons.person_rounded,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      flex: 4,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            prop.player,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            prop.matchup,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: app_colors.AppColors.textMuted,
+                              fontSize: 9,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.emoji_events_outlined,
+                                size: 12,
+                                color: app_colors.AppColors.gold,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  prop.sportsbook.toUpperCase(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const VerticalDivider(
+                      color: app_colors.AppColors.border,
+                      width: 18,
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'PI PICK',
+                            style: TextStyle(
+                              color: app_colors.AppColors.blue,
+                              fontSize: 7.5,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            '$pickLabel ${prop.line.toStringAsFixed(1)}',
+                            style: const TextStyle(
+                              color: app_colors.AppColors.blue,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            market,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: app_colors.AppColors.textMuted,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const VerticalDivider(
+                      color: app_colors.AppColors.border,
+                      width: 18,
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'PI TRUST',
+                            style: TextStyle(
+                              color: app_colors.AppColors.textMuted,
+                              fontSize: 7.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            '${prop.piTrustScore}',
+                            style: const TextStyle(
+                              color: app_colors.AppColors.success,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          const Text(
+                            'PROJECTION',
+                            style: TextStyle(
+                              color: app_colors.AppColors.textMuted,
+                              fontSize: 7,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            projection,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: favorite ? 'Remove favorite' : 'Favorite prop',
+                      onPressed: () => setState(() {
+                        if (!_favoritePropIds.add(prop.id)) {
+                          _favoritePropIds.remove(prop.id);
+                        }
+                      }),
+                      icon: Icon(
+                        favorite
+                            ? Icons.star_rounded
+                            : Icons.star_border_rounded,
+                        color: app_colors.AppColors.gold,
+                        size: 20,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                children: [
+                  if (learned)
+                    Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF31245C),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: const Text(
+                        'PI LEARNING ACTIVE',
+                        style: TextStyle(
+                          color: app_colors.AppColors.silver,
+                          fontSize: 7,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => _showResearchOverlay(prop, selectedSide),
+                      icon: const Icon(Icons.psychology_alt_rounded, size: 14),
+                      label: const Text('OPEN PI INTELLIGENCE'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: app_colors.AppColors.gold,
+                        foregroundColor: app_colors.AppColors.bgBase,
+                        minimumSize: const Size(0, 34),
+                        textStyle: const TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -3448,11 +3696,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     // headshot reloads from scratch: the photos blink out and
                     // back on every refresh and every filter change.
                     key: ValueKey('card-${prop.id}'),
-                    child: _buildPortraitPropCard(
-                      prop,
-                      selected?.side,
-                      fixedHeight: fixedHeight,
-                    ),
+                    child: widget.siteFirstLayout
+                        ? _buildSiteFirstPropCard(prop, selected?.side)
+                        : _buildPortraitPropCard(
+                            prop,
+                            selected?.side,
+                            fixedHeight: fixedHeight,
+                          ),
                   );
                 }
 
@@ -3558,7 +3808,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                                   if (index > 0) SizedBox(width: cardSpacing),
                                   Expanded(
                                     child: SizedBox(
-                                      height: 428,
+                                      height: widget.siteFirstLayout ? 180 : 428,
                                       child: groupCardFor(
                                         rowGroups[index],
                                         fixedHeight: true,

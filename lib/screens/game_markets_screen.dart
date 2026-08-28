@@ -8,6 +8,7 @@ import '../services/user_facing_error.dart';
 import '../theme/app_colors.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
+import '../widgets/pi_feature_chrome.dart';
 
 class GameMarketsScreen extends StatefulWidget {
   final Future<int> Function(Map<String, dynamic> leg) onAddToSlip;
@@ -161,6 +162,17 @@ class _GameMarketsScreenState extends State<GameMarketsScreen> {
     final events = _feed?.events ?? const <GameMarketEvent>[];
     return Column(
       children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(14, 14, 14, 0),
+          child: PiFeatureHeader(
+            eyebrow: 'PI MARKETS / GAME RESEARCH',
+            title: 'Game Markets',
+            subtitle:
+                'Choose a game and market, compare available prices, then add the preferred research side to your active slip.',
+            icon: Icons.sports_score_rounded,
+            steps: ['Select game', 'Select market', 'Compare prices'],
+          ),
+        ),
         _header(),
         Expanded(
           child: _loading && _feed == null
@@ -231,7 +243,7 @@ class _GameMarketsScreenState extends State<GameMarketsScreen> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               const Text(
-                'GAME MARKETS',
+                'MARKET CONTROLS',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,

@@ -12,6 +12,7 @@ import '../widgets/context_help.dart';
 import '../widgets/context_research_panel.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
+import '../widgets/pi_feature_chrome.dart';
 
 class IntelligenceLabPage extends StatefulWidget {
   const IntelligenceLabPage({
@@ -663,29 +664,20 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
       scrollCacheExtent: const ScrollCacheExtent.pixels(2200),
       padding: const EdgeInsets.all(22),
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'INTELLIGENCE LAB',
-                style: TextStyle(
-                  color: AppColors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
+        PiFeatureHeader(
+          eyebrow: 'PI LEARNING / SCENARIO RESEARCH',
+          title: 'Intelligence Lab',
+          subtitle:
+              'Model prop relationships, game scripts, market sentiment, and compound triggers before comparing the resulting PI evidence.',
+          icon: Icons.psychology_alt_rounded,
+          steps: const ['Set scenario', 'Run analysis', 'Compare impact'],
+          actions: [
             OutlinedButton.icon(
               onPressed: _showGuide,
               icon: const Icon(Icons.menu_book_outlined, size: 17),
               label: const Text('QUICK GUIDE'),
             ),
           ],
-        ),
-        const SizedBox(height: 5),
-        const Text(
-          'Model prop relationships, game scripts, market sentiment, and compound triggers.',
-          style: TextStyle(color: Color(0xFF9DB0C2)),
         ),
         const SizedBox(height: 16),
         _calibrationPanel(),

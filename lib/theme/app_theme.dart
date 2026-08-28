@@ -27,21 +27,27 @@ abstract final class AppTheme {
         outline: chromeLine,
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: base,
+        backgroundColor: AppColors.bgPanel,
         foregroundColor: AppColors.chromeLight,
         elevation: 0,
         iconTheme: IconThemeData(color: chrome),
         titleTextStyle: TextStyle(
           color: AppColors.chromeLight,
           fontSize: 18,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w900,
+          letterSpacing: .5,
         ),
+        shape: Border(bottom: BorderSide(color: AppColors.goldShadow)),
       ),
       textTheme: const TextTheme(
         bodyLarge: TextStyle(color: AppColors.chromeLight),
         bodyMedium: TextStyle(color: AppColors.chromeLight),
         bodySmall: TextStyle(color: chrome),
-        titleLarge: TextStyle(color: goldHi, fontWeight: FontWeight.w500),
+        titleLarge: TextStyle(
+          color: goldHi,
+          fontWeight: FontWeight.w900,
+          letterSpacing: .4,
+        ),
         titleMedium: TextStyle(
           color: AppColors.chromeLight,
           fontWeight: FontWeight.w500,
@@ -87,8 +93,8 @@ abstract final class AppTheme {
         color: panel,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: chromeLine, width: .5),
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: chromeLine),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -144,9 +150,44 @@ abstract final class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: panel,
-        labelStyle: const TextStyle(color: AppColors.chromeLight, fontSize: 12),
+        selectedColor: gold,
+        secondarySelectedColor: gold,
+        checkmarkColor: base,
+        labelStyle: const TextStyle(
+          color: AppColors.chromeLight,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: .25,
+        ),
+        secondaryLabelStyle: const TextStyle(
+          color: base,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
         side: const BorderSide(color: chromeLine),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: AppColors.bgPanel,
+        modalBackgroundColor: AppColors.bgPanel,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+          side: BorderSide(color: AppColors.goldShadow),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: panel,
+        contentTextStyle: const TextStyle(
+          color: AppColors.chromeLight,
+          fontWeight: FontWeight.w700,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: AppColors.goldShadow),
+        ),
+        behavior: SnackBarBehavior.floating,
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
