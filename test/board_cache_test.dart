@@ -55,7 +55,7 @@ PropData _prop(String id, String book, String group) => PropData.fromJson({
   'overOdds': -110,
   'recommendedSide': 'OVER',
   'propGroupId': group,
-  'startTimeUtc': '2026-08-21T18:00:00Z',
+  'startTimeUtc': '2026-09-21T18:00:00Z',
 });
 
 void main() {
@@ -98,14 +98,13 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.byKey(const ValueKey('book-switcher-g1')), findsOneWidget);
-
-    // Switching books must still work through the cache rather than around
-    // it: the card changes, the board does not.
-    await tester.tap(find.byKey(const ValueKey('book-option-a2')));
-    await tester.pump();
-
-    expect(find.byKey(const ValueKey('book-switcher-g1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('book-option-a1')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('card-a1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('card-a2')),
+      findsOneWidget,
+    );
   });
 }

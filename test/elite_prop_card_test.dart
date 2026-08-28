@@ -52,7 +52,7 @@ void main() {
     expect(find.text('OPENING LINE'), findsOneWidget);
     expect(find.text('DISCREPANCY'), findsOneWidget);
     expect(find.text('+1.0'), findsOneWidget);
-    expect(find.text('PUBLIC BETS'), findsOneWidget);
+    expect(find.text('PUBLIC SELECTIONS'), findsOneWidget);
     expect(find.text('MONEY'), findsOneWidget);
     expect(find.text('Volume source: Licensed Test Feed'), findsOneWidget);
     expect(

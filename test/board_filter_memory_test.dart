@@ -27,11 +27,11 @@ void main() {
     expect(restored.minConfidence, 65);
   });
 
-  test('nothing stored opens on playable, ranked by trust', () async {
+  test('nothing stored opens on all props, ranked by trust', () async {
     final restored = await memory.load(hasProAccess: true);
 
     expect(restored.sortBy, 'trust');
-    expect(restored.verdict, 'ACTIONABLE');
+    expect(restored.verdict, 'ALL');
   });
 
   test('a retired sort falls back rather than emptying the board', () async {
@@ -45,7 +45,7 @@ void main() {
     final restored = await memory.load(hasProAccess: true);
 
     expect(restored.sortBy, 'trust');
-    expect(restored.verdict, 'ACTIONABLE');
+    expect(restored.verdict, 'ALL');
   });
 
   test('corrupt storage is not a broken board', () async {
@@ -85,7 +85,7 @@ void main() {
 
     final restored = await memory.load(hasProAccess: true);
 
-    expect(restored.minConfidence, 100);
+    expect(restored.minConfidence, 0);
   });
 
   test('the search box is never remembered', () async {

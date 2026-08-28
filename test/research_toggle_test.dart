@@ -18,14 +18,14 @@ void main() {
     // people did not know the evidence was there at all.
     await pump(tester, open: false);
 
-    expect(find.text('VIEW RESEARCH'), findsOneWidget);
+    expect(find.text('OPEN PI INTELLIGENCE'), findsOneWidget);
     expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
   });
 
   testWidgets('an open card offers to put it away again', (tester) async {
     await pump(tester, open: true);
 
-    expect(find.text('CLOSE RESEARCH'), findsOneWidget);
+    expect(find.text('CLOSE PI INTELLIGENCE'), findsOneWidget);
     expect(find.byIcon(Icons.keyboard_arrow_up_rounded), findsOneWidget);
   });
 
@@ -33,13 +33,13 @@ void main() {
     await pump(tester, open: false);
 
     final semantics = tester.getSemantics(find.byType(ResearchToggle));
-    expect(semantics.label, contains('Open research'));
+    expect(semantics.label, contains('Open PI Intelligence'));
   });
 
   testWidgets('it carries the board gold', (tester) async {
     await pump(tester, open: false);
 
-    final text = tester.widget<Text>(find.text('VIEW RESEARCH'));
+    final text = tester.widget<Text>(find.text('OPEN PI INTELLIGENCE'));
     expect(text.style?.color, AppColors.gold);
 
     final icons = tester.widgetList<Icon>(find.byType(Icon));
@@ -83,7 +83,7 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(find.text('VIEW RESEARCH'), findsOneWidget);
+    expect(find.text('OPEN PI INTELLIGENCE'), findsOneWidget);
     expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
   });
 }

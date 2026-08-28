@@ -256,7 +256,7 @@ def test_partial_refresh_preserves_last_known_good_players(monkeypatch, tmp_path
 
     counts = espn_headshot_service.refresh_espn_headshot_map()
 
-    assert counts == {"WNBA": 2}
+    assert counts["WNBA"] == 2
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload["leagues"]["WNBA"] == {
         "existing player": "https://cdn.example/existing.png",

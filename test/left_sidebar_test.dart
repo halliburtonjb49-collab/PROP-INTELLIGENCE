@@ -46,8 +46,6 @@ void main() {
 
     await tester.drag(find.byType(ListView), const Offset(0, -650));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('BUILD'));
-    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('SLIP WATCHER'),
       300,

@@ -95,14 +95,19 @@ Future<List<PropData>> _pumpGrid(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('two books become one card that still offers both', (
+  testWidgets('two books remain independently researchable', (
     tester,
   ) async {
     await _pumpGrid(tester);
 
-    expect(find.byKey(const ValueKey('book-switcher-grp-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('book-option-dk-1')), findsOneWidget);
-    expect(find.byKey(const ValueKey('book-option-pp-2')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('card-dk-1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('card-pp-2')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('the better price leads and both lines are shown', (
@@ -112,23 +117,22 @@ void main() {
 
     // +120 beats -140, so PrizePicks opens the card, and the books disagree
     // about the number, which is the reason to shop.
-    expect(find.textContaining('PRIZEPICKS 26.5'), findsOneWidget);
-    expect(find.textContaining('DRAFTKINGS 25.5'), findsOneWidget);
-    expect(find.text('LINES VARY'), findsOneWidget);
+    expect(find.textContaining('26.5'), findsWidgets);
+    expect(find.textContaining('25.5'), findsWidgets);
+    expect(find.text('PRIZEPICKS'), findsOneWidget);
+    expect(find.text('DRAFTKINGS'), findsOneWidget);
   });
 
-  testWidgets('a pick lands on the book the user switched to', (tester) async {
-    // The single highest-risk part of collapsing duplicates: the card opens
-    // on one book, so a pick after switching must not silently use it.
-    final picked = await _pumpGrid(tester);
-
-    await tester.tap(find.byKey(const ValueKey('book-option-dk-1')));
-    await tester.pump();
-    await tester.tap(find.text('OVER').first);
-    await tester.pump();
-
-    expect(picked, isNotEmpty);
-    expect(picked.last.id, 'dk-1');
-    expect(picked.last.sportsbook, 'DraftKings');
+  testWidgets('each site-specific card opens its own intelligence', (
+    tester,
+  ) async {
+    await _pumpGrid(tester);
+    await tester.ensureVisible(find.byKey(const ValueKey('card-dk-1')));
+    await tester.tap(
+      find.byKey(const ValueKey('card-dk-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Grouped Player'), findsWidgets);
+    expect(find.textContaining('DRAFTKINGS'), findsWidgets);
   });
 }

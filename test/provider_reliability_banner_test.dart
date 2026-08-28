@@ -190,7 +190,10 @@ void main() {
 
     expect(find.byKey(const ValueKey('feed-recovery-warning')), findsOneWidget);
     expect(find.textContaining('RECOVERY FEED'), findsOneWidget);
-    expect(find.textContaining('CONFIRM AT THE SPORTSBOOK'), findsOneWidget);
+    expect(
+      find.textContaining('CONFIRM WITH THE NAMED PROP SITE'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a healthy feed shows no recovery warning', (tester) async {

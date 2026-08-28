@@ -584,16 +584,21 @@ void main() {
       find.byKey(const ValueKey('owner-command-center-overview')),
       findsOneWidget,
     );
-    expect(
-      find.byKey(const ValueKey('owner-user-account-controls')),
-      findsOneWidget,
-    );
-    expect(find.text('MANAGE USER ACCOUNTS'), findsOneWidget);
     expect(find.byKey(const ValueKey('owner-window-today')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('owner-operations-refresh')),
       findsOneWidget,
     );
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('owner-user-account-controls')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      find.byKey(const ValueKey('owner-user-account-controls')),
+      findsOneWidget,
+    );
+    expect(find.text('MANAGE USER ACCOUNTS'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('owner-prop-inventory')),
       300,

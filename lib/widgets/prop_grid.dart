@@ -777,12 +777,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 child: ClipOval(child: _fastPlayerPhoto(prop, size: 46)),
               ),
               const SizedBox(width: 10),
-              SizedBox(
-                height: 116,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Padding(
+              Expanded(
+                child: SizedBox(
+                  height: 116,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Padding(
                         padding: const EdgeInsets.only(top: 5),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -811,8 +812,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                           ],
                         ),
                       ),
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -3128,7 +3130,14 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     // wait for SharedPreferences and cached JSON decoding first. A fast cache
     // still paints instantly; otherwise the already-running network request
     // wins without paying both waits serially.
-    final liveRequest = _fetchPropsPage(includeReliability: true);
+    final liveOutcome = _fetchPropsPage(includeReliability: true).then(
+      (props) => (props: props, error: null as Object?, stack: null as StackTrace?),
+      onError: (Object error, StackTrace stack) => (
+        props: <PropData>[],
+        error: error,
+        stack: stack,
+      ),
+    );
     final cached = await _apiService
         .loadCachedProps(
           selectedSide: widget.selectedSide,
@@ -3161,10 +3170,24 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         _apiService.lastFacetCount,
         _apiService.lastCategoryCounts,
       );
-      unawaited(_refreshFirstPageFromNetwork(requestKey, pending: liveRequest));
+      unawaited(
+        _refreshFirstPageFromNetwork(
+          requestKey,
+          pending: liveOutcome.then((outcome) {
+            if (outcome.error != null) {
+              Error.throwWithStackTrace(outcome.error!, outcome.stack!);
+            }
+            return outcome.props;
+          }),
+        ),
+      );
       return activeCached;
     }
-    final liveProps = await liveRequest;
+    final outcome = await liveOutcome;
+    if (outcome.error != null) {
+      Error.throwWithStackTrace(outcome.error!, outcome.stack!);
+    }
+    final liveProps = outcome.props;
     if (liveProps.isNotEmpty) {
       _automaticRetryCount = 0;
     }

@@ -38,7 +38,7 @@ void main() {
     expect(find.text('LIVE SCOREBOARD'), findsOneWidget);
     expect(find.text('ACTIVE SLIPS'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
-    expect(find.text('Continue with Apple'), findsNothing);
+    expect(find.text('Continue with Apple'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

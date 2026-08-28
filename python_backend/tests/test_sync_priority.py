@@ -130,7 +130,7 @@ def test_supplemental_leagues_rotate_without_starvation(monkeypatch) -> None:
     third = next_sgo_leagues(limit=1)
     fourth = next_sgo_leagues(limit=1)
     assert [first[0][0], second[0][0], third[0][0], fourth[0][0]] == [
-        "MLB", "NBA", "WNBA", "NFL",
+        "MLB", "NFL", "WNBA", "NHL",
     ]
 
 
@@ -140,7 +140,7 @@ def test_removed_specialty_sports_are_disabled_by_default(monkeypatch) -> None:
 
     selected = next_sgo_leagues(limit=4)
 
-    assert [league for league, _ in selected] == ["MLB", "NBA", "WNBA", "NFL"]
+    assert [league for league, _ in selected] == ["MLB", "NFL", "WNBA", "NHL"]
 
 
 def test_default_supplemental_sync_rotates_memory_safe_league_batch(monkeypatch) -> None:
@@ -154,7 +154,7 @@ def test_default_supplemental_sync_rotates_memory_safe_league_batch(monkeypatch)
 
     next_selected = next_sgo_leagues()
 
-    assert [league for league, _ in next_selected] == ["NBA"]
+    assert [league for league, _ in next_selected] == ["NFL"]
 
 
 def test_empty_supplemental_response_preserves_last_healthy_cache(monkeypatch) -> None:
@@ -172,7 +172,11 @@ def test_empty_supplemental_response_preserves_last_healthy_cache(monkeypatch) -
         "fetch_sgo_account_usage",
         lambda **_kwargs: {},
     )
-    monkeypatch.setattr(sync_service, "next_sgo_leagues", lambda: [("ATP", "tennis_atp")])
+    monkeypatch.setattr(
+        sync_service,
+        "next_sgo_leagues",
+        lambda _limit=None: [("ATP", "tennis_atp")],
+    )
     monkeypatch.setattr(
         sync_service,
         "fetch_sgo_events",
@@ -192,7 +196,7 @@ def test_unavailable_supplemental_leagues_are_not_retried(monkeypatch) -> None:
 
     selected = next_sgo_leagues(limit=4)
 
-    assert [league for league, _ in selected] == ["MLB", "NBA", "WNBA", "NFL"]
+    assert [league for league, _ in selected] == ["MLB", "NFL", "WNBA", "NHL"]
 
 
 def test_supplemental_entity_quota_is_detected() -> None:

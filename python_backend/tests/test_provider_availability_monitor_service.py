@@ -51,7 +51,7 @@ def test_records_per_sport_provider_health_and_alerts(monkeypatch) -> None:
     assert by_sport["WNBA"]["observationsCreated"] == 8
     assert by_sport["NBA"]["status"] == "HEALTHY"
     assert "No games" in by_sport["NBA"]["detail"]
-    assert by_sport["NFL"]["status"] == "NOT_ENTITLED"
+    assert by_sport["NFL"]["status"] == "OPTIONAL"
     assert snapshot["overallStatus"] == "ATTENTION"
     assert stored["value"] == snapshot
 

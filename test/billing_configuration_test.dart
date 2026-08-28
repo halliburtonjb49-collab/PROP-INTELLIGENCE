@@ -37,7 +37,7 @@ void main() {
     expect(SubscriptionPricing.coreAnnual, r'$249.99 / YEAR');
     expect(SubscriptionPricing.proAnnual, r'$599.99 / YEAR');
     expect(SubscriptionPricing.foundingProAnnual, r'$499.99 / YEAR');
-    expect(SubscriptionPricing.monthlyTrialDays, 2);
+    expect(SubscriptionPricing.monthlyTrialDays, 3);
     expect(SubscriptionPricing.annualTrialDays, 7);
     expect(SubscriptionPricing.foundingProMemberLimit, 100);
     expect(PurchaseTier.foundingEdge.offeringId, 'edge_founding');

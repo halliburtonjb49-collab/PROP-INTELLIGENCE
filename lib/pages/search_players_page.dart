@@ -14,6 +14,7 @@ class SearchPlayersPage extends StatefulWidget {
 
 class _SearchPlayersPageState extends State<SearchPlayersPage> {
   final TextEditingController _searchController = TextEditingController();
+  int _searchGeneration = 0;
 
   @override
   void dispose() {
@@ -47,15 +48,17 @@ class _SearchPlayersPageState extends State<SearchPlayersPage> {
         children: [
           Row(
             children: [
-              const Text(
-                'Players Directory',
-                style: TextStyle(
-                  color: AppColors.gold,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
+              if (MediaQuery.sizeOf(context).width >= 600) ...[
+                const Text(
+                  'Players Directory',
+                  style: TextStyle(
+                    color: AppColors.gold,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 14),
+                const SizedBox(width: 14),
+              ],
               Expanded(
                 child: Container(
                   height: 40,
@@ -65,7 +68,7 @@ class _SearchPlayersPageState extends State<SearchPlayersPage> {
                     border: Border.all(color: AppColors.gold, width: 1.1),
                   ),
                   child: TextField(
-                    key: const ValueKey('player-search-field'),
+                    key: ValueKey('player-search-input-$_searchGeneration'),
                     controller: _searchController,
                     onChanged: (_) => setState(() {}),
                     style: const TextStyle(color: Colors.white, fontSize: 12),
@@ -85,7 +88,7 @@ class _SearchPlayersPageState extends State<SearchPlayersPage> {
                               tooltip: 'Clear search',
                               onPressed: () {
                                 _searchController.clear();
-                                setState(() {});
+                                setState(() => _searchGeneration++);
                               },
                               icon: const Icon(
                                 Icons.close,

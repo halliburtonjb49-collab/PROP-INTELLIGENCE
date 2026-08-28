@@ -16,8 +16,8 @@ void main() {
       ),
     );
 
-    expect(find.text('VIEW RESEARCH'), findsOneWidget);
-    await tester.tap(find.text('VIEW RESEARCH'));
+    expect(find.text('OPEN PI INTELLIGENCE'), findsOneWidget);
+    await tester.tap(find.text('OPEN PI INTELLIGENCE'));
     expect(taps, 1);
 
     await tester.pumpWidget(
@@ -27,7 +27,7 @@ void main() {
         ),
       ),
     );
-    expect(find.text('CLOSE RESEARCH'), findsOneWidget);
+    expect(find.text('CLOSE PI INTELLIGENCE'), findsOneWidget);
   });
 
   testWidgets('PI verdict summarizes action facts and recheck guidance', (

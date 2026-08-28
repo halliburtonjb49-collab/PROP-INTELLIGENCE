@@ -34,8 +34,14 @@ class PlayerImageWidget extends StatelessWidget {
       return _buildFallback();
     }
 
-    final primaryUrl = resolvePlayerImagePath(imageUrl);
-    final retryUrl = resolvePlayerImageFallbackPath(imageUrl);
+    final primaryUrl = resolvePlayerImagePath(
+      imageUrl,
+      useApiProxyForRemoteImages: true,
+    );
+    final resolvedFallback = resolvePlayerImageFallbackPath(imageUrl);
+    final retryUrl = primaryUrl != imageUrl.trim()
+        ? imageUrl.trim()
+        : resolvedFallback;
 
     return ClipRRect(
       borderRadius: borderRadius ?? BorderRadius.zero,

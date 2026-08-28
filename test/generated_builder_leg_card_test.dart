@@ -73,7 +73,7 @@ void main() {
 
     for (final action in <String>[
       'ADD',
-      'LOCK PICK',
+      'SAVE SELECTION',
       'WATCHLIST',
       'REPLACE',
       'ADD NOTE',

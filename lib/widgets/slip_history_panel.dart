@@ -2221,16 +2221,21 @@ class _SavedSlipCard extends StatelessWidget {
                                 : const Color(0xFF8FA5B5),
                           ),
                         const SizedBox(width: 7),
-                        Text(
-                          isUpdating
-                              ? 'FINALIZING RESULT'
-                              : 'AUTO-GRADING • REFRESHES EVERY 20 SEC',
-                          style: TextStyle(
-                            color: isLiveWinning
-                                ? brand_colors.AppColors.gold
-                                : const Color(0xFF8FA5B5),
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w900,
+                        Flexible(
+                          child: Text(
+                            isUpdating
+                                ? 'FINALIZING RESULT'
+                                : 'AUTO-GRADING • REFRESHES EVERY 20 SEC',
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: isLiveWinning
+                                  ? brand_colors.AppColors.gold
+                                  : const Color(0xFF8FA5B5),
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
                       ],

@@ -2115,7 +2115,7 @@ class _MainDashboardState extends State<MainDashboard> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '${siteLabel(_selectedSite)}  •  ${_selectedSiteSport.isEmpty ? widget.sportFilter.toUpperCase() : _selectedSiteSport}  •  ${_effectiveSelectedCategory == 'ALL' ? 'TOP PI PICKS' : _effectiveSelectedCategory}',
+                            siteLabel(_selectedSite),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -2375,7 +2375,7 @@ class _MainDashboardState extends State<MainDashboard> {
                         _ => 'All',
                       };
                       _verdictFilter = label == 'TOP PI PICKS'
-                          ? 'PLAYABLE'
+                          ? 'ACTIONABLE'
                           : 'ALL';
                       _sortBy = switch (label) {
                         'TRENDING' => 'edge',
@@ -2794,28 +2794,14 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Widget _buildDecisionAndSummary({required bool showVerdict}) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (!showVerdict) return _buildBoardResultsSummary();
-        if (constraints.maxWidth < 900) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildVerdictFilter(),
-              const SizedBox(height: PiDesign.spacing8),
-              _buildBoardResultsSummary(),
-            ],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(child: _buildVerdictFilter()),
-            const SizedBox(width: PiDesign.spacing12),
-            SizedBox(width: 310, child: _buildBoardResultsSummary()),
-          ],
-        );
-      },
+    if (!showVerdict) return _buildBoardResultsSummary();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildVerdictFilter(),
+        const SizedBox(height: PiDesign.spacing8),
+        _buildBoardResultsSummary(),
+      ],
     );
   }
 

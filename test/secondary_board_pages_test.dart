@@ -42,7 +42,7 @@ void main() {
 
     expect(find.text('2 of 2 players'), findsOneWidget);
     await tester.enterText(
-      find.byKey(const ValueKey('player-search-field')),
+      find.byKey(const ValueKey('player-search-input-0')),
       'rebounds',
     );
     await tester.pump();

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'api_service.dart';
@@ -20,6 +21,7 @@ class LiveUpdateService {
 
   void connect() {
     if (_closed || _paused || _channel != null) return;
+    if (kDebugMode && !SupabaseService.isConfigured) return;
     final configuredBase = ApiService.baseUrl.trim();
     if (configuredBase.isEmpty) return;
     final httpBase = Uri.tryParse(configuredBase);

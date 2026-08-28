@@ -234,7 +234,7 @@ def test_membership_resolver_uses_verified_profile(
 
 @pytest.mark.parametrize(
     ("role", "expected"),
-    [("admin", AccessLevel.ADMIN), ("owner", AccessLevel.OWNER)],
+    [("admin", AccessLevel.ADMIN), ("owner", AccessLevel.FREE)],
 )
 def test_membership_resolver_honors_verified_privileged_roles(
     monkeypatch, role: str, expected: AccessLevel
@@ -248,7 +248,10 @@ def test_membership_resolver_honors_verified_privileged_roles(
             "app_metadata": {"role": role},
         },
     )
-    assert api_auth_service.resolve_membership("Bearer verified").level == expected
+    membership = api_auth_service.resolve_membership("Bearer verified")
+    assert membership.level == expected
+    if role == "owner":
+        assert membership.role == "user"
 
 
 def test_membership_resolver_reuses_recent_verified_result(monkeypatch) -> None:

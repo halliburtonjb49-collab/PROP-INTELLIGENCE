@@ -2,13 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/widgets/slip_history_panel.dart';
 
 void main() {
-  test('Core Slip Watcher uses standard tracking only', () {
+  test('Core Slip Watcher receives live tracking', () {
     expect(
       supportsEnhancedSlipWatcher(
         mode: SlipHistoryMode.active,
         hasProAccess: false,
       ),
-      isFalse,
+      isTrue,
     );
   });
 

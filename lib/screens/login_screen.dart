@@ -711,7 +711,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'PI LEARNING INTELLIGENCE\nPREDICT. GRADE. LEARN. IMPROVE.',
+                  'PI ADAPTIVE INTELLIGENCE\nPREDICT. GRADE. LEARN. IMPROVE.',
                   style: TextStyle(
                     color: _gold,
                     fontSize: 12,
@@ -1599,48 +1599,75 @@ class _TopNavigation extends StatelessWidget {
             const SizedBox(width: 4),
           ],
           SizedBox(width: accessibleCompact ? 2 : 10),
-          TextButton(
-            key: const ValueKey('header-login-action'),
-            onPressed: onLogin,
-            style: TextButton.styleFrom(
-              foregroundColor: _gold,
-              padding: EdgeInsets.symmetric(
-                horizontal: accessibleCompact ? 5 : 14,
-                vertical: accessibleCompact ? 9 : 12,
+          if (accessibleCompact)
+            IconButton(
+              key: const ValueKey('header-login-action'),
+              tooltip: 'Login to app',
+              onPressed: onLogin,
+              icon: const Icon(Icons.login_rounded, color: _gold, size: 19),
+              style: IconButton.styleFrom(
+                padding: const EdgeInsets.all(8),
+                minimumSize: const Size(36, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            )
+          else
+            TextButton(
+              key: const ValueKey('header-login-action'),
+              onPressed: onLogin,
+              style: TextButton.styleFrom(
+                foregroundColor: _gold,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+              ),
+              child: const Text(
+                'LOGIN TO APP',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .8,
+                ),
               ),
             ),
-            child: const Text(
-              'LOGIN TO APP',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                letterSpacing: .8,
-              ),
-            ),
-          ),
           SizedBox(width: accessibleCompact ? 0 : 6),
-          OutlinedButton(
-            onPressed: onSignUp,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: _gold,
-              side: BorderSide(color: _gold.withValues(alpha: 0.65)),
-              padding: EdgeInsets.symmetric(
-                horizontal: accessibleCompact ? 7 : (tight ? 14 : 22),
-                vertical: accessibleCompact ? 9 : (tight ? 11 : 15),
+          if (accessibleCompact)
+            IconButton.outlined(
+              tooltip: 'Create account',
+              onPressed: onSignUp,
+              icon: const Icon(Icons.person_add_alt_1_rounded, size: 19),
+              style: IconButton.styleFrom(
+                foregroundColor: _gold,
+                side: BorderSide(color: _gold.withValues(alpha: 0.65)),
+                padding: const EdgeInsets.all(8),
+                minimumSize: const Size(36, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
+            )
+          else
+            OutlinedButton(
+              onPressed: onSignUp,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _gold,
+                side: BorderSide(color: _gold.withValues(alpha: 0.65)),
+                padding: EdgeInsets.symmetric(
+                  horizontal: tight ? 14 : 22,
+                  vertical: tight ? 11 : 15,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              child: const Text(
+                'CREATE ACCOUNT',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1,
+                ),
               ),
             ),
-            child: const Text(
-              'CREATE ACCOUNT',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1,
-              ),
-            ),
-          ),
         ],
       ),
     );

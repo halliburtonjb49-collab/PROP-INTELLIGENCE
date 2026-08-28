@@ -17,6 +17,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(const PropIntelligenceApp());
+    await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(PropIntelligenceApp), findsOneWidget);
   });
 }

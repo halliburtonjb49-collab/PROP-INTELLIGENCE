@@ -2564,23 +2564,25 @@ def _graded_slip_legs(
 			)
 		current_injury = str(getattr(current_prop, "injuryStatus", "") or "")
 		current_lineup = str(getattr(current_prop, "lineupStatus", "") or "")
+		entry_projection = getattr(leg, "projection", None)
+		entry_confidence = getattr(leg, "confidence", None)
 		pi_changes: list[dict[str, object]] = []
 		for label, original, current in (
-			("Projection", leg.projection, current_projection),
-			("Confidence", leg.confidence, current_confidence),
-			("Injury", leg.injury_status, current_injury),
-			("Lineup", leg.lineup_status, current_lineup),
+			("Projection", getattr(leg, "projection", None), current_projection),
+			("Confidence", getattr(leg, "confidence", None), current_confidence),
+			("Injury", getattr(leg, "injury_status", ""), current_injury),
+			("Lineup", getattr(leg, "lineup_status", ""), current_lineup),
 		):
 			if original not in (None, "", "unknown") and current not in (None, "", "unknown") and original != current:
 				pi_changes.append({"label": label, "original": original, "current": current})
 		projection_delta = (
-			float(current_projection) - float(leg.projection)
-			if current_projection is not None and leg.projection is not None
+			float(current_projection) - float(entry_projection)
+			if current_projection is not None and entry_projection is not None
 			else 0.0
 		)
 		confidence_delta = (
-			int(current_confidence) - int(leg.confidence)
-			if current_confidence is not None and leg.confidence is not None
+			int(current_confidence) - int(entry_confidence)
+			if current_confidence is not None and entry_confidence is not None
 			else 0
 		)
 		projection_threshold = max(0.0, float(os.getenv("PI_MATERIAL_PROJECTION_DELTA", "0.5")))
@@ -2627,9 +2629,9 @@ def _graded_slip_legs(
 				"live_stat_status": snapshot.status,
 				"game_detail": snapshot.game_detail,
 				"odds": leg.odds,
-				"entry_projection": leg.projection,
+				"entry_projection": entry_projection,
 				"current_projection": current_projection,
-				"entry_confidence": leg.confidence,
+				"entry_confidence": entry_confidence,
 				"current_confidence": current_confidence,
 				"pi_change_status": pi_change_status,
 				"pi_changes": pi_changes,
@@ -3428,9 +3430,12 @@ def props(
 			return True
 
 		def _visible_recommendation_side(prop: PropResponse) -> str:
-			if not _recommendation_visible(prop):
+			if _recommendation_visible(prop):
+				return str(prop.recommendedSide or "").strip().lower()
+			if _is_mlb_strikeout_prop(prop) and not has_strikeout_suggestive_pick:
 				return ""
-			return str(prop.recommendedSide or "").strip().lower()
+			fallback = str(getattr(prop, "pick", "") or "").strip().lower()
+			return fallback if fallback in {"over", "under"} else ""
 
 		def _visible_recommendation_tier(prop: PropResponse) -> str:
 			if not _recommendation_visible(prop):

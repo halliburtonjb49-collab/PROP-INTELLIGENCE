@@ -716,6 +716,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
                 children: [
                   Expanded(
                     child: TextField(
+                      key: const ValueKey('lab-player-a'),
                       controller: _playerA,
                       decoration: const InputDecoration(labelText: 'Player 1'),
                     ),
@@ -723,6 +724,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
+                      key: const ValueKey('lab-market-a'),
                       controller: _marketA,
                       decoration: const InputDecoration(labelText: 'Market 1'),
                     ),
@@ -752,6 +754,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
                 children: [
                   Expanded(
                     child: TextField(
+                      key: const ValueKey('lab-projection-a'),
                       controller: _projectionA,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
@@ -762,6 +765,7 @@ class _IntelligenceLabPageState extends State<IntelligenceLabPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
+                      key: const ValueKey('lab-line-a'),
                       controller: _lineA,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(labelText: 'Line 1'),

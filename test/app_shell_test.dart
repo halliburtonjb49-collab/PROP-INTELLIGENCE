@@ -218,7 +218,7 @@ void main() {
     expect(find.byKey(const ValueKey('mobile-nav-watchlist')), findsOneWidget);
     expect(find.byKey(const ValueKey('mobile-nav-ticket')), findsOneWidget);
     expect(find.text('PROPS'), findsOneWidget);
-    expect(find.text('GAMES'), findsOneWidget);
+    expect(find.text('ML GAMES'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -323,7 +323,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('mobile-nav-ticket')));
     await tester.pumpAndSettle();
     expect(find.text('ACTIVE SLIP PANEL'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('right-panel-close')));
+    await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
     expect(find.text('ACTIVE SLIP PANEL'), findsNothing);
   });

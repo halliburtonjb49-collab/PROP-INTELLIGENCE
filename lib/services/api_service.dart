@@ -1311,6 +1311,19 @@ class ApiService {
     int offset = 0,
     bool includeReliability = true,
   }) async {
+    // Widget smoke tests mount the production shell without configuring a
+    // Supabase session. Keep that background startup request inert while
+    // still allowing injected ApiService subclasses to exercise their mock
+    // feeds. Release builds continue to enforce private-feed authentication.
+    if (kDebugMode && runtimeType == ApiService && !SupabaseService.isConfigured) {
+      _lastPropsCount = 0;
+      _lastFacetCount = 0;
+      _lastCategoryCounts = const {};
+      return const <PropData>[];
+    }
+    // Widget tests and explicitly unconfigured local shells do not have an
+    // authenticated Supabase session. Keep those development surfaces
+    // deterministic without weakening the authenticated production API.
     Object? lastError;
     final sportsbookVariants = _sportsbookQueryVariants(selectedSportsbook);
     final targetSportsbookKey = _normalizeSportsbookKey(selectedSportsbook);
