@@ -6,7 +6,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 ROOT = Path(__file__).resolve().parent / "product_footage"
-OUTPUT = Path(r"C:\Users\PI\OneDrive\Desktop\PI Prop Intelligence - Product Videos\PI_15_Second_Awareness_Ad_Corrected.mp4")
+SITE_ROOT = Path(__file__).resolve().parents[1] / "marketing_site"
+NEW_MARKET_BOARD = SITE_ROOT / "assets" / "product-shots" / "market-board.png"
+OUTPUT = SITE_ROOT / "assets" / "campaign" / "pi-awareness.mp4"
+POSTER = SITE_ROOT / "assets" / "campaign" / "campaign-poster.jpg"
 FPS = 6
 SIZE = (1280, 720)
 NAVY = (5, 17, 27)
@@ -74,15 +77,56 @@ def clip(path: Path, caption: str, count: int = 12):
     return output
 
 
+def still_clip(path: Path, caption: str, count: int = 18):
+    source = Image.open(path).convert("RGB")
+    output = []
+    for index in range(count):
+        progress = index / max(1, count - 1)
+        scale = 1.0 + (0.035 * progress)
+        resized = source.resize(
+            (int(source.width * scale), int(source.height * scale)),
+            Image.Resampling.LANCZOS,
+        )
+        source_ratio = resized.width / resized.height
+        target_ratio = SIZE[0] / SIZE[1]
+        if source_ratio > target_ratio:
+            crop_width = int(resized.height * target_ratio)
+            left = (resized.width - crop_width) // 2
+            frame = resized.crop((left, 0, left + crop_width, resized.height))
+        else:
+            crop_height = int(resized.width / target_ratio)
+            top = (resized.height - crop_height) // 2
+            frame = resized.crop((0, top, resized.width, top + crop_height))
+        frame = frame.resize(SIZE, Image.Resampling.LANCZOS)
+        overlay = Image.new("RGBA", SIZE, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+        draw.rounded_rectangle(
+            (38, 610, 1242, 690),
+            radius=18,
+            fill=(3, 12, 20, 224),
+            outline=GOLD,
+            width=2,
+        )
+        centered(draw, caption, 630, font(30, True), WHITE)
+        output.append(
+            np.asarray(Image.alpha_composite(frame.convert("RGBA"), overlay).convert("RGB"))
+        )
+    return output
+
+
 frames = []
 frames += card("RESEARCH THE MARKET.", "Live multi-sport intelligence in one professional workspace.", 12)
-frames += clip(ROOT / "03_add_remove_selection.mp4", "SCAN LIVE PROPS AND PI SIGNALS")
-frames += clip(ROOT / "04_scoreboard.mp4", "FOLLOW LIVE AND UPCOMING GAMES")
+frames += still_clip(NEW_MARKET_BOARD, "CHOOSE YOUR SITE. EXPLORE POPULAR MARKETS.")
 frames += clip(ROOT / "02_view_research.mp4", "UNDERSTAND EVERY PI SIGNAL")
-frames += clip(ROOT / "03_add_remove_selection.mp4", "BUILD AND ADJUST YOUR RESEARCH")
+frames += clip(ROOT / "04_scoreboard.mp4", "FOLLOW LIVE AND UPCOMING GAMES")
 frames += clip(ROOT / "06_active_slip.mp4", "TRACK ACTIVE RESEARCH IN REAL TIME")
 frames += card("BUILD WITH CLARITY.", "Independent sports research and intelligence.", 18, "START YOUR 3-DAY FREE TRIAL")
 
 OUTPUT.parent.mkdir(parents=True, exist_ok=True)
 iio.imwrite(OUTPUT, frames, fps=FPS, codec="libx264", quality=9, pixelformat="yuv420p")
+poster = Image.open(NEW_MARKET_BOARD).convert("RGB")
+poster.thumbnail((1280, 720), Image.Resampling.LANCZOS)
+poster_canvas = Image.new("RGB", SIZE, NAVY)
+poster_canvas.paste(poster, ((SIZE[0] - poster.width) // 2, (SIZE[1] - poster.height) // 2))
+poster_canvas.save(POSTER, quality=94, optimize=True)
 print(OUTPUT)
