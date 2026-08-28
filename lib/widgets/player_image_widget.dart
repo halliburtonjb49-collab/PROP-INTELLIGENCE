@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../services/engagement_tracker.dart';
@@ -36,7 +37,10 @@ class PlayerImageWidget extends StatelessWidget {
 
     final primaryUrl = resolvePlayerImagePath(
       imageUrl,
-      useApiProxyForRemoteImages: true,
+      // Web sports CDNs are loaded directly first. The API proxy remains the
+      // retry path below, which avoids accepting an opaque provider/proxy
+      // placeholder as a successfully rendered black player photo.
+      useApiProxyForRemoteImages: !kIsWeb,
     );
     final resolvedFallback = resolvePlayerImageFallbackPath(imageUrl);
     final retryUrl = primaryUrl != imageUrl.trim()
