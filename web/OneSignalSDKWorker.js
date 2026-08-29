@@ -6,6 +6,13 @@ const PI_CACHE_PREFIX = 'pi-app-shell-';
 const PI_CACHE = `${PI_CACHE_PREFIX}${PI_BUILD}`;
 const PI_MAX_CACHE_ENTRIES = 120;
 const PI_MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const PI_NETWORK_FIRST = new Set([
+  '/',
+  '/index.html',
+  '/flutter_bootstrap.js',
+  '/main.dart.js',
+  '/manifest.json',
+]);
 const PI_APP_SHELL = [
   '/',
   '/index.html',
@@ -73,6 +80,19 @@ async function cachedAsset(request) {
   }
 }
 
+async function networkFirstAsset(request) {
+  const cache = await caches.open(PI_CACHE);
+  try {
+    const response = await fetch(request, {cache: 'no-store'});
+    if (response.ok) await cache.put(request, response.clone());
+    return response;
+  } catch (_) {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    throw _;
+  }
+}
+
 async function navigationResponse(request) {
   const cache = await caches.open(PI_CACHE);
   try {
@@ -93,6 +113,10 @@ self.addEventListener('fetch', (event) => {
   }
   const url = new URL(request.url);
   if (url.origin === self.location.origin && !url.pathname.includes('OneSignalSDKWorker.js')) {
-    event.respondWith(cachedAsset(request));
+    event.respondWith(
+      PI_NETWORK_FIRST.has(url.pathname)
+        ? networkFirstAsset(request)
+        : cachedAsset(request),
+    );
   }
 });

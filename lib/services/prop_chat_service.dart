@@ -504,6 +504,10 @@ class PropChatService {
 
     Future<void> attachAuthenticatedStreams() async {
       if (controller.isClosed || currentUserId == null) return;
+      if (kIsWeb) {
+        await refresh();
+        return;
+      }
       if (!realtimeAttached) {
         realtimeAttached = true;
         messages = client
@@ -1168,14 +1172,16 @@ class PropChatService {
 
     controller = StreamController<List<Map<String, dynamic>>>(
       onListen: () {
-        realtime = client
-            .from('prop_chat_presence')
-            .stream(primaryKey: ['user_id'])
-            .eq('room_id', roomId)
-            .listen(
-              (_) => unawaited(refresh()),
-              onError: (_, _) => unawaited(refresh()),
-            );
+        if (!kIsWeb) {
+          realtime = client
+              .from('prop_chat_presence')
+              .stream(primaryKey: ['user_id'])
+              .eq('room_id', roomId)
+              .listen(
+                (_) => unawaited(refresh()),
+                onError: (_, _) => unawaited(refresh()),
+              );
+        }
         polling = Timer.periodic(
           const Duration(seconds: 20),
           (_) => unawaited(refresh()),
@@ -1194,6 +1200,7 @@ class PropChatService {
     final client = _client;
     final userId = currentUserId;
     if (client == null || userId == null) return Stream.value(const []);
+    if (kIsWeb) return Stream.value(const []);
     return client
         .from('prop_chat_moderation_notices')
         .stream(primaryKey: ['id'])
