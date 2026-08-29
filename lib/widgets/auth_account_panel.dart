@@ -129,8 +129,8 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
           children: [
             const Text(
               'This permanently deletes your account and associated research data. '
-              'Deleting the account does not cancel an Apple subscription; manage '
-              'that subscription first if one is active.',
+              'Deleting the account does not automatically cancel an active '
+              'membership; manage that membership first if one is active.',
             ),
             const SizedBox(height: 14),
             const Text('Type DELETE to confirm.'),

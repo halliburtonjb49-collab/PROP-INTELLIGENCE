@@ -395,14 +395,14 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
           ),
         ];
       case 'install':
-        title = 'INSTALL APP';
-        subtitle = 'FAST, FULL-SCREEN ACCESS ON EVERY DEVICE';
+        title = 'INSTALL PWA';
+        subtitle = 'FAST, FULL-SCREEN ACCESS FROM YOUR BROWSER';
         icon = Icons.install_mobile_rounded;
         content = const [
           _AboutNotice(
-            title: 'IPHONE & IPAD',
+            title: 'MOBILE & TABLET',
             text:
-                'Open app.propsintell.com in Safari, tap Share, then choose Add to Home Screen.',
+                'Open app.propsintell.com in Safari or Chrome, then choose Add to Home Screen or Install app.',
           ),
           SizedBox(height: 10),
           _AboutNotice(
@@ -418,7 +418,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
           ),
           SizedBox(height: 14),
           Text(
-            'Installation gives you a dedicated app window, faster access and automatic updates without visiting an app store.',
+            'The PI Progressive Web App gives you a dedicated app window, fast access and automatic updates directly from the web.',
             style: TextStyle(color: _silver70, fontSize: 14, height: 1.55),
           ),
         ];
@@ -1151,18 +1151,6 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                   ? null
                   : () => _handleSocialSignIn(OAuthProvider.google),
             ),
-            const SizedBox(height: 10),
-            _SocialButton(
-              label: 'Continue with Apple',
-              leading: const Icon(
-                Icons.apple,
-                size: 22,
-                color: Colors.white,
-              ),
-              onPressed: _isLoading
-                  ? null
-                  : () => _handleSocialSignIn(OAuthProvider.apple),
-            ),
             const SizedBox(height: 13),
             Wrap(
               alignment: WrapAlignment.center,
@@ -1250,19 +1238,14 @@ class _InstallAnywhereSection extends StatelessWidget {
   Widget build(BuildContext context) {
     const devices = [
       (
-        Icons.android_rounded,
-        'ANDROID',
-        'Tap Install when prompted, or choose Install app from your browser menu.',
+        Icons.install_mobile_rounded,
+        'MOBILE PWA',
+        'Open app.propsintell.com, then choose Add to Home Screen or Install app from your browser menu.',
       ),
       (
-        Icons.phone_iphone_rounded,
-        'IPHONE & IPAD',
-        'Install PI Prop Intelligence from the Apple App Store, or add the secure web app from Safari.',
-      ),
-      (
-        Icons.tablet_mac_rounded,
-        'TABLETS',
-        'Use portrait or landscape mode with the same account and full workspace.',
+        Icons.tablet_rounded,
+        'TABLET PWA',
+        'Add PI to your Home Screen and use the full workspace in portrait or landscape mode.',
       ),
       (
         Icons.desktop_windows_rounded,
@@ -1302,7 +1285,7 @@ class _InstallAnywhereSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Use the native iPhone and iPad app or install the secure PI web app from your browser. The same account and research follow you everywhere.',
+            'Install the secure PI Progressive Web App directly from your browser. The same account and research follow you across every supported device.',
             textAlign: TextAlign.center,
             style: TextStyle(color: _silver70, fontSize: 14, height: 1.5),
           ),
