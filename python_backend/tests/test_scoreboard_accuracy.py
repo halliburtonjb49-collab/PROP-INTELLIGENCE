@@ -63,12 +63,18 @@ def test_espn_scoreboard_includes_broadcast_and_source(monkeypatch) -> None:
                                     {
                                         "homeAway": "away",
                                         "score": "17",
-                                        "team": {"displayName": "Away Team"},
+                                        "team": {
+                                            "displayName": "Away Team",
+                                            "logo": "https://cdn.example/away.png",
+                                        },
                                     },
                                     {
                                         "homeAway": "home",
                                         "score": "21",
-                                        "team": {"displayName": "Home Team"},
+                                        "team": {
+                                            "displayName": "Home Team",
+                                            "logo": "https://cdn.example/home.png",
+                                        },
                                     },
                                 ],
                             }
@@ -85,6 +91,8 @@ def test_espn_scoreboard_includes_broadcast_and_source(monkeypatch) -> None:
     assert games[0]["detail"] == "Q3 04:12"
     assert games[0]["broadcast"] == "ESPN, ABC"
     assert games[0]["source"] == "ESPN"
+    assert games[0]["away_logo"] == "https://cdn.example/away.png"
+    assert games[0]["home_logo"] == "https://cdn.example/home.png"
 
 
 def test_scoreboard_normalization_preserves_authoritative_espn_status() -> None:
@@ -105,3 +113,12 @@ def test_scoreboard_normalization_preserves_authoritative_espn_status() -> None:
     assert game["status"] == "UPCOMING"
     assert game["broadcast"] == "ESPN"
     assert game["source"] == "ESPN"
+
+
+def test_espn_team_logo_uses_alternate_logo_collection() -> None:
+    assert (
+        main._espn_team_logo(
+            {"logos": [{"href": "https://cdn.example/alternate.png"}]}
+        )
+        == "https://cdn.example/alternate.png"
+    )

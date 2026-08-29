@@ -292,7 +292,7 @@ class _ScoreboardNavigationRibbonState
               widget.soundService.enabled
                   ? Icons.volume_up_rounded
                   : Icons.volume_off_rounded,
-              color: AppColors.coreSilver,
+              color: widget.accentColor,
             ),
           ),
         ),
@@ -424,10 +424,18 @@ class _GameRibbonCard extends StatelessWidget {
   final VoidCallback onSport;
   final VoidCallback onWatch;
 
-  String _abbr(String team) {
+  String _abbr(String team, String? logo) {
+    final logoMatch = RegExp(
+      r'/([a-z]{2,4})\.(?:png|svg)(?:\?|$)',
+      caseSensitive: false,
+    ).firstMatch(logo ?? '');
+    if (logoMatch != null) return logoMatch.group(1)!.toUpperCase();
     final words = team.trim().split(RegExp(r'\s+'));
     if (words.length == 1) {
       return team.substring(0, math.min(3, team.length)).toUpperCase();
+    }
+    if (words.length == 2 && words.first.length <= 3) {
+      return words.first.toUpperCase();
     }
     return words.map((w) => w[0]).take(3).join().toUpperCase();
   }
@@ -443,14 +451,18 @@ class _GameRibbonCard extends StatelessWidget {
     return Material(
       color: AppColors.surfaceSecondary,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(9),
-        side: const BorderSide(color: AppColors.border),
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: game.isLive
+              ? AppColors.destructive.withValues(alpha: 0.48)
+              : AppColors.border,
+        ),
       ),
       child: InkWell(
         onTap: onOpen,
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(7),
+          padding: const EdgeInsets.fromLTRB(10, 9, 10, 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -468,15 +480,8 @@ class _GameRibbonCard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  if (game.isLive)
-                    const Text(
-                      'LIVE',
-                      style: TextStyle(
-                        color: AppColors.destructive,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
+                  _statusBadge(),
+                  const SizedBox(width: 3),
                   InkWell(
                     onTap: onWatch,
                     child: Icon(
@@ -490,26 +495,46 @@ class _GameRibbonCard extends StatelessWidget {
               const Spacer(),
               _team(
                 game.awayLogo,
-                _abbr(game.awayTeam),
+                _abbr(game.awayTeam, game.awayLogo),
                 game.awayScore,
                 awayLeading,
               ),
               const SizedBox(height: 3),
               _team(
                 game.homeLogo,
-                _abbr(game.homeTeam),
+                _abbr(game.homeTeam, game.homeLogo),
                 game.homeScore,
                 homeLeading,
               ),
               const Spacer(),
-              Text(
-                footer.isEmpty ? (game.displayTime ?? game.status) : footer,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 8,
-                ),
+              Row(
+                children: [
+                  if (game.isLive) ...[
+                    Container(
+                      width: 5,
+                      height: 5,
+                      decoration: const BoxDecoration(
+                        color: AppColors.destructive,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                  ],
+                  Expanded(
+                    child: Text(
+                      footer.isEmpty
+                          ? (game.displayTime ?? game.status)
+                          : footer,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -518,31 +543,70 @@ class _GameRibbonCard extends StatelessWidget {
     );
   }
 
+  Widget _statusBadge() {
+    final label = game.isLive
+        ? 'LIVE'
+        : game.isFinal
+        ? 'FINAL'
+        : 'UPCOMING';
+    final color = game.isLive
+        ? AppColors.destructive
+        : game.isFinal
+        ? const Color(0xFF50E3A4)
+        : accentColor;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: color.withValues(alpha: 0.42)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 7,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.35,
+        ),
+      ),
+    );
+  }
+
   Widget _team(String? logo, String name, int? score, bool leading) => Row(
     children: [
       SizedBox(
-        width: 18,
-        height: 18,
+        width: 26,
+        height: 26,
         child: logo != null && logo.isNotEmpty
-            ? Image.network(
-                logo,
-                errorBuilder: (_, error, stackTrace) =>
-                    const Icon(Icons.shield_outlined, size: 14),
+            ? Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  shape: BoxShape.circle,
+                ),
+                child: Image.network(
+                  logo,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (_, error, stackTrace) =>
+                      Icon(Icons.sports_rounded, size: 16, color: accentColor),
+                ),
               )
-            : const Icon(Icons.shield_outlined, size: 14),
+            : Icon(Icons.sports_rounded, size: 16, color: accentColor),
       ),
       const SizedBox(width: 5),
       Expanded(
         child: Text(
           name,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
         ),
       ),
       Text(
         score?.toString() ?? '-',
         style: TextStyle(
           color: leading ? accentColor : AppColors.textPrimary,
-          fontSize: 13,
+          fontSize: 15,
           fontWeight: FontWeight.w900,
         ),
       ),

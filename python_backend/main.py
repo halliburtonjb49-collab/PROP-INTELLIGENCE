@@ -1978,6 +1978,27 @@ def _first_text_from_mapping(value: object, *keys: str) -> str:
 	return ""
 
 
+def _espn_team_logo(team: object) -> str:
+	if not isinstance(team, dict):
+		return ""
+	direct_logo = str(team.get("logo") or "").strip()
+	if direct_logo:
+		return direct_logo
+	logos = team.get("logos")
+	if not isinstance(logos, list):
+		return ""
+	for candidate in logos:
+		if isinstance(candidate, dict):
+			logo_url = str(
+				candidate.get("href") or candidate.get("url") or ""
+			).strip()
+		else:
+			logo_url = str(candidate or "").strip()
+		if logo_url:
+			return logo_url
+	return ""
+
+
 def _espn_scoreboard_games_for_sport(
 	league: str,
 	target_date: date,
@@ -2048,6 +2069,8 @@ def _espn_scoreboard_games_for_sport(
 			if isinstance(home_team_value, dict)
 			else str(home_team_value or "")
 		)
+		away_logo = _espn_team_logo(away_team_value)
+		home_logo = _espn_team_logo(home_team_value)
 
 		status = competition.get("status")
 		status_type = status.get("type") if isinstance(status, dict) else None
@@ -2085,6 +2108,8 @@ def _espn_scoreboard_games_for_sport(
 				),
 				"away_team": away_team,
 				"home_team": home_team,
+				"away_logo": away_logo,
+				"home_logo": home_logo,
 				"commence_time": str(event.get("date") or ""),
 				"completed": state == "post",
 				"scores": [
@@ -2263,6 +2288,8 @@ def _normalize_scoreboard_game(
 		"league": league,
 		"away_team": away_team,
 		"home_team": home_team,
+		"away_logo": str(event.get("away_logo") or "").strip(),
+		"home_logo": str(event.get("home_logo") or "").strip(),
 		"away_score": _extract_score(event, away_team),
 		"home_score": _extract_score(event, home_team),
 		"status": status,

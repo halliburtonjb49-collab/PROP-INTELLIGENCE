@@ -483,18 +483,16 @@ class DesktopDashboard extends StatefulWidget {
 
 String inSeasonLaunchSport(DateTime now) {
   final month = now.month;
-  final sports = <String>[];
 
-  // Broad league windows keep startup useful through regular seasons and
-  // postseasons without requiring a schedule request before the first frame.
-  if (month >= 3 && month <= 10) sports.add('MLB');
-  if (month >= 10 || month <= 6) sports.add('NBA');
-  if (month >= 5 && month <= 10) sports.add('WNBA');
-  if (month >= 9 || month <= 2) sports.add('NFL');
-
-  if (sports.isEmpty) return 'MLB';
-  final dayOfYear = now.difference(DateTime(now.year)).inDays;
-  return sports[dayOfYear % sports.length];
+  // Open on one recognizable major league that is actively playing. Avoid
+  // rotating by date: that made startup feel inconsistent and occasionally
+  // selected a secondary or out-of-season board when league windows overlap.
+  if (month == 1 || month == 2) return 'NFL';
+  if (month == 3 || month == 4) return 'NBA';
+  if (month >= 5 && month <= 8) return 'MLB';
+  if (month == 9) return 'NFL';
+  if (month >= 10 && month <= 12) return 'NFL';
+  return 'MLB';
 }
 
 class _DesktopDashboardState extends State<DesktopDashboard> {
