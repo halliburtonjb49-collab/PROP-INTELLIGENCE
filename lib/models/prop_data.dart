@@ -1,3 +1,23 @@
+String _firstUsablePlayerImage(Map<String, dynamic> json) {
+  const imageKeys = [
+    'player_image',
+    'image_url',
+    'headshot',
+    'photo_url',
+    'player_photo',
+    'avatar',
+    'image_path',
+    'imagePath',
+  ];
+  for (final key in imageKeys) {
+    final candidate = json[key]?.toString().trim() ?? '';
+    if (candidate.isNotEmpty && candidate.toLowerCase() != 'null') {
+      return candidate;
+    }
+  }
+  return '';
+}
+
 String _clientPickGrade(String? value) {
   final grade = value?.trim().toUpperCase();
   return grade == 'A' || grade == 'B' ? grade! : 'C';
@@ -898,16 +918,7 @@ class PropData {
                 json['recommendation_edge'],
           ) ??
           0,
-      imagePath:
-          json['player_image']?.toString() ??
-          json['image_url']?.toString() ??
-          json['headshot']?.toString() ??
-          json['photo_url']?.toString() ??
-          json['player_photo']?.toString() ??
-          json['avatar']?.toString() ??
-          json['image_path']?.toString() ??
-          json['imagePath']?.toString() ??
-          '',
+      imagePath: _firstUsablePlayerImage(json),
       customLabel: json['custom_label']?.toString() ?? '',
       manualNote: json['manual_note']?.toString() ?? '',
       multiplier: _safeDoubleOrNull(

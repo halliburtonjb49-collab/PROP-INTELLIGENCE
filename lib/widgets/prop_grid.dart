@@ -803,7 +803,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              prop.matchup,
+                                    prop.gameTime.trim().isEmpty
+                                        ? prop.matchup
+                                        : '${prop.matchup} • ${prop.gameTime}',
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -1830,7 +1832,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                             alignment: Alignment.bottomCenter,
                             child: PlayerImageWidget(
                               key: ValueKey(
-                                'prop-photo-${prop.id}-${prop.imagePath}',
+                                'prop-photo-${prop.canonicalPlayerId.trim().isNotEmpty ? prop.canonicalPlayerId : prop.player.trim().toLowerCase()}-${prop.imagePath}',
                               ),
                               imageUrl: prop.imagePath,
                               width: 108,
@@ -2585,7 +2587,14 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           const SizedBox(height: 10),
           Wrap(spacing: 7, runSpacing: 7, children: [
             metric('PI DECISION', prop.pickText.trim().isEmpty ? 'NO PICK' : prop.pickText),
-            metric('CONFIDENCE', '${prop.confidence}%'),
+            metric(
+              'CONFIDENCE',
+              prop.confidence > 0
+                  ? '${prop.confidence}%'
+                  : prop.pickText.trim().toLowerCase() == 'no pick'
+                  ? 'NOT QUALIFIED'
+                  : 'PENDING DATA',
+            ),
             metric('PI TRUST', '${prop.piTrustScore}/100'),
             metric('MODEL SAMPLE', '${prop.projectionSampleSize} games'),
             metric('PROJECTION', prop.projection?.toStringAsFixed(2) ?? '--'),
