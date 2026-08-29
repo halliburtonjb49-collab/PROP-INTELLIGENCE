@@ -96,6 +96,7 @@ def test_espn_scoreboard_includes_broadcast_and_source(monkeypatch) -> None:
 
 
 def test_scoreboard_normalization_preserves_authoritative_espn_status() -> None:
+    main._espn_team_logo_catalog._cache = {"NFL": {}}
     game = main._normalize_scoreboard_game(
         {
             "id": "401",
@@ -122,3 +123,24 @@ def test_espn_team_logo_uses_alternate_logo_collection() -> None:
         )
         == "https://cdn.example/alternate.png"
     )
+
+
+def test_provider_scoreboard_uses_espn_team_logo_catalog() -> None:
+    main._espn_team_logo_catalog._cache = {
+        "MLB": {
+            "bostonredsox": "https://cdn.example/bos.png",
+            "newyorkyankees": "https://cdn.example/nyy.png",
+        }
+    }
+    game = main._normalize_scoreboard_game(
+        {
+            "away_team": "Boston Red Sox",
+            "home_team": "New York Yankees",
+            "status": "UPCOMING",
+        },
+        "MLB",
+        datetime(2026, 8, 29, tzinfo=timezone.utc),
+    )
+
+    assert game["away_logo"] == "https://cdn.example/bos.png"
+    assert game["home_logo"] == "https://cdn.example/nyy.png"

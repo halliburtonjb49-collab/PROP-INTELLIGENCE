@@ -590,10 +590,10 @@ class _GameRibbonCard extends StatelessWidget {
                   fit: BoxFit.contain,
                   filterQuality: FilterQuality.high,
                   errorBuilder: (_, error, stackTrace) =>
-                      Icon(Icons.sports_rounded, size: 16, color: accentColor),
+                      _teamBadge(name),
                 ),
               )
-            : Icon(Icons.sports_rounded, size: 16, color: accentColor),
+            : _teamBadge(name),
       ),
       const SizedBox(width: 5),
       Expanded(
@@ -611,5 +611,23 @@ class _GameRibbonCard extends StatelessWidget {
         ),
       ),
     ],
+  );
+
+  Widget _teamBadge(String abbreviation) => Container(
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      color: accentColor.withValues(alpha: 0.12),
+      shape: BoxShape.circle,
+      border: Border.all(color: accentColor.withValues(alpha: 0.48)),
+    ),
+    child: Text(
+      abbreviation,
+      maxLines: 1,
+      style: TextStyle(
+        color: accentColor,
+        fontSize: abbreviation.length > 3 ? 7 : 8,
+        fontWeight: FontWeight.w900,
+      ),
+    ),
   );
 }

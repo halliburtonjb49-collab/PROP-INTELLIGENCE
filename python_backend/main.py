@@ -1999,6 +1999,74 @@ def _espn_team_logo(team: object) -> str:
 	return ""
 
 
+def _scoreboard_team_key(value: object) -> str:
+	return "".join(
+		character
+		for character in str(value or "").strip().lower()
+		if character.isalnum()
+	)
+
+
+def _espn_team_logo_catalog(league: str) -> dict[str, str]:
+	cache = getattr(_espn_team_logo_catalog, "_cache", None)
+	if not isinstance(cache, dict):
+		cache = {}
+		setattr(_espn_team_logo_catalog, "_cache", cache)
+	if league in cache:
+		return cache[league]
+
+	path = ESPN_SCOREBOARD_PATHS.get(league)
+	if path is None:
+		cache[league] = {}
+		return {}
+	try:
+		response = requests.get(
+			f"https://site.api.espn.com/apis/site/v2/sports/{path}/teams",
+			params={"limit": 500},
+			headers={
+				"Accept": "application/json",
+				"User-Agent": "PI-Prop-Intelligence/1.0 scoreboard",
+			},
+			timeout=min(4, HTTP_TIMEOUT_SECONDS),
+		)
+		response.raise_for_status()
+		payload = response.json()
+	except (requests.RequestException, ValueError):
+		return {}
+
+	catalog: dict[str, str] = {}
+	sports = payload.get("sports") if isinstance(payload, dict) else None
+	if isinstance(sports, list) and sports:
+		leagues = sports[0].get("leagues") if isinstance(sports[0], dict) else None
+	else:
+		leagues = None
+	if isinstance(leagues, list) and leagues:
+		teams = leagues[0].get("teams") if isinstance(leagues[0], dict) else None
+	else:
+		teams = None
+	if isinstance(teams, list):
+		for entry in teams:
+			team = entry.get("team") if isinstance(entry, dict) else None
+			if not isinstance(team, dict):
+				continue
+			logo = _espn_team_logo(team)
+			if not logo:
+				continue
+			aliases = {
+				team.get("displayName"),
+				team.get("shortDisplayName"),
+				team.get("name"),
+				team.get("abbreviation"),
+				f"{team.get('location') or ''} {team.get('name') or ''}".strip(),
+			}
+			for alias in aliases:
+				key = _scoreboard_team_key(alias)
+				if key:
+					catalog[key] = logo
+	cache[league] = catalog
+	return catalog
+
+
 def _espn_scoreboard_games_for_sport(
 	league: str,
 	target_date: date,
@@ -2264,6 +2332,15 @@ def _normalize_scoreboard_game(
 	)
 	start_time = _parse_start_time(start_time_utc)
 	completed = bool(event.get("completed"))
+	logo_catalog = _espn_team_logo_catalog(league)
+	away_logo = str(event.get("away_logo") or "").strip() or logo_catalog.get(
+		_scoreboard_team_key(away_team),
+		"",
+	)
+	home_logo = str(event.get("home_logo") or "").strip() or logo_catalog.get(
+		_scoreboard_team_key(home_team),
+		"",
+	)
 
 	explicit_status = str(event.get("status") or "").strip().upper()
 	if explicit_status in {"LIVE", "FINAL", "UPCOMING"}:
@@ -2288,8 +2365,8 @@ def _normalize_scoreboard_game(
 		"league": league,
 		"away_team": away_team,
 		"home_team": home_team,
-		"away_logo": str(event.get("away_logo") or "").strip(),
-		"home_logo": str(event.get("home_logo") or "").strip(),
+		"away_logo": away_logo,
+		"home_logo": home_logo,
 		"away_score": _extract_score(event, away_team),
 		"home_score": _extract_score(event, home_team),
 		"status": status,
