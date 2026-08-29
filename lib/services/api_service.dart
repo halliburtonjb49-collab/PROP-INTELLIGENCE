@@ -1135,12 +1135,15 @@ class ApiService {
     // The board owns background recovery and already keeps its last stable
     // page visible. A long second HTTP attempt here only traps first-time
     // mobile visitors behind skeleton cards for up to 25 seconds.
-    const maxAttempts = 1;
+    // A single dropped mobile request should not empty the entire board.
+    // Keep both attempts short so recovery still completes inside the board's
+    // overall 25-second deadline.
+    const maxAttempts = 2;
     final requestTimeout = isSpecialtySport
         ? const Duration(seconds: 4)
         : category.isNotEmpty && category != 'ALL'
-        ? const Duration(seconds: 12)
-        : const Duration(seconds: 15);
+        ? const Duration(seconds: 7)
+        : const Duration(seconds: 8);
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         var response = await http
@@ -1161,7 +1164,7 @@ class ApiService {
         lastError = error;
       }
       if (attempt < maxAttempts) {
-        await Future<void>.delayed(const Duration(milliseconds: 350));
+        await Future<void>.delayed(const Duration(milliseconds: 250));
       }
     }
     throw Exception(lastError ?? 'Unable to download the props page.');

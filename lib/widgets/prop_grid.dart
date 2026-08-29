@@ -3145,7 +3145,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         stack: stack,
       ),
     );
-    final cached = await _apiService
+    final cachedFuture = _apiService
         .loadCachedProps(
           selectedSide: widget.selectedSide,
           selectedTier: widget.selectedTier,
@@ -3157,8 +3157,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           verdictFilter: widget.verdictFilter,
           sortBy: widget.sortBy,
         )
-        .catchError((_) => <PropData>[])
-        .timeout(
+        .catchError((_) => <PropData>[]);
+    final cached = await cachedFuture.timeout(
           const Duration(milliseconds: 350),
           onTimeout: () => <PropData>[],
         );
@@ -3192,6 +3192,33 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     }
     final outcome = await liveOutcome;
     if (outcome.error != null) {
+      // JSON restoration can take longer than 350 ms on older phones. The
+      // short launch race above keeps startup fast, but a failed live request
+      // should wait briefly for that same cache instead of replacing a usable
+      // board with an error panel.
+      final recoveredCache = cached.isNotEmpty
+          ? cached
+          : await cachedFuture.timeout(
+              const Duration(seconds: 3),
+              onTimeout: () => <PropData>[],
+            );
+      final sessionCache = _sessionViewCache[requestKey] ?? const <PropData>[];
+      final fallback = recoveredCache.isNotEmpty
+          ? recoveredCache
+          : sessionCache;
+      if (fallback.isNotEmpty) {
+        final activeFallback = activePropsInChronologicalOrder(fallback);
+        _rememberCurrentView(requestKey, activeFallback);
+        _preparedProps = prepareBoardProps(activeFallback);
+        widget.onPropsLoaded?.call(
+          activeFallback,
+          _apiService.lastPropsCount,
+          _apiService.lastFacetCount,
+          _apiService.lastCategoryCounts,
+        );
+        _scheduleAutomaticRetry();
+        return activeFallback;
+      }
       Error.throwWithStackTrace(outcome.error!, outcome.stack!);
     }
     final liveProps = outcome.props;
