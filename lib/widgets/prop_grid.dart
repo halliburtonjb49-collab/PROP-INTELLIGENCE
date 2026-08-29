@@ -1794,7 +1794,14 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
           child: Column(
             children: [
-              Expanded(
+              // The one-column mobile list does not impose a height on each
+              // card. An Expanded here therefore receives unbounded vertical
+              // constraints and the entire loaded card list fails to paint.
+              // Give the information row its intrinsic design height so the
+              // same card works in both the self-sizing mobile list and the
+              // fixed-height desktop grid.
+              SizedBox(
+                height: 116,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
