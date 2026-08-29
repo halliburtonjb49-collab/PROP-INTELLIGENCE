@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../services/app_sound_service.dart';
 import '../theme/app_colors.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
@@ -58,6 +59,10 @@ class AppShell extends StatefulWidget {
     this.onMobileNavigateIndex,
     this.accentColor = AppColors.gold,
     this.membershipLabel = 'CORE',
+    required this.soundService,
+    required this.isOwner,
+    required this.ownerOperationsSelected,
+    required this.onOpenOwnerOperations,
   });
 
   final Widget leftSidebar;
@@ -75,6 +80,10 @@ class AppShell extends StatefulWidget {
   final ValueChanged<int>? onMobileNavigateIndex;
   final Color accentColor;
   final String membershipLabel;
+  final AppSoundService soundService;
+  final bool isOwner;
+  final bool ownerOperationsSelected;
+  final VoidCallback onOpenOwnerOperations;
 
   static const double leftWidth = 244;
   static const double rightWidth = 332;
@@ -198,6 +207,10 @@ class _AppShellState extends State<AppShell> {
                             widget.currentViewCountListenable,
                         accentColor: widget.accentColor,
                         membershipLabel: widget.membershipLabel,
+                        soundService: widget.soundService,
+                        isOwner: widget.isOwner,
+                        ownerOperationsSelected: widget.ownerOperationsSelected,
+                        onOpenOwnerOperations: widget.onOpenOwnerOperations,
                         accountPanel: widget.accountPanel,
                         activeSlipPanel: widget.activeSlipPanel,
                         onOpenAccount: () => setState(() {
@@ -239,6 +252,10 @@ class _DesktopRightPanel extends StatelessWidget {
     required this.onOpenAccount,
     required this.onOpenActiveSlip,
     required this.onClose,
+    required this.soundService,
+    required this.isOwner,
+    required this.ownerOperationsSelected,
+    required this.onOpenOwnerOperations,
   });
 
   final bool isOpen;
@@ -252,6 +269,10 @@ class _DesktopRightPanel extends StatelessWidget {
   final VoidCallback onOpenAccount;
   final VoidCallback onOpenActiveSlip;
   final VoidCallback onClose;
+  final AppSoundService soundService;
+  final bool isOwner;
+  final bool ownerOperationsSelected;
+  final VoidCallback onOpenOwnerOperations;
 
   @override
   Widget build(BuildContext context) {
@@ -291,6 +312,10 @@ class _DesktopRightPanel extends StatelessWidget {
                 currentViewCountListenable: currentViewCountListenable,
                 onOpenAccount: onOpenAccount,
                 onOpenActiveSlip: onOpenActiveSlip,
+                soundService: soundService,
+                isOwner: isOwner,
+                ownerOperationsSelected: ownerOperationsSelected,
+                onOpenOwnerOperations: onOpenOwnerOperations,
               ),
       ),
     );
@@ -498,6 +523,10 @@ class _RightPanelRail extends StatelessWidget {
     required this.currentViewCountListenable,
     required this.onOpenAccount,
     required this.onOpenActiveSlip,
+    required this.soundService,
+    required this.isOwner,
+    required this.ownerOperationsSelected,
+    required this.onOpenOwnerOperations,
   });
 
   final Color accentColor;
@@ -506,6 +535,10 @@ class _RightPanelRail extends StatelessWidget {
   final ValueListenable<int>? currentViewCountListenable;
   final VoidCallback onOpenAccount;
   final VoidCallback onOpenActiveSlip;
+  final AppSoundService soundService;
+  final bool isOwner;
+  final bool ownerOperationsSelected;
+  final VoidCallback onOpenOwnerOperations;
 
   @override
   Widget build(BuildContext context) {
@@ -563,6 +596,43 @@ class _RightPanelRail extends StatelessWidget {
               builder: (context, count, _) => _CurrentViewRail(count: count),
             ),
           ],
+          if (isOwner) ...[
+            const SizedBox(height: 7),
+            _RailButton(
+              key: const ValueKey('right-panel-owner-operations-button'),
+              label: 'Open Owner Operations',
+              tooltip: 'Open Owner Operations',
+              icon: Icons.admin_panel_settings_outlined,
+              visibleLabel: 'OWNER OPS',
+              accentColor: accentColor,
+              buttonHeight: 68,
+              onTap: onOpenOwnerOperations,
+              openActionSize: 0,
+              openAction: const SizedBox.shrink(),
+              trailing: ownerOperationsSelected
+                  ? Icon(Icons.check_circle_rounded, size: 12, color: accentColor)
+                  : const SizedBox.shrink(),
+            ),
+          ],
+          const SizedBox(height: 7),
+          AnimatedBuilder(
+            animation: soundService,
+            builder: (context, _) => _RailButton(
+              key: const ValueKey('right-panel-sound-button'),
+              label: soundService.enabled ? 'Disable sound' : 'Enable sound',
+              tooltip: soundService.enabled ? 'Sound on' : 'Sound muted',
+              icon: soundService.enabled
+                  ? Icons.volume_up_rounded
+                  : Icons.volume_off_rounded,
+              visibleLabel: soundService.enabled ? 'SOUND' : 'MUTED',
+              accentColor: accentColor,
+              buttonHeight: 64,
+              onTap: () => soundService.setEnabled(!soundService.enabled),
+              openActionSize: 0,
+              openAction: const SizedBox.shrink(),
+              trailing: const SizedBox.shrink(),
+            ),
+          ),
           const Spacer(),
           Tooltip(
             message: '$membershipLabel membership',

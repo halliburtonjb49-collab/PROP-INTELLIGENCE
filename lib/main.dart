@@ -1186,7 +1186,6 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     return TopNavigation(
       selectedPage: _selectedPage,
       selectedSport: _selectedBoardSport,
-      soundService: AppSoundService.instance,
       accentColor: hasProAccess
           ? app_colors.AppColors.gold
           : app_colors.AppColors.silver,
@@ -2180,6 +2179,14 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
               },
               accentColor: membershipAccent,
               membershipLabel: tierName.toUpperCase(),
+              soundService: AppSoundService.instance,
+              isOwner: session.isOwner,
+              ownerOperationsSelected:
+                  _selectedPage == AppPage.ownerOperations,
+              onOpenOwnerOperations: () => _switchToPage(
+                AppPage.ownerOperations,
+                source: 'right-rail-owner-operations',
+              ),
             ),
           ),
           if (_chatFloating) _buildFloatingChat(constraints),

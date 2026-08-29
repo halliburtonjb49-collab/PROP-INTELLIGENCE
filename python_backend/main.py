@@ -562,7 +562,11 @@ def player_image(filename: str) -> FileResponse:
 	)
 
 
-_PLAYER_IMAGE_PROXY_HOSTS = {"a.espncdn.com", "img.mlbstatic.com"}
+_PLAYER_IMAGE_PROXY_HOSTS = {
+	"a.espncdn.com",
+	"img.mlbstatic.com",
+	"static.cfl.ca",
+}
 _PLAYER_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 
 
@@ -1739,7 +1743,10 @@ ESPN_SCOREBOARD_PATHS: dict[str, str] = {
 	"WNBA": "basketball/wnba",
 	"MLB": "baseball/mlb",
 	"NFL": "football/nfl",
+	"CFL": "football/cfl",
+	"NCAAF": "football/college-football",
 	"NHL": "hockey/nhl",
+	"NCAAB": "basketball/mens-college-basketball",
 	"EPL": "soccer/eng.1",
 	"MLS": "soccer/usa.1",
 }

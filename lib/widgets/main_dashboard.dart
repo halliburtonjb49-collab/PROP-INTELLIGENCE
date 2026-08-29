@@ -3074,7 +3074,7 @@ class _MainDashboardState extends State<MainDashboard> {
                                       sportFilter: _selectedSite == 'ALL'
                                           ? widget.sportFilter
                                           : _selectedSiteSport.isEmpty
-                                          ? 'ALL'
+                                          ? widget.sportFilter
                                           : _selectedSiteSport,
                                       displaySportFilter: _selectedSite == 'ALL'
                                           ? widget.sportFilter

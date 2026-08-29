@@ -1,9 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../navigation/app_navigation.dart';
-import '../services/app_sound_service.dart';
 import '../services/auth_manager.dart';
 import '../theme/app_colors.dart' as app_colors;
 import 'feature_tier_badge.dart';
@@ -11,7 +8,6 @@ import 'feature_tier_badge.dart';
 class TopNavigation extends StatelessWidget {
   final AppPage selectedPage;
   final ValueChanged<AppPage> onTabSelected;
-  final AppSoundService soundService;
   final Color accentColor;
   final String selectedSport;
   final ValueChanged<String>? onSportSelected;
@@ -20,7 +16,6 @@ class TopNavigation extends StatelessWidget {
     super.key,
     required this.selectedPage,
     required this.onTabSelected,
-    required this.soundService,
     required this.accentColor,
     this.selectedSport = 'ALL',
     this.onSportSelected,
@@ -371,45 +366,7 @@ class TopNavigation extends StatelessWidget {
                             icon: Icons.scoreboard_outlined,
                           ),
                         ),
-                    if (AuthManager.instance.sessionState.value.isOwner)
-                      _buildNavItem(
-                        label: 'OWNER OPS',
-                        page: AppPage.ownerOperations,
-                        icon: Icons.admin_panel_settings_outlined,
-                      ),
                   ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              AnimatedBuilder(
-                animation: soundService,
-                builder: (context, _) => IconButton(
-                  key: const ValueKey('global-sound-toggle'),
-                  tooltip: soundService.enabled
-                      ? 'Sound: Mouse Click — tap for Silent'
-                      : 'Sound: Silent — tap for Mouse Click',
-                  onPressed: () {
-                    unawaited(soundService.setEnabled(!soundService.enabled));
-                  },
-                  style: IconButton.styleFrom(
-                    foregroundColor: soundService.enabled
-                        ? accentColor
-                        : app_colors.AppColors.textMuted,
-                    side: BorderSide(
-                      color: soundService.enabled
-                          ? accentColor.withValues(alpha: .7)
-                          : app_colors.AppColors.border,
-                    ),
-                    backgroundColor: soundService.enabled
-                        ? accentColor.withValues(alpha: .08)
-                        : Colors.transparent,
-                  ),
-                  icon: Icon(
-                    soundService.enabled
-                        ? Icons.mouse_rounded
-                        : Icons.volume_off_rounded,
-                    size: 19,
-                  ),
                 ),
               ),
             ],

@@ -55,8 +55,19 @@ EVENT_LEAGUES: dict[str, tuple[str, str]] = {}
 # Team rosters expose athlete ids but require one core-athlete request to
 # retrieve each available headshot.
 DETAIL_ROSTER_LEAGUES: dict[str, tuple[str, str]] = {
-    "CFL": ("football", "cfl"),
 }
+
+_CFL_ROSTER_URLS: tuple[str, ...] = (
+    "https://www.bclions.com/roster/",
+    "https://www.stampeders.com/roster/",
+    "https://www.goelks.com/roster/",
+    "https://www.riderville.com/roster/",
+    "https://www.bluebombers.com/roster/",
+    "https://www.ticats.ca/roster/",
+    "https://www.argonauts.ca/roster/",
+    "https://www.ottawaredblacks.com/roster/",
+    "https://www.montrealalouettes.com/roster/",
+)
 
 # Soccer props span several domestic and international competitions. Merge
 # their rosters into one app-level SOCCER catalog so a La Liga, Premier
@@ -371,6 +382,29 @@ def _fetch_detail_roster_athletes(
     return _hydrate_athlete_headshots(espn_sport, espn_league, athlete_ids)
 
 
+def _fetch_cfl_official_headshots() -> dict[str, str]:
+    """Build CFL portraits from official team roster player ids."""
+    players: dict[str, str] = {}
+    pattern = re.compile(
+        r'href=["\'](?:https?://(?:www\.)?cfl\.ca)?/players/'
+        r'([^/"\']+)/(\d+)/?["\']',
+        re.IGNORECASE,
+    )
+    for roster_url in _CFL_ROSTER_URLS:
+        try:
+            response = requests.get(roster_url, timeout=HTTP_TIMEOUT_SECONDS)
+            response.raise_for_status()
+        except requests.RequestException:
+            continue
+        for slug, athlete_id in pattern.findall(response.text):
+            name = _normalize_name(slug.replace("-", " "))
+            if name:
+                players[name] = (
+                    f"https://static.cfl.ca/wp-content/uploads/{athlete_id}.png"
+                )
+    return players
+
+
 def _fetch_event_athletes(espn_sport: str, espn_league: str) -> dict[str, str]:
     response = requests.get(
         f"https://site.api.espn.com/apis/site/v2/sports/"
@@ -439,6 +473,13 @@ def refresh_espn_headshot_map() -> dict[str, int]:
             merged_players.update(players)
             leagues[sport_label] = merged_players
         counts[sport_label] = len(leagues.get(sport_label, {}))
+
+    cfl_players = _fetch_cfl_official_headshots()
+    if cfl_players:
+        merged_players = dict(leagues.get("CFL", {}))
+        merged_players.update(cfl_players)
+        leagues["CFL"] = merged_players
+    counts["CFL"] = len(leagues.get("CFL", {}))
 
     soccer_players = dict(leagues.get("SOCCER", {}))
     for espn_sport, espn_league in SOCCER_DETAIL_LEAGUES:
