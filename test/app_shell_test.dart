@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/layout/app_shell.dart';
+import 'package:prop_intelligence/services/app_sound_service.dart';
 
 void main() {
   test('mobile shell reclaims space without shrinking touch targets', () {
@@ -33,6 +34,10 @@ void main() {
         watchedSlipCount: watchedSlipCount,
         onMobileWatchSlip: onMobileWatchSlip,
         onMobileNavigateIndex: onMobileNavigateIndex,
+        soundService: AppSoundService.instance,
+        isOwner: false,
+        ownerOperationsSelected: false,
+        onOpenOwnerOperations: () {},
       ),
     );
   }

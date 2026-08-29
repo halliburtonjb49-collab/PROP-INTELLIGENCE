@@ -43,8 +43,8 @@ class PlayerImageWidget extends StatelessWidget {
       useApiProxyForRemoteImages: !kIsWeb,
     );
     final resolvedFallback = resolvePlayerImageFallbackPath(imageUrl);
-    final retryUrl = resolvedFallback.isNotEmpty &&
-            resolvedFallback != primaryUrl
+    final retryUrl =
+        resolvedFallback.isNotEmpty && resolvedFallback != primaryUrl
         ? resolvedFallback
         : primaryUrl != imageUrl.trim()
         ? imageUrl.trim()
@@ -134,6 +134,7 @@ class PlayerImageWidget extends StatelessWidget {
     );
   }
 
+  // ignore: unused_element
   Widget _buildShimmerPlaceholder() {
     return Container(
       width: width,

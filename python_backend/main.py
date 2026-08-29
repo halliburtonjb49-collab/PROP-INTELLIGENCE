@@ -1990,6 +1990,10 @@ def _espn_scoreboard_games_for_sport(
 		response = requests.get(
 			f"https://site.api.espn.com/apis/site/v2/sports/{path}/scoreboard",
 			params={"dates": target_date.strftime("%Y%m%d")},
+			headers={
+				"Accept": "application/json",
+				"User-Agent": "PI-Prop-Intelligence/1.0 scoreboard",
+			},
 			# A slow or unsupported league must not hold the full multi-sport
 			# board hostage. Other leagues load in parallel and provider
 			# fallbacks remain available.
@@ -1997,7 +2001,7 @@ def _espn_scoreboard_games_for_sport(
 		)
 		response.raise_for_status()
 		payload = response.json()
-	except requests.RequestException:
+	except (requests.RequestException, ValueError):
 		return []
 
 	events = payload.get("events") if isinstance(payload, dict) else None
@@ -2056,6 +2060,22 @@ def _espn_scoreboard_games_for_sport(
 		if not detail and isinstance(status, dict):
 			detail = str(status.get("displayClock") or "").strip()
 
+		broadcast = ""
+		broadcasts = competition.get("broadcasts")
+		if isinstance(broadcasts, list):
+			for broadcast_entry in broadcasts:
+				if not isinstance(broadcast_entry, dict):
+					continue
+				names = broadcast_entry.get("names")
+				if isinstance(names, list):
+					broadcast = ", ".join(
+						str(name).strip() for name in names if str(name).strip()
+					)
+				elif isinstance(names, str):
+					broadcast = names.strip()
+				if broadcast:
+					break
+
 		games.append(
 			{
 				"id": str(event.get("id") or ""),
@@ -2079,6 +2099,8 @@ def _espn_scoreboard_games_for_sport(
 				],
 				"status": "LIVE" if state == "in" else "FINAL" if state == "post" else "UPCOMING",
 				"detail": detail,
+				"broadcast": broadcast,
+				"source": "ESPN",
 			},
 		)
 
@@ -2218,7 +2240,10 @@ def _normalize_scoreboard_game(
 	start_time = _parse_start_time(start_time_utc)
 	completed = bool(event.get("completed"))
 
-	if completed:
+	explicit_status = str(event.get("status") or "").strip().upper()
+	if explicit_status in {"LIVE", "FINAL", "UPCOMING"}:
+		status = explicit_status
+	elif completed:
 		status = "FINAL"
 	elif start_time is not None and start_time <= now:
 		status = "LIVE"
@@ -2247,6 +2272,10 @@ def _normalize_scoreboard_game(
 			)
 			or (_format_live_detail(event, league) if status == "LIVE" else "")
 		),
+		"broadcast": str(
+			event.get("broadcast") or event.get("network") or ""
+		).strip(),
+		"source": str(event.get("source") or "PROVIDER").strip(),
 		"startTimeUtc": start_time_utc,
 		"displayTime": display_time,
 		"start_time": (

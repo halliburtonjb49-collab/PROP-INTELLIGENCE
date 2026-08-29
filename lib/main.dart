@@ -8,6 +8,7 @@ import 'layout/app_shell.dart';
 import 'navigation/app_navigation.dart';
 export 'navigation/app_navigation.dart';
 import 'controllers/active_slip_controller.dart';
+import 'controllers/scoreboard_controller.dart';
 import 'models/prop_data.dart';
 import 'models/saved_slip.dart';
 import 'pages/prop_chat_page.dart';
@@ -42,6 +43,7 @@ import 'theme/app_theme.dart';
 import 'widgets/auth_account_panel.dart';
 import 'widgets/left_sidebar.dart';
 import 'widgets/top_navigation.dart';
+import 'widgets/scoreboard_navigation_ribbon.dart';
 export 'widgets/top_navigation.dart';
 import 'widgets/onboarding_dialog.dart';
 import 'widgets/main_dashboard.dart';
@@ -500,6 +502,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   final ActiveSlipController _activeSlipController = ActiveSlipController();
   final List<SlipSelection> _slipSelections = [];
   final ValueNotifier<bool> _isSavingSlipNotifier = ValueNotifier(false);
+  late final ScoreboardController _scoreboardController;
+  bool _scoreboardRibbonExpanded = true;
   LockSlipResult? _pendingSlipLockResult;
   bool get _isSavingSlip => _isSavingSlipNotifier.value;
   Timer? _selectionExpiryTimer;
@@ -519,6 +523,15 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   @override
   void initState() {
     super.initState();
+    _scoreboardController = ScoreboardController(
+      service: ScoreboardService(baseUrl: ApiService.baseUrl),
+    );
+    unawaited(
+      _scoreboardController.load(
+        silent: _scoreboardController.games.isNotEmpty,
+      ),
+    );
+    _scoreboardController.beginLiveRefresh();
     if (AuthManager.instance.sessionState.value.authenticated) {
       unawaited(_prefetchStartupProps());
     }
@@ -668,6 +681,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 
   @override
   void dispose() {
+    _scoreboardController.dispose();
     _isSavingSlipNotifier.dispose();
     _selectionExpiryTimer?.cancel();
     _ticketSyncRetryTimer?.cancel();
@@ -785,6 +799,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
         index: _mainPageIndex(),
         children: [
           MainDashboard(
+            scoreboardController: _scoreboardController,
             selections: _slipSelections,
             onSelect: _toggleSelection,
             onAddGameMarket: _addGameMarketLeg,
@@ -1183,16 +1198,40 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   Widget _buildTopNavigation() {
     final session = AuthManager.instance.sessionState.value;
     final hasProAccess = session.isOwner || session.hasEdgeAccess;
-    return TopNavigation(
-      selectedPage: _selectedPage,
+    if (MediaQuery.sizeOf(context).width < 1000) {
+      return TopNavigation(
+        selectedPage: _selectedPage,
+        selectedSport: _selectedBoardSport,
+        accentColor: hasProAccess
+            ? app_colors.AppColors.gold
+            : app_colors.AppColors.silver,
+        onTabSelected: (page) => _switchToPage(page, source: 'top-nav'),
+        onSportSelected: _selectBoardSport,
+      );
+    }
+    return ScoreboardNavigationRibbon(
+      controller: _scoreboardController,
+      expanded: _scoreboardRibbonExpanded,
       selectedSport: _selectedBoardSport,
       accentColor: hasProAccess
-          ? app_colors.AppColors.gold
-          : app_colors.AppColors.silver,
-      onTabSelected: (page) {
-        _switchToPage(page, source: 'top-nav');
+          ? app_colors.AppColors.piGold
+          : app_colors.AppColors.coreSilver,
+      soundService: AppSoundService.instance,
+      onExpandedChanged: (expanded) {
+        if (!mounted) return;
+        setState(() => _scoreboardRibbonExpanded = expanded);
       },
       onSportSelected: _selectBoardSport,
+      onOpenScoreboard: () =>
+          _switchToPage(AppPage.scoreboard, source: 'scoreboard-ribbon'),
+      onOpenGameMarkets: () =>
+          _switchToPage(AppPage.gameMarkets, source: 'scoreboard-ribbon'),
+      onOpenOwnerOperations: session.isOwner
+          ? () => _switchToPage(
+              AppPage.ownerOperations,
+              source: 'scoreboard-ribbon',
+            )
+          : null,
     );
   }
 
@@ -2148,6 +2187,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             builder: (context, _) => AppShell(
               leftSidebar: _buildLeftSidebar(),
               topNavigation: _buildTopNavigation(),
+              topNavigationHeight: _scoreboardRibbonExpanded ? 188 : 84,
               content: _buildMainContent(),
               accountPanel: _buildAccountPanel(),
               activeSlipPanel: _buildActiveSlipPanel(),
@@ -2181,8 +2221,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
               membershipLabel: tierName.toUpperCase(),
               soundService: AppSoundService.instance,
               isOwner: session.isOwner,
-              ownerOperationsSelected:
-                  _selectedPage == AppPage.ownerOperations,
+              ownerOperationsSelected: _selectedPage == AppPage.ownerOperations,
               onOpenOwnerOperations: () => _switchToPage(
                 AppPage.ownerOperations,
                 source: 'right-rail-owner-operations',

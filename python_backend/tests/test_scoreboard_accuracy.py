@@ -1,3 +1,5 @@
+from datetime import date, datetime, timezone
+
 import main
 
 
@@ -35,3 +37,71 @@ def test_scoreboard_dedupe_collapses_same_fallback_event() -> None:
     assert main._scoreboard_dedupe_key(provider_a) == main._scoreboard_dedupe_key(
         provider_b
     )
+
+
+def test_espn_scoreboard_includes_broadcast_and_source(monkeypatch) -> None:
+    class Response:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "events": [
+                    {
+                        "id": "401",
+                        "date": "2026-08-29T19:00:00Z",
+                        "competitions": [
+                            {
+                                "broadcasts": [{"names": ["ESPN", "ABC"]}],
+                                "status": {
+                                    "type": {
+                                        "state": "in",
+                                        "shortDetail": "Q3 04:12",
+                                    }
+                                },
+                                "competitors": [
+                                    {
+                                        "homeAway": "away",
+                                        "score": "17",
+                                        "team": {"displayName": "Away Team"},
+                                    },
+                                    {
+                                        "homeAway": "home",
+                                        "score": "21",
+                                        "team": {"displayName": "Home Team"},
+                                    },
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            }
+
+    monkeypatch.setattr(main.requests, "get", lambda *args, **kwargs: Response())
+
+    games = main._espn_scoreboard_games_for_sport("NFL", date(2026, 8, 29))
+
+    assert games[0]["status"] == "LIVE"
+    assert games[0]["detail"] == "Q3 04:12"
+    assert games[0]["broadcast"] == "ESPN, ABC"
+    assert games[0]["source"] == "ESPN"
+
+
+def test_scoreboard_normalization_preserves_authoritative_espn_status() -> None:
+    game = main._normalize_scoreboard_game(
+        {
+            "id": "401",
+            "away_team": "Away Team",
+            "home_team": "Home Team",
+            "commence_time": "2026-08-29T19:00:00Z",
+            "status": "UPCOMING",
+            "broadcast": "ESPN",
+            "source": "ESPN",
+        },
+        "NFL",
+        datetime(2026, 8, 29, 20, 0, tzinfo=timezone.utc),
+    )
+
+    assert game["status"] == "UPCOMING"
+    assert game["broadcast"] == "ESPN"
+    assert game["source"] == "ESPN"

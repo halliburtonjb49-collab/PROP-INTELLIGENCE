@@ -676,6 +676,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
     );
   }
 
+  // ignore: unused_element
   void _showAboutDialog() {
     showDialog<void>(
       context: context,
@@ -1238,6 +1239,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
   }
 }
 
+// ignore: unused_element
 class _InstallAnywhereSection extends StatelessWidget {
   final bool compact;
 
@@ -1470,6 +1472,7 @@ class _TopNavigation extends StatelessWidget {
     required this.onSignUp,
   });
 
+  // ignore: unused_element
   Future<void> _showMobileMenu(BuildContext context) async {
     const items = <(String, String, IconData)>[
       ('INSTALL APP', 'install', Icons.install_mobile_rounded),
@@ -1719,14 +1722,16 @@ class _HeroBrand extends StatelessWidget {
                 const SizedBox(width: 7),
                 Flexible(
                   child: Text(
-                  compact ? 'SECURE PI WORKSPACE' : 'SECURE RESEARCH WORKSPACE',
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: _gold,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .8,
-                  ),
+                    compact
+                        ? 'SECURE PI WORKSPACE'
+                        : 'SECURE RESEARCH WORKSPACE',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: _gold,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .8,
+                    ),
                   ),
                 ),
               ],
@@ -1735,7 +1740,7 @@ class _HeroBrand extends StatelessWidget {
         ),
         SizedBox(height: compact ? 16 : 20),
         Text(
-                  'THE PI PWA.\nBUILT FOR HOW YOU MOVE.',
+          'THE PI PWA.\nBUILT FOR HOW YOU MOVE.',
           textAlign: compact ? TextAlign.center : TextAlign.left,
           style: TextStyle(
             color: Colors.white,
@@ -1749,7 +1754,7 @@ class _HeroBrand extends StatelessWidget {
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 650),
           child: Text(
-                  'Your live research, saved selections, Watch history, and adaptive PI intelligence in one secure workspace on every screen.',
+            'Your live research, saved selections, Watch history, and adaptive PI intelligence in one secure workspace on every screen.',
             textAlign: compact ? TextAlign.center : TextAlign.left,
             style: TextStyle(
               color: _silver70,
@@ -1827,6 +1832,7 @@ class _PwaBenefitChip extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _HeroCapability extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -1860,6 +1866,7 @@ class _HeroCapability extends StatelessWidget {
   );
 }
 
+// ignore: unused_element
 class _ProductPreview extends StatelessWidget {
   final bool compact;
 
@@ -1997,10 +2004,7 @@ class _PreviewProvider extends StatelessWidget {
           ),
           child: Text(
             provider.substring(0, 1),
-            style: const TextStyle(
-              color: _gold,
-              fontWeight: FontWeight.w900,
-            ),
+            style: const TextStyle(color: _gold, fontWeight: FontWeight.w900),
           ),
         ),
         const SizedBox(width: 10),

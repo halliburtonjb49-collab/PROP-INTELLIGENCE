@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/prop_data.dart';
 import '../models/slip_selection.dart';
+import '../controllers/scoreboard_controller.dart';
 import '../navigation/app_navigation.dart';
 import '../pages/briefing_page.dart';
 import '../pages/injury_impact_page.dart';
@@ -173,6 +174,7 @@ class MainDashboard extends StatefulWidget {
   final ValueNotifier<int> propCountNotifier;
   final ValueNotifier<int> refreshRequestNotifier;
   final ValueChanged<String>? onStartupLog;
+  final ScoreboardController scoreboardController;
 
   /// Changes the board's sport. Wired to the same handler the sidebar rail
   /// uses, so the two controls cannot disagree about what is selected.
@@ -196,6 +198,7 @@ class MainDashboard extends StatefulWidget {
     required this.propCountNotifier,
     required this.refreshRequestNotifier,
     this.onStartupLog,
+    required this.scoreboardController,
   });
 
   @override
@@ -2892,9 +2895,12 @@ class _MainDashboardState extends State<MainDashboard> {
                           : widget.selectedPage == AppPage.evScanner
                           ? _buildEvScanner()
                           : widget.selectedPage == AppPage.scoreboard
-                          ? const LiveScoreboardTickerGridWidget()
+                          ? LiveScoreboardTickerGridWidget(
+                              controller: widget.scoreboardController,
+                            )
                           : widget.selectedPage == AppPage.scoreboardWatchlist
-                          ? const LiveScoreboardTickerGridWidget(
+                          ? LiveScoreboardTickerGridWidget(
+                              controller: widget.scoreboardController,
                               watchedOnly: true,
                             )
                           : widget.selectedPage == AppPage.propAlerts

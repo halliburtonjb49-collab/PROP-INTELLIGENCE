@@ -11,9 +11,14 @@ import '../services/scoreboard_watchlist_service.dart';
 import '../theme/app_colors.dart' as brand_colors;
 
 class LiveScoreboardTickerGridWidget extends StatefulWidget {
-  const LiveScoreboardTickerGridWidget({super.key, this.watchedOnly = false});
+  const LiveScoreboardTickerGridWidget({
+    super.key,
+    this.watchedOnly = false,
+    this.controller,
+  });
 
   final bool watchedOnly;
+  final ScoreboardController? controller;
 
   @override
   State<LiveScoreboardTickerGridWidget> createState() =>
@@ -34,6 +39,7 @@ class _LiveScoreboardTickerGridWidgetState
   static const _green = brand_colors.AppColors.blue;
 
   late final ScoreboardController _controller;
+  late final bool _ownsController;
   final ScrollController _scrollController = ScrollController();
   final ScoreboardWatchlistService _watchlist =
       ScoreboardWatchlistService.instance;
@@ -44,14 +50,19 @@ class _LiveScoreboardTickerGridWidgetState
   @override
   void initState() {
     super.initState();
-    _controller = ScoreboardController(
-      service: ScoreboardService(baseUrl: ApiService.baseUrl),
-    );
+    _ownsController = widget.controller == null;
+    _controller =
+        widget.controller ??
+        ScoreboardController(
+          service: ScoreboardService(baseUrl: ApiService.baseUrl),
+        );
     _controller.addListener(_handleControllerUpdate);
     _watchlist.watchedIds.addListener(_handleControllerUpdate);
     unawaited(_watchlist.load());
-    unawaited(_controller.load(silent: _controller.games.isNotEmpty));
-    _controller.beginLiveRefresh();
+    if (_ownsController) {
+      unawaited(_controller.load(silent: _controller.games.isNotEmpty));
+      _controller.beginLiveRefresh();
+    }
   }
 
   void _handleControllerUpdate() {
@@ -63,7 +74,7 @@ class _LiveScoreboardTickerGridWidgetState
   void dispose() {
     _controller.removeListener(_handleControllerUpdate);
     _watchlist.watchedIds.removeListener(_handleControllerUpdate);
-    _controller.dispose();
+    if (_ownsController) _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }

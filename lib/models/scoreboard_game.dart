@@ -14,6 +14,7 @@ class ScoreboardGame {
     this.displayTime,
     this.startTime,
     this.venue,
+    this.broadcast,
     this.fighterOne,
     this.fighterTwo,
     this.fighterOneImage,
@@ -39,6 +40,7 @@ class ScoreboardGame {
   final String? displayTime;
   final DateTime? startTime;
   final String? venue;
+  final String? broadcast;
   final String? fighterOne;
   final String? fighterTwo;
   final String? fighterOneImage;
@@ -132,6 +134,8 @@ class ScoreboardGame {
             json['game_time'],
       ),
       venue: json['venue']?.toString(),
+      broadcast: (json['broadcast'] ?? json['network'] ?? json['channel'] ?? '')
+          .toString(),
       fighterOne:
           (json['fighter_one'] ?? json['fighter1'] ?? json['red_corner'] ?? '')
               .toString(),

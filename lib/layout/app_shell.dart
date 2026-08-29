@@ -59,6 +59,7 @@ class AppShell extends StatefulWidget {
     this.onMobileNavigateIndex,
     this.accentColor = AppColors.gold,
     this.membershipLabel = 'CORE',
+    this.topNavigationHeight = 84,
     required this.soundService,
     required this.isOwner,
     required this.ownerOperationsSelected,
@@ -80,6 +81,7 @@ class AppShell extends StatefulWidget {
   final ValueChanged<int>? onMobileNavigateIndex;
   final Color accentColor;
   final String membershipLabel;
+  final double topNavigationHeight;
   final AppSoundService soundService;
   final bool isOwner;
   final bool ownerOperationsSelected;
@@ -95,7 +97,6 @@ class _AppShellState extends State<AppShell> {
   bool _isRightPanelOpen = false;
   _RightPanelSection _activeRightPanelSection = _RightPanelSection.activeSlip;
 
-  static const double topHeight = 84;
   static const double desktopRightRailWidth = 58;
   static const double desktopRightPanelWidth = 340;
 
@@ -159,6 +160,9 @@ class _AppShellState extends State<AppShell> {
         }
         final metrics = _metrics(constraints.maxWidth);
         final radius = BorderRadius.circular(18);
+        final resolvedTopHeight = widget.topNavigationHeight
+            .clamp(84.0, constraints.maxHeight * 0.30)
+            .toDouble();
         return Scaffold(
           backgroundColor: AppColors.background,
           body: Stack(
@@ -180,8 +184,10 @@ class _AppShellState extends State<AppShell> {
                       Expanded(
                         child: Column(
                           children: [
-                            SizedBox(
-                              height: topHeight,
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 240),
+                              curve: Curves.easeOutCubic,
+                              height: resolvedTopHeight,
                               child: _surface(
                                 borderRadius: radius,
                                 highlighted: true,
@@ -406,10 +412,7 @@ class _DesktopRightPanelContentState extends State<_DesktopRightPanelContent> {
                     key: const ValueKey('right-panel-close'),
                     tooltip: 'Close panel',
                     onPressed: widget.onClose,
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: widget.accentColor,
-                    ),
+                    icon: Icon(Icons.close_rounded, color: widget.accentColor),
                   ),
                 ),
               ],
@@ -610,7 +613,11 @@ class _RightPanelRail extends StatelessWidget {
               openActionSize: 0,
               openAction: const SizedBox.shrink(),
               trailing: ownerOperationsSelected
-                  ? Icon(Icons.check_circle_rounded, size: 12, color: accentColor)
+                  ? Icon(
+                      Icons.check_circle_rounded,
+                      size: 12,
+                      color: accentColor,
+                    )
                   : const SizedBox.shrink(),
             ),
           ],
