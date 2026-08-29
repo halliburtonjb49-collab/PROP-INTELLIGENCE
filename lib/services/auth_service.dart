@@ -296,8 +296,9 @@ class SportsAppAuthService {
         provider,
         redirectTo: _redirectUrlOrNull,
         authScreenLaunchMode: !kIsWeb &&
-                (defaultTargetPlatform == TargetPlatform.iOS ||
-                    defaultTargetPlatform == TargetPlatform.android)
+                defaultTargetPlatform == TargetPlatform.iOS
+            ? LaunchMode.inAppBrowserView
+            : !kIsWeb && defaultTargetPlatform == TargetPlatform.android
             ? LaunchMode.externalApplication
             : LaunchMode.platformDefault,
         scopes: provider == OAuthProvider.apple ? 'email name' : null,
