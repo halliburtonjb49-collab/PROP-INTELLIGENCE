@@ -1298,6 +1298,36 @@ class _InstallAnywhereSection extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(color: _silver70, fontSize: 14, height: 1.5),
           ),
+          const SizedBox(height: 22),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 10,
+            runSpacing: 10,
+            children: const [
+              _PwaBenefitChip(
+                icon: Icons.bolt_rounded,
+                label: 'INSTALL IN SECONDS',
+              ),
+              _PwaBenefitChip(
+                icon: Icons.system_update_alt_rounded,
+                label: 'AUTOMATIC UPDATES',
+              ),
+              _PwaBenefitChip(
+                icon: Icons.devices_rounded,
+                label: 'ONE APP ACROSS DEVICES',
+              ),
+              _PwaBenefitChip(
+                icon: Icons.storefront_outlined,
+                label: 'NO APP STORE WAIT',
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'PI delivers an installed, app-like experience directly from the web, so improvements reach you without waiting for a new app-store release.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: _silver70, fontSize: 12, height: 1.45),
+          ),
           const SizedBox(height: 24),
           LayoutBuilder(
             builder: (context, constraints) {
@@ -1758,6 +1788,41 @@ class _HeroBrand extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PwaBenefitChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _PwaBenefitChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+      decoration: BoxDecoration(
+        color: _gold.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: _gold.withValues(alpha: 0.42)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: _gold, size: 16),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: const TextStyle(
+              color: _silver,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.45,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
