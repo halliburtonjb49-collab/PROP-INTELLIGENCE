@@ -604,12 +604,24 @@ class PropChatService {
         .from('prop_chat_messages')
         .stream(primaryKey: ['id'])
         .order('created_at')
-        .listen((rows) => unawaited(_handleGlobalMessages(rows)));
+        .listen(
+          (rows) => unawaited(_handleGlobalMessages(rows)),
+          onError: (Object error, StackTrace stackTrace) {
+            debugPrint('PROP CHAT global message realtime unavailable: $error');
+            unawaited(refreshUnreadSummary());
+          },
+        );
     _globalDirectMessages = client
         .from('prop_chat_direct_messages')
         .stream(primaryKey: ['id'])
         .order('created_at')
-        .listen((rows) => unawaited(_handleGlobalDirectMessages(rows)));
+        .listen(
+          (rows) => unawaited(_handleGlobalDirectMessages(rows)),
+          onError: (Object error, StackTrace stackTrace) {
+            debugPrint('PROP CHAT global direct realtime unavailable: $error');
+            unawaited(refreshUnreadSummary());
+          },
+        );
   }
 
   Future<void> _handleGlobalMessages(
