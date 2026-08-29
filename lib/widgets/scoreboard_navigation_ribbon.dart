@@ -374,7 +374,7 @@ class _ScoreboardNavigationRibbonState
 
   Widget _gameRow(List<ScoreboardGame> games, int pages) {
     if (widget.controller.isLoading && games.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const _ScoreboardLoadingSequence();
     }
     if (games.isEmpty) {
       return Center(
@@ -439,6 +439,146 @@ class _ScoreboardNavigationRibbonState
       ],
     );
   }
+}
+
+class _ScoreboardLoadingSequence extends StatefulWidget {
+  const _ScoreboardLoadingSequence();
+
+  @override
+  State<_ScoreboardLoadingSequence> createState() =>
+      _ScoreboardLoadingSequenceState();
+}
+
+class _ScoreboardLoadingSequenceState extends State<_ScoreboardLoadingSequence>
+    with SingleTickerProviderStateMixin {
+  static const _stages = <String>[
+    'SYNCING LIVE SCORES',
+    'RESOLVING OFFICIAL TEAM LOGOS',
+    'ORGANIZING LIVE & UPCOMING GAMES',
+  ];
+
+  late final AnimationController _scan;
+  Timer? _stageTimer;
+  int _stage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scan = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+    _stageTimer = Timer.periodic(const Duration(milliseconds: 1200), (_) {
+      if (mounted) setState(() => _stage = (_stage + 1) % _stages.length);
+    });
+  }
+
+  @override
+  void dispose() {
+    _stageTimer?.cancel();
+    _scan.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    label: 'Prop Intelligence scoreboard loading. ${_stages[_stage]}',
+    child: Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0B2230), Color(0xFF071722), Color(0xFF040D14)],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.62)),
+      ),
+      child: Stack(
+        children: [
+          AnimatedBuilder(
+            animation: _scan,
+            builder: (context, child) => Align(
+              alignment: Alignment((_scan.value * 2) - 1, 0),
+              child: child,
+            ),
+            child: Container(
+              width: 2,
+              decoration: BoxDecoration(
+                color: AppColors.goldHighlight,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.gold.withValues(alpha: 0.5),
+                    blurRadius: 14,
+                    spreadRadius: 3,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfacePrimary,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.gold),
+                  ),
+                  child: Image.asset(
+                    'assets/branding/Prop_Intelligence_Master_Logo.png',
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, error, stackTrace) => const Center(
+                      child: Text(
+                        'PI',
+                        style: TextStyle(
+                          color: AppColors.goldHighlight,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'PROP INTELLIGENCE',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      child: Text(
+                        _stages[_stage],
+                        key: ValueKey(_stage),
+                        style: const TextStyle(
+                          color: AppColors.goldHighlight,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _GameRibbonCard extends StatelessWidget {

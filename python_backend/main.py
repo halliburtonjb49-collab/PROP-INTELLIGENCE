@@ -2061,6 +2061,7 @@ def _espn_team_logo_catalog(league: str) -> dict[str, str]:
 	if path is None:
 		cache[league] = {}
 		return {}
+	payload: object = None
 	try:
 		response = requests.get(
 			f"https://site.api.espn.com/apis/site/v2/sports/{path}/teams",
@@ -2074,7 +2075,28 @@ def _espn_team_logo_catalog(league: str) -> dict[str, str]:
 		response.raise_for_status()
 		payload = response.json()
 	except (requests.RequestException, ValueError):
-		return {}
+		# ESPN's site team directory is denied by some production edges. Its
+		# standings API exposes the same official team identity and logo data.
+		try:
+			response = requests.get(
+				f"https://site.web.api.espn.com/apis/v2/sports/{path}/standings",
+				params={
+					"region": "us",
+					"lang": "en",
+					"contentorigin": "espn",
+					"type": 0,
+					"level": 3,
+				},
+				headers={
+					"Accept": "application/json",
+					"User-Agent": "PI-Prop-Intelligence/1.0 scoreboard",
+				},
+				timeout=min(5, HTTP_TIMEOUT_SECONDS),
+			)
+			response.raise_for_status()
+			payload = response.json()
+		except (requests.RequestException, ValueError):
+			return {}
 
 	catalog: dict[str, str] = {}
 	sports = payload.get("sports") if isinstance(payload, dict) else None
@@ -2105,6 +2127,32 @@ def _espn_team_logo_catalog(league: str) -> dict[str, str]:
 				key = _scoreboard_team_key(alias)
 				if key:
 					catalog[key] = logo
+
+	def add_standings_teams(node: object) -> None:
+		if isinstance(node, dict):
+			team = node.get("team")
+			if isinstance(team, dict):
+				logo = _espn_team_logo(team)
+				if logo:
+					aliases = {
+						team.get("displayName"),
+						team.get("shortDisplayName"),
+						team.get("location"),
+						team.get("name"),
+						team.get("abbreviation"),
+					}
+					for alias in aliases:
+						key = _scoreboard_team_key(alias)
+						if key:
+							catalog[key] = logo
+			for value in node.values():
+				add_standings_teams(value)
+		elif isinstance(node, list):
+			for value in node:
+				add_standings_teams(value)
+
+	if not catalog:
+		add_standings_teams(payload)
 	cache[league] = catalog
 	return catalog
 
