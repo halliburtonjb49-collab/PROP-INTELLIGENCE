@@ -43,6 +43,20 @@ class ScoreboardNavigationRibbon extends StatefulWidget {
 
 class _ScoreboardNavigationRibbonState
     extends State<ScoreboardNavigationRibbon> {
+  static const _visibleScoreboardSports = <String>{
+    'MLB',
+    'NFL',
+    'NBA',
+    'WNBA',
+    'NHL',
+    'SOCCER',
+    'MLS',
+    'EPL',
+    'NCAAF',
+    'NCAAB',
+    'CFL',
+  };
+
   static const _sports = <String>[
     'MLB',
     'NFL',
@@ -122,6 +136,12 @@ class _ScoreboardNavigationRibbonState
   List<ScoreboardGame> get _orderedGames {
     final seen = <String>{};
     final games = widget.controller.games.where((game) {
+      final sport = game.sport.trim().toUpperCase();
+      final league = game.league.trim().toUpperCase();
+      if (!_visibleScoreboardSports.contains(sport) &&
+          !_visibleScoreboardSports.contains(league)) {
+        return false;
+      }
       if (game.id.trim().isEmpty ||
           game.awayTeam.trim().isEmpty ||
           game.homeTeam.trim().isEmpty) {
@@ -164,9 +184,9 @@ class _ScoreboardNavigationRibbonState
 
   int _cardsPerPage(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    if (width >= 1700) return 6;
-    if (width >= 1450) return 5;
-    if (width >= 1100) return 4;
+    if (width >= 1650) return 6;
+    if (width >= 1350) return 5;
+    if (width >= 1000) return 4;
     return 3;
   }
 
@@ -195,12 +215,12 @@ class _ScoreboardNavigationRibbonState
       onExit: (_) => setState(() => _hovered = false),
       child: Container(
         color: AppColors.surfacePrimary,
-        padding: EdgeInsets.fromLTRB(12, widget.expanded ? 8 : 5, 12, 5),
+        padding: EdgeInsets.fromLTRB(10, widget.expanded ? 6 : 4, 10, 4),
         child: Column(
           children: [
             _header(games),
             if (widget.expanded) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Expanded(child: _gameRow(visible, pages)),
             ],
           ],
@@ -462,7 +482,7 @@ class _GameRibbonCard extends StatelessWidget {
         onTap: onOpen,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 9, 10, 8),
+          padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -499,7 +519,7 @@ class _GameRibbonCard extends StatelessWidget {
                 game.awayScore,
                 awayLeading,
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 1),
               _team(
                 game.homeLogo,
                 _abbr(game.homeTeam, game.homeLogo),
@@ -576,8 +596,8 @@ class _GameRibbonCard extends StatelessWidget {
   Widget _team(String? logo, String name, int? score, bool leading) => Row(
     children: [
       SizedBox(
-        width: 26,
-        height: 26,
+        width: 22,
+        height: 22,
         child: logo != null && logo.isNotEmpty
             ? Container(
                 padding: const EdgeInsets.all(2),
@@ -595,18 +615,18 @@ class _GameRibbonCard extends StatelessWidget {
               )
             : _teamBadge(name),
       ),
-      const SizedBox(width: 5),
+      const SizedBox(width: 4),
       Expanded(
         child: Text(
           name,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
         ),
       ),
       Text(
         score?.toString() ?? '-',
         style: TextStyle(
           color: leading ? accentColor : AppColors.textPrimary,
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: FontWeight.w900,
         ),
       ),

@@ -2185,7 +2185,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
             builder: (context, _) => AppShell(
               leftSidebar: _buildLeftSidebar(),
               topNavigation: _buildTopNavigation(),
-              topNavigationHeight: _scoreboardRibbonExpanded ? 188 : 84,
+              topNavigationHeight: _scoreboardRibbonExpanded ? 158 : 76,
               content: _buildMainContent(),
               accountPanel: _buildAccountPanel(),
               activeSlipPanel: _buildActiveSlipPanel(),

@@ -2007,6 +2007,48 @@ def _scoreboard_team_key(value: object) -> str:
 	)
 
 
+_ESPN_MLB_LOGO_SLUGS = {
+	"arizonadiamondbacks": "ari",
+	"atlantabraves": "atl",
+	"baltimoreorioles": "bal",
+	"bostonredsox": "bos",
+	"chicagocubs": "chc",
+	"chicagowhitesox": "chw",
+	"cincinnatireds": "cin",
+	"clevelandguardians": "cle",
+	"coloradorockies": "col",
+	"detroittigers": "det",
+	"houstonastros": "hou",
+	"kansascityroyals": "kc",
+	"losangelesangels": "laa",
+	"losangelesdodgers": "lad",
+	"miamimarlins": "mia",
+	"milwaukeebrewers": "mil",
+	"minnesotatwins": "min",
+	"newyorkmets": "nym",
+	"newyorkyankees": "nyy",
+	"athletics": "oak",
+	"oaklandathletics": "oak",
+	"philadelphiaphillies": "phi",
+	"pittsburghpirates": "pit",
+	"sandiegopadres": "sd",
+	"sanfranciscogiants": "sf",
+	"seattlemariners": "sea",
+	"stlouiscardinals": "stl",
+	"tampabayrays": "tb",
+	"texasrangers": "tex",
+	"torontobluejays": "tor",
+	"washingtonnationals": "wsh",
+}
+
+
+def _stable_espn_team_logo(league: str, team_name: str) -> str:
+	if league != "MLB":
+		return ""
+	slug = _ESPN_MLB_LOGO_SLUGS.get(_scoreboard_team_key(team_name), "")
+	return f"https://a.espncdn.com/i/teamlogos/mlb/500/{slug}.png" if slug else ""
+
+
 def _espn_team_logo_catalog(league: str) -> dict[str, str]:
 	cache = getattr(_espn_team_logo_catalog, "_cache", None)
 	if not isinstance(cache, dict):
@@ -2333,13 +2375,15 @@ def _normalize_scoreboard_game(
 	start_time = _parse_start_time(start_time_utc)
 	completed = bool(event.get("completed"))
 	logo_catalog = _espn_team_logo_catalog(league)
-	away_logo = str(event.get("away_logo") or "").strip() or logo_catalog.get(
-		_scoreboard_team_key(away_team),
-		"",
+	away_logo = (
+		str(event.get("away_logo") or "").strip()
+		or logo_catalog.get(_scoreboard_team_key(away_team), "")
+		or _stable_espn_team_logo(league, away_team)
 	)
-	home_logo = str(event.get("home_logo") or "").strip() or logo_catalog.get(
-		_scoreboard_team_key(home_team),
-		"",
+	home_logo = (
+		str(event.get("home_logo") or "").strip()
+		or logo_catalog.get(_scoreboard_team_key(home_team), "")
+		or _stable_espn_team_logo(league, home_team)
 	)
 
 	explicit_status = str(event.get("status") or "").strip().upper()
