@@ -2,6 +2,11 @@ import 'package:flutter/foundation.dart';
 
 import 'api_service.dart';
 
+// Increment only when the player-photo delivery pipeline changes. Keeping the
+// revision in the shared resolver invalidates previously cached opaque/black
+// responses across the board, slips, history, and specialty views together.
+const String _playerImageRevision = '20260829-1';
+
 String resolvePlayerImagePath(
   String rawPath, {
   String? apiBaseUrl,
@@ -10,13 +15,14 @@ String resolvePlayerImagePath(
   final trimmed = rawPath.trim();
   if (trimmed.isEmpty) return '';
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    final revisedRemote = _versionedSupportedRemoteImage(trimmed);
     // Browser image requests can use these CORS-enabled sports CDNs directly,
     // avoiding a second network hop through Render for every player card.
     if (!(useApiProxyForRemoteImages ?? !kIsWeb)) {
-      return trimmed;
+      return revisedRemote;
     }
     return _proxySupportedPlayerImage(
-      trimmed,
+      revisedRemote,
       apiBaseUrl: apiBaseUrl ?? ApiService.baseUrl,
     );
   }
@@ -43,7 +49,7 @@ String resolvePlayerImageFallbackPath(String rawPath, {String? apiBaseUrl}) {
   final trimmed = rawPath.trim();
   if (!trimmed.startsWith('https://')) return '';
   final fallback = _proxySupportedPlayerImage(
-    trimmed,
+    _versionedSupportedRemoteImage(trimmed),
     apiBaseUrl: apiBaseUrl ?? ApiService.baseUrl,
   );
   return fallback == trimmed ? '' : fallback;
@@ -69,7 +75,25 @@ String _proxySupportedPlayerImage(
       : apiBase;
   return Uri.parse(
     '$normalizedBase/player-image-proxy',
-  ).replace(queryParameters: {'url': imageUrl}).toString();
+  ).replace(queryParameters: {
+    'url': imageUrl,
+    'revision': _playerImageRevision,
+  }).toString();
+}
+
+String _versionedSupportedRemoteImage(String imageUrl) {
+  final uri = Uri.tryParse(imageUrl);
+  if (uri == null || !_proxiedImageHosts.contains(uri.host.toLowerCase())) {
+    return imageUrl;
+  }
+  return uri
+      .replace(
+        queryParameters: {
+          ...uri.queryParameters,
+          'pi_photo': _playerImageRevision,
+        },
+      )
+      .toString();
 }
 
 const Set<String> _proxiedImageHosts = {'a.espncdn.com', 'img.mlbstatic.com'};

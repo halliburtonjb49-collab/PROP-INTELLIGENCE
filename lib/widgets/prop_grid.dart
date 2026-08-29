@@ -317,9 +317,12 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         );
       }
 
+      // Use the revised direct CDN image first on web. The API proxy is only
+      // the retry path, matching PlayerImageWidget and preventing a cached
+      // opaque proxy response from appearing as a successful black photo.
       return webImage(
-        proxiedWebPath.isEmpty ? imagePath : proxiedWebPath,
-        retryUrl: imagePath,
+        imagePath,
+        retryUrl: proxiedWebPath.isEmpty ? null : proxiedWebPath,
       );
     }
 
@@ -3539,6 +3542,181 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _showLineAlternatives(PropBookGroup group) async {
+    final variants = [...group.variants]
+      ..sort((left, right) {
+        final provider = left.sportsbook.compareTo(right.sportsbook);
+        if (provider != 0) return provider;
+        return _displayedLineValue(left).compareTo(_displayedLineValue(right));
+      });
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF081620),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * .78,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 12, 10),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.swap_vert_circle_outlined,
+                      color: app_colors.AppColors.gold,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            group.representative.player.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            '${group.representative.market} • ${variants.length} CURRENT OPTIONS',
+                            style: const TextStyle(
+                              color: app_colors.AppColors.textMuted,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(sheetContext),
+                      icon: const Icon(Icons.close, color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: app_colors.AppColors.border),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.all(14),
+                  itemCount: variants.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final variant = variants[index];
+                    final advisedSide = variant.recommendedSide
+                            .trim()
+                            .toUpperCase()
+                            .contains('UNDER')
+                        ? PickSide.under
+                        : PickSide.over;
+                    final special = _specialLineBadge(variant, advisedSide);
+                    final lineValues = variants
+                        .map(_displayedLineValue)
+                        .toList(growable: false);
+                    final currentLine = _displayedLineValue(variant);
+                    final easiestLine = advisedSide == PickSide.over
+                        ? lineValues.reduce((a, b) => a < b ? a : b)
+                        : lineValues.reduce((a, b) => a > b ? a : b);
+                    final lineBadge = special ??
+                        (group.linesDiffer && currentLine == easiestLine
+                            ? advisedSide == PickSide.over
+                                ? 'LOWER LINE AVAILABLE'
+                                : 'HIGHER LINE AVAILABLE'
+                            : null);
+                    return Container(
+                      padding: const EdgeInsets.all(13),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0C1B26),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: lineBadge == null
+                              ? app_colors.AppColors.border
+                              : app_colors.AppColors.gold,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  variant.sportsbook.toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                              if (lineBadge != null)
+                                Text(
+                                  lineBadge,
+                                  style: const TextStyle(
+                                    color: app_colors.AppColors.gold,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: variant.dataStale
+                                      ? null
+                                      : () {
+                                          Navigator.pop(sheetContext);
+                                          widget.onSelect(
+                                            variant,
+                                            PickSide.under,
+                                          );
+                                        },
+                                  child: Text(
+                                    'UNDER ${_displayedLineValue(variant).toStringAsFixed(1)}',
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: variant.dataStale
+                                      ? null
+                                      : () {
+                                          Navigator.pop(sheetContext);
+                                          widget.onSelect(
+                                            variant,
+                                            PickSide.over,
+                                          );
+                                        },
+                                  child: Text(
+                                    'OVER ${_displayedLineValue(variant).toStringAsFixed(1)}',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -3590,11 +3768,25 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 ? widget.sportFilter
                 : widget.displaySportFilter;
             final normalizedSport = normalizePropSport(selectedSport);
+            final preparedSignature = Object.hashAll(
+              allPrepared.map(
+                (item) => Object.hash(
+                  item.prop.id,
+                  item.prop.line,
+                  item.prop.currentLine,
+                  item.prop.gameHasStarted,
+                ),
+              ),
+            );
             final boardCacheKey = [
-              identityHashCode(allPrepared),
+              preparedSignature,
               allPrepared.length,
               selectedSport,
               widget.selectedSite,
+              widget.selectedCategory,
+              widget.selectedSide,
+              widget.selectedTier,
+              widget.minConfidence,
               widget.searchQuery,
               widget.verdictFilter,
               widget.sortBy,
@@ -3749,17 +3941,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 final columns = propGridColumnCount(constraints.maxWidth);
                 final cardSpacing = propGridSpacing(constraints.maxWidth);
 
-                // Provider offers remain separate on the board. The backend
-                // grouping is still useful for sorting and identity, but the
-                // interface must not hide providers behind a card switcher.
-                final groups = [
-                  for (final group in _boardCacheGroups)
-                    for (final variant in group.variants)
-                      PropBookGroup(
-                        representative: variant,
-                        variants: [variant],
-                      ),
-                ];
+                // Keep one current card per player/market. Every provider,
+                // alternate line, and promotional line remains available
+                // through the options picker instead of appearing as a
+                // duplicate card or being silently discarded.
+                final groups = _boardCacheGroups;
                 final visibleCount = _visiblePropLimit.clamp(0, groups.length);
                 final visibleGroups = groups.take(visibleCount).toList();
                 final hasMore =
@@ -3793,7 +3979,40 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 Widget groupCardFor(
                   PropBookGroup group, {
                   required bool fixedHeight,
-                }) => cardFor(group.representative, fixedHeight: fixedHeight);
+                }) {
+                  final card = cardFor(
+                    group.representative,
+                    fixedHeight: fixedHeight,
+                  );
+                  if (!group.hasAlternatives) return card;
+                  final optionsButton = SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showLineAlternatives(group),
+                      icon: const Icon(Icons.swap_vert_rounded, size: 16),
+                      label: Text(
+                        '${group.variants.length} CURRENT LINE OPTIONS',
+                      ),
+                    ),
+                  );
+                  if (fixedHeight) {
+                    return Column(
+                      children: [
+                        Expanded(child: card),
+                        const SizedBox(height: 6),
+                        optionsButton,
+                      ],
+                    );
+                  }
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      card,
+                      const SizedBox(height: 6),
+                      optionsButton,
+                    ],
+                  );
+                }
 
                 Widget providerHeader(String provider, int count) => Container(
                   key: ValueKey('provider-section-$provider'),
@@ -3892,7 +4111,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                                   if (index > 0) SizedBox(width: cardSpacing),
                                   Expanded(
                                     child: SizedBox(
-                                      height: widget.siteFirstLayout ? 180 : 428,
+                                      height: widget.siteFirstLayout ? 226 : 474,
                                       child: groupCardFor(
                                         rowGroups[index],
                                         fixedHeight: true,
