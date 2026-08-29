@@ -581,6 +581,20 @@ class PropChatService {
   Future<void> startGlobalMonitoring() async {
     final client = _client;
     if (client == null) return;
+    // Supabase's web stream performs its initial PostgREST query before the
+    // subscription error handler is fully attached. A missing chat table or
+    // restrictive RLS policy can therefore escape into Flutter's root zone
+    // and prevent the core prop board from painting. Global chat monitoring
+    // is optional on web; use the guarded summary request there and keep
+    // realtime delivery for installed apps.
+    if (kIsWeb) {
+      try {
+        await refreshUnreadSummary();
+      } catch (error) {
+        debugPrint('PROP CHAT web unread summary unavailable: $error');
+      }
+      return;
+    }
     _globalAuth ??= client.auth.onAuthStateChange.listen((_) {
       unawaited(_restartGlobalMessageMonitor());
     });
