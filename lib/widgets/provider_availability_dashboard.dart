@@ -19,6 +19,7 @@ class ProviderAvailabilityDashboard extends StatelessWidget {
   Color _statusColor(String status) => switch (status.toUpperCase()) {
     'HEALTHY' => const Color(0xFF65E6B4),
     'PARTIAL' => AppColors.gold,
+    'OPTIONAL' => const Color(0xFFB8C3CC),
     'NOT_ENTITLED' => const Color(0xFFFFA65C),
     _ => const Color(0xFFFF7474),
   };
@@ -26,6 +27,7 @@ class ProviderAvailabilityDashboard extends StatelessWidget {
   IconData _statusIcon(String status) => switch (status.toUpperCase()) {
     'HEALTHY' => Icons.verified_rounded,
     'PARTIAL' => Icons.pending_actions_rounded,
+    'OPTIONAL' => Icons.extension_outlined,
     'NOT_ENTITLED' => Icons.lock_outline_rounded,
     _ => Icons.cloud_off_rounded,
   };

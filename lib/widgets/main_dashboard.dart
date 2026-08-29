@@ -353,6 +353,9 @@ class _MainDashboardState extends State<MainDashboard> {
             ? ''
             : _normalizeSport(widget.sportFilter);
         _selectedCategory = 'ALL';
+        _selectedSide = 'All';
+        _verdictFilter = 'ALL';
+        _marketQuickFilter = 'ALL';
         _latestProps = const [];
         _categoryCounts = const {};
         _totalCategoryCounts = const {};
@@ -2282,7 +2285,9 @@ class _MainDashboardState extends State<MainDashboard> {
                       setState(() {
                         _selectedSiteSport = sport;
                         _selectedCategory = 'ALL';
+                        _selectedSide = 'All';
                         _verdictFilter = 'ALL';
+                        _marketQuickFilter = 'ALL';
                         _latestProps = const [];
                         _lastUpdated = null;
                       });
@@ -2374,6 +2379,11 @@ class _MainDashboardState extends State<MainDashboard> {
                         'UNDER' => 'Under',
                         _ => 'All',
                       };
+                      if ((label == 'OVER' || label == 'UNDER') &&
+                          _selectedSite != 'ALL' &&
+                          _selectedSiteSport.isEmpty) {
+                        _siteDiscoveryExpanded = true;
+                      }
                       _verdictFilter = label == 'TOP PI PICKS'
                           ? 'ACTIONABLE'
                           : 'ALL';
@@ -3003,6 +3013,55 @@ class _MainDashboardState extends State<MainDashboard> {
                                       _buildActiveBoardFilters(),
                                       SizedBox(height: sectionGap),
                                     ],
+                                    if (_selectedSite != 'ALL' &&
+                                        _selectedSiteSport.isEmpty &&
+                                        (_selectedSide == 'Over' ||
+                                            _selectedSide == 'Under'))
+                                      Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                          vertical: 28,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: app_colors.AppColors.panel,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: app_colors.AppColors.gold
+                                                .withValues(alpha: .65),
+                                          ),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            const Icon(
+                                              Icons.sports_rounded,
+                                              color: app_colors.AppColors.gold,
+                                              size: 30,
+                                            ),
+                                            const SizedBox(height: 10),
+                                            Text(
+                                              'CHOOSE A SPORT FOR ${_selectedSide.toUpperCase()} PROPS',
+                                              textAlign: TextAlign.center,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            const Text(
+                                              'Over and Under markets are organized by sport so results stay focused and easy to compare.',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: app_colors.AppColors.textMuted,
+                                                fontSize: 10,
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    else
                                     PropGrid(
                                       selections: widget.selections,
                                       onSelect: (prop, side) {

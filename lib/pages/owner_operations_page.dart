@@ -797,18 +797,23 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     final checks = (certification['checks'] as List? ?? const [])
         .whereType<Map>()
         .toList(growable: false);
-    final status = certification['status']?.toString().toUpperCase() ?? 'FAIL';
+    final hasCertificationError =
+        certification['error']?.toString().trim().isNotEmpty == true;
+    final status = certification['status']?.toString().toUpperCase() ??
+        (hasCertificationError ? 'FAIL' : 'PENDING');
     final summaryColor = status == 'PASS'
         ? const Color(0xFF8CFFB2)
-        : status == 'WARN'
+        : status == 'WARN' || status == 'PENDING'
         ? AppColors.gold
         : const Color(0xFFFF7B7B);
     if (checks.isEmpty) {
       return _notice(
         Icons.fact_check_outlined,
-        'CERTIFICATION UNAVAILABLE',
+        hasCertificationError
+            ? 'CERTIFICATION UNAVAILABLE'
+            : 'AWAITING FIRST CERTIFICATION',
         certification['error']?.toString() ??
-            'The live catalog could not be certified.',
+            'The live catalog certification has not reported yet. It will appear after the next completed sync check.',
         summaryColor,
       );
     }

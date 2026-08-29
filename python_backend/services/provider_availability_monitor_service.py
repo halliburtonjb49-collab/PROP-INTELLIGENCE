@@ -161,7 +161,12 @@ def record_provider_availability(
             int(row.get("confirmedStarters") or 0) for row in rows
         )
         failed_events = sum(int(row.get("failedEvents") or 0) for row in rows)
-        errors = [str(row["error"]) for row in rows if row.get("error")]
+        raw_errors = [str(row["error"]) for row in rows if row.get("error")]
+        # A rejected or throttled supplemental source must not downgrade a
+        # sport when another authorized provider completed successfully. Keep
+        # raw provider diagnostics in `providers`, but reserve the public
+        # missing-data alert for a true all-provider failure.
+        errors = raw_errors if not authorized and authorization == "ERROR" else []
         missing: list[str] = []
         if authorization == "NOT_ENTITLED":
             missing.append("Provider plan does not include this sport.")

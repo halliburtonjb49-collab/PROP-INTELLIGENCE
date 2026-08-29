@@ -317,6 +317,16 @@ class _ImpactHeader extends StatelessWidget {
                   height: 1.35,
                 ),
               ),
+              SizedBox(height: 6),
+              Text(
+                'SPORT COVERAGE: Filters appear only for sports with current injury-affected props. An absent sport means there is no matched live injury impact right now, not that the sport is excluded.',
+                style: TextStyle(
+                  color: AppColors.gold,
+                  fontSize: 9,
+                  height: 1.35,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
         ),

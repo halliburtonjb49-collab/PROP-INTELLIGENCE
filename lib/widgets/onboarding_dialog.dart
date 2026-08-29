@@ -49,7 +49,7 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
       icon: Icons.fact_check_outlined,
       title: 'Read the PI verdict',
       body:
-          'PLAY NOW means the current evidence supports action. SHOP means compare lines. LEAN is directional research. WAIT means the timing or evidence is not ready.',
+          'BEST NOW highlights PI\'s strongest current research. BETTER LINE means compare available lines. SLIGHT EDGE is directional but lower conviction. WAIT / MONITOR means an important input is not ready.',
     ),
     (
       icon: Icons.monitor_heart_outlined,
@@ -162,32 +162,32 @@ class DecisionGuideSheet extends StatelessWidget {
 
   static const decisions = <({String name, String detail, Color color})>[
     (
-      name: 'PLAY NOW',
+      name: 'BEST NOW',
       detail:
-          'The current line, model evidence, and data quality support action now.',
+          'PI\'s strongest current research: the line, model evidence, and data quality are aligned.',
       color: Color(0xFF55D6A3),
     ),
     (
-      name: 'SHOP',
+      name: 'BETTER LINE',
       detail:
-          'The idea may be usable, but the current line is not the strongest available.',
+          'The research may be useful, but another available line offers a stronger comparison point.',
       color: Color(0xFF78B7FF),
     ),
     (
-      name: 'LEAN',
+      name: 'SLIGHT EDGE',
       detail:
-          'The evidence suggests a direction, but it is not strong enough to call a model-backed play.',
+          'The evidence suggests a direction, but confidence is below PI\'s strongest tier.',
       color: AppColors.gold,
     ),
     (
-      name: 'WAIT',
+      name: 'WAIT / MONITOR',
       detail:
-          'Lineup, freshness, price, or another important input is not ready.',
+          'Lineup, injury, freshness, role, or another important input still needs confirmation.',
       color: Color(0xFFFFB35C),
     ),
     (
       name: 'PASS',
-      detail: 'The available evidence does not support a directional decision.',
+      detail: 'The available evidence does not currently support a reliable direction.',
       color: AppColors.silver,
     ),
   ];

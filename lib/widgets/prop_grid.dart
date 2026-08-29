@@ -3113,7 +3113,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   void _startQueryLoad() {
     final requestKey = _queryKey;
     final cached = _sessionViewCache[requestKey];
-    if (cached == null) {
+    // Never restore an empty response as a valid board snapshot. Provider
+    // markets are transient, so revisiting a sport must perform a fresh sync
+    // instead of getting trapped on an earlier zero-result query.
+    if (cached == null || cached.isEmpty) {
       _preparedProps = const [];
       _propsFuture = _loadProps();
       return;
@@ -3129,6 +3132,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   }
 
   void _rememberCurrentView(String requestKey, List<PropData> props) {
+    if (props.isEmpty) {
+      _sessionViewCache.remove(requestKey);
+      return;
+    }
     _sessionViewCache[requestKey] = List<PropData>.unmodifiable(props);
   }
 
@@ -3840,8 +3847,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               if (!hasFilters && _automaticRetryCount < 3) {
                 _scheduleAutomaticRetry();
               }
-              if (!hasSecondaryFilters &&
-                  normalizedSport.isNotEmpty &&
+              // A selected sport deserves a schedule-aware empty state even
+              // when a book, side, or category is also selected. Previously
+              // those normal board filters forced Soccer, NCAAF, and CFL into
+              // the generic "no props" panel and hid known season dates.
+              if (normalizedSport.isNotEmpty &&
                   normalizedSport != 'ALL') {
                 return FutureBuilder<_SportSeasonStatus>(
                   future: _seasonStatus(normalizedSport),

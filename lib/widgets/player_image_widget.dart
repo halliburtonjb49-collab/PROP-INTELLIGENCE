@@ -76,10 +76,11 @@ class PlayerImageWidget extends StatelessWidget {
         filterQuality: FilterQuality.high,
         fadeInDuration: Duration.zero,
         fadeOutDuration: Duration.zero,
-        useOldImageOnUrlChange: false,
-        // Progressive loading placeholder
-        placeholder: (context, url) =>
-            showShimmer ? _buildShimmerPlaceholder() : _buildFallback(),
+        // Keep the decoded athlete bitmap mounted while refreshed prop data
+        // resolves to the same (or a revised) image URL. Replacing it with a
+        // placeholder on every feed rebuild caused visible photo blinking.
+        useOldImageOnUrlChange: true,
+        placeholder: (context, url) => _buildFallback(),
         // Enhanced error handling
         errorWidget: (context, url, error) {
           if (retryUrl.isEmpty || retryUrl == primaryUrl) {
@@ -108,12 +109,12 @@ class PlayerImageWidget extends StatelessWidget {
             filterQuality: FilterQuality.high,
             fadeInDuration: Duration.zero,
             fadeOutDuration: Duration.zero,
-            useOldImageOnUrlChange: false,
+            useOldImageOnUrlChange: true,
             memCacheWidth: width != null ? (width! * 2).toInt() : null,
             memCacheHeight: height != null ? (height! * 2).toInt() : null,
             maxWidthDiskCache: 800,
             maxHeightDiskCache: 800,
-            placeholder: (_, _) => _buildShimmerPlaceholder(),
+            placeholder: (_, _) => _buildFallback(),
             errorWidget: (_, failedUrl, _) {
               EngagementTracker.instance.recordProductOncePer(
                 'PLAYER_IMAGE_FAILURE:${failedUrl.hashCode}',
