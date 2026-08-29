@@ -1774,7 +1774,7 @@ class _HeroBrand extends StatelessWidget {
               SizedBox(width: 13),
               Expanded(
                 child: Text(
-                  'PRIVATE ACCOUNT ACCESS  •  AUTOMATIC PWA UPDATES  •  ONE WORKSPACE ACROSS DEVICES',
+                  '01  INSTALL IN SECONDS     02  ALWAYS CURRENT\n03  ONE APP. EVERY SCREEN.     04  NO APP STORE WAIT',
                   style: TextStyle(
                     color: _silver70,
                     fontSize: 10,
