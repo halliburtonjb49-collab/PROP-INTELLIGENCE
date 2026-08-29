@@ -167,7 +167,10 @@ class _ScoreboardNavigationRibbonState
       );
     });
     return switch (_tab) {
-      'LIVE NOW' => games.where((g) => g.isLive).toList(),
+      'LIVE NOW' => [
+        ...games.where((g) => g.isLive),
+        ...games.where((g) => g.isUpcoming),
+      ],
       'MY SPORTS' =>
         games
             .where(
@@ -392,22 +395,32 @@ class _ScoreboardNavigationRibbonState
           child: GestureDetector(
             onHorizontalDragEnd: (details) =>
                 _movePage((details.primaryVelocity ?? 0) < 0 ? 1 : -1),
-            child: Row(
-              children: [
-                for (var i = 0; i < games.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 6),
-                  Expanded(
-                    child: _GameRibbonCard(
-                      game: games[i],
-                      accentColor: widget.accentColor,
-                      watched: _watchlist.isWatching(games[i].id),
-                      onOpen: widget.onOpenScoreboard,
-                      onSport: () => widget.onSportSelected(games[i].sport),
-                      onWatch: () => unawaited(_watchlist.toggle(games[i])),
-                    ),
-                  ),
-                ],
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final slots = _cardsPerPage(context);
+                final cardWidth =
+                    (constraints.maxWidth - ((slots - 1) * 6)) / slots;
+                return Row(
+                  children: [
+                    for (var i = 0; i < games.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 6),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _GameRibbonCard(
+                          game: games[i],
+                          accentColor: widget.accentColor,
+                          watched: _watchlist.isWatching(games[i].id),
+                          onOpen: widget.onOpenScoreboard,
+                          onSport: () =>
+                              widget.onSportSelected(games[i].sport),
+                          onWatch: () =>
+                              unawaited(_watchlist.toggle(games[i])),
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -465,7 +478,9 @@ class _GameRibbonCard extends StatelessWidget {
     final awayLeading = (game.awayScore ?? -1) > (game.homeScore ?? -1);
     final homeLeading = (game.homeScore ?? -1) > (game.awayScore ?? -1);
     final footer = [
-      game.detail.trim(),
+      game.isUpcoming
+          ? (game.displayTime?.trim() ?? game.detail.trim())
+          : game.detail.trim(),
       game.broadcast?.trim() ?? '',
     ].where((value) => value.isNotEmpty).join(' • ');
     return Material(
@@ -596,8 +611,8 @@ class _GameRibbonCard extends StatelessWidget {
   Widget _team(String? logo, String name, int? score, bool leading) => Row(
     children: [
       SizedBox(
-        width: 22,
-        height: 22,
+        width: 28,
+        height: 28,
         child: logo != null && logo.isNotEmpty
             ? Container(
                 padding: const EdgeInsets.all(2),
@@ -623,7 +638,7 @@ class _GameRibbonCard extends StatelessWidget {
         ),
       ),
       Text(
-        score?.toString() ?? '-',
+        score?.toString() ?? '',
         style: TextStyle(
           color: leading ? accentColor : AppColors.textPrimary,
           fontSize: 14,
