@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../legal/legal_content.dart';
 
@@ -820,6 +821,16 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
     );
   }
 
+  Future<void> _openMarketingSite() async {
+    final opened = await launchUrl(
+      Uri.parse('https://pipropsintell.com'),
+      mode: LaunchMode.platformDefault,
+    );
+    if (!opened && mounted) {
+      _showFeedbackMessage('Open pipropsintell.com for product information.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -837,7 +848,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                     _TopNavigation(
                       compact: compact,
                       tight: tightDesktop,
-                      onBrandTap: _showAboutDialog,
+                      onBrandTap: _openMarketingSite,
                       onNavigate: _openSiteSection,
                       onLogin: () {
                         if (_isRegistering) {
@@ -910,8 +921,6 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
                                             ),
                                           ],
                                         ),
-                                      SizedBox(height: compact ? 34 : 48),
-                                      _InstallAnywhereSection(compact: compact),
                                       SizedBox(height: compact ? 24 : 34),
                                       _Footer(onNavigate: _openSiteSection),
                                     ],
@@ -1433,10 +1442,6 @@ class _TopNavigation extends StatelessWidget {
 
   Future<void> _showMobileMenu(BuildContext context) async {
     const items = <(String, String, IconData)>[
-      ('FEATURES', 'features', Icons.query_stats_rounded),
-      ('HOW PI LEARNS', 'how-it-works', Icons.route_rounded),
-      ('PRICING', 'pricing', Icons.workspace_premium_outlined),
-      ('ABOUT', 'about', Icons.info_outline_rounded),
       ('INSTALL APP', 'install', Icons.install_mobile_rounded),
       ('TERMS', 'terms', Icons.gavel_rounded),
       ('PRIVACY', 'privacy', Icons.privacy_tip_outlined),
@@ -1545,34 +1550,26 @@ class _TopNavigation extends StatelessWidget {
           ),
           const Spacer(),
           if (!accessibleCompact) ...[
-            for (final item in [
-              const ('FEATURES', 'features'),
-              const ('HOW PI LEARNS', 'how-it-works'),
-              const ('PRICING', 'pricing'),
-              const ('ABOUT', 'about'),
-            ])
-              TextButton(
-                onPressed: () => onNavigate(item.$2),
-                style: TextButton.styleFrom(
-                  foregroundColor: _silver70,
-                  padding: EdgeInsets.symmetric(horizontal: tight ? 4 : 8),
-                ),
-                child: Text(
-                  item.$1,
-                  style: TextStyle(fontSize: tight ? 9 : 11),
-                ),
+            TextButton(
+              onPressed: onBrandTap,
+              style: TextButton.styleFrom(
+                foregroundColor: _silver70,
+                padding: EdgeInsets.symmetric(horizontal: tight ? 4 : 8),
               ),
+              child: Text(
+                'PRODUCT SITE',
+                style: TextStyle(fontSize: tight ? 9 : 11),
+              ),
+            ),
             SizedBox(width: tight ? 6 : 14),
             _PwaInstallNavButton(onFallback: onNavigate),
             const SizedBox(width: 4),
           ] else ...[
-            // Install guidance already lives in the mobile menu below -
-            // no room for a separate icon on a phone-width top bar.
             IconButton(
               key: const ValueKey('mobile-info-menu'),
-              tooltip: 'Explore information and installation',
-              onPressed: () => _showMobileMenu(context),
-              icon: const Icon(Icons.menu_rounded, color: _gold),
+              tooltip: 'Visit product website',
+              onPressed: onBrandTap,
+              icon: const Icon(Icons.language_rounded, color: _gold),
               style: IconButton.styleFrom(
                 padding: const EdgeInsets.all(8),
                 minimumSize: const Size(36, 36),
@@ -1692,7 +1689,7 @@ class _HeroBrand extends StatelessWidget {
                 const SizedBox(width: 7),
                 Flexible(
                   child: Text(
-                  compact ? 'LIVE SPORTS RESEARCH' : 'LIVE MULTI-SPORT RESEARCH',
+                  compact ? 'SECURE PI WORKSPACE' : 'SECURE RESEARCH WORKSPACE',
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: _gold,
@@ -1708,7 +1705,7 @@ class _HeroBrand extends StatelessWidget {
         ),
         SizedBox(height: compact ? 16 : 20),
         Text(
-          'RESEARCH THE MARKET.\nBUILD WITH CLARITY.',
+          'YOUR PI WORKSPACE.\nREADY WHEN YOU ARE.',
           textAlign: compact ? TextAlign.center : TextAlign.left,
           style: TextStyle(
             color: Colors.white,
@@ -1722,7 +1719,7 @@ class _HeroBrand extends StatelessWidget {
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 650),
           child: Text(
-            'Compare live props by sport and provider, understand every PI signal, and organize your research in one professional workspace.',
+            'Sign in to continue your live research, saved selections, Watch history, and adaptive PI intelligence.',
             textAlign: compact ? TextAlign.center : TextAlign.left,
             style: TextStyle(
               color: _silver70,
@@ -1732,19 +1729,34 @@ class _HeroBrand extends StatelessWidget {
           ),
         ),
         SizedBox(height: compact ? 18 : 22),
-        Wrap(
-          alignment: compact ? WrapAlignment.center : WrapAlignment.start,
-          spacing: 8,
-          runSpacing: 8,
-          children: const [
-            _HeroCapability(Icons.sports_rounded, 'SPORT-FIRST BOARD'),
-            _HeroCapability(Icons.storefront_rounded, 'PROVIDER SECTIONS'),
-            _HeroCapability(Icons.scoreboard_rounded, 'LIVE SCOREBOARD'),
-            _HeroCapability(Icons.receipt_long_rounded, 'ACTIVE SLIPS'),
-          ],
+        Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(maxWidth: 650),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: const Color(0xB807141D),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _gold.withValues(alpha: .32)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.shield_outlined, color: _gold, size: 28),
+              SizedBox(width: 13),
+              Expanded(
+                child: Text(
+                  'PRIVATE ACCOUNT ACCESS  •  AUTOMATIC PWA UPDATES  •  ONE WORKSPACE ACROSS DEVICES',
+                  style: TextStyle(
+                    color: _silver70,
+                    fontSize: 10,
+                    height: 1.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .55,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        SizedBox(height: compact ? 20 : 26),
-        _ProductPreview(compact: compact),
       ],
     );
   }
