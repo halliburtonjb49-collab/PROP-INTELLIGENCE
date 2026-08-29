@@ -279,19 +279,6 @@ class SportsAppAuthService {
     }
 
     try {
-      if (!kIsWeb &&
-          defaultTargetPlatform == TargetPlatform.iOS &&
-          provider == OAuthProvider.apple) {
-        final response = await client.auth.signInWithApple();
-        final authenticated = response.session != null;
-        return AuthActionResult(
-          success: authenticated,
-          message: authenticated
-              ? 'Signed in securely with Apple.'
-              : 'Apple sign in did not create a session. Please try again.',
-        );
-      }
-
       final launched = await client.auth.signInWithOAuth(
         provider,
         redirectTo: _redirectUrlOrNull,
