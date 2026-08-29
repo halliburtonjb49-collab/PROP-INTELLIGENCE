@@ -1735,7 +1735,7 @@ class _HeroBrand extends StatelessWidget {
         ),
         SizedBox(height: compact ? 16 : 20),
         Text(
-          'YOUR PI WORKSPACE.\nREADY WHEN YOU ARE.',
+                  'THE PI PWA.\nBUILT FOR HOW YOU MOVE.',
           textAlign: compact ? TextAlign.center : TextAlign.left,
           style: TextStyle(
             color: Colors.white,
@@ -1749,7 +1749,7 @@ class _HeroBrand extends StatelessWidget {
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 650),
           child: Text(
-            'Sign in to continue your live research, saved selections, Watch history, and adaptive PI intelligence.',
+                  'Your live research, saved selections, Watch history, and adaptive PI intelligence in one secure workspace on every screen.',
             textAlign: compact ? TextAlign.center : TextAlign.left,
             style: TextStyle(
               color: _silver70,
@@ -1774,7 +1774,7 @@ class _HeroBrand extends StatelessWidget {
               SizedBox(width: 13),
               Expanded(
                 child: Text(
-                  '01  INSTALL IN SECONDS     02  ALWAYS CURRENT\n03  ONE APP. EVERY SCREEN.     04  NO APP STORE WAIT',
+                  'THE PWA ADVANTAGE\n\n01  INSTALL DIRECTLY FROM THE WEB\n02  RECEIVE IMPROVEMENTS AUTOMATICALLY\n03  USE ONE ACCOUNT ACROSS YOUR DEVICES\n04  LAUNCH ANYTIME WITHOUT AN APP STORE',
                   style: TextStyle(
                     color: _silver70,
                     fontSize: 10,
