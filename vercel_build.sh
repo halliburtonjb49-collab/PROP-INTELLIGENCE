@@ -104,4 +104,14 @@ sed -i "s/__PI_BUILD_VERSION__/${APP_VERSION}/g" build/web/OneSignalSDKWorker.js
 sed -i "s/__PI_BUILD_VERSION__/${APP_VERSION}/g" build/web/index.html
 sed -i "s/__PI_BUILD_VERSION__/${APP_VERSION}/g" build/web/pwa_install.js
 
-echo "Build complete! Output in build/web"
+# Assemble the complete customer experience into one immutable Vercel output.
+# Marketing owns the root while Flutter remains scoped to /workspace. Keeping
+# both in this deployment eliminates the stale cross-project rewrite cache that
+# pinned installed mobile PWAs to old JavaScript and service workers.
+rm -rf build/site
+mkdir -p build/site/workspace
+cp -R build/web/. build/site/workspace/
+cp -R marketing_site/. build/site/
+rm -f build/site/vercel.json
+
+echo "Build complete! Combined output in build/site"

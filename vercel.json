@@ -1,12 +1,48 @@
 {
   "buildCommand": "bash vercel_build.sh",
-  "outputDirectory": "build/web",
+  "outputDirectory": "build/site",
   "installCommand": "echo 'Skip install - Flutter handles dependencies'",
   "framework": null,
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/api/:path*",
+      "destination": "https://api.propsintell.com/api/:path*"
+    },
+    {
+      "source": "/player-images/:path*",
+      "destination": "https://api.propsintell.com/player-images/:path*"
+    },
+    {
+      "source": "/player-image-proxy",
+      "destination": "https://api.propsintell.com/player-image-proxy"
+    },
+    {
+      "source": "/workspace",
+      "destination": "/workspace/index.html"
+    },
+    {
+      "source": "/workspace/",
+      "destination": "/workspace/index.html"
+    },
+    {
+      "source": "/workspace/:path*",
+      "destination": "/workspace/index.html"
+    },
+    {
+      "source": "/login",
       "destination": "/index.html"
+    },
+    {
+      "source": "/signup",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/account",
+      "destination": "/workspace/index.html"
+    },
+    {
+      "source": "/auth/callback",
+      "destination": "/workspace/index.html"
     }
   ],
   "headers": [
@@ -21,21 +57,33 @@
       ]
     },
     {
-      "source": "/assets/(.*)",
+      "source": "/workspace/assets/(.*)",
       "headers": [
         {"key": "Cache-Control", "value": "public, max-age=300, must-revalidate"}
       ]
     },
     {
-      "source": "/(index.html|flutter_bootstrap.js|flutter_service_worker.js|manifest.json|OneSignalSDKWorker.js|pwa_install.js|offline.html)",
+      "source": "/workspace/(index.html|flutter_bootstrap.js|flutter_service_worker.js|manifest.json|OneSignalSDKWorker.js|pwa_install.js|offline.html)",
       "headers": [
-        {"key": "Cache-Control", "value": "no-store, max-age=0"}
+        {"key": "Cache-Control", "value": "no-store, max-age=0"},
+        {"key": "CDN-Cache-Control", "value": "no-store"},
+        {"key": "Vercel-CDN-Cache-Control", "value": "no-store"}
       ]
     },
     {
-      "source": "/main.dart.js",
+      "source": "/workspace/main.dart.js",
       "headers": [
-        {"key": "Cache-Control", "value": "public, max-age=0, must-revalidate"}
+        {"key": "Cache-Control", "value": "no-store, max-age=0"},
+        {"key": "CDN-Cache-Control", "value": "no-store"},
+        {"key": "Vercel-CDN-Cache-Control", "value": "no-store"}
+      ]
+    },
+    {
+      "source": "/(index.html|auth-modal.js)",
+      "headers": [
+        {"key": "Cache-Control", "value": "no-store, max-age=0"},
+        {"key": "CDN-Cache-Control", "value": "no-store"},
+        {"key": "Vercel-CDN-Cache-Control", "value": "no-store"}
       ]
     }
   ],
