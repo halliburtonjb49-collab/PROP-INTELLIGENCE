@@ -783,14 +783,14 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     return ClipOval(
       child: CachedNetworkImage(
         imageUrl: url,
-        width: 28,
-        height: 28,
+        width: 34,
+        height: 34,
         fit: BoxFit.contain,
         filterQuality: FilterQuality.high,
         fadeInDuration: Duration.zero,
         fadeOutDuration: Duration.zero,
-        memCacheWidth: 56,
-        memCacheHeight: 56,
+        memCacheWidth: 102,
+        memCacheHeight: 102,
         placeholder: (context, url) {
           return _teamInitialLogo(team);
         },
@@ -804,8 +804,8 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
   Widget _teamInitialLogo(String team) {
     final initial = team.trim().isEmpty ? '?' : team.trim()[0].toUpperCase();
     return Container(
-      width: 28,
-      height: 28,
+      width: 34,
+      height: 34,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,

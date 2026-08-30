@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../controllers/scoreboard_controller.dart';
 import '../models/scoreboard_game.dart';
@@ -781,21 +782,25 @@ class _GameRibbonCard extends StatelessWidget {
   Widget _team(String? logo, String name, int? score, bool leading) => Row(
     children: [
       SizedBox(
-        width: 28,
-        height: 28,
+        width: 34,
+        height: 34,
         child: logo != null && logo.isNotEmpty
             ? Container(
-                padding: const EdgeInsets.all(2),
+                padding: const EdgeInsets.all(1),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.06),
+                  color: Colors.transparent,
                   shape: BoxShape.circle,
                 ),
-                child: Image.network(
-                  logo,
+                child: CachedNetworkImage(
+                  imageUrl: logo,
                   fit: BoxFit.contain,
                   filterQuality: FilterQuality.high,
-                  errorBuilder: (_, error, stackTrace) =>
-                      _teamBadge(name),
+                  fadeInDuration: Duration.zero,
+                  fadeOutDuration: Duration.zero,
+                  memCacheWidth: 102,
+                  memCacheHeight: 102,
+                  placeholder: (_, __) => _teamBadge(name),
+                  errorWidget: (_, __, ___) => _teamBadge(name),
                 ),
               )
             : _teamBadge(name),
@@ -819,6 +824,8 @@ class _GameRibbonCard extends StatelessWidget {
   );
 
   Widget _teamBadge(String abbreviation) => Container(
+    width: 34,
+    height: 34,
     alignment: Alignment.center,
     decoration: BoxDecoration(
       color: accentColor.withValues(alpha: 0.12),

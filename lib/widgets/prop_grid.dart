@@ -121,6 +121,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   final Set<String> _favoritePropIds = <String>{};
   Future<_SportSeasonStatus>? _seasonStatusFuture;
   String _seasonStatusSport = '';
+  DateTime? _seasonStatusFetchedAt;
   bool _seasonNotificationEnabled = false;
 
   String get _queryKey => [
@@ -3409,6 +3410,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     _autoRetryTimer?.cancel();
     _automaticRetryCount = 0;
     setState(() {
+      _seasonStatusFuture = null;
+      _seasonStatusFetchedAt = null;
       _propsFuture = _loadProps();
     });
   }
@@ -3430,7 +3433,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final service = ScoreboardService(baseUrl: ApiService.baseUrl);
     final now = DateTime.now();
     final daily = <List<ScoreboardGame>>[
-      await service.fetchGamesRange(startDate: now, days: 15),
+      await service.fetchGamesRange(startDate: now, days: 90),
     ];
     final normalized = normalizePropSport(sport);
     final unique = <String, ScoreboardGame>{};
@@ -3452,8 +3455,14 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
 
   Future<_SportSeasonStatus> _seasonStatus(String sport) {
     final normalized = normalizePropSport(sport);
-    if (_seasonStatusFuture == null || _seasonStatusSport != normalized) {
+    final fetchedAt = _seasonStatusFetchedAt;
+    final stale = fetchedAt == null ||
+        DateTime.now().difference(fetchedAt) >= const Duration(minutes: 5);
+    if (_seasonStatusFuture == null ||
+        _seasonStatusSport != normalized ||
+        stale) {
       _seasonStatusSport = normalized;
+      _seasonStatusFetchedAt = DateTime.now();
       _seasonStatusFuture = _loadSeasonStatus(normalized);
     }
     return _seasonStatusFuture!;
