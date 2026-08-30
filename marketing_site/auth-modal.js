@@ -126,7 +126,13 @@
         : await client.auth.signInWithPassword({...credentials, options: {captchaToken: token}});
       submit.disabled = false;
       if (result.error) {
-        showStatus(result.error.message, 'error');
+        const invalidCredentials = /invalid login credentials/i.test(result.error.message);
+        showStatus(
+          invalidCredentials
+            ? 'Email or password not recognized. If you created this account with Google, use CONTINUE WITH GOOGLE or select Set / reset password.'
+            : result.error.message,
+          'error',
+        );
         resetCaptcha();
       } else if (result.data.session) {
         window.location.replace('/workspace');
@@ -154,10 +160,13 @@
         return;
       }
       const {error} = await client.auth.resetPasswordForEmail(email.value.trim(), {
-        redirectTo: `${window.location.origin}/auth/callback?auth_action=recovery`,
+        redirectTo: `${window.location.origin}/workspace?auth_action=recovery`,
         captchaToken: token,
       });
-      showStatus(error ? error.message : 'Password reset email sent.', error ? 'error' : 'ok');
+      showStatus(
+        error ? error.message : 'Password setup email sent. Open it on this device to choose your password.',
+        error ? 'error' : 'ok',
+      );
       resetCaptcha();
     });
   });

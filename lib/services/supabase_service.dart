@@ -58,7 +58,10 @@ class SupabaseService {
         authFlowType: AuthFlowType.pkce,
         autoRefreshToken: true,
         localStorage: SharedPreferencesLocalStorage(
-          persistSessionKey: 'props-intelligence-auth-session',
+          // Match supabase-js on pipropsintell.com. Marketing login, Google
+          // OAuth, Flutter session restoration, sign-out, and protected prop
+          // requests must all read and update one canonical session.
+          persistSessionKey: 'sb-doncoxjilytojmnpukxi-auth-token',
         ),
       ),
     );

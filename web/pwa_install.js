@@ -70,7 +70,7 @@
       try {
         const registration = await navigator.serviceWorker.register(
           '/workspace/OneSignalSDKWorker.js',
-          {scope: '/workspace/'},
+          {scope: '/workspace/', updateViaCache: 'none'},
         );
         await registration.update();
       } catch (error) {

@@ -67,7 +67,7 @@ async function networkFirstAsset(request) {
 async function navigationResponse(request) {
   const cache = await caches.open(PI_CACHE);
   try {
-    const response = await fetch(request);
+    const response = await fetch(request, {cache: 'no-store'});
     if (response.ok) await cache.put(`${PI_ROOT}/index.html`, response.clone());
     return response;
   } catch (_) {
