@@ -56,6 +56,17 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     Duration(minutes: 1),
     Duration(minutes: 2),
   ];
+  static const List<String> _ownerPickSports = [
+    'MLB',
+    'NFL',
+    'NBA',
+    'WNBA',
+    'NHL',
+    'SOCCER',
+    'NCAAF',
+    'NCAAB',
+    'CFL',
+  ];
 
   @override
   void initState() {
@@ -100,15 +111,26 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       });
     }
     try {
-      final topPicksRequest = _api
-          .fetchProps(
-            selectedSport: 'All',
-            sortBy: 'trust',
-            verdictFilter: 'ACTIONABLE',
-            limit: 500,
-            includeReliability: true,
-          )
-          .catchError((_) => <PropData>[]);
+      // Fetch every sport independently. A single mixed catalog page can be
+      // exhausted by a high-volume league before another active league is
+      // represented, which made its Owner Top 5 silently disappear.
+      final topPicksRequest = Future.wait(
+        _ownerPickSports.map(
+          (sport) => _api
+              .fetchProps(
+                selectedSport: sport,
+                sortBy: 'trust',
+                verdictFilter: 'ALL',
+                limit: 100,
+                includeReliability: true,
+              )
+              .catchError((_) => <PropData>[]),
+        ),
+      ).then(
+        (sportPages) => sportPages
+            .expand((props) => props)
+            .toList(growable: false),
+      );
       final results = await Future.wait([
         _optionalSnapshot(_api.fetchLaunchControlPanel()),
         _optionalSnapshot(_api.fetchBillingCertification()),

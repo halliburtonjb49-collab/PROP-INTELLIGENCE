@@ -805,7 +805,10 @@ class _GameRibbonCard extends StatelessWidget {
                   // as player photos.
                   imageUrl: resolvePlayerImagePath(
                     logo,
-                    useApiProxyForRemoteImages: true,
+                    // ESPN's web CDN is CORS-enabled and substantially faster
+                    // than a cold Render proxy request. Native clients still
+                    // use the proxy through the resolver's platform default.
+                    useApiProxyForRemoteImages: false,
                   ),
                   fit: BoxFit.contain,
                   filterQuality: FilterQuality.high,

@@ -22,7 +22,7 @@ echo "Flutter version:"
 flutter --version
 
 # Set defaults from vercel.json if not provided
-: "${API_BASE_URL:=https://api.propsintell.com}"
+: "${API_BASE_URL:=https://pipropsintell.com}"
 : "${SUPABASE_URL:=https://doncoxjilytojmnpukxi.supabase.co}"
 : "${AUTH_EMAIL_REDIRECT_URL:=https://pipropsintell.com/workspace}"
 : "${ALLOW_PUBLIC_SIGNUP:=true}"
@@ -38,6 +38,9 @@ if [ "${VERCEL_ENV:-}" = "production" ] && [ -z "${TURNSTILE_SITE_KEY}" ]; then
 fi
 
 if [ "${VERCEL_ENV:-}" = "production" ]; then
+  # Production web requests must remain same-origin. Dashboard environment
+  # values from the retired split-domain deployment cannot override this.
+  API_BASE_URL="https://pipropsintell.com"
   TURNSTILE_REQUIRED="true"
 else
   TURNSTILE_REQUIRED="false"

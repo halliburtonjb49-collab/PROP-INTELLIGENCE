@@ -989,9 +989,19 @@ class ApiService {
 
   static List<String> get _candidateBaseUrls {
     final configured = _normalizeBaseUrl(_configuredBaseUrl);
+    final brandedWebOrigin = kIsWeb &&
+            const {'pipropsintell.com', 'www.pipropsintell.com'}
+                .contains(Uri.base.host.toLowerCase())
+        ? _normalizeBaseUrl(Uri.base.origin)
+        : '';
     final candidates = <String>{
-      'https://api.propsintell.com',
+      // Browser traffic stays on the customer-facing origin first. This
+      // avoids CORS, stale preflight caches, and cross-domain auth handoffs.
+      if (brandedWebOrigin.isNotEmpty) brandedWebOrigin,
       configured,
+      // Native releases and development builds retain the direct API as a
+      // controlled fallback. It must never outrank the branded web gateway.
+      'https://api.propsintell.com',
     };
     return candidates
         .map(_normalizeBaseUrl)
