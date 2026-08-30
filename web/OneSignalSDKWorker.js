@@ -5,14 +5,6 @@ const PI_BUILD = '__PI_BUILD_VERSION__';
 const PI_CACHE_PREFIX = 'pi-app-shell-';
 const PI_CACHE = `${PI_CACHE_PREFIX}${PI_BUILD}`;
 const PI_MAX_CACHE_ENTRIES = 120;
-const PI_MAX_CACHE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-const PI_NETWORK_FIRST = new Set([
-  '/',
-  '/index.html',
-  '/flutter_bootstrap.js',
-  '/main.dart.js',
-  '/manifest.json',
-]);
 const PI_APP_SHELL = [
   '/',
   '/index.html',
@@ -58,28 +50,6 @@ async function trimCache(cache) {
     .map((request) => cache.delete(request)));
 }
 
-function isFresh(response) {
-  const storedAt = Date.parse(response.headers.get('date') || '');
-  return !Number.isFinite(storedAt) || Date.now() - storedAt < PI_MAX_CACHE_AGE_MS;
-}
-
-async function cachedAsset(request) {
-  const cache = await caches.open(PI_CACHE);
-  const cached = await cache.match(request);
-  if (cached && isFresh(cached)) return cached;
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      await cache.put(request, response.clone());
-      await trimCache(cache);
-    }
-    return response;
-  } catch (_) {
-    if (cached) return cached;
-    throw _;
-  }
-}
-
 async function networkFirstAsset(request) {
   const cache = await caches.open(PI_CACHE);
   try {
@@ -113,10 +83,10 @@ self.addEventListener('fetch', (event) => {
   }
   const url = new URL(request.url);
   if (url.origin === self.location.origin && !url.pathname.includes('OneSignalSDKWorker.js')) {
-    event.respondWith(
-      PI_NETWORK_FIRST.has(url.pathname)
-        ? networkFirstAsset(request)
-        : cachedAsset(request),
-    );
+    // Every Flutter asset is release-coupled. Network-first prevents an old
+    // main.dart.js, CanvasKit file, font, or asset manifest from being mixed
+    // with a newly deployed shell. The release cache remains an offline-only
+    // fallback and is never preferred while production is reachable.
+    event.respondWith(networkFirstAsset(request));
   }
 });

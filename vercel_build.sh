@@ -98,5 +98,7 @@ flutter build web --release \
 # Give every release a distinct app-shell cache and force stale clients to
 # activate the current production bundle on their next visit.
 sed -i "s/__PI_BUILD_VERSION__/${APP_VERSION}/g" build/web/OneSignalSDKWorker.js
+sed -i "s/__PI_BUILD_VERSION__/${APP_VERSION}/g" build/web/index.html
+sed -i "s/__PI_BUILD_VERSION__/${APP_VERSION}/g" build/web/pwa_install.js
 
 echo "Build complete! Output in build/web"

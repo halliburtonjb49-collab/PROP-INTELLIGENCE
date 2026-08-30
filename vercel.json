@@ -27,7 +27,7 @@
       ]
     },
     {
-      "source": "/(index.html|flutter_bootstrap.js|flutter_service_worker.js|manifest.json|OneSignalSDKWorker.js|offline.html)",
+      "source": "/(index.html|flutter_bootstrap.js|flutter_service_worker.js|manifest.json|OneSignalSDKWorker.js|pwa_install.js|offline.html)",
       "headers": [
         {"key": "Cache-Control", "value": "no-store, max-age=0"}
       ]

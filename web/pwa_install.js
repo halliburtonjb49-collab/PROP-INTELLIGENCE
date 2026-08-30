@@ -58,6 +58,14 @@
   window.addEventListener('appinstalled', hide);
 
   if ('serviceWorker' in navigator && !isDevelopmentHost) {
+    let refreshingForNewWorker = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshingForNewWorker) return;
+      refreshingForNewWorker = true;
+      const url = new URL(window.location.href);
+      url.searchParams.set('release', '__PI_BUILD_VERSION__');
+      window.location.replace(url.toString());
+    });
     window.addEventListener('load', async () => {
       try {
         const registration = await navigator.serviceWorker.register(
@@ -77,7 +85,11 @@
   }
 
   if (updateAction) {
-    updateAction.addEventListener('click', () => window.location.reload());
+    updateAction.addEventListener('click', () => {
+      const url = new URL(window.location.href);
+      url.searchParams.set('release', '__PI_BUILD_VERSION__');
+      window.location.replace(url.toString());
+    });
   }
 
   // Bridge for the Flutter app: lets any in-app "install" button trigger the
