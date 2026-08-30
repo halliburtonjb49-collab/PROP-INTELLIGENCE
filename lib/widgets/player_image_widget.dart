@@ -29,6 +29,19 @@ class PlayerImageWidget extends StatelessWidget {
   final double fallbackIconSize;
   final bool showShimmer;
 
+  static String _stableCacheKey(String value) {
+    final uri = Uri.tryParse(value);
+    if (uri == null) return value;
+    final query = Map<String, String>.from(uri.queryParameters)
+      ..remove('pi_photo')
+      ..remove('revision');
+    final nested = query['url'];
+    if (nested != null && nested.isNotEmpty) {
+      query['url'] = _stableCacheKey(nested);
+    }
+    return uri.replace(queryParameters: query.isEmpty ? null : query).toString();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (imageUrl.trim().isEmpty) {
@@ -49,13 +62,15 @@ class PlayerImageWidget extends StatelessWidget {
         : primaryUrl != imageUrl.trim()
         ? imageUrl.trim()
         : '';
+    final primaryCacheKey = _stableCacheKey(primaryUrl);
+    final retryCacheKey = _stableCacheKey(retryUrl);
 
     return ClipRRect(
       borderRadius: borderRadius ?? BorderRadius.zero,
       child: CachedNetworkImage(
-        key: ValueKey(primaryUrl),
+        key: ValueKey(primaryCacheKey),
         imageUrl: primaryUrl,
-        cacheKey: primaryUrl,
+        cacheKey: primaryCacheKey,
         width: width,
         height: height,
         fit: fit,
@@ -80,7 +95,7 @@ class PlayerImageWidget extends StatelessWidget {
         // Keep the decoded athlete bitmap mounted while refreshed prop data
         // resolves to the same (or a revised) image URL. Replacing it with a
         // placeholder on every feed rebuild caused visible photo blinking.
-        useOldImageOnUrlChange: false,
+        useOldImageOnUrlChange: true,
         placeholder: (context, url) => _buildFallback(),
         // Enhanced error handling
         errorWidget: (context, url, error) {
@@ -88,9 +103,9 @@ class PlayerImageWidget extends StatelessWidget {
             return _buildFallback();
           }
           return CachedNetworkImage(
-            key: ValueKey(retryUrl),
+            key: ValueKey(retryCacheKey),
             imageUrl: retryUrl,
-            cacheKey: retryUrl,
+            cacheKey: retryCacheKey,
             width: width,
             height: height,
             fit: fit,
@@ -111,7 +126,7 @@ class PlayerImageWidget extends StatelessWidget {
             filterQuality: FilterQuality.high,
             fadeInDuration: Duration.zero,
             fadeOutDuration: Duration.zero,
-            useOldImageOnUrlChange: false,
+            useOldImageOnUrlChange: true,
             memCacheWidth: width != null ? (width! * 2).toInt() : null,
             memCacheHeight: height != null ? (height! * 2).toInt() : null,
             maxWidthDiskCache: 800,

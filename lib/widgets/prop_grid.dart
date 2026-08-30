@@ -3149,6 +3149,22 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     _sessionViewCache[requestKey] = List<PropData>.unmodifiable(props);
   }
 
+  bool _matchesVisibleSnapshot(List<PropData> fresh) {
+    if (fresh.length != _preparedProps.length) return false;
+    for (var index = 0; index < fresh.length; index++) {
+      final previous = _preparedProps[index].prop;
+      final current = fresh[index];
+      if (previous.id != current.id ||
+          previous.imagePath != current.imagePath ||
+          previous.line != current.line ||
+          previous.piTrustScore != current.piTrustScore ||
+          previous.isSelectable != current.isSelectable) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   Future<List<PropData>> _loadProps() async {
     final requestKey = _queryKey;
     final fetchTimer = Stopwatch()..start();
@@ -3316,6 +3332,15 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         return;
       }
       _rememberCurrentView(requestKey, fresh);
+      if (_matchesVisibleSnapshot(fresh)) {
+        widget.onPropsLoaded?.call(
+          fresh,
+          _apiService.lastPropsCount,
+          _apiService.lastFacetCount,
+          _apiService.lastCategoryCounts,
+        );
+        return;
+      }
       setState(() {
         _preparedProps = prepareBoardProps(fresh);
         _propsFuture = Future.value(fresh);
