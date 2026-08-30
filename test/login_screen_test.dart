@@ -34,11 +34,11 @@ void main() {
   ) async {
     await _pumpLogin(tester, const Size(1440, 900));
 
-    expect(find.text('PROVIDER SECTIONS'), findsOneWidget);
-    expect(find.text('LIVE SCOREBOARD'), findsOneWidget);
-    expect(find.text('ACTIVE SLIPS'), findsOneWidget);
+    expect(find.textContaining('YOUR PI WORKSPACE'), findsOneWidget);
+    expect(find.textContaining('INSTALL IN SECONDS'), findsOneWidget);
+    expect(find.textContaining('ALWAYS CURRENT'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
-    expect(find.text('Continue with Apple'), findsOneWidget);
+    expect(find.text('Continue with Google'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

@@ -32,7 +32,7 @@ def test_replacement_sports_are_included_without_removed_specialty_sports():
     assert "UFC" not in espn_headshot_service.EVENT_LEAGUES
 
 
-def test_espn_cache_resolves_pga_and_ufc_headshots(monkeypatch, tmp_path):
+def test_espn_cache_ignores_retired_specialty_sports(monkeypatch, tmp_path):
     path = tmp_path / "espn_headshot_map.json"
     path.write_text(
         json.dumps(
@@ -48,18 +48,8 @@ def test_espn_cache_resolves_pga_and_ufc_headshots(monkeypatch, tmp_path):
     )
     _use_map(monkeypatch, path)
 
-    assert (
-        espn_headshot_service.espn_headshot_url("Rory McIlroy", "PGA")
-        == "https://cdn.example/rory.png"
-    )
-    assert (
-        espn_headshot_service.espn_headshot_url("José Aldo", "UFC")
-        == "https://cdn.example/aldo.png"
-    )
-    health = espn_headshot_service.espn_headshot_cache_health()
-    assert health["status"] == "ok"
-    assert health["playerCount"] == 2
-    assert health["leagueCounts"] == {"PGA": 1, "UFC": 1}
+    assert "PGA" not in espn_headshot_service.EVENT_LEAGUES
+    assert "UFC" not in espn_headshot_service.EVENT_LEAGUES
 
 
 def test_espn_cache_reports_missed_daily_refresh(monkeypatch, tmp_path):
@@ -184,7 +174,7 @@ def test_espn_refresh_includes_team_and_event_leagues(monkeypatch, tmp_path):
     monkeypatch.setattr(
         espn_headshot_service,
         "EVENT_LEAGUES",
-        {"PGA": ("golf", "pga"), "UFC": ("mma", "ufc")},
+        {},
     )
     monkeypatch.setattr(
         espn_headshot_service,
@@ -221,9 +211,9 @@ def test_espn_refresh_includes_team_and_event_leagues(monkeypatch, tmp_path):
 
     counts = espn_headshot_service.refresh_espn_headshot_map()
 
-    assert counts == {"NBA": 1, "PGA": 1, "UFC": 1, "SOCCER": 1}
+    assert counts == {"NBA": 1, "SOCCER": 1}
     payload = json.loads(path.read_text(encoding="utf-8"))
-    assert set(payload["leagues"]) == {"NBA", "PGA", "UFC", "SOCCER"}
+    assert set(payload["leagues"]) == {"NBA", "SOCCER"}
 
 
 def test_partial_refresh_preserves_last_known_good_players(monkeypatch, tmp_path):

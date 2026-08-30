@@ -1,6 +1,11 @@
+import os
 from datetime import datetime, timedelta, timezone
 
 import pytest
+
+# Unit tests must never inherit a developer machine's production database
+# secret. Tests that exercise persistence explicitly patch their own pool.
+os.environ.pop("DATABASE_URL", None)
 
 import main
 from services import (

@@ -29,10 +29,10 @@ void main() {
     final uri = Uri.parse(resolved);
     expect(uri.origin, 'https://api.propsintell.com');
     expect(uri.path, '/player-image-proxy');
-    expect(
-      uri.queryParameters['url'],
-      'https://a.espncdn.com/i/headshots/nba/players/full/1.png',
-    );
+    final source = Uri.parse(uri.queryParameters['url']!);
+    expect(source.origin, 'https://a.espncdn.com');
+    expect(source.path, '/i/headshots/nba/players/full/1.png');
+    expect(source.queryParameters['pi_photo'], isNotEmpty);
   });
 
   test('can use the CORS-enabled sports CDN directly on web', () {
@@ -44,7 +44,7 @@ void main() {
 
     expect(resolved.origin, 'https://a.espncdn.com');
     expect(resolved.path, '/i/headshots/nba/players/full/1.png');
-    expect(resolved.queryParameters, isEmpty);
+    expect(resolved.queryParameters['pi_photo'], isNotEmpty);
   });
 
   test('does not proxy unknown image hosts', () {
@@ -69,7 +69,10 @@ void main() {
 
     expect(retry.origin, 'https://api.propsintell.com');
     expect(retry.path, '/player-image-proxy');
-    expect(retry.queryParameters['url'], url);
+    final source = Uri.parse(retry.queryParameters['url']!);
+    expect(source.origin, 'https://a.espncdn.com');
+    expect(source.path, '/i/headshots/wnba/players/full/1.png');
+    expect(source.queryParameters['pi_photo'], isNotEmpty);
   });
 
   test('does not invent a retry for unsupported image hosts', () {

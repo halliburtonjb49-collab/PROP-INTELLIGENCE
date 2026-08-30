@@ -52,7 +52,9 @@ def test_records_per_sport_provider_health_and_alerts(monkeypatch) -> None:
     assert by_sport["NBA"]["status"] == "HEALTHY"
     assert "No games" in by_sport["NBA"]["detail"]
     assert by_sport["NFL"]["status"] == "OPTIONAL"
-    assert snapshot["overallStatus"] == "ATTENTION"
+    # Optional, non-entitled feeds are informational and must not turn a
+    # healthy production snapshot into an owner alert.
+    assert snapshot["overallStatus"] == "HEALTHY"
     assert stored["value"] == snapshot
 
 

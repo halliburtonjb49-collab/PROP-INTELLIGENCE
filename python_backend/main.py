@@ -3593,6 +3593,7 @@ def props(
 		cache_signature = json.dumps(
 			[
 				APP_VERSION,
+				membership.user_id,
 				len(prop_list),
 				catalog_updated_at,
 				catalog_version,

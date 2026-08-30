@@ -99,12 +99,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(
-      find.byKey(const ValueKey('card-a1')),
-      findsOneWidget,
-    );
-    expect(
       find.byKey(const ValueKey('card-a2')),
       findsOneWidget,
     );
+    expect(find.text('2 CURRENT LINE OPTIONS'), findsOneWidget);
   });
 }

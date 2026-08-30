@@ -55,6 +55,7 @@ EVENT_LEAGUES: dict[str, tuple[str, str]] = {}
 # Team rosters expose athlete ids but require one core-athlete request to
 # retrieve each available headshot.
 DETAIL_ROSTER_LEAGUES: dict[str, tuple[str, str]] = {
+    "CFL": ("football", "cfl"),
 }
 
 _CFL_ROSTER_URLS: tuple[str, ...] = (
@@ -474,12 +475,13 @@ def refresh_espn_headshot_map() -> dict[str, int]:
             leagues[sport_label] = merged_players
         counts[sport_label] = len(leagues.get(sport_label, {}))
 
-    cfl_players = _fetch_cfl_official_headshots()
-    if cfl_players:
-        merged_players = dict(leagues.get("CFL", {}))
-        merged_players.update(cfl_players)
-        leagues["CFL"] = merged_players
-    counts["CFL"] = len(leagues.get("CFL", {}))
+    if "CFL" in DETAIL_ROSTER_LEAGUES:
+        cfl_players = _fetch_cfl_official_headshots()
+        if cfl_players:
+            merged_players = dict(leagues.get("CFL", {}))
+            merged_players.update(cfl_players)
+            leagues["CFL"] = merged_players
+        counts["CFL"] = len(leagues.get("CFL", {}))
 
     soccer_players = dict(leagues.get("SOCCER", {}))
     for espn_sport, espn_league in SOCCER_DETAIL_LEAGUES:

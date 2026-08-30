@@ -53,6 +53,7 @@ class PlayerImageWidget extends StatelessWidget {
     return ClipRRect(
       borderRadius: borderRadius ?? BorderRadius.zero,
       child: CachedNetworkImage(
+        key: ValueKey(primaryUrl),
         imageUrl: primaryUrl,
         cacheKey: primaryUrl,
         width: width,
@@ -79,7 +80,7 @@ class PlayerImageWidget extends StatelessWidget {
         // Keep the decoded athlete bitmap mounted while refreshed prop data
         // resolves to the same (or a revised) image URL. Replacing it with a
         // placeholder on every feed rebuild caused visible photo blinking.
-        useOldImageOnUrlChange: true,
+        useOldImageOnUrlChange: false,
         placeholder: (context, url) => _buildFallback(),
         // Enhanced error handling
         errorWidget: (context, url, error) {
@@ -87,6 +88,7 @@ class PlayerImageWidget extends StatelessWidget {
             return _buildFallback();
           }
           return CachedNetworkImage(
+            key: ValueKey(retryUrl),
             imageUrl: retryUrl,
             cacheKey: retryUrl,
             width: width,
@@ -109,7 +111,7 @@ class PlayerImageWidget extends StatelessWidget {
             filterQuality: FilterQuality.high,
             fadeInDuration: Duration.zero,
             fadeOutDuration: Duration.zero,
-            useOldImageOnUrlChange: true,
+            useOldImageOnUrlChange: false,
             memCacheWidth: width != null ? (width! * 2).toInt() : null,
             memCacheHeight: height != null ? (height! * 2).toInt() : null,
             maxWidthDiskCache: 800,

@@ -95,19 +95,16 @@ Future<List<PropData>> _pumpGrid(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('two books remain independently researchable', (
+  testWidgets('two books remain available through one grouped card', (
     tester,
   ) async {
     await _pumpGrid(tester);
 
     expect(
-      find.byKey(const ValueKey('card-dk-1')),
-      findsOneWidget,
-    );
-    expect(
       find.byKey(const ValueKey('card-pp-2')),
       findsOneWidget,
     );
+    expect(find.text('2 CURRENT LINE OPTIONS'), findsOneWidget);
   });
 
   testWidgets('the better price leads and both lines are shown', (
@@ -118,21 +115,21 @@ void main() {
     // +120 beats -140, so PrizePicks opens the card, and the books disagree
     // about the number, which is the reason to shop.
     expect(find.textContaining('26.5'), findsWidgets);
-    expect(find.textContaining('25.5'), findsWidgets);
     expect(find.text('PRIZEPICKS'), findsOneWidget);
-    expect(find.text('DRAFTKINGS'), findsOneWidget);
+    await tester.tap(find.text('2 CURRENT LINE OPTIONS'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('25.5'), findsWidgets);
+    expect(find.text('DRAFTKINGS'), findsWidgets);
   });
 
   testWidgets('each site-specific card opens its own intelligence', (
     tester,
   ) async {
     await _pumpGrid(tester);
-    await tester.ensureVisible(find.byKey(const ValueKey('card-dk-1')));
-    await tester.tap(
-      find.byKey(const ValueKey('card-dk-1')),
-    );
+    await tester.ensureVisible(find.text('2 CURRENT LINE OPTIONS'));
+    await tester.tap(find.text('2 CURRENT LINE OPTIONS'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Grouped Player'), findsWidgets);
-    expect(find.textContaining('DRAFTKINGS'), findsWidgets);
+    expect(find.text('DRAFTKINGS'), findsWidgets);
   });
 }
