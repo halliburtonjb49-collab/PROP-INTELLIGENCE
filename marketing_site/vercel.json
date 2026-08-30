@@ -6,6 +6,18 @@
   "cleanUrls": true,
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://api.propsintell.com/api/:path*"
+    },
+    {
+      "source": "/player-images/:path*",
+      "destination": "https://api.propsintell.com/player-images/:path*"
+    },
+    {
+      "source": "/player-image-proxy",
+      "destination": "https://api.propsintell.com/player-image-proxy"
+    },
+    {
       "source": "/workspace",
       "destination": "https://prop-intelligence.vercel.app/"
     },
