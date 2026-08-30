@@ -15,11 +15,11 @@
     },
     {
       "source": "/login",
-      "destination": "/auth.html"
+      "destination": "/index.html"
     },
     {
       "source": "/signup",
-      "destination": "/auth.html"
+      "destination": "/index.html"
     },
     {
       "source": "/account",
