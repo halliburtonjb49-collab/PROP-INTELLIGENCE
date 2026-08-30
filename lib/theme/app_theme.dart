@@ -264,7 +264,7 @@ abstract final class AppTheme {
         ),
       ),
       dataTableTheme: const DataTableThemeData(
-        headingRowColor: WidgetStatePropertyAll(AppColors.bgPanelAlt),
+        headingRowColor: WidgetStatePropertyAll(AppColors.bgPanel),
         dataRowColor: WidgetStatePropertyAll(panel),
         dividerThickness: .5,
         horizontalMargin: 14,
