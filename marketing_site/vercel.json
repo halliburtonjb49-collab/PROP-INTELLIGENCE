@@ -27,11 +27,11 @@
     },
     {
       "source": "/login",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/signup",
-      "destination": "/index.html"
+      "destination": "/"
     },
     {
       "source": "/account",
