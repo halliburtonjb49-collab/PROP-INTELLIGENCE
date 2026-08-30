@@ -17,18 +17,6 @@
       "destination": "https://api.propsintell.com/player-image-proxy"
     },
     {
-      "source": "/workspace",
-      "destination": "/workspace/index.html"
-    },
-    {
-      "source": "/workspace/",
-      "destination": "/workspace/index.html"
-    },
-    {
-      "source": "/workspace/:path*",
-      "destination": "/workspace/index.html"
-    },
-    {
       "source": "/login",
       "destination": "/index.html"
     },
@@ -43,6 +31,13 @@
     {
       "source": "/auth/callback",
       "destination": "/workspace/index.html"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/workspace",
+      "destination": "/workspace/",
+      "permanent": false
     }
   ],
   "headers": [
