@@ -17,7 +17,7 @@ class CaptchaService {
   );
   static const String _configuredBaseUrl = String.fromEnvironment(
     'TURNSTILE_BASE_URL',
-    defaultValue: 'https://app.propsintell.com/',
+    defaultValue: 'https://pipropsintell.com/workspace/',
   );
   static const bool _required = bool.fromEnvironment(
     'TURNSTILE_REQUIRED',

@@ -12,8 +12,8 @@ window.PropIntelligenceOneSignal = (() => {
   async function initialize(OneSignal) {
     await OneSignal.init({
       appId,
-      serviceWorkerPath: "OneSignalSDKWorker.js",
-      serviceWorkerParam: { scope: "/" },
+      serviceWorkerPath: "/workspace/OneSignalSDKWorker.js",
+      serviceWorkerParam: { scope: "/workspace/" },
       notifyButton: { enable: false },
       allowLocalhostAsSecureOrigin: true
     });

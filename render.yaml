@@ -90,7 +90,7 @@ services:
       - key: WNBA_LEAGUE_ID
         sync: false
       - key: CORS_ALLOWED_ORIGINS
-        value: https://app.propsintell.com,https://www.propsintell.com,https://propsintell.com
+        value: https://pipropsintell.com,https://www.pipropsintell.com
       - key: DISCORD_BOT_TOKEN
         sync: false
       - key: DISCORD_CHANNEL_ID

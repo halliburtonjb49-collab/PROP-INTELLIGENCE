@@ -24,10 +24,10 @@ flutter --version
 # Set defaults from vercel.json if not provided
 : "${API_BASE_URL:=https://api.propsintell.com}"
 : "${SUPABASE_URL:=https://doncoxjilytojmnpukxi.supabase.co}"
-: "${AUTH_EMAIL_REDIRECT_URL:=https://app.propsintell.com}"
+: "${AUTH_EMAIL_REDIRECT_URL:=https://pipropsintell.com/workspace}"
 : "${ALLOW_PUBLIC_SIGNUP:=true}"
 : "${TURNSTILE_SITE_KEY:=}"
-: "${TURNSTILE_BASE_URL:=https://app.propsintell.com/}"
+: "${TURNSTILE_BASE_URL:=https://pipropsintell.com/workspace/}"
 
 # Supabase rejects password authentication without a CAPTCHA token when its
 # CAPTCHA protection is enabled. Never publish a production client that cannot
@@ -82,7 +82,7 @@ flutter build web --release \
   -O4 \
   --no-source-maps \
   --no-wasm-dry-run \
-  --base-href="/" \
+  --base-href="/workspace/" \
   --dart-define="API_BASE_URL=${API_BASE_URL}" \
   --dart-define="APP_VERSION=${APP_VERSION}" \
   --dart-define="SUPABASE_URL=${SUPABASE_URL}" \

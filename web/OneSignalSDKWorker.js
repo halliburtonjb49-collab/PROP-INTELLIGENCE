@@ -5,18 +5,19 @@ const PI_BUILD = '__PI_BUILD_VERSION__';
 const PI_CACHE_PREFIX = 'pi-app-shell-';
 const PI_CACHE = `${PI_CACHE_PREFIX}${PI_BUILD}`;
 const PI_MAX_CACHE_ENTRIES = 120;
+const PI_ROOT = '/workspace';
 const PI_APP_SHELL = [
-  '/',
-  '/index.html',
-  '/offline.html',
-  '/manifest.json',
-  '/flutter_bootstrap.js',
-  '/favicon.png',
-  '/icons/Icon-192.png',
-  '/icons/Icon-512.png',
-  '/icons/apple-touch-icon-180.png',
-  '/icons/Icon-maskable-safe-192.png',
-  '/icons/Icon-maskable-safe-512.png',
+  `${PI_ROOT}/`,
+  `${PI_ROOT}/index.html`,
+  `${PI_ROOT}/offline.html`,
+  `${PI_ROOT}/manifest.json`,
+  `${PI_ROOT}/flutter_bootstrap.js`,
+  `${PI_ROOT}/favicon.png`,
+  `${PI_ROOT}/icons/Icon-192.png`,
+  `${PI_ROOT}/icons/Icon-512.png`,
+  `${PI_ROOT}/icons/apple-touch-icon-180.png`,
+  `${PI_ROOT}/icons/Icon-maskable-safe-192.png`,
+  `${PI_ROOT}/icons/Icon-maskable-safe-512.png`,
 ];
 
 self.addEventListener('install', (event) => {
@@ -67,10 +68,11 @@ async function navigationResponse(request) {
   const cache = await caches.open(PI_CACHE);
   try {
     const response = await fetch(request);
-    if (response.ok) await cache.put('/index.html', response.clone());
+    if (response.ok) await cache.put(`${PI_ROOT}/index.html`, response.clone());
     return response;
   } catch (_) {
-    return (await cache.match('/index.html')) || (await cache.match('/offline.html'));
+    return (await cache.match(`${PI_ROOT}/index.html`)) ||
+      (await cache.match(`${PI_ROOT}/offline.html`));
   }
 }
 

@@ -52,9 +52,14 @@ def record_engagement(user_id: str, events: list[SentimentEvent]) -> dict[str, o
     if not database_is_configured():
         return {"recorded": 0, "reason": "DATABASE_URL is not configured"}
     rows = [(user_id, event.prop_id, event.action) for event in events]
-    with get_database_pool().connection() as connection, connection.cursor() as cursor:
-        cursor.executemany("insert into prop_engagement_events(user_id,prop_id,action) values (%s,%s,%s)", rows)
-        connection.commit()
+    try:
+        with get_database_pool().connection() as connection, connection.cursor() as cursor:
+            cursor.executemany("insert into prop_engagement_events(user_id,prop_id,action) values (%s,%s,%s)", rows)
+            connection.commit()
+    except Exception as exc:
+        # Product telemetry must never interrupt authentication or the live
+        # board while a schema migration is still rolling through production.
+        return {"recorded": 0, "reason": f"engagement unavailable: {type(exc).__name__}"}
     return {"recorded": len(rows), "propIds": sorted({event.prop_id for event in events})}
 
 

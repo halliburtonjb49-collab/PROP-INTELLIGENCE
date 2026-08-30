@@ -140,6 +140,12 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
   PurchaseInterval _pendingPurchaseInterval = PurchaseInterval.monthly;
 
   @override
+  void initState() {
+    super.initState();
+    _isRegistering = kIsWeb && Uri.base.path.endsWith('/signup');
+  }
+
+  @override
   void dispose() {
     _resendCooldownTimer?.cancel();
     _emailController.dispose();
@@ -403,7 +409,7 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
           _AboutNotice(
             title: 'MOBILE & TABLET',
             text:
-                'Open app.propsintell.com in Safari or Chrome, then choose Add to Home Screen or Install app.',
+                'Open pipropsintell.com/workspace in Safari or Chrome, then choose Add to Home Screen or Install app.',
           ),
           SizedBox(height: 10),
           _AboutNotice(
@@ -1251,7 +1257,7 @@ class _InstallAnywhereSection extends StatelessWidget {
       (
         Icons.install_mobile_rounded,
         'MOBILE PWA',
-        'Open app.propsintell.com, then choose Add to Home Screen or Install app from your browser menu.',
+        'Open pipropsintell.com/workspace, then choose Add to Home Screen or Install app from your browser menu.',
       ),
       (
         Icons.tablet_rounded,

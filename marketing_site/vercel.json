@@ -4,20 +4,41 @@
   "installCommand": "echo \"No dependencies to install\"",
   "outputDirectory": ".",
   "cleanUrls": true,
-  "redirects": [
+  "rewrites": [
     {
-      "source": "/app",
-      "destination": "https://app.propsintell.com",
-      "permanent": false
+      "source": "/workspace",
+      "destination": "https://prop-intelligence.vercel.app/"
+    },
+    {
+      "source": "/workspace/:path*",
+      "destination": "https://prop-intelligence.vercel.app/:path*"
     },
     {
       "source": "/login",
-      "destination": "https://app.propsintell.com",
-      "permanent": false
+      "destination": "https://prop-intelligence.vercel.app/"
     },
     {
       "source": "/signup",
-      "destination": "https://app.propsintell.com",
+      "destination": "https://prop-intelligence.vercel.app/"
+    },
+    {
+      "source": "/account",
+      "destination": "https://prop-intelligence.vercel.app/"
+    },
+    {
+      "source": "/auth/callback",
+      "destination": "https://prop-intelligence.vercel.app/"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/app",
+      "destination": "/workspace",
+      "permanent": true
+    },
+    {
+      "source": "/install",
+      "destination": "/#install",
       "permanent": false
     }
   ]

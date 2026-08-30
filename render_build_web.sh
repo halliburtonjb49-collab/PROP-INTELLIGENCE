@@ -38,7 +38,7 @@ flutter build web --release \
   --dart-define="MOBILE_AUTH_REDIRECT_URL=com.propintelligence.app://login-callback/" \
   --dart-define="ALLOW_PUBLIC_SIGNUP=${ALLOW_PUBLIC_SIGNUP:-true}" \
   --dart-define="TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}" \
-  --dart-define="TURNSTILE_BASE_URL=${TURNSTILE_BASE_URL:-https://app.propsintell.com/}" \
+  --dart-define="TURNSTILE_BASE_URL=${TURNSTILE_BASE_URL:-https://pipropsintell.com/workspace/}" \
   --dart-define="REVENUECAT_PUBLIC_API_KEY=${REVENUECAT_PUBLIC_API_KEY:-}"
 
 if grep -Eqi 'localhost|127\.0\.0\.1' build/web/main.dart.js; then

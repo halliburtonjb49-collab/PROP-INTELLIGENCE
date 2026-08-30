@@ -40,7 +40,7 @@ CORS_ALLOWED_ORIGINS = [
     for origin in os.getenv(
         "CORS_ALLOWED_ORIGINS",
         (
-            "https://app.propsintell.com,"
+            "https://pipropsintell.com,"
             "https://www.propsintell.com,https://propsintell.com,"
             "http://localhost:3000,http://localhost:8080"
         ),

@@ -5851,7 +5851,7 @@ def owner_user_access(
 				json={
 					"email": email,
 					"data": {"invited_by_owner": True},
-					"redirect_to": os.getenv("AUTH_EMAIL_REDIRECT_URL", "https://app.propsintell.com"),
+					"redirect_to": os.getenv("AUTH_EMAIL_REDIRECT_URL", "https://pipropsintell.com/workspace"),
 				},
 				timeout=HTTP_TIMEOUT_SECONDS,
 			)
@@ -5901,7 +5901,7 @@ def owner_user_access(
 				headers=headers,
 				json={
 					"email": email,
-					"redirect_to": os.getenv("AUTH_EMAIL_REDIRECT_URL", "https://app.propsintell.com"),
+					"redirect_to": os.getenv("AUTH_EMAIL_REDIRECT_URL", "https://pipropsintell.com/workspace"),
 				},
 				timeout=HTTP_TIMEOUT_SECONDS,
 			)
