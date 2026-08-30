@@ -3,6 +3,19 @@
   "outputDirectory": "build/web",
   "installCommand": "echo 'Skip install - Flutter handles dependencies'",
   "framework": null,
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "app.propsintell.com"
+        }
+      ],
+      "destination": "https://pipropsintell.com/workspace/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",
