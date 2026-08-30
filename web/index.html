@@ -111,6 +111,22 @@
   </style>
 </head>
 <body>
+  <script>
+    (() => {
+      if (!window.location.pathname.startsWith('/workspace')) return;
+      const callback = new URLSearchParams(window.location.search).has('code') ||
+        window.location.hash.includes('access_token=') ||
+        window.location.search.includes('auth_action=recovery');
+      if (callback) return;
+      try {
+        const raw = window.localStorage.getItem('sb-doncoxjilytojmnpukxi-auth-token');
+        const session = raw ? JSON.parse(raw) : null;
+        if (!session || !session.access_token) window.location.replace('/login');
+      } catch (_) {
+        window.location.replace('/login');
+      }
+    })();
+  </script>
   <div id="onesignal-verification" hidden role="dialog" aria-modal="true"
        aria-labelledby="onesignal-verification-title">
     <div id="onesignal-verification-card">

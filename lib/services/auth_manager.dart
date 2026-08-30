@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'supabase_service.dart';
 
@@ -357,6 +358,12 @@ class AuthManager {
       // A failed remote sign-out must not trap an expired user on a screen.
       passwordRecoveryRequested.value = false;
       sessionState.value = const AuthSessionState.signedOut();
+    }
+    if (kIsWeb) {
+      await launchUrl(
+        Uri.parse('https://pipropsintell.com/login'),
+        webOnlyWindowName: '_self',
+      );
     }
   }
 

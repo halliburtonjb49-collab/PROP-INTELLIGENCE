@@ -15,11 +15,11 @@
     },
     {
       "source": "/login",
-      "destination": "https://prop-intelligence.vercel.app/"
+      "destination": "/auth.html"
     },
     {
       "source": "/signup",
-      "destination": "https://prop-intelligence.vercel.app/"
+      "destination": "/auth.html"
     },
     {
       "source": "/account",
