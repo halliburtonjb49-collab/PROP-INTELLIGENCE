@@ -135,6 +135,14 @@
         resetCaptcha();
       }
     });
+    byId('google-auth').addEventListener('click', async () => {
+      clearStatus();
+      const {error} = await client.auth.signInWithOAuth({
+        provider: 'google',
+        options: {redirectTo: window.location.origin + '/workspace'},
+      });
+      if (error) showStatus(error.message, 'error');
+    });
     recovery.addEventListener('click', async () => {
       if (!email.value.trim()) {
         showStatus('Enter your email address first.', 'error');
