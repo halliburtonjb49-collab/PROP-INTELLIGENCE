@@ -32,6 +32,17 @@
   ],
   "redirects": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "app.propsintell.com"
+        }
+      ],
+      "destination": "https://pipropsintell.com/workspace",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [
         {
