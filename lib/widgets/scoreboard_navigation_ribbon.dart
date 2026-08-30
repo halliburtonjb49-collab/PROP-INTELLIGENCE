@@ -68,6 +68,20 @@ class _ScoreboardNavigationRibbonState
     'NCAAB',
     'CFL',
   ];
+
+  static const _sportPriority = <String, int>{
+    'NFL': 0,
+    'NBA': 1,
+    'MLB': 2,
+    'NHL': 3,
+    'WNBA': 4,
+    'NCAAF': 5,
+    'NCAAB': 6,
+    'CFL': 7,
+    'MLS': 8,
+    'EPL': 9,
+    'SOCCER': 10,
+  };
   final _preferences = ScoreboardPreferencesService();
   final _watchlist = ScoreboardWatchlistService.instance;
   Timer? _rotationTimer;
@@ -149,19 +163,35 @@ class _ScoreboardNavigationRibbonState
       }
       return seen.add(game.id);
     }).toList();
-    int rank(ScoreboardGame game) {
-      final watched = _watchlist.isWatching(game.id);
-      if (game.isLive && watched) return 0;
-      if (game.isLive) return 1;
-      if (game.isUpcoming && watched) return 2;
-      if (_favoriteSports.contains(game.sport.toUpperCase())) return 3;
-      if (game.isUpcoming) return 4;
-      return 5;
+    int statusRank(ScoreboardGame game) {
+      if (game.isLive) return 0;
+      if (game.isUpcoming) return 1;
+      if (game.isFinal) return 2;
+      return 3;
+    }
+
+    int sportRank(ScoreboardGame game) {
+      final league = game.league.trim().toUpperCase();
+      final sport = game.sport.trim().toUpperCase();
+      return _sportPriority[league] ?? _sportPriority[sport] ?? 99;
+    }
+
+    int preferenceRank(ScoreboardGame game) {
+      if (_watchlist.isWatching(game.id)) return 0;
+      if (_favoriteSports.contains(game.sport.toUpperCase()) ||
+          _favoriteSports.contains(game.league.toUpperCase())) {
+        return 1;
+      }
+      return 2;
     }
 
     games.sort((a, b) {
-      final status = rank(a).compareTo(rank(b));
+      final status = statusRank(a).compareTo(statusRank(b));
       if (status != 0) return status;
+      final sport = sportRank(a).compareTo(sportRank(b));
+      if (sport != 0) return sport;
+      final preference = preferenceRank(a).compareTo(preferenceRank(b));
+      if (preference != 0) return preference;
       return (a.startTime ?? DateTime(2100)).compareTo(
         b.startTime ?? DateTime(2100),
       );

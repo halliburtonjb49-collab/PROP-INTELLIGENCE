@@ -34,10 +34,9 @@ void main() {
   ) async {
     await _pumpLogin(tester, const Size(1440, 900));
 
-    expect(find.textContaining('YOUR PI WORKSPACE'), findsOneWidget);
-    expect(find.textContaining('INSTALL IN SECONDS'), findsOneWidget);
-    expect(find.textContaining('ALWAYS CURRENT'), findsOneWidget);
-    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.textContaining('THE PI PWA'), findsOneWidget);
+    expect(find.textContaining('INSTALL DIRECTLY FROM THE WEB'), findsOneWidget);
+    expect(find.textContaining('RECEIVE IMPROVEMENTS AUTOMATICALLY'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -63,9 +62,6 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final label in <String>[
-      'FEATURES',
-      'PRICING',
-      'ABOUT',
       'TERMS',
       'PRIVACY',
       'CONTACT',
