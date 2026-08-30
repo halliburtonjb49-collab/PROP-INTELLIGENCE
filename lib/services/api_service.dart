@@ -2247,6 +2247,20 @@ class ApiService {
     return decoded;
   }
 
+  Future<Map<String, dynamic>> fetchIdentityRegistry() async {
+    final response = await http.get(Uri.parse('$baseUrl/api/identity/registry'), headers: await _authenticatedHeaders()).timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) throw Exception('Unable to load identity registry: ${response.body}');
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) throw const FormatException('Invalid identity registry response.');
+    return decoded;
+  }
+
+  Future<Map<String, dynamic>> reconcileIdentityRegistry() async {
+    final response = await http.post(Uri.parse('$baseUrl/api/identity/registry/reconcile'), headers: await _authenticatedHeaders()).timeout(const Duration(seconds: 30));
+    if (response.statusCode != 200) throw Exception('Unable to reconcile identity registry: ${response.body}');
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
   Future<Map<String, dynamic>> bulkUpsertIdentityMap({
     required Map<String, dynamic> payload,
     String mode = 'merge',

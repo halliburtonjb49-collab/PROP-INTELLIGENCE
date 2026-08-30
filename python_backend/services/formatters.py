@@ -4,6 +4,7 @@ import re
 from config import PLAYER_IMAGE_DIR
 from services.mlb_headshot_service import mlb_headshot_url
 from services.espn_headshot_service import espn_headshot_url
+from services.identity_media_registry_service import registered_media_url
 
 _ESPN_COVERED_SPORTS = {
     "NFL",
@@ -13,6 +14,15 @@ _ESPN_COVERED_SPORTS = {
     "WNBA",
     "NCAAB",
     "NHL",
+}
+
+# Stable official ESPN portraits cover small gaps between roster refreshes.
+# Keep this list narrow and keyed by normalized sport/name so it never
+# overrides a newer URL supplied by the refreshed league cache.
+_STABLE_ESPN_HEADSHOTS = {
+    ("WNBA", "alyssa thomas"): (
+        "https://a.espncdn.com/i/headshots/wnba/players/full/2529140.png"
+    ),
 }
 
 MARKET_LABELS = {
@@ -311,6 +321,9 @@ def resolve_player_image(player_name: str, sport: str) -> str:
     Returns "" when no provider has a photo so the frontend can safely use
     its initials placeholder.
     """
+    registered = registered_media_url(identity_type="player", sport=sport, name=player_name)
+    if registered:
+        return registered
     if sport == "MLB":
         headshot = mlb_headshot_url(player_name)
         if headshot:
@@ -323,4 +336,9 @@ def resolve_player_image(player_name: str, sport: str) -> str:
         headshot = espn_headshot_url(player_name, sport)
         if headshot:
             return headshot
+    stable_headshot = _STABLE_ESPN_HEADSHOTS.get(
+        (sport, re.sub(r"[^a-z0-9]+", " ", player_name.lower()).strip())
+    )
+    if stable_headshot:
+        return stable_headshot
     return player_image_path(player_name)

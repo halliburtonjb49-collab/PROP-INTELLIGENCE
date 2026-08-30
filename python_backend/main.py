@@ -231,6 +231,7 @@ from services.player_identity_service import (
 	unresolved_identity_rows,
 	upsert_identity_entry,
 )
+from services.identity_media_registry_service import reconcile_catalog, registry_summary
 from services.player_availability_service import (
 	load_status_map,
 	save_status_map,
@@ -636,7 +637,9 @@ def _persist_catalog_snapshot_background(props: list[PropResponse]) -> None:
 	try:
 		if not snapshot_is_behind(props):
 			return
-		save_catalog_snapshot([prop.model_dump(mode="json") for prop in props])
+		rows = [prop.model_dump(mode="json") for prop in props]
+		save_catalog_snapshot(rows)
+		reconcile_catalog(rows)
 	except Exception:
 		logging.exception("Background prop catalog snapshot persist failed")
 
@@ -2008,36 +2011,67 @@ def _scoreboard_team_key(value: object) -> str:
 
 
 _ESPN_MLB_LOGO_SLUGS = {
+	"ari": "ari",
 	"arizonadiamondbacks": "ari",
+	"atl": "atl",
 	"atlantabraves": "atl",
+	"bal": "bal",
 	"baltimoreorioles": "bal",
+	"bos": "bos",
 	"bostonredsox": "bos",
+	"chc": "chc",
 	"chicagocubs": "chc",
+	"chw": "chw",
 	"chicagowhitesox": "chw",
+	"cin": "cin",
 	"cincinnatireds": "cin",
+	"cle": "cle",
 	"clevelandguardians": "cle",
+	"col": "col",
 	"coloradorockies": "col",
+	"det": "det",
 	"detroittigers": "det",
+	"hou": "hou",
 	"houstonastros": "hou",
+	"kc": "kc",
 	"kansascityroyals": "kc",
+	"laa": "laa",
 	"losangelesangels": "laa",
+	"lad": "lad",
 	"losangelesdodgers": "lad",
+	"mia": "mia",
 	"miamimarlins": "mia",
+	"mil": "mil",
 	"milwaukeebrewers": "mil",
+	"min": "min",
 	"minnesotatwins": "min",
+	"nym": "nym",
 	"newyorkmets": "nym",
+	"nyy": "nyy",
 	"newyorkyankees": "nyy",
+	"ath": "oak",
+	"oak": "oak",
 	"athletics": "oak",
 	"oaklandathletics": "oak",
+	"phi": "phi",
 	"philadelphiaphillies": "phi",
+	"pit": "pit",
 	"pittsburghpirates": "pit",
+	"sd": "sd",
 	"sandiegopadres": "sd",
+	"sf": "sf",
 	"sanfranciscogiants": "sf",
+	"sea": "sea",
 	"seattlemariners": "sea",
+	"stl": "stl",
 	"stlouiscardinals": "stl",
+	"tb": "tb",
 	"tampabayrays": "tb",
+	"tex": "tex",
 	"texasrangers": "tex",
+	"tor": "tor",
 	"torontobluejays": "tor",
+	"wsh": "wsh",
 	"washingtonnationals": "wsh",
 }
 
@@ -4535,6 +4569,14 @@ def accuracy_audit() -> dict[str, object]:
 @app.get("/api/identity/map")
 def get_identity_map(_owner: str = Depends(require_owner)) -> dict[str, object]:
 	return load_identity_map()
+
+@app.get("/api/identity/registry")
+def get_identity_registry(_owner: str = Depends(require_owner)) -> dict[str, object]:
+	return registry_summary()
+
+@app.post("/api/identity/registry/reconcile")
+def reconcile_identity_registry(_owner: str = Depends(require_owner)) -> dict[str, object]:
+	return reconcile_catalog(get_props())
 
 
 @app.post("/api/identity/bootstrap")

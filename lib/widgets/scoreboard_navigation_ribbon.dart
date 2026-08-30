@@ -97,7 +97,7 @@ class _ScoreboardNavigationRibbonState
   @override
   void initState() {
     super.initState();
-    widget.controller.addListener(_updated);
+    widget.controller.addListener(_scoreboardUpdated);
     _watchlist.watchedIds.addListener(_updated);
     unawaited(_loadPreferences());
     unawaited(_watchlist.load());
@@ -124,6 +124,11 @@ class _ScoreboardNavigationRibbonState
 
   void _updated() {
     if (mounted) setState(() {});
+  }
+
+  void _scoreboardUpdated() {
+    if (!mounted) return;
+    setState(() => _page = 0);
   }
 
   void _startRotation() {
@@ -231,7 +236,7 @@ class _ScoreboardNavigationRibbonState
   void dispose() {
     _rotationTimer?.cancel();
     _manualPauseTimer?.cancel();
-    widget.controller.removeListener(_updated);
+    widget.controller.removeListener(_scoreboardUpdated);
     _watchlist.watchedIds.removeListener(_updated);
     super.dispose();
   }

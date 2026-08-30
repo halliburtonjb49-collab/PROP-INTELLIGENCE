@@ -30,6 +30,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   Map<String, dynamic>? _review;
   Map<String, dynamic>? _providerAvailability;
   Map<String, dynamic>? _providerRecovery;
+  Map<String, dynamic>? _identityRegistry;
   Map<String, dynamic> _providerReliability = const {};
   List<PropData> _ownerTopPicks = const [];
   bool _recoverySubmitting = false;
@@ -128,6 +129,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         _optionalSnapshot(_api.fetchOwnerGradingReview()),
         _optionalSnapshot(_api.fetchProviderAvailability()),
         _optionalSnapshot(_api.fetchProviderRecovery()),
+        _optionalSnapshot(_api.fetchIdentityRegistry()),
       ]);
       final topPicks = await topPicksRequest;
       if (!mounted) return;
@@ -139,6 +141,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         _review = results[4];
         _providerAvailability = results[5];
         _providerRecovery = results[6];
+        _identityRegistry = results[7];
         _providerReliability = _api.lastProviderReliability;
         _ownerTopPicks = _rankOwnerTopPicks(topPicks);
         final ownerInsights =
@@ -206,6 +209,25 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   }
 
   Map _map(String key) => _control?[key] as Map? ?? const {};
+
+  Widget _identityRegistryPanel() {
+    final data = _identityRegistry ?? const <String, dynamic>{};
+    final identities = data['identities'] as Map? ?? const {};
+    final inventory = data['inventory'] as List? ?? const [];
+    final queue = data['queue'] as List? ?? const [];
+    final alerts = inventory.where((row) => row is Map && {'warning','critical','interrupted'}.contains('${row['status']}')).length;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: const Color(0xFF0B1A25), border: Border.all(color: AppColors.gold.withValues(alpha: .55)), borderRadius: BorderRadius.circular(14)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [const Icon(Icons.fingerprint, color: AppColors.gold), const SizedBox(width: 10), const Expanded(child: Text('IDENTITY & MEDIA REGISTRY', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900))), OutlinedButton.icon(onPressed: () async { await _api.reconcileIdentityRegistry(); await _refresh(showLoading: false); }, icon: const Icon(Icons.sync, size: 16), label: const Text('RECONCILE'))]),
+        const SizedBox(height: 8),
+        Text('${identities['player'] ?? 0} players  |  ${identities['team'] ?? 0} teams  |  ${data['approvedMedia'] ?? 0} approved images  |  ${data['unresolved'] ?? 0} unmatched', style: const TextStyle(color: Color(0xFFB9C3CC), fontWeight: FontWeight.w700)),
+        if (alerts > 0) ...[const SizedBox(height: 10), Text('$alerts provider inventory drop alert(s)', style: const TextStyle(color: Color(0xFFFF7676), fontWeight: FontWeight.w800))],
+        if (queue.isNotEmpty) ...[const SizedBox(height: 10), ...queue.take(8).map((raw) { final row=raw as Map; return Padding(padding: const EdgeInsets.only(top: 6), child: Text('${row['sport']} | ${row['provider']} | ${row['observedName']} | ${row['reason']}', style: const TextStyle(color: Color(0xFFD7DEE5), fontSize: 12))); })],
+      ]),
+    );
+  }
 
   bool _boolControl(String key, bool fallback) {
     final value = _strikeoutControlsDraft[key];
@@ -417,6 +439,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                   _commandCenter?['inventory'] as Map<String, dynamic>? ??
                   const <String, dynamic>{},
             ),
+            const SizedBox(height: 14),
+            _identityRegistryPanel(),
             const SizedBox(height: 22),
             _sectionTitle(
               'SYSTEM STATUS',
