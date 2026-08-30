@@ -28,5 +28,11 @@
     );
   }
 
-  await _flutter.loader.load();
+  // CanvasKit keeps PI's compact typography, thin borders, and sports imagery
+  // consistently sharp across browser zoom levels and high-DPI displays.
+  await _flutter.loader.load({
+    config: {
+      renderer: 'canvaskit',
+    },
+  });
 })();

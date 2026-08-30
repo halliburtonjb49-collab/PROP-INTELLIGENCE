@@ -14,6 +14,8 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       scaffoldBackgroundColor: base,
       colorScheme: const ColorScheme.dark(
         primary: gold,
@@ -40,60 +42,136 @@ abstract final class AppTheme {
         shape: Border(bottom: BorderSide(color: AppColors.goldShadow)),
       ),
       textTheme: const TextTheme(
-        bodyLarge: TextStyle(color: AppColors.chromeLight),
-        bodyMedium: TextStyle(color: AppColors.chromeLight),
-        bodySmall: TextStyle(color: chrome),
+        displaySmall: TextStyle(
+          color: AppColors.chromeLight,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -.35,
+          height: 1.05,
+        ),
+        headlineSmall: TextStyle(
+          color: AppColors.chromeLight,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -.15,
+          height: 1.08,
+        ),
+        bodyLarge: TextStyle(
+          color: AppColors.chromeLight,
+          fontWeight: FontWeight.w600,
+          height: 1.25,
+        ),
+        bodyMedium: TextStyle(
+          color: AppColors.chromeLight,
+          fontWeight: FontWeight.w600,
+          height: 1.22,
+        ),
+        bodySmall: TextStyle(
+          color: chrome,
+          fontWeight: FontWeight.w600,
+          height: 1.2,
+        ),
         titleLarge: TextStyle(
           color: goldHi,
           fontWeight: FontWeight.w900,
           letterSpacing: .4,
+          height: 1.08,
         ),
         titleMedium: TextStyle(
           color: AppColors.chromeLight,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w800,
+          letterSpacing: .1,
+          height: 1.12,
         ),
-        labelLarge: TextStyle(color: base),
+        titleSmall: TextStyle(
+          color: AppColors.chromeLight,
+          fontWeight: FontWeight.w800,
+          letterSpacing: .15,
+          height: 1.12,
+        ),
+        labelLarge: TextStyle(
+          color: base,
+          fontWeight: FontWeight.w900,
+          letterSpacing: .45,
+          height: 1,
+        ),
+        labelMedium: TextStyle(
+          color: AppColors.chromeLight,
+          fontWeight: FontWeight.w900,
+          letterSpacing: .35,
+          height: 1,
+        ),
+        labelSmall: TextStyle(
+          color: chrome,
+          fontWeight: FontWeight.w800,
+          letterSpacing: .3,
+          height: 1,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
+          minimumSize: const Size(0, 40),
           backgroundColor: gold,
           foregroundColor: base,
           disabledBackgroundColor: AppColors.goldShadow,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+          textStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .45,
           ),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 18),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
+          minimumSize: const Size(0, 40),
           backgroundColor: gold,
           foregroundColor: base,
           disabledBackgroundColor: AppColors.goldShadow,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+          textStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .45,
           ),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 18),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
+          minimumSize: const Size(0, 40),
           foregroundColor: AppColors.chromeLight,
           side: const BorderSide(color: chrome),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+          textStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .4,
           ),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 18),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: goldHi),
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, 38),
+          foregroundColor: goldHi,
+          textStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            letterSpacing: .4,
+          ),
+        ),
       ),
       cardTheme: CardThemeData(
         color: panel,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(10),
           side: const BorderSide(color: chromeLine),
         ),
       ),
@@ -103,15 +181,15 @@ abstract final class AppTheme {
         hintStyle: const TextStyle(color: chrome),
         labelStyle: const TextStyle(color: chrome),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: chromeLine),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: chromeLine),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: gold, width: 1.5),
         ),
       ),
@@ -132,6 +210,104 @@ abstract final class AppTheme {
           final selected = states.contains(WidgetState.selected);
           return TextStyle(color: selected ? goldHi : chrome, fontSize: 12);
         }),
+      ),
+      navigationRailTheme: const NavigationRailThemeData(
+        backgroundColor: base,
+        indicatorColor: AppColors.goldShadow,
+        selectedIconTheme: IconThemeData(color: goldHi, size: 21),
+        unselectedIconTheme: IconThemeData(color: chrome, size: 20),
+        selectedLabelTextStyle: TextStyle(
+          color: goldHi,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          letterSpacing: .35,
+        ),
+        unselectedLabelTextStyle: TextStyle(
+          color: chrome,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: .3,
+        ),
+      ),
+      tabBarTheme: const TabBarThemeData(
+        labelColor: goldHi,
+        unselectedLabelColor: chrome,
+        indicatorColor: gold,
+        dividerColor: chromeLine,
+        labelStyle: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          letterSpacing: .4,
+        ),
+        unselectedLabelStyle: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          letterSpacing: .3,
+        ),
+      ),
+      listTileTheme: const ListTileThemeData(
+        dense: true,
+        minTileHeight: 42,
+        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        iconColor: chrome,
+        textColor: AppColors.chromeLight,
+        titleTextStyle: TextStyle(
+          color: AppColors.chromeLight,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          letterSpacing: .1,
+        ),
+        subtitleTextStyle: TextStyle(
+          color: chrome,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      dataTableTheme: const DataTableThemeData(
+        headingRowColor: WidgetStatePropertyAll(AppColors.bgPanelAlt),
+        dataRowColor: WidgetStatePropertyAll(panel),
+        dividerThickness: .5,
+        horizontalMargin: 14,
+        columnSpacing: 20,
+        headingTextStyle: TextStyle(
+          color: goldHi,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          letterSpacing: .45,
+        ),
+        dataTextStyle: TextStyle(
+          color: AppColors.chromeLight,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: panel,
+        surfaceTintColor: Colors.transparent,
+        elevation: 12,
+        textStyle: const TextStyle(
+          color: AppColors.chromeLight,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: chromeLine),
+        ),
+      ),
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: panel,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppColors.goldShadow),
+        ),
+        textStyle: const TextStyle(
+          color: AppColors.chromeLight,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        waitDuration: const Duration(milliseconds: 450),
       ),
       iconTheme: const IconThemeData(color: chrome),
       iconButtonTheme: IconButtonThemeData(
@@ -165,8 +341,8 @@ abstract final class AppTheme {
           fontWeight: FontWeight.w900,
         ),
         side: const BorderSide(color: chromeLine),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: AppColors.bgPanel,
