@@ -430,7 +430,13 @@ app.include_router(operations_router)
 app.add_middleware(
 	CORSMiddleware,
 	allow_origins=CORS_ALLOWED_ORIGINS,
-	allow_origin_regex=r"https://([a-z0-9-]+\.)?propsintell\.com",
+	# Keep both branded domains authorized in code so a stale Render
+	# environment value cannot take the customer workspace offline after a
+	# domain migration. The regex is deliberately limited to HTTPS and these
+	# two owned domain families.
+	allow_origin_regex=(
+		r"https://([a-z0-9-]+\.)?(?:pipropsintell|propsintell)\.com"
+	),
 	allow_credentials=False,
 	allow_methods=["*"],
 	allow_headers=["*"],

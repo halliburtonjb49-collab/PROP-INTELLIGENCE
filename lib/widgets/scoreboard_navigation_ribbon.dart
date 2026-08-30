@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
+import '../services/player_image_resolver.dart';
+
 import '../controllers/scoreboard_controller.dart';
 import '../models/scoreboard_game.dart';
 import '../services/app_sound_service.dart';
@@ -797,7 +799,14 @@ class _GameRibbonCard extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: CachedNetworkImage(
-                  imageUrl: logo,
+                  // CanvasKit can render some cross-origin sports CDN images
+                  // as opaque black tiles. Use PI's approved, cacheable media
+                  // proxy so team logos follow the same stable delivery path
+                  // as player photos.
+                  imageUrl: resolvePlayerImagePath(
+                    logo,
+                    useApiProxyForRemoteImages: true,
+                  ),
                   fit: BoxFit.contain,
                   filterQuality: FilterQuality.high,
                   fadeInDuration: Duration.zero,
