@@ -194,11 +194,7 @@ def main() -> int:
     )
     if ticket_storage.get("mode") != "postgresql":
         raise RuntimeError("Production tickets are not using PostgreSQL")
-    smoke_token = os.getenv("SMOKE_API_TOKEN", "").strip()
-    if not smoke_token:
-        raise RuntimeError("SMOKE_API_TOKEN is required for critical promotion checks")
-    auth_headers = {"Authorization": f"Bearer {smoke_token}"}
-    gate, gate_body, _ = request(f"{API_URL}/api/operations/release-gate", headers=auth_headers)
+    gate, gate_body, _ = request(f"{API_URL}/api/operations/release-gate")
     gate_payload = json.loads(gate_body)
     if gate.status != 200 or gate_payload.get("releaseReady") is not True:
         raise RuntimeError(

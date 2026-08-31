@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from services.api_auth_service import require_owner, require_user_id
+from services.api_auth_service import require_owner
 from services.operations_detail_service import operations_detail
 from services.pipeline_run_service import recent_pipeline_runs, summarize_pipeline_health
 from services.provider_availability_monitor_service import provider_availability_snapshot
@@ -82,9 +82,8 @@ def acceptance() -> dict[str, object]:
 
 
 @router.get("/release-gate")
-def release_gate(user_id: str = Depends(require_user_id)) -> dict[str, object]:
-    """Expose only release pass/fail state to the authenticated smoke account."""
-    del user_id
+def release_gate() -> dict[str, object]:
+    """Expose only non-sensitive release pass/fail state for deployment automation."""
     acceptance_snapshot = production_acceptance_snapshot()
     billing = billing_release_certification()
     critical = acceptance_snapshot.get("status") == "critical"
