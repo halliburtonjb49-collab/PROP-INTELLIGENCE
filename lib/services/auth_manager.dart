@@ -109,6 +109,7 @@ class AuthSessionState {
   final String? userId;
   final String? email;
   final String? username;
+  final String? avatarUrl;
   final String? assignedMemberRole;
   final int? founderNumber;
   final String message;
@@ -159,6 +160,7 @@ class AuthSessionState {
     required this.userId,
     required this.email,
     this.username,
+    this.avatarUrl,
     this.assignedMemberRole,
     this.founderNumber,
     required this.message,
@@ -174,6 +176,7 @@ class AuthSessionState {
       userId = null,
       email = null,
       username = null,
+      avatarUrl = null,
       assignedMemberRole = null,
       founderNumber = null,
       message = 'Initializing auth...';
@@ -188,6 +191,7 @@ class AuthSessionState {
       userId = null,
       email = null,
       username = null,
+      avatarUrl = null,
       assignedMemberRole = null,
       founderNumber = null,
       message = 'Supabase auth is not configured.';
@@ -202,6 +206,7 @@ class AuthSessionState {
       userId = null,
       email = null,
       username = null,
+      avatarUrl = null,
       assignedMemberRole = null,
       founderNumber = null,
       message = 'Signed out';
@@ -382,6 +387,7 @@ class AuthManager {
       userId: current.userId,
       email: current.email,
       username: current.username,
+      avatarUrl: current.avatarUrl,
       assignedMemberRole: current.assignedMemberRole,
       founderNumber: current.founderNumber,
       message: current.message,
@@ -406,6 +412,7 @@ class AuthManager {
       userId: current.userId,
       email: current.email,
       username: username,
+      avatarUrl: current.avatarUrl,
       assignedMemberRole: current.assignedMemberRole,
       founderNumber: current.founderNumber,
       message: current.message,
@@ -550,6 +557,7 @@ class AuthManager {
       userId: current.userId,
       email: current.email,
       username: current.username,
+      avatarUrl: current.avatarUrl,
       assignedMemberRole: current.assignedMemberRole,
       founderNumber: current.founderNumber,
       message: 'Subscription active',
@@ -562,7 +570,8 @@ class AuthManager {
   ) {
     final verifiedTier = _recentVerifiedPurchaseTier;
     final expiresAt = _recentVerifiedPurchaseExpiresAt;
-    final isCurrent = verifiedTier != null &&
+    final isCurrent =
+        verifiedTier != null &&
         _recentVerifiedPurchaseUserId == userId &&
         expiresAt != null &&
         DateTime.now().isBefore(expiresAt);
@@ -613,6 +622,41 @@ class AuthManager {
     await client.from('user_profiles').upsert(payload);
   }
 
+  void setAvatarUrl(String? avatarUrl) {
+    final current = sessionState.value;
+    if (!current.authenticated) return;
+    sessionState.value = AuthSessionState(
+      ready: current.ready,
+      authenticated: current.authenticated,
+      isPremium: current.isPremium,
+      subscriptionTier: current.subscriptionTier,
+      accessPreviewTier: current.accessPreviewTier,
+      role: current.role,
+      userId: current.userId,
+      email: current.email,
+      username: current.username,
+      avatarUrl: avatarUrl,
+      assignedMemberRole: current.assignedMemberRole,
+      founderNumber: current.founderNumber,
+      message: current.message,
+    );
+  }
+
+  Future<void> updateAvatarUrl(String? avatarUrl) async {
+    final client = _requireClient();
+    final user = client.auth.currentUser;
+    if (user == null) {
+      throw StateError('Sign in before changing your profile photo.');
+    }
+    await client.from('user_profiles').upsert({
+      'id': user.id,
+      'email': user.email,
+      'avatar_url': avatarUrl,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
+    setAvatarUrl(avatarUrl);
+  }
+
   SupabaseClient _requireClient() {
     final client = _client;
     if (client == null) {
@@ -639,6 +683,9 @@ class AuthManager {
       userId: user.id,
       metadata: user.userMetadata ?? const <String, dynamic>{},
     );
+    final metadataAvatarUrl =
+        user.userMetadata?['avatar_url']?.toString().trim() ??
+        user.userMetadata?['picture']?.toString().trim();
     final hasPrivilegedRole =
         role == 'owner' || role == 'admin' || role == 'tester';
     if (hasPrivilegedRole) {
@@ -654,6 +701,7 @@ class AuthManager {
         userId: user.id,
         email: user.email,
         username: metadataUsername,
+        avatarUrl: metadataAvatarUrl,
         message: 'Authenticated',
       );
       return;
@@ -683,6 +731,7 @@ class AuthManager {
       userId: user.id,
       email: user.email,
       username: metadataUsername,
+      avatarUrl: metadataAvatarUrl,
       message: 'Authenticated; refreshing membership',
     );
     if (_lastMemberJoinNotificationUserId != user.id) {
@@ -732,6 +781,7 @@ class AuthManager {
     var isPremium = false;
     var subscriptionTier = SubscriptionTier.free;
     String? profileDisplayName;
+    String? profileAvatarUrl;
     String? assignedMemberRole;
     int? founderNumber;
     var profileLoaded = false;
@@ -739,7 +789,7 @@ class AuthManager {
       final row = await _client
           ?.from('user_profiles')
           .select(
-            'is_premium, subscription_tier, display_name, '
+            'is_premium, subscription_tier, display_name, avatar_url, '
             'assigned_member_role, founder_number',
           )
           .eq('id', user.id)
@@ -747,6 +797,7 @@ class AuthManager {
       profileLoaded = true;
       if (row is Map<String, dynamic>) {
         profileDisplayName = row['display_name']?.toString();
+        profileAvatarUrl = row['avatar_url']?.toString().trim();
         final raw = row['is_premium'];
         if (raw is bool) {
           isPremium = raw;
@@ -792,6 +843,10 @@ class AuthManager {
         metadata: user.userMetadata ?? const <String, dynamic>{},
         profileDisplayName: profileDisplayName,
       ),
+      avatarUrl: (profileAvatarUrl ?? '').isNotEmpty
+          ? profileAvatarUrl
+          : user.userMetadata?['avatar_url']?.toString() ??
+                user.userMetadata?['picture']?.toString(),
       assignedMemberRole: assignedMemberRole,
       founderNumber: founderNumber,
       message: 'Authenticated',
