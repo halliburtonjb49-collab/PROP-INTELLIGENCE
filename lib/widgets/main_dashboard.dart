@@ -699,6 +699,206 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
+  Widget _buildDesktopMarketOverview() {
+    final activeSport = (_selectedSiteSport.isNotEmpty
+            ? _selectedSiteSport
+            : widget.sportFilter)
+        .trim()
+        .toUpperCase();
+    final freshness = _lastUpdated == null
+        ? 'SYNCING'
+        : '${DateTime.now().difference(_lastUpdated!).inMinutes.clamp(0, 99)}M AGO';
+
+    Widget metric({
+      required IconData icon,
+      required String label,
+      required String value,
+      Color valueColor = Colors.white,
+    }) {
+      return Expanded(
+        child: Container(
+          height: 72,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          decoration: BoxDecoration(
+            color: const Color(0xB30A1823),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF263746)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: app_colors.AppColors.gold.withValues(alpha: .1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: app_colors.AppColors.gold.withValues(alpha: .42),
+                  ),
+                ),
+                child: Icon(icon, color: app_colors.AppColors.gold, size: 19),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: app_colors.AppColors.textMuted,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: valueColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0C2331), Color(0xFF07131D)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: app_colors.AppColors.gold.withValues(alpha: .72),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x59000000),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 5,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: app_colors.AppColors.gold,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              const SizedBox(width: 13),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'PI MARKET OVERVIEW',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .8,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'LIVE RESEARCH, MODEL CONTEXT, AND LINE COMPARISON IN ONE WORKSPACE',
+                      style: TextStyle(
+                        color: app_colors.AppColors.textMuted,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF092A2C),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: const Color(0xFF287C72)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.circle, color: Color(0xFF57D6C0), size: 8),
+                    SizedBox(width: 7),
+                    Text(
+                      'LIVE DATA',
+                      style: TextStyle(
+                        color: Color(0xFF74E4D1),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .9,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              metric(
+                icon: Icons.inventory_2_outlined,
+                label: 'LOADED INVENTORY',
+                value: '${_latestProps.length} PROPS',
+                valueColor: app_colors.AppColors.goldLight,
+              ),
+              const SizedBox(width: 10),
+              metric(
+                icon: Icons.sports_baseball_rounded,
+                label: 'ACTIVE SPORT',
+                value: activeSport.isEmpty || activeSport == 'ALL'
+                    ? 'ALL SPORTS'
+                    : activeSport,
+              ),
+              const SizedBox(width: 10),
+              metric(
+                icon: Icons.storefront_outlined,
+                label: 'PROP PROVIDER',
+                value: _selectedSite,
+              ),
+              const SizedBox(width: 10),
+              metric(
+                icon: Icons.sync_rounded,
+                label: 'DATA FRESHNESS',
+                value: freshness,
+                valueColor: const Color(0xFF74E4D1),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   void _handlePropsLoaded(
     List<PropData> props,
     int propCount,
@@ -3479,6 +3679,10 @@ class _MainDashboardState extends State<MainDashboard> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    if (boardViewportWidth >= 1200) ...[
+                                      _buildDesktopMarketOverview(),
+                                      SizedBox(height: sectionGap + 4),
+                                    ],
                                     if (tabletBoard)
                                       _buildTabletMarketToolbar()
                                     else
@@ -3757,14 +3961,17 @@ EdgeInsets boardContentPadding(double viewportWidth) {
   if (viewportWidth < 1000) {
     return const EdgeInsets.fromLTRB(10, 9, 10, 18);
   }
-  return const EdgeInsets.fromLTRB(14, 12, 14, 22);
+  if (viewportWidth < 1440) {
+    return const EdgeInsets.fromLTRB(18, 16, 18, 26);
+  }
+  return const EdgeInsets.fromLTRB(24, 20, 24, 32);
 }
 
 @visibleForTesting
 double boardSectionGap(double viewportWidth) {
   if (viewportWidth < 600) return 6;
   if (viewportWidth < 1000) return 8;
-  return 10;
+  return viewportWidth >= 1440 ? 16 : 13;
 }
 
 @visibleForTesting
