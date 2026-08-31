@@ -28,7 +28,6 @@ enum AppPage {
 }
 
 SubscriptionTier? requiredTierForPage(AppPage page) => switch (page) {
-  AppPage.trackRecord ||
   AppPage.propBuilder ||
   AppPage.gameMarkets ||
   AppPage.watchlist ||

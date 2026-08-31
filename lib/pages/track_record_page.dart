@@ -97,6 +97,8 @@ class _RecordBody extends StatelessWidget {
           const SizedBox(height: 12),
           _IntegrityBanner(record: record),
           const SizedBox(height: 14),
+          _MethodologyPanel(record: record),
+          const SizedBox(height: 14),
           if (!record.published) ...[
             _CollectingNotice(record: record),
             const SizedBox(height: 14),
@@ -437,6 +439,92 @@ class _IntegrityBanner extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MethodologyPanel extends StatelessWidget {
+  const _MethodologyPanel({required this.record});
+
+  final TrackRecord record;
+
+  @override
+  Widget build(BuildContext context) {
+    final rules = <(String, String)>[
+      (
+        'WHAT IS COUNTED',
+        'Every timestamped, qualified PI pick that reaches a final graded result. Wins, losses, and pushes remain in the append-only ledger.',
+      ),
+      (
+        'WHAT IS NOT A PICK',
+        'SUPPRESSED, NOT QUALIFIED, PENDING DATA, WAIT / MONITOR, and PASS states are not presented as model picks or assigned a false 0% confidence.',
+      ),
+      (
+        'SAMPLE STANDARD',
+        'Headline rates stay hidden until at least ${record.minimumPublishedSample} picks are graded. Sport, market, tier, and calibration rows show their own sample size.',
+      ),
+      (
+        'PI TRUST VS CONFIDENCE',
+        'PI Trust measures source quality, freshness, lineup status, and evidence completeness. Confidence estimates a qualified pick outcome; the two are intentionally separate.',
+      ),
+      (
+        'ROI AND CLOSING LINE',
+        'Simulated ROI is modelled from recorded entry odds and is not money wagered. Closing-line results compare the recorded line with the available close.',
+      ),
+    ];
+    return Container(
+      key: const ValueKey('track-record-methodology'),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: app_colors.AppColors.panel,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: app_colors.AppColors.gold),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.policy_outlined,
+                color: app_colors.AppColors.gold,
+                size: 18,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'METHODOLOGY & PUBLICATION RULES',
+                style: TextStyle(
+                  color: app_colors.AppColors.gold,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (final rule in rules) ...[
+            Text(
+              rule.$1,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              rule.$2,
+              style: const TextStyle(
+                color: app_colors.AppColors.textMuted,
+                fontSize: 10,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 9),
+          ],
         ],
       ),
     );

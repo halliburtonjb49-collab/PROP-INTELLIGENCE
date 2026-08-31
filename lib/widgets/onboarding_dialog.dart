@@ -5,7 +5,7 @@ import '../services/engagement_tracker.dart';
 import '../theme/app_colors.dart';
 
 class ProductOnboarding {
-  static const _preferenceKey = 'product_onboarding_v2_complete';
+  static const _preferenceKey = 'product_onboarding_v3_complete';
 
   static Future<void> showIfNeeded(BuildContext context) async {
     final preferences = await SharedPreferences.getInstance();
@@ -52,6 +52,12 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
           'BEST NOW highlights PI\'s strongest current research. BETTER LINE means compare available lines. SLIGHT EDGE is directional but lower conviction. WAIT / MONITOR means an important input is not ready.',
     ),
     (
+      icon: Icons.percent_rounded,
+      title: 'Confidence is earned',
+      body:
+          'Qualified picks show a calculated confidence percentage. NO PICK displays SUPPRESSED or NOT QUALIFIED, never a misleading 0%. Missing evidence displays PENDING DATA, with the exact blocker shown in PI Intelligence.',
+    ),
+    (
       icon: Icons.monitor_heart_outlined,
       title: 'Check data reliability',
       body:
@@ -61,7 +67,13 @@ class _OnboardingDialogState extends State<_OnboardingDialog> {
       icon: Icons.query_stats_rounded,
       title: 'Understand the evidence',
       body:
-          'Projection is the model estimate. Edge compares it with the current line. PI Trust measures the reliability of the supporting data. Open a card to see the reasoning.',
+          'Projection is the model estimate. Edge compares it with the current line. PI Trust measures evidence quality and freshness, not pick probability. Open a card to inspect the sample, blockers, and reasoning.',
+    ),
+    (
+      icon: Icons.verified_user_outlined,
+      title: 'Why PI is different',
+      body:
+          'PI separates pick probability from data quality, suppresses weak conclusions, preserves unavailable states, and publishes every graded qualified pick with sample sizes. It is research evidence, not a promise of an outcome.',
     ),
     (
       icon: Icons.receipt_long_outlined,
@@ -262,6 +274,47 @@ class DecisionGuideSheet extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.gold.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: AppColors.gold.withValues(alpha: 0.55)),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'CONFIDENCE DISPLAY',
+                    style: TextStyle(
+                      color: AppColors.gold,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    'Qualified pick: calculated percentage  |  No Pick: SUPPRESSED / NOT QUALIFIED  |  Missing evidence: PENDING DATA',
+                    style: TextStyle(
+                      color: AppColors.silver,
+                      fontSize: 10,
+                      height: 1.35,
+                    ),
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    'PI Trust remains separate because it measures the quality of the evidence, not the probability of the pick.',
+                    style: TextStyle(
+                      color: AppColors.silver,
+                      fontSize: 10,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 12),
