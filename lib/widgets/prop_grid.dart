@@ -4354,7 +4354,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     visibleCount < groups.length ||
                     _preparedProps.length < _apiService.lastPropsCount;
 
-                if (useTabletPropTable(MediaQuery.sizeOf(context).width)) {
+                if (widget.siteFirstLayout &&
+                    useTabletPropTable(MediaQuery.sizeOf(context).width)) {
                   return TabletPropTable(
                     key: const ValueKey('tablet-prop-table'),
                     groups: visibleGroups,
