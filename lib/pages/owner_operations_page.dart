@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/prop_data.dart';
+import '../models/game_market.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_colors.dart' as brand_colors;
@@ -21,6 +22,86 @@ class OwnerOperationsPage extends StatefulWidget {
   State<OwnerOperationsPage> createState() => _OwnerOperationsPageState();
 }
 
+class _OwnerMoneylinePick {
+  const _OwnerMoneylinePick({
+    required this.event,
+    required this.team,
+    required this.fairProbability,
+    required this.price,
+    required this.sportsbook,
+    required this.bookCount,
+  });
+
+  final GameMarketEvent event;
+  final String team;
+  final double fairProbability;
+  final int price;
+  final String sportsbook;
+  final int bookCount;
+}
+
+class _OwnerMoneylineCard extends StatelessWidget {
+  const _OwnerMoneylineCard({required this.rank, required this.pick});
+
+  final int rank;
+  final _OwnerMoneylinePick pick;
+
+  @override
+  Widget build(BuildContext context) {
+    final price = pick.price > 0 ? '+${pick.price}' : '${pick.price}';
+    final start = pick.event.commenceTime?.toLocal();
+    final time = start == null ? 'TBD' : TimeOfDay.fromDateTime(start).format(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gold.withValues(alpha: .55)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.gold.withValues(alpha: .14),
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.gold),
+            ),
+            child: Text('#$rank', style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w900)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(pick.team, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 3),
+                Text('${pick.event.awayTeam} @ ${pick.event.homeTeam}  •  $time',
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
+                const SizedBox(height: 3),
+                Text('BEST LISTED $price  •  ${pick.sportsbook.toUpperCase()}  •  ${pick.bookCount} BOOKS',
+                  style: const TextStyle(color: AppColors.gold, fontSize: 9, fontWeight: FontWeight.w800)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('${(pick.fairProbability * 100).toStringAsFixed(1)}%',
+                style: const TextStyle(color: Color(0xFF8CFFB2), fontSize: 18, fontWeight: FontWeight.w900)),
+              const Text('SHIN FAIR', style: TextStyle(color: AppColors.textMuted, fontSize: 8, fontWeight: FontWeight.w800)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   late final ApiService _api = widget.apiService ?? ApiService();
   Map<String, dynamic>? _control;
@@ -33,6 +114,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   Map<String, dynamic>? _identityRegistry;
   Map<String, dynamic> _providerReliability = const {};
   List<PropData> _ownerTopPicks = const [];
+  List<_OwnerMoneylinePick> _ownerMlbMoneylines = const [];
   bool _recoverySubmitting = false;
   Map<String, dynamic> _strikeoutControlsDraft = const {};
   bool _savingStrikeoutControls = false;
@@ -131,6 +213,10 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             .expand((props) => props)
             .toList(growable: false),
       );
+      final moneylineRequest = _api
+          .fetchGameMarkets(sport: 'MLB')
+          .then<GameMarketFeed?>((feed) => feed)
+          .catchError((_) => null);
       final results = await Future.wait([
         _optionalSnapshot(_api.fetchLaunchControlPanel()),
         _optionalSnapshot(_api.fetchBillingCertification()),
@@ -154,6 +240,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         _optionalSnapshot(_api.fetchIdentityRegistry()),
       ]);
       final topPicks = await topPicksRequest;
+      final moneylineFeed = await moneylineRequest;
       if (!mounted) return;
       setState(() {
         _control = results[0];
@@ -166,6 +253,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         _identityRegistry = results[7];
         _providerReliability = _api.lastProviderReliability;
         _ownerTopPicks = _rankOwnerTopPicks(topPicks);
+        _ownerMlbMoneylines = _rankMlbMoneylines(moneylineFeed);
         final ownerInsights =
             _control?['ownerOnlyInsights'] as Map? ?? const {};
         final controlPayload =
@@ -446,6 +534,13 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             ),
             const SizedBox(height: 10),
             _ownerTopPicksPanel(),
+            const SizedBox(height: 22),
+            _sectionTitle(
+              'TODAY\'S TOP 3 MLB MONEYLINE RESEARCH SIGNALS',
+              'Owner-only daily market consensus ranked by de-vigged fair probability with the best available listed price',
+            ),
+            const SizedBox(height: 10),
+            _ownerMlbMoneylinePanel(),
             const SizedBox(height: 14),
             const OwnerUserAccountControls(),
             const SizedBox(height: 22),
@@ -773,6 +868,76 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
           _OwnerSportPickGroup(sport: entry.key, picks: entry.value),
           const SizedBox(height: 10),
         ],
+      ],
+    );
+  }
+
+  List<_OwnerMoneylinePick> _rankMlbMoneylines(GameMarketFeed? feed) {
+    if (feed == null || feed.stale) return const [];
+    final now = DateTime.now();
+    final ranked = <_OwnerMoneylinePick>[];
+    for (final event in feed.events) {
+      if (event.commenceTime != null && event.commenceTime!.isBefore(now)) continue;
+      final localStart = event.commenceTime?.toLocal();
+      if (localStart == null ||
+          localStart.year != now.year ||
+          localStart.month != now.month ||
+          localStart.day != now.day) {
+        continue;
+      }
+      final byTeam = <String, List<({GameMarketOutcome outcome, SportsbookGameMarkets book})>>{};
+      for (final book in event.bookmakers) {
+        for (final outcome in book.markets['h2h'] ?? const <GameMarketOutcome>[]) {
+          if (outcome.fairProbability == null) continue;
+          byTeam.putIfAbsent(outcome.name, () => []).add((outcome: outcome, book: book));
+        }
+      }
+      if (byTeam.isEmpty) continue;
+      final candidates = byTeam.entries.map((entry) {
+        final averageFair = entry.value
+                .map((row) => row.outcome.fairProbability!)
+                .reduce((a, b) => a + b) /
+            entry.value.length;
+        final best = entry.value.reduce(
+          (current, next) => next.outcome.price > current.outcome.price ? next : current,
+        );
+        return _OwnerMoneylinePick(
+          event: event,
+          team: entry.key,
+          fairProbability: averageFair,
+          price: best.outcome.price,
+          sportsbook: best.book.title,
+          bookCount: entry.value.length,
+        );
+      }).toList()..sort((a, b) => b.fairProbability.compareTo(a.fairProbability));
+      if (candidates.isNotEmpty) ranked.add(candidates.first);
+    }
+    ranked.sort((a, b) => b.fairProbability.compareTo(a.fairProbability));
+    return ranked.take(3).toList(growable: false);
+  }
+
+  Widget _ownerMlbMoneylinePanel() {
+    if (_loading && _ownerMlbMoneylines.isEmpty) return const _OwnerTopPicksLoading();
+    if (_ownerMlbMoneylines.isEmpty) {
+      return _notice(
+        Icons.sports_baseball_outlined,
+        'NO VERIFIED MLB MONEYLINES RIGHT NOW',
+        'Upcoming MLB games do not currently have enough fresh two-sided market coverage. This updates automatically every 30 seconds.',
+        AppColors.gold,
+      );
+    }
+    return Column(
+      key: const ValueKey('owner-mlb-moneyline-top-three'),
+      children: [
+        for (var index = 0; index < _ownerMlbMoneylines.length; index++) ...[
+          _OwnerMoneylineCard(rank: index + 1, pick: _ownerMlbMoneylines[index]),
+          if (index + 1 < _ownerMlbMoneylines.length) const SizedBox(height: 8),
+        ],
+        const SizedBox(height: 8),
+        const Text(
+          'MARKET-CONSENSUS RESEARCH ONLY. FAIR PROBABILITY IS DE-VIGGED FROM POSTED PRICES, NOT AN INDEPENDENT PI GAME-WINNER MODEL. VERIFY THE LIVE PRICE BEFORE USE.',
+          style: TextStyle(color: AppColors.textMuted, fontSize: 8, fontWeight: FontWeight.w800),
+        ),
       ],
     );
   }
