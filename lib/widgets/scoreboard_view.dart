@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/scoreboard_controller.dart';
@@ -7,6 +8,7 @@ import '../models/scoreboard_game.dart';
 import '../services/api_service.dart';
 import '../services/scoreboard_service.dart';
 import '../services/scoreboard_watchlist_service.dart';
+import '../services/player_image_resolver.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -46,6 +48,8 @@ class _LiveScoreboardTickerGridWidgetState
   String _selectedTab = 'ALL GAMES';
   String _selectedSport = 'ALL SPORTS';
   bool _autoRefresh = true;
+  List<ScoreboardGame> _weekGames = const [];
+  bool _weekLoading = false;
 
   @override
   void initState() {
@@ -62,6 +66,22 @@ class _LiveScoreboardTickerGridWidgetState
     if (_ownsController) {
       unawaited(_controller.load(silent: _controller.games.isNotEmpty));
       _controller.beginLiveRefresh();
+    }
+    unawaited(_loadWeek());
+  }
+
+  Future<void> _loadWeek() async {
+    if (_weekLoading) return;
+    setState(() => _weekLoading = true);
+    try {
+      final games = await ScoreboardService(
+        baseUrl: ApiService.baseUrl,
+      ).fetchGamesRange(startDate: DateTime.now(), days: 7);
+      if (mounted) setState(() => _weekGames = games);
+    } catch (_) {
+      // Today's live scoreboard remains usable if the schedule window fails.
+    } finally {
+      if (mounted) setState(() => _weekLoading = false);
     }
   }
 
@@ -80,11 +100,14 @@ class _LiveScoreboardTickerGridWidgetState
   }
 
   List<ScoreboardGame> get _sportGames {
-    final source = widget.watchedOnly
+    final todaySource = widget.watchedOnly
         ? _controller.games
               .where((game) => _watchlist.isWatching(game.id))
               .toList(growable: false)
         : _controller.games;
+    final source = _selectedTab == 'THIS WEEK' && !widget.watchedOnly
+        ? <ScoreboardGame>[...todaySource, ..._weekGames]
+        : todaySource;
     final seen = <String>{};
     final available = source
         .where((game) {
@@ -122,6 +145,8 @@ class _LiveScoreboardTickerGridWidgetState
       'LIVE NOW' => games.where((game) => game.isLive).toList(),
       'UPCOMING' => games.where((game) => game.isUpcoming).toList(),
       'FINAL' => games.where((game) => game.isFinal).toList(),
+      'THIS WEEK' =>
+        games.where((game) => game.isLive || game.isUpcoming).toList(),
       _ => games,
     };
   }
@@ -238,7 +263,13 @@ class _LiveScoreboardTickerGridWidgetState
 
   Widget _buildHeader() {
     final liveCount = _sportGames.where((game) => game.isLive).length;
-    final tabs = <String>['ALL GAMES', 'LIVE NOW', 'UPCOMING', 'FINAL'];
+    final tabs = <String>[
+      'ALL GAMES',
+      'LIVE NOW',
+      'UPCOMING',
+      'THIS WEEK',
+      'FINAL',
+    ];
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 700;
@@ -328,7 +359,12 @@ class _LiveScoreboardTickerGridWidgetState
                   children: [
                     for (final tab in tabs)
                       InkWell(
-                        onTap: () => setState(() => _selectedTab = tab),
+                        onTap: () {
+                          setState(() => _selectedTab = tab);
+                          if (tab == 'THIS WEEK' && _weekGames.isEmpty) {
+                            unawaited(_loadWeek());
+                          }
+                        },
                         child: Container(
                           padding: const EdgeInsets.fromLTRB(13, 8, 13, 9),
                           decoration: BoxDecoration(
@@ -345,7 +381,11 @@ class _LiveScoreboardTickerGridWidgetState
                             ),
                           ),
                           child: Text(
-                            tab == 'LIVE NOW' ? 'LIVE NOW  $liveCount' : tab,
+                            tab == 'LIVE NOW'
+                                ? 'LIVE NOW  $liveCount'
+                                : tab == 'THIS WEEK' && _weekLoading
+                                ? 'THIS WEEK  ...'
+                                : tab,
                             style: TextStyle(
                               color: _selectedTab == tab ? _gold : _silver,
                               fontSize: 9,
@@ -637,9 +677,19 @@ class _LiveScoreboardTickerGridWidgetState
             ],
           ),
           const SizedBox(height: 8),
-          _scoreRow(_awayLabel(game), awayScore, awayScore >= homeScore),
+          _scoreRow(
+            _awayLabel(game),
+            awayScore,
+            awayScore >= homeScore,
+            game.awayLogo,
+          ),
           const SizedBox(height: 7),
-          _scoreRow(_homeLabel(game), homeScore, homeScore >= awayScore),
+          _scoreRow(
+            _homeLabel(game),
+            homeScore,
+            homeScore >= awayScore,
+            game.homeLogo,
+          ),
           const Spacer(),
           ClipRRect(
             borderRadius: BorderRadius.circular(9),
@@ -655,26 +705,10 @@ class _LiveScoreboardTickerGridWidgetState
     );
   }
 
-  Widget _scoreRow(String team, int score, bool leading) {
+  Widget _scoreRow(String team, int score, bool leading, String? logo) {
     return Row(
       children: [
-        Container(
-          width: 25,
-          height: 25,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: _panelRaised,
-            shape: BoxShape.circle,
-          ),
-          child: Text(
-            _initials(team),
-            style: const TextStyle(
-              color: _gold,
-              fontSize: 7,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
+        _teamLogo(logo, team, 28),
         const SizedBox(width: 7),
         Expanded(
           child: Text(
@@ -812,15 +846,41 @@ class _LiveScoreboardTickerGridWidgetState
           ),
           Expanded(
             flex: 4,
-            child: Text(
-              '${_awayLabel(game)}  @  ${_homeLabel(game)}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: _white,
-                fontSize: 8.5,
-                fontWeight: FontWeight.w700,
-              ),
+            child: Row(
+              children: [
+                _teamLogo(game.awayLogo, _awayLabel(game), 24),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    _awayLabel(game),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _white,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6),
+                  child: Text('@', style: TextStyle(color: _muted)),
+                ),
+                _teamLogo(game.homeLogo, _homeLabel(game), 24),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    _homeLabel(game),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _white,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -927,17 +987,29 @@ class _LiveScoreboardTickerGridWidgetState
             ],
           ),
           const SizedBox(height: 9),
-          _finalScoreRow(_awayLabel(game), awayScore, awayScore > homeScore),
+          _finalScoreRow(
+            _awayLabel(game),
+            awayScore,
+            awayScore > homeScore,
+            game.awayLogo,
+          ),
           const SizedBox(height: 6),
-          _finalScoreRow(_homeLabel(game), homeScore, homeScore > awayScore),
+          _finalScoreRow(
+            _homeLabel(game),
+            homeScore,
+            homeScore > awayScore,
+            game.homeLogo,
+          ),
         ],
       ),
     );
   }
 
-  Widget _finalScoreRow(String team, int score, bool winner) {
+  Widget _finalScoreRow(String team, int score, bool winner, String? logo) {
     return Row(
       children: [
+        _teamLogo(logo, team, 24),
+        const SizedBox(width: 7),
         Expanded(
           child: Text(
             team,
@@ -970,6 +1042,46 @@ class _LiveScoreboardTickerGridWidgetState
         watched ? Icons.star : Icons.star_border,
         color: _gold,
         size: 16,
+      ),
+    );
+  }
+
+  Widget _teamLogo(String? rawLogo, String team, double size) {
+    final logo = (rawLogo ?? '').trim();
+    final fallback = Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: _panelRaised,
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        _initials(team),
+        style: const TextStyle(
+          color: _gold,
+          fontSize: 7,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+    if (logo.isEmpty) return fallback;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CachedNetworkImage(
+        imageUrl: resolvePlayerImagePath(
+          logo,
+          useApiProxyForRemoteImages: false,
+        ),
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
+        fadeInDuration: Duration.zero,
+        fadeOutDuration: Duration.zero,
+        memCacheWidth: (size * 3).round(),
+        memCacheHeight: (size * 3).round(),
+        placeholder: (_, _) => fallback,
+        errorWidget: (_, _, _) => fallback,
       ),
     );
   }

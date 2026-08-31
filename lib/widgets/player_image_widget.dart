@@ -18,6 +18,9 @@ class PlayerImageWidget extends StatelessWidget {
     this.fallbackIcon = Icons.person,
     this.fallbackIconSize = 32,
     this.showShimmer = true,
+    this.cacheIdentity = '',
+    this.player = '',
+    this.sport = '',
   });
 
   final String imageUrl;
@@ -28,6 +31,9 @@ class PlayerImageWidget extends StatelessWidget {
   final IconData fallbackIcon;
   final double fallbackIconSize;
   final bool showShimmer;
+  final String cacheIdentity;
+  final String player;
+  final String sport;
 
   static String _stableCacheKey(String value) {
     final uri = Uri.tryParse(value);
@@ -39,31 +45,47 @@ class PlayerImageWidget extends StatelessWidget {
     if (nested != null && nested.isNotEmpty) {
       query['url'] = _stableCacheKey(nested);
     }
-    return uri.replace(queryParameters: query.isEmpty ? null : query).toString();
+    return uri
+        .replace(queryParameters: query.isEmpty ? null : query)
+        .toString();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (imageUrl.trim().isEmpty) {
+    final sourceImage = imageUrl.trim().isNotEmpty
+        ? imageUrl
+        : resolveCanonicalPlayerImagePath(
+            player: player,
+            sport: sport,
+            identityKey: cacheIdentity,
+          );
+    if (sourceImage.isEmpty) {
       return _buildFallback();
     }
 
     final primaryUrl = resolvePlayerImagePath(
-      imageUrl,
+      sourceImage,
       // Web sports CDNs are loaded directly first. The API proxy remains the
       // retry path below, which avoids accepting an opaque provider/proxy
       // placeholder as a successfully rendered black player photo.
       useApiProxyForRemoteImages: !kIsWeb,
+      identityKey: cacheIdentity,
     );
-    final resolvedFallback = resolvePlayerImageFallbackPath(imageUrl);
+    final resolvedFallback = resolvePlayerImageFallbackPath(
+      sourceImage,
+      identityKey: cacheIdentity,
+    );
     final retryUrl =
         resolvedFallback.isNotEmpty && resolvedFallback != primaryUrl
         ? resolvedFallback
-        : primaryUrl != imageUrl.trim()
-        ? imageUrl.trim()
+        : primaryUrl != sourceImage
+        ? sourceImage
         : '';
-    final primaryCacheKey = _stableCacheKey(primaryUrl);
-    final retryCacheKey = _stableCacheKey(retryUrl);
+    final identityPrefix = cacheIdentity.trim().isEmpty
+        ? ''
+        : '${cacheIdentity.trim()}|';
+    final primaryCacheKey = '$identityPrefix${_stableCacheKey(primaryUrl)}';
+    final retryCacheKey = '$identityPrefix${_stableCacheKey(retryUrl)}';
 
     return ClipRRect(
       borderRadius: borderRadius ?? BorderRadius.zero,
@@ -134,7 +156,8 @@ class PlayerImageWidget extends StatelessWidget {
             placeholder: (_, _) => _buildFallback(),
             errorWidget: (_, failedUrl, _) {
               EngagementTracker.instance.recordOperational(
-                'MEDIA_FAILURE', endpoint: failedUrl,
+                'MEDIA_FAILURE',
+                endpoint: failedUrl,
                 provider: Uri.tryParse(failedUrl)?.host ?? 'unknown',
                 mediaType: 'player_photo',
               );
@@ -208,11 +231,17 @@ class PlayerAvatarWidget extends StatelessWidget {
     required this.imageUrl,
     this.radius = 24,
     this.fallbackIcon = Icons.person,
+    this.cacheIdentity = '',
+    this.player = '',
+    this.sport = '',
   });
 
   final String imageUrl;
   final double radius;
   final IconData fallbackIcon;
+  final String cacheIdentity;
+  final String player;
+  final String sport;
 
   @override
   Widget build(BuildContext context) {
@@ -224,6 +253,9 @@ class PlayerAvatarWidget extends StatelessWidget {
       borderRadius: BorderRadius.circular(radius),
       fallbackIcon: fallbackIcon,
       fallbackIconSize: radius,
+      cacheIdentity: cacheIdentity,
+      player: player,
+      sport: sport,
     );
   }
 }

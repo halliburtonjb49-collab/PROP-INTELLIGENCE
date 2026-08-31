@@ -110,7 +110,7 @@ const List<AppNavigationGroup> appNavigationGroups = [
       ('Track Record', AppPage.trackRecord),
     ],
   ),
-  ('SPORTS', Icons.sports_rounded, [('Game Markets', AppPage.gameMarkets)]),
+  ('SPORTS', Icons.sports_rounded, [('Moneyline', AppPage.gameMarkets)]),
 ];
 
 String appPageHowTo(AppPage page) => switch (page) {
@@ -162,7 +162,7 @@ String appPageHowTo(AppPage page) => switch (page) {
 
 String appPageTitle(AppPage page) => switch (page) {
   AppPage.board => 'MARKET BOARD',
-  AppPage.gameMarkets => 'GAME MARKETS',
+  AppPage.gameMarkets => 'MONEYLINE',
   AppPage.scoreboard => 'LIVE SCOREBOARD',
   AppPage.scoreboardWatchlist => 'SCOREBOARD WATCHLIST',
   AppPage.analytics => 'PERFORMANCE ANALYTICS',
@@ -204,9 +204,9 @@ String appPageSubtitle(AppPage page) => switch (page) {
   AppPage.searchPlayers => 'Open focused player and market research',
   AppPage.propAlerts => 'Review monitored conditions and changes',
   AppPage.propBuilder => 'Build a disciplined, research-backed slip',
-  AppPage.watchlist => 'Track live props, research-ticket results, and recorded performance',
-  AppPage.pastSlipHistory =>
-    'Review resolved slips, outcomes and performance',
+  AppPage.watchlist =>
+    'Track live props, research-ticket results, and recorded performance',
+  AppPage.pastSlipHistory => 'Review resolved slips, outcomes and performance',
   AppPage.builderPerformance => 'Review outcomes and improve your process',
   AppPage.evScanner => 'Surface estimated positive-value opportunities',
   AppPage.strikeoutProGold =>

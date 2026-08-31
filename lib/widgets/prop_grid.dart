@@ -213,13 +213,22 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   );
 
   Widget _fastPlayerPhoto(PropData prop, {double size = 44}) {
-    final imagePath = resolvePlayerImagePath(prop.imagePath);
-    final retryImagePath = resolvePlayerImageFallbackPath(prop.imagePath);
     final playerIdentity = prop.canonicalPlayerId.trim().isNotEmpty
         ? prop.canonicalPlayerId.trim()
         : prop.playerId.trim().isNotEmpty
         ? prop.playerId.trim()
         : prop.player.trim().toLowerCase();
+    final imagePath = prop.imagePath.trim().isEmpty
+        ? resolveCanonicalPlayerImagePath(
+            player: prop.player,
+            sport: prop.sport,
+            identityKey: playerIdentity,
+          )
+        : resolvePlayerImagePath(prop.imagePath, identityKey: playerIdentity);
+    final retryImagePath = resolvePlayerImageFallbackPath(
+      prop.imagePath,
+      identityKey: playerIdentity,
+    );
     String photoKey(String path) =>
         'player-photo:${prop.sport}:$playerIdentity:${prop.sportsbook}:$path';
     final pixelRatio = MediaQuery.devicePixelRatioOf(context).clamp(1.0, 3.0);
@@ -261,58 +270,31 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       final proxiedWebPath = resolvePlayerImagePath(
         prop.imagePath,
         useApiProxyForRemoteImages: true,
+        identityKey: playerIdentity,
       );
 
       Widget webImage(String url, {String? retryUrl}) {
-        return Image.network(
+        final key = photoKey(url);
+        return CachedNetworkImage(
           key: ValueKey(photoKey(url)),
-          url,
+          imageUrl: url,
+          cacheKey: key,
           width: size,
           height: size,
           fit: BoxFit.cover,
           alignment: Alignment.center,
           filterQuality: FilterQuality.high,
-          gaplessPlayback: true,
-          frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-            if (wasSynchronouslyLoaded || frame != null) {
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  _playerPlaceholder(prop.player, size: size),
-                  child,
-                  Positioned(
-                    right: 2,
-                    bottom: 2,
-                    child: Container(
-                      width: 16,
-                      height: 16,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: app_colors.AppColors.gold,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: app_colors.AppColors.background,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Text(
-                        prop.player.trim().isEmpty
-                            ? '?'
-                            : prop.player.trim().substring(0, 1).toUpperCase(),
-                        style: const TextStyle(
-                          color: app_colors.AppColors.background,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            }
-            return _playerPlaceholder(prop.player, size: size);
-          },
-          errorBuilder: (_, _, _) {
+          useOldImageOnUrlChange: true,
+          fadeInDuration: Duration.zero,
+          fadeOutDuration: Duration.zero,
+          memCacheWidth: cacheSize,
+          memCacheHeight: cacheSize,
+          maxWidthDiskCache: 800,
+          maxHeightDiskCache: 800,
+          imageBuilder: (_, imageProvider) =>
+              _playerPhotoFrame(imageProvider, prop.player, size: size),
+          placeholder: (_, _) => _playerPlaceholder(prop.player, size: size),
+          errorWidget: (_, _, _) {
             if (retryUrl != null && retryUrl.isNotEmpty && retryUrl != url) {
               return webImage(retryUrl);
             }
@@ -325,9 +307,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         );
       }
 
-      // Use the revised direct CDN image first on web. The API proxy is only
-      // the retry path, matching PlayerImageWidget and preventing a cached
-      // opaque proxy response from appearing as a successful black photo.
+      // The canonical identity in the URL and cache key prevents one player,
+      // provider refresh, or stale browser response from replacing another
+      // player's decoded bitmap when the board is left and reopened.
       return webImage(
         imagePath,
         retryUrl: proxiedWebPath.isEmpty ? null : proxiedWebPath,

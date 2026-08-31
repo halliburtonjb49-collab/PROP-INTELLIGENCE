@@ -1632,11 +1632,11 @@ class _TabletAppHeader extends StatelessWidget {
               ),
               _TabletHeaderNavItem(
                 key: const ValueKey('tablet-nav-builders'),
-                icon: Icons.construction_outlined,
-                label: 'BUILDERS',
-                selected: _matches(AppPage.propBuilder),
+                icon: Icons.sports_score_outlined,
+                label: 'MONEYLINE',
+                selected: selectedPage == AppPage.gameMarkets,
                 accentColor: accentColor,
-                onTap: () => onSelectPage?.call(AppPage.propBuilder),
+                onTap: () => onSelectPage?.call(AppPage.gameMarkets),
               ),
               _TabletHeaderNavItem(
                 key: const ValueKey('tablet-nav-more'),

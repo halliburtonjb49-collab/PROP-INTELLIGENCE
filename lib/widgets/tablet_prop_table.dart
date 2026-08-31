@@ -455,6 +455,13 @@ class _PlayerCell extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: PlayerAvatarWidget(
                   imageUrl: prop.imagePath,
+                  cacheIdentity: prop.canonicalPlayerId.trim().isNotEmpty
+                      ? prop.canonicalPlayerId
+                      : prop.playerId.trim().isNotEmpty
+                      ? prop.playerId
+                      : '${prop.sport}:${prop.player.toLowerCase()}',
+                  player: prop.player,
+                  sport: prop.sport,
                   radius: 30,
                   fallbackIcon: _sportIcon(prop.sport),
                 ),

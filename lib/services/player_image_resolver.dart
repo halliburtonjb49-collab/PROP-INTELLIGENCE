@@ -5,17 +5,44 @@ import 'api_service.dart';
 // Increment only when the player-photo delivery pipeline changes. Keeping the
 // revision in the shared resolver invalidates previously cached opaque/black
 // responses across the board, slips, history, and specialty views together.
-const String _playerImageRevision = '20260829-1';
+const String _playerImageRevision = '20260831-2';
+
+String resolveCanonicalPlayerImagePath({
+  required String player,
+  required String sport,
+  required String identityKey,
+  String? apiBaseUrl,
+}) {
+  if (player.trim().isEmpty || sport.trim().isEmpty) return '';
+  final base = (apiBaseUrl ?? ApiService.baseUrl).trim().replaceFirst(
+    RegExp(r'/$'),
+    '',
+  );
+  return Uri.parse('$base/api/player-photo')
+      .replace(
+        queryParameters: {
+          'player': player.trim(),
+          'sport': sport.trim().toUpperCase(),
+          if (identityKey.trim().isNotEmpty) 'identity': identityKey.trim(),
+          'revision': _playerImageRevision,
+        },
+      )
+      .toString();
+}
 
 String resolvePlayerImagePath(
   String rawPath, {
   String? apiBaseUrl,
   bool? useApiProxyForRemoteImages,
+  String identityKey = '',
 }) {
   final trimmed = rawPath.trim();
   if (trimmed.isEmpty) return '';
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    final revisedRemote = _versionedSupportedRemoteImage(trimmed);
+    final revisedRemote = _versionedSupportedRemoteImage(
+      trimmed,
+      identityKey: identityKey,
+    );
     // Browser image requests can use these CORS-enabled sports CDNs directly,
     // avoiding a second network hop through Render for every player card.
     if (!(useApiProxyForRemoteImages ?? !kIsWeb)) {
@@ -24,6 +51,7 @@ String resolvePlayerImagePath(
     return _proxySupportedPlayerImage(
       revisedRemote,
       apiBaseUrl: apiBaseUrl ?? ApiService.baseUrl,
+      identityKey: identityKey,
     );
   }
 
@@ -45,12 +73,17 @@ String resolvePlayerImagePath(
 /// Returns a server-proxied retry URL for supported remote player images.
 /// Web cards use the smaller direct CDN image first, then this path if the
 /// browser/CDN request fails. Native clients already use the proxy first.
-String resolvePlayerImageFallbackPath(String rawPath, {String? apiBaseUrl}) {
+String resolvePlayerImageFallbackPath(
+  String rawPath, {
+  String? apiBaseUrl,
+  String identityKey = '',
+}) {
   final trimmed = rawPath.trim();
   if (!trimmed.startsWith('https://')) return '';
   final fallback = _proxySupportedPlayerImage(
-    _versionedSupportedRemoteImage(trimmed),
+    _versionedSupportedRemoteImage(trimmed, identityKey: identityKey),
     apiBaseUrl: apiBaseUrl ?? ApiService.baseUrl,
+    identityKey: identityKey,
   );
   return fallback == trimmed ? '' : fallback;
 }
@@ -58,6 +91,7 @@ String resolvePlayerImageFallbackPath(String rawPath, {String? apiBaseUrl}) {
 String _proxySupportedPlayerImage(
   String imageUrl, {
   required String apiBaseUrl,
+  String identityKey = '',
 }) {
   final imageUri = Uri.tryParse(imageUrl);
   final apiBase = apiBaseUrl.trim();
@@ -73,15 +107,21 @@ String _proxySupportedPlayerImage(
   final normalizedBase = apiBase.endsWith('/')
       ? apiBase.substring(0, apiBase.length - 1)
       : apiBase;
-  return Uri.parse(
-    '$normalizedBase/player-image-proxy',
-  ).replace(queryParameters: {
-    'url': imageUrl,
-    'revision': _playerImageRevision,
-  }).toString();
+  return Uri.parse('$normalizedBase/player-image-proxy')
+      .replace(
+        queryParameters: {
+          'url': imageUrl,
+          'revision': _playerImageRevision,
+          if (identityKey.trim().isNotEmpty) 'identity': identityKey.trim(),
+        },
+      )
+      .toString();
 }
 
-String _versionedSupportedRemoteImage(String imageUrl) {
+String _versionedSupportedRemoteImage(
+  String imageUrl, {
+  String identityKey = '',
+}) {
   final uri = Uri.tryParse(imageUrl);
   if (uri == null || !_proxiedImageHosts.contains(uri.host.toLowerCase())) {
     return imageUrl;
@@ -91,6 +131,7 @@ String _versionedSupportedRemoteImage(String imageUrl) {
         queryParameters: {
           ...uri.queryParameters,
           'pi_photo': _playerImageRevision,
+          if (identityKey.trim().isNotEmpty) 'pi_identity': identityKey.trim(),
         },
       )
       .toString();

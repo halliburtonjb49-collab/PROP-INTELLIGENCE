@@ -2177,7 +2177,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
               watchedSlipCount: _activeSlipController.lockedSlipCount,
               mobileSelectedIndex: switch (_selectedPage) {
                 AppPage.board => 0,
-                AppPage.gameMarkets => 1,
+                AppPage.scoreboard => 1,
                 AppPage.watchlist => 2,
                 _ => 3,
               },
@@ -2194,7 +2194,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                     _switchToPage(AppPage.board, source: 'mobile-swipe');
                     break;
                   case 1:
-                    _switchToPage(AppPage.gameMarkets, source: 'mobile-swipe');
+                    _switchToPage(AppPage.scoreboard, source: 'mobile-swipe');
                     break;
                   case 2:
                     _switchToPage(AppPage.watchlist, source: 'mobile-swipe');

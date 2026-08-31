@@ -19,6 +19,14 @@ def normalize_identity(value: str) -> str:
     ascii_value = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
     return " ".join(re.sub(r"[^a-z0-9]+", " ", ascii_value.lower()).split())
 
+def stable_identity_id(*, identity_type: str, sport: str, name: str) -> str:
+    """Return the same opaque PI identity across providers and refreshes."""
+    normalized = normalize_identity(name)
+    digest = hashlib.sha256(
+        f"{identity_type.lower()}|{sport.upper()}|{normalized}".encode("utf-8")
+    ).hexdigest()[:20]
+    return f"pi_{identity_type.lower()}_{digest}"
+
 def _value(row: object, *names: str) -> Any:
     for name in names:
         value = row.get(name) if isinstance(row, dict) else getattr(row, name, None)
@@ -109,4 +117,3 @@ def registry_summary() -> dict[str, object]:
             queue=[{"id":r[0],"identityType":r[1],"sport":r[2],"provider":r[3],"providerIdentityId":r[4],"observedName":r[5],"reason":r[6],"occurrences":r[7],"lastSeenAt":r[8].isoformat() if r[8] else None} for r in cursor.fetchall()]
         return {"status":"healthy","identities":identities,"approvedMedia":media,"unresolved":unresolved,"inventory":inventory,"queue":queue}
     except Exception as exc: return {"status":"unavailable","reason":type(exc).__name__}
-

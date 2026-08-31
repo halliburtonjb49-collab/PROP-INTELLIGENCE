@@ -109,12 +109,34 @@
     }
     #pwa-update-card span { flex: 1; }
     #pwa-update-card button { min-height: 42px; padding: 0 14px; border: 0; border-radius: 9px; background: #d6b45f; color: #07131d; font-weight: 900; }
+    #pwa-layout-mode {
+      min-height: 42px; padding: 0 8px; border: 1px solid #a59256;
+      border-radius: 8px; background: #07131d; color: #f7f1df;
+      font-weight: 800;
+    }
   </style>
 </head>
 <body>
   <script>
     (() => {
       if (!window.location.pathname.startsWith('/workspace')) return;
+      // An installed PWA is one application bundle; the saved presentation
+      // preference controls the responsive viewport it opens with.
+      const layoutMode = window.localStorage.getItem(
+        'prop-intelligence-layout-mode',
+      );
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport && layoutMode === 'mobile') {
+        viewport.setAttribute(
+          'content',
+          'width=390, initial-scale=1, maximum-scale=1, viewport-fit=cover',
+        );
+      } else if (viewport && layoutMode === 'tablet') {
+        viewport.setAttribute(
+          'content',
+          'width=820, initial-scale=1, maximum-scale=1, viewport-fit=cover',
+        );
+      }
       const callback = new URLSearchParams(window.location.search).has('code') ||
         window.location.hash.includes('access_token=') ||
         window.location.search.includes('auth_action=recovery');
@@ -138,6 +160,11 @@
   </div>
   <aside id="pwa-install-card" role="dialog" aria-label="Install PROP INTELLIGENCE">
     <span id="pwa-install-message">Install PROP INTELLIGENCE on this device.</span>
+    <select id="pwa-layout-mode" aria-label="Installed application layout">
+      <option value="auto">AUTO VIEW</option>
+      <option value="mobile">MOBILE</option>
+      <option value="tablet">TABLET</option>
+    </select>
     <button id="pwa-install-action" type="button">INSTALL</button>
     <button id="pwa-install-dismiss" type="button" aria-label="Dismiss install prompt">&times;</button>
   </aside>

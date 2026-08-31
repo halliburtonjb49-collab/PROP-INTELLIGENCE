@@ -13,11 +13,22 @@
   const action = document.getElementById('pwa-install-action');
   const dismiss = document.getElementById('pwa-install-dismiss');
   const message = document.getElementById('pwa-install-message');
+  const layoutMode = document.getElementById('pwa-layout-mode');
   const updateCard = document.getElementById('pwa-update-card');
   const updateAction = document.getElementById('pwa-update-action');
 
   const dismissedKey = 'prop-intelligence-pwa-install-dismissed';
   const wasDismissed = window.localStorage.getItem(dismissedKey) === 'true';
+  const layoutKey = 'prop-intelligence-layout-mode';
+  const detectedLayout = window.innerWidth >= 600 && window.innerWidth < 1000
+    ? 'tablet'
+    : 'mobile';
+  if (layoutMode) {
+    layoutMode.value = window.localStorage.getItem(layoutKey) || 'auto';
+    layoutMode.addEventListener('change', () => {
+      window.localStorage.setItem(layoutKey, layoutMode.value);
+    });
+  }
 
   const show = () => { if (card) card.style.display = 'flex'; };
   const hide = () => { if (card) card.style.display = 'none'; };
@@ -138,6 +149,7 @@
   window.isPwaInstallAvailable = () => installPrompt !== null;
   window.isIosPwaDevice = () => isIos && !isStandalone;
   window.triggerPwaInstall = async () => {
+    if (layoutMode) window.localStorage.setItem(layoutKey, layoutMode.value);
     if (!installPrompt) return 'unavailable';
     installPrompt.prompt();
     const choice = await installPrompt.userChoice;
@@ -145,4 +157,6 @@
     hide();
     return choice.outcome;
   };
+  window.piPreferredLayout = () =>
+    window.localStorage.getItem(layoutKey) || 'auto';
 })();

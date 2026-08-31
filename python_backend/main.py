@@ -231,7 +231,11 @@ from services.player_identity_service import (
 	unresolved_identity_rows,
 	upsert_identity_entry,
 )
-from services.identity_media_registry_service import reconcile_catalog, registry_summary
+from services.identity_media_registry_service import (
+	reconcile_catalog,
+	registry_summary,
+	stable_identity_id,
+)
 from services.player_availability_service import (
 	load_status_map,
 	save_status_map,
@@ -590,6 +594,24 @@ def _validated_player_image_url(value: str) -> str:
 	return value
 
 
+@app.get("/api/player-photo", include_in_schema=False)
+def canonical_player_photo(
+	player: str = Query(..., min_length=1, max_length=160),
+	sport: str = Query(..., min_length=1, max_length=24),
+	identity: str = Query("", max_length=128),
+	revision: str = Query("", max_length=64),
+) -> Response:
+	"""Resolve every card through one canonical identity-aware media path."""
+	void_identity = identity, revision
+	image_url = resolve_player_image(player.strip(), sport.strip().upper())
+	if not image_url:
+		raise HTTPException(status_code=404, detail="Player photo unavailable")
+	if image_url.startswith("https://"):
+		return player_image_proxy(image_url)
+	location = image_url if image_url.startswith("/") else f"/{image_url}"
+	return Response(status_code=307, headers={"Location": location})
+
+
 @app.get("/player-image-proxy", include_in_schema=False)
 def player_image_proxy(url: str = Query(..., max_length=2048)) -> Response:
 	current_url = _validated_player_image_url(url)
@@ -665,6 +687,16 @@ def _recompute_runtime_verdicts(
 	resolved_images: dict[tuple[str, str], str] = {}
 	for prop in props:
 		prop.verdict = verdict_payload(compute_verdict(prop))
+		canonical_id = str(getattr(prop, "canonicalPlayerId", "") or "").strip()
+		if not canonical_id:
+			canonical_id = stable_identity_id(
+				identity_type="player",
+				sport=prop.sport,
+				name=prop.player,
+			)
+			prop.canonicalPlayerId = canonical_id
+		if not str(getattr(prop, "playerId", "") or "").strip():
+			prop.playerId = canonical_id
 		current_image = str(getattr(prop, "imagePath", "") or "").strip()
 		uses_local_image = (
 			not current_image
