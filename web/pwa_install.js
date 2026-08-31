@@ -21,6 +21,7 @@
 
   const show = () => { if (card) card.style.display = 'flex'; };
   const hide = () => { if (card) card.style.display = 'none'; };
+  const showUpdate = () => { if (updateCard) updateCard.style.display = 'flex'; };
 
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
@@ -72,6 +73,14 @@
           '/workspace/OneSignalSDKWorker.js',
           {scope: '/workspace/', updateViaCache: 'none'},
         );
+        if (registration.waiting) showUpdate();
+        registration.addEventListener('updatefound', () => {
+          const worker = registration.installing;
+          if (!worker) return;
+          worker.addEventListener('statechange', () => {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) showUpdate();
+          });
+        });
         await registration.update();
       } catch (error) {
         console.warn('PWA service worker registration failed.', error);
@@ -79,16 +88,22 @@
     });
     navigator.serviceWorker.addEventListener('message', (event) => {
       if (event.data && event.data.type === 'PI_UPDATE_READY' && updateCard) {
-        updateCard.style.display = 'flex';
+        showUpdate();
       }
     });
   }
 
   if (updateAction) {
-    updateAction.addEventListener('click', () => {
-      const url = new URL(window.location.href);
-      url.searchParams.set('release', '__PI_BUILD_VERSION__');
-      window.location.replace(url.toString());
+    updateAction.addEventListener('click', async () => {
+      updateAction.disabled = true;
+      updateAction.textContent = 'UPDATING';
+      const registration = await navigator.serviceWorker.ready;
+      if (registration.waiting) {
+        registration.waiting.postMessage({type: 'PI_ACTIVATE_UPDATE'});
+      } else {
+        await registration.update();
+        if (registration.waiting) registration.waiting.postMessage({type: 'PI_ACTIVATE_UPDATE'});
+      }
     });
   }
 

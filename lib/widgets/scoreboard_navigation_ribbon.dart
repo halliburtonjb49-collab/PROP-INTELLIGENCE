@@ -822,7 +822,14 @@ class _GameRibbonCard extends StatelessWidget {
                   memCacheWidth: 102,
                   memCacheHeight: 102,
                   placeholder: (_, __) => _teamBadge(name),
-                  errorWidget: (_, __, ___) => _teamBadge(name),
+                  errorWidget: (_, failedUrl, ___) {
+                    EngagementTracker.instance.recordOperational(
+                      'MEDIA_FAILURE', endpoint: failedUrl,
+                      provider: Uri.tryParse(failedUrl)?.host ?? 'unknown',
+                      mediaType: 'team_logo',
+                    );
+                    return _teamBadge(name);
+                  },
                 ),
               )
             : _teamBadge(name),

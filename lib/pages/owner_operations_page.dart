@@ -978,6 +978,15 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     final funnels = telemetry['funnels'] as Map? ?? const {};
     final errors = telemetry['errors'] as Map? ?? const {};
     final errorFree = (reliability['errorFreeUserRate'] as num?)?.toDouble();
+    final slos = telemetry['slos'] as Map? ?? const {};
+    String percent(Object? value) => value is num ? '${(value * 100).toStringAsFixed(2)}%' : '--';
+    bool targetMet(String key, {bool lowerIsBetter = false}) {
+      final row = slos[key] as Map? ?? const {};
+      final actual = row['actual'] as num?;
+      final target = row['target'] as num?;
+      if (actual == null || target == null) return true;
+      return lowerIsBetter ? actual <= target : actual >= target;
+    }
     final errorRows = errors.entries.toList()
       ..sort(
         (a, b) => ((b.value as num?) ?? 0).compareTo((a.value as num?) ?? 0),
@@ -1037,6 +1046,16 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                 (reliability['checkoutFailures'] as num? ?? 0) == 0,
                 detail: 'Canceled or unavailable checkout attempts',
               ),
+              _status('API availability', percent(reliability['apiAvailability']),
+                targetMet('apiAvailability'), detail: 'SLO 99.9%'),
+              _status('Prop-board loads', percent(reliability['propLoadSuccessRate']),
+                targetMet('propBoardLoads'), detail: 'SLO 99%'),
+              _status('Cached content p95', reliability['cachedContentP95Ms'] == null
+                ? '--' : '${reliability['cachedContentP95Ms']} ms',
+                targetMet('cachedContentMs', lowerIsBetter: true), detail: 'Target under 2 seconds'),
+              _status('Live results p95', reliability['liveResultsP95Ms'] == null
+                ? '--' : '${reliability['liveResultsP95Ms']} ms',
+                targetMet('liveResultsMs', lowerIsBetter: true), detail: 'Target under 5 seconds'),
             ],
           ),
           const SizedBox(height: 10),

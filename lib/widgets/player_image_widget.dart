@@ -133,9 +133,10 @@ class PlayerImageWidget extends StatelessWidget {
             maxHeightDiskCache: 800,
             placeholder: (_, _) => _buildFallback(),
             errorWidget: (_, failedUrl, _) {
-              EngagementTracker.instance.recordProductOncePer(
-                'PLAYER_IMAGE_FAILURE:${failedUrl.hashCode}',
-                const Duration(minutes: 30),
+              EngagementTracker.instance.recordOperational(
+                'MEDIA_FAILURE', endpoint: failedUrl,
+                provider: Uri.tryParse(failedUrl)?.host ?? 'unknown',
+                mediaType: 'player_photo',
               );
               return _buildFallback();
             },

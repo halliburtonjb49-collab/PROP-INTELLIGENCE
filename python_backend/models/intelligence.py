@@ -149,8 +149,14 @@ class SentimentEvent(BaseModel):
         "DASHBOARD_READY", "SITE_FILTER", "VERDICT_FILTER",
         "PROP_SELECTED", "SLIP_LOCKED", "PAYWALL_VIEW",
         "CHECKOUT_STARTED", "CHECKOUT_FAILED", "PURCHASE_COMPLETED",
-        "SLOW_LOAD", "ERROR",
+        "SLOW_LOAD", "ERROR", "API_SUCCESS", "API_FAILURE",
+        "PROP_LOAD_SUCCESS", "PROP_LOAD_FAILURE", "AUTH_FAILURE",
+        "MEDIA_FAILURE", "SERVICE_WORKER_VERSION", "SCREEN_TIMING", "WEB_VITAL",
+        "LANDING_VIEW", "SIGNUP_STARTED", "EMAIL_VERIFIED", "FIRST_PROP",
+        "PI_INTELLIGENCE_OPENED", "RETURNING_USER",
     ]
+    duration_ms: int | None = Field(default=None, ge=0, le=300000)
+    metadata: dict[str, str] = Field(default_factory=dict)
 
 
 class SentimentBatchRequest(BaseModel):

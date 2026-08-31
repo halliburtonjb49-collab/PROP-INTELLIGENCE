@@ -964,7 +964,7 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
-  Future<void> recordEngagement(List<Map<String, String>> events) async {
+  Future<void> recordEngagement(List<Map<String, dynamic>> events) async {
     if (events.isEmpty) return;
     final response = await http.post(
       Uri.parse('$baseUrl/api/intelligence/engagement'),
@@ -1328,6 +1328,7 @@ class ApiService {
     int offset = 0,
     bool includeReliability = true,
   }) async {
+    final observabilityStopwatch = Stopwatch()..start();
     // Widget smoke tests mount the production shell without configuring a
     // Supabase session. Keep that background startup request inert while
     // still allowing injected ApiService subclasses to exercise their mock
@@ -1556,12 +1557,29 @@ class ApiService {
           message:
               'Downloaded ${props.length} props reliably • build $appVersion',
         );
+        EngagementTracker.instance.recordOperational(
+          'PROP_LOAD_SUCCESS', endpoint: '/api/props',
+          provider: selectedSportsbook, durationMs: observabilityStopwatch.elapsedMilliseconds,
+        );
+        EngagementTracker.instance.recordOperational(
+          'API_SUCCESS', endpoint: '/api/props',
+          category: selectedSport, durationMs: observabilityStopwatch.elapsedMilliseconds,
+        );
         return props;
       } catch (error) {
         lastError = error;
       }
     }
 
+    EngagementTracker.instance.recordOperational(
+      'PROP_LOAD_FAILURE', endpoint: '/api/props', provider: selectedSportsbook,
+      category: lastError.runtimeType.toString(),
+      durationMs: observabilityStopwatch.elapsedMilliseconds,
+    );
+    EngagementTracker.instance.recordOperational(
+      'API_FAILURE', endpoint: '/api/props', category: lastError.runtimeType.toString(),
+      durationMs: observabilityStopwatch.elapsedMilliseconds,
+    );
     final lastSuccessfulProps = _lastSuccessfulPropsByQuery[cacheKey];
     if (lastSuccessfulProps != null && lastSuccessfulProps.isNotEmpty) {
       refreshStatusNotifier.value = BackendRefreshStatus(
@@ -3111,3 +3129,4 @@ class ApiService {
     }
   }
 }
+import 'engagement_tracker.dart';

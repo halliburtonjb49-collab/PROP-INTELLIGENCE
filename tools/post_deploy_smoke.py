@@ -7,7 +7,8 @@ import urllib.request
 from datetime import datetime, timezone
 
 
-APP_URL = "https://app.propsintell.com"
+APP_URL = "https://pipropsintell.com/workspace"
+SITE_URL = "https://pipropsintell.com"
 API_URL = "https://api.propsintell.com"
 
 # This gate must be reachable by the refresh policy that feeds it, or deploys
@@ -193,9 +194,32 @@ def main() -> int:
     )
     if ticket_storage.get("mode") != "postgresql":
         raise RuntimeError("Production tickets are not using PostgreSQL")
+    smoke_token = os.getenv("SMOKE_API_TOKEN", "").strip()
+    if not smoke_token:
+        raise RuntimeError("SMOKE_API_TOKEN is required for critical promotion checks")
+    auth_headers = {"Authorization": f"Bearer {smoke_token}"}
+    acceptance, acceptance_body, _ = request(f"{API_URL}/api/operations/acceptance", headers=auth_headers)
+    acceptance_payload = json.loads(acceptance_body)
+    if acceptance.status != 200 or acceptance_payload.get("status") == "critical":
+        raise RuntimeError("Promotion blocked: a critical production acceptance check failed")
+    billing, billing_body, _ = request(f"{API_URL}/api/operations/billing-certification", headers=auth_headers)
+    billing_payload = json.loads(billing_body)
+    if billing.status != 200 or billing_payload.get("releaseReady") is not True:
+        raise RuntimeError("Promotion blocked: billing release certification failed")
     app, html, app_ms = request(APP_URL)
     if app.status != 200 or b"flutter_bootstrap.js" not in html:
         raise RuntimeError("Web application shell is unavailable")
+
+    for route in ("/", "/login", "/signup", "/workspace"):
+        page, page_body, _ = request(f"{SITE_URL}{route}")
+        if page.status != 200 or len(page_body) < 100:
+            raise RuntimeError(f"Customer route is unavailable: {route}")
+    manifest, manifest_body, _ = request(f"{APP_URL}/manifest.json")
+    if manifest.status != 200 or "workspace" not in manifest_body.decode("utf-8", "replace").lower():
+        raise RuntimeError("Workspace PWA manifest is unavailable or has the wrong scope")
+    worker, worker_body, _ = request(f"{APP_URL}/flutter_service_worker.js")
+    if worker.status != 200 or len(worker_body) < 100:
+        raise RuntimeError("Workspace service worker is unavailable")
 
     cors, _, _ = request(
         f"{API_URL}/api/props?limit=1",
@@ -248,6 +272,9 @@ def main() -> int:
         raise RuntimeError("Production JavaScript contains a local backend address")
     if b"api.propsintell.com" not in lowered:
         raise RuntimeError("Production API domain is missing from the web bundle")
+    for marker in (b"scoreboard", b"track record", b"sign out"):
+        if marker not in lowered:
+            raise RuntimeError(f"Production bundle is missing feature marker: {marker.decode()}")
 
     print(
         json.dumps(

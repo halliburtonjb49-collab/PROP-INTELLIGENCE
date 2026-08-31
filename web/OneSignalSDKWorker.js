@@ -24,8 +24,15 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(PI_CACHE)
       .then((cache) => cache.addAll(PI_APP_SHELL))
-      .then(() => self.skipWaiting()),
+      .then(async () => {
+        const clients = await self.clients.matchAll({type: 'window'});
+        clients.forEach((client) => client.postMessage({type: 'PI_UPDATE_READY', release: PI_BUILD}));
+      }),
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'PI_ACTIVATE_UPDATE') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -38,10 +45,7 @@ self.addEventListener('activate', (event) => {
       .filter((key) => key.startsWith(PI_CACHE_PREFIX) && key !== PI_CACHE)
       .map((key) => caches.delete(key)));
     await self.clients.claim();
-    if (hadPreviousRelease) {
-      const clients = await self.clients.matchAll({type: 'window'});
-      clients.forEach((client) => client.postMessage({type: 'PI_UPDATE_READY'}));
-    }
+    void hadPreviousRelease;
   })());
 });
 

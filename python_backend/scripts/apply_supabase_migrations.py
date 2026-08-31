@@ -66,6 +66,7 @@ MIGRATIONS = (
     "supabase_pi_learning_ledger.sql",
     "supabase_identity_media_registry.sql",
     "supabase_engagement_action_expansion.sql",
+    "supabase_production_observability.sql",
 )
 
 
