@@ -1020,21 +1020,10 @@ class _MobileAppShell extends StatefulWidget {
 
 class _MobileAppShellState extends State<_MobileAppShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
-  bool _openedInitialSidebar = false;
   DateTime? _lastHorizontalScrollSignal;
   double _dragNetX = 0;
   double _dragAbsX = 0;
   double _dragAbsY = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _openedInitialSidebar) return;
-      _openedInitialSidebar = true;
-      _scaffoldKey.currentState?.openDrawer();
-    });
-  }
 
   bool get _supportsSwipeRoute {
     // Swiping is intended only for top-level destinations represented in the
@@ -1298,7 +1287,7 @@ class _MobileBottomNavigation extends StatelessWidget {
             child: _MobileNavItem(
               key: const ValueKey('mobile-nav-games'),
               icon: Icons.sports_score_outlined,
-              label: 'ML GAMES',
+              label: 'LIVE GAMES',
               selected: selectedIndex == 1,
               onTap: () => onNavigateIndex(1),
               accentColor: accentColor,

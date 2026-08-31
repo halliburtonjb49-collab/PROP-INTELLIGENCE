@@ -354,9 +354,10 @@ class ApiService {
     if (client != null &&
         session != null &&
         (forceRefresh || session.isExpired)) {
-      final refresh = _sessionRefresh ??= client.auth.refreshSession().then(
-        (response) => response.session?.accessToken,
-      );
+      final refresh = _sessionRefresh ??= client.auth
+          .refreshSession()
+          .timeout(const Duration(seconds: 6))
+          .then((response) => response.session?.accessToken);
       try {
         token = await refresh;
       } finally {
@@ -1148,7 +1149,10 @@ class ApiService {
     // A single dropped mobile request should not empty the entire board.
     // Keep both attempts short so recovery still completes inside the board's
     // overall 25-second deadline.
-    const maxAttempts = 2;
+    // Candidate URLs already provide independent recovery paths. Retrying
+    // every candidate twice made a mobile board exceed its own loading
+    // deadline before the direct API fallback could run.
+    const maxAttempts = 1;
     final requestTimeout = isSpecialtySport
         ? const Duration(seconds: 4)
         : category.isNotEmpty && category != 'ALL'

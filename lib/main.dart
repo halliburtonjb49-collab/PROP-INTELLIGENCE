@@ -175,15 +175,21 @@ Future<void> main() async {
     );
   };
 
-  await _configureDesktopWindow();
-  await OneSignalService.instance.initialize();
-
   SupabaseService.configure(
     url: kSupabaseProjectUrl,
     anonKey: kSupabaseAnonPublicApiKey,
   );
 
+  // Restore the authenticated session before any protected workspace widget
+  // can issue its first prop request. Initializing after the first frame left
+  // fast mobile browsers with an authenticated shell but no bearer token.
+  await SupabaseService.initialize();
+  AuthManager.instance.attach();
+
+  await _configureDesktopWindow();
+
   unawaited(AppSoundService.instance.load());
+  unawaited(OneSignalService.instance.initialize());
   runApp(const PropIntelligenceApp());
   _startupLog('runApp() called');
 
@@ -191,8 +197,6 @@ Future<void> main() async {
     _startupLog('first frame rendered');
     unawaited(() async {
       try {
-        await SupabaseService.initialize();
-        AuthManager.instance.attach();
         await PropChatService().startGlobalMonitoring();
         await PropWatchlistService().syncLocalAndCloudWatchlist().timeout(
           const Duration(seconds: 5),
