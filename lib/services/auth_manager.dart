@@ -114,9 +114,14 @@ class AuthSessionState {
   final int? founderNumber;
   final String message;
 
-  bool get isOwner => role == 'owner';
-  bool get isAdmin => role == 'admin';
-  bool get isTester => role == 'tester';
+  String get normalizedRole => role.trim().toLowerCase();
+  String get normalizedAssignedMemberRole =>
+      assignedMemberRole?.trim().toLowerCase() ?? '';
+  bool get isOwner => normalizedRole == 'owner';
+  bool get isAdmin =>
+      normalizedRole == 'admin' || normalizedAssignedMemberRole == 'admin';
+  bool get isTester =>
+      normalizedRole == 'tester' || normalizedAssignedMemberRole == 'tester';
   bool get requiresPaidPlan =>
       authenticated &&
       !isOwner &&

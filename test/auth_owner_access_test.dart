@@ -133,6 +133,25 @@ void main() {
     }
   });
 
+  test('trusted profile admin and tester grants bypass the plan gate', () {
+    for (final assignedRole in ['admin', 'tester']) {
+      final state = AuthSessionState(
+        ready: true,
+        authenticated: true,
+        isPremium: false,
+        subscriptionTier: SubscriptionTier.free,
+        role: 'user',
+        assignedMemberRole: assignedRole,
+        userId: '$assignedRole-profile-id',
+        email: '$assignedRole@example.com',
+        message: 'Ready',
+      );
+      expect(state.requiresPaidPlan, isFalse, reason: assignedRole);
+      expect(state.hasCoreAccess, isTrue, reason: assignedRole);
+      expect(state.hasEdgeAccess, isTrue, reason: assignedRole);
+    }
+  });
+
   test('verified purchases unlock the paid tier immediately', () {
     final auth = AuthManager.instance;
     auth.sessionState.value = const AuthSessionState(
