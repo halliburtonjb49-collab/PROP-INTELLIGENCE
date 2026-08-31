@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../services/app_sound_service.dart';
+import '../services/auth_manager.dart';
 import '../theme/app_colors.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
@@ -9,6 +10,9 @@ import '../theme/app_colors.dart' as brand_colors;
 const piGold = Color(0xFFD4AF37);
 const piSilver = Color(0xFFC0C7D1);
 const piPanelNavy = Color(0xFF07111D);
+
+/// Width below which the workspace uses the mobile/tablet application shell.
+const double appShellMobileBreakpoint = 1000;
 
 Color rightPanelAccentForTier(String? tier) {
   final normalized = (tier ?? '').trim().toUpperCase();
@@ -40,6 +44,9 @@ double mobileBottomBarHeight(double width) => width < 360
     : width < 600
     ? 64
     : 66;
+
+@visibleForTesting
+bool usePhoneShell(double width) => width < 600;
 
 class AppShell extends StatefulWidget {
   const AppShell({
@@ -141,7 +148,7 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 1000) {
+        if (constraints.maxWidth < appShellMobileBreakpoint) {
           return _MobileAppShell(
             leftSidebar: widget.leftSidebar,
             topNavigation: widget.topNavigation,
@@ -1023,6 +1030,7 @@ class _MobileAppShell extends StatefulWidget {
 
 class _MobileAppShellState extends State<_MobileAppShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  _RightPanelSection _mobileRightPanelSection = _RightPanelSection.activeSlip;
   DateTime? _lastHorizontalScrollSignal;
   double _dragNetX = 0;
   double _dragAbsX = 0;
@@ -1103,6 +1111,7 @@ class _MobileAppShellState extends State<_MobileAppShell> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
+    final isPhone = usePhoneShell(screenWidth);
     // For flip/fold phones (280-320px), use 85% of screen width
     // For regular phones, use 260-340px range
     final drawerWidth = screenWidth < 360
@@ -1110,9 +1119,11 @@ class _MobileAppShellState extends State<_MobileAppShell> {
         : screenWidth.clamp(260.0, 340.0);
     final shellInset = mobileShellInset(screenWidth);
     final shellGap = mobileShellGap(screenWidth);
-    final resolvedTopHeight = widget.topNavigationHeight
-        .clamp(76.0, MediaQuery.sizeOf(context).height * 0.30)
-        .toDouble();
+    final resolvedTopHeight = isPhone
+        ? mobileTopBarHeight(screenWidth)
+        : widget.topNavigationHeight
+              .clamp(76.0, MediaQuery.sizeOf(context).height * 0.30)
+              .toDouble();
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.background,
@@ -1139,7 +1150,7 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                 accentColor: widget.accentColor,
                 accountPanel: widget.accountPanel,
                 activeSlipPanel: widget.activeSlipPanel,
-                initialSection: _RightPanelSection.activeSlip,
+                initialSection: _mobileRightPanelSection,
                 mobileCloseInsideContent: true,
                 onClose: () => _scaffoldKey.currentState?.closeEndDrawer(),
               ),
@@ -1165,9 +1176,22 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                       borderRadius: BorderRadius.circular(15),
                       border: Border.all(color: widget.accentColor),
                     ),
-                    child: Row(
-                      children: [Expanded(child: widget.topNavigation)],
-                    ),
+                    child: isPhone
+                        ? _PhoneAppHeader(
+                            accentColor: widget.accentColor,
+                            onMenu: () =>
+                                _scaffoldKey.currentState?.openDrawer(),
+                            onAccount: () {
+                              setState(() {
+                                _mobileRightPanelSection =
+                                    _RightPanelSection.account;
+                              });
+                              _scaffoldKey.currentState?.openEndDrawer();
+                            },
+                          )
+                        : Row(
+                            children: [Expanded(child: widget.topNavigation)],
+                          ),
                   ),
                   SizedBox(height: shellGap),
                   Expanded(
@@ -1212,6 +1236,10 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                     },
                     onTicket: () {
                       widget.onDismissOverlay?.call();
+                      setState(() {
+                        _mobileRightPanelSection =
+                            _RightPanelSection.activeSlip;
+                      });
                       _scaffoldKey.currentState?.openEndDrawer();
                     },
                     onMenu: () {
@@ -1226,6 +1254,119 @@ class _MobileAppShellState extends State<_MobileAppShell> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PhoneAppHeader extends StatelessWidget {
+  const _PhoneAppHeader({
+    required this.accentColor,
+    required this.onMenu,
+    required this.onAccount,
+  });
+
+  final Color accentColor;
+  final VoidCallback onMenu;
+  final VoidCallback onAccount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        IconButton(
+          key: const ValueKey('phone-header-menu'),
+          tooltip: 'Open menu',
+          onPressed: onMenu,
+          icon: const Icon(Icons.menu_rounded),
+          color: piSilver,
+          visualDensity: VisualDensity.compact,
+        ),
+        SizedBox(
+          width: 36,
+          height: 36,
+          child: Image.asset(
+            'assets/branding/Final_Master_Logo_Modern_PI.png',
+            fit: BoxFit.contain,
+            semanticLabel: 'Prop Intelligence',
+            errorBuilder: (_, _, _) =>
+                const Icon(Icons.insights_rounded, color: piGold, size: 28),
+          ),
+        ),
+        const SizedBox(width: 8),
+        const Expanded(
+          child: Text(
+            'PROP INTELLIGENCE',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.15,
+            ),
+          ),
+        ),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              tooltip: 'Notifications',
+              onPressed: onAccount,
+              icon: const Icon(Icons.notifications_none_rounded),
+              color: piSilver,
+              visualDensity: VisualDensity.compact,
+            ),
+            Positioned(
+              right: 8,
+              top: 7,
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: accentColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ],
+        ),
+        ValueListenableBuilder<AuthSessionState>(
+          valueListenable: AuthManager.instance.sessionState,
+          builder: (context, session, _) {
+            final avatarUrl = session.avatarUrl?.trim() ?? '';
+            return IconButton(
+              key: const ValueKey('phone-header-account'),
+              tooltip: 'Open account',
+              onPressed: onAccount,
+              visualDensity: VisualDensity.compact,
+              icon: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: accentColor, width: 1.2),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: avatarUrl.isEmpty
+                    ? Icon(
+                        Icons.account_circle_outlined,
+                        color: accentColor,
+                        size: 28,
+                      )
+                    : Image.network(
+                        avatarUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Icon(
+                          Icons.account_circle_outlined,
+                          color: accentColor,
+                          size: 28,
+                        ),
+                      ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }

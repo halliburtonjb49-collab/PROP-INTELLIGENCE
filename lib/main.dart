@@ -393,6 +393,8 @@ class PropIntelligenceShell extends StatelessWidget {
   }
 
   Widget _buildDashboardShell({AuthSessionState? authState}) {
+    final accessKey = authState?.effectiveSubscriptionTier.name ?? 'public';
+
     return Scaffold(
       backgroundColor: const Color(0xFF050C13),
       body: Column(
@@ -402,20 +404,8 @@ class PropIntelligenceShell extends StatelessWidget {
               tier: authState!.effectiveSubscriptionTier,
             ),
           Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final accessKey =
-                    authState?.effectiveSubscriptionTier.name ?? 'public';
-                if (constraints.maxWidth >= 1100) {
-                  return DesktopDashboard(
-                    key: ValueKey('desktop-access-$accessKey'),
-                  );
-                }
-
-                return MobileDashboardViewport(
-                  key: ValueKey('mobile-access-$accessKey'),
-                );
-              },
+            child: DesktopDashboard(
+              key: ValueKey('dashboard-access-$accessKey'),
             ),
           ),
         ],
@@ -699,7 +689,8 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
 
   void _switchToPage(AppPage page, {String source = 'ui'}) {
     final dismissMobileChat =
-        MediaQuery.sizeOf(context).width < 1000 && _chatFloating;
+        MediaQuery.sizeOf(context).width < appShellMobileBreakpoint &&
+        _chatFloating;
     final requiredTier = _requiredTier(page);
     final session = AuthManager.instance.sessionState.value;
     if (page == AppPage.ownerOperations &&
@@ -896,7 +887,7 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   }
 
   Widget _buildFloatingChat(BoxConstraints constraints) {
-    final isMobile = constraints.maxWidth < 1000;
+    final isMobile = constraints.maxWidth < appShellMobileBreakpoint;
     final availableWidth = (constraints.maxWidth - (isMobile ? 32 : 24)).clamp(
       1.0,
       isMobile ? 520.0 : 760.0,
