@@ -1970,27 +1970,34 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   action(PickSide.under),
                   const SizedBox(width: 8),
                   action(PickSide.over),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 50,
-                    height: 50,
-                    child: OutlinedButton(
-                      key: ValueKey('phone-research-${prop.id}'),
-                      onPressed: () => _showResearchOverlay(prop, selectedSide),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        foregroundColor: app_colors.AppColors.gold,
-                        side: const BorderSide(
-                          color: app_colors.AppColors.gold,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Icon(Icons.psychology_alt_rounded, size: 21),
+                ],
+              ),
+              const SizedBox(height: 9),
+              SizedBox(
+                width: double.infinity,
+                height: 42,
+                child: ElevatedButton.icon(
+                  key: ValueKey('phone-research-${prop.id}'),
+                  onPressed: () => _showResearchOverlay(prop, selectedSide),
+                  style: ElevatedButton.styleFrom(
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    foregroundColor: const Color(0xFF07111A),
+                    backgroundColor: app_colors.AppColors.gold,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                ],
+                  icon: const Icon(Icons.psychology_alt_rounded, size: 18),
+                  label: const Text(
+                    'OPEN PI INTELLIGENCE',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .25,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -2288,27 +2295,34 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   sideButton(PickSide.under),
                   const SizedBox(width: 8),
                   sideButton(PickSide.over),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: OutlinedButton(
-                      key: ValueKey('site-first-research-${prop.id}'),
-                      onPressed: () => _showResearchOverlay(prop, selectedSide),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        foregroundColor: app_colors.AppColors.gold,
-                        side: const BorderSide(
-                          color: app_colors.AppColors.gold,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Icon(Icons.psychology_alt_rounded, size: 20),
+                ],
+              ),
+              const SizedBox(height: 9),
+              SizedBox(
+                width: double.infinity,
+                height: 40,
+                child: ElevatedButton.icon(
+                  key: ValueKey('site-first-research-${prop.id}'),
+                  onPressed: () => _showResearchOverlay(prop, selectedSide),
+                  style: ElevatedButton.styleFrom(
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    foregroundColor: const Color(0xFF07111A),
+                    backgroundColor: app_colors.AppColors.gold,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(9),
                     ),
                   ),
-                ],
+                  icon: const Icon(Icons.psychology_alt_rounded, size: 17),
+                  label: const Text(
+                    'OPEN PI INTELLIGENCE',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .25,
+                    ),
+                  ),
+                ),
               ),
               if (learned) ...[
                 const SizedBox(height: 6),
