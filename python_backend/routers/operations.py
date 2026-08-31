@@ -88,14 +88,17 @@ def release_gate() -> dict[str, object]:
     billing = billing_release_certification()
     critical = acceptance_snapshot.get("status") == "critical"
     billing_ready = billing.get("releaseReady") is True
+    critical_issue_codes = [
+        str(issue.get("code") or "unknown")
+        for issue in acceptance_snapshot.get("issues", [])
+        if isinstance(issue, dict) and issue.get("severity") == "critical"
+    ]
     return {
         "releaseReady": not critical and billing_ready,
         "acceptanceStatus": acceptance_snapshot.get("status", "unknown"),
         "billingReady": billing_ready,
-        "criticalIssueCount": sum(
-            1 for issue in acceptance_snapshot.get("issues", [])
-            if isinstance(issue, dict) and issue.get("severity") == "critical"
-        ),
+        "criticalIssueCount": len(critical_issue_codes),
+        "criticalIssueCodes": critical_issue_codes,
     }
 
 

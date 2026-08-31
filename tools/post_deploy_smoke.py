@@ -201,7 +201,8 @@ def main() -> int:
             "Promotion blocked by production certification: "
             f"acceptance={gate_payload.get('acceptanceStatus')} "
             f"billingReady={gate_payload.get('billingReady')} "
-            f"criticalIssues={gate_payload.get('criticalIssueCount')}"
+            f"criticalIssues={gate_payload.get('criticalIssueCount')} "
+            f"codes={gate_payload.get('criticalIssueCodes')}"
         )
     app, html, app_ms = request(APP_URL)
     if app.status != 200 or b"flutter_bootstrap.js" not in html:
