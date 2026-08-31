@@ -228,7 +228,8 @@ class _ScoreboardNavigationRibbonState
     if (width >= 1650) return 6;
     if (width >= 1350) return 5;
     if (width >= 1000) return 4;
-    return 3;
+    if (width >= 600) return 2;
+    return 1;
   }
 
   int _pageCount(List<ScoreboardGame> games, int perPage) =>
@@ -272,7 +273,10 @@ class _ScoreboardNavigationRibbonState
 
   Widget _header(List<ScoreboardGame> games) {
     final liveCount = widget.controller.games.where((g) => g.isLive).length;
-    return Row(
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
       children: [
         TextButton.icon(
           key: const ValueKey('scoreboard-ribbon-title'),
@@ -373,6 +377,7 @@ class _ScoreboardNavigationRibbonState
           ),
         ),
       ],
+      ),
     );
   }
 

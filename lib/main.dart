@@ -1200,17 +1200,6 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
   Widget _buildTopNavigation() {
     final session = AuthManager.instance.sessionState.value;
     final hasProAccess = session.isOwner || session.hasEdgeAccess;
-    if (MediaQuery.sizeOf(context).width < 1000) {
-      return TopNavigation(
-        selectedPage: _selectedPage,
-        selectedSport: _selectedBoardSport,
-        accentColor: hasProAccess
-            ? app_colors.AppColors.gold
-            : app_colors.AppColors.silver,
-        onTabSelected: (page) => _switchToPage(page, source: 'top-nav'),
-        onSportSelected: _selectBoardSport,
-      );
-    }
     return ScoreboardNavigationRibbon(
       controller: _scoreboardController,
       expanded: _scoreboardRibbonExpanded,

@@ -156,6 +156,7 @@ class _AppShellState extends State<AppShell> {
             onDismissOverlay: widget.onMobileDismissOverlay,
             onNavigateIndex: widget.onMobileNavigateIndex,
             accentColor: widget.accentColor,
+            topNavigationHeight: widget.topNavigationHeight,
           );
         }
         final metrics = _metrics(constraints.maxWidth);
@@ -998,6 +999,7 @@ class _MobileAppShell extends StatefulWidget {
     required this.onDismissOverlay,
     required this.onNavigateIndex,
     required this.accentColor,
+    required this.topNavigationHeight,
   });
 
   final Widget leftSidebar;
@@ -1013,6 +1015,7 @@ class _MobileAppShell extends StatefulWidget {
   final VoidCallback? onDismissOverlay;
   final ValueChanged<int>? onNavigateIndex;
   final Color accentColor;
+  final double topNavigationHeight;
 
   @override
   State<_MobileAppShell> createState() => _MobileAppShellState();
@@ -1107,6 +1110,9 @@ class _MobileAppShellState extends State<_MobileAppShell> {
         : screenWidth.clamp(260.0, 340.0);
     final shellInset = mobileShellInset(screenWidth);
     final shellGap = mobileShellGap(screenWidth);
+    final resolvedTopHeight = widget.topNavigationHeight
+        .clamp(76.0, MediaQuery.sizeOf(context).height * 0.30)
+        .toDouble();
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.background,
@@ -1122,7 +1128,7 @@ class _MobileAppShellState extends State<_MobileAppShell> {
         child: SafeArea(
           child: Padding(
             padding: EdgeInsets.only(
-              top: mobileTopBarHeight(screenWidth) + shellGap + shellInset,
+              top: resolvedTopHeight + shellGap + shellInset,
               bottom:
                   mobileBottomBarHeight(screenWidth) + shellGap + shellInset,
             ),
@@ -1150,7 +1156,7 @@ class _MobileAppShellState extends State<_MobileAppShell> {
               child: Column(
                 children: [
                   Container(
-                    height: mobileTopBarHeight(screenWidth),
+                    height: resolvedTopHeight,
                     padding: EdgeInsets.symmetric(
                       horizontal: screenWidth < 360 ? 4 : 7,
                     ),
