@@ -1,15 +1,14 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/active_slip_controller.dart';
 import '../models/saved_slip.dart';
 import '../services/api_service.dart';
 import '../services/live_update_service.dart';
-import '../services/player_image_resolver.dart';
 import '../services/slip_manager.dart';
 import 'context_help.dart';
+import 'player_image_widget.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -19,52 +18,16 @@ class _LegPhoto extends StatelessWidget {
 
   const _LegPhoto({required this.leg, this.size = 40});
 
-  Widget _placeholder() {
-    final initial = leg.player.trim().isEmpty
-        ? '?'
-        : leg.player.trim().substring(0, 1).toUpperCase();
-    return Container(
-      color: brand_colors.AppColors.bgPanel,
-      alignment: Alignment.center,
-      child: Text(
-        initial,
-        style: TextStyle(
-          color: brand_colors.AppColors.gold,
-          fontSize: size * 0.36,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final imagePath = resolvePlayerImagePath(leg.imagePath);
-    if (imagePath.isEmpty) {
-      return _placeholder();
-    }
-    final isNetwork =
-        imagePath.startsWith('http://') || imagePath.startsWith('https://');
-    if (!isNetwork) {
-      return Image.asset(
-        imagePath,
-        fit: BoxFit.cover,
-        alignment: Alignment.center,
-        filterQuality: FilterQuality.high,
-        errorBuilder: (_, _, _) => _placeholder(),
-      );
-    }
-    return CachedNetworkImage(
-      key: ValueKey(imagePath),
-      imageUrl: imagePath,
+    return PlayerImageWidget(
+      imageUrl: leg.imagePath,
+      player: leg.player,
+      width: size,
+      height: size,
       fit: BoxFit.cover,
-      alignment: Alignment.center,
-      filterQuality: FilterQuality.high,
-      fadeInDuration: Duration.zero,
-      fadeOutDuration: Duration.zero,
-      useOldImageOnUrlChange: true,
-      placeholder: (_, _) => _placeholder(),
-      errorWidget: (_, _, _) => _placeholder(),
+      fallbackIconSize: size * .45,
+      showShimmer: false,
     );
   }
 }
@@ -339,7 +302,8 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
             live['pi_material_change'] != true) {
           continue;
         }
-        final key = '${slip.id}:${leg.propId}:${live['current_projection']}:${live['current_confidence']}';
+        final key =
+            '${slip.id}:${leg.propId}:${live['current_projection']}:${live['current_confidence']}';
         if (!_piWeakeningNotified.add(key)) continue;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -675,36 +639,36 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                  Text(
-                    _isHistory ? 'PAST SLIP HISTORY' : 'SLIP WATCHER',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: .25,
+                    Text(
+                      _isHistory ? 'PAST SLIP HISTORY' : 'SLIP WATCHER',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .25,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _isHistory
-                        ? 'Settled slips and final outcomes'
-                        : 'Saved slips with live grading',
-                    style: const TextStyle(
-                      color: brand_colors.AppColors.textMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      height: 1.3,
+                    const SizedBox(height: 4),
+                    Text(
+                      _isHistory
+                          ? 'Settled slips and final outcomes'
+                          : 'Saved slips with live grading',
+                      style: const TextStyle(
+                        color: brand_colors.AppColors.textMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        height: 1.3,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Independent sports research and tracking only. Prop Intelligence does not accept wagers, operate a sportsbook, or facilitate betting transactions.',
-                    style: TextStyle(
-                      color: brand_colors.AppColors.textMuted,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      height: 1.4,
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Independent sports research and tracking only. Prop Intelligence does not accept wagers, operate a sportsbook, or facilitate betting transactions.',
+                      style: TextStyle(
+                        color: brand_colors.AppColors.textMuted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        height: 1.4,
+                      ),
                     ),
-                  ),
                   ],
                 ),
               ),
@@ -885,13 +849,15 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
                   : snapshot.data ?? const <SavedSlip>[];
               final totals = _buildTotals(slips);
               final now = DateTime.now();
-              final todaySlips = _historySummarySlips.where((slip) {
-                final created = slip.createdAt?.toLocal();
-                return created != null &&
-                    created.year == now.year &&
-                    created.month == now.month &&
-                    created.day == now.day;
-              }).toList(growable: false);
+              final todaySlips = _historySummarySlips
+                  .where((slip) {
+                    final created = slip.createdAt?.toLocal();
+                    return created != null &&
+                        created.year == now.year &&
+                        created.month == now.month &&
+                        created.day == now.day;
+                  })
+                  .toList(growable: false);
               final todayTotals = _buildTotals(todaySlips);
               if (slips.isEmpty) {
                 return const Center(child: Text('No slips in this view.'));
@@ -1229,7 +1195,6 @@ class _TodayPickPerformance extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _ClvSummary extends StatelessWidget {
@@ -1531,10 +1496,12 @@ _LiveLegState _effectiveLegState(
 }
 
 String _piChangeSummary(_LiveLegState live) {
-  return live.piChanges.map((change) {
-    final label = change['label']?.toString() ?? 'Evidence';
-    return '$label ${change['original']} -> ${change['current']}';
-  }).join('  •  ');
+  return live.piChanges
+      .map((change) {
+        final label = change['label']?.toString() ?? 'Evidence';
+        return '$label ${change['original']} -> ${change['current']}';
+      })
+      .join('  •  ');
 }
 
 /// Live projection for an active slip as a whole, from its legs' live

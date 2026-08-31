@@ -1,9 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/active_slip_controller.dart';
-import '../services/player_image_resolver.dart';
 import '../theme/app_colors.dart' as brand_colors;
+import 'player_image_widget.dart';
 
 class SelectedProp {
   final String id;
@@ -424,32 +423,12 @@ class _SelectedPropCard extends StatelessWidget {
   String formatOdds(int odds) => odds > 0 ? '+$odds' : '$odds';
 
   Widget _playerImage() {
-    final imageUrl = resolvePlayerImagePath(prop.imageUrl);
-    if (imageUrl.startsWith('assets/')) {
-      return Image.asset(
-        imageUrl,
-        fit: BoxFit.cover,
-        filterQuality: FilterQuality.high,
-        errorBuilder: (_, _, _) =>
-            const Icon(Icons.person, color: Colors.white54),
-      );
-    }
-    if (imageUrl.isNotEmpty) {
-      return CachedNetworkImage(
-        key: ValueKey(imageUrl),
-        imageUrl: imageUrl,
-        fit: BoxFit.cover,
-        filterQuality: FilterQuality.high,
-        fadeInDuration: Duration.zero,
-        fadeOutDuration: Duration.zero,
-        useOldImageOnUrlChange: true,
-        placeholder: (_, _) =>
-            const Icon(Icons.person, color: Colors.white54),
-        errorWidget: (_, _, _) =>
-            const Icon(Icons.person, color: Colors.white54),
-      );
-    }
-    return const Icon(Icons.person, color: Colors.white54);
+    return PlayerImageWidget(
+      imageUrl: prop.imageUrl,
+      player: prop.playerName,
+      fit: BoxFit.cover,
+      showShimmer: false,
+    );
   }
 
   @override

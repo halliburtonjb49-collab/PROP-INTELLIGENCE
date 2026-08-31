@@ -12,6 +12,7 @@ import '../services/pickem_payout_rules.dart';
 import '../services/player_image_resolver.dart';
 import 'context_help.dart';
 import 'slip_doctor_panel.dart';
+import 'player_image_widget.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -244,10 +245,7 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     if (_refreshingLiveSlip) return;
     _refreshingLiveSlip = true;
     try {
-      await Future.wait([
-        _refreshActiveTicket(),
-        _refreshDraftLegs(),
-      ]);
+      await Future.wait([_refreshActiveTicket(), _refreshDraftLegs()]);
     } finally {
       _refreshingLiveSlip = false;
     }
@@ -644,30 +642,6 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
     return _resolveImageUrl(value.toString().trim());
   }
 
-  Widget _playerInitials(String name) {
-    final cleaned = name.trim();
-    final initials = cleaned.isEmpty
-        ? '?'
-        : cleaned
-              .split(RegExp(r'\s+'))
-              .where((part) => part.isNotEmpty)
-              .take(2)
-              .map((part) => part[0].toUpperCase())
-              .join();
-    return Container(
-      alignment: Alignment.center,
-      color: PropIntelligenceColors.surface,
-      child: Text(
-        initials,
-        style: const TextStyle(
-          color: PropIntelligenceColors.gold,
-          fontSize: 13,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-
   Widget _playerPhoto(Map<String, dynamic> prop, {double size = 44}) {
     final imageUrl = _playerImageUrl(prop);
     final playerName = (prop['player'] ?? prop['player_name'] ?? '?')
@@ -691,33 +665,15 @@ class _ActiveSlipPanelState extends State<ActiveSlipPanel> {
                 ),
               ),
               child: ClipOval(
-                child: imageUrl.isEmpty
-                    ? _playerInitials(playerName)
-                    : imageUrl.startsWith('assets/')
-                    ? Image.asset(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        gaplessPlayback: true,
-                        filterQuality: FilterQuality.high,
-                        errorBuilder: (context, error, stackTrace) {
-                          return _playerInitials(playerName);
-                        },
-                      )
-                    : CachedNetworkImage(
-                        imageUrl: imageUrl,
-                        fit: BoxFit.cover,
-                        fadeInDuration: Duration.zero,
-                        fadeOutDuration: Duration.zero,
-                        memCacheWidth: (size * 2).round(),
-                        memCacheHeight: (size * 2).round(),
-                        useOldImageOnUrlChange: true,
-                        placeholder: (context, url) {
-                          return _playerInitials(playerName);
-                        },
-                        errorWidget: (context, url, error) {
-                          return _playerInitials(playerName);
-                        },
-                      ),
+                child: PlayerImageWidget(
+                  imageUrl: imageUrl,
+                  player: playerName,
+                  width: size,
+                  height: size,
+                  fit: BoxFit.cover,
+                  fallbackIconSize: size * .45,
+                  showShimmer: false,
+                ),
               ),
             ),
           ],

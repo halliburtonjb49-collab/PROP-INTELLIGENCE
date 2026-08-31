@@ -1,15 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 
 import '../models/prop_data.dart';
 import '../services/api_service.dart';
 import '../services/recommendation_access.dart';
-import '../services/player_image_resolver.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard_panel.dart';
 import '../widgets/context_help.dart';
+import '../widgets/player_image_widget.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -543,31 +542,15 @@ class _LineMovementPageState extends State<LineMovementPage> {
   }
 
   Widget _playerPhoto(String player, String imagePath) {
-    final resolvedPath = resolvePlayerImagePath(imagePath);
-    Widget placeholder() => const ColoredBox(
-      color: AppColors.panelLight,
-      child: SizedBox(
-        width: 22,
-        height: 22,
-        child: Icon(Icons.person, size: 13, color: AppColors.textSecondary),
-      ),
-    );
-    if (resolvedPath.isEmpty) return ClipOval(child: placeholder());
     return ClipOval(
-      child: CachedNetworkImage(
-        key: ValueKey(resolvedPath),
-        imageUrl: resolvedPath,
+      child: PlayerImageWidget(
+        imageUrl: imagePath,
+        player: player,
         width: 22,
         height: 22,
         fit: BoxFit.cover,
-        filterQuality: FilterQuality.high,
-        fadeInDuration: Duration.zero,
-        fadeOutDuration: Duration.zero,
-        useOldImageOnUrlChange: true,
-        memCacheWidth: 44,
-        memCacheHeight: 44,
-        placeholder: (_, _) => placeholder(),
-        errorWidget: (_, _, _) => placeholder(),
+        fallbackIconSize: 13,
+        showShimmer: false,
       ),
     );
   }

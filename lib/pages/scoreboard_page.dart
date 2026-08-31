@@ -1,14 +1,17 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/scoreboard_controller.dart';
 import '../models/scoreboard_game.dart';
 import '../services/api_service.dart';
 import '../services/scoreboard_service.dart';
+import '../services/player_image_resolver.dart';
 import '../theme/app_colors.dart';
 import '../widgets/context_help.dart';
+import '../widgets/player_image_widget.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -720,34 +723,15 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                       color: Color(0xFF9A6338),
                     ),
                   )
-                : CachedNetworkImage(
+                : PlayerImageWidget(
                     imageUrl: imageUrl,
+                    player: name,
+                    width: 52,
+                    height: 52,
                     fit: BoxFit.cover,
-                    filterQuality: FilterQuality.high,
-                    fadeInDuration: Duration.zero,
-                    fadeOutDuration: Duration.zero,
-                    memCacheWidth: 104,
-                    memCacheHeight: 104,
-                    placeholder: (context, url) {
-                      return Container(
-                        color: brand_colors.AppColors.bgPanel,
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.sports_mma,
-                          color: Color(0xFF9A6338),
-                        ),
-                      );
-                    },
-                    errorWidget: (context, url, error) {
-                      return Container(
-                        color: brand_colors.AppColors.bgPanel,
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.sports_mma,
-                          color: Color(0xFF9A6338),
-                        ),
-                      );
-                    },
+                    fallbackIcon: Icons.sports_mma,
+                    fallbackIconSize: 25,
+                    showShimmer: false,
                   ),
           ),
         ),
@@ -780,24 +764,36 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     if (url.isEmpty) {
       return _teamInitialLogo(team);
     }
+    final resolvedUrl = resolvePlayerImagePath(
+      url,
+      useApiProxyForRemoteImages: kIsWeb,
+    );
     return ClipOval(
-      child: CachedNetworkImage(
-        imageUrl: url,
-        width: 34,
-        height: 34,
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.high,
-        fadeInDuration: Duration.zero,
-        fadeOutDuration: Duration.zero,
-        memCacheWidth: 102,
-        memCacheHeight: 102,
-        placeholder: (context, url) {
-          return _teamInitialLogo(team);
-        },
-        errorWidget: (context, url, error) {
-          return _teamInitialLogo(team);
-        },
-      ),
+      child: kIsWeb
+          ? Image.network(
+              resolvedUrl,
+              width: 34,
+              height: 34,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+              loadingBuilder: (_, child, progress) =>
+                  progress == null ? child : _teamInitialLogo(team),
+              errorBuilder: (_, _, _) => _teamInitialLogo(team),
+            )
+          : CachedNetworkImage(
+              imageUrl: resolvedUrl,
+              width: 34,
+              height: 34,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              fadeInDuration: Duration.zero,
+              fadeOutDuration: Duration.zero,
+              memCacheWidth: 136,
+              memCacheHeight: 136,
+              placeholder: (_, _) => _teamInitialLogo(team),
+              errorWidget: (_, _, _) => _teamInitialLogo(team),
+            ),
     );
   }
 
