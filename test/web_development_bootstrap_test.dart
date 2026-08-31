@@ -15,4 +15,21 @@ void main() {
     expect(service, contains('if (enabled)'));
     expect(pwa, contains("!isDevelopmentHost"));
   });
+
+  test('production keeps the versioned workspace service worker', () {
+    final buildScript = File('vercel_build.sh').readAsStringSync();
+    final worker = File('web/OneSignalSDKWorker.js').readAsStringSync();
+    final pwa = File('web/pwa_install.js').readAsStringSync();
+
+    expect(
+      buildScript,
+      isNot(contains(
+        'cp web/legacy_service_worker.js build/site/OneSignalSDKWorker.js',
+      )),
+    );
+    expect(worker, contains("event.data.type === 'PI_ACTIVATE_UPDATE'"));
+    expect(worker, contains('self.skipWaiting()'));
+    expect(pwa, contains("getRegistration('/workspace/')"));
+    expect(pwa, contains('window.setTimeout(reloadCurrentRelease, 4000)'));
+  });
 }

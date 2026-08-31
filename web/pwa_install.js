@@ -22,6 +22,21 @@
   const show = () => { if (card) card.style.display = 'flex'; };
   const hide = () => { if (card) card.style.display = 'none'; };
   const showUpdate = () => { if (updateCard) updateCard.style.display = 'flex'; };
+  const hideUpdate = () => { if (updateCard) updateCard.style.display = 'none'; };
+  let workspaceRegistration = null;
+
+  const getWorkspaceRegistration = async () => {
+    if (workspaceRegistration) return workspaceRegistration;
+    const registration = await navigator.serviceWorker.getRegistration('/workspace/');
+    if (registration) workspaceRegistration = registration;
+    return registration;
+  };
+
+  const reloadCurrentRelease = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('release', '__PI_BUILD_VERSION__');
+    window.location.replace(url.toString());
+  };
 
   window.addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault();
@@ -63,9 +78,8 @@
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (refreshingForNewWorker) return;
       refreshingForNewWorker = true;
-      const url = new URL(window.location.href);
-      url.searchParams.set('release', '__PI_BUILD_VERSION__');
-      window.location.replace(url.toString());
+      hideUpdate();
+      reloadCurrentRelease();
     });
     window.addEventListener('load', async () => {
       try {
@@ -73,6 +87,7 @@
           '/workspace/OneSignalSDKWorker.js',
           {scope: '/workspace/', updateViaCache: 'none'},
         );
+        workspaceRegistration = registration;
         if (registration.waiting) showUpdate();
         registration.addEventListener('updatefound', () => {
           const worker = registration.installing;
@@ -86,23 +101,34 @@
         console.warn('PWA service worker registration failed.', error);
       }
     });
-    navigator.serviceWorker.addEventListener('message', (event) => {
-      if (event.data && event.data.type === 'PI_UPDATE_READY' && updateCard) {
-        showUpdate();
-      }
-    });
   }
 
   if (updateAction) {
     updateAction.addEventListener('click', async () => {
       updateAction.disabled = true;
       updateAction.textContent = 'UPDATING';
-      const registration = await navigator.serviceWorker.ready;
-      if (registration.waiting) {
-        registration.waiting.postMessage({type: 'PI_ACTIVATE_UPDATE'});
-      } else {
-        await registration.update();
-        if (registration.waiting) registration.waiting.postMessage({type: 'PI_ACTIVATE_UPDATE'});
+      try {
+        const registration = await getWorkspaceRegistration();
+        if (!registration) {
+          reloadCurrentRelease();
+          return;
+        }
+        if (!registration.waiting) {
+          await registration.update();
+        }
+        if (registration.waiting) {
+          registration.waiting.postMessage({type: 'PI_ACTIVATE_UPDATE'});
+          // A damaged older worker may not understand the activation message.
+          // Reload rather than leaving the button permanently disabled.
+          window.setTimeout(reloadCurrentRelease, 4000);
+          return;
+        }
+        hideUpdate();
+        reloadCurrentRelease();
+      } catch (error) {
+        console.warn('PWA update activation failed.', error);
+        updateAction.disabled = false;
+        updateAction.textContent = 'RETRY UPDATE';
       }
     });
   }

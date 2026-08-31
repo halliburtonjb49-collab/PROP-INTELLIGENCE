@@ -60,4 +60,12 @@ for marker in (
     if marker not in install_script:
         fail(f"PWA install helper is missing {marker}")
 
+workspace_worker = root / "OneSignalSDKWorker.js"
+if not workspace_worker.is_file():
+    fail("versioned workspace service worker is missing")
+worker_text = workspace_worker.read_text(encoding="utf-8")
+for marker in ("PI_ACTIVATE_UPDATE", "skipWaiting", "PI_CACHE_PREFIX"):
+    if marker not in worker_text:
+        fail(f"workspace service worker is missing {marker}")
+
 print(f"PWA validation passed for {root}")

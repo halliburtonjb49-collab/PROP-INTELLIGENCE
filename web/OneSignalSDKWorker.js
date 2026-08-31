@@ -23,11 +23,7 @@ const PI_APP_SHELL = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(PI_CACHE)
-      .then((cache) => cache.addAll(PI_APP_SHELL))
-      .then(async () => {
-        const clients = await self.clients.matchAll({type: 'window'});
-        clients.forEach((client) => client.postMessage({type: 'PI_UPDATE_READY', release: PI_BUILD}));
-      }),
+      .then((cache) => cache.addAll(PI_APP_SHELL)),
   );
 });
 

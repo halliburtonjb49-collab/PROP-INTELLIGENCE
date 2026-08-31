@@ -113,7 +113,10 @@ mkdir -p build/site/workspace
 cp -R build/web/. build/site/workspace/
 cp -R marketing_site/. build/site/
 rm -f build/site/vercel.json
+# The root worker only retires service workers from the former split-domain
+# deployment. Never copy it over the workspace worker: doing so creates a
+# register -> unregister -> navigate loop and prevents versioned releases from
+# activating on installed phones and tablets.
 cp web/legacy_service_worker.js build/site/flutter_service_worker.js
-cp web/legacy_service_worker.js build/site/OneSignalSDKWorker.js
 
 echo "Build complete! Combined output in build/site"
