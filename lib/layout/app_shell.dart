@@ -1293,7 +1293,7 @@ class _MobileBottomNavigation extends StatelessWidget {
             child: _MobileNavItem(
               key: const ValueKey('mobile-nav-games'),
               icon: Icons.sports_score_outlined,
-              label: 'LIVE GAMES',
+              label: isNarrow ? 'GAMES' : 'LIVE GAMES',
               selected: selectedIndex == 1,
               onTap: () => onNavigateIndex(1),
               accentColor: accentColor,

@@ -42,7 +42,6 @@ import 'theme/app_colors.dart' as app_colors;
 import 'theme/app_theme.dart';
 import 'widgets/auth_account_panel.dart';
 import 'widgets/left_sidebar.dart';
-import 'widgets/top_navigation.dart';
 import 'widgets/scoreboard_navigation_ribbon.dart';
 export 'widgets/top_navigation.dart';
 import 'widgets/onboarding_dialog.dart';

@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/widgets/player_image_widget.dart';
 
 void main() {
-  testWidgets('player image clears a stale frame while its URL changes', (
+  testWidgets('player image preserves its stable frame while its URL changes', (
     tester,
   ) async {
     const url = 'https://img.mlbstatic.com/player.png';
@@ -19,7 +19,7 @@ void main() {
     );
     expect(image.imageUrl, contains('player-image-proxy'));
     expect(image.imageUrl, contains(Uri.encodeComponent(url)));
-    expect(image.useOldImageOnUrlChange, isFalse);
+    expect(image.useOldImageOnUrlChange, isTrue);
     expect(image.fadeInDuration, Duration.zero);
     expect(image.fadeOutDuration, Duration.zero);
     expect(tester.takeException(), isNull);

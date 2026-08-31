@@ -223,7 +223,7 @@ void main() {
     expect(find.byKey(const ValueKey('mobile-nav-watchlist')), findsOneWidget);
     expect(find.byKey(const ValueKey('mobile-nav-ticket')), findsOneWidget);
     expect(find.text('PROPS'), findsOneWidget);
-    expect(find.text('ML GAMES'), findsOneWidget);
+    expect(find.text('LIVE GAMES'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

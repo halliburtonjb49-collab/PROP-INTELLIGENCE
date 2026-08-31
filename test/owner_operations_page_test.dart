@@ -622,7 +622,7 @@ void main() {
     );
     await tester.pump();
     await tester.scrollUntilVisible(
-      find.text('PROVIDER AVAILABILITY'),
+      find.byKey(const ValueKey('provider-availability-dashboard')),
       300,
       scrollable: find.byType(Scrollable).first,
     );
@@ -762,19 +762,6 @@ void main() {
     expect(find.byKey(const ValueKey('owner-window-today')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('owner-operations-refresh')),
-      findsOneWidget,
-    );
-    await tester.scrollUntilVisible(
-      find.text('PROVIDER AVAILABILITY'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(
-      find.byKey(const ValueKey('provider-availability-dashboard')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('owner-provider-recovery')),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);

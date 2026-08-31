@@ -81,6 +81,25 @@ def acceptance() -> dict[str, object]:
     return production_acceptance_snapshot()
 
 
+@router.get("/release-gate")
+def release_gate(user_id: str = Depends(require_user_id)) -> dict[str, object]:
+    """Expose only release pass/fail state to the authenticated smoke account."""
+    del user_id
+    acceptance_snapshot = production_acceptance_snapshot()
+    billing = billing_release_certification()
+    critical = acceptance_snapshot.get("status") == "critical"
+    billing_ready = billing.get("releaseReady") is True
+    return {
+        "releaseReady": not critical and billing_ready,
+        "acceptanceStatus": acceptance_snapshot.get("status", "unknown"),
+        "billingReady": billing_ready,
+        "criticalIssueCount": sum(
+            1 for issue in acceptance_snapshot.get("issues", [])
+            if isinstance(issue, dict) and issue.get("severity") == "critical"
+        ),
+    }
+
+
 @router.get("/pipelines", dependencies=[Depends(require_owner)])
 def pipelines(limit: int = 25) -> dict[str, object]:
     bounded_limit = max(1, min(limit, 100))

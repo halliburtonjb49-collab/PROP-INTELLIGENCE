@@ -198,14 +198,15 @@ def main() -> int:
     if not smoke_token:
         raise RuntimeError("SMOKE_API_TOKEN is required for critical promotion checks")
     auth_headers = {"Authorization": f"Bearer {smoke_token}"}
-    acceptance, acceptance_body, _ = request(f"{API_URL}/api/operations/acceptance", headers=auth_headers)
-    acceptance_payload = json.loads(acceptance_body)
-    if acceptance.status != 200 or acceptance_payload.get("status") == "critical":
-        raise RuntimeError("Promotion blocked: a critical production acceptance check failed")
-    billing, billing_body, _ = request(f"{API_URL}/api/operations/billing-certification", headers=auth_headers)
-    billing_payload = json.loads(billing_body)
-    if billing.status != 200 or billing_payload.get("releaseReady") is not True:
-        raise RuntimeError("Promotion blocked: billing release certification failed")
+    gate, gate_body, _ = request(f"{API_URL}/api/operations/release-gate", headers=auth_headers)
+    gate_payload = json.loads(gate_body)
+    if gate.status != 200 or gate_payload.get("releaseReady") is not True:
+        raise RuntimeError(
+            "Promotion blocked by production certification: "
+            f"acceptance={gate_payload.get('acceptanceStatus')} "
+            f"billingReady={gate_payload.get('billingReady')} "
+            f"criticalIssues={gate_payload.get('criticalIssueCount')}"
+        )
     app, html, app_ms = request(APP_URL)
     if app.status != 200 or b"flutter_bootstrap.js" not in html:
         raise RuntimeError("Web application shell is unavailable")

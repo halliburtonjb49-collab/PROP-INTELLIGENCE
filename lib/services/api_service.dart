@@ -10,6 +10,7 @@ import '../models/prop_data.dart';
 import '../models/game_market.dart';
 import '../models/saved_slip.dart';
 import '../models/slip_selection.dart';
+import 'engagement_tracker.dart';
 import 'supabase_service.dart';
 
 @visibleForTesting
@@ -3129,4 +3130,3 @@ class ApiService {
     }
   }
 }
-import 'engagement_tracker.dart';

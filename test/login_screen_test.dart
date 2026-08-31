@@ -65,10 +65,10 @@ void main() {
       'TERMS',
       'PRIVACY',
       'CONTACT',
-      'INSTALL APP',
     ]) {
       expect(find.text(label), findsWidgets);
     }
+    expect(find.textContaining('INSTALL DIRECTLY FROM THE WEB'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 

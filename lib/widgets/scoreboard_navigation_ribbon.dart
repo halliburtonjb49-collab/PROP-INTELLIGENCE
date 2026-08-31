@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../services/player_image_resolver.dart';
+import '../services/engagement_tracker.dart';
 
 import '../controllers/scoreboard_controller.dart';
 import '../models/scoreboard_game.dart';
@@ -300,7 +301,7 @@ class _ScoreboardNavigationRibbonState
           for (final tab in ['LIVE NOW', 'MY SPORTS', 'UPCOMING', 'FINAL'])
             _tabButton(tab, tab == 'LIVE NOW' ? liveCount : null),
         ],
-        const Spacer(),
+        const SizedBox(width: 12),
         PopupMenuButton<String>(
           tooltip: 'Select market sport',
           onSelected: (sport) {
@@ -561,7 +562,7 @@ class _ScoreboardLoadingSequenceState extends State<_ScoreboardLoadingSequence>
           ),
           Center(
             child: Row(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
                   width: 48,
@@ -587,10 +588,11 @@ class _ScoreboardLoadingSequenceState extends State<_ScoreboardLoadingSequence>
                   ),
                 ),
                 const SizedBox(width: 14),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                Flexible(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                     const Text(
                       'PROP INTELLIGENCE',
                       style: TextStyle(
@@ -600,20 +602,23 @@ class _ScoreboardLoadingSequenceState extends State<_ScoreboardLoadingSequence>
                       ),
                     ),
                     const SizedBox(height: 5),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      child: Text(
-                        _stages[_stage],
-                        key: ValueKey(_stage),
-                        style: const TextStyle(
-                          color: AppColors.goldHighlight,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.8,
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        child: Text(
+                          _stages[_stage],
+                          key: ValueKey(_stage),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.goldHighlight,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -821,8 +826,8 @@ class _GameRibbonCard extends StatelessWidget {
                   fadeOutDuration: Duration.zero,
                   memCacheWidth: 102,
                   memCacheHeight: 102,
-                  placeholder: (_, __) => _teamBadge(name),
-                  errorWidget: (_, failedUrl, ___) {
+                  placeholder: (_, _) => _teamBadge(name),
+                  errorWidget: (_, failedUrl, error) {
                     EngagementTracker.instance.recordOperational(
                       'MEDIA_FAILURE', endpoint: failedUrl,
                       provider: Uri.tryParse(failedUrl)?.host ?? 'unknown',
