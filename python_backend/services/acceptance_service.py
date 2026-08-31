@@ -6,6 +6,7 @@ import os
 
 from database.postgres import database_is_configured, get_database_pool
 from services.odds_service import quota_snapshot
+from services.prop_catalog_snapshot_service import load_catalog_snapshot
 from services.prop_service import get_props
 
 
@@ -17,6 +18,14 @@ def _parse_timestamp(value: str) -> datetime | None:
         return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
     except ValueError:
         return None
+
+
+def _prop_value(prop: object, *keys: str) -> str:
+    for key in keys:
+        value = prop.get(key) if isinstance(prop, dict) else getattr(prop, key, None)
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return ""
 
 
 def _webhook_delivery_snapshot() -> dict[str, object]:
@@ -41,10 +50,16 @@ def _webhook_delivery_snapshot() -> dict[str, object]:
 
 def production_acceptance_snapshot(now: datetime | None = None) -> dict[str, object]:
     generated_at = now or datetime.now(timezone.utc)
-    props = get_props()
+    props: list[object] = list(get_props())
+    if not props:
+        props = list(load_catalog_snapshot())
     timestamps = [
         parsed for prop in props
-        if (parsed := _parse_timestamp(prop.lastUpdatedUtc)) is not None
+        if (
+            parsed := _parse_timestamp(
+                _prop_value(prop, "lastUpdatedUtc", "last_updated_utc")
+            )
+        ) is not None
     ]
     freshest = max(timestamps) if timestamps else None
     age_minutes = (
@@ -81,8 +96,16 @@ def production_acceptance_snapshot(now: datetime | None = None) -> dict[str, obj
         "issues": issues,
         "propFeed": {
             "total": len(props),
-            "sports": dict(sorted(Counter(prop.sport for prop in props).items())),
-            "books": dict(sorted(Counter(prop.sportsbook for prop in props).items())),
+            "sports": dict(
+                sorted(Counter(_prop_value(prop, "sport") for prop in props).items())
+            ),
+            "books": dict(
+                sorted(
+                    Counter(
+                        _prop_value(prop, "sportsbook", "bookmaker") for prop in props
+                    ).items()
+                )
+            ),
             "freshestAt": freshest.isoformat() if freshest else None,
             "ageMinutes": age_minutes,
             "staleAfterMinutes": stale_threshold,
