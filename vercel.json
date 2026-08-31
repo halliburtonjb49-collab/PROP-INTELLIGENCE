@@ -46,7 +46,18 @@
       "permanent": false
     },
     {
-      "source": "/:path*",
+      "source": "/workspace",
+      "has": [
+        {
+          "type": "host",
+          "value": "app.propsintell.com"
+        }
+      ],
+      "destination": "https://pipropsintell.com/workspace/",
+      "permanent": false
+    },
+    {
+      "source": "/workspace/",
       "has": [
         {
           "type": "host",
