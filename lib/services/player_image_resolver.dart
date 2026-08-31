@@ -5,7 +5,7 @@ import 'api_service.dart';
 // Increment only when the player-photo delivery pipeline changes. Keeping the
 // revision in the shared resolver invalidates previously cached opaque/black
 // responses across the board, slips, history, and specialty views together.
-const String _playerImageRevision = '20260831-2';
+const String _playerImageRevision = '20260831-3';
 
 String resolveCanonicalPlayerImagePath({
   required String player,
@@ -14,10 +14,11 @@ String resolveCanonicalPlayerImagePath({
   String? apiBaseUrl,
 }) {
   if (player.trim().isEmpty || sport.trim().isEmpty) return '';
-  final base = (apiBaseUrl ?? ApiService.baseUrl).trim().replaceFirst(
-    RegExp(r'/$'),
-    '',
-  );
+  // Flutter web can decode a perfectly valid cross-origin JPEG as an opaque
+  // black texture on iOS/WebKit. Route web photos through the public site's
+  // same-origin API rewrite; native clients continue to use the API host.
+  final resolvedBase = apiBaseUrl ?? (kIsWeb ? '' : ApiService.baseUrl);
+  final base = resolvedBase.trim().replaceFirst(RegExp(r'/$'), '');
   return Uri.parse('$base/api/player-photo')
       .replace(
         queryParameters: {
