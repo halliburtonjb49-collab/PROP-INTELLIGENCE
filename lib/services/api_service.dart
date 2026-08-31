@@ -1154,11 +1154,17 @@ class ApiService {
     // every candidate twice made a mobile board exceed its own loading
     // deadline before the direct API fallback could run.
     const maxAttempts = 1;
+    // Production validates protected prop requests against Supabase with a
+    // server-side ceiling of 12 seconds. The previous 8-second client limit
+    // could abort a healthy first request before authentication completed,
+    // which was most visible on mobile after restoring a session. Keep the
+    // broad request inside the board's 25-second recovery budget while giving
+    // the backend enough time to finish its authenticated response.
     final requestTimeout = isSpecialtySport
-        ? const Duration(seconds: 4)
+        ? const Duration(seconds: 8)
         : category.isNotEmpty && category != 'ALL'
-        ? const Duration(seconds: 7)
-        : const Duration(seconds: 8);
+        ? const Duration(seconds: 12)
+        : const Duration(seconds: 15);
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         var response = await http
