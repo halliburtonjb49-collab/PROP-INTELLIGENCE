@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 
 import '../services/player_image_resolver.dart';
 import '../services/engagement_tracker.dart';
@@ -808,34 +809,50 @@ class _GameRibbonCard extends StatelessWidget {
                   color: Colors.transparent,
                   shape: BoxShape.circle,
                 ),
-                child: CachedNetworkImage(
-                  // CanvasKit can render some cross-origin sports CDN images
-                  // as opaque black tiles. Use PI's approved, cacheable media
-                  // proxy so team logos follow the same stable delivery path
-                  // as player photos.
-                  imageUrl: resolvePlayerImagePath(
+                child: Builder(builder: (context) {
+                  final resolvedLogo = resolvePlayerImagePath(
                     logo,
-                    // ESPN's web CDN is CORS-enabled and substantially faster
-                    // than a cold Render proxy request. Native clients still
-                    // use the proxy through the resolver's platform default.
-                    useApiProxyForRemoteImages: false,
-                  ),
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                  fadeInDuration: Duration.zero,
-                  fadeOutDuration: Duration.zero,
-                  memCacheWidth: 102,
-                  memCacheHeight: 102,
-                  placeholder: (_, _) => _teamBadge(name),
-                  errorWidget: (_, failedUrl, error) {
-                    EngagementTracker.instance.recordOperational(
-                      'MEDIA_FAILURE', endpoint: failedUrl,
-                      provider: Uri.tryParse(failedUrl)?.host ?? 'unknown',
-                      mediaType: 'team_logo',
+                    useApiProxyForRemoteImages: kIsWeb,
+                  );
+                  if (kIsWeb) {
+                    return Image.network(
+                      resolvedLogo,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
+                      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+                      loadingBuilder: (_, child, progress) =>
+                          progress == null ? child : _teamBadge(name),
+                      errorBuilder: (_, error, stackTrace) {
+                        EngagementTracker.instance.recordOperational(
+                          'MEDIA_FAILURE',
+                          endpoint: resolvedLogo,
+                          provider:
+                              Uri.tryParse(resolvedLogo)?.host ?? 'unknown',
+                          mediaType: 'team_logo',
+                        );
+                        return _teamBadge(name);
+                      },
                     );
-                    return _teamBadge(name);
-                  },
-                ),
+                  }
+                  return CachedNetworkImage(
+                    imageUrl: resolvedLogo,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                    fadeInDuration: Duration.zero,
+                    fadeOutDuration: Duration.zero,
+                    memCacheWidth: 102,
+                    memCacheHeight: 102,
+                    placeholder: (_, _) => _teamBadge(name),
+                    errorWidget: (_, failedUrl, error) {
+                      EngagementTracker.instance.recordOperational(
+                        'MEDIA_FAILURE', endpoint: failedUrl,
+                        provider: Uri.tryParse(failedUrl)?.host ?? 'unknown',
+                        mediaType: 'team_logo',
+                      );
+                      return _teamBadge(name);
+                    },
+                  );
+                }),
               )
             : _teamBadge(name),
       ),

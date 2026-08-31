@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../controllers/scoreboard_controller.dart';
@@ -1066,23 +1067,34 @@ class _LiveScoreboardTickerGridWidgetState
       ),
     );
     if (logo.isEmpty) return fallback;
+    final resolvedLogo = resolvePlayerImagePath(
+      logo,
+      useApiProxyForRemoteImages: kIsWeb,
+    );
     return SizedBox(
       width: size,
       height: size,
-      child: CachedNetworkImage(
-        imageUrl: resolvePlayerImagePath(
-          logo,
-          useApiProxyForRemoteImages: false,
-        ),
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.high,
-        fadeInDuration: Duration.zero,
-        fadeOutDuration: Duration.zero,
-        memCacheWidth: (size * 3).round(),
-        memCacheHeight: (size * 3).round(),
-        placeholder: (_, _) => fallback,
-        errorWidget: (_, _, _) => fallback,
-      ),
+      child: kIsWeb
+          ? Image.network(
+              resolvedLogo,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+              loadingBuilder: (_, child, progress) =>
+                  progress == null ? child : fallback,
+              errorBuilder: (_, _, _) => fallback,
+            )
+          : CachedNetworkImage(
+              imageUrl: resolvedLogo,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              fadeInDuration: Duration.zero,
+              fadeOutDuration: Duration.zero,
+              memCacheWidth: (size * 3).round(),
+              memCacheHeight: (size * 3).round(),
+              placeholder: (_, _) => fallback,
+              errorWidget: (_, _, _) => fallback,
+            ),
     );
   }
 
