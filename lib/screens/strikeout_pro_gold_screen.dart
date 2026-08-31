@@ -277,7 +277,11 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                         crossAxisCount: columns,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
-                        mainAxisExtent: 180,
+                        mainAxisExtent: width >= 1050
+                            ? 180
+                            : width >= 650
+                            ? 196
+                            : 218,
                       ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final prop = section.value[index];
@@ -307,11 +311,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
     ),
     child: Row(
       children: [
-        const Icon(
-          Icons.storefront_rounded,
-          size: 16,
-          color: AppColors.gold,
-        ),
+        const Icon(Icons.storefront_rounded, size: 16, color: AppColors.gold),
         const SizedBox(width: 9),
         Expanded(
           child: Text(
@@ -366,9 +366,11 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
               alignment: WrapAlignment.spaceBetween,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                const SizedBox(
-                  width: 510,
-                  child: Column(
+                SizedBox(
+                  width: constraints.maxWidth < 560
+                      ? constraints.maxWidth
+                      : 510,
+                  child: const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -395,7 +397,11 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   spacing: 10,
                   runSpacing: 8,
                   children: const [
-                    _StrikeoutStep(number: '1', label: 'SELECT SITE', active: true),
+                    _StrikeoutStep(
+                      number: '1',
+                      label: 'SELECT SITE',
+                      active: true,
+                    ),
                     _StrikeoutStep(number: '2', label: 'SELECT SIDE'),
                     _StrikeoutStep(number: '3', label: 'COMPARE PI PICKS'),
                   ],
@@ -753,8 +759,13 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                           Align(
                             alignment: Alignment.bottomCenter,
                             child: PlayerImageWidget(
-                              key: ValueKey('strikeout-photo-${prop.id}-${prop.imagePath}'),
+                              key: ValueKey(
+                                'strikeout-photo-${prop.id}-${prop.imagePath}',
+                              ),
                               imageUrl: prop.imagePath,
+                              cacheIdentity: '${prop.sport}:${prop.player}',
+                              player: prop.player,
+                              sport: prop.sport,
                               width: 108,
                               height: 116,
                               fit: BoxFit.contain,
@@ -772,15 +783,49 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(prop.player, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)),
+                          Text(
+                            prop.player,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                           const SizedBox(height: 3),
-                          Text(prop.matchup, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
+                          Text(
+                            prop.matchup,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 9,
+                            ),
+                          ),
                           const SizedBox(height: 5),
-                          Row(children: [
-                            const Icon(Icons.emoji_events_outlined, size: 12, color: AppColors.gold),
-                            const SizedBox(width: 4),
-                            Expanded(child: Text(prop.sportsbook.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900))),
-                          ]),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.emoji_events_outlined,
+                                size: 12,
+                                color: AppColors.gold,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  prop.sportsbook.toUpperCase(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -791,9 +836,32 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(_signalLabel(prop, systemSide), style: TextStyle(color: signalColor, fontSize: 7.5, fontWeight: FontWeight.w900)),
-                          Text('$sideText ${prop.line.toStringAsFixed(1)}', style: TextStyle(color: signalColor, fontSize: 14, fontWeight: FontWeight.w900)),
-                          const Text('PITCHER STRIKEOUTS', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: AppColors.textMuted, fontSize: 8, fontWeight: FontWeight.w800)),
+                          Text(
+                            _signalLabel(prop, systemSide),
+                            style: TextStyle(
+                              color: signalColor,
+                              fontSize: 7.5,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            '$sideText ${prop.line.toStringAsFixed(1)}',
+                            style: TextStyle(
+                              color: signalColor,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const Text(
+                            'PITCHER STRIKEOUTS',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -804,15 +872,47 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('PI TRUST', style: TextStyle(color: AppColors.textMuted, fontSize: 7.5, fontWeight: FontWeight.w800)),
-                          Text('${prop.piTrustScore}', style: const TextStyle(color: brand_colors.AppColors.success, fontSize: 14, fontWeight: FontWeight.w900)),
+                          const Text(
+                            'PI TRUST',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 7.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            '${prop.piTrustScore}',
+                            style: const TextStyle(
+                              color: brand_colors.AppColors.success,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                           const SizedBox(height: 3),
-                          const Text('PROJECTION', style: TextStyle(color: AppColors.textMuted, fontSize: 7, fontWeight: FontWeight.w800)),
-                          Text(projection, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
+                          const Text(
+                            'PROJECTION',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 7,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            projection,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                    const Icon(Icons.star_border_rounded, color: AppColors.gold, size: 20),
+                    const Icon(
+                      Icons.star_border_rounded,
+                      color: AppColors.gold,
+                      size: 20,
+                    ),
                   ],
                 ),
               ),
@@ -821,9 +921,22 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   if (learned)
                     Container(
                       margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                      decoration: BoxDecoration(color: const Color(0xFF31245C), borderRadius: BorderRadius.circular(99)),
-                      child: const Text('PI LEARNING ACTIVE', style: TextStyle(color: AppColors.silver, fontSize: 7, fontWeight: FontWeight.w900)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF31245C),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: const Text(
+                        'PI LEARNING ACTIVE',
+                        style: TextStyle(
+                          color: AppColors.silver,
+                          fontSize: 7,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                     ),
                   Expanded(
                     child: FilledButton.icon(
@@ -831,7 +944,15 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                       onPressed: () => _showPiIntelligence(prop),
                       icon: const Icon(Icons.psychology_alt_rounded, size: 14),
                       label: const Text('OPEN PI INTELLIGENCE'),
-                      style: FilledButton.styleFrom(backgroundColor: AppColors.gold, foregroundColor: AppColors.background, minimumSize: const Size(0, 34), textStyle: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900)),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.gold,
+                        foregroundColor: AppColors.background,
+                        minimumSize: const Size(0, 34),
+                        textStyle: const TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -967,10 +1088,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                 title: 'STANDARDIZED EXPLAINABILITY',
               ),
               const SizedBox(height: 12),
-              PropResearchAiButton(
-                prop: prop,
-                comparisonCandidates: _props,
-              ),
+              PropResearchAiButton(prop: prop, comparisonCandidates: _props),
             ],
           ),
         ),
@@ -1165,14 +1283,14 @@ class _StrikeoutStep extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: active ? AppColors.gold : Colors.transparent,
-          border: Border.all(
-            color: active ? AppColors.gold : AppColors.border,
-          ),
+          border: Border.all(color: active ? AppColors.gold : AppColors.border),
         ),
         child: Text(
           number,
           style: TextStyle(
-            color: active ? brand_colors.AppColors.sidebar : AppColors.textMuted,
+            color: active
+                ? brand_colors.AppColors.sidebar
+                : AppColors.textMuted,
             fontSize: 10,
             fontWeight: FontWeight.w900,
           ),
