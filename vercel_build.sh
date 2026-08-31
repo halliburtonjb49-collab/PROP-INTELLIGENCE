@@ -113,5 +113,7 @@ mkdir -p build/site/workspace
 cp -R build/web/. build/site/workspace/
 cp -R marketing_site/. build/site/
 rm -f build/site/vercel.json
+cp web/legacy_service_worker.js build/site/flutter_service_worker.js
+cp web/legacy_service_worker.js build/site/OneSignalSDKWorker.js
 
 echo "Build complete! Combined output in build/site"

@@ -35,6 +35,28 @@
   ],
   "redirects": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "app.propsintell.com"
+        }
+      ],
+      "destination": "https://pipropsintell.com/workspace/",
+      "permanent": false
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "app.propsintell.com"
+        }
+      ],
+      "destination": "https://pipropsintell.com/workspace/",
+      "permanent": false
+    },
+    {
       "source": "/workspace",
       "destination": "/workspace/",
       "permanent": false
@@ -75,6 +97,14 @@
     },
     {
       "source": "/(index.html|auth-modal.js)",
+      "headers": [
+        {"key": "Cache-Control", "value": "no-store, max-age=0"},
+        {"key": "CDN-Cache-Control", "value": "no-store"},
+        {"key": "Vercel-CDN-Cache-Control", "value": "no-store"}
+      ]
+    },
+    {
+      "source": "/(flutter_service_worker.js|OneSignalSDKWorker.js)",
       "headers": [
         {"key": "Cache-Control", "value": "no-store, max-age=0"},
         {"key": "CDN-Cache-Control", "value": "no-store"},
