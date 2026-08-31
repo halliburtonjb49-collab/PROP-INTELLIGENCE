@@ -49,8 +49,8 @@ declare
   normalized_description text := trim(request_description);
   inserted public.app_change_requests%rowtype;
 begin
-  if public.effective_account_role() <> 'admin' then
-    raise exception 'Only administrators can submit change requests.'
+  if public.effective_account_role() not in ('advisor', 'admin') then
+    raise exception 'Only advisors can submit change requests.'
       using errcode = '42501';
   end if;
   if char_length(normalized_title) not between 3 and 120 then
@@ -91,13 +91,13 @@ begin
       order by
         case when status = 'pending' then 0 else 1 end,
         created_at desc;
-  elsif public.effective_account_role() = 'admin' then
+  elsif public.effective_account_role() in ('advisor', 'admin') then
     return query
       select * from public.app_change_requests
       where requested_by = auth.uid()
       order by created_at desc;
   else
-    raise exception 'Change requests are available to owners and administrators.'
+    raise exception 'Change requests are available to owners and advisors.'
       using errcode = '42501';
   end if;
 end;

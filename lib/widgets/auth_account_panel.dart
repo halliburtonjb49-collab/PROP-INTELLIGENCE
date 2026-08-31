@@ -7,7 +7,7 @@ import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../services/billing_service.dart';
 import '../services/prop_watchlist_service.dart';
-import 'member_identity_badge.dart';
+import '../services/profile_avatar_service.dart';
 import 'official_identity_badge.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
@@ -43,6 +43,35 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
 
   bool _registerMode = false;
   bool _submitting = false;
+  bool _avatarBusy = false;
+
+  Future<void> _chooseAvatar() async {
+    if (_avatarBusy) return;
+    setState(() => _avatarBusy = true);
+    try {
+      final avatarUrl = await ProfileAvatarService.pickAndUpload();
+      if (avatarUrl != null) {
+        _showMessage('Profile photo updated.');
+      }
+    } catch (error) {
+      _showMessage('Profile photo could not be updated: $error');
+    } finally {
+      if (mounted) setState(() => _avatarBusy = false);
+    }
+  }
+
+  Future<void> _removeAvatar() async {
+    if (_avatarBusy) return;
+    setState(() => _avatarBusy = true);
+    try {
+      await ProfileAvatarService.remove();
+      _showMessage('Profile photo removed.');
+    } catch (error) {
+      _showMessage('Profile photo could not be removed: $error');
+    } finally {
+      if (mounted) setState(() => _avatarBusy = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -552,6 +581,12 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
                   username:
                       state.username ??
                       resolvePublicUsername(userId: state.userId ?? ''),
+                  avatarUrl: state.avatarUrl,
+                  avatarBusy: _avatarBusy,
+                  onChooseAvatar: _chooseAvatar,
+                  onRemoveAvatar: state.avatarUrl == null
+                      ? null
+                      : _removeAvatar,
                   role: state.role,
                   assignedMemberRole: state.assignedMemberRole,
                   founderNumber: state.founderNumber,
@@ -569,10 +604,15 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
                       ? _manageSubscription
                       : null,
                   onManageRoles: state.isOwner ? _showRoleManager : null,
-                  onChangeRequests: state.isOwner || state.isAdmin
+                  onChangeRequests:
+                      state.isOwner ||
+                          state.isAdmin ||
+                          state.role.trim().toLowerCase() == 'advisor'
                       ? _showChangeRequests
                       : null,
-                  onSubmitChangeRequest: state.isAdmin
+                  onSubmitChangeRequest:
+                      state.isAdmin ||
+                          state.role.trim().toLowerCase() == 'advisor'
                       ? _submitChangeRequest
                       : null,
                   onDeleteAccount: _submitting ? null : _deleteAccount,
@@ -698,8 +738,81 @@ class _AuthAccountPanelState extends State<AuthAccountPanel> {
   }
 }
 
+class _AccountAvatar extends StatelessWidget {
+  const _AccountAvatar({
+    required this.avatarUrl,
+    required this.username,
+    required this.busy,
+    required this.onChoose,
+  });
+
+  final String? avatarUrl;
+  final String username;
+  final bool busy;
+  final VoidCallback onChoose;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = avatarUrl?.trim() ?? '';
+    return Semantics(
+      button: true,
+      label: url.isEmpty ? 'Add profile photo' : 'Change profile photo',
+      child: InkWell(
+        key: const ValueKey('account-avatar'),
+        onTap: busy ? null : onChoose,
+        customBorder: const CircleBorder(),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            CircleAvatar(
+              radius: 28,
+              backgroundColor: brand_colors.AppColors.panel,
+              foregroundImage: url.isEmpty ? null : NetworkImage(url),
+              child: url.isEmpty
+                  ? Text(
+                      username.isEmpty ? '?' : username[0].toUpperCase(),
+                      style: const TextStyle(
+                        color: brand_colors.AppColors.gold,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    )
+                  : null,
+            ),
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Container(
+                width: 21,
+                height: 21,
+                decoration: BoxDecoration(
+                  color: brand_colors.AppColors.gold,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: brand_colors.AppColors.sidebar,
+                    width: 2,
+                  ),
+                ),
+                child: Icon(
+                  busy ? Icons.more_horiz_rounded : Icons.camera_alt_rounded,
+                  color: brand_colors.AppColors.bgBase,
+                  size: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SignedInView extends StatelessWidget {
   final String username;
+  final String? avatarUrl;
+  final bool avatarBusy;
+  final Future<void> Function() onChooseAvatar;
+  final Future<void> Function()? onRemoveAvatar;
   final String role;
   final String? assignedMemberRole;
   final int? founderNumber;
@@ -716,6 +829,10 @@ class _SignedInView extends StatelessWidget {
 
   const _SignedInView({
     required this.username,
+    required this.avatarUrl,
+    required this.avatarBusy,
+    required this.onChooseAvatar,
+    required this.onRemoveAvatar,
     required this.role,
     required this.assignedMemberRole,
     required this.founderNumber,
@@ -749,11 +866,11 @@ class _SignedInView extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            MemberIdentityBadge(
+            _AccountAvatar(
+              avatarUrl: avatarUrl,
               username: username,
-              role: identityRole,
-              founderNumber: founderNumber,
-              showUsername: false,
+              busy: avatarBusy,
+              onChoose: onChooseAvatar,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -813,6 +930,36 @@ class _SignedInView extends StatelessWidget {
                 ],
               ),
             ),
+          ],
+        ),
+        const SizedBox(height: 9),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                key: const ValueKey('choose-profile-photo'),
+                onPressed: avatarBusy ? null : onChooseAvatar,
+                icon: avatarBusy
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.add_a_photo_outlined, size: 16),
+                label: Text(
+                  avatarUrl == null ? 'ADD PROFILE PHOTO' : 'CHANGE PHOTO',
+                ),
+              ),
+            ),
+            if (onRemoveAvatar != null) ...[
+              const SizedBox(width: 7),
+              IconButton.outlined(
+                key: const ValueKey('remove-profile-photo'),
+                tooltip: 'Remove profile photo',
+                onPressed: avatarBusy ? null : onRemoveAvatar,
+                icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 9),

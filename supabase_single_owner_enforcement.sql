@@ -46,8 +46,8 @@ begin
     raise exception 'Only the verified owner can assign roles.' using errcode = '42501';
   end if;
 
-  if normalized_role not in ('admin', 'tester', 'user') then
-    raise exception 'Role must be admin, tester, or user.' using errcode = '22023';
+  if normalized_role not in ('advisor', 'admin', 'tester', 'user') then
+    raise exception 'Role must be advisor, admin, tester, or user.' using errcode = '22023';
   end if;
 
   select * into target_record
