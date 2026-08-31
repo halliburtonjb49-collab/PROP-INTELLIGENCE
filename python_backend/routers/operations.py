@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from services.api_auth_service import require_owner
+from services.api_auth_service import require_owner, require_user_id
 from services.operations_detail_service import operations_detail
 from services.pipeline_run_service import recent_pipeline_runs, summarize_pipeline_health
 from services.provider_availability_monitor_service import provider_availability_snapshot
