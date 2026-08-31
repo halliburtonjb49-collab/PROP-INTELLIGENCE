@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../navigation/app_navigation.dart';
 import '../services/app_sound_service.dart';
 import '../services/auth_manager.dart';
 import '../theme/app_colors.dart';
+import 'responsive_breakpoints.dart';
 
 import '../theme/app_colors.dart' as brand_colors;
 
@@ -11,8 +13,12 @@ const piGold = Color(0xFFD4AF37);
 const piSilver = Color(0xFFC0C7D1);
 const piPanelNavy = Color(0xFF07111D);
 
-/// Width below which the workspace uses the mobile/tablet application shell.
-const double appShellMobileBreakpoint = 1000;
+/// Shared responsive boundaries for the complete application shell.
+const double appShellPhoneBreakpoint = ResponsiveBreakpoints.phone;
+const double appShellMobileBreakpoint = ResponsiveBreakpoints.desktop;
+
+@visibleForTesting
+bool useTabletShell(double width) => ResponsiveBreakpoints.isTablet(width);
 
 Color rightPanelAccentForTier(String? tier) {
   final normalized = (tier ?? '').trim().toUpperCase();
@@ -32,21 +38,25 @@ Color rightPanelAccentForTier(String? tier) {
 
 enum _RightPanelSection { account, activeSlip }
 
-double mobileShellInset(double width) => width < 600 ? 5 : 6;
-double mobileShellGap(double width) => width < 600 ? 5 : 6;
+double mobileShellInset(double width) =>
+    width < appShellPhoneBreakpoint ? 5 : 8;
+double mobileShellGap(double width) => width < appShellPhoneBreakpoint ? 5 : 8;
 double mobileTopBarHeight(double width) => width < 360
     ? 56
-    : width < 600
+    : width < appShellPhoneBreakpoint
     ? 58
     : 60;
+
+double tabletTopBarHeight(double width) => width < 760 ? 122 : 132;
+
 double mobileBottomBarHeight(double width) => width < 360
     ? 60
-    : width < 600
+    : width < appShellPhoneBreakpoint
     ? 64
     : 66;
 
 @visibleForTesting
-bool usePhoneShell(double width) => width < 600;
+bool usePhoneShell(double width) => ResponsiveBreakpoints.isPhone(width);
 
 class AppShell extends StatefulWidget {
   const AppShell({
@@ -67,6 +77,8 @@ class AppShell extends StatefulWidget {
     this.accentColor = AppColors.gold,
     this.membershipLabel = 'CORE',
     this.topNavigationHeight = 84,
+    this.tabletSelectedPage = AppPage.board,
+    this.onTabletSelectPage,
     required this.soundService,
     required this.isOwner,
     required this.ownerOperationsSelected,
@@ -89,6 +101,8 @@ class AppShell extends StatefulWidget {
   final Color accentColor;
   final String membershipLabel;
   final double topNavigationHeight;
+  final AppPage tabletSelectedPage;
+  final ValueChanged<AppPage>? onTabletSelectPage;
   final AppSoundService soundService;
   final bool isOwner;
   final bool ownerOperationsSelected;
@@ -151,7 +165,6 @@ class _AppShellState extends State<AppShell> {
         if (constraints.maxWidth < appShellMobileBreakpoint) {
           return _MobileAppShell(
             leftSidebar: widget.leftSidebar,
-            topNavigation: widget.topNavigation,
             content: widget.content,
             accountPanel: widget.accountPanel,
             activeSlipPanel: widget.activeSlipPanel,
@@ -163,7 +176,8 @@ class _AppShellState extends State<AppShell> {
             onDismissOverlay: widget.onMobileDismissOverlay,
             onNavigateIndex: widget.onMobileNavigateIndex,
             accentColor: widget.accentColor,
-            topNavigationHeight: widget.topNavigationHeight,
+            tabletSelectedPage: widget.tabletSelectedPage,
+            onTabletSelectPage: widget.onTabletSelectPage,
           );
         }
         final metrics = _metrics(constraints.maxWidth);
@@ -994,7 +1008,6 @@ Color accentWithOpacity(Color accent) => accent.withValues(alpha: 0.24);
 class _MobileAppShell extends StatefulWidget {
   const _MobileAppShell({
     required this.leftSidebar,
-    required this.topNavigation,
     required this.content,
     required this.accountPanel,
     required this.activeSlipPanel,
@@ -1006,11 +1019,11 @@ class _MobileAppShell extends StatefulWidget {
     required this.onDismissOverlay,
     required this.onNavigateIndex,
     required this.accentColor,
-    required this.topNavigationHeight,
+    required this.tabletSelectedPage,
+    required this.onTabletSelectPage,
   });
 
   final Widget leftSidebar;
-  final Widget topNavigation;
   final Widget content;
   final Widget accountPanel;
   final Widget activeSlipPanel;
@@ -1022,7 +1035,8 @@ class _MobileAppShell extends StatefulWidget {
   final VoidCallback? onDismissOverlay;
   final ValueChanged<int>? onNavigateIndex;
   final Color accentColor;
-  final double topNavigationHeight;
+  final AppPage tabletSelectedPage;
+  final ValueChanged<AppPage>? onTabletSelectPage;
 
   @override
   State<_MobileAppShell> createState() => _MobileAppShellState();
@@ -1121,9 +1135,9 @@ class _MobileAppShellState extends State<_MobileAppShell> {
     final shellGap = mobileShellGap(screenWidth);
     final resolvedTopHeight = isPhone
         ? mobileTopBarHeight(screenWidth)
-        : widget.topNavigationHeight
-              .clamp(76.0, MediaQuery.sizeOf(context).height * 0.30)
-              .toDouble();
+        : tabletTopBarHeight(
+            screenWidth,
+          ).clamp(112.0, MediaQuery.sizeOf(context).height * 0.24).toDouble();
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.background,
@@ -1181,6 +1195,12 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                             accentColor: widget.accentColor,
                             onMenu: () =>
                                 _scaffoldKey.currentState?.openDrawer(),
+                            onNotifications: () {
+                              widget.onDismissOverlay?.call();
+                              widget.onTabletSelectPage?.call(
+                                AppPage.propAlerts,
+                              );
+                            },
                             onAccount: () {
                               setState(() {
                                 _mobileRightPanelSection =
@@ -1189,8 +1209,28 @@ class _MobileAppShellState extends State<_MobileAppShell> {
                               _scaffoldKey.currentState?.openEndDrawer();
                             },
                           )
-                        : Row(
-                            children: [Expanded(child: widget.topNavigation)],
+                        : _TabletAppHeader(
+                            accentColor: widget.accentColor,
+                            selectedPage: widget.tabletSelectedPage,
+                            onSelectPage: widget.onTabletSelectPage,
+                            onNotifications: () {
+                              widget.onDismissOverlay?.call();
+                              widget.onTabletSelectPage?.call(
+                                AppPage.propAlerts,
+                              );
+                            },
+                            onMenu: () {
+                              widget.onDismissOverlay?.call();
+                              _scaffoldKey.currentState?.openDrawer();
+                            },
+                            onAccount: () {
+                              widget.onDismissOverlay?.call();
+                              setState(() {
+                                _mobileRightPanelSection =
+                                    _RightPanelSection.account;
+                              });
+                              _scaffoldKey.currentState?.openEndDrawer();
+                            },
                           ),
                   ),
                   SizedBox(height: shellGap),
@@ -1262,11 +1302,13 @@ class _PhoneAppHeader extends StatelessWidget {
   const _PhoneAppHeader({
     required this.accentColor,
     required this.onMenu,
+    required this.onNotifications,
     required this.onAccount,
   });
 
   final Color accentColor;
   final VoidCallback onMenu;
+  final VoidCallback onNotifications;
   final VoidCallback onAccount;
 
   @override
@@ -1310,8 +1352,8 @@ class _PhoneAppHeader extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             IconButton(
-              tooltip: 'Notifications',
-              onPressed: onAccount,
+              tooltip: 'Open notifications',
+              onPressed: onNotifications,
               icon: const Icon(Icons.notifications_none_rounded),
               color: piSilver,
               visualDensity: VisualDensity.compact,
@@ -1332,41 +1374,364 @@ class _PhoneAppHeader extends StatelessWidget {
         ),
         ValueListenableBuilder<AuthSessionState>(
           valueListenable: AuthManager.instance.sessionState,
-          builder: (context, session, _) {
-            final avatarUrl = session.avatarUrl?.trim() ?? '';
-            return IconButton(
-              key: const ValueKey('phone-header-account'),
-              tooltip: 'Open account',
-              onPressed: onAccount,
-              visualDensity: VisualDensity.compact,
-              icon: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: accentColor, width: 1.2),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: avatarUrl.isEmpty
-                    ? Icon(
-                        Icons.account_circle_outlined,
-                        color: accentColor,
-                        size: 28,
-                      )
-                    : Image.network(
-                        avatarUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Icon(
-                          Icons.account_circle_outlined,
-                          color: accentColor,
-                          size: 28,
-                        ),
-                      ),
-              ),
-            );
-          },
+          builder: (context, session, _) => IconButton(
+            key: const ValueKey('phone-header-account'),
+            tooltip: 'Open account',
+            onPressed: onAccount,
+            visualDensity: VisualDensity.compact,
+            icon: _AccountInitialsAvatar(
+              session: session,
+              size: 32,
+              accentColor: accentColor,
+              fontSize: 10,
+            ),
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _AccountInitialsAvatar extends StatelessWidget {
+  const _AccountInitialsAvatar({
+    required this.session,
+    required this.size,
+    required this.accentColor,
+    required this.fontSize,
+  });
+
+  final AuthSessionState session;
+  final double size;
+  final Color accentColor;
+  final double fontSize;
+
+  String get _initials {
+    final source = (session.username?.trim().isNotEmpty ?? false)
+        ? session.username!.trim()
+        : (session.email?.trim().isNotEmpty ?? false)
+        ? session.email!.split('@').first.trim()
+        : 'PI';
+    final parts = source
+        .split(RegExp(r'[\s._-]+'))
+        .where((part) => part.isNotEmpty)
+        .toList(growable: false);
+    if (parts.isEmpty) return 'PI';
+    if (parts.length >= 2) {
+      return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+    }
+    final value = parts.first;
+    final length = value.length < 2 ? value.length : 2;
+    return value.substring(0, length).toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0xFF0B1722),
+        border: Border.all(color: accentColor, width: 1.4),
+        boxShadow: [
+          BoxShadow(color: accentColor.withValues(alpha: .12), blurRadius: 10),
+        ],
+      ),
+      child: Text(
+        _initials,
+        style: TextStyle(
+          color: accentColor,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w900,
+          letterSpacing: .3,
+        ),
+      ),
+    );
+  }
+}
+
+class _TabletAppHeader extends StatelessWidget {
+  const _TabletAppHeader({
+    required this.accentColor,
+    required this.selectedPage,
+    required this.onSelectPage,
+    required this.onNotifications,
+    required this.onMenu,
+    required this.onAccount,
+  });
+
+  final Color accentColor;
+  final AppPage selectedPage;
+  final ValueChanged<AppPage>? onSelectPage;
+  final VoidCallback onNotifications;
+  final VoidCallback onMenu;
+  final VoidCallback onAccount;
+
+  bool _matches(AppPage destination) {
+    return switch (destination) {
+      AppPage.board => selectedPage == AppPage.board,
+      AppPage.scoreboard =>
+        selectedPage == AppPage.scoreboard ||
+            selectedPage == AppPage.scoreboardWatchlist ||
+            selectedPage == AppPage.gameMarkets,
+      AppPage.analytics => selectedPage == AppPage.analytics,
+      AppPage.intelligenceLab => selectedPage == AppPage.intelligenceLab,
+      AppPage.propBuilder =>
+        selectedPage == AppPage.propBuilder ||
+            selectedPage == AppPage.builderPerformance,
+      _ => false,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          flex: 7,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                IconButton(
+                  key: const ValueKey('tablet-header-menu'),
+                  tooltip: 'Open menu',
+                  onPressed: onMenu,
+                  icon: const Icon(Icons.menu_rounded, size: 29),
+                  color: piSilver,
+                ),
+                const SizedBox(width: 4),
+                SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Image.asset(
+                    'assets/branding/Final_Master_Logo_Modern_PI.png',
+                    fit: BoxFit.contain,
+                    semanticLabel: 'Prop Intelligence',
+                    errorBuilder: (_, _, _) => const Icon(
+                      Icons.insights_rounded,
+                      color: piGold,
+                      size: 36,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 13),
+                const Text(
+                  'PI',
+                  style: TextStyle(
+                    color: piGold,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .7,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'PROP INTELLIGENCE',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 3.1,
+                    ),
+                  ),
+                ),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    IconButton(
+                      tooltip: 'Open notifications',
+                      onPressed: onNotifications,
+                      icon: const Icon(
+                        Icons.notifications_none_rounded,
+                        size: 29,
+                      ),
+                      color: piSilver,
+                    ),
+                    Positioned(
+                      right: 8,
+                      top: 6,
+                      child: Container(
+                        width: 9,
+                        height: 9,
+                        decoration: BoxDecoration(
+                          color: accentColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.background,
+                            width: 1.2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 5),
+                ValueListenableBuilder<AuthSessionState>(
+                  valueListenable: AuthManager.instance.sessionState,
+                  builder: (context, session, _) => Tooltip(
+                    message: 'Open account',
+                    child: InkWell(
+                      key: const ValueKey('tablet-header-account'),
+                      onTap: onAccount,
+                      borderRadius: BorderRadius.circular(999),
+                      child: _AccountInitialsAvatar(
+                        session: session,
+                        size: 42,
+                        accentColor: accentColor,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+              ],
+            ),
+          ),
+        ),
+        Container(height: 1, color: AppColors.border),
+        Expanded(
+          flex: 5,
+          child: Row(
+            children: [
+              _TabletHeaderNavItem(
+                key: const ValueKey('tablet-nav-board'),
+                icon: Icons.dashboard_outlined,
+                label: 'BOARD',
+                selected: _matches(AppPage.board),
+                accentColor: accentColor,
+                onTap: () => onSelectPage?.call(AppPage.board),
+              ),
+              _TabletHeaderNavItem(
+                key: const ValueKey('tablet-nav-scoreboard'),
+                icon: Icons.sports_score_outlined,
+                label: 'SCOREBOARD',
+                selected: _matches(AppPage.scoreboard),
+                accentColor: accentColor,
+                onTap: () => onSelectPage?.call(AppPage.scoreboard),
+              ),
+              _TabletHeaderNavItem(
+                key: const ValueKey('tablet-nav-analytics'),
+                icon: Icons.analytics_outlined,
+                label: 'ANALYTICS',
+                selected: _matches(AppPage.analytics),
+                accentColor: accentColor,
+                onTap: () => onSelectPage?.call(AppPage.analytics),
+              ),
+              _TabletHeaderNavItem(
+                key: const ValueKey('tablet-nav-lab'),
+                icon: Icons.science_outlined,
+                label: 'THE LAB',
+                selected: _matches(AppPage.intelligenceLab),
+                accentColor: accentColor,
+                onTap: () => onSelectPage?.call(AppPage.intelligenceLab),
+              ),
+              _TabletHeaderNavItem(
+                key: const ValueKey('tablet-nav-builders'),
+                icon: Icons.construction_outlined,
+                label: 'BUILDERS',
+                selected: _matches(AppPage.propBuilder),
+                accentColor: accentColor,
+                onTap: () => onSelectPage?.call(AppPage.propBuilder),
+              ),
+              _TabletHeaderNavItem(
+                key: const ValueKey('tablet-nav-more'),
+                icon: Icons.more_horiz_rounded,
+                label: 'MORE',
+                selected:
+                    !_matches(AppPage.board) &&
+                    !_matches(AppPage.scoreboard) &&
+                    !_matches(AppPage.analytics) &&
+                    !_matches(AppPage.intelligenceLab) &&
+                    !_matches(AppPage.propBuilder),
+                accentColor: accentColor,
+                onTap: onMenu,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TabletHeaderNavItem extends StatelessWidget {
+  const _TabletHeaderNavItem({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.accentColor,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final Color accentColor;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = selected ? accentColor : AppColors.textSecondary;
+    return Expanded(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: label,
+        child: InkWell(
+          onTap: onTap,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 17, color: foreground),
+                  const SizedBox(width: 7),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: foreground,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: .55,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (selected)
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Container(
+                    width: 52,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: accentColor,
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: [
+                        BoxShadow(
+                          color: accentColor.withValues(alpha: .30),
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1396,11 +1761,20 @@ class _MobileBottomNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isNarrow = screenWidth < 360;
+    final tabletStyle = useTabletShell(screenWidth);
     return Container(
       height: mobileBottomBarHeight(screenWidth),
       padding: EdgeInsets.symmetric(
-        horizontal: isNarrow ? 3 : 5,
-        vertical: isNarrow ? 3 : 5,
+        horizontal: isNarrow
+            ? 3
+            : tabletStyle
+            ? 12
+            : 5,
+        vertical: isNarrow
+            ? 3
+            : tabletStyle
+            ? 0
+            : 5,
       ),
       decoration: BoxDecoration(
         color: const Color(0xF207111B),

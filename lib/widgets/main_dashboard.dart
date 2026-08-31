@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../layout/responsive_breakpoints.dart';
 import '../models/prop_data.dart';
 import '../models/slip_selection.dart';
 import '../controllers/scoreboard_controller.dart';
@@ -35,6 +36,7 @@ import 'active_board_filters.dart';
 import 'analytics_admin_workspace.dart';
 import 'onboarding_dialog.dart';
 import 'scoreboard_view.dart';
+import 'tablet_market_toolbar.dart';
 import 'ev_scanner_card.dart';
 import 'prop_grid.dart';
 import 'provider_reliability_banner.dart';
@@ -351,7 +353,8 @@ class _MainDashboardState extends State<MainDashboard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.sportFilter != widget.sportFilter && mounted) {
       setState(() {
-        _selectedSiteSport = _selectedSite == 'ALL' ||
+        _selectedSiteSport =
+            _selectedSite == 'ALL' ||
                 widget.sportFilter.trim().toUpperCase() == 'ALL'
             ? ''
             : _normalizeSport(widget.sportFilter);
@@ -1642,7 +1645,293 @@ class _MainDashboardState extends State<MainDashboard> {
   // Retained for reference while the per-prop E+ intelligence panels are
   // validated in production.
   // ignore: unused_element
+  String _phoneSiteLabel(String site) => switch (site) {
+    'PICK6' => 'DRAFTKINGS PICK6',
+    'HARDROCKBET' => 'HARD ROCK BET',
+    'ALL' => 'ALL PROP SITES',
+    _ => site,
+  };
+
+  void _selectPhoneSite(String site) {
+    setState(() {
+      _selectedSite = site;
+      _siteDiscoveryExpanded = false;
+      _selectedCategory = 'ALL';
+      _verdictFilter = 'ALL';
+      _siteInventoryProps = const [];
+      _siteSportCategoryCounts = const {};
+      _siteTotalSportCategoryCounts = const {};
+      _latestProps = const [];
+      _categoryCounts = const {};
+      _totalCategoryCounts = const {};
+      _lastUpdated = null;
+    });
+    EngagementTracker.instance.recordProduct('SITE_FILTER');
+    unawaited(_rememberPreferredPropSite(site));
+  }
+
+  Future<void> _showPhoneSitePicker() async {
+    final counts = ApiService().lastSportsbookCounts;
+    const sites = <String>[
+      'PRIZEPICKS',
+      'UNDERDOG',
+      'PICK6',
+      'FANDUEL',
+      'HARDROCKBET',
+      'DRAFTKINGS',
+      'BETR',
+      'ALL',
+    ];
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: app_colors.AppColors.panel,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 18),
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(8, 2, 8, 10),
+              child: Text(
+                'CHOOSE PROP SITE',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            for (final site in sites)
+              ListTile(
+                key: ValueKey('phone-site-option-$site'),
+                selected: _selectedSite == site,
+                selectedColor: app_colors.AppColors.gold,
+                leading: Icon(
+                  site == 'ALL'
+                      ? Icons.grid_view_rounded
+                      : Icons.storefront_outlined,
+                ),
+                title: Text(_phoneSiteLabel(site)),
+                trailing: site == 'ALL'
+                    ? null
+                    : Text(
+                        '${counts[site] ?? 0} props',
+                        style: const TextStyle(
+                          color: app_colors.AppColors.textMuted,
+                          fontSize: 11,
+                        ),
+                      ),
+                onTap: () {
+                  _selectPhoneSite(site);
+                  Navigator.of(sheetContext).pop();
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _selectPhoneSport(String sport) {
+    setState(() {
+      _selectedSiteSport = sport == 'ALL' ? '' : sport;
+      _selectedCategory = 'ALL';
+      _selectedSide = 'All';
+      _verdictFilter = 'ALL';
+      _latestProps = const [];
+      _lastUpdated = null;
+    });
+    widget.onSelectSport?.call(sport);
+    if (sport != 'ALL') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_loadSelectedSiteSportCategoryCatalog(sport));
+      });
+    }
+  }
+
+  void _selectPhoneQuickFilter(String label) {
+    setState(() {
+      _marketQuickFilter = label;
+      _selectedSide = 'All';
+      _verdictFilter = label == 'TOP PI PICKS' ? 'ACTIONABLE' : 'ALL';
+      _sortBy = switch (label) {
+        'TRENDING' => 'edge',
+        'NEW LINES' => 'latest',
+        _ => 'trust',
+      };
+      _latestProps = const [];
+      _lastUpdated = null;
+    });
+  }
+
+  Widget _buildPhoneMarketBoard() {
+    const sports = ['ALL', 'MLB', 'NFL', 'WNBA', 'NBA', 'NHL', 'SOCCER'];
+    final selectedSport = _selectedSiteSport.isNotEmpty
+        ? _selectedSiteSport
+        : widget.sportFilter.trim().toUpperCase();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 46,
+          child: ListView.separated(
+            key: const ValueKey('phone-sport-tabs'),
+            scrollDirection: Axis.horizontal,
+            itemCount: sports.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 7),
+            itemBuilder: (context, index) {
+              final sport = sports[index];
+              final selected =
+                  selectedSport == sport ||
+                  (sport == 'ALL' && selectedSport.isEmpty);
+              return ChoiceChip(
+                key: ValueKey('phone-sport-$sport'),
+                selected: selected,
+                showCheckmark: false,
+                label: Text(sport),
+                onSelected: (_) => _selectPhoneSport(sport),
+                labelStyle: TextStyle(
+                  color: selected
+                      ? app_colors.AppColors.bgBase
+                      : app_colors.AppColors.silver,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+                selectedColor: app_colors.AppColors.gold,
+                backgroundColor: const Color(0xFF0A1823),
+                side: BorderSide(
+                  color: selected
+                      ? app_colors.AppColors.gold
+                      : app_colors.AppColors.border,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 13),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 10),
+        Material(
+          color: const Color(0xFF091722),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: app_colors.AppColors.borderGold),
+          ),
+          child: InkWell(
+            key: const ValueKey('phone-site-selector'),
+            onTap: _showPhoneSitePicker,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.storefront_outlined,
+                    color: app_colors.AppColors.gold,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _phoneSiteLabel(_selectedSite),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const Text(
+                    'CHANGE',
+                    style: TextStyle(
+                      color: app_colors.AppColors.gold,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: app_colors.AppColors.gold,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) {
+                  _searchDebounce?.cancel();
+                  _searchDebounce = Timer(
+                    const Duration(milliseconds: 250),
+                    () {
+                      if (!mounted) return;
+                      setState(() {
+                        _searchQuery = value.trim().toLowerCase();
+                        _latestProps = const [];
+                        _lastUpdated = null;
+                      });
+                    },
+                  );
+                },
+                decoration: const InputDecoration(
+                  isDense: true,
+                  prefixIcon: Icon(Icons.search_rounded, size: 19),
+                  hintText: 'Search player or market',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 48,
+              height: 48,
+              child: OutlinedButton(
+                key: const ValueKey('phone-filter-button'),
+                onPressed: _showBoardFilterOptions,
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  foregroundColor: app_colors.AppColors.gold,
+                  side: const BorderSide(color: app_colors.AppColors.gold),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Icon(Icons.tune_rounded, size: 20),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            for (final label in const ['TOP PI PICKS', 'TRENDING', 'NEW LINES'])
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: label == 'NEW LINES' ? 0 : 5),
+                  child: _PhoneQuickFilterButton(
+                    label: label,
+                    selected: _marketQuickFilter == label,
+                    onTap: () => _selectPhoneQuickFilter(label),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildSiteFirstMarketBoard(double availableWidth) {
+    if (usePhoneBoardLayout(availableWidth)) return _buildPhoneMarketBoard();
     final compact = availableWidth < 720;
     final counts = ApiService().lastSportsbookCounts;
     const preferredOrder = [
@@ -1792,10 +2081,11 @@ class _MainDashboardState extends State<MainDashboard> {
     }
 
     final categoryCounts = _selectedSportTotalCategoryCounts;
-    final rankedCategories = categoryCounts.entries
-        .where((entry) => entry.key != 'ALL' && entry.value > 0)
-        .toList()
-      ..sort((left, right) => right.value.compareTo(left.value));
+    final rankedCategories =
+        categoryCounts.entries
+            .where((entry) => entry.key != 'ALL' && entry.value > 0)
+            .toList()
+          ..sort((left, right) => right.value.compareTo(left.value));
     final topCategories = rankedCategories.take(5).toList(growable: false);
     final highestCount = topCategories.isEmpty ? 1 : topCategories.first.value;
 
@@ -1929,100 +2219,81 @@ class _MainDashboardState extends State<MainDashboard> {
           ..sort((left, right) => left.compareTo(right));
 
         return SafeArea(
-        child: FractionallySizedBox(
-          heightFactor: .82,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 16, 10, 10),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${siteLabel(_selectedSite)} CATEGORIES BY SPORT',
-                        style: const TextStyle(
-                          color: app_colors.AppColors.gold,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                  children: [
-                    ListTile(
-                      leading: const Icon(
-                        Icons.grid_view_rounded,
-                        color: app_colors.AppColors.gold,
-                      ),
-                      title: const Text('ALL PROPS'),
-                      trailing: Text(
-                        '${counts[_selectedSite] ?? 0}',
-                      ),
-                      onTap: () {
-                        setState(() {
-                          _selectedSiteSport = '';
-                          _selectedCategory = 'ALL';
-                          _siteDiscoveryExpanded = false;
-                          _latestProps = const [];
-                          _lastUpdated = null;
-                        });
-                        Navigator.of(sheetContext).pop();
-                      },
-                    ),
-                    for (final sport in sports)
-                      ExpansionTile(
-                        initiallyExpanded: sport == _selectedSiteSport ||
-                            (sports.length == 1),
-                        leading: const Icon(
-                          Icons.sports_rounded,
-                          color: app_colors.AppColors.gold,
-                        ),
-                        title: Text(
-                          sport,
-                          style: const TextStyle(fontWeight: FontWeight.w900),
-                        ),
-                        subtitle: Text(
-                          '${groupedCategories[sport]!.values.fold<int>(0, (sum, value) => sum + value)} available props',
-                        ),
-                        children: [
-                          ListTile(
-                            contentPadding: const EdgeInsets.only(left: 38, right: 16),
-                            leading: const Icon(Icons.grid_view_rounded),
-                            title: Text('ALL $sport PROPS'),
-                            onTap: () {
-                              setState(() {
-                                _selectedSiteSport = sport;
-                                _selectedCategory = 'ALL';
-                                _siteDiscoveryExpanded = false;
-                                _verdictFilter = 'ALL';
-                                _latestProps = const [];
-                                _lastUpdated = null;
-                              });
-                              Navigator.of(sheetContext).pop();
-                            },
+          child: FractionallySizedBox(
+            heightFactor: .82,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 10, 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${siteLabel(_selectedSite)} CATEGORIES BY SPORT',
+                          style: const TextStyle(
+                            color: app_colors.AppColors.gold,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
                           ),
-                          for (final entry in (groupedCategories[sport]!.entries.toList()
-                                ..sort((left, right) => right.value.compareTo(left.value))))
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                    children: [
+                      ListTile(
+                        leading: const Icon(
+                          Icons.grid_view_rounded,
+                          color: app_colors.AppColors.gold,
+                        ),
+                        title: const Text('ALL PROPS'),
+                        trailing: Text('${counts[_selectedSite] ?? 0}'),
+                        onTap: () {
+                          setState(() {
+                            _selectedSiteSport = '';
+                            _selectedCategory = 'ALL';
+                            _siteDiscoveryExpanded = false;
+                            _latestProps = const [];
+                            _lastUpdated = null;
+                          });
+                          Navigator.of(sheetContext).pop();
+                        },
+                      ),
+                      for (final sport in sports)
+                        ExpansionTile(
+                          initiallyExpanded:
+                              sport == _selectedSiteSport ||
+                              (sports.length == 1),
+                          leading: const Icon(
+                            Icons.sports_rounded,
+                            color: app_colors.AppColors.gold,
+                          ),
+                          title: Text(
+                            sport,
+                            style: const TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                          subtitle: Text(
+                            '${groupedCategories[sport]!.values.fold<int>(0, (sum, value) => sum + value)} available props',
+                          ),
+                          children: [
                             ListTile(
-                              contentPadding: const EdgeInsets.only(left: 38, right: 16),
-                              leading: Icon(categoryIcon(entry.key)),
-                              title: Text(entry.key),
-                              trailing: Text('${entry.value}'),
-                              selected: _selectedSiteSport == sport &&
-                                  _effectiveSelectedCategory == entry.key,
+                              contentPadding: const EdgeInsets.only(
+                                left: 38,
+                                right: 16,
+                              ),
+                              leading: const Icon(Icons.grid_view_rounded),
+                              title: Text('ALL $sport PROPS'),
                               onTap: () {
                                 setState(() {
                                   _selectedSiteSport = sport;
-                                  _selectedCategory = entry.key;
+                                  _selectedCategory = 'ALL';
                                   _siteDiscoveryExpanded = false;
                                   _verdictFilter = 'ALL';
                                   _latestProps = const [];
@@ -2031,15 +2302,44 @@ class _MainDashboardState extends State<MainDashboard> {
                                 Navigator.of(sheetContext).pop();
                               },
                             ),
-                        ],
-                      ),
-                  ],
+                            for (final entry
+                                in (groupedCategories[sport]!.entries.toList()
+                                  ..sort(
+                                    (left, right) =>
+                                        right.value.compareTo(left.value),
+                                  )))
+                              ListTile(
+                                contentPadding: const EdgeInsets.only(
+                                  left: 38,
+                                  right: 16,
+                                ),
+                                leading: Icon(categoryIcon(entry.key)),
+                                title: Text(entry.key),
+                                trailing: Text('${entry.value}'),
+                                selected:
+                                    _selectedSiteSport == sport &&
+                                    _effectiveSelectedCategory == entry.key,
+                                onTap: () {
+                                  setState(() {
+                                    _selectedSiteSport = sport;
+                                    _selectedCategory = entry.key;
+                                    _siteDiscoveryExpanded = false;
+                                    _verdictFilter = 'ALL';
+                                    _latestProps = const [];
+                                    _lastUpdated = null;
+                                  });
+                                  Navigator.of(sheetContext).pop();
+                                },
+                              ),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      );
+        );
       },
     );
 
@@ -2107,7 +2407,10 @@ class _MainDashboardState extends State<MainDashboard> {
                 () => _siteDiscoveryExpanded = !_siteDiscoveryExpanded,
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
                     const Icon(
@@ -2147,7 +2450,9 @@ class _MainDashboardState extends State<MainDashboard> {
                       onPressed: () => setState(
                         () => _siteDiscoveryExpanded = !_siteDiscoveryExpanded,
                       ),
-                      child: Text(_siteDiscoveryExpanded ? 'COLLAPSE' : 'CHANGE'),
+                      child: Text(
+                        _siteDiscoveryExpanded ? 'COLLAPSE' : 'CHANGE',
+                      ),
                     ),
                     Icon(
                       _siteDiscoveryExpanded
@@ -2161,191 +2466,221 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
           ),
           if (_siteDiscoveryExpanded) ...[
-          const SizedBox(height: 15),
-          Wrap(
-            spacing: 16,
-            runSpacing: 10,
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${widget.sportFilter.toUpperCase()}  /  ${siteLabel(_selectedSite)}  /  MOST POPULAR',
-                    style: const TextStyle(
-                      color: app_colors.AppColors.gold,
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: .5,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'CHOOSE YOUR PROP SITE',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Start with the board you use. PI ranks the most popular markets first.',
-                    style: TextStyle(
-                      color: app_colors.AppColors.textSecondary,
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
-              Wrap(
-                spacing: 12,
-                runSpacing: 7,
-                children: [
-                  step(1, 'SELECT SITE', true),
-                  step(2, 'SELECT SPORT', _selectedSiteSport.isNotEmpty),
-                  step(3, 'SELECT CATEGORY', _selectedCategory != 'ALL'),
-                  step(4, 'COMPARE PI PICKS', _latestProps.isNotEmpty),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 15),
-          SizedBox(
-            height: 68,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: primarySites.length + 1,
-              separatorBuilder: (_, _) => const SizedBox(width: 9),
-              itemBuilder: (context, index) {
-                if (index < primarySites.length) {
-                  return siteCard(primarySites[index]);
-                }
-                return SizedBox(
-                  width: compact ? 150 : 168,
-                  child: PopupMenuButton<String>(
-                    tooltip: 'View all prop sites',
-                    onSelected: selectSite,
-                    color: app_colors.AppColors.sidebar,
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(value: 'ALL', child: Text('ALL PROP SITES')),
-                      for (final site in moreSites)
-                        PopupMenuItem(value: site, child: Text(siteLabel(site))),
-                    ],
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 13),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF091722),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: app_colors.AppColors.border),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.more_horiz_rounded, color: app_colors.AppColors.silver),
-                          SizedBox(width: 9),
-                          Expanded(child: Text('MORE SITES', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900))),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'CHOOSE YOUR SPORT',
-            style: TextStyle(
-              color: app_colors.AppColors.gold,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              letterSpacing: .3,
-            ),
-          ),
-          const SizedBox(height: 9),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+            const SizedBox(height: 15),
+            Wrap(
+              spacing: 16,
+              runSpacing: 10,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                for (final sport in const [
-                  'MLB',
-                  'NFL',
-                  'NBA',
-                  'WNBA',
-                  'NHL',
-                  'SOCCER',
-                  'NCAAF',
-                  'NCAAB',
-                  'CFL',
-                ]) ...[
-                  ChoiceChip(
-                    key: ValueKey('site-sport-$sport'),
-                    selected: _selectedSiteSport == sport,
-                    avatar: const Icon(Icons.sports_rounded, size: 15),
-                    label: Text(sport),
-                    onSelected: (_) {
-                      setState(() {
-                        _selectedSiteSport = sport;
-                        _selectedCategory = 'ALL';
-                        _selectedSide = 'All';
-                        _verdictFilter = 'ALL';
-                        _marketQuickFilter = 'ALL';
-                        _latestProps = const [];
-                        _lastUpdated = null;
-                      });
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        unawaited(
-                          _loadSelectedSiteSportCategoryCatalog(sport),
-                        );
-                      });
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                ],
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${widget.sportFilter.toUpperCase()}  /  ${siteLabel(_selectedSite)}  /  MOST POPULAR',
+                      style: const TextStyle(
+                        color: app_colors.AppColors.gold,
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'CHOOSE YOUR PROP SITE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Start with the board you use. PI ranks the most popular markets first.',
+                      style: TextStyle(
+                        color: app_colors.AppColors.textSecondary,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 7,
+                  children: [
+                    step(1, 'SELECT SITE', true),
+                    step(2, 'SELECT SPORT', _selectedSiteSport.isNotEmpty),
+                    step(3, 'SELECT CATEGORY', _selectedCategory != 'ALL'),
+                    step(4, 'COMPARE PI PICKS', _latestProps.isNotEmpty),
+                  ],
+                ),
               ],
             ),
-          ),
-          if (_selectedSiteSport.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text(
-            'MOST POPULAR ${_selectedSiteSport.toUpperCase()} CATEGORIES ON ${siteLabel(_selectedSite)}',
-            style: const TextStyle(
-              color: app_colors.AppColors.gold,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              letterSpacing: .3,
-            ),
-          ),
-          const SizedBox(height: 9),
-          SizedBox(
-            height: 88,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: topCategories.length + 1,
-              separatorBuilder: (_, _) => const SizedBox(width: 9),
-              itemBuilder: (context, index) {
-                if (index < topCategories.length) {
-                  return categoryCard(topCategories[index]);
-                }
-                return SizedBox(
-                  width: compact ? 152 : 174,
-                  child: OutlinedButton.icon(
-                    onPressed: showAllCategories,
-                    icon: const Icon(Icons.apps_rounded),
-                    label: const Text('VIEW ALL\nCATEGORIES', textAlign: TextAlign.center),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: app_colors.AppColors.gold,
-                      side: const BorderSide(color: app_colors.AppColors.gold),
-                      textStyle: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            const SizedBox(height: 15),
+            SizedBox(
+              height: 68,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: primarySites.length + 1,
+                separatorBuilder: (_, _) => const SizedBox(width: 9),
+                itemBuilder: (context, index) {
+                  if (index < primarySites.length) {
+                    return siteCard(primarySites[index]);
+                  }
+                  return SizedBox(
+                    width: compact ? 150 : 168,
+                    child: PopupMenuButton<String>(
+                      tooltip: 'View all prop sites',
+                      onSelected: selectSite,
+                      color: app_colors.AppColors.sidebar,
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'ALL',
+                          child: Text('ALL PROP SITES'),
+                        ),
+                        for (final site in moreSites)
+                          PopupMenuItem(
+                            value: site,
+                            child: Text(siteLabel(site)),
+                          ),
+                      ],
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 13),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF091722),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: app_colors.AppColors.border,
+                          ),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.more_horiz_rounded,
+                              color: app_colors.AppColors.silver,
+                            ),
+                            SizedBox(width: 9),
+                            Expanded(
+                              child: Text(
+                                'MORE SITES',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-          ],
+            const SizedBox(height: 16),
+            const Text(
+              'CHOOSE YOUR SPORT',
+              style: TextStyle(
+                color: app_colors.AppColors.gold,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .3,
+              ),
+            ),
+            const SizedBox(height: 9),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final sport in const [
+                    'MLB',
+                    'NFL',
+                    'NBA',
+                    'WNBA',
+                    'NHL',
+                    'SOCCER',
+                    'NCAAF',
+                    'NCAAB',
+                    'CFL',
+                  ]) ...[
+                    ChoiceChip(
+                      key: ValueKey('site-sport-$sport'),
+                      selected: _selectedSiteSport == sport,
+                      avatar: const Icon(Icons.sports_rounded, size: 15),
+                      label: Text(sport),
+                      onSelected: (_) {
+                        setState(() {
+                          _selectedSiteSport = sport;
+                          _selectedCategory = 'ALL';
+                          _selectedSide = 'All';
+                          _verdictFilter = 'ALL';
+                          _marketQuickFilter = 'ALL';
+                          _latestProps = const [];
+                          _lastUpdated = null;
+                        });
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          unawaited(
+                            _loadSelectedSiteSportCategoryCatalog(sport),
+                          );
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ],
+              ),
+            ),
+            if (_selectedSiteSport.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                'MOST POPULAR ${_selectedSiteSport.toUpperCase()} CATEGORIES ON ${siteLabel(_selectedSite)}',
+                style: const TextStyle(
+                  color: app_colors.AppColors.gold,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .3,
+                ),
+              ),
+              const SizedBox(height: 9),
+              SizedBox(
+                height: 88,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: topCategories.length + 1,
+                  separatorBuilder: (_, _) => const SizedBox(width: 9),
+                  itemBuilder: (context, index) {
+                    if (index < topCategories.length) {
+                      return categoryCard(topCategories[index]);
+                    }
+                    return SizedBox(
+                      width: compact ? 152 : 174,
+                      child: OutlinedButton.icon(
+                        onPressed: showAllCategories,
+                        icon: const Icon(Icons.apps_rounded),
+                        label: const Text(
+                          'VIEW ALL\nCATEGORIES',
+                          textAlign: TextAlign.center,
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: app_colors.AppColors.gold,
+                          side: const BorderSide(
+                            color: app_colors.AppColors.gold,
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ],
           const SizedBox(height: 12),
           SingleChildScrollView(
@@ -2363,17 +2698,14 @@ class _MainDashboardState extends State<MainDashboard> {
                   ChoiceChip(
                     key: ValueKey('market-quick-filter-$label'),
                     selected: _marketQuickFilter == label,
-                    avatar: Icon(
-                      switch (label) {
-                        'TOP PI PICKS' => Icons.star_outline_rounded,
-                        'TRENDING' => Icons.trending_up_rounded,
-                        'NEW LINES' => Icons.fiber_new_rounded,
-                        'OVER' => Icons.arrow_circle_up_outlined,
-                        'UNDER' => Icons.arrow_circle_down_outlined,
-                        _ => Icons.grid_view_rounded,
-                      },
-                      size: 15,
-                    ),
+                    avatar: Icon(switch (label) {
+                      'TOP PI PICKS' => Icons.star_outline_rounded,
+                      'TRENDING' => Icons.trending_up_rounded,
+                      'NEW LINES' => Icons.fiber_new_rounded,
+                      'OVER' => Icons.arrow_circle_up_outlined,
+                      'UNDER' => Icons.arrow_circle_down_outlined,
+                      _ => Icons.grid_view_rounded,
+                    }, size: 15),
                     label: Text(label),
                     onSelected: (_) => setState(() {
                       _marketQuickFilter = label;
@@ -2412,14 +2744,17 @@ class _MainDashboardState extends State<MainDashboard> {
                   controller: _searchController,
                   onChanged: (value) {
                     _searchDebounce?.cancel();
-                    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
-                      if (!mounted) return;
-                      setState(() {
-                        _searchQuery = value.trim().toLowerCase();
-                        _latestProps = const [];
-                        _lastUpdated = null;
-                      });
-                    });
+                    _searchDebounce = Timer(
+                      const Duration(milliseconds: 250),
+                      () {
+                        if (!mounted) return;
+                        setState(() {
+                          _searchQuery = value.trim().toLowerCase();
+                          _latestProps = const [];
+                          _lastUpdated = null;
+                        });
+                      },
+                    );
                   },
                   decoration: const InputDecoration(
                     isDense: true,
@@ -2446,6 +2781,115 @@ class _MainDashboardState extends State<MainDashboard> {
       ),
     );
   }
+
+  String get _tabletSelectedSport {
+    final selected = _selectedSite != 'ALL' && _selectedSiteSport.isNotEmpty
+        ? _selectedSiteSport
+        : widget.sportFilter;
+    final normalized = selected.trim().toUpperCase();
+    return normalized.isEmpty ? 'ALL' : normalized;
+  }
+
+  int get _tabletSitePropCount {
+    final counts = ApiService().lastSportsbookCounts;
+    if (_selectedSite == 'ALL') return _latestProps.length;
+    return counts[_selectedSite] ??
+        _latestProps
+            .where(
+              (prop) => prop.sportsbook.trim().toUpperCase() == _selectedSite,
+            )
+            .length;
+  }
+
+  int get _tabletPlayablePropCount {
+    final explicit = _verdictCounts['ACTIONABLE'] ?? _verdictCounts['PLAY_NOW'];
+    if (explicit != null) return explicit;
+    return _latestProps
+        .where((prop) => prop.isSelectable && !prop.dataStale)
+        .length;
+  }
+
+  int get _tabletBestPiScore {
+    var best = 0;
+    for (final prop in _latestProps) {
+      final score = prop.piTrustScore > 0
+          ? prop.piTrustScore
+          : (prop.displayConfidenceRating ?? prop.confidence);
+      if (score > best) best = score;
+    }
+    return best.clamp(0, 100).toInt();
+  }
+
+  void _selectTabletSport(String sport) {
+    final normalized = sport.trim().toUpperCase();
+    if (_selectedSite == 'ALL') {
+      widget.onSelectSport?.call(normalized);
+      return;
+    }
+
+    setState(() {
+      _selectedSiteSport = normalized == 'ALL' ? '' : normalized;
+      _selectedCategory = 'ALL';
+      _selectedSide = 'All';
+      _verdictFilter = 'ALL';
+      _marketQuickFilter = 'ALL';
+      _latestProps = const [];
+      _categoryCounts = const {};
+      _totalCategoryCounts = const {};
+      _lastUpdated = null;
+    });
+    if (_selectedSiteSport.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_loadSelectedSiteSportCategoryCatalog(_selectedSiteSport));
+      });
+    }
+  }
+
+  void _selectTabletQuickFilter(String label) {
+    setState(() {
+      _marketQuickFilter = label;
+      _selectedSide = switch (label) {
+        'OVER' => 'Over',
+        'UNDER' => 'Under',
+        _ => 'All',
+      };
+      _verdictFilter = label == 'TOP PI PICKS' ? 'ACTIONABLE' : 'ALL';
+      _sortBy = switch (label) {
+        'TRENDING' => 'edge',
+        'NEW LINES' => 'latest',
+        _ => 'trust',
+      };
+      _latestProps = const [];
+      _lastUpdated = null;
+    });
+  }
+
+  void _onTabletSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
+      setState(() {
+        _searchQuery = value.trim().toLowerCase();
+        _latestProps = const [];
+        _lastUpdated = null;
+      });
+    });
+  }
+
+  Widget _buildTabletMarketToolbar() => TabletMarketToolbar(
+    selectedSport: _tabletSelectedSport,
+    onSelectSport: _selectTabletSport,
+    selectedSite: _selectedSite,
+    sitePropCount: _tabletSitePropCount,
+    onChangeSite: () => unawaited(_showCategoryAndSitePicker()),
+    searchController: _searchController,
+    onSearchChanged: _onTabletSearchChanged,
+    onOpenFilters: () => unawaited(_showBoardFilterOptions()),
+    selectedQuickFilter: _marketQuickFilter,
+    onSelectQuickFilter: _selectTabletQuickFilter,
+    playablePropCount: _tabletPlayablePropCount,
+    bestPiScore: _tabletBestPiScore,
+  );
 
   List<String> _activeBoardFilterLabels() {
     final labels = <String>[];
@@ -2689,7 +3133,8 @@ class _MainDashboardState extends State<MainDashboard> {
                   onPressed: () {
                     setState(() {
                       _selectedSite = pendingSite;
-                      _selectedSiteSport = pendingSite == 'ALL' ||
+                      _selectedSiteSport =
+                          pendingSite == 'ALL' ||
                               widget.sportFilter.trim().toUpperCase() == 'ALL'
                           ? ''
                           : _normalizeSport(widget.sportFilter);
@@ -2806,6 +3251,51 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
+  Widget _buildPhoneResultsSummary() {
+    final loadedCount = _latestProps.length;
+    final matchingCount =
+        resolveVerdictFilterCount(_verdictCounts, _verdictFilter) ??
+        loadedCount;
+    return Container(
+      key: const ValueKey('phone-results-summary'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF091722),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: app_colors.AppColors.border),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.bar_chart_rounded,
+            color: app_colors.AppColors.gold,
+            size: 18,
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              '$matchingCount PLAYABLE PROPS',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          Text(
+            _boardSortLabel.toUpperCase(),
+            style: const TextStyle(
+              color: app_colors.AppColors.gold,
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDecisionAndSummary({required bool showVerdict}) {
     if (!showVerdict) return _buildBoardResultsSummary();
     return Column(
@@ -2854,7 +3344,9 @@ class _MainDashboardState extends State<MainDashboard> {
   @override
   Widget build(BuildContext context) {
     final boardViewportWidth = MediaQuery.sizeOf(context).width;
+    final isPhoneBoard = usePhoneBoardLayout(boardViewportWidth);
     final sectionGap = boardSectionGap(boardViewportWidth);
+    final tabletBoard = ResponsiveBreakpoints.isTablet(boardViewportWidth);
     final alertsForPage = _propAlerts.isNotEmpty
         ? _propAlerts
         : _fallbackPropAlertsFromProps(_latestProps);
@@ -2987,15 +3479,20 @@ class _MainDashboardState extends State<MainDashboard> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    LayoutBuilder(
-                                      builder: (context, constraints) =>
-                                          _buildSiteFirstMarketBoard(
-                                            constraints.maxWidth,
-                                          ),
-                                    ),
+                                    if (tabletBoard)
+                                      _buildTabletMarketToolbar()
+                                    else
+                                      LayoutBuilder(
+                                        builder: (context, constraints) =>
+                                            _buildSiteFirstMarketBoard(
+                                              constraints.maxWidth,
+                                            ),
+                                      ),
                                     SizedBox(height: sectionGap),
-                                    _buildProviderReliabilityBanner(),
-                                    SizedBox(height: sectionGap),
+                                    if (!isPhoneBoard) ...[
+                                      _buildProviderReliabilityBanner(),
+                                      SizedBox(height: sectionGap),
+                                    ],
                                     /*Text(
                             '${visibleProps.length} visible props • $_propCount total loaded',
                             style: const TextStyle(
@@ -3004,16 +3501,22 @@ class _MainDashboardState extends State<MainDashboard> {
                             ),
                           ),
                           const SizedBox(height: 10),*/
-                                    _buildDecisionAndSummary(
-                                      showVerdict: canShowSystemRecommendation(
-                                        hasEdgeAccess: AuthManager
-                                            .instance
-                                            .sessionState
-                                            .value
-                                            .hasEdgeAccess,
-                                      ),
-                                    ),
-                                    SizedBox(height: sectionGap),
+                                    if (!tabletBoard) ...[
+                                      if (isPhoneBoard)
+                                        _buildPhoneResultsSummary()
+                                      else
+                                        _buildDecisionAndSummary(
+                                          showVerdict:
+                                              canShowSystemRecommendation(
+                                                hasEdgeAccess: AuthManager
+                                                    .instance
+                                                    .sessionState
+                                                    .value
+                                                    .hasEdgeAccess,
+                                              ),
+                                        ),
+                                      SizedBox(height: sectionGap),
+                                    ],
                                     if (_activeBoardFilterLabels()
                                         .isNotEmpty) ...[
                                       _buildActiveBoardFilters(),
@@ -3031,7 +3534,9 @@ class _MainDashboardState extends State<MainDashboard> {
                                         ),
                                         decoration: BoxDecoration(
                                           color: app_colors.AppColors.panel,
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                           border: Border.all(
                                             color: app_colors.AppColors.gold
                                                 .withValues(alpha: .65),
@@ -3059,7 +3564,9 @@ class _MainDashboardState extends State<MainDashboard> {
                                               'Over and Under markets are organized by sport so results stay focused and easy to compare.',
                                               textAlign: TextAlign.center,
                                               style: TextStyle(
-                                                color: app_colors.AppColors.textMuted,
+                                                color: app_colors
+                                                    .AppColors
+                                                    .textMuted,
                                                 fontSize: 10,
                                                 height: 1.4,
                                               ),
@@ -3068,35 +3575,36 @@ class _MainDashboardState extends State<MainDashboard> {
                                         ),
                                       )
                                     else
-                                    PropGrid(
-                                      selections: widget.selections,
-                                      onSelect: (prop, side) {
-                                        widget.onSelect(prop, side);
-                                      },
-                                      onPropFocused: _showPlayerPropsOverlay,
-                                      refreshListenable:
-                                          widget.refreshRequestNotifier,
-                                      onStartupLog: widget.onStartupLog,
-                                      sportFilter: _selectedSite == 'ALL'
-                                          ? widget.sportFilter
-                                          : _selectedSiteSport.isEmpty
-                                          ? widget.sportFilter
-                                          : _selectedSiteSport,
-                                      displaySportFilter: _selectedSite == 'ALL'
-                                          ? widget.sportFilter
-                                          : _selectedSiteSport,
-                                      searchQuery: _searchQuery,
-                                      selectedSite: _selectedSite,
-                                      selectedCategory:
-                                          _effectiveSelectedCategory,
-                                      selectedSide: _selectedSide,
-                                      selectedTier: _selectedTier,
-                                      minConfidence: _minConfidence,
-                                      sortBy: _sortBy,
-                                      verdictFilter: _verdictFilter,
-                                      siteFirstLayout: true,
-                                      onPropsLoaded: _handlePropsLoaded,
-                                    ),
+                                      PropGrid(
+                                        selections: widget.selections,
+                                        onSelect: (prop, side) {
+                                          widget.onSelect(prop, side);
+                                        },
+                                        onPropFocused: _showPlayerPropsOverlay,
+                                        refreshListenable:
+                                            widget.refreshRequestNotifier,
+                                        onStartupLog: widget.onStartupLog,
+                                        sportFilter: _selectedSite == 'ALL'
+                                            ? widget.sportFilter
+                                            : _selectedSiteSport.isEmpty
+                                            ? widget.sportFilter
+                                            : _selectedSiteSport,
+                                        displaySportFilter:
+                                            _selectedSite == 'ALL'
+                                            ? widget.sportFilter
+                                            : _selectedSiteSport,
+                                        searchQuery: _searchQuery,
+                                        selectedSite: _selectedSite,
+                                        selectedCategory:
+                                            _effectiveSelectedCategory,
+                                        selectedSide: _selectedSide,
+                                        selectedTier: _selectedTier,
+                                        minConfidence: _minConfidence,
+                                        sortBy: _sortBy,
+                                        verdictFilter: _verdictFilter,
+                                        siteFirstLayout: true,
+                                        onPropsLoaded: _handlePropsLoaded,
+                                      ),
                                   ],
                                 ),
                               ),
@@ -3108,6 +3616,73 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PhoneQuickFilterButton extends StatelessWidget {
+  const _PhoneQuickFilterButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = switch (label) {
+      'TRENDING' => Icons.trending_up_rounded,
+      'NEW LINES' => Icons.fiber_new_rounded,
+      _ => Icons.star_rounded,
+    };
+    return Material(
+      color: selected ? app_colors.AppColors.gold : const Color(0xFF0A1823),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(9),
+        side: BorderSide(
+          color: selected
+              ? app_colors.AppColors.gold
+              : app_colors.AppColors.border,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: ValueKey('phone-quick-filter-$label'),
+        onTap: onTap,
+        child: SizedBox(
+          height: 42,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: selected
+                    ? app_colors.AppColors.bgBase
+                    : app_colors.AppColors.silver,
+              ),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: selected
+                        ? app_colors.AppColors.bgBase
+                        : app_colors.AppColors.silver,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -3163,6 +3738,9 @@ bool shouldWrapVerdictFilters(double availableWidth) {
 bool useCompactBoardControls(double availableWidth) {
   return availableWidth < 900;
 }
+
+@visibleForTesting
+bool usePhoneBoardLayout(double availableWidth) => availableWidth < 600;
 
 /// Keeps the three primary compact controls equal-width and fully visible.
 @visibleForTesting

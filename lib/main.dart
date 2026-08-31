@@ -2182,6 +2182,9 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                 _ => 3,
               },
               mobileRouteKey: _selectedPage,
+              tabletSelectedPage: _selectedPage,
+              onTabletSelectPage: (page) =>
+                  _switchToPage(page, source: 'tablet-top-nav'),
               onMobileWatchSlip: () =>
                   _switchToPage(AppPage.watchlist, source: 'mobile-bottom-nav'),
               onMobileDismissOverlay: _closeFloatingChat,

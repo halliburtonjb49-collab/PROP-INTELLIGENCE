@@ -5,6 +5,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../layout/responsive_breakpoints.dart';
+
 import '../models/prop_data.dart';
 import '../models/scoreboard_game.dart';
 import '../models/slip_selection.dart';
@@ -28,6 +30,7 @@ import 'prop_research_assistant.dart';
 import 'prop_research_controls.dart';
 import 'prop_trust_widgets.dart';
 import 'recommendation_explainability_block.dart';
+import 'tablet_prop_table.dart';
 
 /// Keeps decision cards wide enough for verdict text, metrics, and pick actions.
 @visibleForTesting
@@ -43,6 +46,10 @@ double propGridSpacing(double availableWidth) {
   if (availableWidth < 1000) return 10;
   return 12;
 }
+
+@visibleForTesting
+bool useTabletPropTable(double availableWidth) =>
+    ResponsiveBreakpoints.isTablet(availableWidth);
 
 class PropGrid extends StatefulWidget {
   final List<SlipSelection> selections;
@@ -788,36 +795,36 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     children: [
                       Expanded(
                         child: Padding(
-                        padding: const EdgeInsets.only(top: 5),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              prop.player,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: PiDesign.playerFontSize,
-                                fontWeight: FontWeight.w900,
+                          padding: const EdgeInsets.only(top: 5),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                prop.player,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: PiDesign.playerFontSize,
+                                  fontWeight: FontWeight.w900,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                                    prop.gameTime.trim().isEmpty
-                                        ? prop.matchup
-                                        : '${prop.matchup} • ${prop.gameTime}',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: app_colors.AppColors.textMuted,
-                                fontSize: PiDesign.metadataFontSize,
-                                height: 1.4,
+                              const SizedBox(height: 4),
+                              Text(
+                                prop.gameTime.trim().isEmpty
+                                    ? prop.matchup
+                                    : '${prop.matchup} • ${prop.gameTime}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: app_colors.AppColors.textMuted,
+                                  fontSize: PiDesign.metadataFontSize,
+                                  height: 1.4,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
                       ),
                     ],
                   ),
@@ -1771,10 +1778,255 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildSiteFirstPropCard(
-    PropData prop,
-    PickSide? selectedSide,
-  ) {
+  Widget _buildPhoneSiteFirstPropCard(PropData prop, PickSide? selectedSide) {
+    final suggested = (prop.proSuggestedSide?.trim().isNotEmpty ?? false)
+        ? prop.proSuggestedSide!.trim().toUpperCase()
+        : prop.pickText.trim().toUpperCase();
+    final recommendedSide = suggested.contains('UNDER')
+        ? PickSide.under
+        : PickSide.over;
+    final market = prop.displayMarket.trim().isEmpty
+        ? _marketCategory(prop)
+        : prop.displayMarket.trim().toUpperCase();
+    final projection = prop.projection?.toStringAsFixed(1) ?? '--';
+
+    Widget action(PickSide side) {
+      final selected = selectedSide == side;
+      final recommended = recommendedSide == side;
+      final label = side == PickSide.over ? 'OVER' : 'UNDER';
+      return Expanded(
+        child: OutlinedButton(
+          key: ValueKey('phone-${label.toLowerCase()}-${prop.id}'),
+          onPressed: prop.dataStale ? null : () => widget.onSelect(prop, side),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 50),
+            foregroundColor: selected
+                ? app_colors.AppColors.bgBase
+                : Colors.white,
+            backgroundColor: selected
+                ? app_colors.AppColors.gold
+                : const Color(0xFF091722),
+            side: BorderSide(
+              color: selected || recommended
+                  ? app_colors.AppColors.gold
+                  : app_colors.AppColors.border,
+              width: selected ? 1.5 : 1,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              if (selected) ...[
+                const SizedBox(width: 6),
+                const Icon(Icons.check_circle_rounded, size: 16),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget metric(String label, String value, {Color? color}) => Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: app_colors.AppColors.textMuted,
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(
+              color: color ?? Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Material(
+      key: ValueKey('phone-prop-card-${prop.id}'),
+      color: const Color(0xFF081620),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: app_colors.AppColors.borderGold),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _showResearchOverlay(prop, selectedSide),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0E2330),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: app_colors.AppColors.border),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: PlayerImageWidget(
+                      imageUrl: prop.imagePath,
+                      width: 72,
+                      height: 72,
+                      fit: BoxFit.contain,
+                      fallbackIcon: Icons.person_rounded,
+                      fallbackIconSize: 30,
+                    ),
+                  ),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          prop.player,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          prop.matchup,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: app_colors.AppColors.silver,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          prop.sportsbook.toUpperCase(),
+                          style: const TextStyle(
+                            color: app_colors.AppColors.gold,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 58,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: app_colors.AppColors.gold.withValues(alpha: .10),
+                      borderRadius: BorderRadius.circular(11),
+                      border: Border.all(color: app_colors.AppColors.gold),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          '${prop.piTrustScore}',
+                          style: const TextStyle(
+                            color: app_colors.AppColors.gold,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const Text(
+                          'PI SCORE',
+                          style: TextStyle(
+                            color: app_colors.AppColors.textMuted,
+                            fontSize: 7,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 11),
+              Text(
+                market,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  metric('LINE', prop.line.toStringAsFixed(1)),
+                  metric('MODEL', projection),
+                  metric(
+                    'PI PICK',
+                    recommendedSide == PickSide.over ? 'OVER' : 'UNDER',
+                    color: app_colors.AppColors.gold,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 11),
+              Row(
+                children: [
+                  action(PickSide.under),
+                  const SizedBox(width: 8),
+                  action(PickSide.over),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 50,
+                    height: 50,
+                    child: OutlinedButton(
+                      key: ValueKey('phone-research-${prop.id}'),
+                      onPressed: () => _showResearchOverlay(prop, selectedSide),
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        foregroundColor: app_colors.AppColors.gold,
+                        side: const BorderSide(
+                          color: app_colors.AppColors.gold,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Icon(Icons.psychology_alt_rounded, size: 21),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSiteFirstPropCard(PropData prop, PickSide? selectedSide) {
+    if (MediaQuery.sizeOf(context).width < 600) {
+      return _buildPhoneSiteFirstPropCard(prop, selectedSide);
+    }
     final suggestedSide = prop.proSuggestedSide?.trim() ?? '';
     final pickSide = suggestedSide.isNotEmpty
         ? suggestedSide.toUpperCase()
@@ -1786,6 +2038,62 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final projection = prop.projection?.toStringAsFixed(1) ?? '--';
     final learned = prop.probabilityCalibrationAdjustment.abs() >= .005;
     final favorite = _favoritePropIds.contains(prop.id);
+
+    Widget sideButton(PickSide side) {
+      final selected = selectedSide == side;
+      final recommended =
+          (side == PickSide.under && pickLabel == 'UNDER') ||
+          (side == PickSide.over && pickLabel == 'OVER');
+      final label = side == PickSide.over ? 'OVER' : 'UNDER';
+      return Expanded(
+        child: OutlinedButton(
+          key: ValueKey('site-first-${label.toLowerCase()}-${prop.id}'),
+          onPressed: prop.dataStale ? null : () => widget.onSelect(prop, side),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 48),
+            foregroundColor: selected
+                ? app_colors.AppColors.bgBase
+                : Colors.white,
+            backgroundColor: selected
+                ? app_colors.AppColors.gold
+                : const Color(0xFF0B1A26),
+            side: BorderSide(
+              color: selected || recommended
+                  ? app_colors.AppColors.gold
+                  : app_colors.AppColors.border,
+              width: selected ? 1.5 : 1,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                side == PickSide.over
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
+                size: 18,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              if (selected) ...[
+                const SizedBox(width: 5),
+                const Icon(Icons.check_circle_rounded, size: 15),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
     return Material(
       key: ValueKey('site-first-prop-card-${prop.id}'),
       color: const Color(0xFF081620),
@@ -1822,10 +2130,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                               gradient: LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
-                                colors: [
-                                  Color(0x00081620),
-                                  Color(0xFF0E2330),
-                                ],
+                                colors: [Color(0x00081620), Color(0xFF0E2330)],
                               ),
                             ),
                           ),
@@ -2004,44 +2309,45 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               ),
               Row(
                 children: [
-                  if (learned)
-                    Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF31245C),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: const Text(
-                        'PI LEARNING ACTIVE',
-                        style: TextStyle(
-                          color: app_colors.AppColors.silver,
-                          fontSize: 7,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  Expanded(
-                    child: FilledButton.icon(
+                  sideButton(PickSide.under),
+                  const SizedBox(width: 8),
+                  sideButton(PickSide.over),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: OutlinedButton(
+                      key: ValueKey('site-first-research-${prop.id}'),
                       onPressed: () => _showResearchOverlay(prop, selectedSide),
-                      icon: const Icon(Icons.psychology_alt_rounded, size: 14),
-                      label: const Text('OPEN PI INTELLIGENCE'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: app_colors.AppColors.gold,
-                        foregroundColor: app_colors.AppColors.bgBase,
-                        minimumSize: const Size(0, 34),
-                        textStyle: const TextStyle(
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w900,
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        foregroundColor: app_colors.AppColors.gold,
+                        side: const BorderSide(
+                          color: app_colors.AppColors.gold,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
+                      child: const Icon(Icons.psychology_alt_rounded, size: 20),
                     ),
                   ),
                 ],
               ),
+              if (learned) ...[
+                const SizedBox(height: 6),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'PI LEARNING ACTIVE',
+                    style: TextStyle(
+                      color: app_colors.AppColors.silver,
+                      fontSize: 7,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -2545,17 +2851,23 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: const TextStyle(
-            color: app_colors.AppColors.textMuted,
-            fontSize: 8,
-            fontWeight: FontWeight.w800,
-          )),
+          Text(
+            label,
+            style: const TextStyle(
+              color: app_colors.AppColors.textMuted,
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
           const SizedBox(height: 3),
-          Text(value, style: const TextStyle(
-            color: Colors.white,
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-          )),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
         ],
       ),
     );
@@ -2574,42 +2886,65 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(children: [
-            Icon(Icons.psychology_alt_rounded,
-                color: app_colors.AppColors.gold, size: 17),
-            SizedBox(width: 7),
-            Expanded(child: Text('PI INTELLIGENCE DETAIL', style: TextStyle(
-              color: app_colors.AppColors.gold,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              letterSpacing: .8,
-            ))),
-          ]),
+          const Row(
+            children: [
+              Icon(
+                Icons.psychology_alt_rounded,
+                color: app_colors.AppColors.gold,
+                size: 17,
+              ),
+              SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  'PI INTELLIGENCE DETAIL',
+                  style: TextStyle(
+                    color: app_colors.AppColors.gold,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .8,
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
-          Wrap(spacing: 7, runSpacing: 7, children: [
-            metric('PI DECISION', prop.pickText.trim().isEmpty ? 'NO PICK' : prop.pickText),
-            metric(
-              'CONFIDENCE',
-              prop.confidence > 0
-                  ? '${prop.confidence}%'
-                  : prop.pickText.trim().toLowerCase() == 'no pick'
-                  ? 'NOT QUALIFIED'
-                  : 'PENDING DATA',
-            ),
-            metric('PI TRUST', '${prop.piTrustScore}/100'),
-            metric('MODEL SAMPLE', '${prop.projectionSampleSize} games'),
-            metric('PROJECTION', prop.projection?.toStringAsFixed(2) ?? '--'),
-            metric('LINE', prop.line.toStringAsFixed(1)),
-            metric('OPEN / CURRENT',
-                '${prop.openingLine.toStringAsFixed(1)} / ${prop.currentLine.toStringAsFixed(1)}'),
-            metric('DATA STATUS', prop.verificationStatus.toUpperCase()),
-          ]),
+          Wrap(
+            spacing: 7,
+            runSpacing: 7,
+            children: [
+              metric(
+                'PI DECISION',
+                prop.pickText.trim().isEmpty ? 'NO PICK' : prop.pickText,
+              ),
+              metric(
+                'CONFIDENCE',
+                prop.confidence > 0
+                    ? '${prop.confidence}%'
+                    : prop.pickText.trim().toLowerCase() == 'no pick'
+                    ? 'NOT QUALIFIED'
+                    : 'PENDING DATA',
+              ),
+              metric('PI TRUST', '${prop.piTrustScore}/100'),
+              metric('MODEL SAMPLE', '${prop.projectionSampleSize} games'),
+              metric('PROJECTION', prop.projection?.toStringAsFixed(2) ?? '--'),
+              metric('LINE', prop.line.toStringAsFixed(1)),
+              metric(
+                'OPEN / CURRENT',
+                '${prop.openingLine.toStringAsFixed(1)} / ${prop.currentLine.toStringAsFixed(1)}',
+              ),
+              metric('DATA STATUS', prop.verificationStatus.toUpperCase()),
+            ],
+          ),
           const SizedBox(height: 11),
           Text(
             explanation.isEmpty
                 ? 'PI is still gathering enough verified evidence to explain this decision.'
                 : explanation,
-            style: const TextStyle(color: Colors.white, fontSize: 10.5, height: 1.45),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10.5,
+              height: 1.45,
+            ),
           ),
           if (learned) ...[
             const SizedBox(height: 10),
@@ -2618,34 +2953,49 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               decoration: BoxDecoration(
                 color: app_colors.AppColors.gold.withValues(alpha: .1),
                 borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: app_colors.AppColors.gold.withValues(alpha: .55)),
+                border: Border.all(
+                  color: app_colors.AppColors.gold.withValues(alpha: .55),
+                ),
               ),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Icon(Icons.auto_graph_rounded,
-                    color: app_colors.AppColors.gold, size: 15),
-                const SizedBox(width: 7),
-                Expanded(child: Text(
-                  'PI LEARNED ADJUSTMENT: Confidence was '
-                  '${adjustment > 0 ? 'increased' : 'reduced'} by '
-                  '${(adjustment.abs() * 100).toStringAsFixed(1)} points after '
-                  'guarded validation on unseen settled results.',
-                  style: const TextStyle(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.auto_graph_rounded,
                     color: app_colors.AppColors.gold,
-                    fontSize: 9.5,
-                    height: 1.4,
-                    fontWeight: FontWeight.w800,
+                    size: 15,
                   ),
-                )),
-              ]),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      'PI LEARNED ADJUSTMENT: Confidence was '
+                      '${adjustment > 0 ? 'increased' : 'reduced'} by '
+                      '${(adjustment.abs() * 100).toStringAsFixed(1)} points after '
+                      'guarded validation on unseen settled results.',
+                      style: const TextStyle(
+                        color: app_colors.AppColors.gold,
+                        fontSize: 9.5,
+                        height: 1.4,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
           const SizedBox(height: 10),
-          Text('WHAT COULD MAKE THIS WRONG', style: TextStyle(
-            color: risks.isEmpty ? app_colors.AppColors.textMuted : const Color(0xFFFFB36B),
-            fontSize: 9,
-            fontWeight: FontWeight.w900,
-            letterSpacing: .5,
-          )),
+          Text(
+            'WHAT COULD MAKE THIS WRONG',
+            style: TextStyle(
+              color: risks.isEmpty
+                  ? app_colors.AppColors.textMuted
+                  : const Color(0xFFFFB36B),
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .5,
+            ),
+          ),
           const SizedBox(height: 5),
           Text(
             risks.isEmpty
@@ -3174,12 +3524,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     // still paints instantly; otherwise the already-running network request
     // wins without paying both waits serially.
     final liveOutcome = _fetchPropsPage(includeReliability: true).then(
-      (props) => (props: props, error: null as Object?, stack: null as StackTrace?),
-      onError: (Object error, StackTrace stack) => (
-        props: <PropData>[],
-        error: error,
-        stack: stack,
-      ),
+      (props) =>
+          (props: props, error: null as Object?, stack: null as StackTrace?),
+      onError: (Object error, StackTrace stack) =>
+          (props: <PropData>[], error: error, stack: stack),
     );
     final cachedFuture = _apiService
         .loadCachedProps(
@@ -3195,9 +3543,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         )
         .catchError((_) => <PropData>[]);
     final cached = await cachedFuture.timeout(
-          const Duration(milliseconds: 350),
-          onTimeout: () => <PropData>[],
-        );
+      const Duration(milliseconds: 350),
+      onTimeout: () => <PropData>[],
+    );
     if (!mounted || requestKey != _queryKey) return const [];
     if (shouldRenderCachedPropsOnLaunch(
       cached,
@@ -3481,7 +3829,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   Future<_SportSeasonStatus> _seasonStatus(String sport) {
     final normalized = normalizePropSport(sport);
     final fetchedAt = _seasonStatusFetchedAt;
-    final stale = fetchedAt == null ||
+    final stale =
+        fetchedAt == null ||
         DateTime.now().difference(fetchedAt) >= const Duration(minutes: 5);
     if (_seasonStatusFuture == null ||
         _seasonStatusSport != normalized ||
@@ -3660,10 +4009,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     final variant = variants[index];
-                    final advisedSide = variant.recommendedSide
-                            .trim()
-                            .toUpperCase()
-                            .contains('UNDER')
+                    final advisedSide =
+                        variant.recommendedSide.trim().toUpperCase().contains(
+                          'UNDER',
+                        )
                         ? PickSide.under
                         : PickSide.over;
                     final special = _specialLineBadge(variant, advisedSide);
@@ -3674,11 +4023,12 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     final easiestLine = advisedSide == PickSide.over
                         ? lineValues.reduce((a, b) => a < b ? a : b)
                         : lineValues.reduce((a, b) => a > b ? a : b);
-                    final lineBadge = special ??
+                    final lineBadge =
+                        special ??
                         (group.linesDiffer && currentLine == easiestLine
                             ? advisedSide == PickSide.over
-                                ? 'LOWER LINE AVAILABLE'
-                                : 'HIGHER LINE AVAILABLE'
+                                  ? 'LOWER LINE AVAILABLE'
+                                  : 'HIGHER LINE AVAILABLE'
                             : null);
                     return Container(
                       padding: const EdgeInsets.all(13),
@@ -3894,8 +4244,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               // when a book, side, or category is also selected. Previously
               // those normal board filters forced Soccer, NCAAF, and CFL into
               // the generic "no props" panel and hid known season dates.
-              if (normalizedSport.isNotEmpty &&
-                  normalizedSport != 'ALL') {
+              if (normalizedSport.isNotEmpty && normalizedSport != 'ALL') {
                 return FutureBuilder<_SportSeasonStatus>(
                   future: _seasonStatus(normalizedSport),
                   builder: (context, statusSnapshot) {
@@ -4005,6 +4354,29 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     visibleCount < groups.length ||
                     _preparedProps.length < _apiService.lastPropsCount;
 
+                if (useTabletPropTable(MediaQuery.sizeOf(context).width)) {
+                  return TabletPropTable(
+                    key: const ValueKey('tablet-prop-table'),
+                    groups: visibleGroups,
+                    selections: widget.selections,
+                    onSelect: widget.onSelect,
+                    onOpenProp: widget.onPropFocused,
+                    onShowLineAlternatives: _showLineAlternatives,
+                    hasMore: hasMore,
+                    isLoadingMore: _isLoadingMore,
+                    onLoadMore: () {
+                      if (_isLoadingMore) return;
+                      if (visibleCount < groups.length) {
+                        setState(() {
+                          _visiblePropLimit += _visiblePropStep;
+                        });
+                      } else {
+                        unawaited(_loadMoreProps());
+                      }
+                    },
+                  );
+                }
+
                 Widget cardFor(PropData prop, {required bool fixedHeight}) {
                   SlipSelection? selected;
                   for (final selection in widget.selections) {
@@ -4059,11 +4431,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   }
                   return Column(
                     mainAxisSize: MainAxisSize.min,
-                    children: [
-                      card,
-                      const SizedBox(height: 6),
-                      optionsButton,
-                    ],
+                    children: [card, const SizedBox(height: 6), optionsButton],
                   );
                 }
 
@@ -4164,7 +4532,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                                   if (index > 0) SizedBox(width: cardSpacing),
                                   Expanded(
                                     child: SizedBox(
-                                      height: widget.siteFirstLayout ? 226 : 474,
+                                      height: widget.siteFirstLayout
+                                          ? 226
+                                          : 474,
                                       child: groupCardFor(
                                         rowGroups[index],
                                         fixedHeight: true,
