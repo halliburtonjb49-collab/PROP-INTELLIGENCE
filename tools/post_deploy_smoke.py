@@ -223,11 +223,11 @@ def main() -> int:
         f"{API_URL}/api/props?limit=1",
         method="OPTIONS",
         headers={
-            "Origin": APP_URL,
+            "Origin": SITE_URL,
             "Access-Control-Request-Method": "GET",
         },
     )
-    if cors.headers.get("Access-Control-Allow-Origin") != APP_URL:
+    if cors.headers.get("Access-Control-Allow-Origin") != SITE_URL:
         raise RuntimeError("Production CORS origin is not allowed")
 
     readiness, body, props_ms, payload, feed_age_minutes = (
