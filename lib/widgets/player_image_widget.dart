@@ -87,6 +87,40 @@ class PlayerImageWidget extends StatelessWidget {
     final primaryCacheKey = '$identityPrefix${_stableCacheKey(primaryUrl)}';
     final retryCacheKey = '$identityPrefix${_stableCacheKey(retryUrl)}';
 
+    if (kIsWeb) {
+      Widget browserImage(String url, {String? fallbackUrl}) => Image.network(
+        url,
+        key: ValueKey('$identityPrefix$url'),
+        width: width,
+        height: height,
+        fit: fit,
+        alignment: Alignment.center,
+        filterQuality: FilterQuality.high,
+        gaplessPlayback: true,
+        webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+        loadingBuilder: (_, child, progress) =>
+            progress == null ? child : _buildFallback(),
+        errorBuilder: (_, failedUrl, _) {
+          if (fallbackUrl != null &&
+              fallbackUrl.isNotEmpty &&
+              fallbackUrl != url) {
+            return browserImage(fallbackUrl);
+          }
+          EngagementTracker.instance.recordOperational(
+            'MEDIA_FAILURE',
+            endpoint: failedUrl.toString(),
+            provider: Uri.tryParse(url)?.host ?? 'unknown',
+            mediaType: 'player_photo',
+          );
+          return _buildFallback();
+        },
+      );
+      return ClipRRect(
+        borderRadius: borderRadius ?? BorderRadius.zero,
+        child: browserImage(primaryUrl, fallbackUrl: retryUrl),
+      );
+    }
+
     return ClipRRect(
       borderRadius: borderRadius ?? BorderRadius.zero,
       child: CachedNetworkImage(

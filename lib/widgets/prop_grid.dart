@@ -274,27 +274,20 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       );
 
       Widget webImage(String url, {String? retryUrl}) {
-        final key = photoKey(url);
-        return CachedNetworkImage(
+        return Image.network(
           key: ValueKey(photoKey(url)),
-          imageUrl: url,
-          cacheKey: key,
+          url,
           width: size,
           height: size,
           fit: BoxFit.cover,
           alignment: Alignment.center,
           filterQuality: FilterQuality.high,
-          useOldImageOnUrlChange: true,
-          fadeInDuration: Duration.zero,
-          fadeOutDuration: Duration.zero,
-          memCacheWidth: cacheSize,
-          memCacheHeight: cacheSize,
-          maxWidthDiskCache: 800,
-          maxHeightDiskCache: 800,
-          imageBuilder: (_, imageProvider) =>
-              _playerPhotoFrame(imageProvider, prop.player, size: size),
-          placeholder: (_, _) => _playerPlaceholder(prop.player, size: size),
-          errorWidget: (_, _, _) {
+          gaplessPlayback: true,
+          webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+          loadingBuilder: (_, child, progress) => progress == null
+              ? child
+              : _playerPlaceholder(prop.player, size: size),
+          errorBuilder: (_, _, _) {
             if (retryUrl != null && retryUrl.isNotEmpty && retryUrl != url) {
               return webImage(retryUrl);
             }
@@ -308,8 +301,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       }
 
       // The canonical identity in the URL and cache key prevents one player,
-      // provider refresh, or stale browser response from replacing another
-      // player's decoded bitmap when the board is left and reopened.
+      // provider refresh, or stale browser response from replacing another.
+      // Browser-native image rendering avoids the opaque black WebKit texture
+      // Flutter can produce for otherwise valid cross-origin JPEGs.
       return webImage(
         imagePath,
         retryUrl: proxiedWebPath.isEmpty ? null : proxiedWebPath,
