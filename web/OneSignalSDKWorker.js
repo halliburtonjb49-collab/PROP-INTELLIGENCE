@@ -84,7 +84,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   const url = new URL(request.url);
-  if (url.origin === self.location.origin && !url.pathname.includes('OneSignalSDKWorker.js')) {
+  const isStaticWorkspaceAsset = url.pathname.startsWith(`${PI_ROOT}/`) &&
+    !url.pathname.includes('/api/') &&
+    /\.(?:js|css|json|png|jpe?g|webp|svg|gif|ico|woff2?|ttf|wasm|bin)$/i
+      .test(url.pathname);
+  if (url.origin === self.location.origin && isStaticWorkspaceAsset &&
+      !url.pathname.includes('OneSignalSDKWorker.js')) {
     // Every Flutter asset is release-coupled. Network-first prevents an old
     // main.dart.js, CanvasKit file, font, or asset manifest from being mixed
     // with a newly deployed shell. The release cache remains an offline-only

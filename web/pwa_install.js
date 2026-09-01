@@ -117,6 +117,29 @@
     });
     window.addEventListener('load', async () => {
       try {
+        // Chrome on iOS runs inside WebKit but maintains its own service-worker
+        // state. In practice that worker can survive an update and leave the
+        // new Flutter shell waiting on requests owned by the previous release.
+        // iOS Chrome cannot provide the installed web-push experience this
+        // worker exists for, so keep its workspace network-direct instead.
+        if (isIosChrome) {
+          const cleanupKey = 'pi-ios-chrome-direct-release';
+          const registration = await navigator.serviceWorker.getRegistration('/workspace/');
+          if (registration) await registration.unregister();
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys
+              .filter((key) => key.startsWith('pi-app-shell-') ||
+                key.startsWith('flutter-app-cache'))
+              .map((key) => caches.delete(key)));
+          }
+          if (navigator.serviceWorker.controller &&
+              window.sessionStorage.getItem(cleanupKey) !== '__PI_BUILD_VERSION__') {
+            window.sessionStorage.setItem(cleanupKey, '__PI_BUILD_VERSION__');
+            reloadCurrentRelease();
+          }
+          return;
+        }
         const registration = await navigator.serviceWorker.register(
           '/workspace/OneSignalSDKWorker.js',
           {scope: '/workspace/', updateViaCache: 'none'},
@@ -124,10 +147,6 @@
         workspaceRegistration = registration;
         if (registration.waiting) {
           showUpdate();
-          // iOS Chrome can leave a waiting worker unable to complete the
-          // message-based activation handshake. Recover automatically so the
-          // prop board never remains pinned to a stale release.
-          if (isIosChrome) window.setTimeout(forceReleaseRefresh, 1200);
         }
         registration.addEventListener('updatefound', () => {
           const worker = registration.installing;
