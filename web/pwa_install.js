@@ -3,6 +3,7 @@
 
   const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent) ||
     (/macintosh/i.test(window.navigator.userAgent) && window.navigator.maxTouchPoints > 1);
+  const isIosChrome = isIos && /crios/i.test(window.navigator.userAgent);
 
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
     window.navigator.standalone === true;
@@ -47,6 +48,28 @@
     const url = new URL(window.location.href);
     url.searchParams.set('release', '__PI_BUILD_VERSION__');
     window.location.replace(url.toString());
+  };
+
+  let forcingReleaseRefresh = false;
+  const forceReleaseRefresh = async () => {
+    if (forcingReleaseRefresh) return;
+    forcingReleaseRefresh = true;
+    hideUpdate();
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys
+          .filter((key) => key.startsWith('pi-app-shell-') ||
+            key.startsWith('flutter-app-cache'))
+          .map((key) => caches.delete(key)));
+      }
+      const registration = await getWorkspaceRegistration();
+      if (registration) await registration.unregister();
+    } catch (error) {
+      console.warn('PWA release cleanup failed; continuing with a network reload.', error);
+    } finally {
+      reloadCurrentRelease();
+    }
   };
 
   window.addEventListener('beforeinstallprompt', (event) => {
@@ -99,7 +122,13 @@
           {scope: '/workspace/', updateViaCache: 'none'},
         );
         workspaceRegistration = registration;
-        if (registration.waiting) showUpdate();
+        if (registration.waiting) {
+          showUpdate();
+          // iOS Chrome can leave a waiting worker unable to complete the
+          // message-based activation handshake. Recover automatically so the
+          // prop board never remains pinned to a stale release.
+          if (isIosChrome) window.setTimeout(forceReleaseRefresh, 1200);
+        }
         registration.addEventListener('updatefound', () => {
           const worker = registration.installing;
           if (!worker) return;
@@ -119,27 +148,10 @@
       updateAction.disabled = true;
       updateAction.textContent = 'UPDATING';
       try {
-        const registration = await getWorkspaceRegistration();
-        if (!registration) {
-          reloadCurrentRelease();
-          return;
-        }
-        if (!registration.waiting) {
-          await registration.update();
-        }
-        if (registration.waiting) {
-          registration.waiting.postMessage({type: 'PI_ACTIVATE_UPDATE'});
-          // A damaged older worker may not understand the activation message.
-          // Reload rather than leaving the button permanently disabled.
-          window.setTimeout(reloadCurrentRelease, 4000);
-          return;
-        }
-        hideUpdate();
-        reloadCurrentRelease();
+        await forceReleaseRefresh();
       } catch (error) {
         console.warn('PWA update activation failed.', error);
-        updateAction.disabled = false;
-        updateAction.textContent = 'RETRY UPDATE';
+        reloadCurrentRelease();
       }
     });
   }
