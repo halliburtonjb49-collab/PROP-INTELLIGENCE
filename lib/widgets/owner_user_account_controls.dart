@@ -208,7 +208,7 @@ class OwnerUserAccountControls extends StatelessWidget {
               ).showSnackBar(SnackBar(content: Text(message))),
             ),
             icon: const Icon(Icons.manage_accounts_outlined),
-            label: const Text('MANAGE ACCESS'),
+            label: const Text('MANAGE USER ACCOUNTS'),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.gold,
               foregroundColor: AppColors.bgBase,
