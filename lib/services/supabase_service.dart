@@ -1,12 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'web_session_bridge.dart';
+
 class SupabaseService {
   SupabaseService._();
 
   static bool _initialized = false;
   static String? _runtimeSupabaseUrl;
   static String? _runtimeSupabaseAnonKey;
+  static Future<Session?>? _webSessionRecovery;
 
   static void configure({required String url, required String anonKey}) {
     _runtimeSupabaseUrl = url.trim();
@@ -39,6 +42,36 @@ class SupabaseService {
     return Supabase.instance.client;
   }
 
+  static String? get persistedAccessToken => persistedWebAccessToken();
+
+  static Future<Session?> recoverPersistedWebSession({
+    bool forceRefresh = false,
+  }) async {
+    if (!_initialized) return null;
+    final auth = Supabase.instance.client.auth;
+    if (!forceRefresh && auth.currentSession != null) {
+      return auth.currentSession;
+    }
+    final refreshToken = persistedWebRefreshToken();
+    if (refreshToken == null || refreshToken.isEmpty) {
+      return auth.currentSession;
+    }
+    final recovery = _webSessionRecovery ??= auth
+        .setSession(
+          refreshToken,
+          accessToken: forceRefresh ? null : persistedWebAccessToken(),
+        )
+        .timeout(const Duration(seconds: 8))
+        .then((response) => response.session);
+    try {
+      return await recovery;
+    } finally {
+      if (identical(_webSessionRecovery, recovery)) {
+        _webSessionRecovery = null;
+      }
+    }
+  }
+
   static Future<void> initialize() async {
     if (_initialized) {
       return;
@@ -67,6 +100,13 @@ class SupabaseService {
     );
 
     _initialized = true;
+    if (kIsWeb && Supabase.instance.client.auth.currentSession == null) {
+      try {
+        await recoverPersistedWebSession().timeout(const Duration(seconds: 8));
+      } catch (error) {
+        debugPrint('Supabase web session recovery deferred: $error');
+      }
+    }
     debugPrint('Supabase initialized successfully.');
   }
 }

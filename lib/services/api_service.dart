@@ -338,6 +338,17 @@ class ApiService {
   }) async {
     final client = SupabaseService.client;
     var session = client?.auth.currentSession;
+    var refreshStillRequired = forceRefresh;
+    if (client != null && (session == null || forceRefresh)) {
+      try {
+        session = await SupabaseService.recoverPersistedWebSession(
+          forceRefresh: forceRefresh,
+        ).timeout(const Duration(seconds: 8));
+        if (session != null) refreshStillRequired = false;
+      } catch (_) {
+        session = client.auth.currentSession;
+      }
+    }
     // Native OAuth can return control to Flutter before the Supabase client
     // publishes the new session. Wait for the auth event instead of allowing
     // the first protected prop request to fail during that handoff.
@@ -351,10 +362,10 @@ class ApiService {
         session = client.auth.currentSession;
       }
     }
-    var token = session?.accessToken;
+    var token = session?.accessToken ?? SupabaseService.persistedAccessToken;
     if (client != null &&
         session != null &&
-        (forceRefresh || session.isExpired)) {
+        (refreshStillRequired || session.isExpired)) {
       final refresh = _sessionRefresh ??= client.auth
           .refreshSession()
           .timeout(const Duration(seconds: 4))
@@ -991,9 +1002,12 @@ class ApiService {
 
   static List<String> get _candidateBaseUrls {
     final configured = _normalizeBaseUrl(_configuredBaseUrl);
-    final brandedWebOrigin = kIsWeb &&
-            const {'pipropsintell.com', 'www.pipropsintell.com'}
-                .contains(Uri.base.host.toLowerCase())
+    final brandedWebOrigin =
+        kIsWeb &&
+            const {
+              'pipropsintell.com',
+              'www.pipropsintell.com',
+            }.contains(Uri.base.host.toLowerCase())
         ? _normalizeBaseUrl(Uri.base.origin)
         : '';
     final candidates = <String>{
@@ -1138,9 +1152,7 @@ class ApiService {
     final category = (uri.queryParameters['category'] ?? '')
         .trim()
         .toUpperCase();
-    final isSpecialtySport = const {
-      'SOCCER',
-    }.contains(sport);
+    final isSpecialtySport = const {'SOCCER'}.contains(sport);
     // Specialty feeds can legitimately be empty between events. Avoid making
     // navigation wait through two full network attempts before the board can
     // render its available/empty state.
@@ -1339,7 +1351,9 @@ class ApiService {
     // Supabase session. Keep that background startup request inert while
     // still allowing injected ApiService subclasses to exercise their mock
     // feeds. Release builds continue to enforce private-feed authentication.
-    if (kDebugMode && runtimeType == ApiService && !SupabaseService.isConfigured) {
+    if (kDebugMode &&
+        runtimeType == ApiService &&
+        !SupabaseService.isConfigured) {
       _lastPropsCount = 0;
       _lastFacetCount = 0;
       _lastCategoryCounts = const {};
@@ -1569,12 +1583,16 @@ class ApiService {
               'Downloaded ${props.length} props reliably • build $appVersion',
         );
         EngagementTracker.instance.recordOperational(
-          'PROP_LOAD_SUCCESS', endpoint: '/api/props',
-          provider: selectedSportsbook, durationMs: observabilityStopwatch.elapsedMilliseconds,
+          'PROP_LOAD_SUCCESS',
+          endpoint: '/api/props',
+          provider: selectedSportsbook,
+          durationMs: observabilityStopwatch.elapsedMilliseconds,
         );
         EngagementTracker.instance.recordOperational(
-          'API_SUCCESS', endpoint: '/api/props',
-          category: selectedSport, durationMs: observabilityStopwatch.elapsedMilliseconds,
+          'API_SUCCESS',
+          endpoint: '/api/props',
+          category: selectedSport,
+          durationMs: observabilityStopwatch.elapsedMilliseconds,
         );
         return props;
       } catch (error) {
@@ -1583,12 +1601,16 @@ class ApiService {
     }
 
     EngagementTracker.instance.recordOperational(
-      'PROP_LOAD_FAILURE', endpoint: '/api/props', provider: selectedSportsbook,
+      'PROP_LOAD_FAILURE',
+      endpoint: '/api/props',
+      provider: selectedSportsbook,
       category: lastError.runtimeType.toString(),
       durationMs: observabilityStopwatch.elapsedMilliseconds,
     );
     EngagementTracker.instance.recordOperational(
-      'API_FAILURE', endpoint: '/api/props', category: lastError.runtimeType.toString(),
+      'API_FAILURE',
+      endpoint: '/api/props',
+      category: lastError.runtimeType.toString(),
       durationMs: observabilityStopwatch.elapsedMilliseconds,
     );
     final lastSuccessfulProps = _lastSuccessfulPropsByQuery[cacheKey];
@@ -2291,16 +2313,31 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> fetchIdentityRegistry() async {
-    final response = await http.get(Uri.parse('$baseUrl/api/identity/registry'), headers: await _authenticatedHeaders()).timeout(const Duration(seconds: 15));
-    if (response.statusCode != 200) throw Exception('Unable to load identity registry: ${response.body}');
+    final response = await http
+        .get(
+          Uri.parse('$baseUrl/api/identity/registry'),
+          headers: await _authenticatedHeaders(),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200)
+      throw Exception('Unable to load identity registry: ${response.body}');
     final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>) throw const FormatException('Invalid identity registry response.');
+    if (decoded is! Map<String, dynamic>)
+      throw const FormatException('Invalid identity registry response.');
     return decoded;
   }
 
   Future<Map<String, dynamic>> reconcileIdentityRegistry() async {
-    final response = await http.post(Uri.parse('$baseUrl/api/identity/registry/reconcile'), headers: await _authenticatedHeaders()).timeout(const Duration(seconds: 30));
-    if (response.statusCode != 200) throw Exception('Unable to reconcile identity registry: ${response.body}');
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/api/identity/registry/reconcile'),
+          headers: await _authenticatedHeaders(),
+        )
+        .timeout(const Duration(seconds: 30));
+    if (response.statusCode != 200)
+      throw Exception(
+        'Unable to reconcile identity registry: ${response.body}',
+      );
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }
 
