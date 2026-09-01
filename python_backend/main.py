@@ -531,10 +531,7 @@ async def protect_premium_api(request: Request, call_next: Callable):
 				outcome=str(response.status_code),
 				metadata={"scope": scope},
 			)
-		elif (
-			scope in {"pro-calculation", "ticket-create"}
-			and response.status_code < 400
-		):
+		elif identity and response.status_code < 400:
 			_queue_security_event(
 				"protected_feature_access",
 				identity=identity,

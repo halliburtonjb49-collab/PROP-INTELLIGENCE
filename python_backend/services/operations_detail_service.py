@@ -19,6 +19,10 @@ from typing import Callable, Mapping
 
 from database.postgres import database_is_configured, get_database_pool
 from services.launch_control_service import FAILED_PAYMENT_EVENTS
+from services.supabase_account_metrics_service import (
+    enrich_active_user_rows,
+    supabase_account_rows,
+)
 
 # One screen of records. The tile shows the true count; this bounds what is
 # transferred and rendered, and the response says when it has truncated.
@@ -64,7 +68,7 @@ def _new_signups(cursor: object, limit: int) -> list[dict[str, object]]:
         (limit,),
     )
     return [
-        {"account": mask_email(account), "name": str(display_name or "--"),
+        {"email": str(account or ""), "userId": "", "name": str(display_name or "--"),
          "member": mask_email(account), "signedUpAt": _isoformat(created_at),
          "source": "profile", "notification": "recorded"}
         for account, display_name, created_at in cursor.fetchall()
@@ -86,7 +90,7 @@ def _active_users(cursor: object, limit: int) -> list[dict[str, object]]:
     return [
         {
             # Already a hash upstream; shortened only so it fits a row.
-            "actor": str(actor)[:12],
+            "actor": str(actor),
             "requests": int(events or 0),
             "lastSeenAt": _isoformat(last_seen),
         }
@@ -139,13 +143,13 @@ DETAILS: Mapping[str, DetailQuery] = {
     "newSignups": DetailQuery(
         title="New signups",
         description="Accounts created in the last 24 hours.",
-        columns=("account", "name", "member", "signedUpAt", "source", "notification"),
+        columns=("email", "userId", "name", "member", "signedUpAt", "source"),
         build=_new_signups,
     ),
     "activeUsers": DetailQuery(
         title="Active users",
         description="Distinct users on protected features in the last 15 minutes.",
-        columns=("actor", "requests", "lastSeenAt"),
+        columns=("email", "userId", "name", "member", "requests", "lastSeenAt"),
         build=_active_users,
     ),
     "failedPayments": DetailQuery(
@@ -176,6 +180,24 @@ def operations_detail(
 
     key = str(metric or "").strip()
     query = DETAILS.get(key)
+    requested = DEFAULT_LIMIT if limit is None else int(limit)
+    bounded = max(1, min(requested, MAXIMUM_LIMIT))
+    if key == "newSignups":
+        try:
+            rows = supabase_account_rows(bounded)
+            if rows is not None:
+                return {
+                    "metric": key,
+                    "supported": True,
+                    "title": "Accounts",
+                    "description": "Canonical Supabase customer profiles.",
+                    "columns": list(DETAILS[key].columns),
+                    "rows": rows,
+                    "returned": len(rows),
+                    "truncated": False,
+                }
+        except Exception:
+            pass
     if key in {"providers", "propFreshness"}:
         try:
             from services.owner_command_center_service import owner_command_center_snapshot
@@ -215,12 +237,12 @@ def operations_detail(
 
     # An omitted limit takes the default; an explicit zero is clamped rather
     # than silently reinterpreted as "give me the default fifty".
-    requested = DEFAULT_LIMIT if limit is None else int(limit)
-    bounded = max(1, min(requested, MAXIMUM_LIMIT))
     try:
         with get_database_pool().connection() as connection:
             with connection.cursor() as cursor:
                 rows = query.build(cursor, bounded)
+                if key == "activeUsers":
+                    rows = enrich_active_user_rows(rows)
     except Exception as exc:
         # The tile keeps working; only its detail is unavailable.
         return {

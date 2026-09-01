@@ -87,7 +87,7 @@ def test_a_metric_with_no_detail_says_so_rather_than_failing() -> None:
     assert "newSignups" in result["available"]
 
 
-def test_signups_return_masked_accounts(monkeypatch) -> None:
+def test_signups_return_owner_account_identity(monkeypatch) -> None:
     import datetime
 
     when = datetime.datetime(2026, 8, 6, 12, 0, tzinfo=datetime.timezone.utc)
@@ -97,7 +97,8 @@ def test_signups_return_masked_accounts(monkeypatch) -> None:
     result = operations_detail("newSignups")
 
     assert result["supported"] is True
-    assert result["rows"][0]["account"] == "jo**********@example.com"
+    assert result["rows"][0]["email"] == "jordan.smith@example.com"
+    assert result["rows"][0]["userId"] == ""
     assert result["rows"][0]["name"] == "Jordan"
     assert result["rows"][0]["signedUpAt"].startswith("2026-08-06")
 

@@ -18,6 +18,7 @@ from services.prop_catalog_snapshot_service import load_catalog_snapshot
 from services.provider_availability_monitor_service import provider_availability_snapshot
 from services.scoreboard_metrics_service import scoreboard_latency_snapshot
 from services.owner_action_service import owner_action_snapshot, prop_control_key
+from services.supabase_account_metrics_service import supabase_profile_metrics
 from services.pi_recalculation_learning_service import (
     learning_control_summary,
     learning_summary,
@@ -87,7 +88,13 @@ def _database_metrics(start: datetime, end: datetime) -> dict[str, object]:
         "mrrAvailable": False,
         "mrrNote": "MRR requires verified billing-period and complimentary-access separation.",
     }
+    supabase_accounts = supabase_profile_metrics(start, end)
+    if supabase_accounts.get("available") is True:
+        for key in ("newUsers", "totalUsers", "coreSubscribers", "proSubscribers"):
+            metrics[key] = supabase_accounts.get(key)
+        metrics["accountSource"] = "supabase"
     if not database_is_configured():
+        metrics["available"] = supabase_accounts.get("available") is True
         return metrics
     try:
         with get_database_pool().connection() as connection, connection.cursor() as cursor:
@@ -103,7 +110,7 @@ def _database_metrics(start: datetime, end: datetime) -> dict[str, object]:
                    where table_schema='public' and table_name='user_profiles'"""
             )
             profile_columns = {str(row[0]) for row in cursor.fetchall()}
-            if profile_columns:
+            if profile_columns and supabase_accounts.get("available") is not True:
                 cursor.execute("select count(*) from public.user_profiles")
                 metrics["totalUsers"] = int(cursor.fetchone()[0] or 0)
                 if "created_at" in profile_columns:
