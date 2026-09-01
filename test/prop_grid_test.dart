@@ -71,9 +71,11 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.pump();
+    // The board makes one automatic recovery attempt before presenting the
+    // durable error state, so a brief provider interruption stays invisible.
+    await tester.pump(const Duration(seconds: 3));
 
-    expect(api.fetchCalls, 1);
+    expect(api.fetchCalls, 2);
     expect(find.text('Unable to load props'), findsOneWidget);
     expect(find.text('RETRY'), findsOneWidget);
 

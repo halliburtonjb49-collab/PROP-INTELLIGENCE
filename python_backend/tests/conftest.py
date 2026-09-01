@@ -3,9 +3,11 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-# Unit tests must never inherit a developer machine's production database
-# secret. Tests that exercise persistence explicitly patch their own pool.
-os.environ.pop("DATABASE_URL", None)
+# Unit tests must never inherit or reload a developer machine's production
+# database secret. Keep the key present but empty so python-dotenv cannot
+# repopulate it from python_backend/.env during config import. Tests that
+# exercise persistence explicitly patch their own pool.
+os.environ["DATABASE_URL"] = ""
 
 import main
 from services import (

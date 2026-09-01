@@ -33,13 +33,13 @@ void main() {
   test('board framing becomes denser on phones and tablets', () {
     expect(boardContentPadding(390).horizontal, 16);
     expect(boardContentPadding(768).horizontal, 20);
-    expect(boardContentPadding(1200).horizontal, 28);
+    expect(boardContentPadding(1200).horizontal, 36);
   });
 
   test('board framing and scrollbars adapt to touch layouts', () {
     expect(boardSectionGap(390), 6);
     expect(boardSectionGap(768), 8);
-    expect(boardSectionGap(1200), 10);
+    expect(boardSectionGap(1200), 13);
     expect(usePersistentBoardScrollbar(390), isFalse);
     expect(usePersistentBoardScrollbar(768), isFalse);
     expect(usePersistentBoardScrollbar(1200), isTrue);
