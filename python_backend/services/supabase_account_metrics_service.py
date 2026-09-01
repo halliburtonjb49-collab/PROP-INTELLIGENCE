@@ -88,6 +88,8 @@ def _profile_row(row: dict[str, Any]) -> dict[str, object]:
             or "user"
         ),
         "signedUpAt": row.get("created_at"),
+        "lastUpdatedAt": row.get("updated_at"),
+        "avatarUrl": row.get("avatar_url") or "",
         "source": "Supabase",
     }
 

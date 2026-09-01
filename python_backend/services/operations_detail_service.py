@@ -140,6 +140,12 @@ def _unsettled_slips(cursor: object, limit: int) -> list[dict[str, object]]:
 
 
 DETAILS: Mapping[str, DetailQuery] = {
+    "members": DetailQuery(
+        title="All members",
+        description="Every canonical Supabase member account.",
+        columns=("email", "userId", "name", "member", "signedUpAt", "lastUpdatedAt"),
+        build=_new_signups,
+    ),
     "newSignups": DetailQuery(
         title="New signups",
         description="Accounts created in the last 24 hours.",
@@ -182,15 +188,17 @@ def operations_detail(
     query = DETAILS.get(key)
     requested = DEFAULT_LIMIT if limit is None else int(limit)
     bounded = max(1, min(requested, MAXIMUM_LIMIT))
-    if key == "newSignups":
+    if key == "members":
+        bounded = MAXIMUM_LIMIT
+    if key in {"members", "newSignups"}:
         try:
             rows = supabase_account_rows(bounded)
             if rows is not None:
                 return {
                     "metric": key,
                     "supported": True,
-                    "title": "Accounts",
-                    "description": "Canonical Supabase customer profiles.",
+                    "title": "All members" if key == "members" else "Accounts",
+                    "description": "Every canonical Supabase member account." if key == "members" else "Canonical Supabase customer profiles.",
                     "columns": list(DETAILS[key].columns),
                     "rows": rows,
                     "returned": len(rows),

@@ -263,6 +263,7 @@ class AuthManager {
   );
 
   StreamSubscription<AuthState>? _authSubscription;
+  bool _restoringInitialSession = false;
   int _profileRefreshGeneration = 0;
   String? _lastMemberJoinNotificationUserId;
   SubscriptionTier? _recentVerifiedPurchaseTier;
@@ -287,14 +288,45 @@ class AuthManager {
         isPasswordRecoveryUri(Uri.base)) {
       passwordRecoveryRequested.value = true;
     }
-    unawaited(_setSession(client.auth.currentSession));
+    final restoredSession = client.auth.currentSession;
+    _restoringInitialSession = restoredSession != null;
+    if (restoredSession == null) {
+      unawaited(_setSession(null));
+    } else {
+      // Mobile browsers can restore an expired JWT from storage before the
+      // Supabase refresh finishes. Rendering the workspace at that point
+      // starts the prop request with the stale token (401) and can briefly
+      // evaluate entitlement metadata from the wrong session snapshot.
+      // Keep AuthSessionState.loading active until one refresh attempt has
+      // completed, then build either the authenticated shell or login screen.
+      unawaited(_restoreInitialSession(client, restoredSession));
+    }
 
     _authSubscription ??= client.auth.onAuthStateChange.listen((event) {
       if (event.event == AuthChangeEvent.passwordRecovery) {
         passwordRecoveryRequested.value = true;
       }
-      unawaited(_setSession(event.session));
+      if (!_restoringInitialSession) {
+        unawaited(_setSession(event.session));
+      }
     });
+  }
+
+  Future<void> _restoreInitialSession(
+    SupabaseClient client,
+    Session restoredSession,
+  ) async {
+    var usableSession = restoredSession;
+    try {
+      final refreshed = await client.auth.refreshSession();
+      usableSession = refreshed.session ?? restoredSession;
+    } catch (_) {
+      // _setSession still resolves the restored identity. Protected requests
+      // retain their normal retry/error behavior if the network is offline.
+    } finally {
+      _restoringInitialSession = false;
+    }
+    await _setSession(usableSession);
   }
 
   Future<void> completePasswordRecovery(String password) async {
