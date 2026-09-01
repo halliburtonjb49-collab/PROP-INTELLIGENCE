@@ -3533,7 +3533,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         )
         .catchError((_) => <PropData>[]);
     final cached = await cachedFuture.timeout(
-      const Duration(milliseconds: 350),
+      // IndexedDB startup on iOS browsers can exceed 350 ms, especially on
+      // Wi-Fi after an application update. Give the verified snapshot a brief
+      // opportunity to paint while the live request continues in parallel.
+      const Duration(seconds: 2),
       onTimeout: () => <PropData>[],
     );
     if (!mounted || requestKey != _queryKey) return const [];

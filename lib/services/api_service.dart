@@ -345,7 +345,7 @@ class ApiService {
       try {
         final authState = await client.auth.onAuthStateChange
             .firstWhere((event) => event.session != null)
-            .timeout(const Duration(seconds: 10));
+            .timeout(const Duration(seconds: 2));
         session = authState.session;
       } on TimeoutException {
         session = client.auth.currentSession;
@@ -357,7 +357,7 @@ class ApiService {
         (forceRefresh || session.isExpired)) {
       final refresh = _sessionRefresh ??= client.auth
           .refreshSession()
-          .timeout(const Duration(seconds: 6))
+          .timeout(const Duration(seconds: 4))
           .then((response) => response.session?.accessToken);
       try {
         token = await refresh;
@@ -1167,16 +1167,15 @@ class ApiService {
         : const Duration(seconds: 15);
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        var response = await http
-            .get(uri, headers: await _authenticatedHeaders())
-            .timeout(requestTimeout);
+        var response = await (() async {
+          final headers = await _authenticatedHeaders();
+          return http.get(uri, headers: headers);
+        })().timeout(requestTimeout);
         if (response.statusCode == 401) {
-          response = await http
-              .get(
-                uri,
-                headers: await _authenticatedHeaders(forceRefresh: true),
-              )
-              .timeout(requestTimeout);
+          response = await (() async {
+            final headers = await _authenticatedHeaders(forceRefresh: true);
+            return http.get(uri, headers: headers);
+          })().timeout(requestTimeout);
         }
         if (response.statusCode == 200) return response;
         lastError = Exception('Unable to load props: ${response.statusCode}');
@@ -1354,8 +1353,13 @@ class ApiService {
     final targetSportsbookKey = _normalizeSportsbookKey(selectedSportsbook);
     final sportsbookFilterEnabled = targetSportsbookKey != 'ALL';
     final scopedLimit = limit.clamp(1, 500);
+    // Mobile web must not download and decode hundreds of full prop records
+    // before it can paint its first card. The API applies the sportsbook
+    // filter server-side; a modest cushion still covers provider aliases that
+    // are normalized by the client without turning startup into a megabyte
+    // scale transfer.
     final requestLimit = sportsbookFilterEnabled
-        ? math.max(scopedLimit, 350)
+        ? math.max(scopedLimit, 125)
         : scopedLimit;
     final requestOffset = sportsbookFilterEnabled ? 0 : offset;
     final cacheKey = _propsCacheKey(
