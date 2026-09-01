@@ -65,10 +65,10 @@ class PlayerImageWidget extends StatelessWidget {
 
     final primaryUrl = resolvePlayerImagePath(
       sourceImage,
-      // Web sports CDNs are loaded directly first. The API proxy remains the
-      // retry path below, which avoids accepting an opaque provider/proxy
-      // placeholder as a successfully rendered black player photo.
-      useApiProxyForRemoteImages: !kIsWeb,
+      // Keep web photos inside Flutter's renderer through the same-origin API
+      // proxy. Mounting one native HTML image platform view per prop card can
+      // terminate iOS WebKit while the board scrolls.
+      useApiProxyForRemoteImages: true,
       identityKey: cacheIdentity,
     );
     final resolvedFallback = resolvePlayerImageFallbackPath(
@@ -88,23 +88,39 @@ class PlayerImageWidget extends StatelessWidget {
     final retryCacheKey = '$identityPrefix${_stableCacheKey(retryUrl)}';
 
     if (kIsWeb) {
-      Widget browserImage(String url, {String? fallbackUrl}) => Image.network(
+      final pixelRatio = MediaQuery.devicePixelRatioOf(context).clamp(1.0, 3.0);
+      final decodedWidth = width == null
+          ? null
+          : (width! * pixelRatio).round().clamp(64, 512);
+      final decodedHeight = height == null
+          ? null
+          : (height! * pixelRatio).round().clamp(64, 512);
+
+      Widget browserImage(
+        String url, {
+        String? fallbackUrl,
+        bool nativeFallback = false,
+      }) => Image.network(
         url,
         key: ValueKey('$identityPrefix$url'),
         width: width,
         height: height,
+        cacheWidth: nativeFallback ? null : decodedWidth,
+        cacheHeight: nativeFallback ? null : decodedHeight,
         fit: fit,
         alignment: Alignment.center,
-        filterQuality: FilterQuality.high,
+        filterQuality: FilterQuality.medium,
         gaplessPlayback: true,
-        webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+        webHtmlElementStrategy: nativeFallback
+            ? WebHtmlElementStrategy.prefer
+            : WebHtmlElementStrategy.never,
         loadingBuilder: (_, child, progress) =>
             progress == null ? child : _buildFallback(),
         errorBuilder: (_, failedUrl, _) {
           if (fallbackUrl != null &&
               fallbackUrl.isNotEmpty &&
               fallbackUrl != url) {
-            return browserImage(fallbackUrl);
+            return browserImage(fallbackUrl, nativeFallback: true);
           }
           EngagementTracker.instance.recordOperational(
             'MEDIA_FAILURE',

@@ -281,15 +281,29 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           height: size,
           fit: BoxFit.cover,
           alignment: Alignment.center,
-          filterQuality: FilterQuality.high,
+          cacheWidth: cacheSize,
+          cacheHeight: cacheSize,
+          filterQuality: FilterQuality.medium,
           gaplessPlayback: true,
-          webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+          webHtmlElementStrategy: WebHtmlElementStrategy.never,
           loadingBuilder: (_, child, progress) => progress == null
               ? child
               : _playerPlaceholder(prop.player, size: size),
           errorBuilder: (_, _, _) {
             if (retryUrl != null && retryUrl.isNotEmpty && retryUrl != url) {
-              return webImage(retryUrl);
+              return Image.network(
+                retryUrl,
+                key: ValueKey(photoKey(retryUrl)),
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                filterQuality: FilterQuality.medium,
+                gaplessPlayback: true,
+                webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+                errorBuilder: (_, _, _) =>
+                    _playerPlaceholder(prop.player, size: size),
+              );
             }
             EngagementTracker.instance.recordProductOncePer(
               'PLAYER_IMAGE_FAILURE:${url.hashCode}',
@@ -305,8 +319,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       // Browser-native image rendering avoids the opaque black WebKit texture
       // Flutter can produce for otherwise valid cross-origin JPEGs.
       return webImage(
-        imagePath,
-        retryUrl: proxiedWebPath.isEmpty ? null : proxiedWebPath,
+        proxiedWebPath.isEmpty ? imagePath : proxiedWebPath,
+        retryUrl: imagePath,
       );
     }
 
