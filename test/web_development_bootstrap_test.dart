@@ -32,7 +32,8 @@ void main() {
     expect(worker, contains("event.data.type === 'PI_ACTIVATE_UPDATE'"));
     expect(worker, contains('self.skipWaiting()'));
     expect(pwa, contains("getRegistration('/workspace/')"));
-    expect(pwa, contains('const isIosChrome'));
+    expect(pwa, contains('const isMobileDevice'));
+    expect(pwa, contains("const cleanupKey = 'pi-mobile-direct-release'"));
     expect(pwa, contains('await registration.unregister()'));
     expect(pwa, contains('reloadCurrentRelease();'));
   });

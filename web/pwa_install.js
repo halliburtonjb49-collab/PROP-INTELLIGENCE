@@ -3,7 +3,9 @@
 
   const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent) ||
     (/macintosh/i.test(window.navigator.userAgent) && window.navigator.maxTouchPoints > 1);
-  const isIosChrome = isIos && /crios/i.test(window.navigator.userAgent);
+  const isMobileDevice = /android|iphone|ipad|ipod|mobile/i.test(
+    window.navigator.userAgent,
+  ) || (window.navigator.maxTouchPoints > 1 && window.innerWidth < 1000);
 
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
     window.navigator.standalone === true;
@@ -117,13 +119,12 @@
     });
     window.addEventListener('load', async () => {
       try {
-        // Chrome on iOS runs inside WebKit but maintains its own service-worker
-        // state. In practice that worker can survive an update and leave the
-        // new Flutter shell waiting on requests owned by the previous release.
-        // iOS Chrome cannot provide the installed web-push experience this
-        // worker exists for, so keep its workspace network-direct instead.
-        if (isIosChrome) {
-          const cleanupKey = 'pi-ios-chrome-direct-release';
+        // Mobile and tablet prop boards require a live connection. Keep every
+        // mobile browser network-direct so Chrome, Safari, Android WebView and
+        // installed PWAs cannot retain a previous Flutter release or intercept
+        // authenticated prop requests with an obsolete worker.
+        if (isMobileDevice) {
+          const cleanupKey = 'pi-mobile-direct-release';
           const registration = await navigator.serviceWorker.getRegistration('/workspace/');
           if (registration) await registration.unregister();
           if ('caches' in window) {
