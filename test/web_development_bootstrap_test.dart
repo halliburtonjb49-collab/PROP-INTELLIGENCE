@@ -23,13 +23,17 @@ void main() {
 
     expect(
       buildScript,
-      isNot(contains(
-        'cp web/legacy_service_worker.js build/site/OneSignalSDKWorker.js',
-      )),
+      isNot(
+        contains(
+          'cp web/legacy_service_worker.js build/site/OneSignalSDKWorker.js',
+        ),
+      ),
     );
     expect(worker, contains("event.data.type === 'PI_ACTIVATE_UPDATE'"));
     expect(worker, contains('self.skipWaiting()'));
     expect(pwa, contains("getRegistration('/workspace/')"));
-    expect(pwa, contains('window.setTimeout(reloadCurrentRelease, 4000)'));
+    expect(pwa, contains('const isIosChrome'));
+    expect(pwa, contains('await registration.unregister()'));
+    expect(pwa, contains('reloadCurrentRelease();'));
   });
 }

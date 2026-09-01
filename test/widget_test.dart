@@ -19,5 +19,7 @@ void main() {
     await tester.pumpWidget(const PropIntelligenceApp());
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(PropIntelligenceApp), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 2100));
   });
 }

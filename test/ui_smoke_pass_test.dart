@@ -21,6 +21,8 @@ void main() {
       expect(find.byType(PropIntelligenceApp), findsOneWidget);
       expect(tester.takeException(), isNull, reason: 'shell must fit $size');
     }
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 2100));
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
   });
@@ -42,5 +44,7 @@ void main() {
     expect(find.byKey(const ValueKey('mobile-nav-watchlist')), findsOneWidget);
     expect(find.byKey(const ValueKey('mobile-nav-ticket')), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 2100));
   });
 }
