@@ -70,6 +70,7 @@ class _PropChatPageState extends State<PropChatPage> {
   late final PropChatService _service = widget.service ?? PropChatService();
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
+  final _roomScrollController = ScrollController();
   List<PropChatRoom> _rooms = const [
     PropChatRoom(id: 'general', name: 'General'),
   ];
@@ -204,6 +205,7 @@ class _PropChatPageState extends State<PropChatPage> {
       ..removeListener(_typingChanged)
       ..dispose();
     _scrollController.dispose();
+    _roomScrollController.dispose();
     super.dispose();
   }
 
@@ -659,20 +661,29 @@ class _PropChatPageState extends State<PropChatPage> {
             },
           ),
           SizedBox(
-            height: 52,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              itemCount: _rooms.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 7),
-              itemBuilder: (context, index) {
-                final room = _rooms[index];
-                return ChoiceChip(
-                  label: Text(room.name.toUpperCase()),
-                  selected: room.id == _roomId,
-                  onSelected: (_) => _selectRoom(room.id),
-                );
-              },
+            height: 58,
+            child: Scrollbar(
+              controller: _roomScrollController,
+              thumbVisibility: true,
+              trackVisibility: true,
+              scrollbarOrientation: ScrollbarOrientation.bottom,
+              thickness: 4,
+              radius: const Radius.circular(999),
+              child: ListView.separated(
+                controller: _roomScrollController,
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(14, 7, 14, 12),
+                itemCount: _rooms.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 7),
+                itemBuilder: (context, index) {
+                  final room = _rooms[index];
+                  return ChoiceChip(
+                    label: Text(room.name.toUpperCase()),
+                    selected: room.id == _roomId,
+                    onSelected: (_) => _selectRoom(room.id),
+                  );
+                },
+              ),
             ),
           ),
           const Divider(height: 1, color: AppColors.border),

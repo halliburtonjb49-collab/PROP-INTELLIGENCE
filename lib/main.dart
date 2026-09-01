@@ -702,6 +702,9 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
     }
     final allowed =
         !session.authenticated ||
+        session.isOwner ||
+        session.isAdmin ||
+        session.isTester ||
         requiredTier == null ||
         (requiredTier == SubscriptionTier.core && session.hasCoreAccess) ||
         (requiredTier == SubscriptionTier.edge && session.hasEdgeAccess);

@@ -2138,7 +2138,7 @@ def _espn_team_logo_catalog(league: str) -> dict[str, str]:
 			params={"limit": 500},
 			headers={
 				"Accept": "application/json",
-				"User-Agent": "PI-Prop-Intelligence/1.0 scoreboard",
+				"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1",
 			},
 			timeout=min(4, HTTP_TIMEOUT_SECONDS),
 		)
@@ -2159,7 +2159,7 @@ def _espn_team_logo_catalog(league: str) -> dict[str, str]:
 				},
 				headers={
 					"Accept": "application/json",
-					"User-Agent": "PI-Prop-Intelligence/1.0 scoreboard",
+					"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1",
 				},
 				timeout=min(5, HTTP_TIMEOUT_SECONDS),
 			)
@@ -2241,7 +2241,7 @@ def _espn_scoreboard_games_for_sport(
 			params={"dates": target_date.strftime("%Y%m%d")},
 			headers={
 				"Accept": "application/json",
-				"User-Agent": "PI-Prop-Intelligence/1.0 scoreboard",
+				"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1",
 			},
 			# A slow or unsupported league must not hold the full multi-sport
 			# board hostage. Other leagues load in parallel and provider

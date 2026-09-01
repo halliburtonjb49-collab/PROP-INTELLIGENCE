@@ -8,9 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'supabase_service.dart';
 
-const Set<String> _ownerEmails = {
-  'propsintell@gmail.com',
-};
+const Set<String> _ownerEmails = {'propsintell@gmail.com'};
 const Set<String> _ownerUserIds = {'7fdb460c-dcaa-42ac-89c1-e9950b9b9c55'};
 
 @visibleForTesting
@@ -141,18 +139,12 @@ class AuthSessionState {
         : grantedSubscriptionTier;
   }
 
-  bool get hasCoreAccess => isAccessPreviewActive
-      ? effectiveSubscriptionTier.hasCoreAccess
-      : effectiveSubscriptionTier.hasCoreAccess ||
-            isOwner ||
-            isAdmin ||
-            isTester;
-  bool get hasEdgeAccess => isAccessPreviewActive
-      ? effectiveSubscriptionTier.hasEdgeAccess
-      : effectiveSubscriptionTier.hasEdgeAccess ||
-            isOwner ||
-            isAdmin ||
-            isTester;
+  // Preview mode may change owner-facing labels and presentation, but it must
+  // never revoke real authorization or send a privileged account to checkout.
+  bool get hasCoreAccess =>
+      isOwner || isAdmin || isTester || effectiveSubscriptionTier.hasCoreAccess;
+  bool get hasEdgeAccess =>
+      isOwner || isAdmin || isTester || effectiveSubscriptionTier.hasEdgeAccess;
 
   const AuthSessionState({
     required this.ready,

@@ -124,6 +124,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   // the board contains, so the result is kept until something that does.
   String _boardCacheKey = '';
   List<PropBookGroup> _boardCacheGroups = const [];
+  final Set<String> _warmedPlayerPhotoUrls = <String>{};
   int _visiblePropLimit = _visiblePropStep;
   final Set<String> _favoritePropIds = <String>{};
   Future<_SportSeasonStatus>? _seasonStatusFuture;
@@ -362,6 +363,37 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         return _playerPlaceholder(prop.player, size: size);
       },
     );
+  }
+
+  void _warmVisiblePlayerPhotos(Iterable<PropData> props) {
+    final pending = <String>[];
+    for (final prop in props) {
+      final identity = prop.canonicalPlayerId.trim().isNotEmpty
+          ? prop.canonicalPlayerId.trim()
+          : prop.playerId.trim().isNotEmpty
+          ? prop.playerId.trim()
+          : prop.player.trim().toLowerCase();
+      final url = prop.imagePath.trim().isEmpty
+          ? resolveCanonicalPlayerImagePath(
+              player: prop.player,
+              sport: prop.sport,
+              identityKey: identity,
+            )
+          : resolvePlayerImagePath(prop.imagePath, identityKey: identity);
+      if (url.isNotEmpty && _warmedPlayerPhotoUrls.add(url)) pending.add(url);
+      if (pending.length >= 24) break;
+    }
+    if (pending.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final url in pending) {
+        unawaited(
+          precacheImage(NetworkImage(url), context).catchError((_) {
+            _warmedPlayerPhotoUrls.remove(url);
+          }),
+        );
+      }
+    });
   }
 
   String _propGameDayDate(PropData prop) {
@@ -1987,6 +2019,36 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 ],
               ),
               const SizedBox(height: 9),
+              SizedBox(
+                width: double.infinity,
+                height: 42,
+                child: OutlinedButton.icon(
+                  key: ValueKey('phone-all-player-props-${prop.id}'),
+                  onPressed: widget.onPropFocused == null
+                      ? null
+                      : () => widget.onPropFocused!.call(prop),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    foregroundColor: app_colors.AppColors.gold,
+                    side: const BorderSide(
+                      color: app_colors.AppColors.borderGold,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: const Icon(Icons.layers_rounded, size: 18),
+                  label: const Text(
+                    'VIEW ALL PLAYER PROPS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .25,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
                 height: 42,
@@ -3837,7 +3899,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final service = ScoreboardService(baseUrl: ApiService.baseUrl);
     final now = DateTime.now();
     final daily = <List<ScoreboardGame>>[
-      await service.fetchGamesRange(startDate: now, days: 90),
+      await service.fetchGamesRange(startDate: now, days: 31),
     ];
     final normalized = normalizePropSport(sport);
     final unique = <String, ScoreboardGame>{};
@@ -4242,6 +4304,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             final props = _boardCacheGroups
                 .map((group) => group.representative)
                 .toList(growable: false);
+            _warmVisiblePlayerPhotos(props.take(_visiblePropStep));
             _favoritePropIds.retainAll(props.map((prop) => prop.id).toSet());
             if (props.isEmpty) {
               const specialtySports = {'SOCCER'};
@@ -4374,11 +4437,27 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 final columns = propGridColumnCount(constraints.maxWidth);
                 final cardSpacing = propGridSpacing(constraints.maxWidth);
 
-                // Keep one current card per player/market. Every provider,
-                // alternate line, and promotional line remains available
-                // through the options picker instead of appearing as a
-                // duplicate card or being silently discarded.
-                final groups = _boardCacheGroups;
+                // Phones lead with one card per player on each prop site. The
+                // card's player-props action opens every other market for that
+                // player without forcing users to scroll past repeated faces.
+                // Wider layouts retain one row/card per market for comparison.
+                final phoneSiteFirst =
+                    widget.siteFirstLayout && constraints.maxWidth < 600;
+                final groups = <PropBookGroup>[];
+                if (phoneSiteFirst) {
+                  final shownPlayers = <String>{};
+                  for (final group in _boardCacheGroups) {
+                    final prop = group.representative;
+                    final playerSiteKey = [
+                      normalizePropSport(prop.sport),
+                      prop.sportsbook.trim().toUpperCase(),
+                      prop.player.trim().toLowerCase(),
+                    ].join('|');
+                    if (shownPlayers.add(playerSiteKey)) groups.add(group);
+                  }
+                } else {
+                  groups.addAll(_boardCacheGroups);
+                }
                 final visibleCount = _visiblePropLimit.clamp(0, groups.length);
                 final visibleGroups = groups.take(visibleCount).toList();
                 final hasMore =

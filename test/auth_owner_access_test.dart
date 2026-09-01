@@ -40,7 +40,7 @@ void main() {
     expect(state.hasEdgeAccess, isTrue);
   });
 
-  test('owner access preview enforces the selected tier', () {
+  test('owner access preview never revokes privileged access', () {
     AuthSessionState ownerPreview(SubscriptionTier tier) => AuthSessionState(
       ready: true,
       authenticated: true,
@@ -53,10 +53,10 @@ void main() {
       message: 'Authenticated',
     );
 
-    expect(ownerPreview(SubscriptionTier.free).hasCoreAccess, isFalse);
-    expect(ownerPreview(SubscriptionTier.free).hasEdgeAccess, isFalse);
+    expect(ownerPreview(SubscriptionTier.free).hasCoreAccess, isTrue);
+    expect(ownerPreview(SubscriptionTier.free).hasEdgeAccess, isTrue);
     expect(ownerPreview(SubscriptionTier.core).hasCoreAccess, isTrue);
-    expect(ownerPreview(SubscriptionTier.core).hasEdgeAccess, isFalse);
+    expect(ownerPreview(SubscriptionTier.core).hasEdgeAccess, isTrue);
     expect(ownerPreview(SubscriptionTier.edge).hasEdgeAccess, isTrue);
   });
 
