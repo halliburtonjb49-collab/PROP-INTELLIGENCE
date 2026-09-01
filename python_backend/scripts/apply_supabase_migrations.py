@@ -63,6 +63,7 @@ MIGRATIONS = (
     "supabase_owner_operations_security.sql",
     "supabase_provider_availability_snapshots.sql",
     "supabase_single_owner_enforcement.sql",
+    "supabase_advisor_role_assignment.sql",
     "supabase_prop_learning_system.sql",
     "supabase_pi_learning_ledger.sql",
     "supabase_identity_media_registry.sql",

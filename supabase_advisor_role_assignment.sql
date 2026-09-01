@@ -1,31 +1,5 @@
--- Permanently bind owner authorization to the one verified PI account.
--- Metadata, subscription status, and environment variables cannot create a
--- second owner.
-begin;
-
-delete from public.app_owner_accounts
-where user_id <> '84a76503-f704-46b6-be87-760ea8c9f2f5'::uuid;
-
-insert into public.app_owner_accounts (user_id)
-values ('84a76503-f704-46b6-be87-760ea8c9f2f5'::uuid)
-on conflict (user_id) do nothing;
-
-update auth.users
-set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) - 'role'
-where id <> '84a76503-f704-46b6-be87-760ea8c9f2f5'::uuid
-  and coalesce(raw_app_meta_data->>'role', '') = 'owner';
-
-update auth.users
-set raw_app_meta_data =
-  coalesce(raw_app_meta_data, '{}'::jsonb) || jsonb_build_object('role', 'owner')
-where id = '84a76503-f704-46b6-be87-760ea8c9f2f5'::uuid;
-
-drop policy if exists "owners can read role audit"
-on public.role_assignment_audit;
-create policy "owners can read role audit"
-on public.role_assignment_audit
-for select to authenticated
-using (public.is_app_owner(auth.uid()));
+-- Add advisor as an owner-managed account role without modifying the applied
+-- single-owner enforcement migration.
 
 create or replace function public.assign_user_role(
   target_email text,
@@ -46,8 +20,8 @@ begin
     raise exception 'Only the verified owner can assign roles.' using errcode = '42501';
   end if;
 
-  if normalized_role not in ('admin', 'tester', 'user') then
-    raise exception 'Role must be admin, tester, or user.' using errcode = '22023';
+  if normalized_role not in ('advisor', 'admin', 'tester', 'user') then
+    raise exception 'Role must be advisor, admin, tester, or user.' using errcode = '22023';
   end if;
 
   select * into target_record
@@ -81,16 +55,3 @@ begin
   );
 end;
 $$;
-
-create or replace function public.is_prop_chat_moderator()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public, auth
-as $$
-  select public.is_app_owner(auth.uid())
-    or coalesce(auth.jwt()->'app_metadata'->>'role', '') = 'admin';
-$$;
-
-commit;
