@@ -4,7 +4,7 @@ import 'package:prop_intelligence/services/auth_manager.dart';
 void main() {
   test('verified owner email resolves to owner without metadata', () {
     expect(
-      resolveAccountRole(email: 'HalliburtonJB49@Gmail.com ', role: 'user'),
+      resolveAccountRole(email: 'PropsIntell@Gmail.com ', role: 'user'),
       'owner',
     );
   });
@@ -16,7 +16,7 @@ void main() {
         resolveAccountRole(
           email: 'changed@example.com',
           role: 'user',
-          userId: '84a76503-f704-46b6-be87-760ea8c9f2f5',
+          userId: '7fdb460c-dcaa-42ac-89c1-e9950b9b9c55',
         ),
         'owner',
       );
@@ -31,7 +31,7 @@ void main() {
       subscriptionTier: SubscriptionTier.edge,
       role: 'owner',
       userId: 'owner-id',
-      email: 'halliburtonjb49@gmail.com',
+      email: 'propsintell@gmail.com',
       message: 'Authenticated',
     );
 

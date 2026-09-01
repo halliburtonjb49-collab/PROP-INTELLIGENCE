@@ -13,10 +13,9 @@ from fastapi import Header, HTTPException
 from config import HTTP_TIMEOUT_SECONDS
 
 _DEFAULT_OWNER_EMAILS = {
-    "halliburtonjb49@gmail.com",
-    "propsintell@icloud.com",
+    "propsintell@gmail.com",
 }
-_DEFAULT_OWNER_USER_IDS = {"84a76503-f704-46b6-be87-760ea8c9f2f5"}
+_DEFAULT_OWNER_USER_IDS = {"7fdb460c-dcaa-42ac-89c1-e9950b9b9c55"}
 
 
 class AccessLevel(IntEnum):

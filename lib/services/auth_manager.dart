@@ -9,10 +9,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'supabase_service.dart';
 
 const Set<String> _ownerEmails = {
-  'halliburtonjb49@gmail.com',
-  'propsintell@icloud.com',
+  'propsintell@gmail.com',
 };
-const Set<String> _ownerUserIds = {'84a76503-f704-46b6-be87-760ea8c9f2f5'};
+const Set<String> _ownerUserIds = {'7fdb460c-dcaa-42ac-89c1-e9950b9b9c55'};
 
 @visibleForTesting
 bool isPasswordRecoveryUri(Uri uri) =>

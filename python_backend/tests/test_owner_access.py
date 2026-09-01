@@ -15,7 +15,7 @@ def test_verified_owner_email_has_admin_api_access(monkeypatch):
         "_supabase_user",
         lambda _token: {
             "id": "owner-id",
-            "email": "HalliburtonJB49@Gmail.com",
+            "email": "PropsIntell@Gmail.com",
             "app_metadata": {},
             "user_metadata": {},
         },
@@ -25,7 +25,7 @@ def test_verified_owner_email_has_admin_api_access(monkeypatch):
 
 
 def test_verified_owner_user_id_has_owner_access(monkeypatch):
-    owner_id = "84a76503-f704-46b6-be87-760ea8c9f2f5"
+    owner_id = "7fdb460c-dcaa-42ac-89c1-e9950b9b9c55"
     monkeypatch.setattr(
         api_auth_service,
         "_supabase_user",
