@@ -16,19 +16,8 @@ jobs:
           fetch-depth: 2
       - name: Confirm automatic deployment
         run: echo "Main was updated; waiting for the production services to deploy."
-      - name: Require deployed commit only for Render changes
-        shell: bash
-        run: |
-          render_changes="$(
-            git diff --name-only HEAD^ HEAD |
-              grep -E '^(python_backend/|render\.yaml$|requirements.*\.txt$|supabase.*\.sql$|\.render-deploy-trigger$)' |
-              grep -Ev '^python_backend/tests/' || true
-          )"
-          if [[ -z "$render_changes" ]]; then
-            echo "EXPECTED_PRODUCTION_VERSION=" >> "$GITHUB_ENV"
-          else
-            echo "EXPECTED_PRODUCTION_VERSION=$GITHUB_SHA" >> "$GITHUB_ENV"
-          fi
+      - name: Require the exact deployed commit
+        run: echo "EXPECTED_PRODUCTION_VERSION=$GITHUB_SHA" >> "$GITHUB_ENV"
       - name: Run blocking production smoke tests
         env:
           PRODUCTION_DEPLOY_WAIT_SECONDS: "900"

@@ -2,6 +2,10 @@ services:
   - type: web
     name: prop-intelligence-api
     runtime: python
+    # Keep the API, worker, and responsive client on the same main commit.
+    # Without this explicit trigger, a frontend follow-up can report success
+    # while production continues serving an older API response contract.
+    autoDeployTrigger: commit
     # An always-on API avoids cold-start latency on the first prop request.
     plan: standard
     buildCommand: pip install -r requirements.txt
