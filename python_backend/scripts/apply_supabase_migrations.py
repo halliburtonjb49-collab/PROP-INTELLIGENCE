@@ -19,6 +19,7 @@ MIGRATIONS = (
     "supabase_user_tables_and_rls.sql",
     "supabase_owner_role_manager.sql",
     "supabase_change_request_workflow.sql",
+    "supabase_advisor_change_request_access.sql",
     "supabase_add_is_premium_column.sql",
     "supabase_subscription_tiers.sql",
     "supabase_billing_webhook_integrity.sql",
