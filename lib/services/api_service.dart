@@ -2319,11 +2319,13 @@ class ApiService {
           headers: await _authenticatedHeaders(),
         )
         .timeout(const Duration(seconds: 15));
-    if (response.statusCode != 200)
+    if (response.statusCode != 200) {
       throw Exception('Unable to load identity registry: ${response.body}');
+    }
     final decoded = jsonDecode(response.body);
-    if (decoded is! Map<String, dynamic>)
+    if (decoded is! Map<String, dynamic>) {
       throw const FormatException('Invalid identity registry response.');
+    }
     return decoded;
   }
 
@@ -2334,10 +2336,11 @@ class ApiService {
           headers: await _authenticatedHeaders(),
         )
         .timeout(const Duration(seconds: 30));
-    if (response.statusCode != 200)
+    if (response.statusCode != 200) {
       throw Exception(
         'Unable to reconcile identity registry: ${response.body}',
       );
+    }
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }
 
