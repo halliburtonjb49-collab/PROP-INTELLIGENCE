@@ -711,11 +711,26 @@ class AuthManager {
       return;
     }
 
-    final role = resolveAccountRole(
+    var role = resolveAccountRole(
       email: user.email,
       role: user.appMetadata['role'],
       userId: user.id,
     );
+    // Safari can restore a valid Supabase session before every user field has
+    // been reconstructed from storage. Resolve the one protected owner record
+    // server-side before evaluating the paid-plan gate so the verified owner
+    // can never be downgraded by browser-specific session hydration timing.
+    if (role != 'owner') {
+      try {
+        final ownerResult = await _client?.rpc(
+          'is_app_owner',
+          params: <String, dynamic>{'target_user_id': user.id},
+        );
+        if (ownerResult == true) role = 'owner';
+      } catch (_) {
+        // The fixed UUID/email allowlist remains the secure offline fallback.
+      }
+    }
     final metadataUsername = resolvePublicUsername(
       userId: user.id,
       metadata: user.userMetadata ?? const <String, dynamic>{},

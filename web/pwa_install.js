@@ -3,10 +3,6 @@
 
   const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent) ||
     (/macintosh/i.test(window.navigator.userAgent) && window.navigator.maxTouchPoints > 1);
-  const isMobileDevice = /android|iphone|ipad|ipod|mobile/i.test(
-    window.navigator.userAgent,
-  ) || (window.navigator.maxTouchPoints > 1 && window.innerWidth < 1000);
-
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
     window.navigator.standalone === true;
   const isDevelopmentHost = ['localhost', '127.0.0.1', '::1']
@@ -58,20 +54,16 @@
     forcingReleaseRefresh = true;
     hideUpdate();
     try {
-      if ('caches' in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys
-          .filter((key) => key.startsWith('pi-app-shell-') ||
-            key.startsWith('flutter-app-cache'))
-          .map((key) => caches.delete(key)));
-      }
       const registration = await getWorkspaceRegistration();
-      if (registration) await registration.unregister();
+      if (registration?.waiting) {
+        registration.waiting.postMessage({type: 'PI_ACTIVATE_UPDATE'});
+        return;
+      }
+      if (registration) await registration.update();
     } catch (error) {
-      console.warn('PWA release cleanup failed; continuing with a network reload.', error);
-    } finally {
-      reloadCurrentRelease();
+      console.warn('PWA update check failed; continuing with a network reload.', error);
     }
+    reloadCurrentRelease();
   };
 
   window.addEventListener('beforeinstallprompt', (event) => {
@@ -119,28 +111,11 @@
     });
     window.addEventListener('load', async () => {
       try {
-        // Mobile and tablet prop boards require a live connection. Keep every
-        // mobile browser network-direct so Chrome, Safari, Android WebView and
-        // installed PWAs cannot retain a previous Flutter release or intercept
-        // authenticated prop requests with an obsolete worker.
-        if (isMobileDevice) {
-          const cleanupKey = 'pi-mobile-direct-release';
-          const registration = await navigator.serviceWorker.getRegistration('/workspace/');
-          if (registration) await registration.unregister();
-          if ('caches' in window) {
-            const keys = await caches.keys();
-            await Promise.all(keys
-              .filter((key) => key.startsWith('pi-app-shell-') ||
-                key.startsWith('flutter-app-cache'))
-              .map((key) => caches.delete(key)));
-          }
-          if (navigator.serviceWorker.controller &&
-              window.sessionStorage.getItem(cleanupKey) !== '__PI_BUILD_VERSION__') {
-            window.sessionStorage.setItem(cleanupKey, '__PI_BUILD_VERSION__');
-            reloadCurrentRelease();
-          }
-          return;
-        }
+        // Keep one stable app-shell worker on every device. The worker handles
+        // only navigations and release-coupled static assets; authenticated API
+        // and prop requests remain network-direct. Unregistering the worker and
+        // deleting its shell during every mobile launch made an iOS Chrome
+        // swipe, refresh, or process resume depend on a brand-new navigation.
         const registration = await navigator.serviceWorker.register(
           '/workspace/OneSignalSDKWorker.js',
           {scope: '/workspace/', updateViaCache: 'none'},

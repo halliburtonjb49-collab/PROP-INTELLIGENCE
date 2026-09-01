@@ -32,9 +32,21 @@ void main() {
     expect(worker, contains("event.data.type === 'PI_ACTIVATE_UPDATE'"));
     expect(worker, contains('self.skipWaiting()'));
     expect(pwa, contains("getRegistration('/workspace/')"));
-    expect(pwa, contains('const isMobileDevice'));
-    expect(pwa, contains("const cleanupKey = 'pi-mobile-direct-release'"));
-    expect(pwa, contains('await registration.unregister()'));
+    expect(pwa, contains("serviceWorker.register("));
+    expect(
+      pwa,
+      isNot(contains("const cleanupKey = 'pi-mobile-direct-release'")),
+    );
+    expect(pwa, isNot(contains('await registration.unregister()')));
     expect(pwa, contains('reloadCurrentRelease();'));
+  });
+
+  test('legacy root worker never navigates or unregisters active clients', () {
+    final worker = File('web/legacy_service_worker.js').readAsStringSync();
+
+    expect(worker, contains('self.clients.claim()'));
+    expect(worker, isNot(contains('client.navigate(')));
+    expect(worker, isNot(contains('self.registration.unregister()')));
+    expect(worker, isNot(contains('Response.redirect(')));
   });
 }
