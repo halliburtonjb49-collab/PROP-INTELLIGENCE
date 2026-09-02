@@ -77,7 +77,12 @@ def _new_signups(cursor: object, limit: int) -> list[dict[str, object]]:
 
 def _active_users(cursor: object, limit: int) -> list[dict[str, object]]:
     cursor.execute(
-        """select actor_hash, count(*) as events, max(occurred_at) as last_seen
+        """select actor_hash, count(*) as events, max(occurred_at) as last_seen,
+                  max(nullif(metadata->>'email', '')) as email,
+                  max(nullif(metadata->>'userId', '')) as user_id,
+                  max(nullif(metadata->>'username', '')) as username,
+                  max(nullif(metadata->>'name', '')) as display_name,
+                  max(nullif(metadata->>'member', '')) as member
            from public.security_events
            where occurred_at >= now() - interval '15 minutes'
              and actor_hash is not null
@@ -91,10 +96,16 @@ def _active_users(cursor: object, limit: int) -> list[dict[str, object]]:
         {
             # Already a hash upstream; shortened only so it fits a row.
             "actor": str(actor),
+            "email": str(email or ""),
+            "userId": str(user_id or ""),
+            "username": str(username or ""),
+            "name": str(display_name or ""),
+            "member": str(member or ""),
             "requests": int(events or 0),
             "lastSeenAt": _isoformat(last_seen),
         }
-        for actor, events, last_seen in cursor.fetchall()
+        for actor, events, last_seen, email, user_id, username, display_name, member
+        in cursor.fetchall()
     ]
 
 

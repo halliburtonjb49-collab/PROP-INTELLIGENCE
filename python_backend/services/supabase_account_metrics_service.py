@@ -46,15 +46,18 @@ def supabase_profiles() -> list[dict[str, Any]] | None:
     payload = response.json()
     profiles = [dict(row) for row in payload] if isinstance(payload, list) else []
 
-    auth_response = requests.get(
-        f"{base_url.rsplit('/rest/v1/user_profiles', 1)[0]}/auth/v1/admin/users",
-        params={"page": 1, "per_page": 1000},
-        headers=headers,
-        timeout=10,
-    )
-    auth_response.raise_for_status()
-    auth_payload = auth_response.json()
-    auth_users = auth_payload.get("users", []) if isinstance(auth_payload, dict) else []
+    try:
+        auth_response = requests.get(
+            f"{base_url.rsplit('/rest/v1/user_profiles', 1)[0]}/auth/v1/admin/users",
+            params={"page": 1, "per_page": 1000},
+            headers=headers,
+            timeout=10,
+        )
+        auth_response.raise_for_status()
+        auth_payload = auth_response.json()
+        auth_users = auth_payload.get("users", []) if isinstance(auth_payload, dict) else []
+    except requests.RequestException:
+        auth_users = []
     profiles_by_id = {str(row.get("id") or ""): row for row in profiles}
     merged: list[dict[str, Any]] = []
     for raw_user in auth_users:
@@ -163,11 +166,11 @@ def enrich_active_user_rows(
         profile = by_hash.get(actor, {})
         enriched.append(
             {
-                "email": profile.get("email") or "",
-                "userId": profile.get("userId") or actor[:12],
-                "username": profile.get("username") or "",
-                "name": profile.get("name") or "",
-                "member": profile.get("member") or "",
+                "email": profile.get("email") or row.get("email") or "",
+                "userId": profile.get("userId") or row.get("userId") or actor[:12],
+                "username": profile.get("username") or row.get("username") or "",
+                "name": profile.get("name") or row.get("name") or "",
+                "member": profile.get("member") or row.get("member") or "",
                 "requests": row.get("requests") or 0,
                 "lastSeenAt": row.get("lastSeenAt"),
             }

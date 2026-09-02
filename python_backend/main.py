@@ -140,7 +140,7 @@ from services.prop_catalog_snapshot_service import (
 )
 from services.raw_ingestion_service import health as ingestion_pipeline_health
 from services.rate_limit_service import allow_request
-from services.security_event_service import record_security_event, stable_actor_identity
+from services.security_event_service import actor_profile, record_security_event, stable_actor_identity
 from services.scoreboard_metrics_service import record_scoreboard_request
 from services.market_intelligence_service import latest_market_intelligence
 from services.espn_headshot_service import (
@@ -530,7 +530,7 @@ async def protect_premium_api(request: Request, call_next: Callable):
 				route=path,
 				method=request.method,
 				outcome=str(response.status_code),
-				metadata={"scope": scope},
+				metadata={"scope": scope, **actor_profile(authorization)},
 			)
 		elif identity and response.status_code < 400:
 			_queue_security_event(

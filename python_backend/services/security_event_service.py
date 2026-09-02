@@ -32,6 +32,36 @@ def stable_actor_identity(authorization: str, fallback: str = "") -> str:
     return str(fallback or value).strip()
 
 
+def actor_profile(authorization: str) -> dict[str, str]:
+    """Extract non-secret account identity fields from an authenticated JWT."""
+
+    value = str(authorization or "").strip()
+    if not value.lower().startswith("bearer "):
+        return {}
+    parts = value.split(" ", 1)[1].strip().split(".")
+    if len(parts) != 3:
+        return {}
+    try:
+        encoded = parts[1] + "=" * (-len(parts[1]) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(encoded))
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return {}
+    metadata = payload.get("user_metadata") or {}
+    app_metadata = payload.get("app_metadata") or {}
+    return {
+        "userId": str(payload.get("sub") or "").strip(),
+        "email": str(payload.get("email") or "").strip(),
+        "username": str(metadata.get("username") or "").strip(),
+        "name": str(
+            metadata.get("display_name")
+            or metadata.get("full_name")
+            or metadata.get("username")
+            or ""
+        ).strip(),
+        "member": str(app_metadata.get("role") or "").strip(),
+    }
+
+
 def actor_hash(identity: str) -> str | None:
     normalized = identity.strip()
     if not normalized:
