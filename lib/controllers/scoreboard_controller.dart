@@ -46,7 +46,7 @@ class ScoreboardController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final incoming = await _service.fetchGames(date: _selectedDate);
+      final incoming = await _fetchGamesWithRetry();
       _games = incoming;
     } catch (error) {
       if (silent) {
@@ -59,6 +59,26 @@ class ScoreboardController extends ChangeNotifier {
       _isRefreshing = false;
       notifyListeners();
     }
+  }
+
+  Future<List<ScoreboardGame>> _fetchGamesWithRetry() async {
+    Object? lastError;
+    const retryDelays = <Duration>[
+      Duration(milliseconds: 600),
+      Duration(seconds: 2),
+    ];
+
+    for (var attempt = 0; attempt <= retryDelays.length; attempt++) {
+      try {
+        return await _service.fetchGames(date: _selectedDate);
+      } catch (error) {
+        lastError = error;
+        if (attempt == retryDelays.length) rethrow;
+        await Future<void>.delayed(retryDelays[attempt]);
+      }
+    }
+
+    throw lastError ?? Exception('Unable to load live scores.');
   }
 
   String _formatErrorMessage(Object error) {
