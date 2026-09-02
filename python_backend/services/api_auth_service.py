@@ -212,6 +212,18 @@ def _resolve_membership_uncached(authorization: str) -> Membership:
         ) from exc
     raw_tier = str(profile.get("subscription_tier") or "free").strip().lower()
     granted_role = str(profile.get("assigned_member_role") or "").strip().lower()
+    # The Flutter client resolves owner status through the trusted
+    # `is_app_owner` database function, while the API historically recognized
+    # only its fixed UUID/email allowlist. That split could render the owner UI
+    # successfully and then reject the same account's prop request with 403.
+    # Profile roles are server-managed and read through authenticated RLS, so
+    # honor those grants consistently at the API boundary.
+    if granted_role == "owner":
+        return Membership(user_id, AccessLevel.OWNER, "pro", "owner")
+    if granted_role == "admin":
+        return Membership(user_id, AccessLevel.ADMIN, "pro", "admin")
+    if granted_role == "tester":
+        return Membership(user_id, AccessLevel.PRO, "pro", "tester")
     if granted_role in {"pro", "pro_founder"}:
         return Membership(user_id, AccessLevel.PRO, "pro", granted_role)
     if granted_role == "core" and raw_tier not in {
