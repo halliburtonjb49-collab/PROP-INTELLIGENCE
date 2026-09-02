@@ -44,7 +44,40 @@ def supabase_profiles() -> list[dict[str, Any]] | None:
     )
     response.raise_for_status()
     payload = response.json()
-    return [dict(row) for row in payload] if isinstance(payload, list) else []
+    profiles = [dict(row) for row in payload] if isinstance(payload, list) else []
+
+    auth_response = requests.get(
+        f"{base_url.rsplit('/rest/v1/user_profiles', 1)[0]}/auth/v1/admin/users",
+        params={"page": 1, "per_page": 1000},
+        headers=headers,
+        timeout=10,
+    )
+    auth_response.raise_for_status()
+    auth_payload = auth_response.json()
+    auth_users = auth_payload.get("users", []) if isinstance(auth_payload, dict) else []
+    profiles_by_id = {str(row.get("id") or ""): row for row in profiles}
+    merged: list[dict[str, Any]] = []
+    for raw_user in auth_users:
+        if not isinstance(raw_user, dict):
+            continue
+        user_id = str(raw_user.get("id") or "")
+        row = dict(profiles_by_id.pop(user_id, {}))
+        metadata = raw_user.get("user_metadata") or {}
+        row.setdefault("id", user_id)
+        row["email"] = row.get("email") or raw_user.get("email") or ""
+        row["username"] = row.get("username") or metadata.get("username") or ""
+        row["display_name"] = (
+            row.get("display_name")
+            or metadata.get("display_name")
+            or metadata.get("full_name")
+            or ""
+        )
+        row["created_at"] = row.get("created_at") or raw_user.get("created_at")
+        row["updated_at"] = row.get("updated_at") or raw_user.get("updated_at")
+        merged.append(row)
+    merged.extend(profiles_by_id.values())
+    merged.sort(key=lambda row: str(row.get("created_at") or ""), reverse=True)
+    return merged
 
 
 def _instant(value: object) -> datetime | None:
@@ -78,10 +111,16 @@ def supabase_profile_metrics(start: datetime, end: datetime) -> dict[str, object
 
 
 def _profile_row(row: dict[str, Any]) -> dict[str, object]:
+    email = str(row.get("email") or "")
+    username = str(row.get("username") or "")
+    name = str(row.get("display_name") or row.get("full_name") or username or "")
+    if not name and "@" in email:
+        name = email.split("@", 1)[0]
     return {
-        "email": row.get("email") or "",
+        "email": email,
         "userId": row.get("id") or "",
-        "name": row.get("display_name") or row.get("full_name") or "",
+        "username": username,
+        "name": name,
         "member": (
             row.get("assigned_member_role")
             or row.get("subscription_tier")
@@ -126,6 +165,7 @@ def enrich_active_user_rows(
             {
                 "email": profile.get("email") or "",
                 "userId": profile.get("userId") or actor[:12],
+                "username": profile.get("username") or "",
                 "name": profile.get("name") or "",
                 "member": profile.get("member") or "",
                 "requests": row.get("requests") or 0,

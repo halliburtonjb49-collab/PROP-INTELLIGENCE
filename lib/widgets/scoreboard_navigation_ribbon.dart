@@ -92,7 +92,7 @@ class _ScoreboardNavigationRibbonState
   Timer? _rotationTimer;
   Timer? _manualPauseTimer;
   int _page = 0;
-  String _tab = 'LIVE NOW';
+  String _tab = 'TODAY';
   bool _autoRotate = true;
   bool _hovered = false;
   bool _manualPaused = false;
@@ -207,10 +207,8 @@ class _ScoreboardNavigationRibbonState
       );
     });
     return switch (_tab) {
-      'LIVE NOW' => [
-        ...games.where((g) => g.isLive),
-        ...games.where((g) => g.isUpcoming),
-      ],
+      'TODAY' => games,
+      'LIVE NOW' => games.where((g) => g.isLive).toList(),
       'MY SPORTS' =>
         games
             .where(
@@ -299,7 +297,7 @@ class _ScoreboardNavigationRibbonState
         ),
         if (widget.expanded) ...[
           const SizedBox(width: 8),
-          for (final tab in ['LIVE NOW', 'MY SPORTS', 'UPCOMING', 'FINAL'])
+          for (final tab in ['TODAY', 'LIVE NOW', 'MY SPORTS', 'UPCOMING', 'FINAL'])
             _tabButton(tab, tab == 'LIVE NOW' ? liveCount : null),
         ],
         const SizedBox(width: 12),

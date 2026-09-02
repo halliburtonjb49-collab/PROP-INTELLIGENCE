@@ -143,19 +143,19 @@ DETAILS: Mapping[str, DetailQuery] = {
     "members": DetailQuery(
         title="All members",
         description="Every canonical Supabase member account.",
-        columns=("email", "userId", "name", "member", "signedUpAt", "lastUpdatedAt"),
+        columns=("email", "username", "userId", "name", "member", "signedUpAt", "lastUpdatedAt"),
         build=_new_signups,
     ),
     "newSignups": DetailQuery(
         title="New signups",
         description="Accounts created in the last 24 hours.",
-        columns=("email", "userId", "name", "member", "signedUpAt", "source"),
+        columns=("email", "username", "userId", "name", "member", "signedUpAt", "source"),
         build=_new_signups,
     ),
     "activeUsers": DetailQuery(
         title="Active users",
         description="Distinct users on protected features in the last 15 minutes.",
-        columns=("email", "userId", "name", "member", "requests", "lastSeenAt"),
+        columns=("email", "username", "userId", "name", "member", "requests", "lastSeenAt"),
         build=_active_users,
     ),
     "failedPayments": DetailQuery(

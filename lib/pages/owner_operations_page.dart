@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/prop_data.dart';
 import '../models/game_market.dart';
 import '../services/api_service.dart';
+import '../services/prop_chat_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_colors.dart' as brand_colors;
 import '../widgets/owner_command_center_overview.dart';
@@ -2561,6 +2563,70 @@ class _DetailSheet extends StatelessWidget {
     return text;
   }
 
+  Future<void> _email(BuildContext context, String email) async {
+    final opened = await launchUrl(
+      Uri(scheme: 'mailto', path: email),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No email application is available.')),
+      );
+    }
+  }
+
+  Future<void> _chat(BuildContext context, Map row) async {
+    final userId = '${row['userId'] ?? ''}'.trim();
+    if (userId.isEmpty || userId.length < 20) return;
+    final controller = TextEditingController();
+    final message = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF0C1823),
+        title: Text(
+          'PRIVATE MESSAGE TO ${row['username'] ?? row['name'] ?? row['email']}',
+          style: const TextStyle(color: AppColors.gold, fontSize: 14),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 3,
+          maxLines: 6,
+          maxLength: 500,
+          style: const TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: const Text('SEND'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (message == null || message.trim().isEmpty) return;
+    try {
+      final service = PropChatService();
+      final conversationId = await service.startDirectConversation(userId);
+      await service.sendDirectMessage(conversationId, message.trim());
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Private message sent.')),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to send message: $error')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
@@ -2667,6 +2733,8 @@ class _DetailSheet extends StatelessWidget {
                         const Divider(color: AppColors.border, height: 14),
                     itemBuilder: (context, index) {
                       final row = rows[index];
+                      final email = '${row['email'] ?? ''}'.trim();
+                      final userId = '${row['userId'] ?? ''}'.trim();
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -2696,6 +2764,27 @@ class _DetailSheet extends StatelessWidget {
                                       ),
                                     ),
                                   ),
+                                ],
+                              ),
+                            ),
+                          if (email.isNotEmpty || userId.length >= 20)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Wrap(
+                                spacing: 8,
+                                children: [
+                                  if (email.isNotEmpty)
+                                    OutlinedButton.icon(
+                                      onPressed: () => _email(context, email),
+                                      icon: const Icon(Icons.email_outlined, size: 15),
+                                      label: const Text('EMAIL'),
+                                    ),
+                                  if (userId.length >= 20)
+                                    OutlinedButton.icon(
+                                      onPressed: () => _chat(context, row),
+                                      icon: const Icon(Icons.chat_bubble_outline, size: 15),
+                                      label: const Text('PRIVATE CHAT'),
+                                    ),
                                 ],
                               ),
                             ),
