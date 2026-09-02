@@ -158,6 +158,18 @@ DETAILS: Mapping[str, DetailQuery] = {
         columns=("email", "username", "userId", "name", "member", "requests", "lastSeenAt"),
         build=_active_users,
     ),
+    "coreMembers": DetailQuery(
+        title="Core members",
+        description="Every account with active Core access.",
+        columns=("email", "username", "userId", "name", "member", "signedUpAt", "lastUpdatedAt"),
+        build=_new_signups,
+    ),
+    "proMembers": DetailQuery(
+        title="Pro members",
+        description="Every account with active Pro, Edge, Gold, or Founder access.",
+        columns=("email", "username", "userId", "name", "member", "signedUpAt", "lastUpdatedAt"),
+        build=_new_signups,
+    ),
     "failedPayments": DetailQuery(
         title="Failed payments",
         description="Subscription payment failures in the last 24 hours.",
@@ -190,15 +202,23 @@ def operations_detail(
     bounded = max(1, min(requested, MAXIMUM_LIMIT))
     if key == "members":
         bounded = MAXIMUM_LIMIT
-    if key in {"members", "newSignups"}:
+    if key in {"members", "newSignups", "coreMembers", "proMembers"}:
         try:
             rows = supabase_account_rows(bounded)
             if rows is not None:
+                if key == "coreMembers":
+                    rows = [row for row in rows if str(row.get("member") or "").lower() == "core"]
+                elif key == "proMembers":
+                    rows = [
+                        row for row in rows
+                        if str(row.get("member") or "").lower()
+                        in {"pro", "edge", "gold", "pro_gold", "pro-gold", "pro_founder"}
+                    ]
                 return {
                     "metric": key,
                     "supported": True,
-                    "title": "All members" if key == "members" else "Accounts",
-                    "description": "Every canonical Supabase member account." if key == "members" else "Canonical Supabase customer profiles.",
+                    "title": DETAILS[key].title,
+                    "description": DETAILS[key].description,
                     "columns": list(DETAILS[key].columns),
                     "rows": rows,
                     "returned": len(rows),

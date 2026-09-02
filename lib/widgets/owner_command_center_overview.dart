@@ -3,9 +3,20 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
 class OwnerCommandCenterOverview extends StatelessWidget {
-  const OwnerCommandCenterOverview({super.key, required this.data});
+  const OwnerCommandCenterOverview({
+    super.key,
+    required this.data,
+    this.onOpenMetric,
+  });
 
   final Map<String, dynamic> data;
+  final ValueChanged<Map>? onOpenMetric;
+  static const _memberDetailKeys = {
+    'activeUsers',
+    'newUsers',
+    'coreMembers',
+    'proMembers',
+  };
 
   Color _color(String status) => switch (status.toUpperCase()) {
     'HEALTHY' => const Color(0xFF65E6B4),
@@ -80,8 +91,17 @@ class OwnerCommandCenterOverview extends StatelessWidget {
                 runSpacing: 10,
                 children: metrics
                     .map(
-                      (metric) =>
-                          SizedBox(width: width, child: _metric(metric)),
+                      (metric) => SizedBox(
+                        width: width,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: onOpenMetric == null ||
+                                  !_memberDetailKeys.contains('${metric['key']}')
+                              ? null
+                              : () => onOpenMetric!(metric),
+                          child: _metric(metric),
+                        ),
+                      ),
                     )
                     .toList(growable: false),
               );

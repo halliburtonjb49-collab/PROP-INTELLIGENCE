@@ -528,6 +528,17 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             const SizedBox(height: 10),
             OwnerCommandCenterOverview(
               data: _commandCenter ?? const <String, dynamic>{},
+              onOpenMetric: (metric) {
+                final rawKey = '${metric['key'] ?? ''}';
+                final detailKey = switch (rawKey) {
+                  'newUsers' => 'newSignups',
+                  _ => rawKey,
+                };
+                _openDetail(
+                  detailKey,
+                  '${metric['label'] ?? rawKey}',
+                );
+              },
             ),
             const SizedBox(height: 22),
             _sectionTitle(
