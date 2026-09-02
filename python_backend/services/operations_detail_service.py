@@ -56,23 +56,82 @@ class DetailQuery:
     build: Callable[[object, int], list[dict[str, object]]]
 
 
-def _new_signups(cursor: object, limit: int) -> list[dict[str, object]]:
+def _account_directory(
+    cursor: object,
+    limit: int,
+    *,
+    where_clause: str = "true",
+) -> list[dict[str, object]]:
     cursor.execute(
-        """select coalesce(to_jsonb(profile)->>'email', ''),
+        f"""select coalesce(to_jsonb(profile)->>'email', account.email, ''),
+                   coalesce(to_jsonb(profile)->>'username',
+                            account.raw_user_meta_data->>'username', ''),
+                   account.id,
                    coalesce(to_jsonb(profile)->>'display_name',
-                            to_jsonb(profile)->>'full_name', ''),
-                   created_at
-            from public.user_profiles profile
-            where created_at >= now() - interval '24 hours'
-            order by created_at desc limit %s""",
+                            to_jsonb(profile)->>'full_name',
+                            account.raw_user_meta_data->>'display_name',
+                            account.raw_user_meta_data->>'full_name',
+                            account.raw_user_meta_data->>'username',
+                            split_part(coalesce(account.email, ''), '@', 1), ''),
+                   case
+                     when lower(coalesce(account.raw_app_meta_data->>'role', ''))
+                          in ('owner', 'admin')
+                       then lower(account.raw_app_meta_data->>'role')
+                     else coalesce(to_jsonb(profile)->>'assigned_member_role',
+                                          to_jsonb(profile)->>'subscription_tier',
+                                          'user')
+                   end,
+                   account.created_at,
+                   coalesce((to_jsonb(profile)->>'updated_at')::timestamptz,
+                            account.updated_at)
+            from auth.users account
+            left join public.user_profiles profile on profile.id = account.id
+            where {where_clause}
+            order by account.created_at desc limit %s""",
         (limit,),
     )
     return [
-        {"email": str(account or ""), "userId": "", "name": str(display_name or "--"),
-         "member": mask_email(account), "signedUpAt": _isoformat(created_at),
-         "source": "profile", "notification": "recorded"}
-        for account, display_name, created_at in cursor.fetchall()
+        {
+            "email": str(email or ""),
+            "username": str(username or ""),
+            "userId": str(user_id or ""),
+            "name": str(display_name or "Member"),
+            "member": str(member or "user"),
+            "signedUpAt": _isoformat(created_at),
+            "lastUpdatedAt": _isoformat(updated_at),
+            "source": "Supabase Auth",
+        }
+        for email, username, user_id, display_name, member, created_at, updated_at
+        in cursor.fetchall()
     ]
+
+
+def _all_members(cursor: object, limit: int) -> list[dict[str, object]]:
+    return _account_directory(cursor, limit)
+
+
+def _new_signups(cursor: object, limit: int) -> list[dict[str, object]]:
+    return _account_directory(
+        cursor,
+        limit,
+        where_clause="account.created_at >= now() - interval '24 hours'",
+    )
+
+
+def _core_members(cursor: object, limit: int) -> list[dict[str, object]]:
+    return _account_directory(
+        cursor,
+        limit,
+        where_clause="lower(coalesce(to_jsonb(profile)->>'assigned_member_role', to_jsonb(profile)->>'subscription_tier', '')) = 'core'",
+    )
+
+
+def _pro_members(cursor: object, limit: int) -> list[dict[str, object]]:
+    return _account_directory(
+        cursor,
+        limit,
+        where_clause="lower(coalesce(to_jsonb(profile)->>'assigned_member_role', to_jsonb(profile)->>'subscription_tier', '')) in ('pro','edge','gold','pro_gold','pro-gold','pro_founder')",
+    )
 
 
 def _active_users(cursor: object, limit: int) -> list[dict[str, object]]:
@@ -156,7 +215,7 @@ DETAILS: Mapping[str, DetailQuery] = {
         title="All members",
         description="Every canonical Supabase member account.",
         columns=("email", "username", "userId", "name", "member", "signedUpAt", "lastUpdatedAt"),
-        build=_new_signups,
+        build=_all_members,
     ),
     "newSignups": DetailQuery(
         title="New signups",
@@ -174,13 +233,13 @@ DETAILS: Mapping[str, DetailQuery] = {
         title="Core members",
         description="Every account with active Core access.",
         columns=("email", "username", "userId", "name", "member", "signedUpAt", "lastUpdatedAt"),
-        build=_new_signups,
+        build=_core_members,
     ),
     "proMembers": DetailQuery(
         title="Pro members",
         description="Every account with active Pro, Edge, Gold, or Founder access.",
         columns=("email", "username", "userId", "name", "member", "signedUpAt", "lastUpdatedAt"),
-        build=_new_signups,
+        build=_pro_members,
     ),
     "failedPayments": DetailQuery(
         title="Failed payments",
@@ -214,7 +273,7 @@ def operations_detail(
     bounded = max(1, min(requested, MAXIMUM_LIMIT))
     if key == "members":
         bounded = MAXIMUM_LIMIT
-    if key in {"members", "newSignups", "coreMembers", "proMembers"}:
+    if key in {"members", "newSignups", "coreMembers", "proMembers"} and not database_is_configured():
         try:
             rows = supabase_account_rows(bounded)
             if rows is not None:
