@@ -379,6 +379,20 @@ class ApiService {
           .then((response) => response.session?.accessToken);
       try {
         token = await refresh;
+      } catch (_) {
+        // Never abort a protected request inside the SDK refresh step. Mobile
+        // web can keep enough restored identity to render the signed-in shell
+        // while refreshSession times out or rejects its stale SDK snapshot.
+        // Re-import the canonical product-site refresh token and let the HTTP
+        // request (plus its explicit 401 retry) remain the source of truth.
+        try {
+          session = await SupabaseService.recoverPersistedWebSession(
+            forceRefresh: true,
+          ).timeout(const Duration(seconds: 8));
+          token = session?.accessToken ?? SupabaseService.persistedAccessToken;
+        } catch (_) {
+          token ??= SupabaseService.persistedAccessToken;
+        }
       } finally {
         if (identical(_sessionRefresh, refresh)) {
           _sessionRefresh = null;
