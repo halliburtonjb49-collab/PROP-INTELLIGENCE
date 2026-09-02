@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <defs>
+    <filter id="g" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <style>.ball{fill:none;stroke:#e7b84f;stroke-width:5;opacity:.62}.line{fill:none;stroke:#f0c967;stroke-width:4;stroke-linecap:round;opacity:.72}.label{fill:#e7b84f;opacity:.78;font:700 24px sans-serif;letter-spacing:2px;text-anchor:middle}</style>
+  </defs>
+  <g filter="url(#g)">
+    <g transform="translate(540 120)"><circle class="ball" r="42"/><path class="line" d="M-18-31C-4-15-4 15-18 31 M18-31C4-15 4 15 18 31"/><text class="label" y="67">MLB</text></g>
+    <g transform="translate(875 270)"><ellipse class="ball" rx="51" ry="33"/><path class="line" d="M-19 0H19 M-10-10V10 M0-12V12 M10-10V10"/><text class="label" y="70">NFL</text></g>
+    <g transform="translate(965 575)"><ellipse class="ball" rx="51" ry="33"/><path class="line" d="M-19 0H19 M-10-10V10 M0-12V12 M10-10V10"/><text class="label" y="70">NCAAF</text></g>
+    <g transform="translate(800 875)"><circle class="ball" r="46"/><path class="line" d="M-42 0H42 M0-42V42 M-33-29C-8-8-8 8-33 29 M33-29C8-8 8 8 33 29"/><text class="label" y="78">WNBA</text></g>
+    <g transform="translate(280 875)"><circle class="ball" r="46"/><path class="line" d="M-42 0H42 M0-42V42 M-33-29C-8-8-8 8-33 29 M33-29C8-8 8 8 33 29"/><text class="label" y="78">NBA</text></g>
+    <g transform="translate(115 575)"><ellipse class="ball" rx="50" ry="23"/><path class="line" d="M-45-4C-20 11 20 11 45-4"/><text class="label" y="64">NHL</text></g>
+    <g transform="translate(205 270)"><circle class="ball" r="46"/><path class="line" d="M0-20L19-6L12 17H-12L-19-6Z M0-42V-20 M40-12L19-6 M25 34L12 17 M-25 34L-12 17 M-40-12L-19-6"/><text class="label" y="78">SOCCER</text></g>
+  </g>
+</svg>
