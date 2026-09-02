@@ -31,8 +31,7 @@ and (
 );
 
 update public.user_profiles
-set assigned_member_role = 'owner',
-    subscription_tier = 'edge',
+set subscription_tier = 'edge',
     is_premium = true,
     updated_at = now()
 where id in (select user_id from public.app_owner_accounts);
