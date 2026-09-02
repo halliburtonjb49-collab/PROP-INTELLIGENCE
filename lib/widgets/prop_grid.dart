@@ -370,18 +370,16 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   void _warmVisiblePlayerPhotos(Iterable<PropData> props) {
     final pending = <String>[];
     for (final prop in props) {
+      if (prop.imagePath.trim().isEmpty) continue;
       final identity = prop.canonicalPlayerId.trim().isNotEmpty
           ? prop.canonicalPlayerId.trim()
           : prop.playerId.trim().isNotEmpty
           ? prop.playerId.trim()
           : prop.player.trim().toLowerCase();
-      final sourceUrl = prop.imagePath.trim().isEmpty
-          ? resolveCanonicalPlayerImagePath(
-              player: prop.player,
-              sport: prop.sport,
-              identityKey: identity,
-            )
-          : resolvePlayerImagePath(prop.imagePath, identityKey: identity);
+      final sourceUrl = resolvePlayerImagePath(
+        prop.imagePath,
+        identityKey: identity,
+      );
       final url = kIsWeb
           ? resolvePlayerImagePath(
               sourceUrl,
