@@ -1018,13 +1018,16 @@ class ApiService {
         ? _normalizeBaseUrl(Uri.base.origin)
         : '';
     final candidates = <String>{
-      // Browser traffic stays on the customer-facing origin first. This
-      // avoids CORS, stale preflight caches, and cross-domain auth handoffs.
-      if (brandedWebOrigin.isNotEmpty) brandedWebOrigin,
+      // Call the protected API directly first. The branded Vercel rewrite can
+      // delay or reject Authorization forwarding on mobile; its request and
+      // refresh retry then consume the board's full loading deadline before
+      // this healthy API origin is attempted. The API explicitly permits the
+      // branded web origins and Authorization header through CORS.
       configured,
-      // Native releases and development builds retain the direct API as a
-      // controlled fallback. It must never outrank the branded web gateway.
       'https://api.propsintell.com',
+      // Retain the same-origin gateway as a final recovery path for temporary
+      // direct-origin or preflight failures.
+      if (brandedWebOrigin.isNotEmpty) brandedWebOrigin,
     };
     return candidates
         .map(_normalizeBaseUrl)
