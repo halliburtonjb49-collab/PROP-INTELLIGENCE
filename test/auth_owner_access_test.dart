@@ -40,6 +40,24 @@ void main() {
     expect(state.hasEdgeAccess, isTrue);
   });
 
+  test('owner stored as Core still presents full Pro access', () {
+    const state = AuthSessionState(
+      ready: true,
+      authenticated: true,
+      isPremium: false,
+      subscriptionTier: SubscriptionTier.core,
+      role: 'owner',
+      userId: 'owner-id',
+      email: 'propsintell@gmail.com',
+      message: 'Authenticated',
+    );
+
+    expect(state.effectiveSubscriptionTier, SubscriptionTier.edge);
+    expect(state.hasCoreAccess, isTrue);
+    expect(state.hasEdgeAccess, isTrue);
+    expect(state.requiresPaidPlan, isFalse);
+  });
+
   test('owner access preview never revokes privileged access', () {
     AuthSessionState ownerPreview(SubscriptionTier tier) => AuthSessionState(
       ready: true,

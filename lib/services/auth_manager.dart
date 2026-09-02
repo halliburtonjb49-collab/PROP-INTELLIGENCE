@@ -150,6 +150,10 @@ class AuthSessionState {
       };
   SubscriptionTier get effectiveSubscriptionTier {
     if (isAccessPreviewActive) return accessPreviewTier!;
+    // Owner authorization is above every paid plan. The profile row may
+    // still contain a historical Core value, but that must never label or
+    // present the owner workspace as Core outside explicit preview mode.
+    if (isOwner) return SubscriptionTier.edge;
     return subscriptionTier.index >= grantedSubscriptionTier.index
         ? subscriptionTier
         : grantedSubscriptionTier;
