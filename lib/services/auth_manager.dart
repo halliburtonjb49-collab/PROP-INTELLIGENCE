@@ -15,7 +15,9 @@ Map<String, dynamic> _jwtClaims(String token) {
   final parts = token.split('.');
   if (parts.length < 2) return const <String, dynamic>{};
   try {
-    final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+    final payload = utf8.decode(
+      base64Url.decode(base64Url.normalize(parts[1])),
+    );
     final decoded = jsonDecode(payload);
     return decoded is Map
         ? Map<String, dynamic>.from(decoded)
@@ -731,8 +733,7 @@ class AuthManager {
     final claims = _jwtClaims(session!.accessToken);
     final claimMetadata = claims['app_metadata'];
     final claimRole = claimMetadata is Map ? claimMetadata['role'] : null;
-    final resolvedEmail =
-        user.email?.trim().isNotEmpty == true
+    final resolvedEmail = user.email?.trim().isNotEmpty == true
         ? user.email
         : claims['email']?.toString();
     final resolvedUserId = user.id.trim().isNotEmpty
