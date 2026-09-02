@@ -80,7 +80,8 @@ class SlipHistoryPanel extends StatefulWidget {
   State<SlipHistoryPanel> createState() => _SlipHistoryPanelState();
 }
 
-class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
+class _SlipHistoryPanelState extends State<SlipHistoryPanel>
+    with WidgetsBindingObserver {
   final ApiService _apiService = ApiService();
   final LiveUpdateService _liveUpdates = LiveUpdateService(
     channels: const {'tickets'},
@@ -139,6 +140,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _selectedTab = _isHistory ? 'all' : 'active';
     final recent = widget.activeSlipController.recentLockedSlips;
     _slipsFuture = !widget.isActive
@@ -162,6 +164,14 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
       });
     }
     if (widget.isActive) _startPolling();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !widget.isActive) return;
+    _liveUpdates.resume();
+    _startPolling();
+    unawaited(_reloadSlipsOnly());
   }
 
   void _startPolling() {
@@ -347,6 +357,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
     _liveStatsTimer?.cancel();
     unawaited(_liveSubscription?.cancel());

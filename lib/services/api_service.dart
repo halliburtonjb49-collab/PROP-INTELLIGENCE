@@ -2319,9 +2319,15 @@ class ApiService {
       },
     ).query;
     final uri = Uri.parse('$baseUrl/api/identity/unresolved-grouped?$query');
-    final response = await http
+    var response = await http
         .get(uri, headers: await _authenticatedHeaders())
         .timeout(const Duration(seconds: 20));
+
+    if (response.statusCode == 401) {
+      response = await http
+          .get(uri, headers: await _authenticatedHeaders(forceRefresh: true))
+          .timeout(const Duration(seconds: 20));
+    }
 
     if (response.statusCode != 200) {
       throw Exception(
