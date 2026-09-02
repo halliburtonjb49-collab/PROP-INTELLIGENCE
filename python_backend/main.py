@@ -665,7 +665,9 @@ def _persist_catalog_snapshot_background(props: list[PropResponse]) -> None:
 			return
 		rows = [prop.model_dump(mode="json") for prop in props]
 		save_catalog_snapshot(rows)
-		reconcile_catalog(rows)
+		# Identity/media reconciliation performs many database writes and can be
+		# lock-bound for minutes. It has a dedicated scheduled job and owner
+		# endpoint; never let it compete with user-facing API traffic here.
 	except Exception:
 		logging.exception("Background prop catalog snapshot persist failed")
 

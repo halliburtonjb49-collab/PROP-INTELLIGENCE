@@ -74,35 +74,120 @@ def promote_media_candidate(*, identity_type: str, sport: str, name: str, provid
         except Exception as exc: LOGGER.warning("Media registry promotion failed: %s", exc); return False
 
 def reconcile_catalog(rows: Iterable[object], *, provider: str = "live-catalog") -> dict[str, object]:
-    items = list(rows); counts = Counter(); unresolved = 0
-    if not database_is_configured(): return {"status":"unavailable","reason":"database_not_configured","rows":len(items)}
+    items = list(rows)
+    counts = Counter()
+    unresolved_rows: dict[tuple[str, str, str, str], tuple[object, ...]] = {}
+    identities: dict[tuple[str, str, str, str], tuple[str, str, str, str]] = {}
+
+    for raw in items:
+        sport = str(_value(raw, "sport") or "UNKNOWN").upper()
+        player = str(_value(raw, "player") or "").strip()
+        source_id = str(
+            _value(raw, "sourcePlayerId", "source_player_id", "playerId") or ""
+        ).strip()
+        source_provider = str(
+            _value(raw, "sourceProvider", "provider", "bookmaker") or provider
+        ).lower()
+        normalized = normalize_identity(player)
+        counts[(source_provider, sport)] += 1
+        if not normalized:
+            key = (sport, source_provider, source_id, player)
+            unresolved_rows.setdefault(
+                key,
+                (
+                    sport,
+                    source_provider,
+                    source_id,
+                    player,
+                    normalized,
+                    json.dumps({"propId": _value(raw, "id")}),
+                ),
+            )
+            continue
+        identities.setdefault(
+            (sport, normalized, source_provider, source_id),
+            (sport, player, normalized, source_provider, source_id),
+        )
+
+    if not database_is_configured():
+        return {
+            "status": "unavailable",
+            "reason": "database_not_configured",
+            "rows": len(items),
+        }
+
     try:
-        with get_database_pool().connection(timeout=5) as connection, connection.cursor() as cursor:
-            for raw in items:
-                sport = str(_value(raw,"sport") or "UNKNOWN").upper(); player = str(_value(raw,"player") or "").strip()
-                source_id = str(_value(raw,"sourcePlayerId","source_player_id","playerId") or "").strip()
-                source_provider = str(_value(raw,"sourceProvider","provider","bookmaker") or provider).lower()
-                counts[(source_provider,sport)] += 1; normalized = normalize_identity(player)
-                if not normalized:
-                    unresolved += 1
-                    cursor.execute("""insert into pi_identity_reconciliation_queue(identity_type,sport,provider,provider_identity_id,observed_name,normalized_name,reason,sample_payload)
+        with get_database_pool().connection(timeout=2) as connection, connection.cursor() as cursor:
+            cursor.execute("set local lock_timeout = '1000ms'")
+            cursor.execute("set local statement_timeout = '5000ms'")
+            for values in unresolved_rows.values():
+                cursor.execute(
+                    """insert into pi_identity_reconciliation_queue(identity_type,sport,provider,provider_identity_id,observed_name,normalized_name,reason,sample_payload)
                       values('player',%s,%s,%s,%s,%s,'missing_name',%s::jsonb) on conflict(identity_type,sport,provider,provider_identity_id,normalized_name,reason)
                       do update set occurrence_count=pi_identity_reconciliation_queue.occurrence_count+1,last_seen_at=now(),sample_payload=excluded.sample_payload""",
-                      (sport,source_provider,source_id,player,normalized,json.dumps({"propId":_value(raw,"id")}))); continue
-                cursor.execute("""insert into pi_identities(identity_type,sport,canonical_name,normalized_name) values('player',%s,%s,%s)
-                  on conflict(identity_type,sport,normalized_name) do update set canonical_name=excluded.canonical_name,updated_at=now() returning id""", (sport,player,normalized))
-                identity_id = cursor.fetchone()[0]
-                cursor.execute("""insert into pi_identity_aliases(pi_identity_id,provider,provider_identity_id,alias,normalized_alias,last_seen_at)
-                  values(%s,%s,%s,%s,%s,now()) on conflict(provider,provider_identity_id,normalized_alias)
-                  do update set pi_identity_id=excluded.pi_identity_id,alias=excluded.alias,last_seen_at=now()""", (identity_id,source_provider,source_id,player,normalized))
-            for (source_provider,sport), prop_count in counts.items():
-                cursor.execute("select prop_count from pi_provider_inventory_observations where provider=%s and sport=%s order by observed_at desc limit 1", (source_provider,sport)); prior = cursor.fetchone()
-                previous = int(prior[0]) if prior else None; ratio = ((prop_count-previous)/previous) if previous else None
-                status = "interrupted" if previous and prop_count == 0 else "critical" if ratio is not None and ratio <= -.65 else "warning" if ratio is not None and ratio <= -.35 else "healthy"
-                cursor.execute("insert into pi_provider_inventory_observations(provider,sport,prop_count,prior_prop_count,change_ratio,status) values(%s,%s,%s,%s,%s,%s)", (source_provider,sport,prop_count,previous,ratio,status))
+                    values,
+                )
+            for sport, player, normalized, source_provider, source_id in identities.values():
+                cursor.execute(
+                    """insert into pi_identities(identity_type,sport,canonical_name,normalized_name)
+                      values('player',%s,%s,%s)
+                      on conflict(identity_type,sport,normalized_name) do nothing
+                      returning id""",
+                    (sport, player, normalized),
+                )
+                identity = cursor.fetchone()
+                if identity is None:
+                    cursor.execute(
+                        """select id from pi_identities
+                          where identity_type='player' and sport=%s and normalized_name=%s
+                          limit 1""",
+                        (sport, normalized),
+                    )
+                    identity = cursor.fetchone()
+                if identity is None:
+                    continue
+                cursor.execute(
+                    """insert into pi_identity_aliases(pi_identity_id,provider,provider_identity_id,alias,normalized_alias,last_seen_at)
+                      values(%s,%s,%s,%s,%s,now()) on conflict(provider,provider_identity_id,normalized_alias)
+                      do update set pi_identity_id=excluded.pi_identity_id,alias=excluded.alias,last_seen_at=now()""",
+                    (identity[0], source_provider, source_id, player, normalized),
+                )
+            for (source_provider, sport), prop_count in counts.items():
+                cursor.execute(
+                    "select prop_count from pi_provider_inventory_observations where provider=%s and sport=%s order by observed_at desc limit 1",
+                    (source_provider, sport),
+                )
+                prior = cursor.fetchone()
+                previous = int(prior[0]) if prior else None
+                ratio = ((prop_count - previous) / previous) if previous else None
+                status = (
+                    "interrupted" if previous and prop_count == 0
+                    else "critical" if ratio is not None and ratio <= -.65
+                    else "warning" if ratio is not None and ratio <= -.35
+                    else "healthy"
+                )
+                cursor.execute(
+                    "insert into pi_provider_inventory_observations(provider,sport,prop_count,prior_prop_count,change_ratio,status) values(%s,%s,%s,%s,%s,%s)",
+                    (source_provider, sport, prop_count, previous, ratio, status),
+                )
             connection.commit()
-        return {"status":"complete","rows":len(items),"identitiesObserved":len(items)-unresolved,"unresolved":unresolved,"segments":len(counts)}
-    except Exception as exc: LOGGER.warning("Identity registry reconciliation failed: %s", exc, exc_info=True); return {"status":"unavailable","reason":type(exc).__name__,"rows":len(items)}
+        return {
+            "status": "complete",
+            "rows": len(items),
+            "identitiesObserved": len(items) - len(unresolved_rows),
+            "uniqueIdentitiesWritten": len(identities),
+            "unresolved": len(unresolved_rows),
+            "segments": len(counts),
+        }
+    except Exception as exc:
+        LOGGER.warning(
+            "Identity registry reconciliation failed: %s", exc, exc_info=True
+        )
+        return {
+            "status": "unavailable",
+            "reason": type(exc).__name__,
+            "rows": len(items),
+        }
 
 def registry_summary() -> dict[str, object]:
     if not database_is_configured(): return {"status":"unavailable","reason":"database_not_configured"}

@@ -419,6 +419,28 @@ def test_reconciliation_failure_does_not_break_the_caller(monkeypatch):
     assert main._reconcile_catalog_snapshot() is False
 
 
+def test_snapshot_persist_never_runs_identity_reconciliation(monkeypatch):
+    prop = SimpleNamespace(model_dump=lambda mode=None: {"id": "p1"})
+    saved = []
+    monkeypatch.setattr(main, "snapshot_is_behind", lambda _rows: True)
+    monkeypatch.setattr(
+        main,
+        "save_catalog_snapshot",
+        lambda rows: saved.append(rows) or True,
+    )
+    monkeypatch.setattr(
+        main,
+        "reconcile_catalog",
+        lambda _rows: (_ for _ in ()).throw(
+            AssertionError("identity reconciliation must not run in the API")
+        ),
+    )
+
+    main._persist_catalog_snapshot_background([prop])
+
+    assert saved == [[{"id": "p1"}]]
+
+
 def test_catalog_publication_failure_reports_the_redis_cause(monkeypatch):
     """A bare "could not be published" told the cron nothing actionable.
 
