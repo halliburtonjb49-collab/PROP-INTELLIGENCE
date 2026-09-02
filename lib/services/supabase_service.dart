@@ -100,9 +100,17 @@ class SupabaseService {
     );
 
     _initialized = true;
-    if (kIsWeb && Supabase.instance.client.auth.currentSession == null) {
+    if (kIsWeb) {
       try {
-        await recoverPersistedWebSession().timeout(const Duration(seconds: 8));
+        // The product-site login and Flutter web runtime use different
+        // storage adapters even though they share the same canonical key.
+        // Safari/Chrome can therefore restore a stale Flutter snapshot while
+        // the fresh marketing session sits in window.localStorage. Always
+        // import and refresh that canonical session before AuthManager or the
+        // protected prop loader is allowed to inspect currentSession.
+        await recoverPersistedWebSession(
+          forceRefresh: true,
+        ).timeout(const Duration(seconds: 8));
       } catch (error) {
         debugPrint('Supabase web session recovery deferred: $error');
       }
