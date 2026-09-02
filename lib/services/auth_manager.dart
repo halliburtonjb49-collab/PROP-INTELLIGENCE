@@ -730,7 +730,7 @@ class AuthManager {
       return;
     }
 
-    final claims = _jwtClaims(session!.accessToken);
+    final claims = _jwtClaims(session.accessToken);
     final claimMetadata = claims['app_metadata'];
     final claimRole = claimMetadata is Map ? claimMetadata['role'] : null;
     final resolvedEmail = user.email?.trim().isNotEmpty == true
