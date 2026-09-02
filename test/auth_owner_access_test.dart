@@ -23,6 +23,17 @@ void main() {
     },
   );
 
+  test('all established owner identities resolve to owner', () {
+    expect(
+      resolveAccountRole(
+        email: 'halliburtonjb49@gmail.com',
+        role: 'user',
+        userId: '84a76503-f704-46b6-be87-760ea8c9f2f5',
+      ),
+      'owner',
+    );
+  });
+
   test('owner receives full Core and Pro access', () {
     const state = AuthSessionState(
       ready: true,

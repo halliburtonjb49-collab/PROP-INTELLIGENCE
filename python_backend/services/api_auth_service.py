@@ -14,8 +14,12 @@ from config import HTTP_TIMEOUT_SECONDS
 
 _DEFAULT_OWNER_EMAILS = {
     "propsintell@gmail.com",
+    "halliburtonjb49@gmail.com",
 }
-_DEFAULT_OWNER_USER_IDS = {"7fdb460c-dcaa-42ac-89c1-e9950b9b9c55"}
+_DEFAULT_OWNER_USER_IDS = {
+    "7fdb460c-dcaa-42ac-89c1-e9950b9b9c55",
+    "84a76503-f704-46b6-be87-760ea8c9f2f5",
+}
 
 
 class AccessLevel(IntEnum):
@@ -103,8 +107,13 @@ def _owner_emails() -> set[str]:
 
 
 def _owner_user_ids() -> set[str]:
-    """Return the single immutable production owner user ID."""
-    return _DEFAULT_OWNER_USER_IDS
+    """Return immutable and deployment-configured owner user IDs."""
+    configured = {
+        user_id.strip().lower()
+        for user_id in os.getenv("OWNER_USER_IDS", "").split(",")
+        if user_id.strip()
+    }
+    return _DEFAULT_OWNER_USER_IDS | configured
 
 
 def _token_claims(token: str) -> dict[str, object]:

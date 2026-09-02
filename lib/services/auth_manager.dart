@@ -8,8 +8,14 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'supabase_service.dart';
 
-const Set<String> _ownerEmails = {'propsintell@gmail.com'};
-const Set<String> _ownerUserIds = {'7fdb460c-dcaa-42ac-89c1-e9950b9b9c55'};
+const Set<String> _ownerEmails = {
+  'propsintell@gmail.com',
+  'halliburtonjb49@gmail.com',
+};
+const Set<String> _ownerUserIds = {
+  '7fdb460c-dcaa-42ac-89c1-e9950b9b9c55',
+  '84a76503-f704-46b6-be87-760ea8c9f2f5',
+};
 
 Map<String, dynamic> _jwtClaims(String token) {
   final parts = token.split('.');

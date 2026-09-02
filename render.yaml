@@ -165,9 +165,9 @@ services:
       - key: ADMIN_API_KEY
         sync: false
       - key: OWNER_EMAILS
-        value: propsintell@gmail.com
+        value: propsintell@gmail.com,halliburtonjb49@gmail.com
       - key: OWNER_USER_IDS
-        value: 7fdb460c-dcaa-42ac-89c1-e9950b9b9c55
+        value: 7fdb460c-dcaa-42ac-89c1-e9950b9b9c55,84a76503-f704-46b6-be87-760ea8c9f2f5
       - key: PIPELINE_ALERT_WEBHOOK_URL
         sync: false
       - key: HISTORICAL_MLB_LOOKBACK_DAYS
