@@ -65,15 +65,29 @@ class ScoreboardService {
 
   Future<List<ScoreboardGame>> fetchGames({required DateTime date}) async {
     final formattedDate = _dateKey(date);
-
-    final response = await _getWithFallback(
-      '/api/scoreboard',
-      queryParameters: {'date': formattedDate},
-      timeout: const Duration(seconds: 12),
-    );
     final now = DateTime.now();
     final isToday =
         date.year == now.year && date.month == now.month && date.day == now.day;
+    final cached = cachedGames(date);
+
+    late final http.Response response;
+    try {
+      response = await _getWithFallback(
+        '/api/scoreboard',
+        queryParameters: {'date': formattedDate},
+        timeout: const Duration(seconds: 8),
+      );
+    } catch (_) {
+      if (cached.isNotEmpty) return cached;
+      if (isToday) {
+        final fallback = await _fetchFallbackGamesFromProps();
+        if (fallback.isNotEmpty) {
+          _memoryCache[formattedDate] = List.unmodifiable(fallback);
+          return fallback;
+        }
+      }
+      rethrow;
+    }
 
     // Some backend environments do not expose /api/scoreboard yet.
     // Treat 404 as temporarily unavailable so the UI can fail soft.
@@ -170,7 +184,7 @@ class ScoreboardService {
     try {
       final response = await _getWithFallback(
         '/api/props',
-        timeout: const Duration(seconds: 10),
+        timeout: const Duration(seconds: 6),
       );
       if (response.statusCode != 200) {
         return const [];

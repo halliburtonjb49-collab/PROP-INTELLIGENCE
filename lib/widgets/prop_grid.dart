@@ -118,6 +118,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   Timer? _lineRefreshTimer;
   bool _isLiveRefreshing = false;
   int _automaticRetryCount = 0;
+  DateTime? _backgroundedAt;
+  bool _resumeRefreshInFlight = false;
   // Filtering, sorting and collapsing the board happens in build, so every
   // setState paid for it: expanding one card's research or switching one
   // card's book re-derived the whole board. None of those inputs change what
@@ -373,13 +375,20 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           : prop.playerId.trim().isNotEmpty
           ? prop.playerId.trim()
           : prop.player.trim().toLowerCase();
-      final url = prop.imagePath.trim().isEmpty
+      final sourceUrl = prop.imagePath.trim().isEmpty
           ? resolveCanonicalPlayerImagePath(
               player: prop.player,
               sport: prop.sport,
               identityKey: identity,
             )
           : resolvePlayerImagePath(prop.imagePath, identityKey: identity);
+      final url = kIsWeb
+          ? resolvePlayerImagePath(
+              sourceUrl,
+              useApiProxyForRemoteImages: true,
+              identityKey: identity,
+            )
+          : sourceUrl;
       if (url.isNotEmpty && _warmedPlayerPhotoUrls.add(url)) pending.add(url);
       if (pending.length >= 24) break;
     }
@@ -3504,8 +3513,38 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      unawaited(_refreshLiveLines());
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _backgroundedAt ??= DateTime.now();
+      return;
+    }
+    if (state == AppLifecycleState.resumed && _backgroundedAt != null) {
+      _backgroundedAt = null;
+      _warmVisiblePlayerPhotos(
+        _preparedProps
+            .map((prepared) => prepared.prop)
+            .take(_visiblePropLimit),
+      );
+      unawaited(_restoreAfterBackground());
+    }
+  }
+
+  Future<void> _restoreAfterBackground() async {
+    if (!mounted || _resumeRefreshInFlight) return;
+    _resumeRefreshInFlight = true;
+    try {
+      await AuthManager.instance.refreshSessionState();
+      if (!mounted) return;
+      await _refreshProps();
+      if (!mounted) return;
+      _warmVisiblePlayerPhotos(
+        _preparedProps
+            .map((prepared) => prepared.prop)
+            .take(_visiblePropLimit),
+      );
+    } finally {
+      _resumeRefreshInFlight = false;
     }
   }
 

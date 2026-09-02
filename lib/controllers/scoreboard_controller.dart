@@ -49,7 +49,7 @@ class ScoreboardController extends ChangeNotifier {
       final incoming = await _service.fetchGames(date: _selectedDate);
       _games = incoming;
     } catch (error) {
-      if (_games.isNotEmpty && silent) {
+      if (silent) {
         _errorMessage = null;
       } else {
         _errorMessage = _formatErrorMessage(error);
@@ -62,6 +62,9 @@ class ScoreboardController extends ChangeNotifier {
   }
 
   String _formatErrorMessage(Object error) {
+    if (error is TimeoutException) {
+      return 'Live scores are taking longer than expected. Please retry.';
+    }
     final message = error.toString().replaceFirst('Exception: ', '').trim();
     if (message.length <= 140) {
       return message;
