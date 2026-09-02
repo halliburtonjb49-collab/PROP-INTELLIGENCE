@@ -11,6 +11,20 @@ import 'supabase_service.dart';
 const Set<String> _ownerEmails = {'propsintell@gmail.com'};
 const Set<String> _ownerUserIds = {'7fdb460c-dcaa-42ac-89c1-e9950b9b9c55'};
 
+Map<String, dynamic> _jwtClaims(String token) {
+  final parts = token.split('.');
+  if (parts.length < 2) return const <String, dynamic>{};
+  try {
+    final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+    final decoded = jsonDecode(payload);
+    return decoded is Map
+        ? Map<String, dynamic>.from(decoded)
+        : const <String, dynamic>{};
+  } catch (_) {
+    return const <String, dynamic>{};
+  }
+}
+
 @visibleForTesting
 bool isPasswordRecoveryUri(Uri uri) =>
     uri.queryParameters['auth_action'] == 'recovery' ||
@@ -312,8 +326,20 @@ class AuthManager {
       final refreshed = await client.auth.refreshSession();
       usableSession = refreshed.session ?? restoredSession;
     } catch (_) {
-      // _setSession still resolves the restored identity. Protected requests
-      // retain their normal retry/error behavior if the network is offline.
+      // Mobile Safari and Chrome can restore an expired access token while
+      // retaining a valid refresh token. Rebuild the session from that refresh
+      // token before allowing the workspace to issue protected prop requests.
+      // Falling straight back to restoredSession reproduces the 401/paywall
+      // race this method exists to prevent.
+      try {
+        usableSession =
+            await SupabaseService.recoverPersistedWebSession(
+              forceRefresh: true,
+            ) ??
+            restoredSession;
+      } catch (_) {
+        usableSession = restoredSession;
+      }
     } finally {
       _restoringInitialSession = false;
     }
@@ -702,10 +728,20 @@ class AuthManager {
       return;
     }
 
+    final claims = _jwtClaims(session!.accessToken);
+    final claimMetadata = claims['app_metadata'];
+    final claimRole = claimMetadata is Map ? claimMetadata['role'] : null;
+    final resolvedEmail =
+        user.email?.trim().isNotEmpty == true
+        ? user.email
+        : claims['email']?.toString();
+    final resolvedUserId = user.id.trim().isNotEmpty
+        ? user.id
+        : claims['sub']?.toString();
     var role = resolveAccountRole(
-      email: user.email,
-      role: user.appMetadata['role'],
-      userId: user.id,
+      email: resolvedEmail,
+      role: user.appMetadata['role'] ?? claimRole,
+      userId: resolvedUserId,
     );
     // Safari can restore a valid Supabase session before every user field has
     // been reconstructed from storage. Resolve the one protected owner record
@@ -742,7 +778,7 @@ class AuthManager {
         accessPreviewTier: null,
         role: role,
         userId: user.id,
-        email: user.email,
+        email: resolvedEmail,
         username: metadataUsername,
         avatarUrl: metadataAvatarUrl,
         message: 'Authenticated',
@@ -772,7 +808,7 @@ class AuthManager {
       accessPreviewTier: null,
       role: role,
       userId: user.id,
-      email: user.email,
+      email: resolvedEmail,
       username: metadataUsername,
       avatarUrl: metadataAvatarUrl,
       message: 'Authenticated; refreshing membership',
