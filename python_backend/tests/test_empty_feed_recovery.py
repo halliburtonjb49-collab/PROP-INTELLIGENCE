@@ -440,6 +440,25 @@ def test_snapshot_persist_never_runs_identity_reconciliation(monkeypatch):
 
     assert saved == [[{"id": "p1"}]]
 
+def test_registered_media_url_does_not_open_database_on_live_cache_miss(monkeypatch):
+    import services.identity_media_registry_service as registry
+
+    registry._MEDIA_CACHE.clear()
+    monkeypatch.setattr(registry, "database_is_configured", lambda: True)
+    monkeypatch.setattr(
+        registry,
+        "get_database_pool",
+        lambda: (_ for _ in ()).throw(
+            AssertionError("live media lookup must not open the database")
+        ),
+    )
+
+    assert registry.registered_media_url(
+        identity_type="player",
+        sport="NFL",
+        name="Mobile Test Player",
+    ) == ""
+
 
 def test_catalog_publication_failure_reports_the_redis_cause(monkeypatch):
     """A bare "could not be published" told the cron nothing actionable.

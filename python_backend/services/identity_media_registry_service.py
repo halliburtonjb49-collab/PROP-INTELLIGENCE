@@ -40,11 +40,25 @@ def _media_is_valid(url: str) -> bool:
             return response.status < 400 and str(response.headers.get("content-type") or "").lower().startswith("image/")
     except Exception: return False
 
-def registered_media_url(*, identity_type: str, sport: str, name: str) -> str:
+def registered_media_url(
+    *,
+    identity_type: str,
+    sport: str,
+    name: str,
+    allow_database_lookup: bool = False,
+) -> str:
+    """Return registered media without blocking live prop responses.
+
+    Player-image resolution runs while the shared prop catalog is hydrated.
+    A database lookup for every cache miss made the first mobile request wait
+    minutes when the registry pool was busy. Live callers now use memory only
+    and immediately fall through to the league image providers. Maintenance
+    callers may explicitly opt into a database lookup.
+    """
     normalized = normalize_identity(name); key = (identity_type, sport.upper(), normalized); now = datetime.now(timezone.utc)
     cached = _MEDIA_CACHE.get(key)
     if cached and now - cached[0] < _MEDIA_CACHE_TTL: return cached[1]
-    if not normalized or not database_is_configured(): return ""
+    if not allow_database_lookup or not normalized or not database_is_configured(): return ""
     try:
         with get_database_pool().connection(timeout=2) as connection, connection.cursor() as cursor:
             cursor.execute("""select coalesce(nullif(m.cached_url,''),m.source_url) from pi_identities i
@@ -70,7 +84,11 @@ def promote_media_candidate(*, identity_type: str, sport: str, name: str, provid
                   values(%s,%s,%s,%s,%s,'approved',true,now()) on conflict(pi_identity_id,media_type,source_provider,source_url)
                   do update set status='approved',is_last_known_good=true,last_verified_at=now(),failure_count=0,updated_at=now()""",
                   (identity_id, media_type, provider, url, hashlib.sha256(url.encode()).hexdigest())); connection.commit()
-            _MEDIA_CACHE.pop((identity_type, sport.upper(), normalized), None); return True
+            _MEDIA_CACHE[(identity_type, sport.upper(), normalized)] = (
+                datetime.now(timezone.utc),
+                url,
+            )
+            return True
         except Exception as exc: LOGGER.warning("Media registry promotion failed: %s", exc); return False
 
 def reconcile_catalog(rows: Iterable[object], *, provider: str = "live-catalog") -> dict[str, object]:
