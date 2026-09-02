@@ -102,7 +102,9 @@ def _database_metrics(start: datetime, end: datetime) -> dict[str, object]:
                 """select count(distinct actor_hash)
                    from public.security_events
                    where occurred_at >= now() - interval '15 minutes'
-                     and actor_hash is not null"""
+                     and actor_hash is not null
+                     and event_type = 'protected_feature_access'
+                     and nullif(metadata->>'userId', '') is not null"""
             )
             metrics["activeUsers"] = int(cursor.fetchone()[0] or 0)
             cursor.execute(

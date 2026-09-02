@@ -87,6 +87,7 @@ def _active_users(cursor: object, limit: int) -> list[dict[str, object]]:
            where occurred_at >= now() - interval '15 minutes'
              and actor_hash is not null
              and event_type = 'protected_feature_access'
+             and nullif(metadata->>'userId', '') is not null
            group by actor_hash
            order by last_seen desc
            limit %s""",
