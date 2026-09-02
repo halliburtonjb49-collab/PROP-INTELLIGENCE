@@ -22,8 +22,15 @@ const PI_APP_SHELL = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(PI_CACHE)
-      .then((cache) => cache.addAll(PI_APP_SHELL)),
+    (async () => {
+      await caches.open(PI_CACHE)
+        .then((cache) => cache.addAll(PI_APP_SHELL));
+      // Chrome, especially an installed iOS/Android PWA, can leave a newly
+      // deployed worker waiting behind the previous app shell indefinitely.
+      // Activate this release immediately; pwa_install.js already listens for
+      // controllerchange and reloads with the current release identifier.
+      await self.skipWaiting();
+    })(),
   );
 });
 
