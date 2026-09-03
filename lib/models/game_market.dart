@@ -84,6 +84,9 @@ class GameMarketEvent {
   final List<SportsbookGameMarkets> bookmakers;
   final Map<String, dynamic>? dixonColes;
   final List<Map<String, dynamic>> marketConsensus;
+  final String homeTeamLogo;
+  final String awayTeamLogo;
+  final Map<String, dynamic>? prediction;
 
   const GameMarketEvent({
     required this.id,
@@ -95,6 +98,9 @@ class GameMarketEvent {
     required this.bookmakers,
     this.dixonColes,
     this.marketConsensus = const [],
+    this.homeTeamLogo = '',
+    this.awayTeamLogo = '',
+    this.prediction,
   });
 
   factory GameMarketEvent.fromJson(Map<String, dynamic> json) {
@@ -120,6 +126,11 @@ class GameMarketEvent {
           .whereType<Map>()
           .map((value) => Map<String, dynamic>.from(value))
           .toList(growable: false),
+      homeTeamLogo: json['homeTeamLogo']?.toString() ?? '',
+      awayTeamLogo: json['awayTeamLogo']?.toString() ?? '',
+      prediction: json['prediction'] is Map
+          ? Map<String, dynamic>.from(json['prediction'] as Map)
+          : null,
     );
   }
 }

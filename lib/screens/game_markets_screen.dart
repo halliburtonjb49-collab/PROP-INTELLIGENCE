@@ -370,6 +370,34 @@ class _GameCard extends StatelessWidget {
     required this.onAdd,
   });
 
+  Widget _teamLogo(String url, String team) => Container(
+    width: 34,
+    height: 34,
+    padding: const EdgeInsets.all(3),
+    decoration: BoxDecoration(
+      color: const Color(0xFF111F2C),
+      shape: BoxShape.circle,
+      border: Border.all(color: AppColors.border),
+    ),
+    child: url.isEmpty
+        ? const Icon(
+            Icons.sports_football_rounded,
+            color: AppColors.gold,
+            size: 18,
+          )
+        : Image.network(
+            url,
+            fit: BoxFit.contain,
+            cacheWidth: 96,
+            errorBuilder: (_, _, _) => const Icon(
+              Icons.sports_football_rounded,
+              color: AppColors.gold,
+              size: 18,
+            ),
+            semanticLabel: '$team logo',
+          ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final available = event.bookmakers
@@ -424,6 +452,141 @@ class _GameCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
+          if (event.sport == 'NCAAF' && event.prediction != null) ...[
+            Builder(
+              builder: (context) {
+                final prediction = event.prediction!;
+                final winner = prediction['predictedWinner']?.toString() ?? '';
+                final probability =
+                    ((prediction['winProbability'] as num?)?.toDouble() ?? 0) *
+                    100;
+                final confidence =
+                    (prediction['confidence'] as num?)?.round() ?? 0;
+                final expectedValue =
+                    ((prediction['expectedValue'] as num?)?.toDouble() ?? 0) *
+                    100;
+                final score = prediction['projectedScore'] is Map
+                    ? Map<String, dynamic>.from(
+                        prediction['projectedScore'] as Map,
+                      )
+                    : const <String, dynamic>{};
+                final homeScore = score['home'] as num?;
+                final awayScore = score['away'] as num?;
+                final factors = (prediction['factors'] as List? ?? const [])
+                    .map((item) => item.toString())
+                    .toList(growable: false);
+                final risks = (prediction['riskFlags'] as List? ?? const [])
+                    .map((item) => item.toString())
+                    .toList(growable: false);
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(11),
+                  decoration: BoxDecoration(
+                    color: AppColors.gold.withValues(alpha: .08),
+                    borderRadius: BorderRadius.circular(11),
+                    border: Border.all(color: AppColors.borderGold),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          _teamLogo(event.awayTeamLogo, event.awayTeam),
+                          const SizedBox(width: 6),
+                          const Text(
+                            '@',
+                            style: TextStyle(color: AppColors.textMuted),
+                          ),
+                          const SizedBox(width: 6),
+                          _teamLogo(event.homeTeamLogo, event.homeTeam),
+                          const SizedBox(width: 9),
+                          const Expanded(
+                            child: Text(
+                              'PI NCAAF GAME PREDICTION',
+                              style: TextStyle(
+                                color: AppColors.gold,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '$confidence CONF',
+                            style: const TextStyle(
+                              color: AppColors.blue,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '$winner • ${probability.toStringAsFixed(1)}% WIN',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Best ${odds((prediction['bestPrice'] as num?)?.round() ?? 0)} at ${prediction['bestBook']} • EV ${expectedValue >= 0 ? '+' : ''}${expectedValue.toStringAsFixed(1)}%',
+                        style: const TextStyle(
+                          color: AppColors.gold,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (homeScore != null && awayScore != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          'PROJECTED SCORE  ${event.awayTeam} ${awayScore.toStringAsFixed(1)} • ${event.homeTeam} ${homeScore.toStringAsFixed(1)}',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                      if (factors.isNotEmpty) ...[
+                        const SizedBox(height: 7),
+                        for (final factor in factors.take(4))
+                          Text(
+                            '• $factor',
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 7,
+                              height: 1.35,
+                            ),
+                          ),
+                      ],
+                      if (risks.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'WATCH: ${risks.join(' • ')}',
+                          style: const TextStyle(
+                            color: Color(0xFFF1B85B),
+                            fontSize: 7,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 5),
+                      Text(
+                        prediction['disclaimer']?.toString() ?? '',
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 7,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
           if (event.sport == 'NCAAF' &&
               market == 'h2h' &&
               event.marketConsensus.isNotEmpty) ...[
