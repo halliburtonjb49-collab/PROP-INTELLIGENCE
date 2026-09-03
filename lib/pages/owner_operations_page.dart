@@ -52,7 +52,9 @@ class _OwnerMoneylineCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final price = pick.price > 0 ? '+${pick.price}' : '${pick.price}';
     final start = pick.event.commenceTime?.toLocal();
-    final time = start == null ? 'TBD' : TimeOfDay.fromDateTime(start).format(context);
+    final time = start == null
+        ? 'TBD'
+        : TimeOfDay.fromDateTime(start).format(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -72,20 +74,44 @@ class _OwnerMoneylineCard extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.gold),
             ),
-            child: Text('#$rank', style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w900)),
+            child: Text(
+              '#$rank',
+              style: const TextStyle(
+                color: AppColors.gold,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(pick.team, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)),
+                Text(
+                  pick.team,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
                 const SizedBox(height: 3),
-                Text('${pick.event.awayTeam} @ ${pick.event.homeTeam}  •  $time',
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 10)),
+                Text(
+                  '${pick.event.awayTeam} @ ${pick.event.homeTeam}  •  $time',
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 10,
+                  ),
+                ),
                 const SizedBox(height: 3),
-                Text('BEST LISTED $price  •  ${pick.sportsbook.toUpperCase()}  •  ${pick.bookCount} BOOKS',
-                  style: const TextStyle(color: AppColors.gold, fontSize: 9, fontWeight: FontWeight.w800)),
+                Text(
+                  'BEST LISTED $price  •  ${pick.sportsbook.toUpperCase()}  •  ${pick.bookCount} BOOKS',
+                  style: const TextStyle(
+                    color: AppColors.gold,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ],
             ),
           ),
@@ -93,9 +119,22 @@ class _OwnerMoneylineCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('${(pick.fairProbability * 100).toStringAsFixed(1)}%',
-                style: const TextStyle(color: Color(0xFF8CFFB2), fontSize: 18, fontWeight: FontWeight.w900)),
-              const Text('SHIN FAIR', style: TextStyle(color: AppColors.textMuted, fontSize: 8, fontWeight: FontWeight.w800)),
+              Text(
+                '${(pick.fairProbability * 100).toStringAsFixed(1)}%',
+                style: const TextStyle(
+                  color: Color(0xFF8CFFB2),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Text(
+                'SHIN FAIR',
+                style: TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ],
           ),
         ],
@@ -105,6 +144,10 @@ class _OwnerMoneylineCard extends StatelessWidget {
 }
 
 class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
+  static List<PropData> _cachedOwnerTopPicks = const [];
+  static Map<String, List<_OwnerMoneylinePick>> _cachedOwnerMoneylines =
+      const {};
+
   late final ApiService _api = widget.apiService ?? ApiService();
   Map<String, dynamic>? _control;
   Map<String, dynamic>? _billing;
@@ -115,8 +158,9 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   Map<String, dynamic>? _providerRecovery;
   Map<String, dynamic>? _identityRegistry;
   Map<String, dynamic> _providerReliability = const {};
-  List<PropData> _ownerTopPicks = const [];
-  List<_OwnerMoneylinePick> _ownerMlbMoneylines = const [];
+  List<PropData> _ownerTopPicks = _cachedOwnerTopPicks;
+  Map<String, List<_OwnerMoneylinePick>> _ownerMoneylines =
+      _cachedOwnerMoneylines;
   bool _recoverySubmitting = false;
   Map<String, dynamic> _strikeoutControlsDraft = const {};
   bool _savingStrikeoutControls = false;
@@ -150,6 +194,12 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     'NCAAF',
     'NCAAB',
     'CFL',
+  ];
+  static const List<String> _ownerMoneylineSports = [
+    'MLB',
+    'NFL',
+    'NCAAF',
+    'NCAAB',
   ];
 
   @override
@@ -198,27 +248,31 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       // Fetch every sport independently. A single mixed catalog page can be
       // exhausted by a high-volume league before another active league is
       // represented, which made its Owner Top 5 silently disappear.
-      final topPicksRequest = Future.wait(
-        _ownerPickSports.map(
+      final topPicksRequest =
+          Future.wait(
+            _ownerPickSports.map(
+              (sport) => _api
+                  .fetchProps(
+                    selectedSport: sport,
+                    sortBy: 'trust',
+                    verdictFilter: 'ALL',
+                    limit: 100,
+                    includeReliability: true,
+                  )
+                  .catchError((_) => <PropData>[]),
+            ),
+          ).then(
+            (sportPages) =>
+                sportPages.expand((props) => props).toList(growable: false),
+          );
+      final moneylineRequest = Future.wait<GameMarketFeed?>(
+        _ownerMoneylineSports.map(
           (sport) => _api
-              .fetchProps(
-                selectedSport: sport,
-                sortBy: 'trust',
-                verdictFilter: 'ALL',
-                limit: 100,
-                includeReliability: true,
-              )
-              .catchError((_) => <PropData>[]),
+              .fetchGameMarkets(sport: sport)
+              .then<GameMarketFeed?>((feed) => feed)
+              .catchError((_) => null),
         ),
-      ).then(
-        (sportPages) => sportPages
-            .expand((props) => props)
-            .toList(growable: false),
       );
-      final moneylineRequest = _api
-          .fetchGameMarkets(sport: 'MLB')
-          .then<GameMarketFeed?>((feed) => feed)
-          .catchError((_) => null);
       final results = await Future.wait([
         _optionalSnapshot(_api.fetchLaunchControlPanel()),
         _optionalSnapshot(_api.fetchBillingCertification()),
@@ -242,7 +296,15 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         _optionalSnapshot(_api.fetchIdentityRegistry()),
       ]);
       final topPicks = await topPicksRequest;
-      final moneylineFeed = await moneylineRequest;
+      final moneylineFeeds = await moneylineRequest;
+      final rankedTopPicks = _rankOwnerTopPicks(topPicks);
+      final rankedMoneylines = <String, List<_OwnerMoneylinePick>>{};
+      for (var index = 0; index < _ownerMoneylineSports.length; index++) {
+        final picks = _rankMoneylines(moneylineFeeds[index]);
+        if (picks.isNotEmpty) {
+          rankedMoneylines[_ownerMoneylineSports[index]] = picks;
+        }
+      }
       if (!mounted) return;
       setState(() {
         _control = results[0];
@@ -254,8 +316,14 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         _providerRecovery = results[6];
         _identityRegistry = results[7];
         _providerReliability = _api.lastProviderReliability;
-        _ownerTopPicks = _rankOwnerTopPicks(topPicks);
-        _ownerMlbMoneylines = _rankMlbMoneylines(moneylineFeed);
+        if (rankedTopPicks.isNotEmpty) {
+          _ownerTopPicks = rankedTopPicks;
+          _cachedOwnerTopPicks = rankedTopPicks;
+        }
+        if (rankedMoneylines.isNotEmpty) {
+          _ownerMoneylines = {..._ownerMoneylines, ...rankedMoneylines};
+          _cachedOwnerMoneylines = _ownerMoneylines;
+        }
         final ownerInsights =
             _control?['ownerOnlyInsights'] as Map? ?? const {};
         final controlPayload =
@@ -327,17 +395,86 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     final identities = data['identities'] as Map? ?? const {};
     final inventory = data['inventory'] as List? ?? const [];
     final queue = data['queue'] as List? ?? const [];
-    final alerts = inventory.where((row) => row is Map && {'warning','critical','interrupted'}.contains('${row['status']}')).length;
+    final alerts = inventory
+        .where(
+          (row) =>
+              row is Map &&
+              {
+                'warning',
+                'critical',
+                'interrupted',
+              }.contains('${row['status']}'),
+        )
+        .length;
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF0B1A25), border: Border.all(color: AppColors.gold.withValues(alpha: .55)), borderRadius: BorderRadius.circular(14)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [const Icon(Icons.fingerprint, color: AppColors.gold), const SizedBox(width: 10), const Expanded(child: Text('IDENTITY & MEDIA REGISTRY', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900))), OutlinedButton.icon(onPressed: () async { await _api.reconcileIdentityRegistry(); await _refresh(showLoading: false); }, icon: const Icon(Icons.sync, size: 16), label: const Text('RECONCILE'))]),
-        const SizedBox(height: 8),
-        Text('${identities['player'] ?? 0} players  |  ${identities['team'] ?? 0} teams  |  ${data['approvedMedia'] ?? 0} approved images  |  ${data['unresolved'] ?? 0} unmatched', style: const TextStyle(color: Color(0xFFB9C3CC), fontWeight: FontWeight.w700)),
-        if (alerts > 0) ...[const SizedBox(height: 10), Text('$alerts provider inventory drop alert(s)', style: const TextStyle(color: Color(0xFFFF7676), fontWeight: FontWeight.w800))],
-        if (queue.isNotEmpty) ...[const SizedBox(height: 10), ...queue.take(8).map((raw) { final row=raw as Map; return Padding(padding: const EdgeInsets.only(top: 6), child: Text('${row['sport']} | ${row['provider']} | ${row['observedName']} | ${row['reason']}', style: const TextStyle(color: Color(0xFFD7DEE5), fontSize: 12))); })],
-      ]),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B1A25),
+        border: Border.all(color: AppColors.gold.withValues(alpha: .55)),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.fingerprint, color: AppColors.gold),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'IDENTITY & MEDIA REGISTRY',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  await _api.reconcileIdentityRegistry();
+                  await _refresh(showLoading: false);
+                },
+                icon: const Icon(Icons.sync, size: 16),
+                label: const Text('RECONCILE'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${identities['player'] ?? 0} players  |  ${identities['team'] ?? 0} teams  |  ${data['approvedMedia'] ?? 0} approved images  |  ${data['unresolved'] ?? 0} unmatched',
+            style: const TextStyle(
+              color: Color(0xFFB9C3CC),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (alerts > 0) ...[
+            const SizedBox(height: 10),
+            Text(
+              '$alerts provider inventory drop alert(s)',
+              style: const TextStyle(
+                color: Color(0xFFFF7676),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+          if (queue.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ...queue.take(8).map((raw) {
+              final row = raw as Map;
+              return Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '${row['sport']} | ${row['provider']} | ${row['observedName']} | ${row['reason']}',
+                  style: const TextStyle(
+                    color: Color(0xFFD7DEE5),
+                    fontSize: 12,
+                  ),
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
     );
   }
 
@@ -534,10 +671,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                   'newUsers' => 'newSignups',
                   _ => rawKey,
                 };
-                _openDetail(
-                  detailKey,
-                  '${metric['label'] ?? rawKey}',
-                );
+                _openDetail(detailKey, '${metric['label'] ?? rawKey}');
               },
             ),
             const SizedBox(height: 22),
@@ -549,11 +683,11 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             _ownerTopPicksPanel(),
             const SizedBox(height: 22),
             _sectionTitle(
-              'TODAY\'S TOP 3 MLB MONEYLINE RESEARCH SIGNALS',
-              'Owner-only daily market consensus ranked by de-vigged fair probability with the best available listed price',
+              'TODAY\'S TOP 5 MONEYLINE RESEARCH SIGNALS BY SPORT',
+              'MLB, NFL, NCAAF, and NCAAB owner rankings when each league has games in season',
             ),
             const SizedBox(height: 10),
-            _ownerMlbMoneylinePanel(),
+            _ownerMoneylinePanel(),
             const SizedBox(height: 14),
             const OwnerUserAccountControls(),
             const SizedBox(height: 22),
@@ -729,13 +863,15 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   );
 
   List<PropData> _rankOwnerTopPicks(List<PropData> props) {
-    final eligible = props.where((prop) {
-      final side = prop.proSuggestedSide?.trim().toUpperCase();
-      return prop.isSelectable &&
-          prop.verdict.actionable &&
-          _ownerMarketPriority(prop) < 100 &&
-          (side == 'OVER' || side == 'UNDER');
-    }).toList(growable: false);
+    final eligible = props
+        .where((prop) {
+          final side = prop.proSuggestedSide?.trim().toUpperCase();
+          return prop.isSelectable &&
+              prop.verdict.actionable &&
+              _ownerMarketPriority(prop) < 100 &&
+              (side == 'OVER' || side == 'UNDER');
+        })
+        .toList(growable: false);
     final unique = <String, PropData>{};
     for (final prop in eligible) {
       final key = [
@@ -783,14 +919,15 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
 
   int _ownerMarketPriority(PropData prop) {
     final sport = prop.sport.trim().toUpperCase();
-    final market = (prop.marketKey.isNotEmpty
-            ? prop.marketKey
-            : prop.displayMarket.isNotEmpty
-            ? prop.displayMarket
-            : prop.market)
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
-        .trim();
+    final market =
+        (prop.marketKey.isNotEmpty
+                ? prop.marketKey
+                : prop.displayMarket.isNotEmpty
+                ? prop.displayMarket
+                : prop.market)
+            .toLowerCase()
+            .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+            .trim();
 
     bool hasAny(List<String> names) => names.any(market.contains);
 
@@ -885,12 +1022,14 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     );
   }
 
-  List<_OwnerMoneylinePick> _rankMlbMoneylines(GameMarketFeed? feed) {
+  List<_OwnerMoneylinePick> _rankMoneylines(GameMarketFeed? feed) {
     if (feed == null || feed.stale) return const [];
     final now = DateTime.now();
     final ranked = <_OwnerMoneylinePick>[];
     for (final event in feed.events) {
-      if (event.commenceTime != null && event.commenceTime!.isBefore(now)) continue;
+      if (event.commenceTime != null && event.commenceTime!.isBefore(now)) {
+        continue;
+      }
       final localStart = event.commenceTime?.toLocal();
       if (localStart == null ||
           localStart.year != now.year ||
@@ -898,62 +1037,102 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
           localStart.day != now.day) {
         continue;
       }
-      final byTeam = <String, List<({GameMarketOutcome outcome, SportsbookGameMarkets book})>>{};
+      final byTeam =
+          <
+            String,
+            List<({GameMarketOutcome outcome, SportsbookGameMarkets book})>
+          >{};
       for (final book in event.bookmakers) {
-        for (final outcome in book.markets['h2h'] ?? const <GameMarketOutcome>[]) {
+        for (final outcome
+            in book.markets['h2h'] ?? const <GameMarketOutcome>[]) {
           if (outcome.fairProbability == null) continue;
-          byTeam.putIfAbsent(outcome.name, () => []).add((outcome: outcome, book: book));
+          byTeam.putIfAbsent(outcome.name, () => []).add((
+            outcome: outcome,
+            book: book,
+          ));
         }
       }
       if (byTeam.isEmpty) continue;
-      final candidates = byTeam.entries.map((entry) {
-        final averageFair = entry.value
-                .map((row) => row.outcome.fairProbability!)
-                .reduce((a, b) => a + b) /
-            entry.value.length;
-        final best = entry.value.reduce(
-          (current, next) => next.outcome.price > current.outcome.price ? next : current,
-        );
-        return _OwnerMoneylinePick(
-          event: event,
-          team: entry.key,
-          fairProbability: averageFair,
-          price: best.outcome.price,
-          sportsbook: best.book.title,
-          bookCount: entry.value.length,
-        );
-      }).toList()..sort((a, b) => b.fairProbability.compareTo(a.fairProbability));
+      final candidates =
+          byTeam.entries.map((entry) {
+              final averageFair =
+                  entry.value
+                      .map((row) => row.outcome.fairProbability!)
+                      .reduce((a, b) => a + b) /
+                  entry.value.length;
+              final best = entry.value.reduce(
+                (current, next) =>
+                    next.outcome.price > current.outcome.price ? next : current,
+              );
+              return _OwnerMoneylinePick(
+                event: event,
+                team: entry.key,
+                fairProbability: averageFair,
+                price: best.outcome.price,
+                sportsbook: best.book.title,
+                bookCount: entry.value.length,
+              );
+            }).toList()
+            ..sort((a, b) => b.fairProbability.compareTo(a.fairProbability));
       if (candidates.isNotEmpty) ranked.add(candidates.first);
     }
     ranked.sort((a, b) => b.fairProbability.compareTo(a.fairProbability));
-    return ranked.take(3).toList(growable: false);
+    return ranked.take(5).toList(growable: false);
   }
 
-  Widget _ownerMlbMoneylinePanel() {
-    if (_loading && _ownerMlbMoneylines.isEmpty) return const _OwnerTopPicksLoading();
-    if (_ownerMlbMoneylines.isEmpty) {
+  Widget _ownerMoneylinePanel() {
+    if (_loading && _ownerMoneylines.isEmpty) {
+      return const _OwnerTopPicksLoading();
+    }
+    if (_ownerMoneylines.isEmpty) {
       return _notice(
-        Icons.sports_baseball_outlined,
-        'NO VERIFIED MLB MONEYLINES RIGHT NOW',
-        'Upcoming MLB games do not currently have enough fresh two-sided market coverage. This updates automatically every 30 seconds.',
+        Icons.sports_football_outlined,
+        'NO VERIFIED MONEYLINES RIGHT NOW',
+        'The monitored leagues do not currently have same-day games with enough fresh two-sided market coverage. This updates automatically every 30 seconds.',
         AppColors.gold,
       );
     }
     return Column(
-      key: const ValueKey('owner-mlb-moneyline-top-three'),
+      key: const ValueKey('owner-moneyline-top-five-by-sport'),
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (var index = 0; index < _ownerMlbMoneylines.length; index++) ...[
-          _OwnerMoneylineCard(rank: index + 1, pick: _ownerMlbMoneylines[index]),
-          if (index + 1 < _ownerMlbMoneylines.length) const SizedBox(height: 8),
-        ],
-        const SizedBox(height: 8),
+        for (final sport in _ownerMoneylineSports)
+          if (_ownerMoneylines[sport]?.isNotEmpty == true) ...[
+            Text(
+              '$sport | TOP ${_ownerMoneylines[sport]!.length}',
+              style: const TextStyle(
+                color: AppColors.gold,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            for (
+              var index = 0;
+              index < _ownerMoneylines[sport]!.length;
+              index++
+            ) ...[
+              _OwnerMoneylineCard(
+                rank: index + 1,
+                pick: _ownerMoneylines[sport]![index],
+              ),
+              if (index + 1 < _ownerMoneylines[sport]!.length)
+                const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 14),
+          ],
         const Text(
-          'MARKET-CONSENSUS RESEARCH ONLY. FAIR PROBABILITY IS DE-VIGGED FROM POSTED PRICES, NOT AN INDEPENDENT PI GAME-WINNER MODEL. VERIFY THE LIVE PRICE BEFORE USE.',
-          style: TextStyle(color: AppColors.textMuted, fontSize: 8, fontWeight: FontWeight.w800),
+          'OWNER RESEARCH ONLY. RANKINGS USE FRESH TWO-SIDED MARKET FAIR PROBABILITY AND THE BEST AVAILABLE PRICE; NCAAF FEEDS ALSO CARRY PI GAME CONTEXT. VERIFY THE LIVE PRICE BEFORE USE.',
+          style: TextStyle(
+            color: AppColors.textMuted,
+            fontSize: 8,
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ],
     );
   }
+
   Widget _syncCertification() {
     final certification = _map('syncCertification');
     final checks = (certification['checks'] as List? ?? const [])
@@ -1023,7 +1202,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         .toList(growable: false);
     final hasCertificationError =
         certification['error']?.toString().trim().isNotEmpty == true;
-    final status = certification['status']?.toString().toUpperCase() ??
+    final status =
+        certification['status']?.toString().toUpperCase() ??
         (hasCertificationError ? 'FAIL' : 'PENDING');
     final summaryColor = status == 'PASS'
         ? const Color(0xFF8CFFB2)
@@ -1157,7 +1337,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     final errors = telemetry['errors'] as Map? ?? const {};
     final errorFree = (reliability['errorFreeUserRate'] as num?)?.toDouble();
     final slos = telemetry['slos'] as Map? ?? const {};
-    String percent(Object? value) => value is num ? '${(value * 100).toStringAsFixed(2)}%' : '--';
+    String percent(Object? value) =>
+        value is num ? '${(value * 100).toStringAsFixed(2)}%' : '--';
     bool targetMet(String key, {bool lowerIsBetter = false}) {
       final row = slos[key] as Map? ?? const {};
       final actual = row['actual'] as num?;
@@ -1165,6 +1346,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       if (actual == null || target == null) return true;
       return lowerIsBetter ? actual <= target : actual >= target;
     }
+
     final errorRows = errors.entries.toList()
       ..sort(
         (a, b) => ((b.value as num?) ?? 0).compareTo((a.value as num?) ?? 0),
@@ -1224,16 +1406,34 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                 (reliability['checkoutFailures'] as num? ?? 0) == 0,
                 detail: 'Canceled or unavailable checkout attempts',
               ),
-              _status('API availability', percent(reliability['apiAvailability']),
-                targetMet('apiAvailability'), detail: 'SLO 99.9%'),
-              _status('Prop-board loads', percent(reliability['propLoadSuccessRate']),
-                targetMet('propBoardLoads'), detail: 'SLO 99%'),
-              _status('Cached content p95', reliability['cachedContentP95Ms'] == null
-                ? '--' : '${reliability['cachedContentP95Ms']} ms',
-                targetMet('cachedContentMs', lowerIsBetter: true), detail: 'Target under 2 seconds'),
-              _status('Live results p95', reliability['liveResultsP95Ms'] == null
-                ? '--' : '${reliability['liveResultsP95Ms']} ms',
-                targetMet('liveResultsMs', lowerIsBetter: true), detail: 'Target under 5 seconds'),
+              _status(
+                'API availability',
+                percent(reliability['apiAvailability']),
+                targetMet('apiAvailability'),
+                detail: 'SLO 99.9%',
+              ),
+              _status(
+                'Prop-board loads',
+                percent(reliability['propLoadSuccessRate']),
+                targetMet('propBoardLoads'),
+                detail: 'SLO 99%',
+              ),
+              _status(
+                'Cached content p95',
+                reliability['cachedContentP95Ms'] == null
+                    ? '--'
+                    : '${reliability['cachedContentP95Ms']} ms',
+                targetMet('cachedContentMs', lowerIsBetter: true),
+                detail: 'Target under 2 seconds',
+              ),
+              _status(
+                'Live results p95',
+                reliability['liveResultsP95Ms'] == null
+                    ? '--'
+                    : '${reliability['liveResultsP95Ms']} ms',
+                targetMet('liveResultsMs', lowerIsBetter: true),
+                detail: 'Target under 5 seconds',
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -1659,7 +1859,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       return _notice(
         Icons.psychology_alt_outlined,
         'PI learning report is warming up',
-        learning['reason']?.toString() ?? 'Settled prediction data is not available yet.',
+        learning['reason']?.toString() ??
+            'Settled prediction data is not available yet.',
         AppColors.gold,
       );
     }
@@ -1684,10 +1885,11 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
               status == 'PROMOTED'
                   ? Icons.verified_outlined
                   : status == 'REJECTED'
-                      ? Icons.block_outlined
-                      : Icons.hourglass_top_rounded,
+                  ? Icons.block_outlined
+                  : Icons.hourglass_top_rounded,
               '$status | ${finding['sport'] ?? ''} ${finding['market'] ?? ''}',
-              finding['explanation']?.toString() ?? 'Pattern details unavailable.',
+              finding['explanation']?.toString() ??
+                  'Pattern details unavailable.',
               status == 'PROMOTED'
                   ? const Color(0xFF8CFFB2)
                   : status == 'REJECTED'
@@ -2364,10 +2566,22 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     const views = <({String label, String metric, IconData icon})>[
       (label: 'USERS', metric: 'activeUsers', icon: Icons.people_alt_outlined),
       (label: 'SIGNUPS', metric: 'newSignups', icon: Icons.person_add_alt_1),
-      (label: 'PAYMENTS', metric: 'failedPayments', icon: Icons.payments_outlined),
-      (label: 'SLIPS', metric: 'unsettledSlips', icon: Icons.receipt_long_outlined),
+      (
+        label: 'PAYMENTS',
+        metric: 'failedPayments',
+        icon: Icons.payments_outlined,
+      ),
+      (
+        label: 'SLIPS',
+        metric: 'unsettledSlips',
+        icon: Icons.receipt_long_outlined,
+      ),
       (label: 'PROVIDERS', metric: 'providers', icon: Icons.hub_outlined),
-      (label: 'INVENTORY', metric: 'propFreshness', icon: Icons.inventory_2_outlined),
+      (
+        label: 'INVENTORY',
+        metric: 'propFreshness',
+        icon: Icons.inventory_2_outlined,
+      ),
     ];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -2440,7 +2654,11 @@ class _OwnerSportPickGroup extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(Icons.auto_awesome_rounded, color: AppColors.gold, size: 16),
+            const Icon(
+              Icons.auto_awesome_rounded,
+              color: AppColors.gold,
+              size: 16,
+            ),
             const SizedBox(width: 7),
             Text(
               '$sport  |  TOP ${picks.length}',
@@ -2469,7 +2687,9 @@ class _OwnerPickRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final side = prop.proSuggestedSide?.trim().toUpperCase() ?? 'REVIEW';
-    final market = prop.displayMarket.isEmpty ? prop.market : prop.displayMarket;
+    final market = prop.displayMarket.isEmpty
+        ? prop.market
+        : prop.displayMarket;
     return Container(
       margin: const EdgeInsets.only(bottom: 7),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
@@ -2544,7 +2764,6 @@ class _OwnerPickRow extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _DetailSheet extends StatelessWidget {
@@ -2625,9 +2844,9 @@ class _DetailSheet extends StatelessWidget {
       final conversationId = await service.startDirectConversation(userId);
       await service.sendDirectMessage(conversationId, message.trim());
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Private message sent.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Private message sent.')));
       }
     } catch (error) {
       if (context.mounted) {
@@ -2787,13 +3006,19 @@ class _DetailSheet extends StatelessWidget {
                                   if (email.isNotEmpty)
                                     OutlinedButton.icon(
                                       onPressed: () => _email(context, email),
-                                      icon: const Icon(Icons.email_outlined, size: 15),
+                                      icon: const Icon(
+                                        Icons.email_outlined,
+                                        size: 15,
+                                      ),
                                       label: const Text('EMAIL'),
                                     ),
                                   if (userId.length >= 20)
                                     OutlinedButton.icon(
                                       onPressed: () => _chat(context, row),
-                                      icon: const Icon(Icons.chat_bubble_outline, size: 15),
+                                      icon: const Icon(
+                                        Icons.chat_bubble_outline,
+                                        size: 15,
+                                      ),
                                       label: const Text('PRIVATE CHAT'),
                                     ),
                                 ],
