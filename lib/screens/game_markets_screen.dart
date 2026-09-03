@@ -19,7 +19,8 @@ class GameMarketsScreen extends StatefulWidget {
   State<GameMarketsScreen> createState() => _GameMarketsScreenState();
 }
 
-class _GameMarketsScreenState extends State<GameMarketsScreen> {
+class _GameMarketsScreenState extends State<GameMarketsScreen>
+    with WidgetsBindingObserver {
   static const _sports = [
     'MLB',
     'WNBA',
@@ -51,6 +52,7 @@ class _GameMarketsScreenState extends State<GameMarketsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_load());
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 60),
@@ -60,8 +62,16 @@ class _GameMarketsScreenState extends State<GameMarketsScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_load(refresh: true));
+    }
   }
 
   Future<void> _load({bool refresh = false}) async {
@@ -85,7 +95,9 @@ class _GameMarketsScreenState extends State<GameMarketsScreen> {
           _error = null;
         });
       }
-      final feed = await _api.fetchGameMarkets(sport: _sport, refresh: refresh);
+      final feed = await _api
+          .fetchGameMarkets(sport: _sport, refresh: refresh)
+          .timeout(const Duration(seconds: 15));
       if (!mounted) return;
       setState(() => _feed = feed);
     } catch (error) {
@@ -412,6 +424,62 @@ class _GameCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
+          if (event.sport == 'NCAAF' &&
+              market == 'h2h' &&
+              event.marketConsensus.isNotEmpty) ...[
+            Builder(
+              builder: (context) {
+                final signal = event.marketConsensus.first;
+                final probability =
+                    ((signal['fairProbability'] as num?)?.toDouble() ?? 0) *
+                    100;
+                final spread =
+                    ((signal['probabilitySpread'] as num?)?.toDouble() ?? 0) *
+                    100;
+                final bestPrice = (signal['bestPrice'] as num?)?.round() ?? 0;
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.gold.withValues(alpha: .08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.borderGold),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'NCAAF MARKET CONSENSUS',
+                        style: TextStyle(
+                          color: AppColors.gold,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${signal['team']}  •  ${probability.toStringAsFixed(1)}% fair  •  best ${odds(bestPrice)} at ${signal['bestBook']}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${signal['bookCount']} books • ${spread.toStringAsFixed(1)}-point disagreement • market-derived, not a guaranteed outcome',
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 7,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
           if (market == 'totals' && event.dixonColes != null) ...[
             Text(
               'DIXON-COLES  •  OVER ${(((event.dixonColes!['overProbability'] as num?)?.toDouble() ?? 0) * 100).toStringAsFixed(1)}%  •  UNDER ${(((event.dixonColes!['underProbability'] as num?)?.toDouble() ?? 0) * 100).toStringAsFixed(1)}%',

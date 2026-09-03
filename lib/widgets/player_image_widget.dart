@@ -68,7 +68,10 @@ class PlayerImageWidget extends StatelessWidget {
       // Keep web photos inside Flutter's renderer through the same-origin API
       // proxy. Mounting one native HTML image platform view per prop card can
       // terminate iOS WebKit while the board scrolls.
-      useApiProxyForRemoteImages: true,
+      // ESPN and MLB image CDNs are substantially faster than routing every
+      // card through a Render instance. Use the CDN first on web and retain
+      // the same-origin proxy below as the compatibility fallback.
+      useApiProxyForRemoteImages: false,
       identityKey: cacheIdentity,
     );
     final resolvedFallback = resolvePlayerImageFallbackPath(

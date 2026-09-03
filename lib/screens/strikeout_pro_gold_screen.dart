@@ -117,22 +117,33 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
       _error = null;
     });
     try {
-      final props = await _api.fetchProps(
-        selectedSport: 'MLB',
-        selectedCategory: 'strikeouts',
-        sortBy: 'confidence',
-        limit: 300,
-      );
-      var strikeouts = props.where(_isStrikeout).toList(growable: false);
-      if (strikeouts.isEmpty) {
-        final fallback = await _api.fetchProps(
+      // Merge the canonical category with a broad market search. Some live
+      // providers publish pitcher strikeouts under a temporary/raw category;
+      // using the search only when the canonical response is empty caused a
+      // partially populated board to silently omit those valid lines.
+      final responses = await Future.wait([
+        _api.fetchProps(
+          selectedSport: 'MLB',
+          selectedCategory: 'strikeouts',
+          sortBy: 'confidence',
+          limit: 300,
+        ),
+        _api.fetchProps(
           selectedSport: 'MLB',
           search: 'strikeout',
           sortBy: 'confidence',
           limit: 300,
-        );
-        strikeouts = fallback.where(_isStrikeout).toList(growable: false);
+        ),
+      ]);
+      final byId = <String, PropData>{};
+      for (final prop
+          in responses.expand((items) => items).where(_isStrikeout)) {
+        final identity = prop.id.isNotEmpty
+            ? prop.id
+            : '${prop.sportsbook}|${prop.player}|${prop.marketKey}|${prop.line}';
+        byId[identity] = prop;
       }
+      var strikeouts = byId.values.toList(growable: false);
       final expiredIds = {
         for (final prop in [..._props, ...strikeouts])
           if (!prop.isSelectable && prop.id.isNotEmpty) prop.id,
@@ -278,10 +289,10 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
                         mainAxisExtent: width >= 1050
-                            ? 180
+                            ? 238
                             : width >= 650
-                            ? 196
-                            : 218,
+                            ? 254
+                            : 276,
                       ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final prop = section.value[index];
@@ -916,6 +927,51 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   ],
                 ),
               ),
+              if (prop.isSelectable) ...[
+                const SizedBox(height: 8),
+                StatefulBuilder(
+                  builder: (context, updateSelection) {
+                    void select(PickSide side) {
+                      updateSelection(() {
+                        if (_selectedSides[prop.id] == side) {
+                          _selectedSides.remove(prop.id);
+                        } else {
+                          _selectedSides[prop.id] = side;
+                        }
+                      });
+                      // Paint the selected button before synchronizing the
+                      // global slip, which may rebuild larger dashboard areas.
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) widget.onSelect(prop, side);
+                      });
+                    }
+
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: _sideButton(
+                            prop: prop,
+                            side: PickSide.under,
+                            selected: _selectedSides[prop.id] == PickSide.under,
+                            systemPick: systemSide == PickSide.under,
+                            onPressed: () => select(PickSide.under),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _sideButton(
+                            prop: prop,
+                            side: PickSide.over,
+                            selected: _selectedSides[prop.id] == PickSide.over,
+                            systemPick: systemSide == PickSide.over,
+                            onPressed: () => select(PickSide.over),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
               Row(
                 children: [
                   if (learned)
@@ -1050,37 +1106,6 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
               const SizedBox(height: 12),
               _piLearningStatus(prop),
               const SizedBox(height: 12),
-              if (prop.isSelectable) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: _sideButton(
-                        prop: prop,
-                        side: PickSide.under,
-                        selected: _selectedSides[prop.id] == PickSide.under,
-                        systemPick: _recommendedSide(prop) == PickSide.under,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _lineDisplay(prop),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _sideButton(
-                        prop: prop,
-                        side: PickSide.over,
-                        selected: _selectedSides[prop.id] == PickSide.over,
-                        systemPick: _recommendedSide(prop) == PickSide.over,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Choose OVER or UNDER to add this strikeout line to the active slip.',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 9),
-                ),
-                const SizedBox(height: 12),
-              ],
               WhyThisPropCapsule(prop: prop),
               const SizedBox(height: 12),
               RecommendationExplainabilityBlock(
@@ -1096,60 +1121,17 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
     ),
   );
 
-  Widget _lineDisplay(PropData prop) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 74),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0B1622),
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: AppColors.gold.withValues(alpha: .28)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'LINE',
-            style: TextStyle(
-              color: AppColors.gold,
-              fontSize: 8,
-              fontWeight: FontWeight.w900,
-              letterSpacing: .6,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            prop.line.toStringAsFixed(1),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _sideButton({
     required PropData prop,
     required PickSide side,
     required bool selected,
     required bool systemPick,
+    VoidCallback? onPressed,
   }) {
     final label = side == PickSide.over ? 'OVER' : 'UNDER';
     return OutlinedButton(
       key: ValueKey('strikeout-${side.name}-${prop.id}'),
-      onPressed: () {
-        setState(() {
-          if (_selectedSides[prop.id] == side) {
-            _selectedSides.remove(prop.id);
-          } else {
-            _selectedSides[prop.id] = side;
-          }
-        });
-        widget.onSelect(prop, side);
-      },
+      onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(0, 54),
         foregroundColor: selected

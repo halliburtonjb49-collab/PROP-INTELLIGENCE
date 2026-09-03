@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../services/user_facing_error.dart';
+
 import '../models/prop_data.dart';
 import '../services/api_service.dart';
 import '../services/recommendation_access.dart';
@@ -34,7 +36,8 @@ class LineMovementPage extends StatefulWidget {
   State<LineMovementPage> createState() => _LineMovementPageState();
 }
 
-class _LineMovementPageState extends State<LineMovementPage> {
+class _LineMovementPageState extends State<LineMovementPage>
+    with WidgetsBindingObserver {
   final ApiService _apiService = ApiService();
   late Future<_LineMovementViewData> _movementFuture;
   String _tableSport = 'ALL SPORTS';
@@ -47,7 +50,10 @@ class _LineMovementPageState extends State<LineMovementPage> {
   @override
   void initState() {
     super.initState();
-    _movementFuture = _loadMovementData(refresh: false);
+    WidgetsBinding.instance.addObserver(this);
+    _movementFuture = _loadMovementData(
+      refresh: false,
+    ).timeout(const Duration(seconds: 15));
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 60),
       (_) => _refresh(),
@@ -56,8 +62,14 @@ class _LineMovementPageState extends State<LineMovementPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refresh();
   }
 
   @override
@@ -71,7 +83,9 @@ class _LineMovementPageState extends State<LineMovementPage> {
   void _refresh() {
     if (!mounted) return;
     setState(() {
-      _movementFuture = _loadMovementData(refresh: true);
+      _movementFuture = _loadMovementData(
+        refresh: true,
+      ).timeout(const Duration(seconds: 15));
     });
   }
 
@@ -1565,7 +1579,10 @@ class _LineMovementPageState extends State<LineMovementPage> {
             'Automatic refresh every 60 seconds',
           ];
           if (snapshot.hasError) {
-            final message = snapshot.error.toString();
+            final message = userFacingLoadError(
+              snapshot.error,
+              noun: 'line movement',
+            );
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

@@ -119,6 +119,41 @@ def _normalize_event(event: dict[str, Any], sport: str) -> dict[str, object]:
         "awayTeam": str(event.get("away_team") or "Away"),
         "bookmakers": books,
     }
+    # A market-consensus signal is not a team prediction model. It summarizes
+    # the no-vig probabilities already implied by independent books and pairs
+    # that opinion with the best currently listed price. Keeping the label and
+    # inputs explicit prevents price comparison from masquerading as an AI pick.
+    consensus: list[dict[str, object]] = []
+    names = {normalized["homeTeam"], normalized["awayTeam"]}
+    for name in names:
+        samples: list[float] = []
+        prices: list[tuple[int, str]] = []
+        for book in books:
+            for outcome in book.get("markets", {}).get("h2h", []):
+                if outcome.get("name") != name:
+                    continue
+                probability = _as_number(outcome.get("fairProbability"))
+                price = _as_number(outcome.get("price"))
+                if probability is not None:
+                    samples.append(float(probability))
+                if price is not None:
+                    prices.append((int(price), str(book.get("title") or "Sportsbook")))
+        if not samples or not prices:
+            continue
+        best_price, best_book = max(prices, key=lambda item: item[0])
+        mean = sum(samples) / len(samples)
+        spread = max(samples) - min(samples)
+        consensus.append({
+            "team": name,
+            "fairProbability": round(mean, 6),
+            "bookCount": len(samples),
+            "probabilitySpread": round(spread, 6),
+            "bestPrice": best_price,
+            "bestBook": best_book,
+            "label": "MARKET CONSENSUS",
+        })
+    consensus.sort(key=lambda item: float(item["fairProbability"]), reverse=True)
+    normalized["marketConsensus"] = consensus
     home_xg = _as_number(event.get("home_expected_goals"))
     away_xg = _as_number(event.get("away_expected_goals"))
     rho = _as_number(event.get("dixon_coles_rho"))

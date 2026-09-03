@@ -24,11 +24,13 @@ class BriefingPage extends StatefulWidget {
   State<BriefingPage> createState() => _BriefingPageState();
 }
 
-class _BriefingPageState extends State<BriefingPage> {
+class _BriefingPageState extends State<BriefingPage>
+    with WidgetsBindingObserver {
   late final ApiService _api = widget.apiService ?? ApiService();
   DailyBriefing _briefing = const DailyBriefing();
   bool _loading = true;
   String _error = '';
+  bool _hasLoadedBriefing = false;
 
   String _freshnessLabel() {
     final updated = DateTime.tryParse(_briefing.sourceUpdatedAt)?.toLocal();
@@ -43,25 +45,40 @@ class _BriefingPageState extends State<BriefingPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
   }
 
-  Future<void> _load() async {
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _load(background: true);
+  }
+
+  Future<void> _load({bool background = false}) async {
     setState(() {
-      _loading = true;
+      _loading = !_hasLoadedBriefing && !background;
       _error = '';
     });
     try {
-      final payload = await _api.fetchTodaysBriefing();
+      final payload = await _api.fetchTodaysBriefing().timeout(
+        const Duration(seconds: 12),
+      );
       if (!mounted) return;
       setState(() {
         _briefing = DailyBriefing.fromJson(payload);
+        _hasLoadedBriefing = true;
         _loading = false;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.toString();
+        if (!_hasLoadedBriefing) _error = error.toString();
         _loading = false;
       });
     }
