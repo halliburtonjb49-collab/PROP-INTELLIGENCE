@@ -480,7 +480,7 @@ class PropChatService {
             .from('prop_chat_messages')
             .select()
             .eq('room_id', roomId)
-            .order('created_at')
+            .order('created_at', ascending: false)
             .limit(200);
         final results = roomId == 'general'
             ? <dynamic>[await roomRequest]
@@ -491,7 +491,7 @@ class PropChatService {
                     .select()
                     .eq('room_id', 'general')
                     .eq('author_role', 'owner')
-                    .order('created_at')
+                    .order('created_at', ascending: false)
                     .limit(50),
               ]);
         final rows = <Map<String, dynamic>>[
