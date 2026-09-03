@@ -1391,6 +1391,33 @@ class _Composer extends StatelessWidget {
   final VoidCallback onRemoveAttachment;
   final bool unlimited;
 
+  static const _emojis = <String>[
+    '😀',
+    '😂',
+    '🔥',
+    '💯',
+    '👍',
+    '👏',
+    '🏆',
+    '📣',
+    '⚾',
+    '🏈',
+    '🏀',
+    '🏒',
+    '⚽',
+  ];
+
+  void _insertEmoji(String emoji) {
+    final text = controller.text;
+    final selection = controller.selection;
+    final start = selection.isValid ? selection.start : text.length;
+    final end = selection.isValid ? selection.end : text.length;
+    controller.value = TextEditingValue(
+      text: text.replaceRange(start, end, emoji),
+      selection: TextSelection.collapsed(offset: start + emoji.length),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -1429,6 +1456,20 @@ class _Composer extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                PopupMenuButton<String>(
+                  key: const ValueKey('prop-chat-emoji-picker'),
+                  tooltip: 'Add emoji',
+                  enabled: !sending,
+                  onSelected: _insertEmoji,
+                  icon: const Icon(Icons.emoji_emotions_outlined),
+                  itemBuilder: (_) => [
+                    for (final emoji in _emojis)
+                      PopupMenuItem<String>(
+                        value: emoji,
+                        child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                      ),
+                  ],
+                ),
                 IconButton(
                   tooltip: 'Attach image or ticket screenshot',
                   onPressed: sending ? null : onAttach,
