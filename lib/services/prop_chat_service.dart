@@ -329,6 +329,7 @@ class PropChatOperationalAlert {
 }
 
 class PropChatService {
+  static const Set<String> _hiddenChatSports = {'PGA', 'UFC', 'CFL'};
   static const List<PropChatRoom> _standardRooms = [
     PropChatRoom(
       id: 'general',
@@ -359,8 +360,9 @@ class PropChatService {
       sport: 'NCAAB',
       requiredTier: 'core',
     ),
-    PropChatRoom(id: 'cfl', name: 'CFL', sport: 'CFL', requiredTier: 'core'),
   ];
+  static final StreamController<void> _messageRefreshes =
+      StreamController<void>.broadcast();
   static final ValueNotifier<int> unreadCount = ValueNotifier<int>(0);
   static final ValueNotifier<Map<String, int>> unreadByRoom =
       ValueNotifier<Map<String, int>>(const {});
@@ -387,6 +389,11 @@ class PropChatService {
           .order('position');
       final liveRooms = (rows as List)
           .map((row) => PropChatRoom.fromJson(row as Map<String, dynamic>))
+          .where(
+            (room) => !_hiddenChatSports.contains(
+              (room.sport ?? room.name).trim().toUpperCase(),
+            ),
+          )
           .toList(growable: false);
       final liveById = {for (final room in liveRooms) room.id: room};
       return [
@@ -408,6 +415,7 @@ class PropChatService {
     StreamSubscription<List<Map<String, dynamic>>>? messages;
     StreamSubscription<List<Map<String, dynamic>>>? reactions;
     StreamSubscription<AuthState>? authChanges;
+    StreamSubscription<void>? localRefreshes;
     LiveUpdateService? discordUpdates;
     StreamSubscription<dynamic>? discordEvents;
     Timer? refreshRetry;
@@ -497,22 +505,18 @@ class PropChatService {
         final rows = <Map<String, dynamic>>[
           ...(results.first as List).cast<Map<String, dynamic>>(),
           if (results.length > 1)
-            ...(results[1] as List)
-                .cast<Map<String, dynamic>>()
-                .where(
-                  (row) => (row['body']?.toString() ?? '').startsWith(
-                    _ownerAnnouncementPrefix,
-                  ),
-                ),
+            ...(results[1] as List).cast<Map<String, dynamic>>().where(
+              (row) => (row['body']?.toString() ?? '').startsWith(
+                _ownerAnnouncementPrefix,
+              ),
+            ),
         ];
         rows.sort(
           (left, right) => (left['created_at']?.toString() ?? '').compareTo(
             right['created_at']?.toString() ?? '',
           ),
         );
-        storedMessages = await _attachReactions(
-          rows,
-        );
+        storedMessages = await _attachReactions(rows);
         refreshRetry?.cancel();
         refreshRetry = null;
         refreshAttempts = 0;
@@ -571,6 +575,9 @@ class PropChatService {
 
     controller = StreamController<List<PropChatMessage>>(
       onListen: () {
+        localRefreshes = _messageRefreshes.stream.listen(
+          (_) => unawaited(refresh()),
+        );
         authChanges = client.auth.onAuthStateChange.listen((event) {
           if (event.session == null) {
             realtimeAttached = false;
@@ -606,6 +613,7 @@ class PropChatService {
       onCancel: () async {
         refreshRetry?.cancel();
         pollingRefresh?.cancel();
+        await localRefreshes?.cancel();
         await messages?.cancel();
         await reactions?.cancel();
         await authChanges?.cancel();
@@ -862,6 +870,7 @@ class PropChatService {
       'link_url': linkUrl,
       'shared_payload': sharedPayload,
     });
+    _messageRefreshes.add(null);
     if (roomId == 'general' && trimmed.isNotEmpty) {
       unawaited(ApiService().mirrorPropChatToDiscord(trimmed));
     }

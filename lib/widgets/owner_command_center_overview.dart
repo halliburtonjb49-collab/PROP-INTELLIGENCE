@@ -21,7 +21,7 @@ class OwnerCommandCenterOverview extends StatelessWidget {
   Color _color(String status) => switch (status.toUpperCase()) {
     'HEALTHY' => const Color(0xFF65E6B4),
     'WARNING' || 'PARTIAL' || 'DELAYED' => AppColors.gold,
-    'PAUSED' || 'NOT_ENTITLED' => const Color(0xFFB8C3CC),
+    'PAUSED' || 'NOT_ENTITLED' || 'UNAVAILABLE' => const Color(0xFFB8C3CC),
     _ => const Color(0xFFFF7474),
   };
 
@@ -95,8 +95,11 @@ class OwnerCommandCenterOverview extends StatelessWidget {
                         width: width,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(12),
-                          onTap: onOpenMetric == null ||
-                                  !_memberDetailKeys.contains('${metric['key']}')
+                          onTap:
+                              onOpenMetric == null ||
+                                  !_memberDetailKeys.contains(
+                                    '${metric['key']}',
+                                  )
                               ? null
                               : () => onOpenMetric!(metric),
                           child: _metric(metric),
@@ -175,13 +178,19 @@ class OwnerCommandCenterOverview extends StatelessWidget {
     final active = (control['promotedSegments'] as num?)?.toInt() ?? 0;
     final rolledBack = (control['rolledBackSegments'] as num?)?.toInt() ?? 0;
     final notificationsReady = control['notificationConfigured'] == true;
-    final promotions = audit.where((row) =>
-      row['status'] == 'PROMOTED' || row['eventType'] == 'PROMOTION'
-    ).length;
-    final alerts = audit.where((row) =>
-      '${row['eventType'] ?? ''}'.startsWith('PUSH_') ||
-      row['eventType'] == 'ALERT'
-    ).length;
+    final promotions = audit
+        .where(
+          (row) =>
+              row['status'] == 'PROMOTED' || row['eventType'] == 'PROMOTION',
+        )
+        .length;
+    final alerts = audit
+        .where(
+          (row) =>
+              '${row['eventType'] ?? ''}'.startsWith('PUSH_') ||
+              row['eventType'] == 'ALERT',
+        )
+        .length;
     final maeImprovements = learning
         .map((row) => row['maeImprovement'])
         .whereType<num>()
@@ -190,7 +199,7 @@ class OwnerCommandCenterOverview extends StatelessWidget {
     final averageMaeImprovement = maeImprovements.isEmpty
         ? 0.0
         : maeImprovements.reduce((total, value) => total + value) /
-            maeImprovements.length;
+              maeImprovements.length;
     Widget stat(String label, Object? value, Color color) => Expanded(
       child: Container(
         padding: const EdgeInsets.all(10),
@@ -202,9 +211,23 @@ class OwnerCommandCenterOverview extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('$value', style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.w900)),
+            Text(
+              '$value',
+              style: TextStyle(
+                color: color,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
             const SizedBox(height: 3),
-            Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 8, fontWeight: FontWeight.w800)),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 8,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ],
         ),
       ),
@@ -220,47 +243,78 @@ class OwnerCommandCenterOverview extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('PI LEARNING CONTROL', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: .6)),
+          const Text(
+            'PI LEARNING CONTROL',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .6,
+            ),
+          ),
           const SizedBox(height: 4),
           Text(
             'Promotion: N≥${control['minimumSample'] ?? 30} • accuracy ≥${control['minimumAccuracy'] ?? 55}% • MAE improvement ≥${control['minimumMaeImprovement'] ?? 5}%',
             style: const TextStyle(color: AppColors.textMuted, fontSize: 9),
           ),
           const SizedBox(height: 10),
-          Row(children: [
-            stat('VERIFIED SAMPLES', control['verifiedSamples'] ?? 0, AppColors.gold),
-            const SizedBox(width: 8),
-            stat('ACTIVE SEGMENTS', active, const Color(0xFF65E6B4)),
-            const SizedBox(width: 8),
-            stat('ROLLED BACK', rolledBack, rolledBack > 0 ? const Color(0xFFFF7474) : AppColors.textMuted),
-          ]),
+          Row(
+            children: [
+              stat(
+                'VERIFIED SAMPLES',
+                control['verifiedSamples'] ?? 0,
+                AppColors.gold,
+              ),
+              const SizedBox(width: 8),
+              stat('ACTIVE SEGMENTS', active, const Color(0xFF65E6B4)),
+              const SizedBox(width: 8),
+              stat(
+                'ROLLED BACK',
+                rolledBack,
+                rolledBack > 0 ? const Color(0xFFFF7474) : AppColors.textMuted,
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
-          Row(children: [
-            stat('PROMOTIONS', promotions, const Color(0xFF65E6B4)),
-            const SizedBox(width: 8),
-            stat('ALERTS', alerts, alerts > 0 ? AppColors.gold : AppColors.textMuted),
-            const SizedBox(width: 8),
-            stat(
-              'AVG MAE GAIN',
-              '${averageMaeImprovement.toStringAsFixed(1)}%',
-              averageMaeImprovement > 0
-                  ? const Color(0xFF65E6B4)
-                  : AppColors.textMuted,
-            ),
-          ]),
+          Row(
+            children: [
+              stat('PROMOTIONS', promotions, const Color(0xFF65E6B4)),
+              const SizedBox(width: 8),
+              stat(
+                'ALERTS',
+                alerts,
+                alerts > 0 ? AppColors.gold : AppColors.textMuted,
+              ),
+              const SizedBox(width: 8),
+              stat(
+                'AVG MAE GAIN',
+                '${averageMaeImprovement.toStringAsFixed(1)}%',
+                averageMaeImprovement > 0
+                    ? const Color(0xFF65E6B4)
+                    : AppColors.textMuted,
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 6,
             children: [
               _controlBadge(
-                active > 0 ? 'RANKING INFLUENCE ACTIVE' : 'RANKING INFLUENCE GATED',
+                active > 0
+                    ? 'RANKING INFLUENCE ACTIVE'
+                    : 'RANKING INFLUENCE GATED',
                 active > 0 ? const Color(0xFF65E6B4) : AppColors.gold,
               ),
-              _controlBadge('ROLLBACK WINDOW ${control['rollbackSample'] ?? 15}', AppColors.gold),
+              _controlBadge(
+                'ROLLBACK WINDOW ${control['rollbackSample'] ?? 15}',
+                AppColors.gold,
+              ),
               _controlBadge(
                 notificationsReady ? 'PUSH ALERTS READY' : 'PUSH KEY REQUIRED',
-                notificationsReady ? const Color(0xFF65E6B4) : const Color(0xFFFF8A65),
+                notificationsReady
+                    ? const Color(0xFF65E6B4)
+                    : const Color(0xFFFF8A65),
               ),
             ],
           ),
@@ -276,74 +330,193 @@ class OwnerCommandCenterOverview extends StatelessWidget {
       borderRadius: BorderRadius.circular(999),
       border: Border.all(color: color.withValues(alpha: .35)),
     ),
-    child: Text(label, style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w900)),
+    child: Text(
+      label,
+      style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w900),
+    ),
   );
 
   Widget _learningAuditLedger(List<Map> rows) => ExpansionTile(
     key: const ValueKey('owner-pi-learning-audit-ledger'),
     tilePadding: EdgeInsets.zero,
-    title: const Text('PI LEARNING AUDIT LEDGER', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
-    subtitle: Text('${rows.length} immutable learning events', style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
-    children: rows.map((row) {
-      final event = '${row['eventType'] ?? 'SAMPLE'}';
-      final rejected = row['status'] == 'REJECTED';
-      final promoted = row['status'] == 'PROMOTED';
-      final color = rejected ? const Color(0xFFFF7474) : promoted ? const Color(0xFF65E6B4) : AppColors.gold;
-      final evidence = (row['evidence'] as Map?) ?? const {};
-      return ListTile(
-        dense: true,
-        contentPadding: EdgeInsets.zero,
-        leading: Icon(rejected ? Icons.undo_rounded : promoted ? Icons.verified_outlined : Icons.science_outlined, color: color, size: 17),
-        title: Text('$event • ${row['sport']} ${row['market']}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
-        subtitle: Text('${row['explanation'] ?? ''} • N=${row['sampleSize'] ?? 0}${evidence['confidenceInfluence'] == null ? '' : ' • influence +${evidence['confidenceInfluence']}'}', style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
-        trailing: Text(_time(row['createdAt']), style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w800)),
-      );
-    }).toList(growable: false),
+    title: const Text(
+      'PI LEARNING AUDIT LEDGER',
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: 11,
+        fontWeight: FontWeight.w900,
+      ),
+    ),
+    subtitle: Text(
+      '${rows.length} immutable learning events',
+      style: const TextStyle(color: AppColors.textMuted, fontSize: 9),
+    ),
+    children: rows
+        .map((row) {
+          final event = '${row['eventType'] ?? 'SAMPLE'}';
+          final rejected = row['status'] == 'REJECTED';
+          final promoted = row['status'] == 'PROMOTED';
+          final color = rejected
+              ? const Color(0xFFFF7474)
+              : promoted
+              ? const Color(0xFF65E6B4)
+              : AppColors.gold;
+          final evidence = (row['evidence'] as Map?) ?? const {};
+          return ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+              rejected
+                  ? Icons.undo_rounded
+                  : promoted
+                  ? Icons.verified_outlined
+                  : Icons.science_outlined,
+              color: color,
+              size: 17,
+            ),
+            title: Text(
+              '$event • ${row['sport']} ${row['market']}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            subtitle: Text(
+              '${row['explanation'] ?? ''} • N=${row['sampleSize'] ?? 0}${evidence['confidenceInfluence'] == null ? '' : ' • influence +${evidence['confidenceInfluence']}'}',
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 9),
+            ),
+            trailing: Text(
+              _time(row['createdAt']),
+              style: TextStyle(
+                color: color,
+                fontSize: 8,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          );
+        })
+        .toList(growable: false),
   );
 
   Widget _recalculationDrilldown(List<Map> rows) => ExpansionTile(
     key: const ValueKey('owner-pi-recalculation-drilldown'),
     tilePadding: EdgeInsets.zero,
-    title: const Text('PI RECALCULATION DRILL-DOWN', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
-    subtitle: Text('${rows.length} active improved or weakened props', style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
-    children: rows.map((row) {
-      final weakened = row['status'] == 'WEAKENED';
-      final color = weakened ? const Color(0xFFFF8A65) : const Color(0xFF65E6B4);
-      return ListTile(
-        dense: true,
-        contentPadding: EdgeInsets.zero,
-        title: Text('${row['player']} • ${row['side']} ${row['line']} ${row['market']}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
-        subtitle: Text('${row['sport']} • projection ${row['entryProjection']} → ${row['currentProjection']} • confidence ${row['entryConfidence']} → ${row['currentConfidence']}', style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
-        trailing: Text('${row['status']}', style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w900)),
-      );
-    }).toList(growable: false),
+    title: const Text(
+      'PI RECALCULATION DRILL-DOWN',
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: 11,
+        fontWeight: FontWeight.w900,
+      ),
+    ),
+    subtitle: Text(
+      '${rows.length} active improved or weakened props',
+      style: const TextStyle(color: AppColors.textMuted, fontSize: 9),
+    ),
+    children: rows
+        .map((row) {
+          final weakened = row['status'] == 'WEAKENED';
+          final color = weakened
+              ? const Color(0xFFFF8A65)
+              : const Color(0xFF65E6B4);
+          return ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              '${row['player']} • ${row['side']} ${row['line']} ${row['market']}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            subtitle: Text(
+              '${row['sport']} • projection ${row['entryProjection']} → ${row['currentProjection']} • confidence ${row['entryConfidence']} → ${row['currentConfidence']}',
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 9),
+            ),
+            trailing: Text(
+              '${row['status']}',
+              style: TextStyle(
+                color: color,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          );
+        })
+        .toList(growable: false),
   );
 
   Widget _recalculationLearning(List<Map> rows) => ExpansionTile(
     key: const ValueKey('owner-pi-recalculation-learning'),
     tilePadding: EdgeInsets.zero,
-    title: const Text('PI RECALCULATION LEARNING', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
-    subtitle: const Text('Verified impact by sport and market', style: TextStyle(color: AppColors.textMuted, fontSize: 9)),
-    children: rows.map((row) {
-      final promoted = row['promoted'] == true;
-      final rolledBack = row['reason'] == 'recent-performance-rollback';
-      final status = promoted ? 'ACTIVE +${row['rankingInfluence']}' : rolledBack ? 'ROLLED BACK' : 'COLLECTING';
-      final statusColor = promoted ? const Color(0xFF65E6B4) : rolledBack ? const Color(0xFFFF7474) : AppColors.gold;
-      return ListTile(
-        dense: true,
-        contentPadding: EdgeInsets.zero,
-        title: Text('${row['sport']} • ${row['market']}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
-        subtitle: Text('Accuracy ${row['accuracy']}% • MAE ${row['entryMae']} → ${row['recalculatedMae']} • improvement ${row['maeImprovement']}% • recent ${row['recentAccuracy']}%', style: const TextStyle(color: AppColors.textMuted, fontSize: 9)),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(status, style: TextStyle(color: statusColor, fontSize: 8, fontWeight: FontWeight.w900)),
-            Text('N=${row['sampleSize']}', style: const TextStyle(color: AppColors.textMuted, fontSize: 8, fontWeight: FontWeight.w800)),
-          ],
-        ),
-      );
-    }).toList(growable: false),
+    title: const Text(
+      'PI RECALCULATION LEARNING',
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: 11,
+        fontWeight: FontWeight.w900,
+      ),
+    ),
+    subtitle: const Text(
+      'Verified impact by sport and market',
+      style: TextStyle(color: AppColors.textMuted, fontSize: 9),
+    ),
+    children: rows
+        .map((row) {
+          final promoted = row['promoted'] == true;
+          final rolledBack = row['reason'] == 'recent-performance-rollback';
+          final status = promoted
+              ? 'ACTIVE +${row['rankingInfluence']}'
+              : rolledBack
+              ? 'ROLLED BACK'
+              : 'COLLECTING';
+          final statusColor = promoted
+              ? const Color(0xFF65E6B4)
+              : rolledBack
+              ? const Color(0xFFFF7474)
+              : AppColors.gold;
+          return ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              '${row['sport']} • ${row['market']}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            subtitle: Text(
+              'Accuracy ${row['accuracy']}% • MAE ${row['entryMae']} → ${row['recalculatedMae']} • improvement ${row['maeImprovement']}% • recent ${row['recentAccuracy']}%',
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 9),
+            ),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  status,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  'N=${row['sampleSize']}',
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          );
+        })
+        .toList(growable: false),
   );
 
   Widget _empty() => Container(
