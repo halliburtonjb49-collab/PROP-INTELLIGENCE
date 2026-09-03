@@ -3,6 +3,36 @@ from datetime import date, datetime, timezone
 import main
 
 
+def test_scoreboard_requests_both_ncaa_leagues() -> None:
+    assert ("NCAAF", "americanfootball_ncaaf") in main.SCOREBOARD_SPORT_KEYS
+    assert ("NCAAB", "basketball_ncaab") in main.SCOREBOARD_SPORT_KEYS
+
+
+def test_ncaa_scoreboard_requests_complete_college_groups(monkeypatch) -> None:
+    requests: list[dict[str, object]] = []
+
+    class Response:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {"events": []}
+
+    def fake_get(*args, **kwargs):
+        requests.append(kwargs["params"])
+        return Response()
+
+    monkeypatch.setattr(main.requests, "get", fake_get)
+
+    main._espn_scoreboard_games_for_sport("NCAAF", date(2026, 9, 3))
+    main._espn_scoreboard_games_for_sport("NCAAB", date(2026, 9, 3))
+
+    assert requests == [
+        {"dates": "20260903", "limit": 1000, "groups": 80},
+        {"dates": "20260903", "limit": 1000, "groups": 50},
+    ]
+
+
 def test_scoreboard_dedupe_preserves_doubleheaders() -> None:
     early_game = {
         "id": "game-early",

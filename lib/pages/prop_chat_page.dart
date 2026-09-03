@@ -301,6 +301,56 @@ class _PropChatPageState extends State<PropChatPage> {
     }
   }
 
+  Future<void> _publishAnnouncement() async {
+    final controller = TextEditingController();
+    final message = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.campaign_rounded, color: AppColors.gold),
+            SizedBox(width: 8),
+            Text('ANNOUNCEMENT TO ALL'),
+          ],
+        ),
+        content: SizedBox(
+          width: 620,
+          child: TextField(
+            key: const ValueKey('owner-announcement-field'),
+            controller: controller,
+            autofocus: true,
+            minLines: 6,
+            maxLines: 14,
+            decoration: const InputDecoration(
+              hintText: 'Write an official announcement for every member…',
+              helperText: 'Owner announcements have no message-length limit.',
+              alignLabelWithHint: true,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            icon: const Icon(Icons.campaign_rounded),
+            label: const Text('PUBLISH TO ALL'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (message == null || message.isEmpty) return;
+    try {
+      await _service.sendAnnouncement(message);
+      if (mounted) _notice('Announcement published to all members.');
+    } catch (error) {
+      if (mounted) _notice('Unable to publish announcement: $error');
+    }
+  }
+
   Future<void> _pickImage() async {
     try {
       final result = await FilePicker.pickFiles(
@@ -360,7 +410,9 @@ class _PropChatPageState extends State<PropChatPage> {
         title: const Text('EDIT MESSAGE'),
         content: TextField(
           controller: controller,
-          maxLength: 500,
+          maxLength: AuthManager.instance.sessionState.value.isOwner
+              ? null
+              : 500,
           maxLines: 5,
           autofocus: true,
         ),
@@ -621,6 +673,8 @@ class _PropChatPageState extends State<PropChatPage> {
             hasProAccess: _hasProAccess,
             onGameThread: _createGameThread,
             onShareAnalysis: _shareAnalysis,
+            isOwner: auth.isOwner,
+            onAnnouncement: _publishAnnouncement,
           ),
           if (!widget.isFloating &&
               !widget.isBubbleVisible &&
@@ -789,6 +843,7 @@ class _PropChatPageState extends State<PropChatPage> {
               _attachmentPath = null;
               _attachmentKind = null;
             }),
+            unlimited: auth.isOwner,
           ),
         ],
       ),
@@ -811,6 +866,8 @@ class _ChatHeader extends StatelessWidget {
     required this.hasProAccess,
     required this.onGameThread,
     required this.onShareAnalysis,
+    required this.isOwner,
+    required this.onAnnouncement,
   });
   final String roomId;
   final Stream<List<Map<String, dynamic>>> presence;
@@ -825,6 +882,8 @@ class _ChatHeader extends StatelessWidget {
   final bool hasProAccess;
   final VoidCallback onGameThread;
   final VoidCallback onShareAnalysis;
+  final bool isOwner;
+  final VoidCallback onAnnouncement;
 
   @override
   Widget build(BuildContext context) {
@@ -881,6 +940,13 @@ class _ChatHeader extends StatelessWidget {
               color: AppColors.gold,
             ),
           ),
+          if (isOwner)
+            IconButton(
+              key: const ValueKey('owner-chat-announcement'),
+              tooltip: 'Publish announcement to all members',
+              onPressed: onAnnouncement,
+              icon: const Icon(Icons.campaign_rounded, color: AppColors.gold),
+            ),
           IconButton(
             key: const ValueKey('prop-chat-share-slip'),
             tooltip: hasProAccess
@@ -1046,12 +1112,17 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isOfficialOwner = message.isOfficialOwner;
+    final isAnnouncement = message.isAnnouncement;
     return Align(
       alignment: isOwn ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 620),
         child: Card(
-          color: isOwn ? AppColors.panelLight : AppColors.panel,
+          color: isAnnouncement
+              ? AppColors.gold.withValues(alpha: .12)
+              : isOwn
+              ? AppColors.panelLight
+              : AppColors.panel,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -1067,6 +1138,27 @@ class _MessageBubble extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (isAnnouncement) ...[
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.campaign_rounded,
+                        size: 18,
+                        color: AppColors.gold,
+                      ),
+                      SizedBox(width: 7),
+                      Text(
+                        'OFFICIAL PI ANNOUNCEMENT',
+                        style: TextStyle(
+                          color: AppColors.gold,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: .7,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 Row(
                   children: [
                     Expanded(
@@ -1194,7 +1286,7 @@ class _MessageBubble extends StatelessWidget {
                     ),
                   ),
                 Text(
-                  message.body,
+                  message.displayBody,
                   style: const TextStyle(color: AppColors.white, height: 1.35),
                 ),
                 if (message.sharedPayload != null) ...[
@@ -1289,6 +1381,7 @@ class _Composer extends StatelessWidget {
     required this.onAttach,
     required this.attachmentKind,
     required this.onRemoveAttachment,
+    required this.unlimited,
   });
   final TextEditingController controller;
   final bool sending;
@@ -1296,6 +1389,7 @@ class _Composer extends StatelessWidget {
   final VoidCallback onAttach;
   final String? attachmentKind;
   final VoidCallback onRemoveAttachment;
+  final bool unlimited;
 
   @override
   Widget build(BuildContext context) {
@@ -1346,9 +1440,11 @@ class _Composer extends StatelessWidget {
                     controller: controller,
                     minLines: 1,
                     maxLines: 4,
-                    maxLength: 500,
-                    decoration: const InputDecoration(
-                      hintText: 'Message the community…',
+                    maxLength: unlimited ? null : 500,
+                    decoration: InputDecoration(
+                      hintText: unlimited
+                          ? 'Message the community (owner: no limit)…'
+                          : 'Message the community…',
                       counterText: '',
                       fillColor: AppColors.panel,
                     ),
@@ -1661,6 +1757,7 @@ class _MobileDirectMessagesDialogState
               _Composer(
                 controller: _message,
                 sending: _sending,
+                unlimited: false,
                 onSend: _send,
                 onAttach: _pickImage,
                 attachmentKind: _attachmentKind,
@@ -1993,6 +2090,7 @@ class _DirectMessagesDialogState extends State<_DirectMessagesDialog> {
                         _Composer(
                           controller: _message,
                           sending: _sending,
+                          unlimited: false,
                           onSend: _send,
                           onAttach: _pickImage,
                           attachmentKind: _attachmentKind,

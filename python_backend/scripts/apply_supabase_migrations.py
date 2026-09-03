@@ -37,6 +37,7 @@ MIGRATIONS = (
     "supabase_prop_chat_v5.sql",
     "supabase_prop_chat_v6.sql",
     "supabase_prop_chat_v7.sql",
+    "supabase_prop_chat_owner_announcements.sql",
     "supabase_core_pro_chat_enforcement.sql",
     "supabase_slip_postgres_storage.sql",
     "supabase_slip_request_idempotency.sql",

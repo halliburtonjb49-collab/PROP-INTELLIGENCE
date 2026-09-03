@@ -1774,6 +1774,8 @@ SCOREBOARD_SPORT_KEYS: list[tuple[str, str]] = [
 	("WNBA", "basketball_wnba"),
 	("MLB", "baseball_mlb"),
 	("NFL", "americanfootball_nfl"),
+	("NCAAF", "americanfootball_ncaaf"),
+	("NCAAB", "basketball_ncaab"),
 	("NHL", "icehockey_nhl"),
 	("EPL", "soccer_epl"),
 	("MLS", "soccer_usa_mls"),
@@ -2237,10 +2239,21 @@ def _espn_scoreboard_games_for_sport(
 	if path is None:
 		return []
 
+	params: dict[str, object] = {
+		"dates": target_date.strftime("%Y%m%d"),
+		"limit": 1000,
+	}
+	# ESPN otherwise defaults college scoreboards to a small featured slate.
+	# These groups cover the product's full FBS and Division I catalogs.
+	if league == "NCAAF":
+		params["groups"] = 80
+	elif league == "NCAAB":
+		params["groups"] = 50
+
 	try:
 		response = requests.get(
 			f"https://site.api.espn.com/apis/site/v2/sports/{path}/scoreboard",
-			params={"dates": target_date.strftime("%Y%m%d")},
+			params=params,
 			headers={
 				"Accept": "application/json",
 				"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1",
@@ -5416,7 +5429,7 @@ def scoreboard(
 			) from exc
 
 	now = datetime.now(timezone.utc)
-	cache_key = f"scoreboard:v3:{target_date.isoformat()}"
+	cache_key = f"scoreboard:v4:{target_date.isoformat()}"
 	cached_scoreboard = get_distributed_json(cache_key)
 	if isinstance(cached_scoreboard, dict):
 		cached_games = cached_scoreboard.get("games")

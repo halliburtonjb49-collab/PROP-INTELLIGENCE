@@ -12,6 +12,8 @@ import 'live_update_service.dart';
 import 'supabase_service.dart';
 import 'app_sound_service.dart';
 
+const _ownerAnnouncementPrefix = '[PI ANNOUNCEMENT]\n';
+
 class PropChatRoom {
   const PropChatRoom({
     required this.id,
@@ -79,6 +81,11 @@ class PropChatMessage {
 
   String get normalizedAuthorRole => authorRole.trim().toLowerCase();
   bool get isOfficialOwner => normalizedAuthorRole == 'owner';
+  bool get isAnnouncement =>
+      isOfficialOwner && body.startsWith(_ownerAnnouncementPrefix);
+  String get displayBody => isAnnouncement
+      ? body.substring(_ownerAnnouncementPrefix.length).trimLeft()
+      : body;
   bool get isDiscord => normalizedAuthorRole == 'discord';
   bool get isVerified => const {
     'owner',
@@ -469,14 +476,42 @@ class PropChatService {
       }
       refreshing = true;
       try {
-        final rows = await client
+        final roomRequest = client
             .from('prop_chat_messages')
             .select()
             .eq('room_id', roomId)
             .order('created_at')
             .limit(200);
+        final results = roomId == 'general'
+            ? <dynamic>[await roomRequest]
+            : await Future.wait<dynamic>([
+                roomRequest,
+                client
+                    .from('prop_chat_messages')
+                    .select()
+                    .eq('room_id', 'general')
+                    .eq('author_role', 'owner')
+                    .order('created_at')
+                    .limit(50),
+              ]);
+        final rows = <Map<String, dynamic>>[
+          ...(results.first as List).cast<Map<String, dynamic>>(),
+          if (results.length > 1)
+            ...(results[1] as List)
+                .cast<Map<String, dynamic>>()
+                .where(
+                  (row) => (row['body']?.toString() ?? '').startsWith(
+                    _ownerAnnouncementPrefix,
+                  ),
+                ),
+        ];
+        rows.sort(
+          (left, right) => (left['created_at']?.toString() ?? '').compareTo(
+            right['created_at']?.toString() ?? '',
+          ),
+        );
         storedMessages = await _attachReactions(
-          (rows as List).cast<Map<String, dynamic>>(),
+          rows,
         );
         refreshRetry?.cancel();
         refreshRetry = null;
@@ -513,7 +548,6 @@ class PropChatService {
         messages = client
             .from('prop_chat_messages')
             .stream(primaryKey: ['id'])
-            .eq('room_id', roomId)
             .listen(
               (_) => unawaited(refresh()),
               onError: (error, _) {
@@ -812,8 +846,9 @@ class PropChatService {
     if (client == null || userId == null) {
       throw StateError('Sign in to use PROP CHAT.');
     }
+    final isOwner = AuthManager.instance.sessionState.value.isOwner;
     if ((trimmed.isEmpty && attachmentPath == null && sharedPayload == null) ||
-        trimmed.length > 500) {
+        (!isOwner && trimmed.length > 500)) {
       throw ArgumentError('Messages must contain 1–500 characters.');
     }
     await client.from('prop_chat_messages').insert({
@@ -830,6 +865,27 @@ class PropChatService {
     if (roomId == 'general' && trimmed.isNotEmpty) {
       unawaited(ApiService().mirrorPropChatToDiscord(trimmed));
     }
+  }
+
+  Future<void> sendAnnouncement(String body) async {
+    if (!AuthManager.instance.sessionState.value.isOwner) {
+      throw StateError('Only the owner can publish announcements.');
+    }
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('Enter an announcement before publishing.');
+    }
+    await sendMessage(
+      '$_ownerAnnouncementPrefix$trimmed',
+      roomId: 'general',
+      linkUrl: _firstHttpsLink(trimmed),
+    );
+  }
+
+  String? _firstHttpsLink(String text) {
+    return RegExp(
+      r'https://[a-zA-Z0-9.-]+(?::[0-9]+)?(?:/[^\s]*)?',
+    ).firstMatch(text)?.group(0);
   }
 
   Future<String> createGameThread({
