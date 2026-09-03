@@ -63,10 +63,9 @@ class ScoreboardController extends ChangeNotifier {
 
   Future<List<ScoreboardGame>> _fetchGamesWithRetry() async {
     Object? lastError;
-    const retryDelays = <Duration>[
-      Duration(milliseconds: 600),
-      Duration(seconds: 2),
-    ];
+    // One quick retry keeps a transient mobile handoff recoverable without
+    // making the user wait through three full network timeouts (~30 seconds).
+    const retryDelays = <Duration>[Duration(milliseconds: 500)];
 
     for (var attempt = 0; attempt <= retryDelays.length; attempt++) {
       try {

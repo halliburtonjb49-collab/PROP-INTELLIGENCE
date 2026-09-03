@@ -700,11 +700,12 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Widget _buildDesktopMarketOverview() {
-    final activeSport = (_selectedSiteSport.isNotEmpty
-            ? _selectedSiteSport
-            : widget.sportFilter)
-        .trim()
-        .toUpperCase();
+    final activeSport =
+        (_selectedSiteSport.isNotEmpty
+                ? _selectedSiteSport
+                : widget.sportFilter)
+            .trim()
+            .toUpperCase();
     final freshness = _lastUpdated == null
         ? 'SYNCING'
         : '${DateTime.now().difference(_lastUpdated!).inMinutes.clamp(0, 99)}M AGO';
@@ -838,7 +839,10 @@ class _MainDashboardState extends State<MainDashboard> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF092A2C),
                   borderRadius: BorderRadius.circular(999),
@@ -867,8 +871,9 @@ class _MainDashboardState extends State<MainDashboard> {
             children: [
               metric(
                 icon: Icons.inventory_2_outlined,
-                label: 'LOADED INVENTORY',
-                value: '${_latestProps.length} PROPS',
+                label: 'LIVE PROP CATALOG',
+                value:
+                    '${_apiService.lastCatalogCount > 0 ? _apiService.lastCatalogCount : _latestProps.length} TOTAL PROPS',
                 valueColor: app_colors.AppColors.goldLight,
               ),
               const SizedBox(width: 10),

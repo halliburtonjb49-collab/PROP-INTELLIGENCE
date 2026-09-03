@@ -75,7 +75,7 @@ class ScoreboardService {
       response = await _getWithFallback(
         '/api/scoreboard',
         queryParameters: {'date': formattedDate},
-        timeout: const Duration(seconds: 8),
+        timeout: const Duration(seconds: 6),
       );
     } catch (_) {
       if (cached.isNotEmpty) return cached;
