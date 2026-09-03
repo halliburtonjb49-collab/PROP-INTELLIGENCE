@@ -17,8 +17,8 @@ void main() {
     final image = tester.widget<CachedNetworkImage>(
       find.byType(CachedNetworkImage).first,
     );
-    expect(image.imageUrl, contains('player-image-proxy'));
-    expect(image.imageUrl, contains(Uri.encodeComponent(url)));
+    expect(image.imageUrl, startsWith(url));
+    expect(image.imageUrl, contains('pi_photo='));
     expect(image.useOldImageOnUrlChange, isTrue);
     expect(image.fadeInDuration, Duration.zero);
     expect(image.fadeOutDuration, Duration.zero);
