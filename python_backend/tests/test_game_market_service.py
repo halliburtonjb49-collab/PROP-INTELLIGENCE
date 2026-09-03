@@ -116,3 +116,45 @@ def test_replacement_leagues_use_their_own_provider_keys(sport, sport_key):
     game_market_service.get_game_markets(sport, force=True, fetcher=fetcher)
 
     assert captured["sport_key"] == sport_key
+
+
+def test_ncaaf_context_adjusts_total_and_reports_injuries():
+    prediction = {
+        "predictedWinner": "Alabama Crimson Tide",
+        "winProbability": .62,
+        "confidence": 76,
+        "expectedValue": .04,
+        "projectedTotal": 52.5,
+        "projectedScore": {"home": 30.0, "away": 22.5},
+        "factors": [],
+        "riskFlags": ["Injury/weather feeds are not included"],
+    }
+    normalized = {
+        "homeTeam": "Alabama Crimson Tide",
+        "awayTeam": "Georgia Bulldogs",
+    }
+    weather = {
+        "status": "outdoor",
+        "temperatureF": 44,
+        "windSpeedMph": 22,
+        "precipitationProbability": 75,
+        "source": "open-meteo",
+    }
+    injuries = {
+        game_market_service._team_key("Alabama Crimson Tide"): {
+            "out": 2, "questionable": 1, "source": "ESPN",
+        },
+        game_market_service._team_key("Georgia Bulldogs"): {
+            "out": 0, "questionable": 2, "source": "ESPN",
+        },
+    }
+
+    result = game_market_service._apply_ncaaf_context(
+        prediction, normalized, weather, injuries,
+    )
+
+    assert result["modelVersion"] == "NCAAF_CONTEXT_ENSEMBLE_V2"
+    assert result["projectedTotal"] < 52.5
+    assert result["winProbability"] < .62
+    assert any("Open-Meteo" in factor for factor in result["factors"])
+    assert any("ESPN injuries" in factor for factor in result["factors"])

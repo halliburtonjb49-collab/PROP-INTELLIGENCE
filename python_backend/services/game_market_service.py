@@ -16,6 +16,7 @@ from services.odds_service import (
 )
 from services.prop_probability_service import shin_method_devig
 from services.score_probability_service import dixon_coles_totals
+from services.outdoor_weather_service import game_weather
 
 GAME_SPORTS: dict[str, str] = {
     "NBA": "basketball_nba",
@@ -35,6 +36,8 @@ _cache: dict[str, tuple[datetime, list[dict[str, object]]]] = {}
 _cache_lock = Lock()
 _ncaaf_team_cache: tuple[datetime, dict[str, str]] | None = None
 _ncaaf_team_lock = Lock()
+_ncaaf_injury_cache: tuple[datetime, dict[str, dict[str, object]]] | None = None
+_ncaaf_injury_lock = Lock()
 _metrics_lock = Lock()
 _metrics: dict[str, object] = {
     "requests": 0,
@@ -75,6 +78,132 @@ def _median(values: list[float]) -> float | None:
 
 def _team_key(value: object) -> str:
     return "".join(character for character in str(value or "").lower() if character.isalnum())
+
+
+def _ncaaf_injuries() -> dict[str, dict[str, object]]:
+    """Return current ESPN NCAAF injury counts keyed by team alias."""
+    global _ncaaf_injury_cache
+    now = datetime.now(timezone.utc)
+    with _ncaaf_injury_lock:
+        if _ncaaf_injury_cache and now - _ncaaf_injury_cache[0] < timedelta(minutes=30):
+            return _ncaaf_injury_cache[1]
+    result: dict[str, dict[str, object]] = {}
+    try:
+        response = requests.get(
+            "https://site.api.espn.com/apis/site/v2/sports/football/college-football/injuries",
+            timeout=10,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        generated_at = str(payload.get("timestamp") or now.isoformat()) if isinstance(payload, dict) else now.isoformat()
+        groups = payload.get("injuries", []) if isinstance(payload, dict) else []
+        for group in groups if isinstance(groups, list) else []:
+            if not isinstance(group, dict):
+                continue
+            team = group.get("team") if isinstance(group.get("team"), dict) else {}
+            aliases = {
+                str(team.get(field) or "")
+                for field in ("displayName", "shortDisplayName", "name", "abbreviation", "location")
+            }
+            entries = group.get("injuries") if isinstance(group.get("injuries"), list) else []
+            out_count = questionable_count = 0
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                status = str(entry.get("status") or entry.get("type") or "").lower()
+                if any(token in status for token in ("out", "inactive", "suspend")):
+                    out_count += 1
+                elif any(token in status for token in ("question", "doubt", "day-to-day", "game-time")):
+                    questionable_count += 1
+            context = {
+                "status": "available",
+                "source": "ESPN",
+                "reportedAt": generated_at,
+                "total": len(entries),
+                "out": out_count,
+                "questionable": questionable_count,
+            }
+            for alias in aliases:
+                if _team_key(alias):
+                    result[_team_key(alias)] = context
+    except (requests.RequestException, ValueError):
+        result = {}
+    with _ncaaf_injury_lock:
+        _ncaaf_injury_cache = (now, result)
+    return result
+
+
+def _apply_ncaaf_context(
+    prediction: dict[str, object] | None,
+    normalized: dict[str, object],
+    weather: dict[str, object],
+    injuries: dict[str, dict[str, object]],
+) -> dict[str, object] | None:
+    if prediction is None:
+        return None
+    home = str(normalized.get("homeTeam") or "Home")
+    away = str(normalized.get("awayTeam") or "Away")
+    home_injuries = injuries.get(_team_key(home))
+    away_injuries = injuries.get(_team_key(away))
+    factors = list(prediction.get("factors") or [])
+    risks = [
+        risk for risk in list(prediction.get("riskFlags") or [])
+        if "injury/weather" not in str(risk).lower()
+    ]
+    status = str(weather.get("status") or "weather_unavailable")
+    prediction["weather"] = weather
+    if status == "outdoor":
+        wind = float(weather.get("windSpeedMph") or 0)
+        rain = float(weather.get("precipitationProbability") or 0)
+        temperature = float(weather.get("temperatureF") or 70)
+        factors.append(
+            f"Open-Meteo forecast: {temperature:.0f}F, {wind:.0f} mph wind, {rain:.0f}% precipitation"
+        )
+        total_penalty = min(6.0, max(0.0, wind - 12.0) * .18 + max(0.0, rain - 45.0) * .035)
+        projected_total = _as_number(prediction.get("projectedTotal"))
+        scores = prediction.get("projectedScore")
+        if total_penalty and projected_total is not None and isinstance(scores, dict):
+            prediction["projectedTotal"] = round(float(projected_total) - total_penalty, 2)
+            for side in ("home", "away"):
+                score = _as_number(scores.get(side))
+                if score is not None:
+                    scores[side] = round(max(0.0, float(score) - total_penalty / 2), 1)
+            factors.append(f"Severe-weather total adjustment -{total_penalty:.1f} points")
+            prediction["confidence"] = max(1, int(prediction.get("confidence") or 1) - 4)
+    elif status == "indoor":
+        factors.append("Verified indoor venue; no weather adjustment")
+    else:
+        risks.append("Game-site weather could not be verified")
+
+    prediction["injuries"] = {"home": home_injuries, "away": away_injuries, "source": "ESPN"}
+    if home_injuries or away_injuries:
+        home_out = int((home_injuries or {}).get("out") or 0)
+        away_out = int((away_injuries or {}).get("out") or 0)
+        home_questionable = int((home_injuries or {}).get("questionable") or 0)
+        away_questionable = int((away_injuries or {}).get("questionable") or 0)
+        factors.append(
+            f"ESPN injuries: {away} {away_out} out/{away_questionable} questionable; "
+            f"{home} {home_out} out/{home_questionable} questionable"
+        )
+        probability = float(prediction.get("winProbability") or 0.5)
+        winner = str(prediction.get("predictedWinner") or "")
+        winner_penalty = (home_out - away_out) if winner == home else (away_out - home_out)
+        probability -= max(-.04, min(.04, winner_penalty * .01))
+        prediction["winProbability"] = round(max(.05, min(.95, probability)), 6)
+        if home_questionable + away_questionable:
+            risks.append("Questionable players may change the matchup before kickoff")
+            prediction["confidence"] = max(1, int(prediction.get("confidence") or 1) - 3)
+    else:
+        risks.append("Current ESPN NCAAF injury report is unavailable")
+        prediction["confidence"] = max(1, int(prediction.get("confidence") or 1) - 5)
+    prediction["factors"] = factors
+    prediction["riskFlags"] = list(dict.fromkeys(risks))
+    prediction["actionable"] = bool(
+        int(prediction.get("confidence") or 0) >= 60
+        and float(prediction.get("expectedValue") or 0) > 0
+    )
+    prediction["modelVersion"] = "NCAAF_CONTEXT_ENSEMBLE_V2"
+    return prediction
 
 
 def _ncaaf_team_logos() -> dict[str, str]:
@@ -346,7 +475,14 @@ def _normalize_event(event: dict[str, Any], sport: str) -> dict[str, object]:
         logos = _ncaaf_team_logos()
         normalized["homeTeamLogo"] = logos.get(_team_key(normalized["homeTeam"]), "")
         normalized["awayTeamLogo"] = logos.get(_team_key(normalized["awayTeam"]), "")
-        normalized["prediction"] = _ncaaf_prediction(normalized, consensus)
+        matchup = f'{normalized["awayTeam"]} @ {normalized["homeTeam"]}'
+        weather = game_weather("NCAAF", matchup, str(normalized.get("commenceTime") or ""))
+        normalized["prediction"] = _apply_ncaaf_context(
+            _ncaaf_prediction(normalized, consensus),
+            normalized,
+            weather,
+            _ncaaf_injuries(),
+        )
     home_xg = _as_number(event.get("home_expected_goals"))
     away_xg = _as_number(event.get("away_expected_goals"))
     rho = _as_number(event.get("dixon_coles_rho"))

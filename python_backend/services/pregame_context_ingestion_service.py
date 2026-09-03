@@ -34,6 +34,7 @@ ESPN_INJURY_LEAGUES = {
     "NBA": ("basketball", "nba"),
     "MLB": ("baseball", "mlb"),
     "NFL": ("football", "nfl"),
+    "NCAAF": ("football", "college-football"),
     "NHL": ("hockey", "nhl"),
 }
 PREGAME_PROVIDER_WORKERS = max(
