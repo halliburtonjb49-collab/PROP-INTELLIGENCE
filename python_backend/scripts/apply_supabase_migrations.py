@@ -38,7 +38,6 @@ MIGRATIONS = (
     "supabase_prop_chat_v6.sql",
     "supabase_prop_chat_v7.sql",
     "supabase_prop_chat_owner_announcements.sql",
-    "supabase_prop_chat_owner_announcements_hardening.sql",
     "supabase_core_pro_chat_enforcement.sql",
     "supabase_slip_postgres_storage.sql",
     "supabase_slip_request_idempotency.sql",
@@ -73,6 +72,8 @@ MIGRATIONS = (
     "supabase_identity_media_registry.sql",
     "supabase_engagement_action_expansion.sql",
     "supabase_production_observability.sql",
+    "supabase_prop_chat_owner_announcements_hardening.sql",
+    "supabase_prop_chat_owner_announcements_hardening_v2.sql",
 )
 
 
