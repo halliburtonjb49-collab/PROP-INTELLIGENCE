@@ -6,6 +6,8 @@ import 'package:prop_intelligence/widgets/prop_grid.dart';
 
 class _FailingPropsApi extends ApiService {
   int fetchCalls = 0;
+  bool requestedInitialReliability = false;
+  int requestedLimit = 0;
 
   @override
   Future<List<PropData>> loadCachedProps({
@@ -37,6 +39,8 @@ class _FailingPropsApi extends ApiService {
     bool trackBoardLoad = false,
   }) {
     fetchCalls += 1;
+    requestedInitialReliability = includeReliability;
+    requestedLimit = limit;
     return Future<List<PropData>>.error(StateError('test feed unavailable'));
   }
 }
@@ -77,6 +81,8 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
 
     expect(api.fetchCalls, 2);
+    expect(api.requestedInitialReliability, isFalse);
+    expect(api.requestedLimit, 24);
     expect(find.text('Unable to load props'), findsOneWidget);
     expect(find.text('RETRY'), findsOneWidget);
 

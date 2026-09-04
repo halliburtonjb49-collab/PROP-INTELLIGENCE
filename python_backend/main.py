@@ -379,7 +379,7 @@ _PROP_CATALOG_KEY = "props:catalog:v1"
 _PROP_CATALOG_COMPRESSED_KEY = "props:catalog:v2"
 _PROP_CATALOG_VERSION_KEY = "props:catalog:version:v1"
 _PROP_CATALOG_SUMMARY_KEY = "props:catalog:summary:v1"
-_PROP_RESPONSE_CACHE_TTL_SECONDS = 20
+_PROP_RESPONSE_CACHE_TTL_SECONDS = 60
 _PROP_RESPONSE_CACHE_MAX_ENTRIES = 256
 _prop_response_cache_lock = Lock()
 _prop_response_cache: dict[str, tuple[float, str, dict[str, object]]] = {}
@@ -3678,7 +3678,9 @@ def props(
 		cache_signature = json.dumps(
 			[
 				APP_VERSION,
-				membership.user_id,
+				# The prop payload varies by verified entitlement, not by user ID.
+				# Sharing this short-lived response across equivalent memberships
+				# prevents every login from rebuilding the 20k+ row catalog.
 				len(prop_list),
 				catalog_updated_at,
 				catalog_version,

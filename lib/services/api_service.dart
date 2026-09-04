@@ -1430,7 +1430,7 @@ class ApiService {
     // are normalized by the client without turning startup into a megabyte
     // scale transfer.
     final requestLimit = sportsbookFilterEnabled
-        ? math.max(scopedLimit, 125)
+        ? math.max(scopedLimit, 40)
         : scopedLimit;
     final requestOffset = sportsbookFilterEnabled ? 0 : offset;
     final cacheKey = _propsCacheKey(

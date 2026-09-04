@@ -3622,7 +3622,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     // wait for SharedPreferences and cached JSON decoding first. A fast cache
     // still paints instantly; otherwise the already-running network request
     // wins without paying both waits serially.
-    final liveOutcome = _fetchPropsPage(includeReliability: true).then(
+    // Provider reliability scans the complete catalog and is not required to
+    // paint the first customer-facing cards. Operations surfaces load that
+    // report independently; the visible board must stay on its fast path.
+    final liveOutcome = _fetchPropsPage(includeReliability: false).then(
       (props) =>
           (props: props, error: null as Object?, stack: null as StackTrace?),
       onError: (Object error, StackTrace stack) =>

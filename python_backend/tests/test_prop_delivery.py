@@ -727,7 +727,7 @@ def test_prop_page_reuses_verified_user_response_cache(monkeypatch) -> None:
     assert int(main._prop_metrics["cacheHits"]) == before_hits + 1
 
 
-def test_prop_response_cache_is_isolated_by_verified_user(monkeypatch) -> None:
+def test_prop_response_cache_is_shared_by_equivalent_verified_memberships(monkeypatch) -> None:
     row = FakeProp("isolated-prop", "One", "MLB", "PRIZEPICKS", "HITS")
     reliability_calls = []
     monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [row])
@@ -757,7 +757,8 @@ def test_prop_response_cache_is_isolated_by_verified_user(monkeypatch) -> None:
 
     assert first.status_code == 200
     assert second.status_code == 200
-    assert reliability_calls == [True, True]
+    assert second.json() == first.json()
+    assert reliability_calls == [True]
 
 
 def test_prop_response_cache_changes_with_catalog_timestamp(monkeypatch) -> None:
