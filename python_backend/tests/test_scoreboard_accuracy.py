@@ -8,6 +8,37 @@ def test_scoreboard_requests_both_ncaa_leagues() -> None:
     assert ("NCAAB", "basketball_ncaab") in main.SCOREBOARD_SPORT_KEYS
 
 
+def test_scoreboard_keeps_healthy_leagues_when_one_provider_fails(monkeypatch) -> None:
+    monkeypatch.setattr(
+        main,
+        "SCOREBOARD_SPORT_KEYS",
+        (("MLB", "baseball_mlb"), ("NFL", "americanfootball_nfl")),
+    )
+    monkeypatch.setattr(main, "get_distributed_json", lambda _key: None)
+    monkeypatch.setattr(main, "set_distributed_json", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(main.realtime_hub, "broadcast_from_thread", lambda *_args: None)
+
+    def fake_games(*, league, **_kwargs):
+        if league == "NFL":
+            raise RuntimeError("provider unavailable")
+        return [
+            {
+                "id": "mlb-1",
+                "sport": "MLB",
+                "league": "MLB",
+                "away_team": "Away",
+                "home_team": "Home",
+                "start_time": "2026-09-04T18:00:00Z",
+            }
+        ]
+
+    monkeypatch.setattr(main, "_scoreboard_games_for_sport", fake_games)
+
+    payload = main.scoreboard(game_date="2026-09-04")
+
+    assert [game["id"] for game in payload["games"]] == ["mlb-1"]
+
+
 def test_ncaa_scoreboard_requests_complete_college_groups(monkeypatch) -> None:
     requests: list[dict[str, object]] = []
 

@@ -5447,13 +5447,20 @@ def scoreboard(
 		league_and_key: tuple[str, str],
 	) -> list[dict[str, object]]:
 		league, sport_key = league_and_key
-		return _scoreboard_games_for_sport(
-			league=league,
-			sport_key=sport_key,
-			target_date=target_date,
-			now=now,
-			shared_time_map=shared_time_map,
-		)
+		try:
+			return _scoreboard_games_for_sport(
+				league=league,
+				sport_key=sport_key,
+				target_date=target_date,
+				now=now,
+				shared_time_map=shared_time_map,
+			)
+		except Exception:
+			# One upstream league must never take the complete customer
+			# scoreboard down. Healthy leagues are still authoritative and the
+			# failed league will be retried on the next shared-cache refresh.
+			logging.exception("Scoreboard provider failed for %s", league)
+			return []
 
 	with ThreadPoolExecutor(
 		max_workers=len(SCOREBOARD_SPORT_KEYS)
