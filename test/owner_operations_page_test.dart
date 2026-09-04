@@ -6,6 +6,22 @@ import 'package:prop_intelligence/pages/owner_operations_page.dart';
 import 'package:prop_intelligence/services/api_service.dart';
 import 'package:prop_intelligence/widgets/owner_user_account_controls.dart';
 
+PropData _ownerPick(String sport, int index) => PropData(
+  id: '$sport-$index',
+  eventId: 'event-$index',
+  apiSportsGameId: 'game-$index',
+  playerId: 'player-$index',
+  player: '$sport Player $index',
+  sport: sport,
+  matchup: 'Away @ Home',
+  sportsbook: 'PRIZEPICKS',
+  market: 'Points',
+  line: 20.5,
+  pick: 'OVER',
+  edge: 4,
+  imagePath: '',
+);
+
 class _FakeOperationsApi extends ApiService {
   int recoveryRequests = 0;
   int identityReconciliations = 0;
@@ -524,6 +540,39 @@ class _PrimaryFailureOperationsApi extends _FakeOperationsApi {
 }
 
 void main() {
+  test('failed sport refresh retains its last verified daily top five', () {
+    final previous = [
+      for (var index = 0; index < 6; index++) _ownerPick('NFL', index),
+      for (var index = 0; index < 5; index++) _ownerPick('MLB', index),
+    ];
+    final fresh = [
+      for (var index = 10; index < 15; index++) _ownerPick('MLB', index),
+    ];
+
+    final merged = mergeOwnerTopPicksForRefresh(
+      previous: previous,
+      fresh: fresh,
+      successfulSports: {'MLB'},
+      sportOrder: const ['MLB', 'NFL'],
+    );
+
+    expect(merged.where((prop) => prop.sport == 'MLB').length, 5);
+    expect(merged.where((prop) => prop.sport == 'NFL').length, 5);
+    expect(merged.first.id, 'MLB-10');
+    expect(merged.last.id, 'NFL-4');
+  });
+
+  test('successful empty refresh removes an inactive sport', () {
+    final merged = mergeOwnerTopPicksForRefresh(
+      previous: [_ownerPick('NFL', 1)],
+      fresh: const [],
+      successfulSports: {'NFL'},
+      sportOrder: const ['NFL'],
+    );
+
+    expect(merged, isEmpty);
+  });
+
   test('owner operations access is role-specific', () {
     expect(canAccessOwnerOperations('owner'), isTrue);
     expect(canAccessOwnerOperations('admin'), isFalse);

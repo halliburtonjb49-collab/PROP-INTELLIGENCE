@@ -143,8 +143,44 @@ class _OwnerMoneylineCard extends StatelessWidget {
   }
 }
 
+@visibleForTesting
+List<PropData> mergeOwnerTopPicksForRefresh({
+  required List<PropData> previous,
+  required List<PropData> fresh,
+  required Set<String> successfulSports,
+  required List<String> sportOrder,
+}) {
+  final freshBySport = <String, List<PropData>>{};
+  final previousBySport = <String, List<PropData>>{};
+  for (final prop in fresh) {
+    freshBySport
+        .putIfAbsent(prop.sport.trim().toUpperCase(), () => [])
+        .add(prop);
+  }
+  for (final prop in previous) {
+    previousBySport
+        .putIfAbsent(prop.sport.trim().toUpperCase(), () => [])
+        .add(prop);
+  }
+
+  final merged = <PropData>[];
+  for (final sport in sportOrder) {
+    final current = freshBySport[sport] ?? const <PropData>[];
+    if (current.isNotEmpty || successfulSports.contains(sport)) {
+      merged.addAll(current.take(5));
+    } else {
+      // A failed sport request must not erase that sport's last verified
+      // daily shortlist. Successful empty responses still remove inactive
+      // sports, and the static cache is cleared at the next local day.
+      merged.addAll((previousBySport[sport] ?? const <PropData>[]).take(5));
+    }
+  }
+  return merged;
+}
+
 class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   static List<PropData> _cachedOwnerTopPicks = const [];
+  static DateTime? _cachedOwnerTopPicksDay;
   static Map<String, List<_OwnerMoneylinePick>> _cachedOwnerMoneylines =
       const {};
 
@@ -206,9 +242,15 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   @override
   void initState() {
     super.initState();
-    // Paint yesterday's last verified device snapshot immediately. The live
-    // requests below replace it in the background, so opening Command Center
-    // or returning from another section never starts from a blank slate.
+    final today = DateUtils.dateOnly(DateTime.now());
+    if (_cachedOwnerTopPicksDay != today) {
+      _cachedOwnerTopPicks = const [];
+      _cachedOwnerTopPicksDay = today;
+      _ownerTopPicks = const [];
+    }
+    // Paint today's last verified device snapshot immediately. The live
+    // requests below replace it in the background, so returning to Command
+    // Center never starts from a blank slate or carries picks into a new day.
     unawaited(_hydrateDailyPicksFromDevice());
     unawaited(_refresh());
     _liveRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -296,27 +338,37 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       // represented, which made its Owner Top 5 silently disappear.
       final topPicksRequest =
           Future.wait(
-            _ownerPickSports.map(
-              (sport) => _api
-                  .fetchProps(
-                    selectedSport: sport,
-                    sortBy: 'trust',
-                    verdictFilter: 'ALL',
-                    // The panel only renders five unique picks. Pull a small
-                    // cushion for duplicate provider lines instead of asking
-                    // the API to build and serialize 900 props at once.
-                    limit: 20,
-                    // Reliability is already loaded by the command-center
-                    // snapshot below. Rebuilding the complete provider report
-                    // for every sport made this nine-request fan-out capable
-                    // of exhausting the API instance during owner login.
-                    includeReliability: false,
-                  )
-                  .catchError((_) => <PropData>[]),
-            ),
+            _ownerPickSports.map((sport) async {
+              try {
+                final props = await _api.fetchProps(
+                  selectedSport: sport,
+                  sortBy: 'trust',
+                  verdictFilter: 'ALL',
+                  // The panel only renders five unique picks. Pull a small
+                  // cushion for duplicate provider lines instead of asking
+                  // the API to build and serialize 900 props at once.
+                  limit: 20,
+                  // Reliability is already loaded by the command-center
+                  // snapshot below. Rebuilding the complete provider report
+                  // for every sport made this nine-request fan-out capable
+                  // of exhausting the API instance during owner login.
+                  includeReliability: false,
+                );
+                return (sport: sport, props: props, failed: false);
+              } catch (_) {
+                return (sport: sport, props: <PropData>[], failed: true);
+              }
+            }),
           ).then(
-            (sportPages) =>
-                sportPages.expand((props) => props).toList(growable: false),
+            (sportPages) => (
+              props: sportPages
+                  .expand((page) => page.props)
+                  .toList(growable: false),
+              successfulSports: sportPages
+                  .where((page) => !page.failed)
+                  .map((page) => page.sport)
+                  .toSet(),
+            ),
           );
       final moneylineRequest = Future.wait<GameMarketFeed?>(
         _ownerMoneylineSports.map(
@@ -330,13 +382,16 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       // them as soon as they finish instead of holding them behind billing,
       // audit, recovery, identity, and telemetry requests.
       unawaited(
-        topPicksRequest.then((props) {
+        topPicksRequest.then((result) {
           if (!mounted) return;
-          final ranked = _rankOwnerTopPicks(props);
-          if (ranked.isEmpty) return;
+          final ranked = _mergeOwnerTopPicks(
+            _rankOwnerTopPicks(result.props),
+            result.successfulSports,
+          );
           setState(() {
             _ownerTopPicks = ranked;
             _cachedOwnerTopPicks = ranked;
+            _cachedOwnerTopPicksDay = DateUtils.dateOnly(DateTime.now());
           });
         }),
       );
@@ -379,7 +434,10 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       ]);
       final topPicks = await topPicksRequest;
       final moneylineFeeds = await moneylineRequest;
-      final rankedTopPicks = _rankOwnerTopPicks(topPicks);
+      final rankedTopPicks = _mergeOwnerTopPicks(
+        _rankOwnerTopPicks(topPicks.props),
+        topPicks.successfulSports,
+      );
       final rankedMoneylines = <String, List<_OwnerMoneylinePick>>{};
       for (var index = 0; index < _ownerMoneylineSports.length; index++) {
         final picks = _rankMoneylines(moneylineFeeds[index]);
@@ -398,10 +456,9 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         _providerRecovery = results[6];
         _identityRegistry = results[7];
         _providerReliability = _api.lastProviderReliability;
-        if (rankedTopPicks.isNotEmpty) {
-          _ownerTopPicks = rankedTopPicks;
-          _cachedOwnerTopPicks = rankedTopPicks;
-        }
+        _ownerTopPicks = rankedTopPicks;
+        _cachedOwnerTopPicks = rankedTopPicks;
+        _cachedOwnerTopPicksDay = DateUtils.dateOnly(DateTime.now());
         if (rankedMoneylines.isNotEmpty) {
           _ownerMoneylines = {..._ownerMoneylines, ...rankedMoneylines};
           _cachedOwnerMoneylines = _ownerMoneylines;
@@ -1007,6 +1064,16 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     }
     return ranked;
   }
+
+  List<PropData> _mergeOwnerTopPicks(
+    List<PropData> fresh,
+    Set<String> successfulSports,
+  ) => mergeOwnerTopPicksForRefresh(
+    previous: _ownerTopPicks,
+    fresh: fresh,
+    successfulSports: successfulSports,
+    sportOrder: _ownerPickSports,
+  );
 
   int _compareOwnerPicks(PropData left, PropData right) {
     // A released actionable verdict is always the first choice. When an
