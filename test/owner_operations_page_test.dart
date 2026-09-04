@@ -22,6 +22,23 @@ PropData _ownerPick(String sport, int index) => PropData(
   imagePath: '',
 );
 
+PropData _providerPick({required int index, required String provider}) =>
+    PropData(
+      id: 'provider-$index',
+      eventId: 'event-$index',
+      apiSportsGameId: 'game-$index',
+      playerId: 'player-$index',
+      player: 'Player $index',
+      sport: 'NFL',
+      matchup: 'Away @ Home',
+      sportsbook: provider,
+      market: 'Receiving Yards',
+      line: 50.5 + index,
+      pick: 'OVER',
+      edge: 10 - index.toDouble(),
+      imagePath: '',
+    );
+
 class _FakeOperationsApi extends ApiService {
   int recoveryRequests = 0;
   int identityReconciliations = 0;
@@ -540,6 +557,35 @@ class _PrimaryFailureOperationsApi extends _FakeOperationsApi {
 }
 
 void main() {
+  test('owner top five includes the best available PrizePicks prop', () {
+    final ranked = <PropData>[
+      for (var index = 0; index < 5; index++)
+        _providerPick(index: index, provider: 'Underdog'),
+      _providerPick(index: 5, provider: 'Prize Picks'),
+      _providerPick(index: 6, provider: 'PrizePicks'),
+    ];
+
+    final selected = selectOwnerTopFiveWithPrizePicks(ranked);
+
+    expect(selected, hasLength(5));
+    expect(selected.take(4), ranked.take(4));
+    expect(selected.last.sportsbook, 'Prize Picks');
+  });
+
+  test(
+    'owner top five keeps its ranking when PrizePicks already qualifies',
+    () {
+      final ranked = <PropData>[
+        _providerPick(index: 0, provider: 'Underdog'),
+        _providerPick(index: 1, provider: 'PrizePicks'),
+        for (var index = 2; index < 7; index++)
+          _providerPick(index: index, provider: 'Underdog'),
+      ];
+
+      expect(selectOwnerTopFiveWithPrizePicks(ranked), ranked.take(5));
+    },
+  );
+
   test('failed sport refresh retains its last verified daily top five', () {
     final previous = [
       for (var index = 0; index < 6; index++) _ownerPick('NFL', index),

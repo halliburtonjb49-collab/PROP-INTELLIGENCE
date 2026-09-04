@@ -178,6 +178,33 @@ List<PropData> mergeOwnerTopPicksForRefresh({
   return merged;
 }
 
+@visibleForTesting
+List<PropData> selectOwnerTopFiveWithPrizePicks(List<PropData> ranked) {
+  if (ranked.length <= 5 || ranked.take(5).any(_isPrizePicksOwnerProp)) {
+    return ranked.take(5).toList(growable: false);
+  }
+  PropData? prizePicks;
+  for (final prop in ranked.skip(5)) {
+    if (_isPrizePicksOwnerProp(prop)) {
+      prizePicks = prop;
+      break;
+    }
+  }
+  if (prizePicks == null) return ranked.take(5).toList(growable: false);
+
+  // Keep the four strongest overall signals and guarantee that the best
+  // available PrizePicks line is represented in the owner shortlist.
+  return <PropData>[...ranked.take(4), prizePicks];
+}
+
+bool _isPrizePicksOwnerProp(PropData prop) {
+  final provider = prop.sportsbook.toUpperCase().replaceAll(
+    RegExp(r'[^A-Z0-9]+'),
+    '',
+  );
+  return provider.contains('PRIZEPICKS');
+}
+
 class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   static List<PropData> _cachedOwnerTopPicks = const [];
   static DateTime? _cachedOwnerTopPicksDay;
@@ -1060,7 +1087,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     final sports = grouped.keys.toList()..sort();
     for (final sport in sports) {
       final picks = grouped[sport]!..sort(_compareOwnerPicks);
-      ranked.addAll(picks.take(5));
+      ranked.addAll(selectOwnerTopFiveWithPrizePicks(picks));
     }
     return ranked;
   }
