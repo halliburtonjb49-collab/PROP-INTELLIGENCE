@@ -507,18 +507,33 @@ class PropChatService {
         // announcement to disappear as soon as enough ordinary chat followed
         // it. Query the reserved prefix directly so the newest announcement
         // remains available in every room regardless of chat volume.
-        final roomRows = await roomRequest;
+        dynamic roomRows = const <dynamic>[];
+        Object? roomError;
+        try {
+          roomRows = await roomRequest;
+        } catch (error) {
+          roomError = error;
+          debugPrint('PROP CHAT room refresh unavailable: $error');
+        }
         dynamic announcementRows = const <dynamic>[];
+        Object? announcementError;
         try {
           // PostgREST supports `*` as the URL-safe LIKE wildcard. Avoid
           // embedding the newline from the full reserved prefix in the filter;
           // some gateways reject that URL before it reaches Postgres.
           announcementRows = await client.rpc('latest_prop_chat_announcement');
         } catch (error) {
+          announcementError = error;
           // Announcement enrichment must never take the normal room feed
           // down. General's ordinary query still includes recent notices and
           // every room remains usable while a schema/gateway issue recovers.
           debugPrint('PROP CHAT announcement refresh unavailable: $error');
+        }
+        if ((roomRows as List).isEmpty &&
+            (announcementRows as List).isEmpty &&
+            roomError != null &&
+            announcementError != null) {
+          throw roomError;
         }
         final rowsById = <String, Map<String, dynamic>>{};
         for (final result in <dynamic>[roomRows, announcementRows]) {
@@ -539,6 +554,9 @@ class PropChatService {
         emitMessages();
       } catch (error) {
         debugPrint('PROP CHAT message refresh unavailable: $error');
+        if (storedMessages.isEmpty && externalMessages.isEmpty) {
+          controller.addError(error);
+        }
         if (!controller.isClosed && refreshRetry == null) {
           final exponent = refreshAttempts > 4 ? 4 : refreshAttempts;
           final delay = Duration(seconds: 1 << exponent);

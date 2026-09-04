@@ -83,6 +83,23 @@ def test_owner_announcement_rpc_is_authenticated_and_owner_only() -> None:
     )
     assert "from public, anon" in sql
 
+
+def test_prop_chat_runtime_grants_cover_rls_and_announcement_functions() -> None:
+    filename = "supabase_prop_chat_runtime_grants.sql"
+    sql = (ROOT / filename).read_text(encoding="utf-8").lower()
+    from scripts.apply_supabase_migrations import MIGRATIONS
+
+    assert filename in MIGRATIONS
+    for signature in (
+        "public.is_prop_chat_moderator()",
+        "public.can_access_prop_chat_room(text)",
+        "public.prop_chat_notification_summary()",
+        "public.latest_prop_chat_announcement()",
+        "public.publish_prop_chat_announcement(text)",
+    ):
+        assert f"grant execute on function {signature} to authenticated" in sql
+        assert signature in sql
+
 def test_feedback_table_is_migrated_as_api_only_data() -> None:
     from scripts.apply_supabase_migrations import MIGRATIONS
 

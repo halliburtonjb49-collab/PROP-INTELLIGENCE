@@ -76,6 +76,7 @@ MIGRATIONS = (
     "supabase_prop_chat_owner_announcements_hardening_v2.sql",
     "supabase_prop_chat_owner_message_length.sql",
     "supabase_prop_chat_owner_announcements_rpc.sql",
+    "supabase_prop_chat_runtime_grants.sql",
 )
 
 

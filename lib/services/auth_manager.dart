@@ -333,7 +333,7 @@ class AuthManager {
     SupabaseClient client,
     Session restoredSession,
   ) async {
-    var usableSession = restoredSession;
+    Session? usableSession = restoredSession;
     try {
       final refreshed = await client.auth.refreshSession();
       usableSession = refreshed.session ?? restoredSession;
@@ -350,7 +350,10 @@ class AuthManager {
             ) ??
             restoredSession;
       } catch (_) {
-        usableSession = restoredSession;
+        // Never render the authenticated workspace from an expired token.
+        // That creates a convincing signed-in shell while every protected
+        // API and Supabase request fails with 401.
+        usableSession = restoredSession.isExpired ? null : restoredSession;
       }
     } finally {
       _restoringInitialSession = false;

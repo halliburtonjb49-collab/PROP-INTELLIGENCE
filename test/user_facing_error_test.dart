@@ -22,6 +22,15 @@ void main() {
     expect(isAuthenticationLoadError('ClientException: failed'), isFalse);
   });
 
+  test('Supabase token failures request a fresh sign-in', () {
+    const error = 'Exception: Valid Supabase access token required (401)';
+    expect(isAuthenticationLoadError(error), isTrue);
+    expect(
+      userFacingLoadError(error, noun: 'live prop feed'),
+      contains('Sign in again'),
+    );
+  });
+
   test('unknown failures remain safe and actionable', () {
     final message = userFacingLoadError(
       'Exception: database host internal.example.test',

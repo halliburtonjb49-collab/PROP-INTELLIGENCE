@@ -1419,6 +1419,7 @@ class ApiService {
     // authenticated Supabase session. Keep those development surfaces
     // deterministic without weakening the authenticated production API.
     Object? lastError;
+    Object? authenticationError;
     final sportsbookVariants = _sportsbookQueryVariants(selectedSportsbook);
     final targetSportsbookKey = _normalizeSportsbookKey(selectedSportsbook);
     final sportsbookFilterEnabled = targetSportsbookKey != 'ALL';
@@ -1655,6 +1656,14 @@ class ApiService {
         return props;
       } catch (error) {
         lastError = error;
+        final message = error.toString().toLowerCase();
+        if (message.contains('401') ||
+            message.contains('403') ||
+            message.contains('unauthorized') ||
+            message.contains('forbidden') ||
+            message.contains('sign in before')) {
+          authenticationError ??= error;
+        }
       }
     }
 
@@ -1684,6 +1693,9 @@ class ApiService {
       return lastSuccessfulProps;
     }
 
+    if (authenticationError is Exception) {
+      throw authenticationError;
+    }
     if (lastError is Exception) {
       throw lastError;
     }
