@@ -507,18 +507,27 @@ class PropChatService {
         // announcement to disappear as soon as enough ordinary chat followed
         // it. Query the reserved prefix directly so the newest announcement
         // remains available in every room regardless of chat volume.
-        final results = await Future.wait<dynamic>([
-          roomRequest,
-          client
+        final roomRows = await roomRequest;
+        dynamic announcementRows = const <dynamic>[];
+        try {
+          // PostgREST supports `*` as the URL-safe LIKE wildcard. Avoid
+          // embedding the newline from the full reserved prefix in the filter;
+          // some gateways reject that URL before it reaches Postgres.
+          announcementRows = await client
               .from('prop_chat_messages')
               .select()
               .eq('room_id', 'general')
-              .like('body', '$_ownerAnnouncementPrefix%')
+              .like('body', '[PI ANNOUNCEMENT]*')
               .order('created_at', ascending: false)
-              .limit(1),
-        ]);
+              .limit(1);
+        } catch (error) {
+          // Announcement enrichment must never take the normal room feed
+          // down. General's ordinary query still includes recent notices and
+          // every room remains usable while a schema/gateway issue recovers.
+          debugPrint('PROP CHAT announcement refresh unavailable: $error');
+        }
         final rowsById = <String, Map<String, dynamic>>{};
-        for (final result in results) {
+        for (final result in <dynamic>[roomRows, announcementRows]) {
           for (final row in (result as List).cast<Map<String, dynamic>>()) {
             rowsById[row['id']?.toString() ?? ''] = row;
           }
