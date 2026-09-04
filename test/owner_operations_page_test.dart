@@ -9,6 +9,8 @@ import 'package:prop_intelligence/widgets/owner_user_account_controls.dart';
 class _FakeOperationsApi extends ApiService {
   int recoveryRequests = 0;
   int identityReconciliations = 0;
+  final Set<String> ownerPickSportsRequested = {};
+  bool ownerPickRequestWasOversized = false;
 
   @override
   Future<List<PropData>> fetchProps({
@@ -25,7 +27,13 @@ class _FakeOperationsApi extends ApiService {
     int offset = 0,
     bool includeReliability = true,
     bool trackBoardLoad = false,
-  }) async => const [];
+  }) async {
+    ownerPickSportsRequested.add(selectedSport);
+    if (limit > 20 || includeReliability) {
+      ownerPickRequestWasOversized = true;
+    }
+    return const [];
+  }
 
   @override
   Future<Map<String, dynamic>> fetchBillingCertification() async => {
@@ -588,6 +596,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('OWNER COMMAND CENTER'), findsOneWidget);
+    expect(api.ownerPickSportsRequested.length, 9);
+    expect(api.ownerPickRequestWasOversized, isFalse);
     expect(
       find.byKey(const ValueKey('owner-command-center-overview')),
       findsOneWidget,

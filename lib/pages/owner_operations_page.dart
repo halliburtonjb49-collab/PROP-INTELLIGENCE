@@ -302,8 +302,15 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                     selectedSport: sport,
                     sortBy: 'trust',
                     verdictFilter: 'ALL',
-                    limit: 100,
-                    includeReliability: true,
+                    // The panel only renders five unique picks. Pull a small
+                    // cushion for duplicate provider lines instead of asking
+                    // the API to build and serialize 900 props at once.
+                    limit: 20,
+                    // Reliability is already loaded by the command-center
+                    // snapshot below. Rebuilding the complete provider report
+                    // for every sport made this nine-request fan-out capable
+                    // of exhausting the API instance during owner login.
+                    includeReliability: false,
                   )
                   .catchError((_) => <PropData>[]),
             ),
@@ -784,8 +791,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             _ownerTopPicksPanel(),
             const SizedBox(height: 22),
             _sectionTitle(
-              'TODAY\'S TOP 5 MONEYLINE RESEARCH SIGNALS BY SPORT',
-              'MLB, NFL, NCAAF, and NCAAB owner rankings when each league has games in season',
+              'SEPARATE TEAM MONEYLINE RESEARCH — NOT PLAYER PROPS',
+              'Optional team-market context for MLB, NFL, NCAAF, and NCAAB; the player-prop Top 5 is the section above',
             ),
             const SizedBox(height: 10),
             _ownerMoneylinePanel(),
