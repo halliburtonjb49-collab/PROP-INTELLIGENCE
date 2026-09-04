@@ -502,26 +502,28 @@ class PropChatService {
             .eq('room_id', roomId)
             .order('created_at', ascending: false)
             .limit(200);
-        final results = roomId == 'general'
-            ? <dynamic>[await roomRequest]
-            : await Future.wait<dynamic>([
-                roomRequest,
-                client
-                    .from('prop_chat_messages')
-                    .select()
-                    .eq('room_id', 'general')
-                    .order('created_at', ascending: false)
-                    .limit(50),
-              ]);
-        final rows = <Map<String, dynamic>>[
-          ...(results.first as List).cast<Map<String, dynamic>>(),
-          if (results.length > 1)
-            ...(results[1] as List).cast<Map<String, dynamic>>().where(
-              (row) => (row['body']?.toString() ?? '').startsWith(
-                _ownerAnnouncementPrefix,
-              ),
-            ),
-        ];
+        // Announcements are a persistent, cross-room channel. Fetching the
+        // latest general-room messages and filtering client-side caused an
+        // announcement to disappear as soon as enough ordinary chat followed
+        // it. Query the reserved prefix directly so the newest announcement
+        // remains available in every room regardless of chat volume.
+        final results = await Future.wait<dynamic>([
+          roomRequest,
+          client
+              .from('prop_chat_messages')
+              .select()
+              .eq('room_id', 'general')
+              .like('body', '$_ownerAnnouncementPrefix%')
+              .order('created_at', ascending: false)
+              .limit(1),
+        ]);
+        final rowsById = <String, Map<String, dynamic>>{};
+        for (final result in results) {
+          for (final row in (result as List).cast<Map<String, dynamic>>()) {
+            rowsById[row['id']?.toString() ?? ''] = row;
+          }
+        }
+        final rows = rowsById.values.toList(growable: false);
         rows.sort(
           (left, right) => (left['created_at']?.toString() ?? '').compareTo(
             right['created_at']?.toString() ?? '',
