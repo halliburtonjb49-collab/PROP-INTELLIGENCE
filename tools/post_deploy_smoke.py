@@ -253,6 +253,31 @@ def main() -> int:
             f"Prop readiness round trip exceeds 10 seconds: {props_ms:.0f} ms"
         )
 
+    smoke_api_token = os.getenv("SMOKE_API_TOKEN", "").strip()
+    if not smoke_api_token:
+        raise RuntimeError(
+            "SMOKE_API_TOKEN is required to verify the signed-in prop board"
+        )
+    board_url = (
+        f"{API_URL}/api/props?sportsbook=PRIZEPICKS&sport=All"
+        "&category=All&side=All&tier=All&minConfidence=0"
+        "&sortBy=trust&verdict=All&includeReliability=false"
+        "&limit=40&offset=0"
+    )
+    board, board_body, board_ms = request(
+        board_url,
+        headers={"Authorization": f"Bearer {smoke_api_token}"},
+    )
+    board_payload = json.loads(board_body)
+    if board.status != 200 or not isinstance(board_payload.get("props"), list):
+        raise RuntimeError("Signed-in PrizePicks board is unavailable")
+    if int(board_payload.get("returned") or 0) < 1:
+        raise RuntimeError("Signed-in PrizePicks board returned no props")
+    if board_ms > 10_000:
+        raise RuntimeError(
+            f"Signed-in PrizePicks board exceeds 10 seconds: {board_ms:.0f} ms"
+        )
+
     # The proprietary feed must remain unavailable without a real user session.
     try:
         request(f"{API_URL}/api/props?limit=1")
@@ -282,6 +307,7 @@ def main() -> int:
                 "appMs": round(app_ms),
                 "propsMs": round(props_ms),
                 "propsServerMs": round(server_ms),
+                "signedInBoardMs": round(board_ms),
                 "payloadBytes": len(body),
                 "props": int(payload["count"]),
                 "feedAgeMinutes": round(feed_age_minutes),
