@@ -75,7 +75,10 @@ class ScoreboardService {
       response = await _getWithFallback(
         '/api/scoreboard',
         queryParameters: {'date': formattedDate},
-        timeout: const Duration(seconds: 6),
+        // A cold multi-league aggregation can take several seconds even when
+        // the API is healthy. Do not abandon it for the authenticated props
+        // fallback before the server has had a realistic chance to answer.
+        timeout: const Duration(seconds: 12),
       );
     } catch (_) {
       if (cached.isNotEmpty) return cached;
@@ -184,7 +187,7 @@ class ScoreboardService {
     try {
       final response = await _getWithFallback(
         '/api/props',
-        timeout: const Duration(seconds: 6),
+        timeout: const Duration(seconds: 4),
       );
       if (response.statusCode != 200) {
         return const [];

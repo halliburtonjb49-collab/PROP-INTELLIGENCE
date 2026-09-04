@@ -8,6 +8,20 @@ from services import espn_headshot_service
 def _use_map(monkeypatch, path):
     monkeypatch.setattr(espn_headshot_service, "HEADSHOT_MAP_PATH", path)
     monkeypatch.setattr(espn_headshot_service, "_BUNDLED_MAP_PATH", path)
+    monkeypatch.setattr(espn_headshot_service, "SOCCER_DETAIL_LEAGUES", ())
+    # Release checks may run on a developer machine that has a production
+    # Redis URL configured. Unit tests must never contact that live cache or
+    # stall behind its network timeout.
+    monkeypatch.setattr(
+        espn_headshot_service,
+        "get_distributed_json",
+        lambda _key: None,
+    )
+    monkeypatch.setattr(
+        espn_headshot_service,
+        "set_distributed_json",
+        lambda _key, _payload, **_kwargs: True,
+    )
     espn_headshot_service._load_map.cache_clear()
 
 

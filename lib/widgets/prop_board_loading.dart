@@ -8,9 +8,9 @@ import '../theme/app_colors.dart';
 
 /// How long the board waits before it stops claiming to be loading.
 ///
-/// Generous on purpose: a cold backend genuinely takes seconds, while a feed
-/// that never answers must eventually become a retryable error.
-const Duration propFetchTimeout = Duration(seconds: 25);
+/// Keeps customer navigation bounded while cached data and background retry
+/// cover a temporarily cold or unavailable feed.
+const Duration propFetchTimeout = Duration(seconds: 12);
 
 /// Explains how a live-feed wait is progressing instead of showing a silent
 /// skeleton indefinitely.
@@ -63,7 +63,10 @@ class _PropLoadingSkeletonState extends State<PropLoadingSkeleton>
       duration: const Duration(milliseconds: 1800),
     );
     if (!WidgetsBinding
-        .instance.platformDispatcher.accessibilityFeatures.disableAnimations) {
+        .instance
+        .platformDispatcher
+        .accessibilityFeatures
+        .disableAnimations) {
       _scanController.repeat();
     }
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -92,11 +95,7 @@ class _PropLoadingSkeletonState extends State<PropLoadingSkeleton>
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0B2230),
-              Color(0xFF071722),
-              Color(0xFF040D14),
-            ],
+            colors: [Color(0xFF0B2230), Color(0xFF071722), Color(0xFF040D14)],
             stops: [0, 0.56, 1],
           ),
           borderRadius: BorderRadius.circular(16),

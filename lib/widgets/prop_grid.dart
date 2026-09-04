@@ -3520,9 +3520,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed && _backgroundedAt != null) {
       _backgroundedAt = null;
       _warmVisiblePlayerPhotos(
-        _preparedProps
-            .map((prepared) => prepared.prop)
-            .take(_visiblePropLimit),
+        _preparedProps.map((prepared) => prepared.prop).take(_visiblePropLimit),
       );
       unawaited(_restoreAfterBackground());
     }
@@ -3537,9 +3535,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       await _refreshProps();
       if (!mounted) return;
       _warmVisiblePlayerPhotos(
-        _preparedProps
-            .map((prepared) => prepared.prop)
-            .take(_visiblePropLimit),
+        _preparedProps.map((prepared) => prepared.prop).take(_visiblePropLimit),
       );
     } finally {
       _resumeRefreshInFlight = false;
@@ -3709,30 +3705,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         _scheduleAutomaticRetry();
         return activeFallback;
       }
-      // A restored mobile session can become visible a moment before its
-      // refreshed access token is usable. Recover inside this load instead of
-      // painting a full error state that the user must manually dismiss.
-      await Future<void>.delayed(const Duration(milliseconds: 900));
-      try {
-        final recovered = activePropsInChronologicalOrder(
-          await _fetchPropsPage(includeReliability: true),
-        );
-        if (recovered.isNotEmpty) {
-          _automaticRetryCount = 0;
-          _rememberCurrentView(requestKey, recovered);
-          _preparedProps = prepareBoardProps(recovered);
-          widget.onPropsLoaded?.call(
-            recovered,
-            _apiService.lastPropsCount,
-            _apiService.lastFacetCount,
-            _apiService.lastCategoryCounts,
-          );
-          return recovered;
-        }
-      } catch (_) {
-        // Preserve the original error and stack if the recovery request also
-        // fails so diagnostics still identify the first startup failure.
-      }
+      // Do not block the customer behind a second full request. Automatic
+      // recovery continues after the retryable error state is visible.
+      _scheduleAutomaticRetry();
       Error.throwWithStackTrace(outcome.error!, outcome.stack!);
     }
     final liveProps = outcome.props;
@@ -3780,6 +3755,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           limit: _visiblePropStep,
           offset: offset,
           includeReliability: includeReliability,
+          trackBoardLoad: true,
         )
         .timeout(
           propFetchTimeout,

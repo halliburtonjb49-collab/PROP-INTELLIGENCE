@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <defs>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="22" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="soft" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="45"/></filter>
+    <radialGradient id="halo"><stop offset=".55" stop-color="#ffd96a" stop-opacity="0"/><stop offset=".78" stop-color="#e4aa35" stop-opacity=".34"/><stop offset="1" stop-color="#ffd96a" stop-opacity="0"/></radialGradient>
+  </defs>
+  <circle cx="540" cy="540" r="390" fill="none" stroke="#dca83c" stroke-width="75" opacity=".23" filter="url(#soft)"/>
+  <circle cx="540" cy="540" r="388" fill="none" stroke="#ffe082" stroke-width="21" stroke-dasharray="10 7 34 5" filter="url(#glow)"/>
+  <circle cx="540" cy="540" r="386" fill="none" stroke="#fff4bf" stroke-width="5" stroke-dasharray="2 10 17 6"/>
+  <circle cx="540" cy="540" r="475" fill="url(#halo)"/>
+  <g fill="#fff0a0" filter="url(#glow)">
+    <circle cx="540" cy="135" r="7"/><circle cx="718" cy="177" r="4"/><circle cx="865" cy="310" r="8"/><circle cx="930" cy="520" r="5"/>
+    <circle cx="875" cy="748" r="7"/><circle cx="720" cy="902" r="4"/><circle cx="510" cy="946" r="8"/><circle cx="300" cy="864" r="5"/>
+    <circle cx="167" cy="700" r="7"/><circle cx="138" cy="470" r="4"/><circle cx="225" cy="270" r="8"/><circle cx="380" cy="160" r="5"/>
+  </g>
+</svg>

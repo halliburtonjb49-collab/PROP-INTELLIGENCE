@@ -34,6 +34,7 @@ class _FailingPropsApi extends ApiService {
     int limit = 75,
     int offset = 0,
     bool includeReliability = true,
+    bool trackBoardLoad = false,
   }) {
     fetchCalls += 1;
     return Future<List<PropData>>.error(StateError('test feed unavailable'));

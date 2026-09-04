@@ -37,6 +37,7 @@ class _CountingApi extends ApiService {
     int limit = 75,
     int offset = 0,
     bool includeReliability = true,
+    bool trackBoardLoad = false,
   }) async {
     fetches += 1;
     return props;
@@ -98,10 +99,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(
-      find.byKey(const ValueKey('card-a1')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('card-a1')), findsOneWidget);
     expect(find.text('2 CURRENT LINE OPTIONS'), findsOneWidget);
   });
 }

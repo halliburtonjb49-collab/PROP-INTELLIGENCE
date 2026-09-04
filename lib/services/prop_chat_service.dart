@@ -201,6 +201,18 @@ PropChatMessage resolveCurrentUserMessageIdentity(
   return message.withAuthorIdentity(role: role, badgeNumber: badgeNumber);
 }
 
+/// Announcement bodies are protected by a database trigger that permits the
+/// reserved prefix only for registered owners. Older rows can still carry the
+/// legacy `user` author role, so normalize those trusted rows for every member
+/// rather than only for the currently signed-in owner.
+PropChatMessage resolveAnnouncementIdentity(PropChatMessage message) {
+  if (!message.body.startsWith(_ownerAnnouncementPrefix) ||
+      message.isOfficialOwner) {
+    return message;
+  }
+  return message.withAuthorIdentity(role: 'owner');
+}
+
 class PropChatMember {
   const PropChatMember({required this.userId, required this.username});
   final String userId;
@@ -498,7 +510,6 @@ class PropChatService {
                     .from('prop_chat_messages')
                     .select()
                     .eq('room_id', 'general')
-                    .eq('author_role', 'owner')
                     .order('created_at', ascending: false)
                     .limit(50),
               ]);
@@ -775,6 +786,7 @@ class PropChatService {
     final messages = rows
         .map(PropChatMessage.fromJson)
         .map((message) => resolveCurrentUserMessageIdentity(message, session))
+        .map(resolveAnnouncementIdentity)
         .toList(growable: false);
     if (messages.isEmpty || _client == null) return messages;
     final ids = messages.map((message) => message.id).toList();

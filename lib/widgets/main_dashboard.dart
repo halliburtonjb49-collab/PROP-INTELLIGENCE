@@ -1126,37 +1126,6 @@ class _MainDashboardState extends State<MainDashboard> {
     }
   }
 
-  String _normalizeSite(String value) {
-    final normalized = value
-        .trim()
-        .toUpperCase()
-        .replaceAll(' ', '')
-        .replaceAll('_', '')
-        .replaceAll('-', '');
-    if (normalized.contains('PICK6') || normalized.contains('PICK 6')) {
-      return 'PICK6';
-    }
-    if (normalized.contains('PRIZEPICKS')) {
-      return 'PRIZEPICKS';
-    }
-    if (normalized.contains('DRAFTKINGS')) {
-      return 'DRAFTKINGS';
-    }
-    if (normalized.contains('DRAFTPICKS')) {
-      return 'DRAFT PICKS';
-    }
-    if (normalized.contains('FANDUEL')) {
-      return 'FANDUEL';
-    }
-    if (normalized.contains('UNDERDOG')) {
-      return 'UNDERDOG';
-    }
-    if (normalized.contains('BETR')) {
-      return 'BETR';
-    }
-    return normalized;
-  }
-
   String _normalizeSport(String value) {
     final normalized = value
         .trim()
@@ -1393,13 +1362,15 @@ class _MainDashboardState extends State<MainDashboard> {
         limit: 500,
       );
       final playerKey = focused.player.trim().toLowerCase();
-      final siteKey = _normalizeSite(focused.sportsbook);
       playerProps = fetched
           .where(
             (prop) =>
                 prop.player.trim().toLowerCase() == playerKey &&
-                _normalizeSite('${prop.sportsbook} ${prop.sourceProvider}') ==
-                    siteKey,
+                propMatchesSelectedSportsbook(
+                  selectedSportsbook: focused.sportsbook,
+                  sportsbook: prop.sportsbook,
+                  sourceProvider: prop.sourceProvider,
+                ),
           )
           .toList(growable: false);
     } catch (_) {
@@ -1408,8 +1379,11 @@ class _MainDashboardState extends State<MainDashboard> {
             (prop) =>
                 prop.player.trim().toLowerCase() ==
                     focused.player.trim().toLowerCase() &&
-                _normalizeSite('${prop.sportsbook} ${prop.sourceProvider}') ==
-                    _normalizeSite(focused.sportsbook),
+                propMatchesSelectedSportsbook(
+                  selectedSportsbook: focused.sportsbook,
+                  sportsbook: prop.sportsbook,
+                  sourceProvider: prop.sourceProvider,
+                ),
           )
           .toList(growable: false);
     }

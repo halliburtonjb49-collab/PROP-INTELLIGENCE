@@ -20,6 +20,41 @@ Map<String, dynamic> savedSlipPayload(Map<String, dynamic> response) {
   return response;
 }
 
+String _normalizedSportsbookKey(String value) {
+  final normalized = value
+      .trim()
+      .toUpperCase()
+      .replaceAll(' ', '')
+      .replaceAll('_', '')
+      .replaceAll('-', '');
+  if (normalized.isEmpty) return '';
+  if (normalized == 'ALL') return 'ALL';
+  if (normalized.contains('PICK6')) return 'PICK6';
+  if (normalized.contains('PRIZEPICKS')) return 'PRIZEPICKS';
+  if (normalized.contains('DRAFTKINGS')) return 'DRAFTKINGS';
+  if (normalized.contains('DRAFTPICKS')) return 'DRAFTPICKS';
+  if (normalized.contains('FANDUEL')) return 'FANDUEL';
+  if (normalized.contains('UNDERDOG')) return 'UNDERDOG';
+  if (normalized.contains('BETR')) return 'BETR';
+  return normalized;
+}
+
+/// Whether a returned prop belongs to the site selected on the market board.
+///
+/// Provider provenance and customer-facing sportsbook are separate fields.
+/// Combining them before normalization turns a valid pair such as
+/// `PrizePicks` + `prizepicks-api` into an unmatchable synthetic site name.
+bool propMatchesSelectedSportsbook({
+  required String selectedSportsbook,
+  required String sportsbook,
+  required String sourceProvider,
+}) {
+  final target = _normalizedSportsbookKey(selectedSportsbook);
+  if (target.isEmpty || target == 'ALL') return true;
+  return _normalizedSportsbookKey(sportsbook) == target ||
+      _normalizedSportsbookKey(sourceProvider) == target;
+}
+
 class _ParsedPropsPayload {
   const _ParsedPropsPayload({
     required this.props,
@@ -1190,17 +1225,13 @@ class ApiService {
     // every candidate twice made a mobile board exceed its own loading
     // deadline before the direct API fallback could run.
     const maxAttempts = 1;
-    // Production validates protected prop requests against Supabase with a
-    // server-side ceiling of 12 seconds. The previous 8-second client limit
-    // could abort a healthy first request before authentication completed,
-    // which was most visible on mobile after restoring a session. Keep the
-    // broad request inside the board's 25-second recovery budget while giving
-    // the backend enough time to finish its authenticated response.
+    // Bound the customer-visible attempt; the board performs recovery in the
+    // background instead of blocking navigation behind another full request.
     final requestTimeout = isSpecialtySport
-        ? const Duration(seconds: 8)
+        ? const Duration(seconds: 6)
         : category.isNotEmpty && category != 'ALL'
-        ? const Duration(seconds: 12)
-        : const Duration(seconds: 15);
+        ? const Duration(seconds: 8)
+        : const Duration(seconds: 10);
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         var response = await (() async {
@@ -1369,6 +1400,7 @@ class ApiService {
     int limit = 75,
     int offset = 0,
     bool includeReliability = true,
+    bool trackBoardLoad = false,
   }) async {
     final observabilityStopwatch = Stopwatch()..start();
     // Widget smoke tests mount the production shell without configuring a
@@ -1606,12 +1638,14 @@ class ApiService {
           message:
               'Downloaded ${props.length} props reliably • build $appVersion',
         );
-        EngagementTracker.instance.recordOperational(
-          'PROP_LOAD_SUCCESS',
-          endpoint: '/api/props',
-          provider: selectedSportsbook,
-          durationMs: observabilityStopwatch.elapsedMilliseconds,
-        );
+        if (trackBoardLoad) {
+          EngagementTracker.instance.recordOperational(
+            'PROP_LOAD_SUCCESS',
+            endpoint: '/api/props',
+            provider: selectedSportsbook,
+            durationMs: observabilityStopwatch.elapsedMilliseconds,
+          );
+        }
         EngagementTracker.instance.recordOperational(
           'API_SUCCESS',
           endpoint: '/api/props',
@@ -1624,13 +1658,15 @@ class ApiService {
       }
     }
 
-    EngagementTracker.instance.recordOperational(
-      'PROP_LOAD_FAILURE',
-      endpoint: '/api/props',
-      provider: selectedSportsbook,
-      category: lastError.runtimeType.toString(),
-      durationMs: observabilityStopwatch.elapsedMilliseconds,
-    );
+    if (trackBoardLoad) {
+      EngagementTracker.instance.recordOperational(
+        'PROP_LOAD_FAILURE',
+        endpoint: '/api/props',
+        provider: selectedSportsbook,
+        category: lastError.runtimeType.toString(),
+        durationMs: observabilityStopwatch.elapsedMilliseconds,
+      );
+    }
     EngagementTracker.instance.recordOperational(
       'API_FAILURE',
       endpoint: '/api/props',
@@ -1705,50 +1741,15 @@ class ApiService {
   }
 
   String _normalizeSportsbookKey(String value) {
-    final normalized = value
-        .trim()
-        .toUpperCase()
-        .replaceAll(' ', '')
-        .replaceAll('_', '')
-        .replaceAll('-', '');
-    if (normalized.isEmpty) {
-      return '';
-    }
-    if (normalized == 'ALL') {
-      return 'ALL';
-    }
-    if (normalized.contains('PICK6') || normalized.contains('PICK 6')) {
-      return 'PICK6';
-    }
-    if (normalized.contains('PRIZEPICKS')) {
-      return 'PRIZEPICKS';
-    }
-    if (normalized.contains('DRAFTKINGS')) {
-      return 'DRAFTKINGS';
-    }
-    if (normalized.contains('DRAFTPICKS')) {
-      return 'DRAFTPICKS';
-    }
-    if (normalized.contains('FANDUEL')) {
-      return 'FANDUEL';
-    }
-    if (normalized.contains('UNDERDOG')) {
-      return 'UNDERDOG';
-    }
-    if (normalized.contains('BETR')) {
-      return 'BETR';
-    }
-    return normalized;
+    return _normalizedSportsbookKey(value);
   }
 
   bool _matchesSelectedSportsbook(PropData prop, String targetSportsbookKey) {
-    if (targetSportsbookKey.isEmpty || targetSportsbookKey == 'ALL') {
-      return true;
-    }
-    final propSiteKey = _normalizeSportsbookKey(
-      '${prop.sportsbook} ${prop.sourceProvider}',
+    return propMatchesSelectedSportsbook(
+      selectedSportsbook: targetSportsbookKey,
+      sportsbook: prop.sportsbook,
+      sourceProvider: prop.sourceProvider,
     );
-    return propSiteKey == targetSportsbookKey;
   }
 
   Map<String, int> _categoryCountsFromProps(List<PropData> props) {

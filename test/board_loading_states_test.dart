@@ -62,8 +62,8 @@ void main() {
     test('the bound is generous enough not to fire on a working feed', () {
       // A bound tight enough to trip a slow-but-working backend would be a
       // worse defect than the hang it protects against.
-      expect(propFetchTimeout.inSeconds, greaterThanOrEqualTo(15));
-      expect(propFetchTimeout.inSeconds, lessThanOrEqualTo(60));
+      expect(propFetchTimeout.inSeconds, greaterThanOrEqualTo(8));
+      expect(propFetchTimeout.inSeconds, lessThanOrEqualTo(15));
     });
   });
 

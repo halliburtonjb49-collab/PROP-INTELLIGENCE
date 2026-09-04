@@ -126,6 +126,24 @@ void main() {
     expect(corrected.isOfficialOwner, isTrue);
   });
 
+  test('protected owner announcements survive a legacy user role', () {
+    final message = PropChatMessage.fromJson({
+      'id': 13,
+      'user_id': 'owner-user',
+      'username': 'prop_owner',
+      'body': '[PI ANNOUNCEMENT]\nTonight’s slate is live.',
+      'room_id': 'general',
+      'author_role': 'user',
+      'created_at': '2026-09-04T12:00:00Z',
+    });
+
+    final corrected = resolveAnnouncementIdentity(message);
+
+    expect(corrected.isAnnouncement, isTrue);
+    expect(corrected.displayBody, 'Tonight’s slate is live.');
+    expect(corrected.normalizedAuthorRole, 'owner');
+  });
+
   test(
     'Discord messages are identified as external and not verified staff',
     () {

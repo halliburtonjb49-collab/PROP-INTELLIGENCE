@@ -162,6 +162,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   Map<String, List<_OwnerMoneylinePick>> _ownerMoneylines =
       _cachedOwnerMoneylines;
   bool _recoverySubmitting = false;
+  bool _reconcilingIdentity = false;
   Map<String, dynamic> _strikeoutControlsDraft = const {};
   bool _savingStrikeoutControls = false;
   bool _loading = true;
@@ -205,6 +206,10 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   @override
   void initState() {
     super.initState();
+    // Paint yesterday's last verified device snapshot immediately. The live
+    // requests below replace it in the background, so opening Command Center
+    // or returning from another section never starts from a blank slate.
+    unawaited(_hydrateDailyPicksFromDevice());
     unawaited(_refresh());
     _liveRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted && !_loading) unawaited(_refresh(showLoading: false));
@@ -235,6 +240,47 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     } catch (_) {
       return const {};
     }
+  }
+
+  Future<void> _hydrateDailyPicksFromDevice() async {
+    final cachedPropPages = await Future.wait(
+      _ownerPickSports.map(
+        (sport) => _api
+            .loadCachedProps(
+              selectedSport: sport,
+              sortBy: 'trust',
+              verdictFilter: 'ALL',
+            )
+            .catchError((_) => <PropData>[]),
+      ),
+    );
+    final cachedMarketFeeds = await Future.wait<GameMarketFeed?>(
+      _ownerMoneylineSports.map(
+        (sport) => _api.loadCachedGameMarkets(sport).catchError((_) => null),
+      ),
+    );
+    // A faster live response wins over this startup snapshot.
+    if (!mounted || _lastChecked != null) return;
+    final cachedPicks = _rankOwnerTopPicks(
+      cachedPropPages.expand((page) => page).toList(growable: false),
+    );
+    final cachedMoneylines = <String, List<_OwnerMoneylinePick>>{};
+    for (var index = 0; index < _ownerMoneylineSports.length; index++) {
+      final picks = _rankMoneylines(
+        cachedMarketFeeds[index],
+        allowCached: true,
+      );
+      if (picks.isNotEmpty) {
+        cachedMoneylines[_ownerMoneylineSports[index]] = picks;
+      }
+    }
+    if (cachedPicks.isEmpty && cachedMoneylines.isEmpty) return;
+    setState(() {
+      if (cachedPicks.isNotEmpty) _ownerTopPicks = cachedPicks;
+      if (cachedMoneylines.isNotEmpty) {
+        _ownerMoneylines = {..._ownerMoneylines, ...cachedMoneylines};
+      }
+    });
   }
 
   Future<void> _refresh({bool showLoading = true}) async {
@@ -272,6 +318,35 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
               .then<GameMarketFeed?>((feed) => feed)
               .catchError((_) => null),
         ),
+      );
+      // Pick feeds are the first thing the owner came here to see. Publish
+      // them as soon as they finish instead of holding them behind billing,
+      // audit, recovery, identity, and telemetry requests.
+      unawaited(
+        topPicksRequest.then((props) {
+          if (!mounted) return;
+          final ranked = _rankOwnerTopPicks(props);
+          if (ranked.isEmpty) return;
+          setState(() {
+            _ownerTopPicks = ranked;
+            _cachedOwnerTopPicks = ranked;
+          });
+        }),
+      );
+      unawaited(
+        moneylineRequest.then((feeds) {
+          if (!mounted) return;
+          final ranked = <String, List<_OwnerMoneylinePick>>{};
+          for (var index = 0; index < _ownerMoneylineSports.length; index++) {
+            final picks = _rankMoneylines(feeds[index]);
+            if (picks.isNotEmpty) ranked[_ownerMoneylineSports[index]] = picks;
+          }
+          if (ranked.isEmpty) return;
+          setState(() {
+            _ownerMoneylines = {..._ownerMoneylines, ...ranked};
+            _cachedOwnerMoneylines = _ownerMoneylines;
+          });
+        }),
       );
       final results = await Future.wait([
         _optionalSnapshot(_api.fetchLaunchControlPanel()),
@@ -430,12 +505,18 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                 ),
               ),
               OutlinedButton.icon(
-                onPressed: () async {
-                  await _api.reconcileIdentityRegistry();
-                  await _refresh(showLoading: false);
-                },
-                icon: const Icon(Icons.sync, size: 16),
-                label: const Text('RECONCILE'),
+                key: const ValueKey('owner-identity-reconcile'),
+                onPressed: _reconcilingIdentity
+                    ? null
+                    : () => unawaited(_reconcileIdentityRegistry()),
+                icon: _reconcilingIdentity
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.sync, size: 16),
+                label: Text(_reconcilingIdentity ? 'RECONCILING' : 'RECONCILE'),
               ),
             ],
           ),
@@ -476,6 +557,26 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _reconcileIdentityRegistry() async {
+    if (_reconcilingIdentity) return;
+    setState(() => _reconcilingIdentity = true);
+    try {
+      await _api.reconcileIdentityRegistry();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Identity registry reconciled.')),
+      );
+      await _refresh(showLoading: false);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Identity reconciliation failed: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _reconcilingIdentity = false);
+    }
   }
 
   bool _boolControl(String key, bool fallback) {
@@ -866,10 +967,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     final eligible = props
         .where((prop) {
           final side = prop.proSuggestedSide?.trim().toUpperCase();
-          return prop.isSelectable &&
-              prop.verdict.actionable &&
-              _ownerMarketPriority(prop) < 100 &&
-              (side == 'OVER' || side == 'UNDER');
+          return prop.isSelectable && (side == 'OVER' || side == 'UNDER');
         })
         .toList(growable: false);
     final unique = <String, PropData>{};
@@ -904,6 +1002,14 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   }
 
   int _compareOwnerPicks(PropData left, PropData right) {
+    // A released actionable verdict is always the first choice. When an
+    // active sport has fewer than five released plays, fill the daily board
+    // with its strongest selectable research signals instead of hiding the
+    // sport entirely behind an empty state.
+    final actionable = (right.verdict.actionable ? 1 : 0).compareTo(
+      left.verdict.actionable ? 1 : 0,
+    );
+    if (actionable != 0) return actionable;
     final marketPriority = _ownerMarketPriority(
       left,
     ).compareTo(_ownerMarketPriority(right));
@@ -1022,8 +1128,11 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     );
   }
 
-  List<_OwnerMoneylinePick> _rankMoneylines(GameMarketFeed? feed) {
-    if (feed == null || feed.stale) return const [];
+  List<_OwnerMoneylinePick> _rankMoneylines(
+    GameMarketFeed? feed, {
+    bool allowCached = false,
+  }) {
+    if (feed == null || (feed.stale && !allowCached)) return const [];
     final now = DateTime.now();
     final ranked = <_OwnerMoneylinePick>[];
     for (final event in feed.events) {

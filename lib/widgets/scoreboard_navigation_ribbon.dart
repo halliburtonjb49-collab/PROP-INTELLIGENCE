@@ -277,106 +277,112 @@ class _ScoreboardNavigationRibbonState
       scrollDirection: Axis.horizontal,
       physics: const BouncingScrollPhysics(),
       child: Row(
-      children: [
-        TextButton.icon(
-          key: const ValueKey('scoreboard-ribbon-title'),
-          onPressed: widget.onOpenScoreboard,
-          icon: Icon(Icons.sports_score_rounded, color: widget.accentColor),
-          label: const Text('SCOREBOARD'),
-        ),
-        const SizedBox(width: 4),
-        const Icon(Icons.circle, size: 7, color: AppColors.informational),
-        const SizedBox(width: 4),
-        const Text(
-          'REAL-TIME',
-          style: TextStyle(
-            color: AppColors.informational,
-            fontSize: 9,
-            fontWeight: FontWeight.w800,
+        children: [
+          TextButton.icon(
+            key: const ValueKey('scoreboard-ribbon-title'),
+            onPressed: widget.onOpenScoreboard,
+            icon: Icon(Icons.sports_score_rounded, color: widget.accentColor),
+            label: const Text('SCOREBOARD'),
           ),
-        ),
-        if (widget.expanded) ...[
-          const SizedBox(width: 8),
-          for (final tab in ['TODAY', 'LIVE NOW', 'MY SPORTS', 'UPCOMING', 'FINAL'])
-            _tabButton(tab, tab == 'LIVE NOW' ? liveCount : null),
-        ],
-        const SizedBox(width: 12),
-        PopupMenuButton<String>(
-          tooltip: 'Select market sport',
-          onSelected: (sport) {
-            widget.onSportSelected(sport);
-            final next = {..._favoriteSports, sport};
-            setState(() => _favoriteSports = next);
-            unawaited(_preferences.setFavoriteSports(next));
-          },
-          itemBuilder: (_) => _sports
-              .map((sport) => PopupMenuItem(value: sport, child: Text(sport)))
-              .toList(),
-          child: _compactAction(Icons.tune_rounded, widget.selectedSport),
-        ),
-        const SizedBox(width: 5),
-        InkWell(
-          onTap: widget.onOpenGameMarkets,
-          child: _compactAction(Icons.sports_rounded, 'MARKETS'),
-        ),
-        if (widget.onOpenOwnerOperations != null) ...[
+          const SizedBox(width: 4),
+          const Icon(Icons.circle, size: 7, color: AppColors.informational),
+          const SizedBox(width: 4),
+          const Text(
+            'REAL-TIME',
+            style: TextStyle(
+              color: AppColors.informational,
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          if (widget.expanded) ...[
+            const SizedBox(width: 8),
+            for (final tab in [
+              'TODAY',
+              'LIVE NOW',
+              'MY SPORTS',
+              'UPCOMING',
+              'FINAL',
+            ])
+              _tabButton(tab, tab == 'LIVE NOW' ? liveCount : null),
+          ],
+          const SizedBox(width: 12),
+          PopupMenuButton<String>(
+            tooltip: 'Select market sport',
+            onSelected: (sport) {
+              widget.onSportSelected(sport);
+              final next = {..._favoriteSports, sport};
+              setState(() => _favoriteSports = next);
+              unawaited(_preferences.setFavoriteSports(next));
+            },
+            itemBuilder: (_) => _sports
+                .map((sport) => PopupMenuItem(value: sport, child: Text(sport)))
+                .toList(),
+            child: _compactAction(Icons.tune_rounded, widget.selectedSport),
+          ),
           const SizedBox(width: 5),
+          InkWell(
+            onTap: widget.onOpenGameMarkets,
+            child: _compactAction(Icons.sports_rounded, 'MARKETS'),
+          ),
+          if (widget.onOpenOwnerOperations != null) ...[
+            const SizedBox(width: 5),
+            IconButton(
+              tooltip: 'Owner Operations',
+              onPressed: widget.onOpenOwnerOperations,
+              icon: Icon(
+                Icons.admin_panel_settings_outlined,
+                color: widget.accentColor,
+                size: 19,
+              ),
+            ),
+          ],
+          if (widget.expanded)
+            Row(
+              children: [
+                const Text('AUTO', style: TextStyle(fontSize: 9)),
+                Switch(
+                  value: _autoRotate,
+                  onChanged: (value) {
+                    setState(() => _autoRotate = value);
+                    unawaited(_preferences.setAutoRotate(value));
+                  },
+                ),
+              ],
+            ),
+          AnimatedBuilder(
+            animation: widget.soundService,
+            builder: (_, child) => IconButton(
+              tooltip: widget.soundService.enabled
+                  ? 'Mute sound'
+                  : 'Enable sound',
+              onPressed: () => unawaited(
+                widget.soundService.setEnabled(!widget.soundService.enabled),
+              ),
+              icon: Icon(
+                widget.soundService.enabled
+                    ? Icons.volume_up_rounded
+                    : Icons.volume_off_rounded,
+                color: widget.accentColor,
+              ),
+            ),
+          ),
           IconButton(
-            tooltip: 'Owner Operations',
-            onPressed: widget.onOpenOwnerOperations,
+            tooltip: widget.expanded
+                ? 'Collapse scoreboard'
+                : 'Expand scoreboard',
+            onPressed: () {
+              final next = !widget.expanded;
+              widget.onExpandedChanged(next);
+              unawaited(_preferences.setExpanded(next));
+            },
             icon: Icon(
-              Icons.admin_panel_settings_outlined,
-              color: widget.accentColor,
-              size: 19,
+              widget.expanded
+                  ? Icons.keyboard_arrow_up_rounded
+                  : Icons.keyboard_arrow_down_rounded,
             ),
           ),
         ],
-        if (widget.expanded)
-          Row(
-            children: [
-              const Text('AUTO', style: TextStyle(fontSize: 9)),
-              Switch(
-                value: _autoRotate,
-                onChanged: (value) {
-                  setState(() => _autoRotate = value);
-                  unawaited(_preferences.setAutoRotate(value));
-                },
-              ),
-            ],
-          ),
-        AnimatedBuilder(
-          animation: widget.soundService,
-          builder: (_, child) => IconButton(
-            tooltip: widget.soundService.enabled
-                ? 'Mute sound'
-                : 'Enable sound',
-            onPressed: () => unawaited(
-              widget.soundService.setEnabled(!widget.soundService.enabled),
-            ),
-            icon: Icon(
-              widget.soundService.enabled
-                  ? Icons.volume_up_rounded
-                  : Icons.volume_off_rounded,
-              color: widget.accentColor,
-            ),
-          ),
-        ),
-        IconButton(
-          tooltip: widget.expanded
-              ? 'Collapse scoreboard'
-              : 'Expand scoreboard',
-          onPressed: () {
-            final next = !widget.expanded;
-            widget.onExpandedChanged(next);
-            unawaited(_preferences.setExpanded(next));
-          },
-          icon: Icon(
-            widget.expanded
-                ? Icons.keyboard_arrow_up_rounded
-                : Icons.keyboard_arrow_down_rounded,
-          ),
-        ),
-      ],
       ),
     );
   }
@@ -421,10 +427,28 @@ class _ScoreboardNavigationRibbonState
     }
     if (games.isEmpty) {
       return Center(
-        child: Text(
-          widget.controller.errorMessage ??
-              'No ${_tab.toLowerCase()} games available.',
-          style: const TextStyle(color: AppColors.textSecondary),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.controller.errorMessage ??
+                  'No ${_tab.toLowerCase()} games available.',
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              key: const ValueKey('scoreboard-ribbon-retry'),
+              onPressed: widget.controller.isRefreshing
+                  ? null
+                  : () => unawaited(widget.controller.load()),
+              icon: const Icon(Icons.refresh_rounded, size: 15),
+              label: const Text('REFRESH SCORES'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: widget.accentColor,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -454,10 +478,8 @@ class _ScoreboardNavigationRibbonState
                           accentColor: widget.accentColor,
                           watched: _watchlist.isWatching(games[i].id),
                           onOpen: widget.onOpenScoreboard,
-                          onSport: () =>
-                              widget.onSportSelected(games[i].sport),
-                          onWatch: () =>
-                              unawaited(_watchlist.toggle(games[i])),
+                          onSport: () => widget.onSportSelected(games[i].sport),
+                          onWatch: () => unawaited(_watchlist.toggle(games[i])),
                         ),
                       ),
                     ],
@@ -592,15 +614,15 @@ class _ScoreboardLoadingSequenceState extends State<_ScoreboardLoadingSequence>
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                    const Text(
-                      'PROP INTELLIGENCE',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.2,
+                      const Text(
+                        'PROP INTELLIGENCE',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.2,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 5),
+                      const SizedBox(height: 5),
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: 220),
                         child: Text(
@@ -807,50 +829,53 @@ class _GameRibbonCard extends StatelessWidget {
                   color: Colors.transparent,
                   shape: BoxShape.circle,
                 ),
-                child: Builder(builder: (context) {
-                  final resolvedLogo = resolvePlayerImagePath(
-                    logo,
-                    useApiProxyForRemoteImages: kIsWeb,
-                  );
-                  if (kIsWeb) {
-                    return Image.network(
-                      resolvedLogo,
+                child: Builder(
+                  builder: (context) {
+                    final resolvedLogo = resolvePlayerImagePath(
+                      logo,
+                      useApiProxyForRemoteImages: kIsWeb,
+                    );
+                    if (kIsWeb) {
+                      return Image.network(
+                        resolvedLogo,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                        webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+                        loadingBuilder: (_, child, progress) =>
+                            progress == null ? child : _teamBadge(name),
+                        errorBuilder: (_, error, stackTrace) {
+                          EngagementTracker.instance.recordOperational(
+                            'MEDIA_FAILURE',
+                            endpoint: resolvedLogo,
+                            provider:
+                                Uri.tryParse(resolvedLogo)?.host ?? 'unknown',
+                            mediaType: 'team_logo',
+                          );
+                          return _teamBadge(name);
+                        },
+                      );
+                    }
+                    return CachedNetworkImage(
+                      imageUrl: resolvedLogo,
                       fit: BoxFit.contain,
                       filterQuality: FilterQuality.high,
-                      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-                      loadingBuilder: (_, child, progress) =>
-                          progress == null ? child : _teamBadge(name),
-                      errorBuilder: (_, error, stackTrace) {
+                      fadeInDuration: Duration.zero,
+                      fadeOutDuration: Duration.zero,
+                      memCacheWidth: 102,
+                      memCacheHeight: 102,
+                      placeholder: (_, _) => _teamBadge(name),
+                      errorWidget: (_, failedUrl, error) {
                         EngagementTracker.instance.recordOperational(
                           'MEDIA_FAILURE',
-                          endpoint: resolvedLogo,
-                          provider:
-                              Uri.tryParse(resolvedLogo)?.host ?? 'unknown',
+                          endpoint: failedUrl,
+                          provider: Uri.tryParse(failedUrl)?.host ?? 'unknown',
                           mediaType: 'team_logo',
                         );
                         return _teamBadge(name);
                       },
                     );
-                  }
-                  return CachedNetworkImage(
-                    imageUrl: resolvedLogo,
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.high,
-                    fadeInDuration: Duration.zero,
-                    fadeOutDuration: Duration.zero,
-                    memCacheWidth: 102,
-                    memCacheHeight: 102,
-                    placeholder: (_, _) => _teamBadge(name),
-                    errorWidget: (_, failedUrl, error) {
-                      EngagementTracker.instance.recordOperational(
-                        'MEDIA_FAILURE', endpoint: failedUrl,
-                        provider: Uri.tryParse(failedUrl)?.host ?? 'unknown',
-                        mediaType: 'team_logo',
-                      );
-                      return _teamBadge(name);
-                    },
-                  );
-                }),
+                  },
+                ),
               )
             : _teamBadge(name),
       ),

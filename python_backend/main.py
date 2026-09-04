@@ -5495,7 +5495,13 @@ def scoreboard(
 	set_distributed_json(
 		cache_key,
 		payload,
-		ttl_seconds=20 if target_date == today else 300,
+		# Rebuilding every league fans out to several upstream providers and can
+		# take longer than a browser's request budget. Scores are refreshed by
+		# the live worker/ribbon cadence; expiring this shared result every 20
+		# seconds forced ordinary users onto the cold path and made a healthy
+		# slate look empty. Five minutes keeps navigation instant while the
+		# 30-second client refresh still picks up provider changes.
+		ttl_seconds=300 if target_date == today else 900,
 	)
 	return payload
 

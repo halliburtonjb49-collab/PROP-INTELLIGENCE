@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <defs>
+    <filter id="wideGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="28" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="sparkGlow" x="-200%" y="-200%" width="500%" height="500%">
+      <feGaussianBlur stdDeviation="11" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <radialGradient id="impact"><stop offset="0" stop-color="#fff"/><stop offset=".18" stop-color="#fff0a0" stop-opacity=".95"/><stop offset=".48" stop-color="#e5ad36" stop-opacity=".55"/><stop offset="1" stop-color="#e5ad36" stop-opacity="0"/></radialGradient>
+  </defs>
+  <g fill="none" stroke-linecap="round">
+    <path d="M-80 650 C150 620 260 760 355 840 C425 900 470 930 540 960" stroke="#23cfff" stroke-width="48" opacity=".25" filter="url(#wideGlow)"/>
+    <path d="M-80 650 C150 620 260 760 355 840 C425 900 470 930 540 960" stroke="#7eeaff" stroke-width="14" filter="url(#sparkGlow)"/>
+    <path d="M-80 650 C150 620 260 760 355 840 C425 900 470 930 540 960" stroke="#fff" stroke-width="4"/>
+    <path d="M1160 650 C930 620 820 760 725 840 C655 900 610 930 540 960" stroke="#ffd34f" stroke-width="48" opacity=".28" filter="url(#wideGlow)"/>
+    <path d="M1160 650 C930 620 820 760 725 840 C655 900 610 930 540 960" stroke="#ffe27a" stroke-width="14" filter="url(#sparkGlow)"/>
+    <path d="M1160 650 C930 620 820 760 725 840 C655 900 610 930 540 960" stroke="#fff" stroke-width="4"/>
+  </g>
+  <circle cx="540" cy="960" r="230" fill="url(#impact)" filter="url(#wideGlow)"/>
+  <g stroke="#fff5bd" stroke-linecap="round" filter="url(#sparkGlow)">
+    <path d="M540 960 L540 690" stroke-width="8"/><path d="M540 960 L540 1230" stroke-width="8"/>
+    <path d="M540 960 L300 780" stroke-width="7"/><path d="M540 960 L780 780" stroke-width="7"/>
+    <path d="M540 960 L295 1110" stroke-width="6"/><path d="M540 960 L785 1110" stroke-width="6"/>
+    <path d="M540 960 L400 620" stroke-width="4"/><path d="M540 960 L680 620" stroke-width="4"/>
+  </g>
+</svg>

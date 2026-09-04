@@ -36,6 +36,7 @@ class _TwoBookApi extends ApiService {
     int limit = 75,
     int offset = 0,
     bool includeReliability = true,
+    bool trackBoardLoad = false,
   }) async => props;
 }
 
@@ -100,10 +101,7 @@ void main() {
   ) async {
     await _pumpGrid(tester);
 
-    expect(
-      find.byKey(const ValueKey('card-pp-2')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('card-pp-2')), findsOneWidget);
     expect(find.text('2 CURRENT LINE OPTIONS'), findsOneWidget);
   });
 

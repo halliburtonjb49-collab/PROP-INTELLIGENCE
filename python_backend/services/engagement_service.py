@@ -98,10 +98,12 @@ def _maybe_alert_prop_failures() -> None:
             return
         total = successes + failures
         failure_rate = failures / total if total else 0
-        if total >= 10 and failure_rate > .01 and notify_operations_alert(
+        if total >= 20 and failure_rate >= .10 and notify_operations_alert(
             kind="prop_load_slo",
-            summary=f"Prop-board failures reached {failure_rate:.1%}",
-            details={"windowMinutes": 15, "loads": total, "failures": failures},
+            summary=(f"Customer prop-board failures reached {failure_rate:.1%} "
+                     f"({failures} of {total} loads in 15m)"),
+            details={"windowMinutes": 15, "customerLoads": total,
+                     "failures": failures, "successes": successes},
         ):
             _last_prop_alert_at = now
 

@@ -68,3 +68,6 @@ dist/
 
 # Local media review and scratch exports
 /tmp/
+
+# Local agent workspace archive; far exceeds Git hosting file limits.
+/.agents.zip

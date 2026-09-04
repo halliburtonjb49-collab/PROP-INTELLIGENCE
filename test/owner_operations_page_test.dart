@@ -8,6 +8,7 @@ import 'package:prop_intelligence/widgets/owner_user_account_controls.dart';
 
 class _FakeOperationsApi extends ApiService {
   int recoveryRequests = 0;
+  int identityReconciliations = 0;
 
   @override
   Future<List<PropData>> fetchProps({
@@ -23,6 +24,7 @@ class _FakeOperationsApi extends ApiService {
     int limit = 75,
     int offset = 0,
     bool includeReliability = true,
+    bool trackBoardLoad = false,
   }) async => const [];
 
   @override
@@ -460,6 +462,12 @@ class _FakeOperationsApi extends ApiService {
   };
 
   @override
+  Future<Map<String, dynamic>> reconcileIdentityRegistry() async {
+    identityReconciliations += 1;
+    return {'status': 'ok'};
+  }
+
+  @override
   Future<Map<String, dynamic>> requestProviderRecovery({
     String targetSport = 'ALL',
   }) async {
@@ -620,6 +628,19 @@ void main() {
       find.byKey(const ValueKey('owner-inventory-search')),
       '',
     );
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('owner-identity-reconcile')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const ValueKey('owner-identity-reconcile')));
+    await tester.pumpAndSettle();
+    expect(api.identityReconciliations, 1);
+    expect(find.text('Identity registry reconciled.'), findsOneWidget);
+    ScaffoldMessenger.of(
+      tester.element(find.byType(Scaffold).first),
+    ).hideCurrentSnackBar();
     await tester.pump();
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('provider-availability-dashboard')),
