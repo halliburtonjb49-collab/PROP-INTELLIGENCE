@@ -121,20 +121,46 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
       // providers publish pitcher strikeouts under a temporary/raw category;
       // using the search only when the canonical response is empty caused a
       // partially populated board to silently omit those valid lines.
-      final responses = await Future.wait([
-        _api.fetchProps(
-          selectedSport: 'MLB',
-          selectedCategory: 'strikeouts',
-          sortBy: 'confidence',
-          limit: 300,
+      Future<List<PropData>> safeFetch(Future<List<PropData>> request) async {
+        try {
+          return await request;
+        } catch (_) {
+          return const <PropData>[];
+        }
+      }
+
+      // Provider feeds do not always agree on the strikeout category name.
+      // Resolve each query independently so one transient/CORS failure cannot
+      // discard a successful response from the other source.
+      var responses = await Future.wait([
+        safeFetch(
+          _api.fetchProps(
+            selectedSport: 'MLB',
+            selectedCategory: 'strikeouts',
+            sortBy: 'confidence',
+            limit: 300,
+          ),
         ),
-        _api.fetchProps(
-          selectedSport: 'MLB',
-          search: 'strikeout',
-          sortBy: 'confidence',
-          limit: 300,
+        safeFetch(
+          _api.fetchProps(
+            selectedSport: 'MLB',
+            search: 'strikeout',
+            sortBy: 'confidence',
+            limit: 300,
+          ),
         ),
       ]);
+      if (responses.every((items) => items.isEmpty)) {
+        responses = [
+          await safeFetch(
+            _api.fetchProps(
+              selectedSport: 'MLB',
+              sortBy: 'confidence',
+              limit: 300,
+            ),
+          ),
+        ];
+      }
       final byId = <String, PropData>{};
       for (final prop
           in responses.expand((items) => items).where(_isStrikeout)) {
@@ -177,8 +203,12 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
         });
       }
       await widget.onPropsRefreshed?.call(strikeouts);
-    } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _error = 'Strikeout inventory is temporarily unavailable. Please retry.';
+        });
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }

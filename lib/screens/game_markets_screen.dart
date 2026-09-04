@@ -343,7 +343,7 @@ class _GameMarketsScreenState extends State<GameMarketsScreen>
     icon: Icons.event_busy_rounded,
     title: 'No $_sport game markets available',
     message:
-        'The league may be out of season or sportsbooks have not posted lines yet.',
+        'No posted moneyline, spread, or total is available for $_sport right now. Choose another sport above or refresh when books post new lines.',
     action: () => _load(refresh: true),
   );
 }

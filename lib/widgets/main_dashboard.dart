@@ -1860,7 +1860,11 @@ class _MainDashboardState extends State<MainDashboard> {
   void _selectPhoneSite(String site) {
     setState(() {
       _selectedSite = site;
-      _siteDiscoveryExpanded = false;
+      // Provider selection is step one on phones. Keep discovery open so the
+      // next required choices (sport, then market category) are visible
+      // instead of dropping the user straight into an unfiltered feed.
+      _siteDiscoveryExpanded = true;
+      _selectedSiteSport = '';
       _selectedCategory = 'ALL';
       _verdictFilter = 'ALL';
       _siteInventoryProps = const [];
@@ -3256,7 +3260,7 @@ class _MainDashboardState extends State<MainDashboard> {
     ];
     final categories = _currentCategories.isEmpty
         ? const <String>['ALL']
-        : _currentCategories;
+        : <String>['ALL', ..._currentCategories.where((item) => item != 'ALL')];
     var pendingSite = sites.contains(_selectedSite) ? _selectedSite : 'ALL';
     var pendingCategory = categories.contains(_effectiveSelectedCategory)
         ? _effectiveSelectedCategory
