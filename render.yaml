@@ -3,9 +3,14 @@ services:
     name: prop-intelligence-api
     runtime: python
     # Keep the API, worker, and responsive client on the same main commit.
-    # Without this explicit trigger, a frontend follow-up can report success
-    # while production continues serving an older API response contract.
+    # Backend changes deploy automatically, while frontend-only commits must
+    # not recycle the only API instance and strand customers behind 502s.
     autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - python_backend/**
+        - requirements*.txt
+        - supabase*.sql
     # An always-on API avoids cold-start latency on the first prop request.
     plan: standard
     buildCommand: pip install -r requirements.txt
@@ -192,6 +197,11 @@ services:
     # this field is omitted. Keep the worker on the same commit as the API so
     # a merged sync fix cannot leave an older RQ process running indefinitely.
     autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - python_backend/**
+        - requirements*.txt
+        - supabase*.sql
     # Keep the dashboard upgrade in source control so a Blueprint sync cannot
     # silently return this memory-intensive worker to the 512 MB Starter plan.
     plan: standard

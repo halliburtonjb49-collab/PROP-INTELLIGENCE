@@ -101,6 +101,19 @@ def test_worker_blueprint_validates_config_without_forking_sync_jobs() -> None:
     assert "-w rq.worker.SimpleWorker" in blueprint
 
 
+def test_frontend_only_commits_do_not_redeploy_api_or_worker() -> None:
+    blueprint = (Path(__file__).parents[2] / "render.yaml").read_text(
+        encoding="utf-8"
+    )
+
+    # Both long-running Python services must be scoped to backend artifacts.
+    # Recycling the single API instance for a Dart-only change creates a 502
+    # window on every UI release.
+    assert blueprint.count("buildFilter:") >= 2
+    assert blueprint.count("- python_backend/**") >= 2
+    assert "- lib/**" not in blueprint
+
+
 def test_large_responses_support_brotli() -> None:
     response = TestClient(main.app).get(
         "/openapi.json",
