@@ -513,13 +513,7 @@ class PropChatService {
           // PostgREST supports `*` as the URL-safe LIKE wildcard. Avoid
           // embedding the newline from the full reserved prefix in the filter;
           // some gateways reject that URL before it reaches Postgres.
-          announcementRows = await client
-              .from('prop_chat_messages')
-              .select()
-              .eq('room_id', 'general')
-              .like('body', '[PI ANNOUNCEMENT]*')
-              .order('created_at', ascending: false)
-              .limit(1);
+          announcementRows = await client.rpc('latest_prop_chat_announcement');
         } catch (error) {
           // Announcement enrichment must never take the normal room feed
           // down. General's ordinary query still includes recent notices and
@@ -907,17 +901,15 @@ class PropChatService {
     if (trimmed.isEmpty) {
       throw ArgumentError('Enter an announcement before publishing.');
     }
-    await sendMessage(
-      '$_ownerAnnouncementPrefix$trimmed',
-      roomId: 'general',
-      linkUrl: _firstHttpsLink(trimmed),
+    final client = _client;
+    if (client == null || currentUserId == null) {
+      throw StateError('Sign in to publish announcements.');
+    }
+    await client.rpc(
+      'publish_prop_chat_announcement',
+      params: {'message_body': trimmed},
     );
-  }
-
-  String? _firstHttpsLink(String text) {
-    return RegExp(
-      r'https://[a-zA-Z0-9.-]+(?::[0-9]+)?(?:/[^\s]*)?',
-    ).firstMatch(text)?.group(0);
+    _messageRefreshes.add(null);
   }
 
   Future<String> createGameThread({

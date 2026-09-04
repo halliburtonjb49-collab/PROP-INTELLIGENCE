@@ -67,6 +67,22 @@ def test_function_hardening_removes_anonymous_definer_execution() -> None:
     assert "public.start_prop_chat_direct_conversation(uuid)" in sql
     assert "public.enforce_prop_chat_message_v4()" not in sql
 
+
+def test_owner_announcement_rpc_is_authenticated_and_owner_only() -> None:
+    sql = (
+        ROOT / "supabase_prop_chat_owner_announcements_rpc.sql"
+    ).read_text(encoding="utf-8").lower()
+    assert "if not public.is_app_owner(auth.uid())" in sql
+    assert (
+        "grant execute on function "
+        "public.publish_prop_chat_announcement(text) to authenticated" in sql
+    )
+    assert (
+        "grant execute on function "
+        "public.latest_prop_chat_announcement() to authenticated" in sql
+    )
+    assert "from public, anon" in sql
+
 def test_feedback_table_is_migrated_as_api_only_data() -> None:
     from scripts.apply_supabase_migrations import MIGRATIONS
 

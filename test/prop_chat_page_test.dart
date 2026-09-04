@@ -144,6 +144,24 @@ void main() {
     expect(corrected.normalizedAuthorRole, 'owner');
   });
 
+  test('owner announcement prefix remains compatible with database RPC', () {
+    const body = '[PI ANNOUNCEMENT]\nWelcome to the PI Family!';
+    final message = resolveAnnouncementIdentity(
+      PropChatMessage.fromJson({
+        'id': 14,
+        'user_id': 'owner-user',
+        'username': 'prop_owner',
+        'body': body,
+        'room_id': 'general',
+        'author_role': 'user',
+        'created_at': '2026-09-04T12:00:00Z',
+      }),
+    );
+
+    expect(message.isAnnouncement, isTrue);
+    expect(message.displayBody, 'Welcome to the PI Family!');
+  });
+
   test(
     'Discord messages are identified as external and not verified staff',
     () {
