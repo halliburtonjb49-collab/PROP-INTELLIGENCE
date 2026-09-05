@@ -216,7 +216,10 @@ class _MainDashboardState extends State<MainDashboard> {
   final ScrollController _sportHorizontalController = ScrollController();
   Timer? _searchDebounce;
   String _searchQuery = '';
-  String _selectedSite = 'PRIZEPICKS';
+  // Start every signed-in session on the shared catalog. This is the hottest
+  // backend cache key and avoids a provider-specific request followed by a
+  // second broad fallback before the first customer-facing cards can paint.
+  String _selectedSite = 'ALL';
   String _selectedSiteSport = '';
   String _selectedCategory = 'ALL';
   bool _siteDiscoveryExpanded = false;
@@ -274,7 +277,6 @@ class _MainDashboardState extends State<MainDashboard> {
   @override
   void initState() {
     super.initState();
-    unawaited(_restorePreferredPropSite());
     unawaited(_loadPropAlerts());
     if (AuthManager.instance.sessionState.value.hasEdgeAccess) {
       _injuryAlertSubscription = _injuryAlertUpdates.stream.listen(
@@ -290,20 +292,6 @@ class _MainDashboardState extends State<MainDashboard> {
     if (widget.selectedPage == AppPage.evScanner) {
       unawaited(_loadEvScannerProps());
     }
-  }
-
-  Future<void> _restorePreferredPropSite() async {
-    final preferences = await SharedPreferences.getInstance();
-    final saved = preferences
-        .getString('pi_market_board_preferred_site')
-        ?.trim()
-        .toUpperCase();
-    if (!mounted || saved == null || saved.isEmpty) return;
-    setState(() {
-      _selectedSite = saved;
-      _selectedSiteSport = '';
-      _selectedCategory = 'ALL';
-    });
   }
 
   Future<void> _rememberPreferredPropSite(String site) async {

@@ -1232,10 +1232,10 @@ class ApiService {
     // Bound the customer-visible attempt; the board performs recovery in the
     // background instead of blocking navigation behind another full request.
     final requestTimeout = isSpecialtySport
-        ? const Duration(seconds: 6)
+        ? const Duration(seconds: 5)
         : category.isNotEmpty && category != 'ALL'
-        ? const Duration(seconds: 8)
-        : const Duration(seconds: 10);
+        ? const Duration(seconds: 5)
+        : const Duration(seconds: 5);
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         var response = await (() async {
