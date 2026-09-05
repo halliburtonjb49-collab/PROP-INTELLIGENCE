@@ -111,6 +111,21 @@
     });
     window.addEventListener('load', async () => {
       try {
+        // Retire the older Flutter worker before installing PI's single
+        // combined worker. Releases that registered both at /workspace/
+        // could continuously replace one another after UPDATE NOW.
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map(async (registration) => {
+          const workers = [
+            registration.active,
+            registration.waiting,
+            registration.installing,
+          ].filter(Boolean);
+          if (workers.some((worker) =>
+            worker.scriptURL.includes('/workspace/flutter_service_worker.js'))) {
+            await registration.unregister();
+          }
+        }));
         // Keep one stable app-shell worker on every device. The worker handles
         // only navigations and release-coupled static assets; authenticated API
         // and prop requests remain network-direct. Unregistering the worker and

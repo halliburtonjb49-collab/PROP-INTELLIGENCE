@@ -202,12 +202,47 @@
     </div>
   </div>
   <script>
+    let piFirstFrameRendered = false;
     window.addEventListener('flutter-first-frame', () => {
+      piFirstFrameRendered = true;
       const shell = document.getElementById('pi-launch-shell');
       if (!shell) return;
       shell.classList.add('is-ready');
       window.setTimeout(() => shell.remove(), 220);
     }, { once: true });
+
+    // One production release briefly registered two workers for the same
+    // scope. Recover affected browsers automatically instead of leaving a
+    // customer on this launch screen indefinitely.
+    window.setTimeout(async () => {
+      if (piFirstFrameRendered) return;
+      const recoveryKey = 'pi-worker-recovery-__PI_BUILD_VERSION__';
+      const status = document.getElementById('pi-launch-status');
+      if (window.sessionStorage.getItem(recoveryKey) === 'done') {
+        if (status) status.textContent = 'Update needs one browser refresh.';
+        return;
+      }
+      window.sessionStorage.setItem(recoveryKey, 'done');
+      if (status) status.textContent = 'Finishing the latest update...';
+      try {
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map((registration) =>
+            registration.unregister()));
+        }
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys
+            .filter((key) => key.startsWith('flutter-'))
+            .map((key) => caches.delete(key)));
+        }
+      } finally {
+        const url = new URL(window.location.href);
+        url.searchParams.set('release', '__PI_BUILD_VERSION__');
+        url.searchParams.set('recovered', '1');
+        window.location.replace(url.toString());
+      }
+    }, 20000);
   </script>
   <div id="onesignal-verification" hidden role="dialog" aria-modal="true"
        aria-labelledby="onesignal-verification-title">

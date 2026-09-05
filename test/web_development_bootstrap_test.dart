@@ -16,8 +16,9 @@ void main() {
     expect(pwa, contains("!isDevelopmentHost"));
   });
 
-  test('production keeps the versioned workspace service worker', () {
+  test('production keeps exactly one versioned workspace service worker', () {
     final buildScript = File('vercel_build.sh').readAsStringSync();
+    final bootstrap = File('web/flutter_bootstrap.js').readAsStringSync();
     final worker = File('web/OneSignalSDKWorker.js').readAsStringSync();
     final pwa = File('web/pwa_install.js').readAsStringSync();
 
@@ -31,13 +32,19 @@ void main() {
     );
     expect(worker, contains("event.data.type === 'PI_ACTIVATE_UPDATE'"));
     expect(worker, contains('self.skipWaiting()'));
+    expect(bootstrap, isNot(contains('serviceWorkerSettings')));
     expect(pwa, contains("getRegistration('/workspace/')"));
     expect(pwa, contains("serviceWorker.register("));
     expect(
       pwa,
+      contains(
+        "worker.scriptURL.includes('/workspace/flutter_service_worker.js')",
+      ),
+    );
+    expect(
+      pwa,
       isNot(contains("const cleanupKey = 'pi-mobile-direct-release'")),
     );
-    expect(pwa, isNot(contains('await registration.unregister()')));
     expect(pwa, contains('reloadCurrentRelease();'));
   });
 

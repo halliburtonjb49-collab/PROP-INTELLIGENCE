@@ -1,12 +1,10 @@
 {{flutter_js}}
 {{flutter_build_config}}
 
-// Keep Flutter's versioned app-shell cache enabled. It makes repeat launches
-// immediate while the generated worker safely replaces stale release assets.
 _flutter.loader.load({
-  serviceWorkerSettings: {
-    serviceWorkerVersion: {{flutter_service_worker_version}},
-  },
+  // PI's combined OneSignal/app-shell worker owns /workspace/. Registering
+  // Flutter's generated worker at that same scope makes the two workers
+  // replace each other and can strand customers on the update screen.
   // CanvasKit keeps PI's compact typography, thin borders, and sports imagery
   // consistently sharp across browser zoom levels and high-DPI displays.
   config: {
