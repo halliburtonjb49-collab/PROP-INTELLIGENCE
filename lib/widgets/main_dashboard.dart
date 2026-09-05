@@ -977,17 +977,9 @@ class _MainDashboardState extends State<MainDashboard> {
 
   List<PropAlertData> _fallbackPropAlertsFromProps(List<PropData> props) {
     if (props.isEmpty) {
-      return const [
-        PropAlertData(
-          sport: 'ALL',
-          title: 'No Props Loaded',
-          message:
-              'No props loaded yet. Alerts will appear as soon as data sync completes.',
-          edge: 0,
-          book: 'All Books',
-          time: 'now',
-        ),
-      ];
+      // Empty state is UI state, not an alert. Counting this placeholder as a
+      // real alert produced the misleading "1 alerts" screen on mobile.
+      return const [];
     }
 
     final sortedByEdge = [...props]

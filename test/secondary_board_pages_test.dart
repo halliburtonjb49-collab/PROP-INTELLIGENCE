@@ -78,4 +78,19 @@ void main() {
     expect(find.text('Edge: 8%'), findsOneWidget);
     expect(find.text('Book: PRIZEPICKS'), findsOneWidget);
   });
+
+  testWidgets('an empty alert feed is not counted as a real alert', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: PropAlertsPage(alerts: [])),
+    );
+
+    expect(find.text('0 alerts'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('prop-alerts-empty-state')),
+      findsOneWidget,
+    );
+    expect(find.text('No Props Loaded'), findsNothing);
+  });
 }

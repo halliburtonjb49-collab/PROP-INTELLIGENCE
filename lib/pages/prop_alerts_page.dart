@@ -61,7 +61,45 @@ class PropAlertsPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          ...alerts.map((alert) => PropAlertCard(alert: alert)),
+          if (alerts.isEmpty)
+            Container(
+              key: const ValueKey('prop-alerts-empty-state'),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 34),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0A1C2B).withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.gold.withValues(alpha: 0.28),
+                ),
+              ),
+              child: const Column(
+                children: [
+                  Icon(Icons.sync_rounded, color: AppColors.gold, size: 34),
+                  SizedBox(height: 12),
+                  Text(
+                    'SYNCING PROP ALERTS',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  SizedBox(height: 7),
+                  Text(
+                    'No live alerts right now. Real alerts will appear automatically when a qualifying prop signal is detected.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFFC9D4DF),
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ...alerts.map((alert) => PropAlertCard(alert: alert)),
         ],
       ),
     );
