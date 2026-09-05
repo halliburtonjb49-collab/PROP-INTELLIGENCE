@@ -32,6 +32,9 @@ void main() {
     );
     expect(worker, contains("event.data.type === 'PI_ACTIVATE_UPDATE'"));
     expect(worker, contains('self.skipWaiting()'));
+    expect(worker, contains('`\${PI_ROOT}/main.dart.js`'));
+    expect(worker, contains('`\${PI_ROOT}/canvaskit/canvaskit.wasm`'));
+    expect(worker, contains('cacheFirstReleaseAsset(request)'));
     expect(bootstrap, isNot(contains('serviceWorkerSettings')));
     expect(pwa, contains("getRegistration('/workspace/')"));
     expect(pwa, contains("serviceWorker.register("));

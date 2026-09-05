@@ -12,6 +12,9 @@ const PI_APP_SHELL = [
   `${PI_ROOT}/offline.html`,
   `${PI_ROOT}/manifest.json`,
   `${PI_ROOT}/flutter_bootstrap.js`,
+  `${PI_ROOT}/main.dart.js`,
+  `${PI_ROOT}/canvaskit/canvaskit.js`,
+  `${PI_ROOT}/canvaskit/canvaskit.wasm`,
   `${PI_ROOT}/favicon.png`,
   `${PI_ROOT}/icons/Icon-192.png`,
   `${PI_ROOT}/icons/Icon-512.png`,
@@ -58,17 +61,16 @@ async function trimCache(cache) {
     .map((request) => cache.delete(request)));
 }
 
-async function networkFirstAsset(request) {
+async function cacheFirstReleaseAsset(request) {
   const cache = await caches.open(PI_CACHE);
-  try {
-    const response = await fetch(request, {cache: 'no-store'});
-    if (response.ok) await cache.put(request, response.clone());
-    return response;
-  } catch (_) {
-    const cached = await cache.match(request);
-    if (cached) return cached;
-    throw _;
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (response.ok) {
+    await cache.put(request, response.clone());
+    await trimCache(cache);
   }
+  return response;
 }
 
 async function navigationResponse(request) {
@@ -97,10 +99,10 @@ self.addEventListener('fetch', (event) => {
       .test(url.pathname);
   if (url.origin === self.location.origin && isStaticWorkspaceAsset &&
       !url.pathname.includes('OneSignalSDKWorker.js')) {
-    // Every Flutter asset is release-coupled. Network-first prevents an old
-    // main.dart.js, CanvasKit file, font, or asset manifest from being mixed
-    // with a newly deployed shell. The release cache remains an offline-only
-    // fallback and is never preferred while production is reachable.
-    event.respondWith(networkFirstAsset(request));
+    // PI_CACHE includes the commit SHA, so a cached asset can only belong to
+    // this worker's release. Reusing it avoids downloading and compiling the
+    // 5.5 MB Flutter program plus CanvasKit on every login. A new release gets
+    // a new cache and preloads its runtime before this worker activates.
+    event.respondWith(cacheFirstReleaseAsset(request));
   }
 });
