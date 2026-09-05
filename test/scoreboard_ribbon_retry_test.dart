@@ -18,7 +18,41 @@ class _EmptyScoreboardService extends ScoreboardService {
   }
 }
 
+class _IntermittentScoreboardService extends ScoreboardService {
+  _IntermittentScoreboardService() : super(baseUrl: 'https://example.invalid');
+
+  var fetches = 0;
+
+  static final verifiedGame = ScoreboardGame(
+    id: 'verified-game',
+    sport: 'MLB',
+    league: 'MLB',
+    awayTeam: 'Away',
+    homeTeam: 'Home',
+    status: 'UPCOMING',
+    detail: '7:00 PM',
+  );
+
+  @override
+  Future<List<ScoreboardGame>> fetchGames({required DateTime date}) async {
+    fetches += 1;
+    return fetches == 1 ? [verifiedGame] : const [];
+  }
+}
+
 void main() {
+  test('silent refresh preserves the last verified scoreboard slate', () async {
+    final service = _IntermittentScoreboardService();
+    final controller = ScoreboardController(service: service);
+    addTearDown(controller.dispose);
+
+    await controller.load();
+    expect(controller.games, [_IntermittentScoreboardService.verifiedGame]);
+
+    await controller.load(silent: true);
+    expect(controller.games, [_IntermittentScoreboardService.verifiedGame]);
+  });
+
   testWidgets('empty scoreboard exposes a working refresh action', (
     tester,
   ) async {

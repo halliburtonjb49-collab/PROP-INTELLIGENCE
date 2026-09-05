@@ -47,7 +47,13 @@ class ScoreboardController extends ChangeNotifier {
 
     try {
       final incoming = await _fetchGamesWithRetry();
-      _games = incoming;
+      // A background provider refresh can briefly return an empty slate while
+      // upstream schedules are being rebuilt. Never flash away a verified
+      // same-day scoreboard during silent polling; a manual/date-changing
+      // load can still intentionally show a genuinely empty day.
+      if (incoming.isNotEmpty || !silent || _games.isEmpty) {
+        _games = incoming;
+      }
     } catch (error) {
       if (silent) {
         _errorMessage = null;
@@ -154,10 +160,15 @@ class ScoreboardController extends ChangeNotifier {
           eventDate.day != _selectedDate.day) {
         return;
       }
-      _games = (data['games'] as List)
+      final incoming = (data['games'] as List)
           .whereType<Map>()
           .map((row) => ScoreboardGame.fromJson(Map<String, dynamic>.from(row)))
           .toList(growable: false);
+      // Live invalidation messages may arrive between the provider's delete
+      // and repopulate phases. Preserve the last verified slate until the
+      // replacement message contains games.
+      if (incoming.isEmpty && _games.isNotEmpty) return;
+      _games = incoming;
       _errorMessage = null;
       notifyListeners();
     } catch (_) {

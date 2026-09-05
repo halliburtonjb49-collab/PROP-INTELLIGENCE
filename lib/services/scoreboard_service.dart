@@ -137,8 +137,12 @@ class ScoreboardService {
         : const <ScoreboardGame>[];
     if (fallback.isNotEmpty) {
       _memoryCache[formattedDate] = List.unmodifiable(fallback);
+      return fallback;
     }
-    return fallback;
+    // A momentary empty 200 from an upstream schedule rebuild must not erase
+    // a valid same-day slate already shown to the customer.
+    if (isToday && cached.isNotEmpty) return cached;
+    return const [];
   }
 
   /// Loads a schedule window with one browser request. The backend performs
