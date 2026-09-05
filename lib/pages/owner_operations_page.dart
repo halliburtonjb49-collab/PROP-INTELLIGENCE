@@ -205,6 +205,22 @@ bool _isPrizePicksOwnerProp(PropData prop) {
   return provider.contains('PRIZEPICKS');
 }
 
+@visibleForTesting
+String ownerResearchSide(PropData prop) {
+  final proSide = prop.proSuggestedSide?.trim().toUpperCase() ?? '';
+  if (proSide == 'OVER' || proSide == 'UNDER') return proSide;
+  final boardSide = prop.pick.trim().toUpperCase();
+  if (boardSide == 'OVER' || boardSide == 'UNDER') return boardSide;
+  return 'REVIEW';
+}
+
+@visibleForTesting
+bool isOwnerResearchCandidate(PropData prop) =>
+    prop.player.trim().isNotEmpty &&
+    prop.market.trim().isNotEmpty &&
+    prop.line.isFinite &&
+    ownerResearchSide(prop) != 'REVIEW';
+
 class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   static List<PropData> _cachedOwnerTopPicks = const [];
   static DateTime? _cachedOwnerTopPicksDay;
@@ -380,7 +396,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                   // The panel only renders five unique picks. Pull a small
                   // cushion for duplicate provider lines instead of asking
                   // the API to build and serialize 900 props at once.
-                  limit: 20,
+                  limit: 50,
                   // Reliability is already loaded by the command-center
                   // snapshot below. Rebuilding the complete provider report
                   // for every sport made this nine-request fan-out capable
@@ -1061,11 +1077,12 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   );
 
   List<PropData> _rankOwnerTopPicks(List<PropData> props) {
+    // Command Center is an owner research surface, not the customer action
+    // gate. A valid catalog pick may be temporarily non-selectable because of
+    // freshness/provider policy; hiding it here erased entire active sports.
+    // Keep the warning banner and show the strongest real lines for review.
     final eligible = props
-        .where((prop) {
-          final side = prop.proSuggestedSide?.trim().toUpperCase();
-          return prop.isSelectable && (side == 'OVER' || side == 'UNDER');
-        })
+        .where(isOwnerResearchCandidate)
         .toList(growable: false);
     final unique = <String, PropData>{};
     for (final prop in eligible) {
@@ -1076,7 +1093,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             .trim()
             .toUpperCase(),
         prop.line.toStringAsFixed(2),
-        prop.proSuggestedSide?.trim().toUpperCase() ?? '',
+        ownerResearchSide(prop),
       ].join('|');
       final current = unique[key];
       if (current == null || _compareOwnerPicks(prop, current) < 0) {
@@ -2902,7 +2919,7 @@ class _OwnerPickRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final side = prop.proSuggestedSide?.trim().toUpperCase() ?? 'REVIEW';
+    final side = ownerResearchSide(prop);
     final market = prop.displayMarket.isEmpty
         ? prop.market
         : prop.displayMarket;

@@ -64,7 +64,7 @@ class _FakeOperationsApi extends ApiService {
     bool trackBoardLoad = false,
   }) async {
     ownerPickSportsRequested.add(selectedSport);
-    if (limit > 20 || includeReliability) {
+    if (limit > 50 || includeReliability) {
       ownerPickRequestWasOversized = true;
     }
     return const [];
@@ -574,6 +574,32 @@ class _PrimaryFailureOperationsApi extends _FakeOperationsApi {
 }
 
 void main() {
+  test(
+    'owner research retains a real board pick when action gating is off',
+    () {
+      final prop = PropData(
+        id: 'wnba-review',
+        eventId: 'wnba-event',
+        apiSportsGameId: 'wnba-game',
+        playerId: 'wnba-player',
+        player: 'WNBA Player',
+        sport: 'WNBA',
+        matchup: 'Away @ Home',
+        sportsbook: 'PRIZEPICKS',
+        market: 'Points',
+        line: 20.5,
+        pick: 'OVER',
+        edge: 2,
+        imagePath: '',
+        selectable: false,
+      );
+
+      expect(prop.isSelectable, isFalse);
+      expect(ownerResearchSide(prop), anyOf('OVER', 'UNDER'));
+      expect(isOwnerResearchCandidate(prop), isTrue);
+    },
+  );
+
   test('owner top five includes the best available PrizePicks prop', () {
     final ranked = <PropData>[
       for (var index = 0; index < 5; index++)
