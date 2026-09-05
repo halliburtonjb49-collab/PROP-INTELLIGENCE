@@ -34,6 +34,37 @@
       background: #050c13;
     }
     body { position: fixed; inset: 0; }
+    #pi-launch-shell {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      display: grid;
+      place-items: center;
+      color: #f5f2e8;
+      background: radial-gradient(circle at 50% 35%, #102838 0, #07131d 42%, #050c13 100%);
+      font-family: Arial, sans-serif;
+      transition: opacity 180ms ease;
+    }
+    #pi-launch-shell.is-ready { opacity: 0; pointer-events: none; }
+    #pi-launch-content { width: min(360px, calc(100vw - 48px)); text-align: center; }
+    #pi-launch-logo {
+      width: 82px; height: 82px; border-radius: 18px;
+      border: 1px solid rgba(216, 178, 92, .65);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, .42);
+    }
+    #pi-launch-title { margin: 18px 0 7px; font-size: 22px; letter-spacing: 1.5px; }
+    #pi-launch-status { margin: 0; color: #aeb9c3; font-size: 13px; letter-spacing: .25px; }
+    #pi-launch-progress {
+      height: 3px; margin-top: 22px; overflow: hidden; border-radius: 3px;
+      background: rgba(216, 178, 92, .18);
+    }
+    #pi-launch-progress::after {
+      display: block; width: 45%; height: 100%; content: '';
+      background: #d8b25c; border-radius: inherit;
+      animation: pi-launch-progress 1.05s ease-in-out infinite alternate;
+    }
+    @keyframes pi-launch-progress { from { transform: translateX(-20%); } to { transform: translateX(145%); } }
+    @media (prefers-reduced-motion: reduce) { #pi-launch-progress::after { animation: none; width: 100%; } }
   </style>
 
   <!-- iOS meta tags & icons -->
@@ -161,6 +192,22 @@
         window.location.replace('/login');
       }
     })();
+  </script>
+  <div id="pi-launch-shell" role="status" aria-live="polite">
+    <div id="pi-launch-content">
+      <img id="pi-launch-logo" src="icons/Icon-192.png" alt="">
+      <h1 id="pi-launch-title">PROP INTELLIGENCE</h1>
+      <p id="pi-launch-status">Loading today's live research...</p>
+      <div id="pi-launch-progress" aria-hidden="true"></div>
+    </div>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', () => {
+      const shell = document.getElementById('pi-launch-shell');
+      if (!shell) return;
+      shell.classList.add('is-ready');
+      window.setTimeout(() => shell.remove(), 220);
+    }, { once: true });
   </script>
   <div id="onesignal-verification" hidden role="dialog" aria-modal="true"
        aria-labelledby="onesignal-verification-title">
