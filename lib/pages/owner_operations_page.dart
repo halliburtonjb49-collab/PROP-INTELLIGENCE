@@ -32,6 +32,7 @@ class _OwnerMoneylinePick {
     required this.price,
     required this.sportsbook,
     required this.bookCount,
+    required this.stale,
   });
 
   final GameMarketEvent event;
@@ -40,6 +41,7 @@ class _OwnerMoneylinePick {
   final int price;
   final String sportsbook;
   final int bookCount;
+  final bool stale;
 }
 
 class _OwnerMoneylineCard extends StatelessWidget {
@@ -110,7 +112,7 @@ class _OwnerMoneylineCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'BEST LISTED $price  •  ${pick.sportsbook.toUpperCase()}  •  ${pick.bookCount} BOOKS',
+                  'BEST LISTED $price  •  ${pick.sportsbook.toUpperCase()}  •  ${pick.bookCount} BOOKS${pick.stale ? '  •  CACHED — VERIFY' : ''}',
                   style: const TextStyle(
                     color: AppColors.gold,
                     fontSize: 9,
@@ -454,7 +456,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
           if (!mounted) return;
           final ranked = <String, List<_OwnerMoneylinePick>>{};
           for (var index = 0; index < _ownerMoneylineSports.length; index++) {
-            final picks = _rankMoneylines(feeds[index]);
+            final picks = _rankMoneylines(feeds[index], allowCached: true);
             if (picks.isNotEmpty) ranked[_ownerMoneylineSports[index]] = picks;
           }
           if (ranked.isEmpty) return;
@@ -494,7 +496,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       );
       final rankedMoneylines = <String, List<_OwnerMoneylinePick>>{};
       for (var index = 0; index < _ownerMoneylineSports.length; index++) {
-        final picks = _rankMoneylines(moneylineFeeds[index]);
+        final picks = _rankMoneylines(moneylineFeeds[index], allowCached: true);
         if (picks.isNotEmpty) {
           rankedMoneylines[_ownerMoneylineSports[index]] = picks;
         }
@@ -1326,6 +1328,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                 price: best.outcome.price,
                 sportsbook: best.book.title,
                 bookCount: entry.value.length,
+                stale: feed.stale,
               );
             }).toList()
             ..sort((a, b) => b.fairProbability.compareTo(a.fairProbability));
