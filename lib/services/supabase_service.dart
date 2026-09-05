@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -102,22 +100,6 @@ class SupabaseService {
     );
 
     _initialized = true;
-    if (kIsWeb) {
-      // Supabase.initialize has already restored its locally persisted
-      // session. Do not hold the first frame behind a forced network token
-      // exchange (previously up to eight seconds). Import the canonical
-      // product-site session in the background; protected API requests can
-      // use the restored/persisted access token immediately and already retry
-      // once with a forced refresh if the server reports 401.
-      unawaited(
-        recoverPersistedWebSession(forceRefresh: true)
-            .timeout(const Duration(seconds: 8))
-            .then<void>((_) {})
-            .catchError((Object error) {
-              debugPrint('Supabase web session recovery deferred: $error');
-            }),
-      );
-    }
     debugPrint('Supabase initialized successfully.');
   }
 }

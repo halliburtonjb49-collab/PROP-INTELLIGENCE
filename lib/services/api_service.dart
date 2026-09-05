@@ -373,7 +373,11 @@ class ApiService {
   }) async {
     final client = SupabaseService.client;
     var session = client?.auth.currentSession;
-    var token = session?.accessToken ?? SupabaseService.persistedAccessToken;
+    // The website login owns the canonical browser session. Prefer its token
+    // over a stale SDK snapshot restored by Flutter from a previous launch.
+    // Sending the available token immediately makes the API response the
+    // source of truth; a 401 still enters the explicit forced-refresh path.
+    var token = SupabaseService.persistedAccessToken ?? session?.accessToken;
     var refreshStillRequired = forceRefresh;
     // Marketing login and Flutter share the canonical Supabase web token.
     // Send that token immediately on the first protected request instead of
@@ -389,7 +393,7 @@ class ApiService {
       } catch (_) {
         session = client.auth.currentSession;
       }
-      token = session?.accessToken ?? SupabaseService.persistedAccessToken;
+      token = SupabaseService.persistedAccessToken ?? session?.accessToken;
     }
     // Native OAuth can return control to Flutter before the Supabase client
     // publishes the new session. Wait for the auth event instead of allowing
@@ -403,11 +407,11 @@ class ApiService {
       } on TimeoutException {
         session = client.auth.currentSession;
       }
-      token = session?.accessToken ?? SupabaseService.persistedAccessToken;
+      token = SupabaseService.persistedAccessToken ?? session?.accessToken;
     }
     if (client != null &&
         session != null &&
-        (refreshStillRequired || session.isExpired)) {
+        (refreshStillRequired || token == null || token.isEmpty)) {
       final refresh = _sessionRefresh ??= client.auth
           .refreshSession()
           .timeout(const Duration(seconds: 4))
