@@ -43,10 +43,15 @@ class _OwnerMoneylinePick {
 }
 
 class _OwnerMoneylineCard extends StatelessWidget {
-  const _OwnerMoneylineCard({required this.rank, required this.pick});
+  const _OwnerMoneylineCard({
+    required this.rank,
+    required this.pick,
+    required this.sport,
+  });
 
   final int rank;
   final _OwnerMoneylinePick pick;
+  final String sport;
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +102,7 @@ class _OwnerMoneylineCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${pick.event.awayTeam} @ ${pick.event.homeTeam}  •  $time',
+                  '$sport  •  ${pick.event.awayTeam} @ ${pick.event.homeTeam}  •  $time',
                   style: const TextStyle(
                     color: AppColors.textMuted,
                     fontSize: 10,
@@ -1222,6 +1227,9 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     for (final prop in _ownerTopPicks) {
       grouped.putIfAbsent(prop.sport.trim().toUpperCase(), () => []).add(prop);
     }
+    final dailyRanked = List<PropData>.of(_ownerTopPicks)
+      ..sort(_compareOwnerPicks);
+    final dailyTopFive = selectOwnerTopFiveWithPrizePicks(dailyRanked);
     return Column(
       key: const ValueKey('owner-top-picks-by-sport'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1244,6 +1252,20 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
           ),
         ),
         const SizedBox(height: 10),
+        _OwnerSportPickGroup(
+          sport: "TODAY'S BEST 5 PLAYER PROPS • ALL ACTIVE SPORTS",
+          picks: dailyTopFive,
+        ),
+        const SizedBox(height: 14),
+        const Text(
+          'PLAYER PROP TOP 5 BY ACTIVE SPORT',
+          style: TextStyle(
+            color: AppColors.silver,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 8),
         for (final entry in grouped.entries) ...[
           _OwnerSportPickGroup(sport: entry.key, picks: entry.value),
           const SizedBox(height: 10),
@@ -1325,10 +1347,54 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         AppColors.gold,
       );
     }
+    final sportsWithPlayerProps = _ownerTopPicks
+        .map((prop) => prop.sport.trim().toUpperCase())
+        .where((sport) => sport.isNotEmpty)
+        .toSet();
+    final dailyMoneylines =
+        <({String sport, _OwnerMoneylinePick pick})>[
+          for (final entry in _ownerMoneylines.entries)
+            if (sportsWithPlayerProps.isEmpty ||
+                sportsWithPlayerProps.contains(entry.key))
+              for (final pick in entry.value) (sport: entry.key, pick: pick),
+        ]..sort(
+          (left, right) =>
+              right.pick.fairProbability.compareTo(left.pick.fairProbability),
+        );
+    final dailyTopFive = dailyMoneylines.take(5).toList(growable: false);
     return Column(
       key: const ValueKey('owner-moneyline-top-five-by-sport'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (dailyTopFive.isNotEmpty) ...[
+          const Text(
+            "TODAY'S BEST 5 TEAM MONEYLINES • ACTIVE PLAYER-PROP SPORTS",
+            style: TextStyle(
+              color: AppColors.gold,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          for (var index = 0; index < dailyTopFive.length; index++) ...[
+            _OwnerMoneylineCard(
+              rank: index + 1,
+              pick: dailyTopFive[index].pick,
+              sport: dailyTopFive[index].sport,
+            ),
+            if (index + 1 < dailyTopFive.length) const SizedBox(height: 8),
+          ],
+          const SizedBox(height: 16),
+          const Text(
+            'MONEYLINE TOP 5 BY ACTIVE SPORT',
+            style: TextStyle(
+              color: AppColors.silver,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
         for (final sport in _ownerMoneylineSports)
           if (_ownerMoneylines[sport]?.isNotEmpty == true) ...[
             Text(
@@ -1348,6 +1414,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
               _OwnerMoneylineCard(
                 rank: index + 1,
                 pick: _ownerMoneylines[sport]![index],
+                sport: sport,
               ),
               if (index + 1 < _ownerMoneylines[sport]!.length)
                 const SizedBox(height: 8),
@@ -2967,7 +3034,7 @@ class _OwnerPickRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '$market  |  ${prop.matchup}  |  ${prop.sportsbook}',
+                  '${prop.sport}  |  $market  |  ${prop.matchup}  |  ${prop.sportsbook}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: AppColors.silver, fontSize: 9),
