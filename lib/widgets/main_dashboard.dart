@@ -3559,7 +3559,11 @@ class _MainDashboardState extends State<MainDashboard> {
                               watchedOnly: true,
                             )
                           : widget.selectedPage == AppPage.propAlerts
-                          ? PropAlertsPage(alerts: alertsForPage)
+                          ? PropAlertsPage(
+                              alerts: alertsForPage,
+                              onClose: () =>
+                                  widget.onSelectPage?.call(AppPage.board),
+                            )
                           : widget.selectedPage == AppPage.briefing
                           ? const BriefingPage()
                           : widget.selectedPage == AppPage.trackRecord

@@ -93,4 +93,16 @@ void main() {
     );
     expect(find.text('No Props Loaded'), findsNothing);
   });
+
+  testWidgets('prop alerts can be closed from the header', (tester) async {
+    var closed = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PropAlertsPage(alerts: const [], onClose: () => closed = true),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('Close prop alerts'));
+    expect(closed, isTrue);
+  });
 }

@@ -21,9 +21,10 @@ class PropAlertData {
 }
 
 class PropAlertsPage extends StatelessWidget {
-  const PropAlertsPage({super.key, required this.alerts});
+  const PropAlertsPage({super.key, required this.alerts, this.onClose});
 
   final List<PropAlertData> alerts;
+  final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +58,14 @@ class PropAlertsPage extends StatelessWidget {
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
+              ),
+              const SizedBox(width: 6),
+              IconButton(
+                tooltip: 'Close prop alerts',
+                onPressed: onClose ?? () => Navigator.maybePop(context),
+                icon: const Icon(Icons.close_rounded),
+                color: AppColors.gold,
+                iconSize: 24,
               ),
             ],
           ),
