@@ -68,7 +68,9 @@ class _LiveScoreboardTickerGridWidgetState
       unawaited(_controller.load(silent: _controller.games.isNotEmpty));
       _controller.beginLiveRefresh();
     }
-    unawaited(_loadWeek());
+    // The seven-day view fans out across dates and leagues. Loading it during
+    // startup competes with today's scoreboard and the prop board for network
+    // and backend workers. Fetch it only when the customer selects THIS WEEK.
   }
 
   Future<void> _loadWeek() async {
