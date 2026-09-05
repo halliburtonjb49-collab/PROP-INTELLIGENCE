@@ -262,8 +262,14 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   static const List<String> _ownerMoneylineSports = [
     'MLB',
     'NFL',
+    'NBA',
+    'WNBA',
+    'NHL',
     'NCAAF',
     'NCAAB',
+    'CFL',
+    'EPL',
+    'MLS',
   ];
 
   @override
@@ -876,7 +882,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             const SizedBox(height: 22),
             _sectionTitle(
               'SEPARATE TEAM MONEYLINE RESEARCH — NOT PLAYER PROPS',
-              'Optional team-market context for MLB, NFL, NCAAF, and NCAAB; the player-prop Top 5 is the section above',
+              'Top team-moneyline research for every active supported league; inactive leagues stay hidden and the player-prop Top 5 remains above',
             ),
             const SizedBox(height: 10),
             _ownerMoneylinePanel(),
@@ -1298,7 +1304,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       return _notice(
         Icons.sports_football_outlined,
         'NO VERIFIED MONEYLINES RIGHT NOW',
-        'The monitored leagues do not currently have same-day games with enough fresh two-sided market coverage. This updates automatically every 30 seconds.',
+        'No active supported league currently has same-day games with enough fresh two-sided moneyline coverage. This updates automatically every 30 seconds.',
         AppColors.gold,
       );
     }

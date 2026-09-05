@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/main.dart';
+import 'package:prop_intelligence/models/game_market.dart';
 import 'package:prop_intelligence/models/prop_data.dart';
 import 'package:prop_intelligence/pages/owner_operations_page.dart';
 import 'package:prop_intelligence/services/api_service.dart';
@@ -43,6 +44,7 @@ class _FakeOperationsApi extends ApiService {
   int recoveryRequests = 0;
   int identityReconciliations = 0;
   final Set<String> ownerPickSportsRequested = {};
+  final Set<String> ownerMoneylineSportsRequested = {};
   bool ownerPickRequestWasOversized = false;
 
   @override
@@ -66,6 +68,21 @@ class _FakeOperationsApi extends ApiService {
       ownerPickRequestWasOversized = true;
     }
     return const [];
+  }
+
+  @override
+  Future<GameMarketFeed> fetchGameMarkets({
+    required String sport,
+    bool refresh = false,
+  }) async {
+    ownerMoneylineSportsRequested.add(sport);
+    return GameMarketFeed(
+      sport: sport,
+      updatedAt: DateTime.now(),
+      cached: false,
+      stale: false,
+      events: const [],
+    );
   }
 
   @override
@@ -692,6 +709,18 @@ void main() {
 
     expect(find.text('OWNER COMMAND CENTER'), findsOneWidget);
     expect(api.ownerPickSportsRequested.length, 9);
+    expect(api.ownerMoneylineSportsRequested, {
+      'MLB',
+      'NFL',
+      'NBA',
+      'WNBA',
+      'NHL',
+      'NCAAF',
+      'NCAAB',
+      'CFL',
+      'EPL',
+      'MLS',
+    });
     expect(api.ownerPickRequestWasOversized, isFalse);
     expect(
       find.byKey(const ValueKey('owner-command-center-overview')),
