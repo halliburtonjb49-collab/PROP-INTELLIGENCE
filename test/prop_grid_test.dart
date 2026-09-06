@@ -113,6 +113,9 @@ void main() {
   testWidgets('PropGrid renders the enabled shared repository path', (
     tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1440, 1000);
+    addTearDown(tester.view.reset);
     final api = _FailingPropsApi();
     final refresh = ValueNotifier<int>(0);
     late final PropSyncCoordinator coordinator;
@@ -192,6 +195,7 @@ void main() {
               apiService: api,
               syncCoordinator: coordinator,
               syncManagerEnabledOverride: true,
+              siteFirstLayout: true,
               onPropPageLoaded: (page) => delivered = page,
             ),
           ),
@@ -203,6 +207,31 @@ void main() {
     expect(find.byKey(const ValueKey('pi-sync-status')), findsOneWidget);
     expect(delivered?.totalCount, 1);
     expect(delivered?.rows.single.id, 'shared-path-prop');
+    final card = find.byKey(
+      const ValueKey('site-first-prop-card-shared-path-prop'),
+    );
+    final under = find.byKey(
+      const ValueKey('site-first-under-shared-path-prop'),
+    );
+    final over = find.byKey(const ValueKey('site-first-over-shared-path-prop'));
+    final research = find.byKey(
+      const ValueKey('site-first-research-shared-path-prop'),
+    );
+    expect(under, findsOneWidget);
+    expect(over, findsOneWidget);
+    expect(research, findsOneWidget);
+    expect(
+      tester.getRect(under).bottom,
+      lessThanOrEqualTo(tester.getRect(card).bottom),
+    );
+    expect(
+      tester.getRect(over).bottom,
+      lessThanOrEqualTo(tester.getRect(card).bottom),
+    );
+    expect(
+      tester.getRect(research).bottom,
+      lessThanOrEqualTo(tester.getRect(card).bottom),
+    );
 
     await tester.pumpWidget(const SizedBox.shrink());
     coordinator.dispose();

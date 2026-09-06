@@ -4845,7 +4845,14 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                                   Expanded(
                                     child: SizedBox(
                                       height: widget.siteFirstLayout
-                                          ? 226
+                                          // The site-first card contains a
+                                          // 116px identity row, 48px side
+                                          // controls, and a 40px research
+                                          // action. Line alternatives add a
+                                          // separate control below it. The old
+                                          // 226px slot clipped the research
+                                          // label and lower-row side buttons.
+                                          ? 304
                                           : 474,
                                       child: groupCardFor(
                                         rowGroups[index],
