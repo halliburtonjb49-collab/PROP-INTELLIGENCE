@@ -1,6 +1,6 @@
 // Centralized OneSignal Website SDK integration.
 window.PropIntelligenceOneSignal = (() => {
-  const appId = "917b088b-4a9f-472d-8b52-3ab0d06ab98e";
+  const appId = "b7d55e15-969b-40c2-b7d4-62e6c201e7d9";
   const developmentHosts = new Set(["localhost", "127.0.0.1", "::1"]);
   const enabled = !developmentHosts.has(window.location.hostname);
 

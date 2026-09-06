@@ -34,6 +34,13 @@ void main() {
     expect(pwa, contains("!isDevelopmentHost"));
   });
 
+  test('OneSignal uses the production web application identity', () {
+    final service = File('web/onesignal-service.js').readAsStringSync();
+
+    expect(service, contains('b7d55e15-969b-40c2-b7d4-62e6c201e7d9'));
+    expect(service, isNot(contains('917b088b-4a9f-472d-8b52-3ab0d06ab98e')));
+  });
+
   test('production keeps exactly one versioned workspace service worker', () {
     final buildScript = File('vercel_build.sh').readAsStringSync();
     final bootstrap = File('web/flutter_bootstrap.js').readAsStringSync();
