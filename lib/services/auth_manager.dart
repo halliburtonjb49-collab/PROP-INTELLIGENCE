@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'supabase_service.dart';
+import 'api_service.dart';
 
 const Set<String> _ownerEmails = {
   'propsintell@gmail.com',
@@ -444,6 +445,7 @@ class AuthManager {
       // A failed remote sign-out must not trap an expired user on a screen.
       passwordRecoveryRequested.value = false;
       sessionState.value = const AuthSessionState.signedOut();
+      await ApiService.invalidateProtectedCaches();
     }
     if (kIsWeb) {
       await launchUrl(

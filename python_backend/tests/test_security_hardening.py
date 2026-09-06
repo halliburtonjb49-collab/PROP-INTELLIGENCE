@@ -37,6 +37,12 @@ def test_sensitive_route_rate_limit_scopes_are_specific() -> None:
     assert main._rate_limit_scope(
         _request("/api/realtime/connect")
     ) == ("chat-realtime", 30)
+    assert main._rate_limit_scope(
+        _request("/api/operations/provider-recovery", method="POST")
+    ) == ("owner-provider-recovery", 4)
+    assert main._rate_limit_scope(
+        _request("/api/operations/sync-client-applied", method="POST")
+    ) == ("prop-client-telemetry", 60)
 
 
 def test_security_migration_enables_public_rls_and_revokes_proprietary_data() -> None:

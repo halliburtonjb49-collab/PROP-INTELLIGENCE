@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import uuid
+from datetime import datetime, timezone
 from typing import Any
 
 from redis import Redis
@@ -239,6 +240,26 @@ def health() -> dict[str, object]:
         started_registry.cleanup()
         worker_registration.clean_worker_registry(queue)
         workers = Worker.all(queue=queue)
+        oldest_queued_at = None
+        oldest_queue_wait_ms = None
+        try:
+            oldest_jobs = queue.get_jobs(offset=0, length=1)
+            created_at = oldest_jobs[0].created_at if oldest_jobs else None
+            if created_at is not None:
+                if created_at.tzinfo is None:
+                    created_at = created_at.replace(tzinfo=timezone.utc)
+                oldest_queued_at = created_at.astimezone(timezone.utc).isoformat()
+                oldest_queue_wait_ms = max(
+                    0,
+                    int(
+                        (datetime.now(timezone.utc) - created_at).total_seconds()
+                        * 1000
+                    ),
+                )
+        except Exception:
+            # Queue counts remain useful when an older RQ version/test double
+            # cannot expose job timestamps.
+            pass
         return {
             "configured": True,
             "available": True,
@@ -251,6 +272,8 @@ def health() -> dict[str, object]:
                 connection=queue.connection,
             ).count,
             "workers": len(workers),
+            "oldestQueuedAt": oldest_queued_at,
+            "oldestQueueWaitMs": oldest_queue_wait_ms,
             "retryPolicy": {
                 "maxAttempts": 4,
                 "retryIntervalsSeconds": [30, 120, 300],

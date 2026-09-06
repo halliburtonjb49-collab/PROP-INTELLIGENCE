@@ -116,9 +116,15 @@ from services.distributed_cache_service import (
 	get_json as get_distributed_json,
 	health as distributed_cache_health,
 	last_write_error as distributed_cache_last_write_error,
+	publish_compressed_catalog_with_manifest as publish_distributed_prop_catalog,
 	set_compressed_json_streaming_list as set_distributed_compressed_catalog,
 	set_json as set_distributed_json,
 	set_json_streaming_list as set_distributed_json_streaming_list,
+)
+from services.prop_delivery_metrics_service import (
+	PROP_METRICS as _prop_metrics,
+	PROP_METRICS_LOCK as _prop_metrics_lock,
+	record_sample as record_prop_delivery_sample,
 )
 from services.job_queue_service import (
 	acquire_global_sync_lock,
@@ -357,19 +363,6 @@ _prop_catalog: dict[str, object] = {
 	# happened while catalog publication was failing for six hours.
 	"source": _CATALOG_SOURCE_EMPTY,
 }
-_prop_metrics_lock = Lock()
-_prop_metrics: dict[str, object] = {
-	"requests": 0,
-	"errors": 0,
-	"emptyResponses": 0,
-	"lastDurationMs": 0,
-	"lastPayloadBytes": 0,
-	"lastServedAt": None,
-	"lastTotalCount": 0,
-	"lastDataUpdatedAt": None,
-	"lastRequestSucceeded": None,
-	"cacheHits": 0,
-}
 _PROP_CATALOG_KEY = "props:catalog:v1"
 # The v1 payload was stored uncompressed and grew to roughly 112 MiB, which
 # the atomic rename doubles at publication time. v2 holds the same catalog
@@ -379,6 +372,9 @@ _PROP_CATALOG_KEY = "props:catalog:v1"
 _PROP_CATALOG_COMPRESSED_KEY = "props:catalog:v2"
 _PROP_CATALOG_VERSION_KEY = "props:catalog:version:v1"
 _PROP_CATALOG_SUMMARY_KEY = "props:catalog:summary:v1"
+_PROP_CATALOG_MANIFEST_KEY = "props:catalog:manifest:v1"
+_PROP_CATALOG_SEQUENCE_KEY = "props:catalog:sequence:v1"
+_PROP_CATALOG_ACCEPTED_SEQUENCE_KEY = "props:catalog:accepted-sequence:v1"
 _PROP_RESPONSE_CACHE_TTL_SECONDS = 60
 _PROP_RESPONSE_CACHE_MAX_ENTRIES = 256
 _prop_response_cache_lock = Lock()
@@ -444,6 +440,7 @@ app.add_middleware(
 	allow_credentials=False,
 	allow_methods=["*"],
 	allow_headers=["*"],
+	expose_headers=["ETag", "X-PI-Content-Revision", "X-App-Version"],
 )
 app.add_middleware(BrotliMiddleware, minimum_size=1000, quality=4)
 app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=5)
@@ -467,6 +464,10 @@ def _rate_limit_scope(request: Request) -> tuple[str, int] | None:
 		return "tickets", 60
 	if path.startswith("/api/realtime"):
 		return "chat-realtime", 30
+	if path == "/api/operations/provider-recovery":
+		return "owner-provider-recovery", 4
+	if path == "/api/operations/sync-client-applied":
+		return "prop-client-telemetry", 60
 	if path.startswith("/api/scoreboard") or path.startswith("/api/scores"):
 		return "scoreboard", 60
 	return None
@@ -848,28 +849,47 @@ def _rebuild_prop_catalog_from_local(
 	# published catalog then sees the same grouping without recomputing it,
 	# and a client cannot invent a different one.
 	assign_prop_groups(props)
-	with _prop_catalog_lock:
-		_prop_catalog.update(
-			loadedAt=now,
-			versionCheckedAt=now,
-			version=fallback_version,
-			props=props,
-			source=(
-				_CATALOG_SOURCE_LIVE if props else _CATALOG_SOURCE_EMPTY
-			),
-		)
 	if props:
-		catalog_version = (
-			f"{APP_VERSION}:"
-			f"{max((prop.lastUpdatedUtc for prop in props), default='')}:"
-			f"{len(props)}"
-		)
-		catalog_published = set_distributed_compressed_catalog(
-			_PROP_CATALOG_COMPRESSED_KEY,
-			props,
-			ttl_seconds=86400,
-			encode_item=lambda prop: prop.model_dump(mode="json"),
-		)
+		catalog_source = _CATALOG_SOURCE_LIVE
+		source_updated_at = max(
+			(prop.lastUpdatedUtc for prop in props), default=""
+		) or None
+		manifest = None
+		if os.getenv("PI_PROP_REVISION_FEED_ENABLED", "false").lower() == "true":
+			manifest = publish_distributed_prop_catalog(
+				_PROP_CATALOG_COMPRESSED_KEY,
+				props,
+				manifest_key=_PROP_CATALOG_MANIFEST_KEY,
+				sequence_key=_PROP_CATALOG_SEQUENCE_KEY,
+				accepted_sequence_key=_PROP_CATALOG_ACCEPTED_SEQUENCE_KEY,
+				ttl_seconds=86400,
+				source_updated_at=source_updated_at,
+				encode_item=lambda prop: prop.model_dump(mode="json"),
+			)
+			catalog_published = manifest is not None
+			catalog_version = str(
+				(manifest or {}).get("contentRevision") or ""
+			)
+			if manifest is not None and not manifest.get("acceptedPublication", True):
+				accepted_rows = get_distributed_compressed_json(
+					_PROP_CATALOG_COMPRESSED_KEY
+				)
+				if not isinstance(accepted_rows, list):
+					raise RuntimeError(
+						"Newer accepted prop catalog could not be read after publication race"
+					)
+				props = [PropResponse.model_validate(row) for row in accepted_rows]
+				catalog_source = _CATALOG_SOURCE_SHARED
+		else:
+			catalog_version = (
+				f"{APP_VERSION}:{source_updated_at or ''}:{len(props)}"
+			)
+			catalog_published = set_distributed_compressed_catalog(
+				_PROP_CATALOG_COMPRESSED_KEY,
+				props,
+				ttl_seconds=86400,
+				encode_item=lambda prop: prop.model_dump(mode="json"),
+			)
 		if not catalog_published:
 			raise RuntimeError(
 				"Fresh prop catalog could not be published to Redis: "
@@ -891,7 +911,9 @@ def _rebuild_prop_catalog_from_local(
 		)
 		summary_published = _publish_prop_catalog_summary(
 			props,
-			catalog_published_at=datetime.now(timezone.utc).isoformat(),
+			catalog_published_at=str(
+				(manifest or {}).get("publishedAt") or ""
+			) or datetime.now(timezone.utc).isoformat(),
 		)
 		if not summary_published:
 			raise RuntimeError(
@@ -904,7 +926,13 @@ def _rebuild_prop_catalog_from_local(
 				)
 			)
 		with _prop_catalog_lock:
-			_prop_catalog["version"] = catalog_version
+			_prop_catalog.update(
+				loadedAt=now,
+				versionCheckedAt=now,
+				version=catalog_version,
+				props=props,
+				source=catalog_source,
+			)
 		# The durable snapshot was previously written only by the worker job
 		# and by the branch that reads the catalog back out of Redis. Both
 		# require Redis, so when it was unavailable nothing persisted a
@@ -930,6 +958,15 @@ def _rebuild_prop_catalog_from_local(
 				args=(props,),
 				daemon=True,
 			).start()
+	else:
+		with _prop_catalog_lock:
+			_prop_catalog.update(
+				loadedAt=now,
+				versionCheckedAt=now,
+				version=fallback_version,
+				props=props,
+				source=_CATALOG_SOURCE_EMPTY,
+			)
 	return props
 
 
@@ -1014,6 +1051,7 @@ def _invalidate_prop_catalog(*, delete_shared: bool = True) -> None:
 		delete_distributed_cache(_PROP_CATALOG_KEY)
 		delete_distributed_cache(_PROP_CATALOG_VERSION_KEY)
 		delete_distributed_cache(_PROP_CATALOG_SUMMARY_KEY)
+		delete_distributed_cache(_PROP_CATALOG_MANIFEST_KEY)
 
 
 def _refresh_prop_catalog_now(
@@ -3715,6 +3753,7 @@ def props(
 			response.headers["Cache-Control"] = "private, no-store, max-age=0"
 			response.headers["Vary"] = "Authorization"
 			response.headers["X-App-Version"] = APP_VERSION
+			response.headers["X-PI-Content-Revision"] = catalog_version
 			payload = cached_payload
 			if if_none_match == cached_etag:
 				response.status_code = 304
@@ -3731,6 +3770,9 @@ def props(
 					lastDataUpdatedAt=catalog_updated_at or None,
 					lastRequestSucceeded=True,
 				)
+			record_prop_delivery_sample(
+				duration_ms, len(str(payload).encode("utf-8"))
+			)
 			return payload
 
 		def _is_mlb_strikeout_prop(prop: PropResponse) -> bool:
@@ -4241,6 +4283,7 @@ def props(
 				"includeReliability": includeReliability,
 			},
 			"version": APP_VERSION,
+			"contentRevision": catalog_version or None,
 			"feed": _catalog_feed_state(),
 		}
 		_remember_prop_response(
@@ -4252,6 +4295,7 @@ def props(
 		response.headers["Cache-Control"] = "private, no-store, max-age=0"
 		response.headers["Vary"] = "Authorization"
 		response.headers["X-App-Version"] = APP_VERSION
+		response.headers["X-PI-Content-Revision"] = catalog_version
 		if if_none_match == etag:
 			response.status_code = 304
 			payload = {}
@@ -4268,6 +4312,7 @@ def props(
 				lastDataUpdatedAt=catalog_updated_at or None,
 				lastRequestSucceeded=True,
 			)
+		record_prop_delivery_sample(duration_ms, payload_bytes)
 		return payload
 	except Exception as exc:
 		with _prop_metrics_lock:

@@ -7,9 +7,13 @@ import 'api_service.dart';
 import 'supabase_service.dart';
 
 class LiveUpdateService {
-  LiveUpdateService({this.channels = const {'props'}});
+  LiveUpdateService({
+    this.channels = const {'props'},
+    this.protocolVersion = 1,
+  });
 
   final Set<String> channels;
+  final int protocolVersion;
   final StreamController<dynamic> _events = StreamController.broadcast();
   WebSocketChannel? _channel;
   Timer? _reconnectTimer;
@@ -31,7 +35,10 @@ class LiveUpdateService {
     final uri = httpBase.replace(
       scheme: httpBase.scheme == 'https' ? 'wss' : 'ws',
       path: '/api/realtime/ws',
-      queryParameters: {'channels': channels.join(',')},
+      queryParameters: {
+        'channels': channels.join(','),
+        if (protocolVersion > 1) 'protocol': '$protocolVersion',
+      },
     );
     try {
       final channel = WebSocketChannel.connect(uri);

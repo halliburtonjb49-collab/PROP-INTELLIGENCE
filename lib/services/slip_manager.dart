@@ -97,6 +97,12 @@ class SlipManager {
     }
 
     final latestProps = await apiService.fetchProps();
+    refreshSelectedPropsFromRows(latestProps);
+  }
+
+  static void refreshSelectedPropsFromRows(List<PropData> latestProps) {
+    final currentList = List<Map<String, dynamic>>.from(selectedProps.value);
+    if (currentList.isEmpty || latestProps.isEmpty) return;
     final byId = <String, PropData>{
       for (final prop in latestProps) prop.id: prop,
     };

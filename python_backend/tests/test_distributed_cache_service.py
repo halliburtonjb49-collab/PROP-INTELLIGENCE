@@ -160,6 +160,30 @@ class _BinaryRecordingClient(_RecordingClient):
     def get(self, key):
         return self.values.get(key)
 
+    def incr(self, key):
+        value = int(self.values.get(key, 0)) + 1
+        self.values[key] = value
+        return value
+
+    def setnx(self, key, value):
+        if key in self.values:
+            return False
+        self.values[key] = value
+        return True
+
+    def eval(self, _script, key_count, *parts):
+        assert key_count == 4
+        temporary, destination, manifest_key, accepted_key = parts[:4]
+        sequence, ttl, manifest = parts[4:]
+        accepted = int(self.values.get(accepted_key, -1))
+        if accepted >= int(sequence):
+            self.delete(temporary)
+            return 0
+        self.rename(temporary, destination)
+        self.set(manifest_key, manifest, ex=int(ttl))
+        self.set(accepted_key, str(sequence), ex=int(ttl))
+        return 1
+
 
 def test_compressed_catalog_round_trips_and_shrinks(monkeypatch):
     """The plain catalog needed ~224 MiB of a 256 MiB instance to publish.
@@ -207,3 +231,76 @@ def test_compressed_publication_reports_its_failure_cause(monkeypatch):
     assert distributed_cache_service.last_write_error("props:catalog:v2") == (
         "REDIS_URL is not configured"
     )
+
+
+def test_manifest_and_snapshot_are_promoted_together(monkeypatch):
+    client = _BinaryRecordingClient()
+    monkeypatch.setattr(
+        distributed_cache_service, "_binary_streaming_client", lambda: client
+    )
+    monkeypatch.setattr(distributed_cache_service, "_binary_client", lambda: client)
+
+    manifest = distributed_cache_service.publish_compressed_catalog_with_manifest(
+        "props:catalog:v2",
+        [{"id": "p1"}, {"id": "p2"}],
+        manifest_key="props:catalog:manifest:v1",
+        sequence_key="props:catalog:sequence:v1",
+        accepted_sequence_key="props:catalog:accepted-sequence:v1",
+        ttl_seconds=60,
+        source_updated_at="2026-09-06T12:00:00Z",
+    )
+
+    assert manifest is not None
+    assert manifest["count"] == 2
+    assert manifest["contentRevision"].endswith(":1")
+    assert distributed_cache_service.get_compressed_json("props:catalog:v2") == [
+        {"id": "p1"},
+        {"id": "p2"},
+    ]
+    stored = distributed_cache_service.json.loads(
+        client.values["props:catalog:manifest:v1"]
+    )
+    assert stored == {
+        key: value for key, value in manifest.items() if key != "acceptedPublication"
+    }
+
+
+def test_late_older_publication_cannot_replace_newer_snapshot(monkeypatch):
+    client = _BinaryRecordingClient()
+    monkeypatch.setattr(
+        distributed_cache_service, "_binary_streaming_client", lambda: client
+    )
+    monkeypatch.setattr(distributed_cache_service, "_binary_client", lambda: client)
+
+    newer = distributed_cache_service.publish_compressed_catalog_with_manifest(
+        "props:catalog:v2",
+        [{"id": "new"}],
+        manifest_key="props:catalog:manifest:v1",
+        sequence_key="props:catalog:sequence:v1",
+        accepted_sequence_key="props:catalog:accepted-sequence:v1",
+        ttl_seconds=60,
+        source_updated_at=None,
+    )
+    assert newer is not None
+    # Model a slow writer that allocated an older sequence before the winner,
+    # then reached the atomic promotion only after sequence 1 was accepted.
+    client.values["props:catalog:v2:building:old"] = b"old snapshot"
+    rejected = client.eval(
+        distributed_cache_service._PUBLISH_CATALOG_LUA,
+        4,
+        "props:catalog:v2:building:old",
+        "props:catalog:v2",
+        "props:catalog:manifest:v1",
+        "props:catalog:accepted-sequence:v1",
+        0,
+        60,
+        '{"contentRevision":"old:0"}',
+    )
+
+    assert rejected == 0
+    assert distributed_cache_service.get_compressed_json("props:catalog:v2") == [
+        {"id": "new"}
+    ]
+    assert distributed_cache_service.json.loads(
+        client.values["props:catalog:manifest:v1"]
+    ) == {key: value for key, value in newer.items() if key != "acceptedPublication"}

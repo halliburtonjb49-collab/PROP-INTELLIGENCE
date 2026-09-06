@@ -66,6 +66,7 @@ class OwnerCommandCenterOverview extends StatelessWidget {
     final learningAudit = (data['piLearningAudit'] as List? ?? const [])
         .whereType<Map>()
         .toList(growable: false);
+    final syncHealth = (data['syncHealth'] as Map?) ?? const {};
     if (metrics.isEmpty && services.isEmpty) {
       return _empty();
     }
@@ -111,6 +112,10 @@ class OwnerCommandCenterOverview extends StatelessWidget {
             },
           ),
           const SizedBox(height: 18),
+          if (syncHealth.isNotEmpty) ...[
+            _syncHealthPanel(syncHealth),
+            const SizedBox(height: 18),
+          ],
           _learningControlPanel(learningControl, learning, learningAudit),
           const SizedBox(height: 18),
           if (recalculations.isNotEmpty) ...[
@@ -169,6 +174,170 @@ class OwnerCommandCenterOverview extends StatelessWidget {
       ),
     );
   }
+
+  Widget _syncHealthPanel(Map health) {
+    final publication = (health['publication'] as Map?) ?? const {};
+    final queue = (health['queue'] as Map?) ?? const {};
+    final api = (health['apiDelivery'] as Map?) ?? const {};
+    final latency = (api['latencyMs'] as Map?) ?? const {};
+    final bytes = (api['responseBytes'] as Map?) ?? const {};
+    final client = (health['publicationToClientApplied'] as Map?) ?? const {};
+    final quota = (health['providerQuota'] as Map?) ?? const {};
+    final sources = (health['sourceFreshness'] as List? ?? const [])
+        .whereType<Map>()
+        .toList(growable: false);
+    String milliseconds(Object? value) => value == null ? '--' : '$value ms';
+    String bytesValue(Object? value) => value == null ? '--' : '$value B';
+    return Container(
+      key: const ValueKey('owner-sync-health'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0C1823),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gold.withValues(alpha: .32)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'PROP SYNC HEALTH',
+            style: TextStyle(
+              color: AppColors.gold,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .7,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Measured source, queue, publication, API, and client-delivery stages',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 9),
+          ),
+          const SizedBox(height: 10),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth >= 850
+                  ? (constraints.maxWidth - 24) / 4
+                  : constraints.maxWidth >= 480
+                  ? (constraints.maxWidth - 8) / 2
+                  : constraints.maxWidth;
+              final diagnostics = <Widget>[
+                _diagnostic(
+                  'PUBLICATION',
+                  milliseconds(publication['durationMs']),
+                  publication['publishedAt'] == null
+                      ? 'No revision measurement'
+                      : '${publication['rowCount'] ?? '--'} rows • ${_time(publication['publishedAt'])}',
+                  publication['lastError'] == null
+                      ? const Color(0xFF65E6B4)
+                      : const Color(0xFFFF7474),
+                ),
+                _diagnostic(
+                  'QUEUE WAIT',
+                  milliseconds(queue['oldestQueueWaitMs']),
+                  '${queue['queued'] ?? '--'} queued • ${queue['workers'] ?? '--'} workers',
+                  (queue['oldestQueueWaitMs'] as num? ?? 0) > 120000
+                      ? AppColors.gold
+                      : const Color(0xFF65E6B4),
+                ),
+                _diagnostic(
+                  'API LATENCY P95',
+                  milliseconds(latency['p95']),
+                  '${api['sampleCount'] ?? 0} local samples • ${bytesValue(bytes['p95'])} p95',
+                  const Color(0xFF65E6B4),
+                ),
+                _diagnostic(
+                  'PUBLISH → CLIENT',
+                  milliseconds(client['lastMs']),
+                  '${client['sampleCount'] ?? 0} authenticated apply samples',
+                  const Color(0xFF65E6B4),
+                ),
+                _diagnostic(
+                  'CACHE HIT RATIO',
+                  api['cacheHitRatio'] == null
+                      ? '--'
+                      : '${((api['cacheHitRatio'] as num) * 100).toStringAsFixed(1)}%',
+                  '${api['scope'] ?? 'this API instance'}',
+                  const Color(0xFF65E6B4),
+                ),
+                _diagnostic(
+                  'PROVIDER QUOTA',
+                  '${quota['remaining'] ?? '--'}',
+                  'remaining • ${quota['used'] ?? '--'} used',
+                  quota['lowQuota'] == true
+                      ? AppColors.gold
+                      : const Color(0xFF65E6B4),
+                ),
+              ];
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: diagnostics
+                    .map((item) => SizedBox(width: width, child: item))
+                    .toList(growable: false),
+              );
+            },
+          ),
+          if (sources.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: sources
+                  .map(
+                    (source) => _controlBadge(
+                      '${source['sport'] ?? '--'} • ${source['status'] ?? '--'} • checked ${_time(source['lastCheckAt'])}',
+                      _color('${source['status'] ?? 'UNAVAILABLE'}'),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _diagnostic(String label, String value, String detail, Color color) =>
+      Container(
+        constraints: const BoxConstraints(minHeight: 82),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF08131D),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: color.withValues(alpha: .28)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 8,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              value,
+              style: TextStyle(
+                color: color,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              detail,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 8),
+            ),
+          ],
+        ),
+      );
 
   Widget _learningControlPanel(
     Map control,

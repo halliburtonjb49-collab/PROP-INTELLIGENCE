@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/models/prop_data.dart';
+import 'package:prop_intelligence/models/prop_page.dart';
 import 'package:prop_intelligence/services/api_service.dart';
+import 'package:prop_intelligence/services/prop_repository.dart';
+import 'package:prop_intelligence/services/prop_sync_coordinator.dart';
 import 'package:prop_intelligence/widgets/prop_grid.dart';
 
 class _FailingPropsApi extends ApiService {
@@ -87,6 +90,105 @@ void main() {
     expect(find.text('RETRY'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
+    refresh.dispose();
+  });
+
+  testWidgets('PropGrid renders the enabled shared repository path', (
+    tester,
+  ) async {
+    final api = _FailingPropsApi();
+    final refresh = ValueNotifier<int>(0);
+    late final PropSyncCoordinator coordinator;
+    final repository = PropRepository(
+      loader: (query) async => PropPage(
+        query: query,
+        rows: [
+          PropData.fromJson({
+            'id': 'shared-path-prop',
+            'event_id': 'event-1',
+            'player_id': 'player-1',
+            'player_name': 'Shared Path Player',
+            'sport': 'NBA',
+            'matchup': 'A @ B',
+            'sportsbook': 'PRIZEPICKS',
+            'market_type': 'Points',
+            'line': 20.5,
+            'pick': 'OVER',
+            'edge': 4,
+            'image_path': '',
+            'start_time_utc': DateTime.now()
+                .add(const Duration(hours: 2))
+                .toUtc()
+                .toIso8601String(),
+            'game_status': 'scheduled',
+          }),
+        ],
+        catalogCount: 1,
+        totalCount: 1,
+        facetCount: 1,
+        categoryCounts: const {'Points': 1},
+        totalCategoryCounts: const {'Points': 1},
+        playableCategoryCounts: const {'Points': 1},
+        sportCounts: const {'NBA': 1},
+        sportsbookCounts: const {'PRIZEPICKS': 1},
+        verdictCounts: const {},
+        sportCategoryCounts: const {
+          'NBA': {'Points': 1},
+        },
+        totalSportCategoryCounts: const {
+          'NBA': {'Points': 1},
+        },
+        playableSportCategoryCounts: const {
+          'NBA': {'Points': 1},
+        },
+        providerCoverage: const {},
+        providerReliability: const {},
+        feedSource: 'mock',
+        feedIsRecovery: false,
+        receivedAt: DateTime.utc(2026, 9, 6),
+      ),
+    );
+    coordinator = PropSyncCoordinator(
+      repository: repository,
+      initialScope: 'test-scope',
+      reconcileInterval: const Duration(days: 1),
+    );
+    PropPage? delivered;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: PropGrid(
+              selections: const [],
+              onSelect: (_, _) {},
+              sportFilter: 'NBA',
+              displaySportFilter: 'NBA',
+              selectedSite: 'ALL',
+              selectedCategory: 'ALL',
+              selectedSide: 'ALL',
+              selectedTier: 'ALL',
+              minConfidence: 0,
+              sortBy: 'confidence',
+              searchQuery: '',
+              refreshListenable: refresh,
+              apiService: api,
+              syncCoordinator: coordinator,
+              syncManagerEnabledOverride: true,
+              onPropPageLoaded: (page) => delivered = page,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('pi-sync-status')), findsOneWidget);
+    expect(delivered?.totalCount, 1);
+    expect(delivered?.rows.single.id, 'shared-path-prop');
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    coordinator.dispose();
     refresh.dispose();
   });
 }

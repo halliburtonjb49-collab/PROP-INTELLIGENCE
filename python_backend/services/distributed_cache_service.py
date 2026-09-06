@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import os
+import time
 import uuid
 import zlib
+from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Callable, Iterable
 
@@ -296,25 +299,20 @@ def set_compressed_json_streaming_list(
         first = True
         for value in values:
             encoded = json.dumps(
-                transform(value),
-                separators=(",", ":"),
-                default=str,
+                transform(value), separators=(",", ":"), default=str
             )
             fragment = encoded if first else f",{encoded}"
             first = False
             buffer.append(fragment)
             buffer_size += len(fragment)
             if buffer_size >= chunk_chars:
-                chunk = compressor.compress(
-                    "".join(buffer).encode("utf-8")
-                )
+                chunk = compressor.compress("".join(buffer).encode("utf-8"))
                 if chunk:
                     client.append(temporary_key, chunk)
                 buffer.clear()
                 buffer_size = 0
-        tail = compressor.compress(
-            ("".join(buffer) + "]").encode("utf-8")
-        ) + compressor.flush()
+        tail = compressor.compress(("".join(buffer) + "]").encode("utf-8"))
+        tail += compressor.flush()
         if tail:
             client.append(temporary_key, tail)
         client.expire(temporary_key, max(1, ttl_seconds))
@@ -324,15 +322,148 @@ def set_compressed_json_streaming_list(
     except Exception as exc:
         _LAST_WRITE_ERROR[key] = f"{type(exc).__name__}: {exc}"
         LOGGER.warning(
-            "Redis compressed streaming write failed key=%s error=%s",
-            key,
-            exc,
+            "Redis compressed streaming write failed key=%s error=%s", key, exc
         )
         try:
             client.delete(temporary_key)
         except Exception:
             pass
         return False
+
+
+_PUBLISH_CATALOG_LUA = """
+local accepted = tonumber(redis.call('GET', KEYS[4]) or '-1')
+local incoming = tonumber(ARGV[1])
+if accepted >= incoming then
+  redis.call('DEL', KEYS[1])
+  return 0
+end
+redis.call('RENAME', KEYS[1], KEYS[2])
+redis.call('SETEX', KEYS[3], ARGV[2], ARGV[3])
+redis.call('SETEX', KEYS[4], ARGV[2], ARGV[1])
+return 1
+"""
+
+
+def publish_compressed_catalog_with_manifest(
+    key: str,
+    values: Iterable[Any],
+    *,
+    manifest_key: str,
+    sequence_key: str,
+    accepted_sequence_key: str,
+    ttl_seconds: int,
+    source_updated_at: str | None,
+    encode_item: Callable[[Any], Any] | None = None,
+    chunk_chars: int = 512 * 1024,
+) -> dict[str, Any] | None:
+    """Atomically promote a complete snapshot and its small revision manifest.
+
+    Sequence allocation happens before serialization. The Lua comparison at
+    promotion time prevents a slower, older publisher from replacing a newer
+    accepted snapshot. Readers therefore never observe a manifest referring
+    to a snapshot that was not promoted in the same Redis operation.
+    """
+
+    started_at = time.perf_counter()
+    client = _binary_streaming_client()
+    if client is None:
+        _LAST_WRITE_ERROR[key] = "REDIS_URL is not configured"
+        return None
+    temporary_key = f"{key}:building:{uuid.uuid4().hex}"
+    transform = encode_item or (lambda item: item)
+    compressor = zlib.compressobj(6)
+    digest = hashlib.sha256()
+    count = 0
+    try:
+        sequence = int(client.incr(sequence_key))
+        epoch = client.get(f"{sequence_key}:epoch")
+        if isinstance(epoch, bytes):
+            epoch = epoch.decode("utf-8")
+        if not epoch:
+            proposed_epoch = uuid.uuid4().hex
+            client.setnx(f"{sequence_key}:epoch", proposed_epoch)
+            epoch = client.get(f"{sequence_key}:epoch") or proposed_epoch
+            if isinstance(epoch, bytes):
+                epoch = epoch.decode("utf-8")
+        _reclaim_abandoned_builders(client, key)
+        opening = b"["
+        digest.update(opening)
+        client.set(
+            temporary_key,
+            compressor.compress(opening),
+            ex=max(1, ttl_seconds),
+        )
+        buffer: list[str] = []
+        buffer_size = 0
+        first = True
+        for value in values:
+            encoded = json.dumps(
+                transform(value), separators=(",", ":"), default=str
+            )
+            fragment = encoded if first else f",{encoded}"
+            first = False
+            count += 1
+            digest.update(fragment.encode("utf-8"))
+            buffer.append(fragment)
+            buffer_size += len(fragment)
+            if buffer_size >= chunk_chars:
+                chunk = compressor.compress("".join(buffer).encode("utf-8"))
+                if chunk:
+                    client.append(temporary_key, chunk)
+                buffer.clear()
+                buffer_size = 0
+        closing = ("".join(buffer) + "]").encode("utf-8")
+        digest.update(closing)
+        tail = compressor.compress(closing) + compressor.flush()
+        if tail:
+            client.append(temporary_key, tail)
+        client.expire(temporary_key, max(1, ttl_seconds))
+        published_at = datetime.now(timezone.utc).isoformat()
+        manifest: dict[str, Any] = {
+            "schemaVersion": 1,
+            "epoch": str(epoch),
+            "sequence": sequence,
+            "contentRevision": f"{epoch}:{sequence}",
+            "contentDigest": digest.hexdigest(),
+            "snapshotKey": key,
+            "count": count,
+            "sourceUpdatedAt": source_updated_at,
+            "publishedAt": published_at,
+            "publicationDurationMs": int(
+                (time.perf_counter() - started_at) * 1000
+            ),
+        }
+        accepted = int(
+            client.eval(
+                _PUBLISH_CATALOG_LUA,
+                4,
+                temporary_key,
+                key,
+                manifest_key,
+                accepted_sequence_key,
+                sequence,
+                max(1, ttl_seconds),
+                json.dumps(manifest, separators=(",", ":")),
+            )
+        )
+        _LAST_WRITE_ERROR.pop(key, None)
+        if accepted:
+            return {**manifest, "acceptedPublication": True}
+        current = client.get(manifest_key)
+        if isinstance(current, bytes):
+            current = current.decode("utf-8")
+        if not current:
+            return None
+        return {**json.loads(current), "acceptedPublication": False}
+    except Exception as exc:
+        _LAST_WRITE_ERROR[key] = f"{type(exc).__name__}: {exc}"
+        LOGGER.warning("Redis manifest catalog publication failed key=%s error=%s", key, exc)
+        try:
+            client.delete(temporary_key)
+        except Exception:
+            pass
+        return None
 
 
 def delete(key: str) -> None:

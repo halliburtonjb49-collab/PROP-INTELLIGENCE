@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../layout/responsive_breakpoints.dart';
 
 import '../models/prop_data.dart';
+import '../models/prop_page.dart';
 import '../models/scoreboard_game.dart';
 import '../models/slip_selection.dart';
 import '../services/api_service.dart';
@@ -19,6 +20,9 @@ import '../services/auth_manager.dart';
 import '../services/engagement_tracker.dart';
 import '../services/prop_board_engine.dart';
 import '../services/prop_market_identity.dart';
+import '../services/prop_repository.dart';
+import '../services/prop_sync_coordinator.dart';
+import '../config/pi_sync_flags.dart';
 import '../services/recommendation_access.dart';
 import '../services/scoreboard_service.dart';
 import '../theme/app_colors.dart' as app_colors;
@@ -76,6 +80,9 @@ class PropGrid extends StatefulWidget {
   final ApiService? apiService;
   final Future<List<ScoreboardGame>> Function(String sport)? scheduleLoader;
   final bool siteFirstLayout;
+  final PropSyncCoordinator? syncCoordinator;
+  final ValueChanged<PropPage>? onPropPageLoaded;
+  final bool? syncManagerEnabledOverride;
 
   const PropGrid({
     super.key,
@@ -98,6 +105,9 @@ class PropGrid extends StatefulWidget {
     this.apiService,
     this.scheduleLoader,
     this.siteFirstLayout = false,
+    this.syncCoordinator,
+    this.onPropPageLoaded,
+    this.syncManagerEnabledOverride,
   });
 
   @override
@@ -133,6 +143,35 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   String _seasonStatusSport = '';
   DateTime? _seasonStatusFetchedAt;
   bool _seasonNotificationEnabled = false;
+  PropPageSubscription? _syncSubscription;
+  VoidCallback? _syncListener;
+  PropPage? _currentPage;
+  PropPageStatus _syncStatus = PropPageStatus.idle;
+
+  bool get _usesSyncManager =>
+      syncManagerPathEnabled(override: widget.syncManagerEnabledOverride) &&
+      widget.syncCoordinator != null;
+
+  int get _matchingPropCount =>
+      _currentPage?.totalCount ?? _apiService.lastPropsCount;
+
+  PropQuery _pageQuery({int offset = 0, bool includeReliability = false}) =>
+      PropQuery(
+        side: widget.selectedSide,
+        tier: widget.selectedTier,
+        sportsbook: widget.selectedSite,
+        sport: widget.sportFilter,
+        category: widget.selectedCategory,
+        search: widget.searchQuery,
+        minConfidence: widget.minConfidence,
+        sortBy: widget.sortBy,
+        verdict: widget.verdictFilter,
+        limit: _visiblePropStep,
+        offset: offset,
+        includeReliability: includeReliability,
+        accessScope:
+            widget.syncCoordinator?.scope ?? _apiService.protectedCacheScope,
+      );
 
   String get _queryKey => [
     widget.sportFilter,
@@ -3506,7 +3545,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       });
     });
     _lineRefreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-      unawaited(_refreshLiveLines());
+      if (!_usesSyncManager) unawaited(_refreshLiveLines());
     });
   }
 
@@ -3520,6 +3559,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     _autoRetryTimer?.cancel();
     _expiryTimer?.cancel();
     _lineRefreshTimer?.cancel();
+    _releaseSyncSubscription();
     widget.refreshListenable.removeListener(_handleBoardRefreshRequest);
     super.dispose();
   }
@@ -3530,14 +3570,23 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden) {
       _backgroundedAt ??= DateTime.now();
+      if (_usesSyncManager) {
+        widget.syncCoordinator?.didChangeAppLifecycleState(state);
+      }
       return;
     }
     if (state == AppLifecycleState.resumed && _backgroundedAt != null) {
       _backgroundedAt = null;
-      _warmVisiblePlayerPhotos(
-        _preparedProps.map((prepared) => prepared.prop).take(_visiblePropLimit),
-      );
-      unawaited(_restoreAfterBackground());
+      if (_usesSyncManager) {
+        widget.syncCoordinator?.didChangeAppLifecycleState(state);
+        _warmVisiblePlayerPhotos(
+          _preparedProps
+              .map((prepared) => prepared.prop)
+              .take(_visiblePropLimit),
+        );
+      } else {
+        unawaited(_restoreAfterBackground());
+      }
     }
   }
 
@@ -3674,12 +3723,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       final activeCached = activePropsInChronologicalOrder(cached);
       _rememberCurrentView(requestKey, activeCached);
       _preparedProps = prepareBoardProps(activeCached);
-      widget.onPropsLoaded?.call(
-        activeCached,
-        _apiService.lastPropsCount,
-        _apiService.lastFacetCount,
-        _apiService.lastCategoryCounts,
-      );
+      _notifyPropsLoaded(activeCached);
       unawaited(
         _refreshFirstPageFromNetwork(
           requestKey,
@@ -3713,12 +3757,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         final activeFallback = activePropsInChronologicalOrder(fallback);
         _rememberCurrentView(requestKey, activeFallback);
         _preparedProps = prepareBoardProps(activeFallback);
-        widget.onPropsLoaded?.call(
-          activeFallback,
-          _apiService.lastPropsCount,
-          _apiService.lastFacetCount,
-          _apiService.lastCategoryCounts,
-        );
+        _notifyPropsLoaded(activeFallback);
         _scheduleAutomaticRetry();
         return activeFallback;
       }
@@ -3745,12 +3784,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     widget.onStartupLog?.call(
       'prepareProps() complete in ${prepareTimer.elapsedMilliseconds}ms',
     );
-    widget.onPropsLoaded?.call(
-      props,
-      _apiService.lastPropsCount,
-      _apiService.lastFacetCount,
-      _apiService.lastCategoryCounts,
-    );
+    _notifyPropsLoaded(props);
     return props;
   }
 
@@ -3758,6 +3792,29 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     int offset = 0,
     bool includeReliability = false,
   }) {
+    if (_usesSyncManager) {
+      final query = _pageQuery(
+        offset: offset,
+        includeReliability: includeReliability,
+      );
+      if (offset == 0) _bindSyncSubscription(query);
+      return widget.syncCoordinator!
+          .load(query, force: offset > 0)
+          .then((page) {
+            if (offset == 0 && query.key == _pageQuery().key) {
+              _currentPage = page;
+            }
+            return page.rows;
+          })
+          .timeout(
+            propFetchTimeout,
+            onTimeout: () => throw TimeoutException(
+              'The prop feed did not respond within '
+              '${propFetchTimeout.inSeconds} seconds.',
+              propFetchTimeout,
+            ),
+          );
+    }
     return _apiService
         .fetchProps(
           selectedSide: widget.selectedSide,
@@ -3784,6 +3841,123 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         );
   }
 
+  void _bindSyncSubscription(PropQuery query) {
+    if (_syncSubscription?.state.value.query.key == query.key) return;
+    _releaseSyncSubscription();
+    final subscription = widget.syncCoordinator!.subscribe(query);
+    void listener() => _applySyncState(subscription.state.value);
+    subscription.state.addListener(listener);
+    _syncSubscription = subscription;
+    _syncListener = listener;
+  }
+
+  void _releaseSyncSubscription() {
+    final subscription = _syncSubscription;
+    final listener = _syncListener;
+    if (subscription != null && listener != null) {
+      subscription.state.removeListener(listener);
+    }
+    subscription?.dispose();
+    _syncSubscription = null;
+    _syncListener = null;
+  }
+
+  void _applySyncState(PropPageState state) {
+    final page = state.page;
+    if (!mounted || state.query.key != _pageQuery().key) return;
+    if (_syncStatus != state.status && page == null) {
+      setState(() => _syncStatus = state.status);
+      return;
+    }
+    if (page == null) return;
+    final latest = {for (final prop in page.rows) prop.id: prop};
+    final stableOrder = <PropData>[
+      for (final prepared in _preparedProps)
+        // ignore: use_null_aware_elements
+        if (latest.remove(prepared.prop.id) case final prop?) prop,
+      ...latest.values,
+    ];
+    if (stableOrder.isEmpty && _preparedProps.isNotEmpty && !_isNarrowedQuery) {
+      return;
+    }
+    _currentPage = page.copyWith(rows: stableOrder);
+    setState(() {
+      _syncStatus = state.status;
+      _preparedProps = prepareBoardProps(stableOrder);
+      _propsFuture = Future.value(stableOrder);
+    });
+    SlipManager.refreshSelectedPropsFromRows(stableOrder);
+    _notifyPropsLoaded(stableOrder);
+  }
+
+  Widget _syncStatusIndicator() {
+    final (label, icon, color) = switch (_syncStatus) {
+      PropPageStatus.checking => (
+        'CHECKING',
+        Icons.sync_rounded,
+        app_colors.AppColors.silver,
+      ),
+      PropPageStatus.updating => (
+        'UPDATING',
+        Icons.sync_rounded,
+        app_colors.AppColors.gold,
+      ),
+      PropPageStatus.providerDelayed => (
+        'PROVIDER DELAYED',
+        Icons.schedule_rounded,
+        app_colors.AppColors.gold,
+      ),
+      PropPageStatus.reconnecting => (
+        'RECONNECTING',
+        Icons.cloud_sync_outlined,
+        app_colors.AppColors.silver,
+      ),
+      PropPageStatus.offlineSaved => (
+        'OFFLINE — SHOWING SAVED DATA',
+        Icons.cloud_off_outlined,
+        app_colors.AppColors.silver,
+      ),
+      _ => ('AUTO-UPDATING', Icons.autorenew_rounded, const Color(0xFF74E4D1)),
+    };
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              key: const ValueKey('pi-sync-status'),
+              style: TextStyle(
+                color: color,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _notifyPropsLoaded(List<PropData> props) {
+    final page = _currentPage;
+    if (_usesSyncManager && page != null) {
+      widget.onPropPageLoaded?.call(page.copyWith(rows: props));
+      return;
+    }
+    widget.onPropsLoaded?.call(
+      props,
+      _apiService.lastPropsCount,
+      _apiService.lastFacetCount,
+      _apiService.lastCategoryCounts,
+    );
+  }
+
   Future<void> _refreshFirstPageFromNetwork(
     String requestKey, {
     Future<List<PropData>>? pending,
@@ -3804,24 +3978,14 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       }
       _rememberCurrentView(requestKey, fresh);
       if (_matchesVisibleSnapshot(fresh)) {
-        widget.onPropsLoaded?.call(
-          fresh,
-          _apiService.lastPropsCount,
-          _apiService.lastFacetCount,
-          _apiService.lastCategoryCounts,
-        );
+        _notifyPropsLoaded(fresh);
         return;
       }
       setState(() {
         _preparedProps = prepareBoardProps(fresh);
         _propsFuture = Future.value(fresh);
       });
-      widget.onPropsLoaded?.call(
-        fresh,
-        _apiService.lastPropsCount,
-        _apiService.lastFacetCount,
-        _apiService.lastCategoryCounts,
-      );
+      _notifyPropsLoaded(fresh);
     } catch (_) {
       // Keep the saved page visible while the connection recovers.
       _autoRetryTimer = null;
@@ -3840,7 +4004,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   }
 
   Future<void> _loadMoreProps() async {
-    if (_isLoadingMore || _preparedProps.length >= _apiService.lastPropsCount) {
+    if (_isLoadingMore || _preparedProps.length >= _matchingPropCount) {
       return;
     }
     final requestKey = _queryKey;
@@ -3861,12 +4025,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         _propsFuture = Future.value(merged);
       });
       _rememberCurrentView(requestKey, merged);
-      widget.onPropsLoaded?.call(
-        merged,
-        _apiService.lastPropsCount,
-        _apiService.lastFacetCount,
-        _apiService.lastCategoryCounts,
-      );
+      _notifyPropsLoaded(merged);
     } finally {
       if (mounted) setState(() => _isLoadingMore = false);
     }
@@ -3885,10 +4044,19 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       // Ticket reconciliation and the visible board refresh are independent.
       // Running them together removes the pause where mobile users waited for
       // every saved leg before the first fresh prop card could appear.
-      await Future.wait<void>([
-        SlipManager.refreshSelectedProps(_apiService),
-        _refreshFirstPageFromNetwork(_queryKey),
-      ]);
+      if (_usesSyncManager) {
+        await _refreshFirstPageFromNetwork(_queryKey);
+        SlipManager.refreshSelectedPropsFromRows(
+          _preparedProps
+              .map((prepared) => prepared.prop)
+              .toList(growable: false),
+        );
+      } else {
+        await Future.wait<void>([
+          SlipManager.refreshSelectedProps(_apiService),
+          _refreshFirstPageFromNetwork(_queryKey),
+        ]);
+      }
     } catch (_) {
       if (!mounted) {
         return;
@@ -4049,12 +4217,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         _propsFuture = Future.value(props);
       });
       _rememberCurrentView(requestKey, props);
-      widget.onPropsLoaded?.call(
-        props,
-        _apiService.lastPropsCount,
-        _apiService.lastFacetCount,
-        _apiService.lastCategoryCounts,
-      );
+      _notifyPropsLoaded(props);
       _autoRetryTimer = null;
       _automaticRetryCount = 0;
     } catch (_) {
@@ -4245,6 +4408,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (_usesSyncManager) _syncStatusIndicator(),
         FutureBuilder<List<PropData>>(
           future: _propsFuture,
           builder: (context, snapshot) {
@@ -4492,7 +4656,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 final visibleGroups = groups.take(visibleCount).toList();
                 final hasMore =
                     visibleCount < groups.length ||
-                    _preparedProps.length < _apiService.lastPropsCount;
+                    _preparedProps.length < _matchingPropCount;
 
                 if (widget.siteFirstLayout &&
                     useTabletPropTable(MediaQuery.sizeOf(context).width)) {
@@ -4738,7 +4902,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                           label: Text(
                             _isLoadingMore
                                 ? 'LOADING MORE'
-                                : 'LOAD MORE (${(_apiService.lastPropsCount - visibleCount).clamp(0, _apiService.lastPropsCount)} remaining)',
+                                : 'LOAD MORE (${(_matchingPropCount - visibleCount).clamp(0, _matchingPropCount)} remaining)',
                           ),
                         ),
                       ),

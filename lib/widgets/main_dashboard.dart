@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../layout/responsive_breakpoints.dart';
 import '../models/prop_data.dart';
+import '../models/prop_page.dart';
 import '../models/slip_selection.dart';
 import '../controllers/scoreboard_controller.dart';
 import '../navigation/app_navigation.dart';
@@ -29,6 +30,9 @@ import '../services/injury_alert_service.dart';
 import '../services/live_update_service.dart';
 import '../services/prop_board_engine.dart';
 import '../services/prop_market_identity.dart';
+import '../services/prop_repository.dart';
+import '../services/prop_sync_coordinator.dart';
+import '../config/pi_sync_flags.dart';
 import '../services/recommendation_access.dart';
 import '../theme/app_colors.dart' as app_colors;
 import '../theme/app_spacing.dart';
@@ -209,6 +213,7 @@ class MainDashboard extends StatefulWidget {
 
 class _MainDashboardState extends State<MainDashboard> {
   final ApiService _apiService = ApiService();
+  PropSyncCoordinator? _propSyncCoordinator;
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _boardVerticalController = ScrollController();
   final ScrollController _bookHorizontalController = ScrollController();
@@ -277,6 +282,13 @@ class _MainDashboardState extends State<MainDashboard> {
   @override
   void initState() {
     super.initState();
+    if (piSyncManagerEnabled) {
+      _propSyncCoordinator = PropSyncCoordinator(
+        repository: PropRepository(loader: _apiService.fetchPropPage),
+        initialScope: _syncAccessScope(),
+      );
+      AuthManager.instance.sessionState.addListener(_handleSyncSessionChange);
+    }
     unawaited(_loadPropAlerts());
     if (AuthManager.instance.sessionState.value.hasEdgeAccess) {
       _injuryAlertSubscription = _injuryAlertUpdates.stream.listen(
@@ -292,6 +304,16 @@ class _MainDashboardState extends State<MainDashboard> {
     if (widget.selectedPage == AppPage.evScanner) {
       unawaited(_loadEvScannerProps());
     }
+  }
+
+  String _syncAccessScope() {
+    final session = AuthManager.instance.sessionState.value;
+    return '${session.userId ?? 'signed-out'}|'
+        '${session.effectiveSubscriptionTier.name}|${session.normalizedRole}';
+  }
+
+  void _handleSyncSessionChange() {
+    unawaited(_propSyncCoordinator?.updateScope(_syncAccessScope()));
   }
 
   Future<void> _rememberPreferredPropSite(String site) async {
@@ -323,6 +345,8 @@ class _MainDashboardState extends State<MainDashboard> {
 
   @override
   void dispose() {
+    AuthManager.instance.sessionState.removeListener(_handleSyncSessionChange);
+    _propSyncCoordinator?.dispose();
     _searchDebounce?.cancel();
     unawaited(_injuryAlertSubscription?.cancel());
     _injuryAlertPollTimer?.cancel();
@@ -896,8 +920,9 @@ class _MainDashboardState extends State<MainDashboard> {
     List<PropData> props,
     int propCount,
     int facetTotal,
-    Map<String, int> categoryCounts,
-  ) {
+    Map<String, int> categoryCounts, [
+    PropPage? page,
+  ]) {
     if (!mounted) {
       return;
     }
@@ -910,11 +935,14 @@ class _MainDashboardState extends State<MainDashboard> {
     setState(() {
       _latestProps = props;
       _categoryCounts = categoryCounts;
-      _totalCategoryCounts = _apiService.lastTotalCategoryCounts;
-      _verdictCounts = _apiService.lastVerdictCounts;
-      _providerCoverage = _apiService.lastProviderCoverage;
-      _providerReliability = _apiService.lastProviderReliability;
-      _feedIsRecovery = _apiService.lastFeedIsRecovery;
+      _totalCategoryCounts =
+          page?.totalCategoryCounts ?? _apiService.lastTotalCategoryCounts;
+      _verdictCounts = page?.verdictCounts ?? _apiService.lastVerdictCounts;
+      _providerCoverage =
+          page?.providerCoverage ?? _apiService.lastProviderCoverage;
+      _providerReliability =
+          page?.providerReliability ?? _apiService.lastProviderReliability;
+      _feedIsRecovery = page?.feedIsRecovery ?? _apiService.lastFeedIsRecovery;
       // Cached counts can outlive a provider's freshness window. Do not keep
       // a stale provider selected or visible as if its inventory were live;
       // reliability polling continues and restores it automatically later.
@@ -932,7 +960,9 @@ class _MainDashboardState extends State<MainDashboard> {
         if (_selectedSiteSport.isEmpty) {
           final normalizedCategoryCounts = <String, Map<String, int>>{};
           for (final sportEntry
-              in _apiService.lastSportCategoryCounts.entries) {
+              in (page?.sportCategoryCounts ??
+                      _apiService.lastSportCategoryCounts)
+                  .entries) {
             final sport = _normalizeSport(sportEntry.key);
             final target = normalizedCategoryCounts.putIfAbsent(
               sport,
@@ -945,12 +975,13 @@ class _MainDashboardState extends State<MainDashboard> {
           }
           _siteSportCategoryCounts = normalizedCategoryCounts;
           _siteTotalSportCategoryCounts =
+              page?.totalSportCategoryCounts ??
               _apiService.lastTotalSportCategoryCounts;
         }
       }
       _lastUpdated = DateTime.now();
     });
-    final catalogTotal = _apiService.lastCatalogCount;
+    final catalogTotal = page?.catalogCount ?? _apiService.lastCatalogCount;
     widget.propCountNotifier.value = catalogTotal > 0
         ? catalogTotal
         : facetTotal > 0
@@ -958,6 +989,16 @@ class _MainDashboardState extends State<MainDashboard> {
         : propCount;
     unawaited(widget.onPropsRefreshed(props));
     unawaited(_loadPropAlerts(fallbackProps: props));
+  }
+
+  void _handlePropPageLoaded(PropPage page) {
+    _handlePropsLoaded(
+      page.rows,
+      page.totalCount,
+      page.facetCount,
+      page.categoryCounts,
+      page,
+    );
   }
 
   PropAlertData _parsePropAlert(Map<String, dynamic> value) {
@@ -3775,6 +3816,8 @@ class _MainDashboardState extends State<MainDashboard> {
                                         verdictFilter: _verdictFilter,
                                         siteFirstLayout: true,
                                         onPropsLoaded: _handlePropsLoaded,
+                                        onPropPageLoaded: _handlePropPageLoaded,
+                                        syncCoordinator: _propSyncCoordinator,
                                       ),
                                   ],
                                 ),

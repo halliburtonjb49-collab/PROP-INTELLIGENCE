@@ -10,13 +10,20 @@ from typing import Iterable, Mapping
 from config import DB_PATH
 from database.cache import PropCache
 from database.postgres import database_is_configured, get_database_pool
-from services.distributed_cache_service import health as cache_health
+from services.distributed_cache_service import (
+    get_json as get_distributed_json,
+    health as cache_health,
+    last_write_error,
+)
+from services.client_delivery_metrics_service import client_delivery_snapshot
 from services.espn_headshot_service import espn_headshot_cache_health
 from services.job_queue_service import health as queue_health
 from services.pipeline_run_service import recent_pipeline_runs, summarize_pipeline_health
 from services.prop_catalog_snapshot_service import load_catalog_snapshot
 from services.provider_availability_monitor_service import provider_availability_snapshot
 from services.scoreboard_metrics_service import scoreboard_latency_snapshot
+from services.prop_delivery_metrics_service import delivery_metrics_snapshot
+from services.odds_service import quota_snapshot
 from services.owner_action_service import owner_action_snapshot, prop_control_key
 from services.supabase_account_metrics_service import supabase_profile_metrics
 from services.pi_recalculation_learning_service import (
@@ -30,6 +37,8 @@ _WINDOWS = {"live", "today", "yesterday", "7d", "30d", "custom"}
 _PRO_TIERS = ("pro", "edge", "gold", "pro_gold", "pro-gold")
 _INVENTORY_LIMIT = 250
 _STALE_LINE_MINUTES = 45
+_PROP_MANIFEST_KEY = "props:catalog:manifest:v1"
+_PROP_CATALOG_KEY = "props:catalog:v2"
 
 
 def _utc(value: datetime | None = None) -> datetime:
@@ -42,6 +51,14 @@ def _parse_instant(value: str | None) -> datetime | None:
         return None
     parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     return _utc(parsed)
+
+
+def _age_seconds(value: object, now: datetime) -> int | None:
+    try:
+        instant = _parse_instant(str(value or ""))
+    except ValueError:
+        instant = None
+    return max(0, int((now - instant).total_seconds())) if instant else None
 
 
 def command_center_window(
@@ -479,6 +496,51 @@ def owner_command_center_snapshot(
     provider_alerts = list(availability.get("alerts") or [])
     active_failures = list(pipeline.get("activeFailures") or [])
     headshots = espn_headshot_cache_health(now=current)
+    manifest = get_distributed_json(_PROP_MANIFEST_KEY)
+    manifest = dict(manifest) if isinstance(manifest, Mapping) else {}
+    delivery = delivery_metrics_snapshot()
+    client_delivery = client_delivery_snapshot()
+    provider_quota = quota_snapshot()
+    provider_sources = []
+    for source in availability.get("sports") or []:
+        if not isinstance(source, Mapping):
+            continue
+        provider_sources.append({
+            "sport": source.get("sport"),
+            "status": source.get("status"),
+            "lastCheckAt": source.get("lastAttemptAt"),
+            "lastSuccessAt": source.get("lastSuccessfulSync"),
+            "checkAgeSeconds": _age_seconds(source.get("lastAttemptAt"), current),
+            "sourceAgeSeconds": _age_seconds(source.get("lastSuccessfulSync"), current),
+            "observations": source.get("observationsFound"),
+        })
+    sync_health = {
+        "sourceFreshness": provider_sources,
+        "queue": {
+            "queued": workers.get("queued"),
+            "started": workers.get("started"),
+            "workers": workers.get("workers"),
+            "oldestQueuedAt": workers.get("oldestQueuedAt"),
+            "oldestQueueWaitMs": workers.get("oldestQueueWaitMs"),
+        },
+        "publication": {
+            "revision": manifest.get("contentRevision"),
+            "publishedAt": manifest.get("publishedAt"),
+            "sourceUpdatedAt": manifest.get("sourceUpdatedAt"),
+            "ageSeconds": _age_seconds(manifest.get("publishedAt"), current),
+            "durationMs": manifest.get("publicationDurationMs"),
+            "rowCount": manifest.get("count"),
+            "lastError": last_write_error(_PROP_CATALOG_KEY) or None,
+        },
+        "apiDelivery": delivery,
+        "publicationToClientApplied": client_delivery,
+        "providerQuota": {
+            "remaining": provider_quota.get("remaining"),
+            "used": provider_quota.get("used"),
+            "lowQuota": provider_quota.get("lowQuota"),
+            "lastUpdatedAt": provider_quota.get("updatedAt"),
+        },
+    }
     headshot_alerts = []
     if headshots.get("status") != "ok" or headshots.get("stale") is True:
         age = headshots.get("ageHours")
@@ -550,4 +612,5 @@ def owner_command_center_snapshot(
         "piLearningControl": pi_learning_control,
         "piLearningAudit": recent_recalculation_audit(50),
         "headshots": headshots,
+        "syncHealth": sync_health,
     }

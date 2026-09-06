@@ -3,7 +3,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from services.api_auth_service import require_owner, require_user_id
+from services.api_auth_service import Membership, require_core, require_owner, require_user_id
+from services.client_delivery_metrics_service import record_client_apply
+from services.security_event_service import record_security_event
 from services.operations_detail_service import operations_detail
 from services.pipeline_run_service import recent_pipeline_runs, summarize_pipeline_health
 from services.provider_availability_monitor_service import provider_availability_snapshot
@@ -43,6 +45,12 @@ class StrikeoutControlPatch(BaseModel):
 
 class ProviderRecoveryRequest(BaseModel):
     targetSport: str = "ALL"
+
+
+class PropClientAppliedRequest(BaseModel):
+    revision: str
+    publishedAt: str
+    appliedAt: str
 
 
 class OwnerPropControlRequest(BaseModel):
@@ -119,10 +127,50 @@ def provider_recovery() -> dict[str, object]:
     return provider_recovery_snapshot()
 
 
-@router.post("/provider-recovery", dependencies=[Depends(require_owner)])
-def start_provider_recovery(payload: ProviderRecoveryRequest) -> dict[str, object]:
+@router.post("/provider-recovery")
+def start_provider_recovery(
+    payload: ProviderRecoveryRequest,
+    owner_id: str = Depends(require_owner),
+) -> dict[str, object]:
     try:
-        return request_provider_recovery(payload.targetSport)
+        result = request_provider_recovery(payload.targetSport)
+        request = result.get("request") or {}
+        record_security_event(
+            "owner_provider_recovery",
+            identity=owner_id,
+            route="/api/operations/provider-recovery",
+            method="POST",
+            outcome=str(request.get("status") or "unknown").lower(),
+            metadata={
+                "targetSport": payload.targetSport.strip().upper(),
+                "accepted": bool(request.get("accepted")),
+                "deduplicated": bool(request.get("deduplicated")),
+            },
+        )
+        return result
+    except ValueError as exc:
+        record_security_event(
+            "owner_provider_recovery",
+            identity=owner_id,
+            route="/api/operations/provider-recovery",
+            method="POST",
+            outcome="rejected",
+            metadata={"targetSport": payload.targetSport.strip().upper()},
+        )
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/sync-client-applied")
+def sync_client_applied(
+    payload: PropClientAppliedRequest,
+    _membership: Membership = Depends(require_core),
+) -> dict[str, object]:
+    try:
+        return record_client_apply(
+            revision=payload.revision,
+            published_at=payload.publishedAt,
+            applied_at=payload.appliedAt,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

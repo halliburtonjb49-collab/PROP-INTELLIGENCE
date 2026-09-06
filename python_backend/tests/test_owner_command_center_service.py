@@ -103,6 +103,36 @@ def test_command_center_combines_truthful_metrics_and_service_health(monkeypatch
             "alerts": [],
         },
     )
+    monkeypatch.setattr(
+        command_center,
+        "get_distributed_json",
+        lambda _key: {
+            "contentRevision": "epoch:5",
+            "publishedAt": "2026-08-11T14:59:00Z",
+            "sourceUpdatedAt": "2026-08-11T14:58:00Z",
+            "publicationDurationMs": 18,
+            "count": 2,
+        },
+    )
+    monkeypatch.setattr(
+        command_center,
+        "delivery_metrics_snapshot",
+        lambda: {
+            "sampleCount": 4,
+            "latencyMs": {"p95": 210},
+            "responseBytes": {"p95": 4096},
+        },
+    )
+    monkeypatch.setattr(
+        command_center,
+        "client_delivery_snapshot",
+        lambda: {"sampleCount": 2, "lastMs": 640},
+    )
+    monkeypatch.setattr(
+        command_center,
+        "quota_snapshot",
+        lambda: {"remaining": 900, "used": 100, "lowQuota": False},
+    )
 
     result = command_center.owner_command_center_snapshot(
         "today",
@@ -120,6 +150,10 @@ def test_command_center_combines_truthful_metrics_and_service_health(monkeypatch
     assert metrics["mrr"]["status"] == "unavailable"
     assert any(row["service"] == "WNBA availability" for row in result["services"])
     assert any(row["service"] == "Athlete photos" for row in result["services"])
+    assert result["syncHealth"]["publication"]["durationMs"] == 18
+    assert result["syncHealth"]["apiDelivery"]["latencyMs"]["p95"] == 210
+    assert result["syncHealth"]["publicationToClientApplied"]["lastMs"] == 640
+    assert result["syncHealth"]["sourceFreshness"][0]["sport"] == "WNBA"
 
 
 def test_command_center_alerts_when_headshot_refresh_is_stale(monkeypatch) -> None:

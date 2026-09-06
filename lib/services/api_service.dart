@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/prop_data.dart';
+import '../models/prop_page.dart';
 import '../models/game_market.dart';
 import '../models/saved_slip.dart';
 import '../models/slip_selection.dart';
@@ -300,7 +301,6 @@ class BackendRefreshStatus {
 }
 
 class ApiService {
-  static const String _lastStablePropsCacheKey = 'prop-feed-v5-last-stable';
   // Keep the last known first page available across browser restarts and
   // ordinary provider gaps. Fresh data is still requested in the background.
   static const Duration _propsCacheMaxAge = Duration(hours: 24);
@@ -315,8 +315,8 @@ class ApiService {
   static String? _resolvedBaseUrl;
   static Future<String?>? _sessionRefresh;
   static final Map<String, Future<http.Response>> _inFlightPropsPages = {};
-  static final Map<String, List<PropData>> _lastSuccessfulPropsByQuery =
-      <String, List<PropData>>{};
+  static final Map<String, PropPage> _lastSuccessfulPropPages =
+      <String, PropPage>{};
   static int _lastFacetCount = 0;
   static int _lastCatalogCount = 0;
   static Map<String, int> _lastCategoryCounts = const {};
@@ -335,6 +335,28 @@ class ApiService {
   static final ValueNotifier<BackendRefreshStatus> refreshStatusNotifier =
       ValueNotifier<BackendRefreshStatus>(const BackendRefreshStatus.empty());
   int _lastPropsCount = 0;
+
+  String get protectedCacheScope {
+    final user = SupabaseService.client?.auth.currentUser;
+    final userId = user?.id.trim() ?? '';
+    final metadata = user?.appMetadata ?? const <String, dynamic>{};
+    final tier =
+        '${metadata['subscription_tier'] ?? metadata['tier'] ?? 'unknown'}'
+            .trim()
+            .toLowerCase();
+    return userId.isEmpty ? 'signed-out|none' : '$userId|$tier';
+  }
+
+  static Future<void> invalidateProtectedCaches() async {
+    _inFlightPropsPages.clear();
+    _lastSuccessfulPropPages.clear();
+    final preferences = await SharedPreferences.getInstance();
+    final protectedKeys = preferences
+        .getKeys()
+        .where((key) => key.startsWith('prop-feed-v6-'))
+        .toList(growable: false);
+    await Future.wait(protectedKeys.map(preferences.remove));
+  }
 
   static String get baseUrl => _resolvedBaseUrl ?? _configuredBaseUrl;
   int get lastPropsCount => _lastPropsCount;
@@ -804,6 +826,26 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+  Future<void> recordPropSyncApplied({
+    required String revision,
+    required DateTime publishedAt,
+    required DateTime appliedAt,
+  }) async {
+    try {
+      await http.post(
+        Uri.parse('$baseUrl/api/operations/sync-client-applied'),
+        headers: await _authenticatedHeaders(json: true),
+        body: jsonEncode({
+          'revision': revision,
+          'publishedAt': publishedAt.toUtc().toIso8601String(),
+          'appliedAt': appliedAt.toUtc().toIso8601String(),
+        }),
+      );
+    } catch (_) {
+      // Delivery telemetry must never delay or fail the board refresh.
+    }
+  }
+
   Future<Map<String, dynamic>> inviteOrUpdateUserAccess({
     required String email,
     required String role,
@@ -1224,8 +1266,8 @@ class ApiService {
     return deduped.values.toList(growable: false);
   }
 
-  Future<http.Response> _getPropsPage(Uri uri) async {
-    final requestKey = uri.toString();
+  Future<http.Response> _getPropsPage(Uri uri, {String? accessScope}) async {
+    final requestKey = '${accessScope ?? protectedCacheScope}|$uri';
     final request = _inFlightPropsPages[requestKey] ??= _downloadPropsPage(uri);
     try {
       return await request;
@@ -1418,7 +1460,7 @@ class ApiService {
     return false;
   }
 
-  Future<List<PropData>> fetchProps({
+  Future<PropPage> _fetchPropPage({
     String selectedSide = 'All',
     String selectedTier = 'All',
     String selectedSportsbook = 'All',
@@ -1432,7 +1474,23 @@ class ApiService {
     int offset = 0,
     bool includeReliability = true,
     bool trackBoardLoad = false,
+    required String accessScope,
   }) async {
+    final query = PropQuery(
+      side: selectedSide,
+      tier: selectedTier,
+      sportsbook: selectedSportsbook,
+      sport: selectedSport,
+      category: selectedCategory,
+      search: search,
+      minConfidence: minConfidence,
+      sortBy: sortBy,
+      verdict: verdictFilter,
+      limit: limit,
+      offset: offset,
+      includeReliability: includeReliability,
+      accessScope: accessScope,
+    );
     final observabilityStopwatch = Stopwatch()..start();
     // Widget smoke tests mount the production shell without configuring a
     // Supabase session. Keep that background startup request inert while
@@ -1444,7 +1502,7 @@ class ApiService {
       _lastPropsCount = 0;
       _lastFacetCount = 0;
       _lastCategoryCounts = const {};
-      return const <PropData>[];
+      return PropPage.empty(query);
     }
     // Widget tests and explicitly unconfigured local shells do not have an
     // authenticated Supabase session. Keep those development surfaces
@@ -1474,11 +1532,13 @@ class ApiService {
       minConfidence,
       verdictFilter,
       sortBy,
+      accessScope,
     );
 
     for (final candidate in _candidateBaseUrls) {
       try {
         _ParsedPropsPayload? parsed;
+        http.Response? pageResponse;
         for (final sportsbook in sportsbookVariants) {
           final uri = Uri.parse('$candidate/api/props').replace(
             queryParameters: {
@@ -1500,7 +1560,8 @@ class ApiService {
               'offset': requestOffset.toString(),
             },
           );
-          final response = await _getPropsPage(uri);
+          final response = await _getPropsPage(uri, accessScope: accessScope);
+          pageResponse = response;
           // Parsing and model construction can be expensive on large feeds.
           final candidateParsed = await compute(
             _parsePropsPayload,
@@ -1558,7 +1619,10 @@ class ApiService {
               'offset': requestOffset.toString(),
             },
           );
-          final fallbackResponse = await _getPropsPage(fallbackUri);
+          final fallbackResponse = await _getPropsPage(
+            fallbackUri,
+            accessScope: accessScope,
+          );
           final fallbackParsed = await compute(
             _parsePropsPayload,
             fallbackResponse.body,
@@ -1569,6 +1633,8 @@ class ApiService {
               )
               .toList(growable: false);
           if (fallbackProps.isNotEmpty) {
+            parsed = fallbackParsed;
+            pageResponse = fallbackResponse;
             props = fallbackProps;
             totalCount = fallbackProps.length;
             facetCount = fallbackProps.length;
@@ -1612,11 +1678,43 @@ class ApiService {
         }
         _resolvedBaseUrl = candidate;
         _lastPropsCount = totalCount > 0 ? totalCount : props.length;
-        if (props.isNotEmpty) {
-          _lastSuccessfulPropsByQuery[cacheKey] = List<PropData>.unmodifiable(
-            props,
-          );
-        }
+        final sourceUpdatedAt = props
+            .map((prop) => DateTime.tryParse(prop.lastUpdatedUtc))
+            .whereType<DateTime>()
+            .fold<DateTime?>(
+              null,
+              (latest, value) =>
+                  latest == null || value.isAfter(latest) ? value : latest,
+            );
+        final page = PropPage(
+          query: query,
+          rows: props,
+          catalogCount: catalogCount,
+          totalCount: totalCount > 0 ? totalCount : props.length,
+          facetCount: facetCount,
+          categoryCounts: categoryCounts,
+          totalCategoryCounts: totalCategoryCounts,
+          playableCategoryCounts: playableCategoryCounts,
+          sportCounts: sportCounts,
+          sportsbookCounts: parsed.sportsbookCounts,
+          verdictCounts: verdictCounts,
+          sportCategoryCounts: sportCategoryCounts,
+          totalSportCategoryCounts: totalSportCategoryCounts,
+          playableSportCategoryCounts: playableSportCategoryCounts,
+          providerCoverage: providerCoverage,
+          providerReliability: providerReliability,
+          feedSource: parsed.feedSource,
+          feedIsRecovery: parsed.feedIsRecovery,
+          receivedAt: DateTime.now().toUtc(),
+          sourceUpdatedAt: sourceUpdatedAt,
+          validator: pageResponse?.headers['etag'],
+          contentRevision: pageResponse?.headers['x-pi-content-revision'],
+          backendVersion: pageResponse?.headers['x-app-version'],
+          status: parsed.feedIsRecovery
+              ? PropPageStatus.providerDelayed
+              : PropPageStatus.current,
+        );
+        if (props.isNotEmpty) _lastSuccessfulPropPages[cacheKey] = page;
         if (offset == 0 && props.isNotEmpty) {
           final isBroadQuery = _isBroadPropsQuery(
             selectedSide: selectedSide,
@@ -1634,7 +1732,7 @@ class ApiService {
           unawaited(
             _savePropsCache(
               isBroadQuery
-                  ? _lastStablePropsCacheKey
+                  ? _lastStablePropsCacheKeyFor(accessScope)
                   : _propsCacheKey(
                       selectedSide,
                       selectedTier,
@@ -1645,6 +1743,7 @@ class ApiService {
                       minConfidence,
                       verdictFilter,
                       sortBy,
+                      accessScope,
                     ),
               parsed.rawMaps,
               _lastCatalogCount,
@@ -1684,7 +1783,7 @@ class ApiService {
           category: selectedSport,
           durationMs: observabilityStopwatch.elapsedMilliseconds,
         );
-        return props;
+        return page;
       } catch (error) {
         lastError = error;
         final message = error.toString().toLowerCase();
@@ -1713,15 +1812,18 @@ class ApiService {
       category: lastError.runtimeType.toString(),
       durationMs: observabilityStopwatch.elapsedMilliseconds,
     );
-    final lastSuccessfulProps = _lastSuccessfulPropsByQuery[cacheKey];
-    if (lastSuccessfulProps != null && lastSuccessfulProps.isNotEmpty) {
+    final lastSuccessfulPage = _lastSuccessfulPropPages[cacheKey];
+    if (lastSuccessfulPage != null && lastSuccessfulPage.rows.isNotEmpty) {
       refreshStatusNotifier.value = BackendRefreshStatus(
         lastRefreshAt: refreshStatusNotifier.value.lastRefreshAt,
         sourceUrl: refreshStatusNotifier.value.sourceUrl,
         message: 'Showing the last stable prop download while reconnecting',
       );
-      _lastPropsCount = lastSuccessfulProps.length;
-      return lastSuccessfulProps;
+      _lastPropsCount = lastSuccessfulPage.totalCount;
+      return lastSuccessfulPage.copyWith(
+        status: PropPageStatus.reconnecting,
+        isFromCache: true,
+      );
     }
 
     if (authenticationError is Exception) {
@@ -1733,6 +1835,82 @@ class ApiService {
     throw Exception(
       'Unable to reach the live props service. Check your connection and retry.',
     );
+  }
+
+  Future<PropPage> fetchPropPage(
+    PropQuery query, {
+    bool trackBoardLoad = false,
+  }) => _fetchPropPage(
+    selectedSide: query.side,
+    selectedTier: query.tier,
+    selectedSportsbook: query.sportsbook,
+    selectedSport: query.sport,
+    selectedCategory: query.category,
+    search: query.search,
+    minConfidence: query.minConfidence,
+    sortBy: query.sortBy,
+    verdictFilter: query.verdict,
+    limit: query.limit,
+    offset: query.offset,
+    includeReliability: query.includeReliability,
+    trackBoardLoad: trackBoardLoad,
+    accessScope: query.accessScope,
+  );
+
+  Future<List<PropData>> fetchProps({
+    String selectedSide = 'All',
+    String selectedTier = 'All',
+    String selectedSportsbook = 'All',
+    String selectedSport = 'All',
+    String selectedCategory = 'All',
+    String search = '',
+    int minConfidence = 0,
+    String sortBy = 'confidence',
+    String verdictFilter = 'All',
+    int limit = 75,
+    int offset = 0,
+    bool includeReliability = true,
+    bool trackBoardLoad = false,
+  }) async {
+    final page = await fetchPropPage(
+      PropQuery(
+        side: selectedSide,
+        tier: selectedTier,
+        sportsbook: selectedSportsbook,
+        sport: selectedSport,
+        category: selectedCategory,
+        search: search,
+        minConfidence: minConfidence,
+        sortBy: sortBy,
+        verdict: verdictFilter,
+        limit: limit,
+        offset: offset,
+        includeReliability: includeReliability,
+        accessScope: protectedCacheScope,
+      ),
+      trackBoardLoad: trackBoardLoad,
+    );
+    _applyLegacyPageMetadata(page);
+    return page.rows;
+  }
+
+  void _applyLegacyPageMetadata(PropPage page) {
+    _lastPropsCount = page.totalCount;
+    _lastCatalogCount = page.catalogCount;
+    _lastFacetCount = page.facetCount;
+    _lastCategoryCounts = page.categoryCounts;
+    _lastTotalCategoryCounts = page.totalCategoryCounts;
+    _lastPlayableCategoryCounts = page.playableCategoryCounts;
+    _lastSportCounts = page.sportCounts;
+    _lastSportsbookCounts = page.sportsbookCounts;
+    _lastVerdictCounts = page.verdictCounts;
+    _lastSportCategoryCounts = page.sportCategoryCounts;
+    _lastTotalSportCategoryCounts = page.totalSportCategoryCounts;
+    _lastPlayableSportCategoryCounts = page.playableSportCategoryCounts;
+    _lastProviderCoverage = page.providerCoverage;
+    _lastProviderReliability = page.providerReliability;
+    _lastFeedSource = page.feedSource;
+    _lastFeedIsRecovery = page.feedIsRecovery;
   }
 
   List<String> _sportsbookQueryVariants(String selectedSportsbook) {
@@ -1929,8 +2107,10 @@ class ApiService {
     String search,
     int confidence,
     String verdict,
-    String sort,
-  ) {
+    String sort, [
+    String? explicitScope,
+  ]) {
+    final scope = explicitScope ?? protectedCacheScope;
     final raw =
         [
               side,
@@ -1942,6 +2122,7 @@ class ApiService {
               '$confidence',
               verdict,
               sort,
+              scope,
             ]
             .map(
               (value) => value.trim().toLowerCase().replaceAll(
@@ -1950,8 +2131,21 @@ class ApiService {
               ),
             )
             .join('_');
-    return 'prop-feed-v5-$raw';
+    return 'prop-feed-v6-$raw';
   }
+
+  String _lastStablePropsCacheKeyFor([String? explicitScope]) => _propsCacheKey(
+    'All',
+    'All',
+    'All',
+    'All',
+    'All',
+    '',
+    0,
+    'All',
+    'confidence',
+    explicitScope,
+  );
 
   bool _isBroadPropsQuery({
     required String selectedSide,
@@ -2045,8 +2239,12 @@ class ApiService {
     );
     final candidates = <String?>[
       preferences.getString(key),
-      if (broadQuery && key != _lastStablePropsCacheKey)
-        preferences.getString(_lastStablePropsCacheKey),
+      if (broadQuery && key != _lastStablePropsCacheKeyFor())
+        preferences.getString(_lastStablePropsCacheKeyFor()),
+      // Pre-scope caches can be used only before authentication. Never let an
+      // account read a legacy cache that cannot prove its owner or entitlement.
+      if (broadQuery && protectedCacheScope == 'signed-out|none')
+        preferences.getString('prop-feed-v5-last-stable'),
     ];
     for (final encoded in candidates) {
       if (encoded == null || encoded.isEmpty) continue;
