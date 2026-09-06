@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'dart:io';
 import 'package:prop_intelligence/main.dart';
 import 'package:prop_intelligence/models/game_market.dart';
 import 'package:prop_intelligence/models/prop_data.dart';
@@ -594,6 +596,13 @@ class _PrimaryFailureOperationsApi extends _FakeOperationsApi {
 }
 
 void main() {
+  test('owner reliability panel exposes authentication launch timing', () {
+    final source = File(
+      'lib/pages/owner_operations_page.dart',
+    ).readAsStringSync();
+    expect(source, contains('Authentication ready p95'));
+    expect(source, contains("targetMet('authReadyMs', lowerIsBetter: true)"));
+  });
   test(
     'owner research retains a real board pick when action gating is off',
     () {

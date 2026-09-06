@@ -1722,6 +1722,14 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                 detail: 'SLO 99%',
               ),
               _status(
+                'Authentication ready p95',
+                reliability['authReadyP95Ms'] == null
+                    ? '--'
+                    : '${reliability['authReadyP95Ms']} ms',
+                targetMet('authReadyMs', lowerIsBetter: true),
+                detail: 'Target under 1 second',
+              ),
+              _status(
                 'Cached content p95',
                 reliability['cachedContentP95Ms'] == null
                     ? '--'
