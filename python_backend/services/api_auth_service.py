@@ -5,6 +5,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import IntEnum
 from threading import Lock
 
@@ -202,6 +203,19 @@ def _resolve_membership_uncached(authorization: str) -> Membership:
         )
     email = str(user.get("email") or "").strip().lower()
     metadata = user.get("app_metadata") or {}
+    expires_raw = (
+        metadata.get("complimentary_access_expires_at")
+        if isinstance(metadata, dict)
+        else None
+    )
+    grant_active = True
+    if expires_raw:
+        try:
+            grant_active = datetime.fromisoformat(
+                str(expires_raw).replace("Z", "+00:00")
+            ) > datetime.now(timezone.utc)
+        except ValueError:
+            grant_active = False
     role = (
         str(metadata.get("role") or "").strip().lower()
         if isinstance(metadata, dict)
@@ -209,7 +223,7 @@ def _resolve_membership_uncached(authorization: str) -> Membership:
     )
     if user_id.lower() in _owner_user_ids() or email in _owner_emails():
         return Membership(user_id, AccessLevel.OWNER, "pro", "owner")
-    if role == "admin":
+    if role == "admin" and grant_active:
         return Membership(user_id, AccessLevel.ADMIN, "pro", "admin")
 
     try:
@@ -220,7 +234,14 @@ def _resolve_membership_uncached(authorization: str) -> Membership:
             detail="Membership service unavailable",
         ) from exc
     raw_tier = str(profile.get("subscription_tier") or "free").strip().lower()
-    granted_role = str(profile.get("assigned_member_role") or "").strip().lower()
+    paid_or_permanent_premium = profile.get("is_premium") is True and (
+        grant_active or raw_tier != "free"
+    )
+    granted_role = (
+        str(profile.get("assigned_member_role") or "").strip().lower()
+        if grant_active
+        else ""
+    )
     # The Flutter client resolves owner status through the trusted
     # `is_app_owner` database function, while the API historically recognized
     # only its fixed UUID/email allowlist. That split could render the owner UI
@@ -237,9 +258,9 @@ def _resolve_membership_uncached(authorization: str) -> Membership:
         return Membership(user_id, AccessLevel.PRO, "pro", granted_role)
     if granted_role == "core" and raw_tier not in {
         "edge", "gold", "pro", "pro_gold", "pro-gold"
-    } and profile.get("is_premium") is not True:
+    } and not paid_or_permanent_premium:
         return Membership(user_id, AccessLevel.CORE, "core", granted_role)
-    if raw_tier in {"edge", "gold", "pro", "pro_gold", "pro-gold"} or profile.get("is_premium") is True:
+    if raw_tier in {"edge", "gold", "pro", "pro_gold", "pro-gold"} or paid_or_permanent_premium:
         return Membership(user_id, AccessLevel.PRO, raw_tier or "pro", "user")
     if raw_tier == "core":
         return Membership(user_id, AccessLevel.CORE, "core", "user")

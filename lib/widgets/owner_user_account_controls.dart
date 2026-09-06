@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/api_service.dart';
@@ -13,6 +14,7 @@ Future<void> showOwnerUserRoleManager(
   final founderNumberController = TextEditingController();
   var selectedRole = 'admin';
   var sendPasswordSetupEmail = true;
+  var accessDurationDays = 0;
   var saving = false;
 
   await showDialog<void>(
@@ -91,6 +93,36 @@ Future<void> showOwnerUserRoleManager(
                   decoration: _fieldDecoration('Founder number (1-999)'),
                 ),
               ],
+              if (const {
+                'core',
+                'pro',
+                'pro_founder',
+              }.contains(selectedRole)) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  key: const ValueKey('owner-access-duration'),
+                  initialValue: accessDurationDays,
+                  isExpanded: true,
+                  dropdownColor: const Color(0xFF0F1620),
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _fieldDecoration('Complimentary access'),
+                  items: const [
+                    DropdownMenuItem(value: 0, child: Text('PERMANENT')),
+                    DropdownMenuItem(value: 7, child: Text('7 DAYS')),
+                    DropdownMenuItem(
+                      value: 30,
+                      child: Text('30 DAYS / FREE MONTH'),
+                    ),
+                    DropdownMenuItem(value: 60, child: Text('60 DAYS')),
+                    DropdownMenuItem(value: 90, child: Text('90 DAYS')),
+                  ],
+                  onChanged: saving
+                      ? null
+                      : (value) => setDialogState(
+                          () => accessDurationDays = value ?? 0,
+                        ),
+                ),
+              ],
               const SizedBox(height: 8),
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
@@ -136,11 +168,20 @@ Future<void> showOwnerUserRoleManager(
                               founderNumberController.text.trim(),
                             ),
                             sendPasswordSetupEmail: sendPasswordSetupEmail,
+                            complimentaryDays: accessDurationDays == 0
+                                ? null
+                                : accessDurationDays,
+                            generateSetupLink: true,
                           );
                       if (!dialogContext.mounted) return;
                       Navigator.pop(dialogContext);
+                      final link = result['setupLink']?.toString() ?? '';
+                      if (link.isNotEmpty) {
+                        await Clipboard.setData(ClipboardData(text: link));
+                      }
+                      final expiry = result['accessExpiresAt']?.toString();
                       showMessage(
-                        '${result['email']} is now ${result['role'].toString().toUpperCase()}. ${result['emailSent'] == true ? 'A secure password setup email was sent.' : 'No password email was requested.'}',
+                        '${result['email']} is now ${result['role'].toString().toUpperCase()}${expiry == null ? '' : ' until ${DateTime.tryParse(expiry)?.toLocal().toString().split('.').first ?? expiry}'}. ${result['emailSent'] == true ? 'Setup email sent.' : ''}${link.isNotEmpty ? ' Secure setup link copied.' : ''}',
                       );
                     } catch (error) {
                       if (!dialogContext.mounted) return;

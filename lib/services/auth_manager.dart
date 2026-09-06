@@ -771,6 +771,13 @@ class AuthManager {
       role: user.appMetadata['role'] ?? claimRole,
       userId: resolvedUserId,
     );
+    final complimentaryExpiry = DateTime.tryParse(
+      '${user.appMetadata['complimentary_access_expires_at'] ?? ''}',
+    );
+    final complimentaryGrantActive =
+        complimentaryExpiry == null ||
+        complimentaryExpiry.toUtc().isAfter(DateTime.now().toUtc());
+    if (role == 'admin' && !complimentaryGrantActive) role = 'user';
     // Resolve privileged access locally so an optional role lookup can never
     // hold the first authenticated frame behind a slow network request. Owner
     // UUIDs/emails and signed auth metadata remain the trusted sources here;
@@ -835,7 +842,12 @@ class AuthManager {
     }
     final generation = ++_profileRefreshGeneration;
     unawaited(
-      _refreshProfileSession(user: user, role: role, generation: generation),
+      _refreshProfileSession(
+        user: user,
+        role: role,
+        generation: generation,
+        complimentaryGrantActive: complimentaryGrantActive,
+      ),
     );
   }
 
@@ -873,6 +885,7 @@ class AuthManager {
     required User user,
     required String role,
     required int generation,
+    required bool complimentaryGrantActive,
   }) async {
     var isPremium = false;
     var subscriptionTier = SubscriptionTier.free;
@@ -896,15 +909,17 @@ class AuthManager {
         profileAvatarUrl = row['avatar_url']?.toString().trim();
         final raw = row['is_premium'];
         if (raw is bool) {
-          isPremium = raw;
+          isPremium = raw && complimentaryGrantActive;
         }
         subscriptionTier = SubscriptionTier.fromDatabase(
           row['subscription_tier'],
         );
-        assignedMemberRole = row['assigned_member_role']?.toString();
+        assignedMemberRole = complimentaryGrantActive
+            ? row['assigned_member_role']?.toString()
+            : null;
         founderNumber = (row['founder_number'] as num?)?.toInt();
         // Preserve full access for legacy premium accounts during migration.
-        if (subscriptionTier == SubscriptionTier.free && raw == true) {
+        if (subscriptionTier == SubscriptionTier.free && isPremium) {
           subscriptionTier = SubscriptionTier.edge;
         }
       }

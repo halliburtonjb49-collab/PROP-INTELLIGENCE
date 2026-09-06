@@ -996,6 +996,7 @@ void main() {
     expect(find.text('O  MANAGE USER ROLE'), findsOneWidget);
     expect(find.byKey(const ValueKey('owner-role-email')), findsOneWidget);
     expect(find.byKey(const ValueKey('owner-role-select')), findsOneWidget);
+    expect(find.byKey(const ValueKey('owner-access-duration')), findsNothing);
     expect(find.byKey(const ValueKey('owner-assign-role')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

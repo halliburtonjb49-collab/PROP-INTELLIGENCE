@@ -5978,6 +5978,8 @@ def owner_user_access(
 	role = str(body.get("role") or "").strip().lower()
 	founder_number = body.get("founderNumber")
 	send_email = body.get("sendPasswordSetupEmail") is not False
+	generate_link = body.get("generateSetupLink") is not False
+	complimentary_days = body.get("complimentaryDays")
 	if not email or "@" not in email:
 		raise HTTPException(status_code=400, detail="Enter a valid user email address")
 	if role not in {"admin", "core", "pro", "pro_founder", "user"}:
@@ -5991,6 +5993,21 @@ def owner_user_access(
 			raise HTTPException(status_code=400, detail="Pro Founder requires a number from 1 to 999")
 	else:
 		founder_number = None
+	if complimentary_days in (None, "", 0, "0"):
+		complimentary_days = None
+	else:
+		try:
+			complimentary_days = int(complimentary_days)
+		except (TypeError, ValueError) as exc:
+			raise HTTPException(status_code=400, detail="Complimentary days must be a whole number") from exc
+		if not 1 <= complimentary_days <= 365:
+			raise HTTPException(status_code=400, detail="Complimentary access must be 1 to 365 days")
+	if role in {"admin", "user"}:
+		complimentary_days = None
+	access_expires_at = (
+		(datetime.now(timezone.utc) + timedelta(days=complimentary_days)).isoformat()
+		if complimentary_days is not None else None
+	)
 
 	headers = {
 		"apikey": service_key,
@@ -6037,7 +6054,11 @@ def owner_user_access(
 		update_response = requests.put(
 			f"{supabase_url}/auth/v1/admin/users/{user_id}",
 			headers=headers,
-			json={"app_metadata": {**metadata, "role": account_role}},
+			json={"app_metadata": {
+				**metadata,
+				"role": account_role,
+				"complimentary_access_expires_at": access_expires_at,
+			}},
 			timeout=HTTP_TIMEOUT_SECONDS,
 		)
 		update_response.raise_for_status()
@@ -6075,6 +6096,21 @@ def owner_user_access(
 			)
 			recovery_response.raise_for_status()
 			email_sent = True
+		setup_link = None
+		if generate_link:
+			link_response = requests.post(
+				f"{supabase_url}/auth/v1/admin/generate_link",
+				headers=headers,
+				json={
+					"type": "magiclink",
+					"email": email,
+					"options": {"redirectTo": os.getenv("AUTH_EMAIL_REDIRECT_URL", "https://pipropsintell.com/workspace")},
+				},
+				timeout=HTTP_TIMEOUT_SECONDS,
+			)
+			if link_response.status_code < 400:
+				link_payload = link_response.json()
+				setup_link = link_payload.get("action_link") or link_payload.get("actionLink")
 		return {
 			"email": email,
 			"role": role,
@@ -6082,6 +6118,9 @@ def owner_user_access(
 			"emailSent": email_sent,
 			"paymentBypass": role in {"admin", "core", "pro", "pro_founder"},
 			"founderNumber": founder_number,
+			"complimentaryDays": complimentary_days,
+			"accessExpiresAt": access_expires_at,
+			"setupLink": setup_link,
 		}
 	except HTTPException:
 		raise

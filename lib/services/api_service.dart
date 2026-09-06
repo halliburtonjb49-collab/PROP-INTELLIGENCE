@@ -851,6 +851,8 @@ class ApiService {
     required String role,
     int? founderNumber,
     bool sendPasswordSetupEmail = true,
+    int? complimentaryDays,
+    bool generateSetupLink = true,
   }) async {
     final response = await http.post(
       Uri.parse('$baseUrl/api/admin/user-access'),
@@ -860,6 +862,8 @@ class ApiService {
         'role': role.trim().toLowerCase(),
         'founderNumber': founderNumber,
         'sendPasswordSetupEmail': sendPasswordSetupEmail,
+        'complimentaryDays': complimentaryDays,
+        'generateSetupLink': generateSetupLink,
       }),
     );
     if (response.statusCode != 200) {
