@@ -319,11 +319,15 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                         crossAxisCount: columns,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
+                        // Match the production prop-card hierarchy and reserve
+                        // room for game time plus both full-width research
+                        // actions. A shorter fixed extent clipped those rows on
+                        // some desktop widths and exposed the legacy card.
                         mainAxisExtent: width >= 1050
-                            ? 356
+                            ? 410
                             : width >= 650
-                            ? 370
-                            : 390,
+                            ? 424
+                            : 444,
                       ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final prop = section.value[index];
@@ -1059,47 +1063,38 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  if (learned)
-                    Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF31245C),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: const Text(
-                        'PI LEARNING ACTIVE',
-                        style: TextStyle(
-                          color: AppColors.silver,
-                          fontSize: 7,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  Expanded(
-                    child: FilledButton.icon(
-                      key: ValueKey('strikeout-pi-detail-${prop.id}'),
-                      onPressed: () => _showPiIntelligence(prop),
-                      icon: const Icon(Icons.psychology_alt_rounded, size: 14),
-                      label: const Text('OPEN PI INTELLIGENCE'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.gold,
-                        foregroundColor: AppColors.background,
-                        minimumSize: const Size(0, 34),
-                        textStyle: const TextStyle(
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
+              SizedBox(
+                width: double.infinity,
+                height: 40,
+                child: FilledButton.icon(
+                  key: ValueKey('strikeout-pi-detail-${prop.id}'),
+                  onPressed: () => _showPiIntelligence(prop),
+                  icon: const Icon(Icons.psychology_alt_rounded, size: 16),
+                  label: const Text('OPEN PI INTELLIGENCE'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.gold,
+                    foregroundColor: AppColors.background,
+                    textStyle: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
-                ],
+                ),
               ),
+              if (learned) ...[
+                const SizedBox(height: 6),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'PI LEARNING ACTIVE',
+                    style: TextStyle(
+                      color: AppColors.silver,
+                      fontSize: 7,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -1377,7 +1372,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
       key: ValueKey('strikeout-${side.name}-${prop.id}'),
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
-        minimumSize: const Size(0, 54),
+        minimumSize: const Size(0, 48),
         foregroundColor: selected
             ? brand_colors.AppColors.sidebar
             : Colors.white,
@@ -1393,7 +1388,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
           width: selected ? 1.4 : 1,
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
       child: Row(
         children: [
@@ -1409,32 +1404,15 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
             ),
           if (side == PickSide.under) const SizedBox(width: 7),
           Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    color: selected
-                        ? brand_colors.AppColors.sidebar
-                        : AppColors.gold,
-                    letterSpacing: .4,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  prop.line.toStringAsFixed(1),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                    color: selected
-                        ? brand_colors.AppColors.sidebar
-                        : Colors.white,
-                  ),
-                ),
-              ],
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                color: selected ? brand_colors.AppColors.sidebar : Colors.white,
+                letterSpacing: .3,
+              ),
             ),
           ),
           if (side == PickSide.over) const SizedBox(width: 7),
