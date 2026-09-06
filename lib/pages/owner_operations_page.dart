@@ -2867,7 +2867,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
 
   Widget _ownerViewSelector() {
     const views = <({String label, String metric, IconData icon})>[
-      (label: 'USERS', metric: 'activeUsers', icon: Icons.people_alt_outlined),
+      (label: 'USERS', metric: 'members', icon: Icons.people_alt_outlined),
       (label: 'SIGNUPS', metric: 'newSignups', icon: Icons.person_add_alt_1),
       (
         label: 'PAYMENTS',

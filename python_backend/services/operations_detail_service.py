@@ -63,26 +63,26 @@ def _account_directory(
     where_clause: str = "true",
 ) -> list[dict[str, object]]:
     cursor.execute(
-        f"""select coalesce(to_jsonb(profile)->>'email', account.email, ''),
-                   coalesce(to_jsonb(profile)->>'username',
-                            account.raw_user_meta_data->>'username', ''),
+        f"""select coalesce(nullif(to_jsonb(profile)->>'email', ''), account.email, ''),
+                   coalesce(nullif(to_jsonb(profile)->>'username', ''),
+                            nullif(account.raw_user_meta_data->>'username', ''), ''),
                    account.id,
-                   coalesce(to_jsonb(profile)->>'display_name',
-                            to_jsonb(profile)->>'full_name',
-                            account.raw_user_meta_data->>'display_name',
-                            account.raw_user_meta_data->>'full_name',
-                            account.raw_user_meta_data->>'username',
+                   coalesce(nullif(to_jsonb(profile)->>'display_name', ''),
+                            nullif(to_jsonb(profile)->>'full_name', ''),
+                            nullif(account.raw_user_meta_data->>'display_name', ''),
+                            nullif(account.raw_user_meta_data->>'full_name', ''),
+                            nullif(account.raw_user_meta_data->>'username', ''),
                             split_part(coalesce(account.email, ''), '@', 1), ''),
                    case
                      when lower(coalesce(account.raw_app_meta_data->>'role', ''))
                           in ('owner', 'admin')
                        then lower(account.raw_app_meta_data->>'role')
-                     else coalesce(to_jsonb(profile)->>'assigned_member_role',
-                                          to_jsonb(profile)->>'subscription_tier',
+                     else coalesce(nullif(to_jsonb(profile)->>'assigned_member_role', ''),
+                                          nullif(to_jsonb(profile)->>'subscription_tier', ''),
                                           'user')
                    end,
                    account.created_at,
-                   coalesce((to_jsonb(profile)->>'updated_at')::timestamptz,
+                   coalesce(nullif(to_jsonb(profile)->>'updated_at', '')::timestamptz,
                             account.updated_at)
             from auth.users account
             left join public.user_profiles profile on profile.id = account.id
@@ -214,7 +214,7 @@ DETAILS: Mapping[str, DetailQuery] = {
     "members": DetailQuery(
         title="All members",
         description="Every canonical Supabase member account.",
-        columns=("email", "username", "userId", "name", "member", "signedUpAt", "lastUpdatedAt"),
+        columns=("name", "email", "member", "username", "signedUpAt", "lastUpdatedAt", "userId"),
         build=_all_members,
     ),
     "newSignups": DetailQuery(
