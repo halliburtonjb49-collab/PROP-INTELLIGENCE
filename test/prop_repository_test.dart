@@ -54,14 +54,21 @@ PropPage _page(PropQuery query, String id, {int count = 1}) => PropPage(
 
 PropQuery _query({
   String sport = 'MLB',
+  String category = 'All',
   String scope = 'user-1|premium',
   int offset = 0,
-}) => PropQuery(sport: sport, accessScope: scope, offset: offset);
+}) => PropQuery(
+  sport: sport,
+  category: category,
+  accessScope: scope,
+  offset: offset,
+);
 
 void main() {
   test('query identity includes filters, pagination, and access scope', () {
     final base = _query();
     expect(base.key, isNot(_query(sport: 'WNBA').key));
+    expect(base.key, isNot(_query(category: 'Hits').key));
     expect(base.key, isNot(_query(offset: 24).key));
     expect(base.key, isNot(_query(scope: 'user-2|premium').key));
   });
@@ -163,6 +170,35 @@ void main() {
     expect(mlb.totalCount, 5);
     expect(wnba.rows.single.id, 'WNBA');
     expect(wnba.totalCount, 9);
+    repository.dispose();
+  });
+
+  test('slow category response cannot replace a newer category', () async {
+    final completions = <String, Completer<PropPage>>{};
+    final repository = PropRepository(
+      loader: (query) => completions.putIfAbsent(
+        query.key,
+        Completer<PropPage>.new,
+      ).future,
+    )..setScope('user-1|premium');
+    final hitsQuery = _query(category: 'Hits');
+    final runsQuery = _query(category: 'Runs');
+    final hitsSubscription = repository.subscribe(hitsQuery);
+    final runsSubscription = repository.subscribe(runsQuery);
+
+    final slowHits = repository.load(hitsQuery);
+    final fastRuns = repository.load(runsQuery);
+    completions[runsQuery.key]!.complete(_page(runsQuery, 'runs'));
+    expect((await fastRuns).rows.single.id, 'runs');
+    completions[hitsQuery.key]!.complete(_page(hitsQuery, 'hits'));
+    expect((await slowHits).rows.single.id, 'hits');
+
+    expect(runsSubscription.state.value.query.category, 'Runs');
+    expect(runsSubscription.state.value.page!.rows.single.id, 'runs');
+    expect(hitsSubscription.state.value.query.category, 'Hits');
+    expect(hitsSubscription.state.value.page!.rows.single.id, 'hits');
+    hitsSubscription.dispose();
+    runsSubscription.dispose();
     repository.dispose();
   });
 

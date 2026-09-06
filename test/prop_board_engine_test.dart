@@ -158,6 +158,32 @@ void main() {
     expect(result.map((prop) => prop.id), ['early', 'late', 'missing']);
   });
 
+  test('game date and time always outrank PI Trust', () {
+    final result = _query([
+      _prop(
+        'tomorrow-high-trust',
+        startTimeUtc: '2099-07-21T00:30:00Z',
+        piTrustScore: 99,
+      ),
+      _prop(
+        'today-late',
+        startTimeUtc: '2099-07-20T23:45:00Z',
+        piTrustScore: 20,
+      ),
+      _prop(
+        'today-early',
+        startTimeUtc: '2099-07-20T18:00:00Z',
+        piTrustScore: 10,
+      ),
+    ], sortBy: 'trust');
+
+    expect(result.map((prop) => prop.id), [
+      'today-early',
+      'today-late',
+      'tomorrow-high-trust',
+    ]);
+  });
+
   test('selected props remain chronological across different start times', () {
     final result = _query(
       [
