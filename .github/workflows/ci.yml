@@ -54,6 +54,8 @@ jobs:
           --dart-define=SUPABASE_ANON_KEY=ci-placeholder
           --dart-define=AUTH_EMAIL_REDIRECT_URL=https://app.propsintell.com
           --dart-define=ALLOW_PUBLIC_SIGNUP=false
+          --dart-define=PI_SYNC_MANAGER_ENABLED=true
+          --dart-define=PI_PROP_REVISION_FEED_ENABLED=true
       - name: Reject development addresses in release bundle
         run: |
           if grep -Eqi 'localhost|127\.0\.0\.1' build/web/main.dart.js; then
@@ -85,6 +87,8 @@ jobs:
           --dart-define=REVENUECAT_ANDROID_PUBLIC_API_KEY=ci-placeholder
           --dart-define=AUTH_EMAIL_REDIRECT_URL=com.propintelligence.app://login-callback/
           --dart-define=ALLOW_PUBLIC_SIGNUP=false
+          --dart-define=PI_SYNC_MANAGER_ENABLED=true
+          --dart-define=PI_PROP_REVISION_FEED_ENABLED=true
       - name: Upload Android verification build
         uses: actions/upload-artifact@v6
         with:

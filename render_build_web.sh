@@ -37,6 +37,8 @@ flutter build web --release \
   --dart-define="AUTH_EMAIL_REDIRECT_URL=${AUTH_EMAIL_REDIRECT_URL}" \
   --dart-define="MOBILE_AUTH_REDIRECT_URL=com.propintelligence.app://login-callback/" \
   --dart-define="ALLOW_PUBLIC_SIGNUP=${ALLOW_PUBLIC_SIGNUP:-true}" \
+  --dart-define="PI_SYNC_MANAGER_ENABLED=true" \
+  --dart-define="PI_PROP_REVISION_FEED_ENABLED=true" \
   --dart-define="TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}" \
   --dart-define="TURNSTILE_BASE_URL=${TURNSTILE_BASE_URL:-https://pipropsintell.com/workspace/}" \
   --dart-define="REVENUECAT_PUBLIC_API_KEY=${REVENUECAT_PUBLIC_API_KEY:-}"

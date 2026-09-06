@@ -58,6 +58,8 @@ jobs:
             "--dart-define=REVENUECAT_ANDROID_PUBLIC_API_KEY=$REVENUECAT_ANDROID_PUBLIC_API_KEY"
             "--dart-define=AUTH_EMAIL_REDIRECT_URL=com.propintelligence.app://login-callback/"
             "--dart-define=ALLOW_PUBLIC_SIGNUP=false"
+            "--dart-define=PI_SYNC_MANAGER_ENABLED=true"
+            "--dart-define=PI_PROP_REVISION_FEED_ENABLED=true"
           )
           flutter build apk --release "${DEFINES[@]}"
           flutter build appbundle --release "${DEFINES[@]}"
