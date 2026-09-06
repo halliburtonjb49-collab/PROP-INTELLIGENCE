@@ -206,7 +206,8 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
     } catch (_) {
       if (mounted) {
         setState(() {
-          _error = 'Strikeout inventory is temporarily unavailable. Please retry.';
+          _error =
+              'Strikeout inventory is temporarily unavailable. Please retry.';
         });
       }
     } finally {
@@ -319,10 +320,10 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
                         mainAxisExtent: width >= 1050
-                            ? 238
+                            ? 356
                             : width >= 650
-                            ? 254
-                            : 276,
+                            ? 370
+                            : 390,
                       ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final prop = section.value[index];
@@ -957,6 +958,42 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   ],
                 ),
               ),
+              Container(
+                key: ValueKey('strikeout-game-time-${prop.id}'),
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0B1A26),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.schedule_rounded,
+                      size: 15,
+                      color: AppColors.gold,
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        _gameDateTime(prop),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               if (prop.isSelectable) ...[
                 const SizedBox(height: 8),
                 StatefulBuilder(
@@ -1002,6 +1039,26 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                   },
                 ),
               ],
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                height: 38,
+                child: OutlinedButton.icon(
+                  key: ValueKey('strikeout-all-player-props-${prop.id}'),
+                  onPressed: () => _showAllPlayerProps(prop),
+                  icon: const Icon(Icons.layers_rounded, size: 16),
+                  label: const Text('VIEW ALL PLAYER PROPS'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.gold,
+                    side: const BorderSide(color: AppColors.borderGold),
+                    textStyle: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   if (learned)
@@ -1042,6 +1099,153 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                     ),
                   ),
                 ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _gameDateTime(PropData prop) {
+    final raw = prop.startTimeUtc.isNotEmpty
+        ? prop.startTimeUtc
+        : prop.gameStartTime;
+    final local = DateTime.tryParse(raw)?.toLocal();
+    if (local == null) {
+      final supplied = prop.localGameTimeDisplay.trim();
+      return supplied.isEmpty ? 'DATE & TIME TBD' : supplied;
+    }
+    const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    const months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
+    ];
+    final hour = local.hour == 0
+        ? 12
+        : local.hour > 12
+        ? local.hour - 12
+        : local.hour;
+    final minute = local.minute.toString().padLeft(2, '0');
+    final period = local.hour >= 12 ? 'PM' : 'AM';
+    return '${days[local.weekday - 1]} ${months[local.month - 1]} ${local.day} • $hour:$minute $period';
+  }
+
+  Future<void> _showAllPlayerProps(PropData focused) async {
+    var props = <PropData>[];
+    try {
+      props = await _api.fetchProps(
+        selectedSport: focused.sport,
+        selectedSportsbook: 'All',
+        search: focused.player,
+        sortBy: 'time',
+        limit: 500,
+      );
+    } catch (_) {
+      props = _props;
+    }
+    final player = focused.player.trim().toLowerCase();
+    props = props
+        .where((prop) => prop.player.trim().toLowerCase() == player)
+        .toList(growable: false);
+    if (props.isEmpty) props = [focused];
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF06111A),
+      builder: (sheetContext) => SafeArea(
+        child: FractionallySizedBox(
+          heightFactor: .86,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.layers_rounded, color: AppColors.gold),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${focused.player.toUpperCase()} • ALL PROPS',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      key: const ValueKey('strikeout-all-props-x'),
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.pop(sheetContext),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: AppColors.gold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: AppColors.border),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(14),
+                  itemCount: props.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final prop = props[index];
+                    final market = prop.displayMarket.trim().isNotEmpty
+                        ? prop.displayMarket
+                        : prop.market;
+                    return ListTile(
+                      tileColor: const Color(0xFF0B1B27),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: const BorderSide(color: AppColors.border),
+                      ),
+                      title: Text(
+                        market.toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${prop.sportsbook.toUpperCase()} • ${_gameDateTime(prop)}',
+                        style: const TextStyle(color: AppColors.textMuted),
+                      ),
+                      trailing: Text(
+                        prop.line.toStringAsFixed(1),
+                        style: const TextStyle(
+                          color: AppColors.gold,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    key: const ValueKey('strikeout-all-props-close'),
+                    onPressed: () => Navigator.pop(sheetContext),
+                    icon: const Icon(Icons.close_rounded),
+                    label: const Text('CLOSE'),
+                  ),
+                ),
               ),
             ],
           ),
@@ -1144,6 +1348,16 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
               ),
               const SizedBox(height: 12),
               PropResearchAiButton(prop: prop, comparisonCandidates: _props),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  key: ValueKey('strikeout-pi-close-${prop.id}'),
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                  label: const Text('CLOSE'),
+                ),
+              ),
             ],
           ),
         ),
