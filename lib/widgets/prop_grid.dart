@@ -1918,6 +1918,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     clipBehavior: Clip.antiAlias,
                     child: PlayerImageWidget(
                       imageUrl: prop.imagePath,
+                      player: prop.player,
+                      sport: prop.sport,
+                      cacheIdentity: prop.canonicalPlayerId.trim().isNotEmpty
+                          ? prop.canonicalPlayerId
+                          : prop.playerId.trim().isNotEmpty
+                          ? prop.playerId
+                          : prop.player,
                       width: 72,
                       height: 72,
                       fit: BoxFit.contain,
@@ -2207,6 +2214,14 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                                 'prop-photo-${prop.canonicalPlayerId.trim().isNotEmpty ? prop.canonicalPlayerId : prop.player.trim().toLowerCase()}-${prop.imagePath}',
                               ),
                               imageUrl: prop.imagePath,
+                              player: prop.player,
+                              sport: prop.sport,
+                              cacheIdentity:
+                                  prop.canonicalPlayerId.trim().isNotEmpty
+                                  ? prop.canonicalPlayerId
+                                  : prop.playerId.trim().isNotEmpty
+                                  ? prop.playerId
+                                  : prop.player,
                               width: 108,
                               height: 116,
                               fit: BoxFit.contain,
@@ -4536,10 +4551,15 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                     fixedHeight: fixedHeight,
                   );
                   if (!group.hasAlternatives) return card;
-                  final optionsButton = SizedBox(
-                    width: double.infinity,
+                  final optionsButton = Align(
+                    alignment: Alignment.centerRight,
                     child: OutlinedButton.icon(
                       onPressed: () => _showLineAlternatives(group),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 38),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                       icon: const Icon(Icons.swap_vert_rounded, size: 16),
                       label: Text(
                         '${group.variants.length} CURRENT LINE OPTIONS',
