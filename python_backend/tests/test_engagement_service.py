@@ -1,5 +1,10 @@
 from models.intelligence import SentimentEvent
-from services.engagement_service import _funnel_rows, product_observability, sentiment_rollup
+from services.engagement_service import (
+    _funnel_rows,
+    _preferred_p95,
+    product_observability,
+    sentiment_rollup,
+)
 
 
 def test_sentiment_rollup_degrades_without_database(monkeypatch) -> None:
@@ -32,6 +37,8 @@ def test_product_observability_actions_are_validated() -> None:
         "PURCHASE_COMPLETED",
         "SLOW_LOAD",
         "ERROR",
+        "PROP_CACHE_PAINT",
+        "PROP_LIVE_APPLY",
     ):
         event = SentimentEvent(prop_id="__PRODUCT__", action=action)
         assert event.action == action
@@ -57,3 +64,31 @@ def test_product_funnels_use_unique_users_and_prior_stage_conversion() -> None:
     assert research[2]["conversionFromPrevious"] == 0.5556
     assert research[3]["conversionFromPrevious"] == 0.4
     assert research[3]["events"] == 4
+
+
+def test_content_milestones_replace_legacy_timing_when_available() -> None:
+    operational = {
+        "SCREEN_TIMING": {"count": 10, "p95Ms": 900},
+        "PROP_CACHE_PAINT": {"count": 4, "p95Ms": 1250},
+        "PROP_LOAD_SUCCESS": {"count": 10, "p95Ms": 1800},
+        "PROP_LIVE_APPLY": {"count": 4, "p95Ms": 2100},
+    }
+    assert _preferred_p95(
+        operational, "PROP_CACHE_PAINT", "SCREEN_TIMING"
+    ) == 1250
+    assert _preferred_p95(
+        operational, "PROP_LIVE_APPLY", "PROP_LOAD_SUCCESS"
+    ) == 2100
+
+
+def test_content_milestones_fall_back_for_older_clients() -> None:
+    operational = {
+        "SCREEN_TIMING": {"count": 10, "p95Ms": 900},
+        "PROP_LOAD_SUCCESS": {"count": 10, "p95Ms": 1800},
+    }
+    assert _preferred_p95(
+        operational, "PROP_CACHE_PAINT", "SCREEN_TIMING"
+    ) == 900
+    assert _preferred_p95(
+        operational, "PROP_LIVE_APPLY", "PROP_LOAD_SUCCESS"
+    ) == 1800

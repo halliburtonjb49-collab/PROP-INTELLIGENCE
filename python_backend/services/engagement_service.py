@@ -7,6 +7,19 @@ from database.postgres import database_is_configured, get_database_pool
 from models.intelligence import SentimentEvent
 from services.operations_notification_service import notify_operations_alert
 
+
+def _preferred_p95(
+    operational: dict[str, dict[str, int | None]],
+    primary: str,
+    fallback: str,
+) -> int | None:
+    """Use the content milestone while older client releases age out."""
+    primary_value = operational.get(primary, {}).get("p95Ms")
+    if primary_value is not None:
+        return int(primary_value)
+    fallback_value = operational.get(fallback, {}).get("p95Ms")
+    return int(fallback_value) if fallback_value is not None else None
+
 _alert_lock = threading.Lock()
 _last_prop_alert_at: datetime | None = None
 
@@ -187,7 +200,8 @@ def product_observability(hours: int = 168) -> dict[str, object]:
                    filter (where duration_ms is not null)
                from prop_engagement_events
                where action in ('API_SUCCESS','API_FAILURE','PROP_LOAD_SUCCESS',
-                   'PROP_LOAD_FAILURE','SCREEN_TIMING','MEDIA_FAILURE','WEB_VITAL')
+                   'PROP_LOAD_FAILURE','SCREEN_TIMING','PROP_CACHE_PAINT',
+                   'PROP_LIVE_APPLY','MEDIA_FAILURE','WEB_VITAL')
                  and created_at >= now()-(%s * interval '1 hour')
                group by action""", (window_hours,))
         operational_rows = cursor.fetchall()
@@ -231,8 +245,14 @@ def product_observability(hours: int = 168) -> dict[str, object]:
     prop_failure = operational.get("PROP_LOAD_FAILURE", {}).get("count", 0)
     api_rate = api_success / (api_success + api_failure) if api_success + api_failure else None
     prop_rate = prop_success / (prop_success + prop_failure) if prop_success + prop_failure else None
-    cached_p95 = operational.get("SCREEN_TIMING", {}).get("p95Ms")
-    live_p95 = operational.get("PROP_LOAD_SUCCESS", {}).get("p95Ms")
+    # Prefer actual content-application milestones. SCREEN_TIMING and
+    # PROP_LOAD_SUCCESS remain fallbacks while older clients age out.
+    cached_p95 = _preferred_p95(
+        operational, "PROP_CACHE_PAINT", "SCREEN_TIMING"
+    )
+    live_p95 = _preferred_p95(
+        operational, "PROP_LIVE_APPLY", "PROP_LOAD_SUCCESS"
+    )
     media = {}
     for provider, media_type, count in media_rows:
         media.setdefault(str(provider), {})[str(media_type)] = int(count)

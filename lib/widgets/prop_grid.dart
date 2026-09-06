@@ -3811,6 +3811,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       _rememberCurrentView(requestKey, activeCached);
       _preparedProps = prepareBoardProps(activeCached);
       _notifyPropsLoaded(activeCached);
+      EngagementTracker.instance.recordLaunchMilestone(
+        'PROP_CACHE_PAINT',
+        category: 'device_cache',
+      );
       unawaited(
         _refreshFirstPageFromNetwork(
           requestKey,
@@ -3872,6 +3876,12 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       'prepareProps() complete in ${prepareTimer.elapsedMilliseconds}ms',
     );
     _notifyPropsLoaded(props);
+    if (props.isNotEmpty) {
+      EngagementTracker.instance.recordLaunchMilestone(
+        'PROP_LIVE_APPLY',
+        category: 'initial_response',
+      );
+    }
     return props;
   }
 
@@ -4066,6 +4076,12 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       _rememberCurrentView(requestKey, fresh);
       if (_matchesVisibleSnapshot(fresh)) {
         _notifyPropsLoaded(fresh);
+        if (fresh.isNotEmpty) {
+          EngagementTracker.instance.recordLaunchMilestone(
+            'PROP_LIVE_APPLY',
+            category: 'background_refresh',
+          );
+        }
         return;
       }
       setState(() {
@@ -4073,6 +4089,12 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         _propsFuture = Future.value(fresh);
       });
       _notifyPropsLoaded(fresh);
+      if (fresh.isNotEmpty) {
+        EngagementTracker.instance.recordLaunchMilestone(
+          'PROP_LIVE_APPLY',
+          category: 'background_refresh',
+        );
+      }
     } catch (_) {
       // Keep the saved page visible while the connection recovers.
       _autoRetryTimer = null;

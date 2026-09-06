@@ -14,6 +14,7 @@ class EngagementTracker {
   bool _flushing = false;
   final Map<String, DateTime> _lastProductEvent = {};
   DateTime? _appOpenedAt;
+  final Set<String> _launchMilestones = <String>{};
 
   void record(String propId, String action) {
     if (propId.trim().isEmpty) return;
@@ -52,6 +53,7 @@ class EngagementTracker {
     if (normalized.isEmpty) return;
     if (normalized == 'APP_OPEN') {
       _appOpenedAt = DateTime.now();
+      _launchMilestones.clear();
       recordOperational('SERVICE_WORKER_VERSION', endpoint: '/workspace');
     } else if (normalized == 'DASHBOARD_READY' && _appOpenedAt != null) {
       recordOperational(
@@ -60,6 +62,25 @@ class EngagementTracker {
       );
     }
     record('__PRODUCT__', normalized);
+  }
+
+  /// Records a customer-visible launch milestone once per app launch.
+  ///
+  /// API duration alone cannot tell us when usable content reached the
+  /// screen. These milestones measure from APP_OPEN through the point where
+  /// the board applies a saved snapshot or a fresh response.
+  void recordLaunchMilestone(String action, {required String category}) {
+    if (!kReleaseMode) return;
+    final openedAt = _appOpenedAt;
+    final normalized = action.trim().toUpperCase();
+    if (openedAt == null || normalized.isEmpty) return;
+    if (!_launchMilestones.add(normalized)) return;
+    recordOperational(
+      normalized,
+      endpoint: '/workspace/props',
+      category: category,
+      durationMs: DateTime.now().difference(openedAt).inMilliseconds,
+    );
   }
 
   void recordProductOncePer(String action, Duration window) {
