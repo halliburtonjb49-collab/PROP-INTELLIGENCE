@@ -5,10 +5,15 @@ import 'package:http/http.dart' as http;
 import '../models/scoreboard_game.dart';
 
 class ScoreboardService {
-  ScoreboardService({required this.baseUrl});
+  ScoreboardService({
+    required this.baseUrl,
+    Future<http.Response> Function(Uri uri)? get,
+  }) : _get = get ?? http.get;
 
   final String baseUrl;
+  final Future<http.Response> Function(Uri uri) _get;
   static final Map<String, List<ScoreboardGame>> _memoryCache = {};
+  static final Map<String, Future<List<ScoreboardGame>>> _inFlight = {};
 
   String _dateKey(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}-'
@@ -47,7 +52,7 @@ class ScoreboardService {
         final uri = Uri.parse(
           '$candidate$path',
         ).replace(queryParameters: queryParameters);
-        final response = await http.get(uri).timeout(timeout);
+        final response = await _get(uri).timeout(timeout);
         if (response.statusCode == 404) {
           continue;
         }
@@ -63,7 +68,22 @@ class ScoreboardService {
     throw Exception('Unable to reach local scoreboard backend candidates.');
   }
 
-  Future<List<ScoreboardGame>> fetchGames({required DateTime date}) async {
+  Future<List<ScoreboardGame>> fetchGames({required DateTime date}) {
+    final requestKey = '${_normalizeBaseUrl(baseUrl)}|${_dateKey(date)}';
+    final existing = _inFlight[requestKey];
+    if (existing != null) return existing;
+
+    late final Future<List<ScoreboardGame>> request;
+    request = _fetchGames(date: date).whenComplete(() {
+      if (identical(_inFlight[requestKey], request)) {
+        _inFlight.remove(requestKey);
+      }
+    });
+    _inFlight[requestKey] = request;
+    return request;
+  }
+
+  Future<List<ScoreboardGame>> _fetchGames({required DateTime date}) async {
     final formattedDate = _dateKey(date);
     final now = DateTime.now();
     final isToday =

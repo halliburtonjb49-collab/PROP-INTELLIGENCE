@@ -124,7 +124,7 @@
     }
   ],
   "env": {
-    "API_BASE_URL": "https://pipropsintell.com",
+    "API_BASE_URL": "https://api.propsintell.com",
     "SUPABASE_URL": "https://doncoxjilytojmnpukxi.supabase.co",
     "AUTH_EMAIL_REDIRECT_URL": "https://pipropsintell.com/workspace",
     "ALLOW_PUBLIC_SIGNUP": "true"

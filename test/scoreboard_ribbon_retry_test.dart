@@ -1,5 +1,9 @@
+import 'dart:convert';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:prop_intelligence/controllers/scoreboard_controller.dart';
 import 'package:prop_intelligence/models/scoreboard_game.dart';
 import 'package:prop_intelligence/services/app_sound_service.dart';
@@ -41,6 +45,29 @@ class _IntermittentScoreboardService extends ScoreboardService {
 }
 
 void main() {
+  test('concurrent scoreboard consumers share one HTTP request', () async {
+    var requests = 0;
+    final response = Completer<http.Response>();
+    final service = ScoreboardService(
+      baseUrl: 'https://scoreboard.test',
+      get: (_) {
+        requests += 1;
+        return response.future;
+      },
+    );
+    final date = DateTime(2026, 9, 5);
+
+    final results = Future.wait([
+      service.fetchGames(date: date),
+      service.fetchGames(date: date),
+    ]);
+    await Future<void>.delayed(Duration.zero);
+    response.complete(http.Response(jsonEncode({'games': []}), 200));
+    await results;
+
+    expect(requests, 1);
+  });
+
   test('silent refresh preserves the last verified scoreboard slate', () async {
     final service = _IntermittentScoreboardService();
     final controller = ScoreboardController(service: service);
