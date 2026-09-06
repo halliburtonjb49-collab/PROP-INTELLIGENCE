@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from models.intelligence import SentimentEvent
+from scripts.apply_supabase_migrations import MIGRATIONS
 from services.engagement_service import (
     _funnel_rows,
     _preferred_p95,
@@ -43,6 +46,14 @@ def test_product_observability_actions_are_validated() -> None:
     ):
         event = SentimentEvent(prop_id="__PRODUCT__", action=action)
         assert event.action == action
+
+
+def test_launch_milestone_actions_are_allowed_by_latest_migration() -> None:
+    filename = "supabase_launch_milestone_actions.sql"
+    assert filename in MIGRATIONS
+    sql = (Path(__file__).parents[2] / filename).read_text(encoding="utf-8")
+    for action in ("AUTH_READY", "PROP_CACHE_PAINT", "PROP_LIVE_APPLY"):
+        assert f"'{action}'" in sql
 
 def test_product_funnels_use_unique_users_and_prior_stage_conversion() -> None:
     result = _funnel_rows(

@@ -1119,6 +1119,11 @@ class ApiService {
     if (response.statusCode != 200) {
       throw Exception('Unable to record engagement: ${response.statusCode}');
     }
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    final recorded = (decoded['recorded'] as num?)?.toInt() ?? 0;
+    if (recorded != events.length) {
+      throw Exception('Unable to record engagement: batch not persisted');
+    }
   }
 
   Future<Map<String, dynamic>> fetchPropSentiment(String propId) async {

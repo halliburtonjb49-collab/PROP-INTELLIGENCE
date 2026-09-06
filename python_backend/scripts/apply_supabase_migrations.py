@@ -72,6 +72,7 @@ MIGRATIONS = (
     "supabase_identity_media_registry.sql",
     "supabase_engagement_action_expansion.sql",
     "supabase_production_observability.sql",
+    "supabase_launch_milestone_actions.sql",
     "supabase_prop_chat_owner_announcements_hardening.sql",
     "supabase_prop_chat_owner_announcements_hardening_v2.sql",
     "supabase_prop_chat_owner_message_length.sql",
