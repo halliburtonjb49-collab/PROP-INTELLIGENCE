@@ -2,6 +2,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/services/auth_manager.dart';
 
 void main() {
+  test('valid restored sessions do not force a network refresh at launch', () {
+    expect(restoredSessionNeedsRefresh(isExpired: false), isFalse);
+    expect(restoredSessionNeedsRefresh(isExpired: true), isTrue);
+  });
+
   test('verified owner email resolves to owner without metadata', () {
     expect(
       resolveAccountRole(email: 'PropsIntell@Gmail.com ', role: 'user'),

@@ -17,6 +17,9 @@ const Set<String> _ownerUserIds = {
   '84a76503-f704-46b6-be87-760ea8c9f2f5',
 };
 
+@visibleForTesting
+bool restoredSessionNeedsRefresh({required bool isExpired}) => isExpired;
+
 Map<String, dynamic> _jwtClaims(String token) {
   final parts = token.split('.');
   if (parts.length < 2) return const <String, dynamic>{};
@@ -309,6 +312,15 @@ class AuthManager {
     _restoringInitialSession = restoredSession != null;
     if (restoredSession == null) {
       unawaited(_setSession(null));
+    } else if (!restoredSessionNeedsRefresh(
+      isExpired: restoredSession.isExpired,
+    )) {
+      // Supabase has already reconstructed and validated this local session.
+      // Let the authenticated shell render immediately instead of forcing a
+      // second network refresh on every app launch. Automatic token refresh
+      // remains enabled and will keep the session current in the background.
+      _restoringInitialSession = false;
+      unawaited(_setSession(restoredSession));
     } else {
       // Mobile browsers can restore an expired JWT from storage before the
       // Supabase refresh finishes. Rendering the workspace at that point
@@ -757,21 +769,10 @@ class AuthManager {
       role: user.appMetadata['role'] ?? claimRole,
       userId: resolvedUserId,
     );
-    // Safari can restore a valid Supabase session before every user field has
-    // been reconstructed from storage. Resolve the one protected owner record
-    // server-side before evaluating the paid-plan gate so the verified owner
-    // can never be downgraded by browser-specific session hydration timing.
-    if (role != 'owner') {
-      try {
-        final ownerResult = await _client?.rpc(
-          'is_app_owner',
-          params: <String, dynamic>{'target_user_id': user.id},
-        );
-        if (ownerResult == true) role = 'owner';
-      } catch (_) {
-        // The fixed UUID/email allowlist remains the secure offline fallback.
-      }
-    }
+    // Resolve privileged access locally so an optional role lookup can never
+    // hold the first authenticated frame behind a slow network request. Owner
+    // UUIDs/emails and signed auth metadata remain the trusted sources here;
+    // protected APIs still enforce authorization server-side.
     final metadataUsername = resolvePublicUsername(
       userId: user.id,
       metadata: user.userMetadata ?? const <String, dynamic>{},
