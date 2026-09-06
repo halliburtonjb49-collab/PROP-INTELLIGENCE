@@ -14,6 +14,7 @@ class _FailingPropsApi extends ApiService {
 
   @override
   Future<List<PropData>> loadCachedProps({
+    String? accessScope,
     String selectedSide = 'All',
     String selectedTier = 'All',
     String selectedSportsbook = 'All',

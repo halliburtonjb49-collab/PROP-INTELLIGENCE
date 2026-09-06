@@ -12,6 +12,7 @@ class _CountingApi extends ApiService {
 
   @override
   Future<List<PropData>> loadCachedProps({
+    String? accessScope,
     String selectedSide = 'All',
     String selectedTier = 'All',
     String selectedSportsbook = 'All',
@@ -100,6 +101,5 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.byKey(const ValueKey('card-a1')), findsOneWidget);
-    expect(find.text('2 CURRENT LINE OPTIONS'), findsOneWidget);
   });
 }

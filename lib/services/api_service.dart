@@ -2214,6 +2214,7 @@ class ApiService {
     int minConfidence = 0,
     String sortBy = 'confidence',
     String verdictFilter = 'All',
+    String? accessScope,
   }) async {
     final preferences = await SharedPreferences.getInstance();
     final key = _propsCacheKey(
@@ -2226,6 +2227,7 @@ class ApiService {
       minConfidence,
       verdictFilter,
       sortBy,
+      accessScope,
     );
     final broadQuery = _isBroadPropsQuery(
       selectedSide: selectedSide,
@@ -2239,8 +2241,8 @@ class ApiService {
     );
     final candidates = <String?>[
       preferences.getString(key),
-      if (broadQuery && key != _lastStablePropsCacheKeyFor())
-        preferences.getString(_lastStablePropsCacheKeyFor()),
+      if (broadQuery && key != _lastStablePropsCacheKeyFor(accessScope))
+        preferences.getString(_lastStablePropsCacheKeyFor(accessScope)),
       // Pre-scope caches can be used only before authentication. Never let an
       // account read a legacy cache that cannot prove its owner or entitlement.
       if (broadQuery && protectedCacheScope == 'signed-out|none')

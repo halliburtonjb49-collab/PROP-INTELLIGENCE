@@ -201,6 +201,37 @@ void main() {
   );
 
   test(
+    'shared sync reopens the cache saved for its exact access scope',
+    () async {
+      const scope = 'user-1|premium|owner';
+      SharedPreferences.setMockInitialValues({
+        'prop-feed-v6-all_all_all_all_all__0_all_confidence_user-1-premium-owner':
+            jsonEncode({
+              'savedAt': DateTime.now().toUtc().toIso8601String(),
+              'catalogCount': 6366,
+              'total': 1,
+              'facetTotal': 1,
+              'categoryCounts': {'POINTS': 1},
+              'props': [_prop('scoped-cached-nba', 'NBA')],
+            }),
+      });
+
+      final cached = await ApiService().loadCachedProps(
+        selectedSide: 'All',
+        selectedTier: 'All',
+        selectedSportsbook: 'All',
+        selectedSport: 'All',
+        selectedCategory: 'All',
+        sortBy: 'trust',
+        accessScope: scope,
+      );
+
+      expect(cached.map((prop) => prop.id), ['scoped-cached-nba']);
+      expect(ApiService().lastCatalogCount, 6366);
+    },
+  );
+
+  test(
     'cached props rebuild zero category facets before first paint',
     () async {
       SharedPreferences.setMockInitialValues({

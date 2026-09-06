@@ -3787,6 +3787,12 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           minConfidence: widget.minConfidence,
           verdictFilter: widget.verdictFilter,
           sortBy: widget.sortBy,
+          // The shared repository includes role in its protected scope. Use
+          // that exact scope for disk restoration too; otherwise a successful
+          // board is saved under one key and cannot be found after reload.
+          accessScope: _usesSyncManager
+              ? _pageQuery().accessScope
+              : _apiService.protectedCacheScope,
         )
         .catchError((_) => <PropData>[]);
     final cached = await cachedFuture.timeout(
