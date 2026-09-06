@@ -121,6 +121,10 @@ void main() {
 
     expect(find.text('ACCOUNT PANEL'), findsOneWidget);
     expect(find.text('ACTIVE SLIP PANEL'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('test-sidebar-account-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('ACCOUNT PANEL'), findsNothing);
   });
 
   testWidgets('desktop rail active slip button opens active slip panel', (

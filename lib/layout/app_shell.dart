@@ -205,9 +205,15 @@ class _AppShellState extends State<AppShell> {
                           borderRadius: radius,
                           child: ShellAccountLauncher(
                             onOpenAccount: () => setState(() {
-                              _isRightPanelOpen = true;
-                              _activeRightPanelSection =
-                                  _RightPanelSection.account;
+                              final accountIsOpen =
+                                  _isRightPanelOpen &&
+                                  _activeRightPanelSection ==
+                                      _RightPanelSection.account;
+                              _isRightPanelOpen = !accountIsOpen;
+                              if (!accountIsOpen) {
+                                _activeRightPanelSection =
+                                    _RightPanelSection.account;
+                              }
                             }),
                             child: widget.leftSidebar,
                           ),
