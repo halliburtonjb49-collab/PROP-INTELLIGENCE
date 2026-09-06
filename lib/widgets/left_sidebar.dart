@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../navigation/app_navigation.dart';
+import '../layout/app_shell.dart';
 import '../services/auth_manager.dart';
 import '../theme/app_colors.dart' as app_colors;
 import 'sidebar_button.dart';
@@ -41,10 +42,7 @@ class _LeftSidebarState extends State<LeftSidebar> {
           const SizedBox(height: 14),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _SidebarHeader(
-              onRefresh: widget.onRefresh,
-              onOpenAlerts: () => widget.onSelectPage?.call(AppPage.propAlerts),
-            ),
+            child: const _SidebarHeader(),
           ),
           const SizedBox(height: 8),
           Expanded(
@@ -290,9 +288,8 @@ class _LeftSidebarState extends State<LeftSidebar> {
           if (MediaQuery.sizeOf(context).width < 1000)
             ValueListenableBuilder<int>(
               valueListenable: widget.propCountListenable,
-              builder: (context, count, _) => _SidebarPropInventory(
-                count: count,
-              ),
+              builder: (context, count, _) =>
+                  _SidebarPropInventory(count: count),
             ),
           const _SidebarLegalLink(),
           const _SidebarSignOut(),
@@ -433,38 +430,11 @@ class _SidebarSignOut extends StatelessWidget {
 }
 
 class _SidebarHeader extends StatelessWidget {
-  const _SidebarHeader({required this.onRefresh, required this.onOpenAlerts});
-
-  final VoidCallback onRefresh;
-  final VoidCallback onOpenAlerts;
-
-  Widget _action({
-    required String tooltip,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(9),
-        child: Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: const Color(0xFF091722),
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(color: app_colors.AppColors.border),
-          ),
-          alignment: Alignment.center,
-          child: Icon(icon, color: app_colors.AppColors.gold, size: 18),
-        ),
-      ),
-    );
-  }
+  const _SidebarHeader();
 
   @override
   Widget build(BuildContext context) {
+    final openAccount = ShellAccountLauncher.maybeOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -533,20 +503,86 @@ class _SidebarHeader extends StatelessWidget {
                 ),
               ),
             ),
-            _action(
-              tooltip: 'Refresh props',
-              icon: Icons.refresh_rounded,
-              onTap: onRefresh,
-            ),
-            const SizedBox(width: 6),
-            _action(
-              tooltip: 'View prop alerts',
-              icon: Icons.notifications_none_rounded,
-              onTap: onOpenAlerts,
+            ValueListenableBuilder<AuthSessionState>(
+              valueListenable: AuthManager.instance.sessionState,
+              builder: (context, session, _) =>
+                  _SidebarAccountAvatar(session: session, onTap: openAccount),
             ),
           ],
         ),
       ],
+    );
+  }
+}
+
+class _SidebarAccountAvatar extends StatelessWidget {
+  const _SidebarAccountAvatar({required this.session, required this.onTap});
+
+  final AuthSessionState session;
+  final VoidCallback? onTap;
+
+  String get _initials {
+    final source = (session.username?.trim().isNotEmpty ?? false)
+        ? session.username!.trim()
+        : (session.email ?? '').trim();
+    if (source.isEmpty) return 'PI';
+    final words = source.split(RegExp(r'[\s._@-]+')).where((e) => e.isNotEmpty);
+    return words.take(2).map((word) => word[0].toUpperCase()).join();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final avatarUrl = session.avatarUrl?.trim() ?? '';
+    return Tooltip(
+      message: 'Open account',
+      child: Semantics(
+        button: true,
+        label: 'Open account',
+        child: InkWell(
+          key: const ValueKey('sidebar-account-button'),
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 40,
+            height: 40,
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF091722),
+              border: Border.all(
+                color: app_colors.AppColors.goldHighlight,
+                width: 1.5,
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: avatarUrl.isEmpty
+                ? Center(
+                    child: Text(
+                      _initials,
+                      style: const TextStyle(
+                        color: app_colors.AppColors.goldHighlight,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  )
+                : Image.network(
+                    avatarUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Center(
+                      child: Text(
+                        _initials,
+                        style: const TextStyle(
+                          color: app_colors.AppColors.goldHighlight,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+      ),
     );
   }
 }

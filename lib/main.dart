@@ -2190,6 +2190,11 @@ class _DesktopDashboardState extends State<DesktopDashboard> {
                 AppPage.ownerOperations,
                 source: 'right-rail-owner-operations',
               ),
+              onRefreshProps: () => boardRefreshRequestNotifier.value++,
+              onOpenAlerts: () => _switchToPage(
+                AppPage.propAlerts,
+                source: 'right-rail-alerts',
+              ),
             ),
           ),
           if (_chatFloating) _buildFloatingChat(constraints),

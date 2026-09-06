@@ -24,7 +24,13 @@ void main() {
   }) {
     return MaterialApp(
       home: AppShell(
-        leftSidebar: const Center(child: Text('WORKSPACE NAVIGATION')),
+        leftSidebar: Builder(
+          builder: (context) => TextButton(
+            key: const ValueKey('test-sidebar-account-button'),
+            onPressed: ShellAccountLauncher.maybeOf(context),
+            child: const Text('WORKSPACE NAVIGATION'),
+          ),
+        ),
         topNavigation: const Center(child: Text('COMMAND BAR')),
         content: const Center(child: Text('PRIMARY WORKSPACE')),
         accountPanel: const Center(child: Text('ACCOUNT PANEL')),
@@ -38,6 +44,8 @@ void main() {
         isOwner: false,
         ownerOperationsSelected: false,
         onOpenOwnerOperations: () {},
+        onRefreshProps: () {},
+        onOpenAlerts: () {},
       ),
     );
   }
@@ -66,8 +74,16 @@ void main() {
     );
     expect(find.text('42'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey('right-panel-account-button')),
+      find.byKey(const ValueKey('right-panel-refresh-button')),
       findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('right-panel-alerts-button')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('right-panel-account-button')),
+      findsNothing,
     );
     expect(
       find.byKey(const ValueKey('right-panel-active-slip-button')),
@@ -92,7 +108,7 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('desktop rail account button opens account panel', (
+  testWidgets('desktop sidebar account button opens account panel', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
@@ -100,7 +116,7 @@ void main() {
 
     await tester.pumpWidget(buildShell(activeSlipCount: 1));
 
-    await tester.tap(find.byKey(const ValueKey('right-panel-account-button')));
+    await tester.tap(find.byKey(const ValueKey('test-sidebar-account-button')));
     await tester.pumpAndSettle();
 
     expect(find.text('ACCOUNT PANEL'), findsOneWidget);
@@ -151,7 +167,8 @@ void main() {
 
     await tester.pumpWidget(buildShell(activeSlipCount: 2));
 
-    expect(find.bySemanticsLabel('Open account'), findsOneWidget);
+    expect(find.bySemanticsLabel('Refresh props'), findsOneWidget);
+    expect(find.bySemanticsLabel('View prop alerts'), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp('Open active slip')), findsOneWidget);
     expect(
       find.bySemanticsLabel(RegExp('2 selected props in active slip')),
@@ -174,7 +191,13 @@ void main() {
 
     expect(
       tester
-          .getSize(find.byKey(const ValueKey('right-panel-account-button')))
+          .getSize(find.byKey(const ValueKey('right-panel-refresh-button')))
+          .height,
+      greaterThanOrEqualTo(44.0),
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('right-panel-alerts-button')))
           .height,
       greaterThanOrEqualTo(44.0),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prop_intelligence/layout/app_shell.dart';
 import 'package:prop_intelligence/navigation/app_navigation.dart';
 import 'package:prop_intelligence/services/auth_manager.dart';
 import 'package:prop_intelligence/widgets/left_sidebar.dart';
@@ -16,20 +17,23 @@ void main() {
     final count = ValueNotifier<int>(42);
     addTearDown(count.dispose);
     AppPage? selectedPage;
-    var refreshes = 0;
+    var accountOpens = 0;
 
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: SizedBox(
             width: 250,
-            child: LeftSidebar(
-              selectedPage: AppPage.board,
-              selectedSport: 'MLB',
-              lockedSlipCount: 3,
-              propCountListenable: count,
-              onRefresh: () => refreshes++,
-              onSelectPage: (value) => selectedPage = value,
+            child: ShellAccountLauncher(
+              onOpenAccount: () => accountOpens++,
+              child: LeftSidebar(
+                selectedPage: AppPage.board,
+                selectedSport: 'MLB',
+                lockedSlipCount: 3,
+                propCountListenable: count,
+                onRefresh: () {},
+                onSelectPage: (value) => selectedPage = value,
+              ),
             ),
           ),
         ),
@@ -38,8 +42,8 @@ void main() {
 
     expect(find.text('42'), findsNothing);
     expect(find.text('RESEARCH'), findsOneWidget);
-    await tester.tap(find.byTooltip('Refresh props'));
-    expect(refreshes, 1);
+    await tester.tap(find.byKey(const ValueKey('sidebar-account-button')));
+    expect(accountOpens, 1);
     await tester.tap(find.text('MARKET BOARD'));
     expect(selectedPage, AppPage.board);
     expect(find.text('MLB'), findsNothing);

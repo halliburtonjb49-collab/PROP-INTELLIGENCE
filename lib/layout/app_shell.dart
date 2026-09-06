@@ -83,6 +83,8 @@ class AppShell extends StatefulWidget {
     required this.isOwner,
     required this.ownerOperationsSelected,
     required this.onOpenOwnerOperations,
+    this.onRefreshProps,
+    this.onOpenAlerts,
   });
 
   final Widget leftSidebar;
@@ -107,6 +109,8 @@ class AppShell extends StatefulWidget {
   final bool isOwner;
   final bool ownerOperationsSelected;
   final VoidCallback onOpenOwnerOperations;
+  final VoidCallback? onRefreshProps;
+  final VoidCallback? onOpenAlerts;
 
   static const double leftWidth = 244;
   static const double rightWidth = 332;
@@ -199,7 +203,14 @@ class _AppShellState extends State<AppShell> {
                         width: metrics.left,
                         child: _surface(
                           borderRadius: radius,
-                          child: widget.leftSidebar,
+                          child: ShellAccountLauncher(
+                            onOpenAccount: () => setState(() {
+                              _isRightPanelOpen = true;
+                              _activeRightPanelSection =
+                                  _RightPanelSection.account;
+                            }),
+                            child: widget.leftSidebar,
+                          ),
                         ),
                       ),
                       SizedBox(width: metrics.gap),
@@ -239,6 +250,8 @@ class _AppShellState extends State<AppShell> {
                         isOwner: widget.isOwner,
                         ownerOperationsSelected: widget.ownerOperationsSelected,
                         onOpenOwnerOperations: widget.onOpenOwnerOperations,
+                        onRefreshProps: widget.onRefreshProps,
+                        onOpenAlerts: widget.onOpenAlerts,
                         accountPanel: widget.accountPanel,
                         activeSlipPanel: widget.activeSlipPanel,
                         onOpenAccount: () => setState(() {
@@ -266,6 +279,26 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
+/// Lets navigation surfaces open the shell-owned account panel without
+/// duplicating account state or coupling them to the shell implementation.
+class ShellAccountLauncher extends InheritedWidget {
+  const ShellAccountLauncher({
+    super.key,
+    required this.onOpenAccount,
+    required super.child,
+  });
+
+  final VoidCallback onOpenAccount;
+
+  static VoidCallback? maybeOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<ShellAccountLauncher>()
+      ?.onOpenAccount;
+
+  @override
+  bool updateShouldNotify(ShellAccountLauncher oldWidget) =>
+      onOpenAccount != oldWidget.onOpenAccount;
+}
+
 /// The slim rail that brings the account column back.
 class _DesktopRightPanel extends StatelessWidget {
   const _DesktopRightPanel({
@@ -284,6 +317,8 @@ class _DesktopRightPanel extends StatelessWidget {
     required this.isOwner,
     required this.ownerOperationsSelected,
     required this.onOpenOwnerOperations,
+    this.onRefreshProps,
+    this.onOpenAlerts,
   });
 
   final bool isOpen;
@@ -301,6 +336,8 @@ class _DesktopRightPanel extends StatelessWidget {
   final bool isOwner;
   final bool ownerOperationsSelected;
   final VoidCallback onOpenOwnerOperations;
+  final VoidCallback? onRefreshProps;
+  final VoidCallback? onOpenAlerts;
 
   @override
   Widget build(BuildContext context) {
@@ -344,6 +381,8 @@ class _DesktopRightPanel extends StatelessWidget {
                 isOwner: isOwner,
                 ownerOperationsSelected: ownerOperationsSelected,
                 onOpenOwnerOperations: onOpenOwnerOperations,
+                onRefreshProps: onRefreshProps,
+                onOpenAlerts: onOpenAlerts,
               ),
       ),
     );
@@ -552,6 +591,8 @@ class _RightPanelRail extends StatelessWidget {
     required this.isOwner,
     required this.ownerOperationsSelected,
     required this.onOpenOwnerOperations,
+    this.onRefreshProps,
+    this.onOpenAlerts,
   });
 
   final Color accentColor;
@@ -564,6 +605,8 @@ class _RightPanelRail extends StatelessWidget {
   final bool isOwner;
   final bool ownerOperationsSelected;
   final VoidCallback onOpenOwnerOperations;
+  final VoidCallback? onRefreshProps;
+  final VoidCallback? onOpenAlerts;
 
   @override
   Widget build(BuildContext context) {
@@ -572,25 +615,38 @@ class _RightPanelRail extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(7, 7, 7, 7),
       child: Column(
         children: [
-          _RailButton(
-            key: const ValueKey('right-panel-account-button'),
-            label: 'Open account',
-            tooltip: 'Open account',
-            icon: Icons.person_outline_rounded,
-            visibleLabel: 'ACCOUNT',
-            accentColor: accentColor,
-            buttonHeight: 62,
-            onTap: onOpenAccount,
-            openActionSize: 44,
-            openAction: _OpenPanelActionButton(
-              key: const ValueKey('right-panel-account-open'),
-              tooltip: 'Open account',
+          if (onRefreshProps != null) ...[
+            _RailButton(
+              key: const ValueKey('right-panel-refresh-button'),
+              label: 'Refresh props',
+              tooltip: 'Refresh props',
+              icon: Icons.refresh_rounded,
+              visibleLabel: 'REFRESH',
               accentColor: accentColor,
-              onPressed: onOpenAccount,
+              buttonHeight: 62,
+              onTap: onRefreshProps!,
+              openActionSize: 0,
+              openAction: const SizedBox.shrink(),
+              trailing: const SizedBox.shrink(),
             ),
-            trailing: const SizedBox.shrink(),
-          ),
-          const SizedBox(height: 7),
+            const SizedBox(height: 7),
+          ],
+          if (onOpenAlerts != null) ...[
+            _RailButton(
+              key: const ValueKey('right-panel-alerts-button'),
+              label: 'View prop alerts',
+              tooltip: 'View prop alerts',
+              icon: Icons.notifications_none_rounded,
+              visibleLabel: 'ALERTS',
+              accentColor: accentColor,
+              buttonHeight: 62,
+              onTap: onOpenAlerts!,
+              openActionSize: 0,
+              openAction: const SizedBox.shrink(),
+              trailing: const SizedBox.shrink(),
+            ),
+            const SizedBox(height: 7),
+          ],
           _RailButton(
             key: const ValueKey('right-panel-active-slip-button'),
             label:
