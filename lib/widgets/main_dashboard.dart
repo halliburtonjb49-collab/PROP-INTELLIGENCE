@@ -1295,10 +1295,13 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   List<String> get _currentCategories {
-    final dynamicCounts =
-        _selectedSite != 'ALL' && _selectedSiteSport.isNotEmpty
-        ? _selectedSportCategoryCounts
-        : _categoryCounts;
+    final dynamicCounts = categoryFacetCountsForMenu(
+      selectedSite: _selectedSite,
+      selectedSiteSport: _selectedSiteSport,
+      categoryCounts: _categoryCounts,
+      totalCategoryCounts: _totalCategoryCounts,
+      selectedSportTotalCategoryCounts: _selectedSportTotalCategoryCounts,
+    );
     return visibleCategoryFilters(dynamicCounts);
   }
 
@@ -3939,6 +3942,23 @@ List<String> visibleCategoryFilters(Map<String, int> counts) {
       return countOrder != 0 ? countOrder : left.key.compareTo(right.key);
     });
   return ['ALL', ...available.map((entry) => entry.key)];
+}
+
+/// Category switching must use unfiltered facets. Using the current response's
+/// category counts makes every other category disappear after one is chosen.
+@visibleForTesting
+Map<String, int> categoryFacetCountsForMenu({
+  required String selectedSite,
+  required String selectedSiteSport,
+  required Map<String, int> categoryCounts,
+  required Map<String, int> totalCategoryCounts,
+  required Map<String, int> selectedSportTotalCategoryCounts,
+}) {
+  if (selectedSite.trim().toUpperCase() != 'ALL' &&
+      selectedSiteSport.trim().isNotEmpty) {
+    return selectedSportTotalCategoryCounts;
+  }
+  return totalCategoryCounts.isNotEmpty ? totalCategoryCounts : categoryCounts;
 }
 
 @visibleForTesting

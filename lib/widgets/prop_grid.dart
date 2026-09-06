@@ -4528,11 +4528,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               if (!hasFilters && _automaticRetryCount < 3) {
                 _scheduleAutomaticRetry();
               }
-              // A selected sport deserves a schedule-aware empty state even
-              // when a book, side, or category is also selected. Previously
-              // those normal board filters forced Soccer, NCAAF, and CFL into
-              // the generic "no props" panel and hid known season dates.
-              if (normalizedSport.isNotEmpty && normalizedSport != 'ALL') {
+              // Search, book, category and verdict intersections can be empty
+              // while the sport feed itself is healthy. Do not misreport that
+              // normal filtered result as a league-wide market outage.
+              if (shouldShowSportSeasonEmptyState(
+                normalizedSport: normalizedSport,
+                hasSecondaryFilters: hasSecondaryFilters,
+              )) {
                 return FutureBuilder<_SportSeasonStatus>(
                   future: _seasonStatus(normalizedSport),
                   builder: (context, statusSnapshot) {
@@ -4917,6 +4919,15 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     );
   }
 }
+
+@visibleForTesting
+bool shouldShowSportSeasonEmptyState({
+  required String normalizedSport,
+  required bool hasSecondaryFilters,
+}) =>
+    !hasSecondaryFilters &&
+    normalizedSport.isNotEmpty &&
+    normalizedSport != 'ALL';
 
 Future<void> _showPropMetricInfoDialog(
   BuildContext context, {

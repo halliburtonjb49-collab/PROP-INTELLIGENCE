@@ -54,6 +54,7 @@ export 'widgets/main_dashboard.dart'
         boardRailArrowWidth,
         boardScrollbarThickness,
         boardSectionGap,
+        categoryFacetCountsForMenu,
         compactBoardControlWidth,
         providerCoverageIssueForSport,
         resolveVerdictFilterCount,

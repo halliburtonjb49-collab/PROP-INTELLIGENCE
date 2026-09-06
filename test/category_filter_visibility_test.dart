@@ -34,6 +34,30 @@ void main() {
     ]);
   });
 
+  test('category switching keeps unfiltered category facets available', () {
+    expect(
+      categoryFacetCountsForMenu(
+        selectedSite: 'ALL',
+        selectedSiteSport: '',
+        categoryCounts: const {'TOTAL BASES': 1},
+        totalCategoryCounts: const {'TOTAL BASES': 18, 'HITS': 44, 'RUNS': 12},
+        selectedSportTotalCategoryCounts: const {},
+      ),
+      const {'TOTAL BASES': 18, 'HITS': 44, 'RUNS': 12},
+    );
+
+    expect(
+      categoryFacetCountsForMenu(
+        selectedSite: 'PRIZEPICKS',
+        selectedSiteSport: 'MLB',
+        categoryCounts: const {'TOTAL BASES': 1},
+        totalCategoryCounts: const {'TOTAL BASES': 18},
+        selectedSportTotalCategoryCounts: const {'TOTAL BASES': 9, 'HITS': 21},
+      ),
+      const {'TOTAL BASES': 9, 'HITS': 21},
+    );
+  });
+
   test('coverage warning selects the issue for the active sport', () {
     final issue = providerCoverageIssueForSport({
       'limited': true,

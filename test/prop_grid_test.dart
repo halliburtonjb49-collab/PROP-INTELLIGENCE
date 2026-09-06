@@ -49,6 +49,23 @@ class _FailingPropsApi extends ApiService {
 }
 
 void main() {
+  test('filtered player search does not report a sport-wide outage', () {
+    expect(
+      shouldShowSportSeasonEmptyState(
+        normalizedSport: 'MLB',
+        hasSecondaryFilters: true,
+      ),
+      isFalse,
+    );
+    expect(
+      shouldShowSportSeasonEmptyState(
+        normalizedSport: 'MLB',
+        hasSecondaryFilters: false,
+      ),
+      isTrue,
+    );
+  });
+
   testWidgets('PropGrid owns and explains a feed failure independently', (
     tester,
   ) async {
