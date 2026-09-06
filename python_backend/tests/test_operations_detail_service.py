@@ -97,6 +97,7 @@ def test_signups_return_owner_account_identity(monkeypatch) -> None:
         "auth-user-1",
         "Jordan",
         "core",
+        "google",
         when,
         when,
     )])
@@ -108,6 +109,7 @@ def test_signups_return_owner_account_identity(monkeypatch) -> None:
     assert result["rows"][0]["email"] == "jordan.smith@example.com"
     assert result["rows"][0]["userId"] == "auth-user-1"
     assert result["rows"][0]["name"] == "Jordan"
+    assert result["rows"][0]["signInMethod"] == "google"
     assert result["rows"][0]["signedUpAt"].startswith("2026-08-06")
 
 
@@ -136,14 +138,14 @@ def test_a_full_page_is_reported_as_truncated(monkeypatch) -> None:
     import datetime
 
     when = datetime.datetime(2026, 8, 6, tzinfo=datetime.timezone.utc)
-    cursor = _Cursor([("a@b.com", "a", "auth-user-1", "A", "core", when, when)] * 3)
+    cursor = _Cursor([("a@b.com", "a", "auth-user-1", "A", "core", "email", when, when)] * 3)
     _patch_db(monkeypatch, cursor)
 
     result = operations_detail("newSignups", limit=3)
     # A screen of rows must not read as the whole story.
     assert result["truncated"] is True
 
-    cursor = _Cursor([("a@b.com", "a", "auth-user-1", "A", "core", when, when)])
+    cursor = _Cursor([("a@b.com", "a", "auth-user-1", "A", "core", "email", when, when)])
     _patch_db(monkeypatch, cursor)
     assert operations_detail("newSignups", limit=3)["truncated"] is False
 

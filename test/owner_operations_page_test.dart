@@ -48,6 +48,26 @@ class _FakeOperationsApi extends ApiService {
   bool ownerPickRequestWasOversized = false;
 
   @override
+  Future<Map<String, dynamic>> fetchOperationsDetail(
+    String metric, {
+    int limit = 50,
+  }) async => {
+    'metric': metric,
+    'supported': true,
+    'title': metric == 'members' ? 'All members' : 'Active users',
+    'description': 'Owner account records',
+    'columns': ['name', 'email', 'signInMethod', 'signedUpAt'],
+    'rows': [
+      {
+        'name': 'Jordan Smith',
+        'email': 'jordan@example.com',
+        'signInMethod': 'google',
+        'signedUpAt': '2026-08-06T12:00:00Z',
+      },
+    ],
+  };
+
+  @override
   Future<List<PropData>> fetchProps({
     String selectedSide = 'All',
     String selectedTier = 'All',
@@ -753,6 +773,12 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const ValueKey('owner-window-today')), findsOneWidget);
+    expect(find.byKey(const ValueKey('owner-view-members')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('owner-view-activeUsers')),
+      findsOneWidget,
+    );
+    expect(find.text('ACTIVE NOW 3'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('owner-operations-refresh')),
       findsOneWidget,

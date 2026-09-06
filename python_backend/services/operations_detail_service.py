@@ -6,10 +6,8 @@ them to the database to answer it. These queries return the rows each tile
 counted, using the same windows and filters, so the detail can never disagree
 with the number that led to it.
 
-Emails are masked. The owner needs to recognise an account and follow it up,
-which a masked address supports; a screen that lists every address in full is
-a larger exposure than the job requires, and this panel is read over the
-owner's shoulder as often as not.
+Full account identity is returned because this route is owner-only and is the
+system-of-record view used to support members.
 """
 
 from __future__ import annotations
@@ -81,6 +79,9 @@ def _account_directory(
                                           nullif(to_jsonb(profile)->>'subscription_tier', ''),
                                           'user')
                    end,
+                   coalesce(nullif(account.raw_app_meta_data->>'provider', ''),
+                            nullif(account.raw_app_meta_data->'providers'->>0, ''),
+                            'email'),
                    account.created_at,
                    coalesce(nullif(to_jsonb(profile)->>'updated_at', '')::timestamptz,
                             account.updated_at)
@@ -100,8 +101,10 @@ def _account_directory(
             "signedUpAt": _isoformat(created_at),
             "lastUpdatedAt": _isoformat(updated_at),
             "source": "Supabase Auth",
+            "signInMethod": str(sign_in_method or "email"),
         }
-        for email, username, user_id, display_name, member, created_at, updated_at
+        for email, username, user_id, display_name, member, sign_in_method,
+            created_at, updated_at
         in cursor.fetchall()
     ]
 
@@ -214,19 +217,19 @@ DETAILS: Mapping[str, DetailQuery] = {
     "members": DetailQuery(
         title="All members",
         description="Every canonical Supabase member account.",
-        columns=("name", "email", "member", "username", "signedUpAt", "lastUpdatedAt", "userId"),
+        columns=("name", "email", "signInMethod", "member", "username", "signedUpAt", "lastUpdatedAt", "userId"),
         build=_all_members,
     ),
     "newSignups": DetailQuery(
         title="New signups",
         description="Accounts created in the last 24 hours.",
-        columns=("email", "username", "userId", "name", "member", "signedUpAt", "source"),
+        columns=("name", "email", "signInMethod", "member", "signedUpAt", "source", "userId"),
         build=_new_signups,
     ),
     "activeUsers": DetailQuery(
         title="Active users",
         description="Distinct users on protected features in the last 15 minutes.",
-        columns=("email", "username", "userId", "name", "member", "requests", "lastSeenAt"),
+        columns=("name", "email", "signInMethod", "member", "requests", "lastSeenAt", "userId"),
         build=_active_users,
     ),
     "coreMembers": DetailQuery(

@@ -2868,6 +2868,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   Widget _ownerViewSelector() {
     const views = <({String label, String metric, IconData icon})>[
       (label: 'USERS', metric: 'members', icon: Icons.people_alt_outlined),
+      (label: 'ACTIVE NOW', metric: 'activeUsers', icon: Icons.sensors),
       (label: 'SIGNUPS', metric: 'newSignups', icon: Icons.person_add_alt_1),
       (
         label: 'PAYMENTS',
@@ -2897,7 +2898,11 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                   key: ValueKey('owner-view-${view.metric}'),
                   onPressed: () => _openDetail(view.metric, view.label),
                   icon: Icon(view.icon, size: 15),
-                  label: Text(view.label),
+                  label: Text(
+                    view.metric == 'activeUsers'
+                        ? '${view.label} ${_liveActiveUserTotal()}'
+                        : view.label,
+                  ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.gold,
                     minimumSize: const Size(118, 44),
@@ -2916,6 +2921,15 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             .toList(growable: false),
       ),
     );
+  }
+
+  String _liveActiveUserTotal() {
+    final overview = _commandCenter?['overview'];
+    if (overview is! List) return '--';
+    for (final item in overview.whereType<Map>()) {
+      if ('${item['key']}' == 'activeUsers') return '${item['value'] ?? '--'}';
+    }
+    return '--';
   }
 }
 

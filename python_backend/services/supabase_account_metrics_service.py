@@ -47,8 +47,9 @@ def supabase_profiles() -> list[dict[str, Any]] | None:
     profiles = [dict(row) for row in payload] if isinstance(payload, list) else []
 
     try:
+        auth_base_url = url.rsplit("/rest/v1/user_profiles", 1)[0]
         auth_response = requests.get(
-            f"{base_url.rsplit('/rest/v1/user_profiles', 1)[0]}/auth/v1/admin/users",
+            f"{auth_base_url}/auth/v1/admin/users",
             params={"page": 1, "per_page": 1000},
             headers=headers,
             timeout=10,
@@ -66,6 +67,8 @@ def supabase_profiles() -> list[dict[str, Any]] | None:
         user_id = str(raw_user.get("id") or "")
         row = dict(profiles_by_id.pop(user_id, {}))
         metadata = raw_user.get("user_metadata") or {}
+        app_metadata = raw_user.get("app_metadata") or {}
+        providers = app_metadata.get("providers") or []
         row.setdefault("id", user_id)
         row["email"] = row.get("email") or raw_user.get("email") or ""
         row["username"] = row.get("username") or metadata.get("username") or ""
@@ -77,6 +80,12 @@ def supabase_profiles() -> list[dict[str, Any]] | None:
         )
         row["created_at"] = row.get("created_at") or raw_user.get("created_at")
         row["updated_at"] = row.get("updated_at") or raw_user.get("updated_at")
+        row["sign_in_method"] = (
+            row.get("sign_in_method")
+            or app_metadata.get("provider")
+            or (providers[0] if providers else None)
+            or "email"
+        )
         merged.append(row)
     merged.extend(profiles_by_id.values())
     merged.sort(key=lambda row: str(row.get("created_at") or ""), reverse=True)
@@ -129,6 +138,7 @@ def _profile_row(row: dict[str, Any]) -> dict[str, object]:
             or row.get("subscription_tier")
             or "user"
         ),
+        "signInMethod": row.get("sign_in_method") or row.get("provider") or "email",
         "signedUpAt": row.get("created_at"),
         "lastUpdatedAt": row.get("updated_at"),
         "avatarUrl": row.get("avatar_url") or "",
@@ -171,6 +181,7 @@ def enrich_active_user_rows(
                 "username": profile.get("username") or row.get("username") or "",
                 "name": profile.get("name") or row.get("name") or "",
                 "member": profile.get("member") or row.get("member") or "",
+                "signInMethod": profile.get("signInMethod") or "",
                 "requests": row.get("requests") or 0,
                 "lastSeenAt": row.get("lastSeenAt"),
             }
