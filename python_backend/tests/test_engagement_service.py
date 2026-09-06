@@ -37,6 +37,7 @@ def test_product_observability_actions_are_validated() -> None:
         "PURCHASE_COMPLETED",
         "SLOW_LOAD",
         "ERROR",
+        "AUTH_READY",
         "PROP_CACHE_PAINT",
         "PROP_LIVE_APPLY",
     ):

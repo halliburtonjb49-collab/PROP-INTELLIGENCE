@@ -16,6 +16,13 @@ class EngagementTracker {
   DateTime? _appOpenedAt;
   final Set<String> _launchMilestones = <String>{};
 
+  /// Starts the launch clock before authentication and storage restoration.
+  /// Calling this more than once during the same process is intentionally
+  /// harmless so hot rebuilds cannot reset production timing.
+  void beginLaunch() {
+    _appOpenedAt ??= DateTime.now();
+  }
+
   void record(String propId, String action) {
     if (propId.trim().isEmpty) return;
     _queue.add({'prop_id': propId, 'action': action});
@@ -24,15 +31,26 @@ class EngagementTracker {
     if (_queue.length >= 20) unawaited(flush());
   }
 
-  void recordOperational(String action, {String endpoint = '', String category = '',
-    String provider = '', String mediaType = '', int? durationMs}) {
+  void recordOperational(
+    String action, {
+    String endpoint = '',
+    String category = '',
+    String provider = '',
+    String mediaType = '',
+    int? durationMs,
+  }) {
     if (!kReleaseMode) return;
     String safe(String value) {
-      final cleaned = value.split('?').first.replaceAll(RegExp(r'[^A-Za-z0-9_./:-]'), '_');
+      final cleaned = value
+          .split('?')
+          .first
+          .replaceAll(RegExp(r'[^A-Za-z0-9_./:-]'), '_');
       return cleaned.length <= 160 ? cleaned : cleaned.substring(0, 160);
     }
+
     _queue.add({
-      'prop_id': '__OBSERVABILITY__', 'action': action.trim().toUpperCase(),
+      'prop_id': '__OBSERVABILITY__',
+      'action': action.trim().toUpperCase(),
       if (durationMs != null) 'duration_ms': durationMs.clamp(0, 300000),
       'metadata': <String, String>{
         'release': ApiService.appVersion,
@@ -52,16 +70,25 @@ class EngagementTracker {
     final normalized = action.trim().toUpperCase();
     if (normalized.isEmpty) return;
     if (normalized == 'APP_OPEN') {
-      _appOpenedAt = DateTime.now();
+      beginLaunch();
       _launchMilestones.clear();
       recordOperational('SERVICE_WORKER_VERSION', endpoint: '/workspace');
     } else if (normalized == 'DASHBOARD_READY' && _appOpenedAt != null) {
       recordOperational(
-        'SCREEN_TIMING', endpoint: '/workspace', category: 'cached_content',
+        'SCREEN_TIMING',
+        endpoint: '/workspace',
+        category: 'cached_content',
         durationMs: DateTime.now().difference(_appOpenedAt!).inMilliseconds,
       );
     }
     record('__PRODUCT__', normalized);
+  }
+
+  void recordAuthenticationReady({required bool authenticated}) {
+    recordLaunchMilestone(
+      'AUTH_READY',
+      category: authenticated ? 'authenticated' : 'signed_out',
+    );
   }
 
   /// Records a customer-visible launch milestone once per app launch.
@@ -103,7 +130,11 @@ class EngagementTracker {
       'ERROR',
     );
     if (fingerprint.contains('AUTH')) {
-      recordOperational('AUTH_FAILURE', endpoint: '/login', category: fingerprint);
+      recordOperational(
+        'AUTH_FAILURE',
+        endpoint: '/login',
+        category: fingerprint,
+      );
     }
   }
 

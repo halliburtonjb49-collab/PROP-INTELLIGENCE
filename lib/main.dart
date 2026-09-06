@@ -141,6 +141,7 @@ Future<void> main() async {
   _startupLog('main() entered');
   WidgetsFlutterBinding.ensureInitialized();
   _startupLog('WidgetsFlutterBinding initialized');
+  EngagementTracker.instance.beginLaunch();
 
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
@@ -246,6 +247,7 @@ class _PropIntelligenceAppState extends State<PropIntelligenceApp> {
     super.initState();
     EngagementTracker.instance.recordProduct('APP_OPEN');
     AuthManager.instance.sessionState.addListener(_syncOneSignalIdentity);
+    _recordAuthenticationReady();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       OneSignalService.instance.observeRegistration((subscriptionId) {
         _oneSignalSubscriptionId = subscriptionId;
@@ -254,6 +256,14 @@ class _PropIntelligenceAppState extends State<PropIntelligenceApp> {
       });
       _syncOneSignalIdentity();
     });
+  }
+
+  void _recordAuthenticationReady() {
+    final session = AuthManager.instance.sessionState.value;
+    if (!session.ready) return;
+    EngagementTracker.instance.recordAuthenticationReady(
+      authenticated: session.authenticated,
+    );
   }
 
   Future<void> _showOneSignalRegistrationConfirmation() async {
@@ -308,6 +318,7 @@ class _PropIntelligenceAppState extends State<PropIntelligenceApp> {
 
   void _syncOneSignalIdentity() {
     final session = AuthManager.instance.sessionState.value;
+    _recordAuthenticationReady();
     final userId = session.authenticated ? session.userId : null;
     if (userId == _oneSignalUserId) return;
     _oneSignalUserId = userId;

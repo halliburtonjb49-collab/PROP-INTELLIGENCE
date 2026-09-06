@@ -200,7 +200,7 @@ def product_observability(hours: int = 168) -> dict[str, object]:
                    filter (where duration_ms is not null)
                from prop_engagement_events
                where action in ('API_SUCCESS','API_FAILURE','PROP_LOAD_SUCCESS',
-                   'PROP_LOAD_FAILURE','SCREEN_TIMING','PROP_CACHE_PAINT',
+                   'PROP_LOAD_FAILURE','SCREEN_TIMING','AUTH_READY','PROP_CACHE_PAINT',
                    'PROP_LIVE_APPLY','MEDIA_FAILURE','WEB_VITAL')
                  and created_at >= now()-(%s * interval '1 hour')
                group by action""", (window_hours,))
@@ -275,11 +275,13 @@ def product_observability(hours: int = 168) -> dict[str, object]:
             "checkoutFailures": int(events.get("CHECKOUT_FAILED", 0)),
             "apiAvailability": round(api_rate, 4) if api_rate is not None else None,
             "propLoadSuccessRate": round(prop_rate, 4) if prop_rate is not None else None,
+            "authReadyP95Ms": operational.get("AUTH_READY", {}).get("p95Ms"),
             "cachedContentP95Ms": cached_p95, "liveResultsP95Ms": live_p95,
         },
         "slos": {
             "apiAvailability": {"target": .999, "actual": round(api_rate, 4) if api_rate is not None else None},
             "propBoardLoads": {"target": .99, "actual": round(prop_rate, 4) if prop_rate is not None else None},
+            "authReadyMs": {"target": 1000, "actual": operational.get("AUTH_READY", {}).get("p95Ms")},
             "cachedContentMs": {"target": 2000, "actual": cached_p95},
             "liveResultsMs": {"target": 5000, "actual": live_p95},
         },
