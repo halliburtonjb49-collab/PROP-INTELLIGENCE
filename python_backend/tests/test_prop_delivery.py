@@ -562,6 +562,40 @@ def test_sportsbook_alias_queries_match_pick6_and_betr_props(
     assert [row["id"] for row in payload["props"]] == expected_ids
 
 
+def test_large_board_filter_parses_each_start_time_once(monkeypatch) -> None:
+    rows = [
+        FakeProp(str(index), f"Player {index}", "MLB", "PRIZEPICKS", "HITS")
+        for index in range(25)
+    ]
+    for row in rows:
+        row.piTrustScore = 75
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: rows)
+    original = main._parse_start_time
+    calls = 0
+
+    def counted(value):
+        nonlocal calls
+        calls += 1
+        return original(value)
+
+    monkeypatch.setattr(main, "_parse_start_time", counted)
+    response = TestClient(main.app).get(
+        "/api/props",
+        params={
+            "sportsbook": "PRIZEPICKS",
+            "sortBy": "trust",
+            "includeReliability": False,
+            "limit": 10,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert len(response.json()["props"]) == 10
+    # Sorting reads the already-filtered page candidates once more, but the
+    # five facet calculations must not each reparse the complete catalog.
+    assert calls <= len(rows) * 2
+
+
 def test_started_props_are_hidden_from_the_actionable_feed(monkeypatch) -> None:
     started = FakeProp("started", "One", "MLB", "FANDUEL", "HITS")
     started.startTimeUtc = "2020-07-20T20:00:00Z"

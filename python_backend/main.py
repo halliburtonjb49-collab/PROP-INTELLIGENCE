@@ -3874,28 +3874,58 @@ def props(
 					return False
 			return True
 
-		coverage_base_props = [
+		def _matches_sportsbook(prop: PropResponse) -> bool:
+			return (
+				sportsbook_filter == "all"
+				or _normalize_sportsbook_filter_key(prop.sportsbook)
+				== sportsbook_filter
+			)
+
+		def _matches_category(prop: PropResponse) -> bool:
+			return (
+				category_filter == "all"
+				or str(prop.category or "").strip().lower() == category_filter
+			)
+
+		def _matches_verdict(prop: PropResponse) -> bool:
+			if verdict_filter == "ALL":
+				return True
+			prop_verdict = prop.verdict if isinstance(prop.verdict, dict) else {}
+			if verdict_filter == "ACTIONABLE":
+				return bool(prop_verdict.get("actionable"))
+			return str(prop_verdict.get("decision") or "").upper() == verdict_filter
+
+		# Build the expensive date/staleness/search/entitlement base once. The
+		# old implementation reparsed every timestamp as many as five times per
+		# request (over 50,000 parses on a 10k catalog) before returning 40 cards.
+		# The remaining facets are cheap refinements of this shared base.
+		request_base_props = [
 			prop for prop in prop_list
 			if _matches_filters(
-				prop, apply_category=False, apply_sportsbook=False
+				prop,
+				apply_category=False,
+				apply_sportsbook=False,
+				apply_verdict=False,
 			)
+		]
+		coverage_base_props = [
+			prop for prop in request_base_props if _matches_verdict(prop)
+		]
+		sportsbook_base_props = [
+			prop for prop in request_base_props if _matches_sportsbook(prop)
 		]
 		# Category rails must distinguish inventory from props the model is
 		# prepared to recommend. These counts deliberately ignore the selected
 		# verdict tab while honoring every other active board filter.
 		total_facet_props = [
-			prop for prop in prop_list
-			if _matches_filters(
-				prop, apply_category=False, apply_verdict=False
-			)
+			prop for prop in sportsbook_base_props
 		]
 		playable_facet_props = [
 			prop for prop in total_facet_props
 			if bool((getattr(prop, "verdict", None) or {}).get("actionable"))
 		]
 		facet_props = [
-			prop for prop in prop_list
-			if _matches_filters(prop, apply_category=False)
+			prop for prop in total_facet_props if _matches_verdict(prop)
 		]
 		total_category_counts = Counter(
 			str(prop.category or "other").strip().upper()
@@ -3987,16 +4017,10 @@ def props(
 				sport_key, Counter()
 			)[category_key] += 1
 		filtered_props = [
-			prop for prop in facet_props
-			if _matches_filters(prop, apply_category=True)
+			prop for prop in facet_props if _matches_category(prop)
 		]
 		verdict_base_props = [
-			prop for prop in prop_list
-			if _matches_filters(
-				prop,
-				apply_category=True,
-				apply_verdict=False,
-			)
+			prop for prop in total_facet_props if _matches_category(prop)
 		]
 		verdict_counts = Counter(
 			str(
