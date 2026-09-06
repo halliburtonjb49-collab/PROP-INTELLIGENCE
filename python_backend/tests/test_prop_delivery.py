@@ -159,6 +159,20 @@ def test_prop_page_filters_server_side_and_exposes_version(monkeypatch) -> None:
     assert int(response.headers["x-ratelimit-limit"]) > 0
 
 
+def test_player_search_normalizes_accents_and_tolerates_mobile_typo(monkeypatch) -> None:
+    rows = [
+        FakeProp("acuna", "Ronald Acuña Jr.", "MLB", "PRIZEPICKS", "HITS"),
+        FakeProp("judge", "Aaron Judge", "MLB", "PRIZEPICKS", "HITS"),
+    ]
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: rows)
+
+    accent_free = TestClient(main.app).get("/api/props", params={"search": "acuna"})
+    mistyped = TestClient(main.app).get("/api/props", params={"search": "acqu"})
+
+    assert [row["id"] for row in accent_free.json()["props"]] == ["acuna"]
+    assert [row["id"] for row in mistyped.json()["props"]] == ["acuna"]
+
+
 def test_verdict_filter_is_applied_before_pagination(monkeypatch) -> None:
     passed = FakeProp("pass", "Passed", "MLB", "FANDUEL", "HITS")
     passed.verdict = {"decision": "PASS", "actionable": False}

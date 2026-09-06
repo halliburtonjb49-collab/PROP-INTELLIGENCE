@@ -1,9 +1,11 @@
 import asyncio
+from difflib import SequenceMatcher
 import hashlib
 import json
 import logging
 import os
 import time
+import unicodedata
 from urllib.parse import urljoin, urlparse
 from pathlib import Path
 from contextlib import asynccontextmanager, suppress
@@ -3607,6 +3609,44 @@ def _provider_category_coverage(
 	}
 
 
+def _normalize_prop_search(value: object) -> str:
+	decomposed = unicodedata.normalize("NFKD", str(value or ""))
+	return "".join(
+		character.lower()
+		for character in decomposed
+		if not unicodedata.combining(character)
+	)
+
+
+def _matches_prop_search(search_filter: str, prop: object) -> bool:
+	"""Match exact research terms and tolerate a small player-name typo."""
+	query = _normalize_prop_search(search_filter).strip()
+	if not query:
+		return True
+	searchable = _normalize_prop_search(" ".join((
+		str(getattr(prop, "player", "") or ""),
+		str(getattr(prop, "matchup", "") or ""),
+		str(getattr(prop, "market", "") or ""),
+		str(getattr(prop, "category", "") or ""),
+	)))
+	if query in searchable:
+		return True
+	# Fuzzy matching is deliberately limited to player-name tokens. This keeps
+	# market/category filters precise while making common mobile misspellings
+	# such as ACQU -> ACUNA useful instead of blanking the board.
+	if len(query) < 4 or " " in query:
+		return False
+	for token in _normalize_prop_search(getattr(prop, "player", "")).split():
+		if (
+			len(token) >= 4
+			and token[:2] == query[:2]
+			and abs(len(token) - len(query)) <= 2
+			and SequenceMatcher(None, query, token).ratio() >= 0.6
+		):
+			return True
+	return False
+
+
 @app.get("/api/props")
 def props(
 	response: Response,
@@ -3874,13 +3914,6 @@ def props(
 			prop_sportsbook = _normalize_sportsbook_filter_key(prop.sportsbook)
 			prop_sport = str(prop.sport or "").strip().lower().replace(" ", "")
 			prop_category = str(prop.category or "").strip().lower()
-			searchable = " ".join((
-				str(prop.player or ""),
-				str(prop.matchup or ""),
-				str(prop.market or ""),
-				str(prop.category or ""),
-			)).lower()
-
 			if side_filter != "all" and recommended_side != side_filter:
 				return False
 			if tier_filter != "all" and recommended_tier != tier_filter:
@@ -3899,7 +3932,7 @@ def props(
 				and prop_category != category_filter
 			):
 				return False
-			if search_filter and search_filter not in searchable:
+			if search_filter and not _matches_prop_search(search_filter, prop):
 				return False
 			if confidence < min_confidence:
 				return False
