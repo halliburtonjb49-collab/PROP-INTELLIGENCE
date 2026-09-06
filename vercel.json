@@ -107,6 +107,14 @@
       ]
     },
     {
+      "source": "/workspace/canvaskit/(.*)",
+      "headers": [
+        {"key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800"},
+        {"key": "CDN-Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800"},
+        {"key": "Vercel-CDN-Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800"}
+      ]
+    },
+    {
       "source": "/(index.html|auth-modal.js)",
       "headers": [
         {"key": "Cache-Control", "value": "no-store, max-age=0"},
