@@ -16,9 +16,9 @@ void main() {
 
     test('the message escalates as the wait becomes abnormal', () {
       final early = loadProgressMessage(const Duration(seconds: 1));
-      final middle = loadProgressMessage(const Duration(seconds: 6));
-      final late = loadProgressMessage(const Duration(seconds: 14));
-      final failing = loadProgressMessage(const Duration(seconds: 22));
+      final middle = loadProgressMessage(const Duration(seconds: 4));
+      final late = loadProgressMessage(const Duration(seconds: 6));
+      final failing = loadProgressMessage(const Duration(seconds: 8));
 
       expect({early, middle, late, failing}.length, 4);
     });
@@ -62,7 +62,7 @@ void main() {
     test('the bound is generous enough not to fire on a working feed', () {
       // A bound tight enough to trip a slow-but-working backend would be a
       // worse defect than the hang it protects against.
-      expect(propFetchTimeout.inSeconds, greaterThanOrEqualTo(8));
+      expect(propFetchTimeout.inSeconds, greaterThanOrEqualTo(5));
       expect(propFetchTimeout.inSeconds, lessThanOrEqualTo(15));
     });
   });

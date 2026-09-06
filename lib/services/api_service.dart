@@ -303,7 +303,7 @@ class ApiService {
   static const String _lastStablePropsCacheKey = 'prop-feed-v5-last-stable';
   // Keep the last known first page available across browser restarts and
   // ordinary provider gaps. Fresh data is still requested in the background.
-  static const Duration _propsCacheMaxAge = Duration(hours: 6);
+  static const Duration _propsCacheMaxAge = Duration(hours: 24);
   static const String appVersion = String.fromEnvironment(
     'APP_VERSION',
     defaultValue: 'development',
@@ -1103,8 +1103,8 @@ class ApiService {
       // refresh retry then consume the board's full loading deadline before
       // this healthy API origin is attempted. The API explicitly permits the
       // branded web origins and Authorization header through CORS.
-      configured,
       'https://api.propsintell.com',
+      configured,
       // Retain the same-origin gateway as a final recovery path for temporary
       // direct-origin or preflight failures.
       if (brandedWebOrigin.isNotEmpty) brandedWebOrigin,

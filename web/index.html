@@ -23,6 +23,12 @@
   <meta name="theme-color" content="#D8B25C">
   <meta name="color-scheme" content="dark">
   <meta name="format-detection" content="telephone=no">
+  <!-- Open the two customer-critical connections while Flutter downloads so
+       session restoration and the first prop request avoid fresh DNS/TLS. -->
+  <link rel="preconnect" href="https://doncoxjilytojmnpukxi.supabase.co" crossorigin>
+  <link rel="preconnect" href="https://api.propsintell.com" crossorigin>
+  <link rel="dns-prefetch" href="//doncoxjilytojmnpukxi.supabase.co">
+  <link rel="dns-prefetch" href="//api.propsintell.com">
   <style>
     html, body {
       width: 100%;

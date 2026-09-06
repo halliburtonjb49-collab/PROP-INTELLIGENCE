@@ -38,7 +38,7 @@ class ScoreboardService {
   Future<http.Response> _getWithFallback(
     String path, {
     Map<String, String>? queryParameters,
-    Duration timeout = const Duration(seconds: 12),
+    Duration timeout = const Duration(seconds: 5),
   }) async {
     Object? lastError;
 
@@ -75,10 +75,9 @@ class ScoreboardService {
       response = await _getWithFallback(
         '/api/scoreboard',
         queryParameters: {'date': formattedDate},
-        // A cold multi-league aggregation can take several seconds even when
-        // the API is healthy. Do not abandon it for the authenticated props
-        // fallback before the server has had a realistic chance to answer.
-        timeout: const Duration(seconds: 12),
+        // Keep the first customer-visible screen bounded. Cached games and
+        // the live refresh stream continue recovery after this attempt.
+        timeout: const Duration(seconds: 5),
       );
     } catch (_) {
       if (cached.isNotEmpty) return cached;

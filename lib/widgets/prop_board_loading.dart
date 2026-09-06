@@ -10,14 +10,14 @@ import '../theme/app_colors.dart';
 ///
 /// Keeps customer navigation bounded while cached data and background retry
 /// cover a temporarily cold or unavailable feed.
-const Duration propFetchTimeout = Duration(seconds: 12);
+const Duration propFetchTimeout = Duration(seconds: 7);
 
 /// Explains how a live-feed wait is progressing instead of showing a silent
 /// skeleton indefinitely.
 String loadProgressMessage(Duration elapsed) {
   if (elapsed.inSeconds < 4) return 'Loading live props\u2026';
-  if (elapsed.inSeconds < 10) return 'Pulling the latest lines\u2026';
-  if (elapsed.inSeconds < 18) {
+  if (elapsed.inSeconds < 6) return 'Pulling the latest lines\u2026';
+  if (elapsed.inSeconds < 7) {
     return 'Still working. The feed is slower than usual.';
   }
   return 'The feed has not answered. This will stop shortly and offer a retry.';
