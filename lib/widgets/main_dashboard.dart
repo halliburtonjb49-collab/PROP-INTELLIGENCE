@@ -1379,7 +1379,7 @@ class _MainDashboardState extends State<MainDashboard> {
     List<PropData> playerProps;
     try {
       final fetched = await _apiService.fetchProps(
-        selectedSportsbook: focused.sportsbook,
+        selectedSportsbook: 'All',
         selectedSport: focused.sport,
         search: focused.player,
         sortBy: 'time',
@@ -1387,27 +1387,14 @@ class _MainDashboardState extends State<MainDashboard> {
       );
       final playerKey = focused.player.trim().toLowerCase();
       playerProps = fetched
-          .where(
-            (prop) =>
-                prop.player.trim().toLowerCase() == playerKey &&
-                propMatchesSelectedSportsbook(
-                  selectedSportsbook: focused.sportsbook,
-                  sportsbook: prop.sportsbook,
-                  sourceProvider: prop.sourceProvider,
-                ),
-          )
+          .where((prop) => prop.player.trim().toLowerCase() == playerKey)
           .toList(growable: false);
     } catch (_) {
       playerProps = _latestProps
           .where(
             (prop) =>
                 prop.player.trim().toLowerCase() ==
-                    focused.player.trim().toLowerCase() &&
-                propMatchesSelectedSportsbook(
-                  selectedSportsbook: focused.sportsbook,
-                  sportsbook: prop.sportsbook,
-                  sourceProvider: prop.sourceProvider,
-                ),
+                focused.player.trim().toLowerCase(),
           )
           .toList(growable: false);
     }
@@ -1484,7 +1471,7 @@ class _MainDashboardState extends State<MainDashboard> {
                                   ),
                                 ),
                                 Text(
-                                  '${focused.sportsbook.toUpperCase()} • ${playerProps.length} available props',
+                                  'ALL BOOKS • ${playerProps.length} available props',
                                   style: const TextStyle(
                                     color: app_colors.AppColors.textMuted,
                                     fontSize: 11,
@@ -1698,15 +1685,27 @@ class _MainDashboardState extends State<MainDashboard> {
                         },
                       ),
                     ),
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.fromLTRB(16, 8, 16, 14),
-                      child: Text(
-                        'Live lines and prices can move. Confirm the current number on the listed prop site before completing a ticket.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: app_colors.AppColors.textMuted,
-                          fontSize: 9,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          OutlinedButton.icon(
+                            key: const ValueKey('close-all-player-props'),
+                            onPressed: () => Navigator.pop(dialogContext),
+                            icon: const Icon(Icons.close_rounded, size: 17),
+                            label: const Text('CLOSE'),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Live lines and prices can move. Confirm the current number on the listed prop site before completing a ticket.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: app_colors.AppColors.textMuted,
+                              fontSize: 9,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

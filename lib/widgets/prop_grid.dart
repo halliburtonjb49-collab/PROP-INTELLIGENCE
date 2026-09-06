@@ -577,11 +577,32 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   ).copyWith(textScaler: const TextScaler.linear(1.16)),
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
-                    child: _buildPortraitPropCard(
-                      prop,
-                      selectedSide,
-                      fixedHeight: false,
-                      researchOverlay: true,
+                    child: Stack(
+                      children: [
+                        _buildPortraitPropCard(
+                          prop,
+                          selectedSide,
+                          fixedHeight: false,
+                          researchOverlay: true,
+                        ),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: IconButton.filled(
+                            key: ValueKey('close-pi-intelligence-${prop.id}'),
+                            tooltip: 'Close PI Intelligence',
+                            onPressed: () => Navigator.of(context).pop(),
+                            style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xFF07111A),
+                              foregroundColor: app_colors.AppColors.gold,
+                              side: const BorderSide(
+                                color: app_colors.AppColors.gold,
+                              ),
+                            ),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -2432,12 +2453,77 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   ],
                 ),
               ),
+              Container(
+                key: ValueKey('site-first-game-time-${prop.id}'),
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 9),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0B1A26),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: app_colors.AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.schedule_rounded,
+                      size: 15,
+                      color: app_colors.AppColors.gold,
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        _propDateTimeLabel(prop),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               Row(
                 children: [
                   sideButton(PickSide.under),
                   const SizedBox(width: 8),
                   sideButton(PickSide.over),
                 ],
+              ),
+              const SizedBox(height: 9),
+              SizedBox(
+                width: double.infinity,
+                height: 40,
+                child: OutlinedButton.icon(
+                  key: ValueKey('site-first-all-player-props-${prop.id}'),
+                  onPressed: widget.onPropFocused == null
+                      ? null
+                      : () => widget.onPropFocused!(prop),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: app_colors.AppColors.gold,
+                    side: const BorderSide(
+                      color: app_colors.AppColors.borderGold,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                  ),
+                  icon: const Icon(Icons.layers_rounded, size: 17),
+                  label: const Text(
+                    'VIEW ALL PLAYER PROPS',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: .25,
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 9),
               SizedBox(
@@ -4707,38 +4793,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   PropBookGroup group, {
                   required bool fixedHeight,
                 }) {
-                  final card = cardFor(
+                  return cardFor(
                     group.representative,
                     fixedHeight: fixedHeight,
-                  );
-                  if (!group.hasAlternatives) return card;
-                  final optionsButton = Align(
-                    alignment: Alignment.centerRight,
-                    child: OutlinedButton.icon(
-                      onPressed: () => _showLineAlternatives(group),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 38),
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      icon: const Icon(Icons.swap_vert_rounded, size: 16),
-                      label: Text(
-                        '${group.variants.length} CURRENT LINE OPTIONS',
-                      ),
-                    ),
-                  );
-                  if (fixedHeight) {
-                    return Column(
-                      children: [
-                        Expanded(child: card),
-                        const SizedBox(height: 6),
-                        optionsButton,
-                      ],
-                    );
-                  }
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [card, const SizedBox(height: 6), optionsButton],
                   );
                 }
 
@@ -4841,13 +4898,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                                     child: SizedBox(
                                       height: widget.siteFirstLayout
                                           // The site-first card contains a
-                                          // 116px identity row, 48px side
-                                          // controls, and a 40px research
-                                          // action. Line alternatives add a
-                                          // separate control below it. The old
-                                          // 226px slot clipped the research
-                                          // label and lower-row side buttons.
-                                          ? 304
+                                          // identity, date/time, selection,
+                                          // every-player-props and research
+                                          // controls all remain inside the
+                                          // card at desktop widths.
+                                          ? 356
                                           : 474,
                                       child: groupCardFor(
                                         rowGroups[index],

@@ -60,7 +60,10 @@ PropData _prop({
   'propGroupBookCount': 2,
 });
 
-Future<List<PropData>> _pumpGrid(WidgetTester tester) async {
+Future<List<PropData>> _pumpGrid(
+  WidgetTester tester, {
+  List<PropData>? focused,
+}) async {
   final picked = <PropData>[];
   final refresh = ValueNotifier<int>(0);
   await tester.pumpWidget(
@@ -70,6 +73,7 @@ Future<List<PropData>> _pumpGrid(WidgetTester tester) async {
           child: PropGrid(
             selections: const [],
             onSelect: (prop, _) => picked.add(prop),
+            onPropFocused: (prop) => focused?.add(prop),
             sportFilter: 'ALL',
             displaySportFilter: 'ALL',
             selectedSite: 'ALL',
@@ -102,7 +106,8 @@ void main() {
     await _pumpGrid(tester);
 
     expect(find.byKey(const ValueKey('card-pp-2')), findsOneWidget);
-    expect(find.text('2 CURRENT LINE OPTIONS'), findsOneWidget);
+    expect(find.text('2 CURRENT LINE OPTIONS'), findsNothing);
+    expect(find.byKey(const ValueKey('prop-every-prop-pp-2')), findsOneWidget);
   });
 
   testWidgets('the better price leads and both lines are shown', (
@@ -114,20 +119,18 @@ void main() {
     // about the number, which is the reason to shop.
     expect(find.textContaining('26.5'), findsWidgets);
     expect(find.text('PRIZEPICKS'), findsOneWidget);
-    await tester.tap(find.text('2 CURRENT LINE OPTIONS'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('25.5'), findsWidgets);
-    expect(find.text('DRAFTKINGS'), findsWidgets);
+    expect(find.byKey(const ValueKey('prop-every-prop-pp-2')), findsOneWidget);
   });
 
   testWidgets('each site-specific card opens its own intelligence', (
     tester,
   ) async {
-    await _pumpGrid(tester);
-    await tester.ensureVisible(find.text('2 CURRENT LINE OPTIONS'));
-    await tester.tap(find.text('2 CURRENT LINE OPTIONS'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Grouped Player'), findsWidgets);
-    expect(find.text('DRAFTKINGS'), findsWidgets);
+    final focused = <PropData>[];
+    await _pumpGrid(tester, focused: focused);
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('prop-every-prop-pp-2')),
+    );
+    await tester.tap(find.byKey(const ValueKey('prop-every-prop-pp-2')));
+    expect(focused.single.player, 'Grouped Player');
   });
 }
