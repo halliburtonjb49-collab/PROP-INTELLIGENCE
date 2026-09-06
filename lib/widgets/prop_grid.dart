@@ -483,6 +483,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     return '$date  •  $time';
   }
 
+  String _propMatchupAndStartLabel(PropData prop) {
+    final matchup = prop.matchup.trim();
+    final start = _propDateTimeLabel(prop);
+    if (matchup.isEmpty) return start;
+    return '$matchup  •  $start';
+  }
+
   double _displayedLineValue(PropData prop) {
     return prop.currentLine != 0 ? prop.currentLine : prop.line;
   }
@@ -879,9 +886,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                prop.gameTime.trim().isEmpty
-                                    ? prop.matchup
-                                    : '${prop.matchup} • ${prop.gameTime}',
+                                _propMatchupAndStartLabel(prop),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -1784,7 +1789,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 3),
           Text(
-            prop.matchup,
+            _propMatchupAndStartLabel(prop),
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -1988,7 +1993,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          prop.matchup,
+                          _propMatchupAndStartLabel(prop),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -2290,7 +2295,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            prop.matchup,
+                            _propMatchupAndStartLabel(prop),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -2725,22 +2730,12 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            prop.matchup,
+                            _propMatchupAndStartLabel(prop),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: app_colors.AppColors.textMuted,
                               fontSize: 7,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            prop.localGameTimeDisplay,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFFB9C3CD),
-                              fontSize: 6.5,
                             ),
                           ),
                         ],
@@ -3395,7 +3390,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        prop.matchup,
+                        _propMatchupAndStartLabel(prop),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,

@@ -136,6 +136,7 @@ void main() {
             'pick': 'OVER',
             'edge': 4,
             'image_path': '',
+            'display_time': '7:30 PM',
             'start_time_utc': DateTime.now()
                 .add(const Duration(hours: 2))
                 .toUtc()
@@ -220,6 +221,7 @@ void main() {
     expect(under, findsOneWidget);
     expect(over, findsOneWidget);
     expect(research, findsOneWidget);
+    expect(find.textContaining('7:30 PM'), findsWidgets);
     expect(
       tester.getRect(under).bottom,
       lessThanOrEqualTo(tester.getRect(card).bottom),
