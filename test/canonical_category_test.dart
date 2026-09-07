@@ -106,6 +106,23 @@ void main() {
       'BATTER STRIKEOUTS',
     );
   });
+
+  test('MLB hitter fantasy score remains its own visible category', () {
+    expect(
+      normalizedApiCategory(
+        _prop(
+          'player_fantasy_points',
+          sport: 'MLB',
+          category: 'fantasy points',
+        ),
+      ),
+      'HITTER FANTASY SCORE',
+    );
+    expect(
+      marketCategoryFor('MLB', 'Hitters Fantasy Score'),
+      'HITTER FANTASY SCORE',
+    );
+  });
   test('no two basketball markets share a canonical category', () {
     const markets = [
       'player_points',

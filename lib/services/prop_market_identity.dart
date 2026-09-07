@@ -75,6 +75,10 @@ String normalizedApiCategory(PropData prop) {
     'MLB' => const {
       'strikeouts': 'PITCHER STRIKEOUTS',
       'outs recorded': 'PITCHER OUTS',
+      'fantasy points': 'HITTER FANTASY SCORE',
+      'fantasy score': 'HITTER FANTASY SCORE',
+      'hitter fantasy score': 'HITTER FANTASY SCORE',
+      'hitters fantasy score': 'HITTER FANTASY SCORE',
     },
     'TENNIS' => const {'games won': 'TOTAL GAMES WON'},
     'PGA' => const {
@@ -247,6 +251,9 @@ String marketCategoryFor(String sport, String rawMarket) {
     }
   }
   if (sport == 'MLB') {
+    if (raw.contains('FANTASY')) {
+      return 'HITTER FANTASY SCORE';
+    }
     if (_matchesAny(raw, [
       'PITCHER STRIKEOUTS',
       'PITCHING STRIKEOUTS',

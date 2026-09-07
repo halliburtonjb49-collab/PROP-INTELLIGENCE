@@ -37,6 +37,12 @@ def test_a_real_market_is_mapped_rather_than_dropped():
     assert key("goals", "aussierules_afl") == "player_goals_scored_over"
 
 
+def test_mlb_hitter_fantasy_score_is_not_dropped():
+    assert key("FantasyScore", "baseball_mlb") == "player_fantasy_points"
+    assert key("Hitters Fantasy Score", "baseball_mlb") == "player_fantasy_points"
+    assert "player_fantasy_points" in SPORT_MARKETS["baseball_mlb"]
+
+
 def test_every_soccer_league_shares_one_mapping():
     for league in (
         "soccer_epl",

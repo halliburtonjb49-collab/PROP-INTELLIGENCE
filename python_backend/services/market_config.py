@@ -48,6 +48,7 @@ SPORT_MARKETS = {
         "batter_walks",
         "batter_strikeouts",
         "batter_stolen_bases",
+        "player_fantasy_points",
         "pitcher_hits_allowed",
         "pitcher_earned_runs",
         "pitcher_outs",

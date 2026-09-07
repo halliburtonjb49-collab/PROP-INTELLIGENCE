@@ -61,6 +61,15 @@ _SPORT_STAT_MARKETS = {
         "tackles": "player_tackles",
         "assists": "player_assists",
     },
+    "baseball_mlb": {
+        # SportsGameOdds currently identifies the PrizePicks hitter market
+        # as FantasyScore. Keep it baseball-scoped so a similarly named stat
+        # cannot leak into a sport that has no configured fantasy market.
+        "fantasyscore": "player_fantasy_points",
+        "hitterfantasyscore": "player_fantasy_points",
+        "hittersfantasyscore": "player_fantasy_points",
+        "batterfantasyscore": "player_fantasy_points",
+    },
     "aussierules_afl": {
         "goals": "player_goals_scored_over",
         "disposals": "player_disposals_over",

@@ -51,6 +51,13 @@ void main() {
     }
   });
 
+  test('MLB fantasy market is labeled for hitters', () {
+    expect(
+      marketCategoryFor('MLB', 'player_fantasy_points'),
+      'HITTER FANTASY SCORE',
+    );
+  });
+
   test('the plain markets still resolve to themselves', () {
     expect(marketCategoryFor('NBA', 'player_points'), 'POINTS');
     expect(marketCategoryFor('WNBA', 'player_rebounds'), 'REBOUNDS');
