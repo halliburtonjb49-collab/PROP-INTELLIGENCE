@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 
 import 'api_service.dart';
@@ -15,6 +14,15 @@ class EngagementTracker {
   final Map<String, DateTime> _lastProductEvent = {};
   DateTime? _appOpenedAt;
   final Set<String> _launchMilestones = <String>{};
+
+  String get _deviceClass {
+    if (!kIsWeb) return defaultTargetPlatform.name;
+    final views = PlatformDispatcher.instance.views;
+    if (views.isEmpty) return 'web_unknown';
+    final view = views.first;
+    final width = view.physicalSize.width / view.devicePixelRatio;
+    return width <= 700 ? 'mobile_web' : 'desktop_web';
+  }
 
   /// Starts the launch clock before authentication and storage restoration.
   /// Calling this more than once during the same process is intentionally
@@ -54,7 +62,7 @@ class EngagementTracker {
       if (durationMs != null) 'duration_ms': durationMs.clamp(0, 300000),
       'metadata': <String, String>{
         'release': ApiService.appVersion,
-        'device': kIsWeb ? 'web' : defaultTargetPlatform.name,
+        'device': _deviceClass,
         if (endpoint.isNotEmpty) 'endpoint': safe(endpoint),
         if (category.isNotEmpty) 'category': safe(category),
         if (provider.isNotEmpty) 'provider': safe(provider),

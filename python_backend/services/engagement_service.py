@@ -222,6 +222,14 @@ def product_observability(hours: int = 168) -> dict[str, object]:
                  and created_at >= now()-(%s * interval '1 hour')
                group by 1,2""", (window_hours,))
         vital_rows = cursor.fetchall()
+        cursor.execute("""select action,coalesce(metadata->>'device','unknown'),
+                   count(*),percentile_cont(.95) within group(order by duration_ms)
+               from prop_engagement_events
+               where action in ('AUTH_READY','PROP_CACHE_PAINT','PROP_LIVE_APPLY')
+                 and duration_ms is not null
+                 and created_at >= now()-(%s * interval '1 hour')
+               group by 1,2 order by 1,2""", (window_hours,))
+        launch_device_rows = cursor.fetchall()
 
     events = {str(action): int(count) for action, count, _ in event_rows}
     unique_users = {
@@ -290,5 +298,10 @@ def product_observability(hours: int = 168) -> dict[str, object]:
         "webVitalsP75": {
             f"{metric}:{device}": int(value) if value is not None else None
             for metric, device, value in vital_rows
+        },
+        "launchTimingsByDevice": {
+            f"{action}:{device}": {"samples": int(count), "p95Ms": int(p95)}
+            for action, device, count, p95 in launch_device_rows
+            if p95 is not None
         },
     }

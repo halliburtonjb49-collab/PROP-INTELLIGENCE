@@ -223,6 +223,7 @@ from services.result_reconciliation_service import reconcile_user_slips
 from services.prediction_automation_service import prediction_calibration_report
 from services.runtime_readiness_service import runtime_readiness
 from services.model_learning_readiness_service import model_learning_readiness
+from services.production_health_alert_service import alert_model_learning, alert_prop_health
 from services.sync_service import run_global_sync_pipeline
 from services.prop_recommendation_service import (
 	build_prop_recommendation,
@@ -1666,6 +1667,8 @@ async def _maintain_prop_freshness() -> None:
 		await asyncio.sleep(check_seconds)
 		try:
 			props = await asyncio.to_thread(get_props)
+			await asyncio.to_thread(alert_prop_health, props)
+			await asyncio.to_thread(alert_model_learning)
 			# Runs whether or not a refresh is due, so a snapshot that has
 			# fallen behind is repaired without waiting for a restart.
 			await asyncio.to_thread(_reconcile_catalog_snapshot)
