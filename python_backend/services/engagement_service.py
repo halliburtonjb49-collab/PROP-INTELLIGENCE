@@ -291,7 +291,7 @@ def product_observability(hours: int = 168) -> dict[str, object]:
             "propBoardLoads": {"target": .99, "actual": round(prop_rate, 4) if prop_rate is not None else None},
             "authReadyMs": {"target": 1000, "actual": operational.get("AUTH_READY", {}).get("p95Ms")},
             "cachedContentMs": {"target": 2000, "actual": cached_p95},
-            "liveResultsMs": {"target": 5000, "actual": live_p95},
+            "liveResultsMs": {"target": 4000, "actual": live_p95},
         },
         "mediaFailuresByProvider": media,
         "releases": {str(release): int(count) for release, count in release_rows},

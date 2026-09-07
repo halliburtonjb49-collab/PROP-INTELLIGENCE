@@ -1640,6 +1640,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     final errors = telemetry['errors'] as Map? ?? const {};
     final errorFree = (reliability['errorFreeUserRate'] as num?)?.toDouble();
     final slos = telemetry['slos'] as Map? ?? const {};
+    final deviceTimings =
+        telemetry['launchTimingsByDevice'] as Map? ?? const {};
     String percent(Object? value) =>
         value is num ? '${(value * 100).toStringAsFixed(2)}%' : '--';
     bool targetMet(String key, {bool lowerIsBetter = false}) {
@@ -1654,6 +1656,27 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       ..sort(
         (a, b) => ((b.value as num?) ?? 0).compareTo((a.value as num?) ?? 0),
       );
+    final deviceRows = deviceTimings.entries.toList()
+      ..sort((a, b) => a.key.toString().compareTo(b.key.toString()));
+    const launchLabels = {
+      'AUTH_READY': 'Authentication',
+      'PROP_CACHE_PAINT': 'Cached props',
+      'PROP_LIVE_APPLY': 'Fresh props',
+    };
+    const launchTargets = {
+      'AUTH_READY': 1000,
+      'PROP_CACHE_PAINT': 2000,
+      'PROP_LIVE_APPLY': 4000,
+    };
+    String deviceLabel(String value) => value
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map(
+          (part) => part.isEmpty
+              ? part
+              : '${part[0].toUpperCase()}${part.substring(1)}',
+        )
+        .join(' ');
 
     Widget funnelCard(String label, Object? value) {
       final stages = (value as List? ?? const []).whereType<Map>().toList(
@@ -1743,10 +1766,46 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
                     ? '--'
                     : '${reliability['liveResultsP95Ms']} ms',
                 targetMet('liveResultsMs', lowerIsBetter: true),
-                detail: 'Target under 5 seconds',
+                detail: 'Target under 4 seconds',
               ),
             ],
           ),
+          if (deviceRows.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Text(
+              'LOGIN-TO-FIRST-PROP BY DEVICE',
+              style: TextStyle(
+                color: AppColors.gold,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: deviceRows
+                  .map((entry) {
+                    final parts = entry.key.toString().split(':');
+                    final metric = parts.first;
+                    final device = parts.length > 1
+                        ? parts.sublist(1).join(':')
+                        : 'unknown';
+                    final row = entry.value as Map? ?? const {};
+                    final p95 = (row['p95Ms'] as num?)?.toInt();
+                    final target = launchTargets[metric];
+                    return _status(
+                      '${launchLabels[metric] ?? metric} · ${deviceLabel(device)}',
+                      p95 == null ? '--' : '$p95 ms',
+                      p95 == null || target == null || p95 <= target,
+                      detail:
+                          '${row['samples'] ?? 0} samples · target under ${target ?? 0} ms',
+                    );
+                  })
+                  .toList(growable: false),
+            ),
+          ],
           const SizedBox(height: 10),
           funnelCard('RESEARCH', funnels['research']),
           funnelCard('SUBSCRIPTION', funnels['subscription']),

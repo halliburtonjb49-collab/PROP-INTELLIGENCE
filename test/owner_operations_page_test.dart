@@ -243,6 +243,11 @@ class _FakeOperationsApi extends ApiService {
           'slowLoadUsers': 2,
           'checkoutFailures': 0,
         },
+        'launchTimingsByDevice': {
+          'AUTH_READY:desktop_web': {'samples': 12, 'p95Ms': 730},
+          'PROP_CACHE_PAINT:mobile_web': {'samples': 8, 'p95Ms': 1450},
+          'PROP_LIVE_APPLY:mobile_web': {'samples': 8, 'p95Ms': 3200},
+        },
         'funnels': {
           'research': [
             {
@@ -602,6 +607,8 @@ void main() {
     ).readAsStringSync();
     expect(source, contains('Authentication ready p95'));
     expect(source, contains("targetMet('authReadyMs', lowerIsBetter: true)"));
+    expect(source, contains('LOGIN-TO-FIRST-PROP BY DEVICE'));
+    expect(source, contains('Target under 4 seconds'));
   });
   test(
     'owner research retains a real board pick when action gating is off',
