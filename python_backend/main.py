@@ -578,6 +578,7 @@ def player_image(filename: str) -> FileResponse:
 
 _PLAYER_IMAGE_PROXY_HOSTS = {
 	"a.espncdn.com",
+	"cagliaricalcio.com",
 	"img.mlbstatic.com",
 	"static.cfl.ca",
 }

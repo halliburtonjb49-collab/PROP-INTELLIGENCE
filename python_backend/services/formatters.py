@@ -20,6 +20,14 @@ _ESPN_COVERED_SPORTS = {
 # Keep this list narrow and keyed by normalized sport/name so it never
 # overrides a newer URL supplied by the refreshed league cache.
 _STABLE_ESPN_HEADSHOTS = {
+    ("SOCCER", "adam obert"): (
+        "https://cagliaricalcio.com/wp-content/uploads/2023/12/"
+        "OBERT-HOME-2_edited-600x748.webp"
+    ),
+    ("SOCCER", "alieu fadera"): (
+        "https://cagliaricalcio.com/wp-content/uploads/2026/08/"
+        "Fadera-43-600x450.webp"
+    ),
     ("WNBA", "alyssa thomas"): (
         "https://a.espncdn.com/i/headshots/wnba/players/full/2529140.png"
     ),

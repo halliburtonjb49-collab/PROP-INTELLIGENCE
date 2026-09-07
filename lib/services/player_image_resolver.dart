@@ -138,4 +138,8 @@ String _versionedSupportedRemoteImage(
       .toString();
 }
 
-const Set<String> _proxiedImageHosts = {'a.espncdn.com', 'img.mlbstatic.com'};
+const Set<String> _proxiedImageHosts = {
+  'a.espncdn.com',
+  'cagliaricalcio.com',
+  'img.mlbstatic.com',
+};

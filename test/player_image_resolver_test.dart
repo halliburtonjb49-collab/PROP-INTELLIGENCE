@@ -75,6 +75,24 @@ void main() {
     expect(source.queryParameters['pi_photo'], isNotEmpty);
   });
 
+  test('routes official Cagliari player photos through the PI proxy', () {
+    const url =
+        'https://cagliaricalcio.com/wp-content/uploads/2026/08/Fadera-43-600x450.webp';
+
+    final resolved = Uri.parse(
+      resolvePlayerImagePath(
+        url,
+        apiBaseUrl: 'https://api.propsintell.com',
+      ),
+    );
+
+    expect(resolved.origin, 'https://api.propsintell.com');
+    expect(resolved.path, '/player-image-proxy');
+    final source = Uri.parse(resolved.queryParameters['url']!);
+    expect(source.host, 'cagliaricalcio.com');
+    expect(source.queryParameters['pi_photo'], isNotEmpty);
+  });
+
   test('does not invent a retry for unsupported image hosts', () {
     expect(
       resolvePlayerImageFallbackPath('https://cdn.example.com/player.png'),

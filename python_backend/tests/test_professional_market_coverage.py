@@ -109,3 +109,17 @@ def test_replacement_sports_resolve_through_espn_headshot_provider(monkeypatch):
         ("Test Player", "NCAAB"),
         ("Test Player", "CFL"),
     ]
+
+
+def test_current_serie_a_players_use_stable_official_headshots(monkeypatch):
+    monkeypatch.setattr(formatters, "registered_media_url", lambda **_kwargs: "")
+    monkeypatch.setattr(formatters, "espn_headshot_url", lambda *_args: None)
+
+    assert formatters.resolve_player_image("Adam Obert", "SOCCER") == (
+        "https://cagliaricalcio.com/wp-content/uploads/2023/12/"
+        "OBERT-HOME-2_edited-600x748.webp"
+    )
+    assert formatters.resolve_player_image("Alieu Fadera", "SOCCER") == (
+        "https://cagliaricalcio.com/wp-content/uploads/2026/08/"
+        "Fadera-43-600x450.webp"
+    )

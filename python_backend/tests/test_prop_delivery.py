@@ -128,6 +128,24 @@ def test_player_image_proxy_rejects_unapproved_hosts() -> None:
     assert response.status_code == 400
 
 
+def test_player_image_proxy_accepts_official_cagliari_host(monkeypatch) -> None:
+    class Upstream:
+        status_code = 200
+        is_redirect = False
+        content = b"RIFFplayer-photo"
+        headers = {"content-type": "image/webp"}
+
+    monkeypatch.setattr(main.requests, "get", lambda *_args, **_kwargs: Upstream())
+    response = TestClient(main.app).get(
+        "/player-image-proxy",
+        params={
+            "url": "https://cagliaricalcio.com/wp-content/uploads/player.webp"
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/webp"
+
+
 def test_player_image_proxy_retries_and_returns_cacheable_image(monkeypatch) -> None:
     class Upstream:
         status_code = 200
