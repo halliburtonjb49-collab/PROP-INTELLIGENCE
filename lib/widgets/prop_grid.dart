@@ -55,6 +55,43 @@ double propGridSpacing(double availableWidth) {
 bool useTabletPropTable(double availableWidth) =>
     ResponsiveBreakpoints.isTablet(availableWidth);
 
+enum PropLaunchCandidateSource { cache, live }
+
+typedef PropLaunchCandidate = ({
+  PropLaunchCandidateSource source,
+  List<PropData> props,
+  Object? error,
+  StackTrace? stack,
+});
+
+/// Returns whichever startup source finishes first without hiding live errors.
+///
+/// The caller still validates cached rows before painting them and retains the
+/// slower future for stale-while-revalidate recovery.
+@visibleForTesting
+Future<PropLaunchCandidate> firstPropLaunchCandidate({
+  required Future<List<PropData>> cached,
+  required Future<({List<PropData> props, Object? error, StackTrace? stack})>
+  live,
+}) => Future.any<PropLaunchCandidate>([
+  cached.then(
+    (props) => (
+      source: PropLaunchCandidateSource.cache,
+      props: props,
+      error: null,
+      stack: null,
+    ),
+  ),
+  live.then(
+    (outcome) => (
+      source: PropLaunchCandidateSource.live,
+      props: outcome.props,
+      error: outcome.error,
+      stack: outcome.stack,
+    ),
+  ),
+]);
+
 class PropGrid extends StatefulWidget {
   final List<SlipSelection> selections;
   final void Function(PropData prop, PickSide side) onSelect;
@@ -3795,12 +3832,17 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
               : _apiService.protectedCacheScope,
         )
         .catchError((_) => <PropData>[]);
-    final cached = await cachedFuture.timeout(
-      // Give a warm snapshot a brief chance to paint, but never hold a fast
-      // live response behind IndexedDB initialization on login.
-      const Duration(milliseconds: 450),
-      onTimeout: () => <PropData>[],
+    // Race durable storage against the already-running live request. The old
+    // fixed cache wait added up to 450 ms even when the API had already
+    // answered. A valid cache still paints first when it is genuinely faster;
+    // otherwise the live page can reach the board immediately.
+    final first = await firstPropLaunchCandidate(
+      cached: cachedFuture,
+      live: liveOutcome,
     );
+    final cached = first.source == PropLaunchCandidateSource.cache
+        ? first.props
+        : const <PropData>[];
     if (!mounted || requestKey != _queryKey) return const [];
     if (shouldRenderCachedPropsOnLaunch(
       cached,
@@ -3828,7 +3870,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       );
       return activeCached;
     }
-    final outcome = await liveOutcome;
+    final outcome = first.source == PropLaunchCandidateSource.live
+        ? (props: first.props, error: first.error, stack: first.stack)
+        : await liveOutcome;
     if (outcome.error != null) {
       // JSON restoration can take longer than 350 ms on older phones. The
       // short launch race above keeps startup fast, but a failed live request

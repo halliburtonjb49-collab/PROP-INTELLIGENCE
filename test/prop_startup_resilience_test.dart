@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/main.dart';
 import 'package:prop_intelligence/models/prop_data.dart';
 import 'package:prop_intelligence/services/api_service.dart';
+import 'package:prop_intelligence/widgets/prop_grid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Map<String, dynamic> _prop(String id, String sport) => {
@@ -18,6 +20,33 @@ Map<String, dynamic> _prop(String id, String sport) => {
 };
 
 void main() {
+  test('live props do not wait behind slower device-cache startup', () async {
+    final cache = Completer<List<PropData>>();
+    final liveProps = [PropData.fromJson(_prop('live-first', 'NBA'))];
+
+    final first = await firstPropLaunchCandidate(
+      cached: cache.future,
+      live: Future.value((props: liveProps, error: null, stack: null)),
+    );
+
+    expect(first.source, PropLaunchCandidateSource.live);
+    expect(first.props.map((prop) => prop.id), ['live-first']);
+  });
+
+  test('device cache still paints first when it is ready first', () async {
+    final live =
+        Completer<({List<PropData> props, Object? error, StackTrace? stack})>();
+    final cachedProps = [PropData.fromJson(_prop('cache-first', 'WNBA'))];
+
+    final first = await firstPropLaunchCandidate(
+      cached: Future.value(cachedProps),
+      live: live.future,
+    );
+
+    expect(first.source, PropLaunchCandidateSource.cache);
+    expect(first.props.map((prop) => prop.id), ['cache-first']);
+  });
+
   test(
     'active props are ordered by game time and expired props are removed',
     () {
