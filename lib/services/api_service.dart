@@ -1111,19 +1111,29 @@ class ApiService {
 
   Future<void> recordEngagement(List<Map<String, dynamic>> events) async {
     if (events.isEmpty) return;
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/intelligence/engagement'),
-      headers: await _authenticatedHeaders(json: true),
-      body: jsonEncode({'events': events}),
-    );
-    if (response.statusCode != 200) {
-      throw Exception('Unable to record engagement: ${response.statusCode}');
+    final headers = await _authenticatedHeaders(json: true);
+    final body = jsonEncode({'events': events});
+    Object? lastFailure;
+    for (final candidate in _candidateBaseUrls) {
+      try {
+        final response = await http.post(
+          Uri.parse('$candidate/api/intelligence/engagement'),
+          headers: headers,
+          body: body,
+        );
+        if (response.statusCode != 200) {
+          lastFailure = 'HTTP ${response.statusCode}';
+          continue;
+        }
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final recorded = (decoded['recorded'] as num?)?.toInt() ?? 0;
+        if (recorded == events.length) return;
+        lastFailure = 'batch not persisted';
+      } catch (error) {
+        lastFailure = error;
+      }
     }
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-    final recorded = (decoded['recorded'] as num?)?.toInt() ?? 0;
-    if (recorded != events.length) {
-      throw Exception('Unable to record engagement: batch not persisted');
-    }
+    throw Exception('Unable to record engagement: $lastFailure');
   }
 
   Future<Map<String, dynamic>> fetchPropSentiment(String propId) async {

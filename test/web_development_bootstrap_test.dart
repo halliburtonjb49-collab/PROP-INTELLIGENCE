@@ -41,6 +41,17 @@ void main() {
     expect(service, isNot(contains('917b088b-4a9f-472d-8b52-3ab0d06ab98e')));
   });
 
+  test('engagement telemetry tries the direct API before gateway fallback', () {
+    final api = File('lib/services/api_service.dart').readAsStringSync();
+    final methodStart = api.indexOf('Future<void> recordEngagement');
+    final methodEnd = api.indexOf('Future<Map<String, dynamic>> fetchPropSentiment');
+    final method = api.substring(methodStart, methodEnd);
+
+    expect(method, contains('for (final candidate in _candidateBaseUrls)'));
+    expect(method, contains("Uri.parse('\$candidate/api/intelligence/engagement')"));
+    expect(method, isNot(contains("Uri.parse('\$baseUrl/api/intelligence/engagement')")));
+  });
+
   test('production keeps exactly one versioned workspace service worker', () {
     final buildScript = File('vercel_build.sh').readAsStringSync();
     final bootstrap = File('web/flutter_bootstrap.js').readAsStringSync();
