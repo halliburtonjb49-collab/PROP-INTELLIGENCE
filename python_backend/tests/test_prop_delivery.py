@@ -39,6 +39,7 @@ class FakeProp:
     isPositiveEv: bool = False
     startTimeUtc: str = "2099-07-20T20:00:00Z"
     lastUpdatedUtc: str = "2099-07-20T19:55:00Z"
+    imagePath: str = ""
     dataStale: bool = False
 
     def model_dump(self) -> dict[str, object]:
@@ -67,6 +68,26 @@ def test_player_images_are_served_with_browser_cache_headers() -> None:
 def test_missing_player_image_returns_not_found() -> None:
     response = TestClient(main.app).get("/player-images/does_not_exist.png")
     assert response.status_code == 404
+
+
+def test_customer_journey_readiness_checks_capabilities_without_exposing_props(
+    monkeypatch,
+) -> None:
+    row = FakeProp("journey-1", "Sample Player", "MLB", "PRIZEPICKS", "HITS")
+    row.imagePath = "https://images.example.com/player.png"
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [row])
+
+    response = TestClient(main.app).get(
+        "/api/operations/customer-journey-readiness"
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert all(payload["checks"].values())
+    assert payload["dataProtected"] is True
+    assert "props" not in payload
+    assert response.headers["cache-control"] == "private, no-store, max-age=0"
 
 
 def test_prop_feed_repairs_missing_image_from_current_headshot_cache(

@@ -179,6 +179,38 @@ def read_fresh_prop_readiness() -> tuple[object, bytes, float, dict, float]:
         time.sleep(DEPLOYMENT_POLL_SECONDS)
 
 
+def verify_customer_journey() -> dict[str, object]:
+    response, body, journey_ms = request(
+        f"{API_URL}/api/operations/customer-journey-readiness"
+    )
+    payload = json.loads(body)
+    checks = payload.get("checks")
+    if (
+        response.status != 200
+        or payload.get("status") != "ok"
+        or not isinstance(checks, dict)
+        or not all(checks.values())
+    ):
+        raise RuntimeError(f"Customer journey readiness failed: {checks}")
+
+    scoreboard_response, scoreboard_body, scoreboard_ms = request(
+        f"{API_URL}/api/scoreboard"
+    )
+    scoreboard_payload = json.loads(scoreboard_body)
+    if scoreboard_response.status != 200 or not isinstance(
+        scoreboard_payload.get("games"), list
+    ):
+        raise RuntimeError("Customer scoreboard response is unavailable or malformed")
+
+    return {
+        "journeyMs": round(journey_ms),
+        "scoreboardMs": round(scoreboard_ms),
+        "checks": checks,
+        "samplePlayer": payload.get("samplePlayer"),
+        "sampleCategory": payload.get("sampleCategory"),
+    }
+
+
 def main() -> int:
     wait_for_expected_version()
     health, health_body, health_ms = request(f"{API_URL}/health")
@@ -274,6 +306,8 @@ def main() -> int:
         if marker not in lowered:
             raise RuntimeError(f"Production bundle is missing feature marker: {marker.decode()}")
 
+    customer_journey = verify_customer_journey()
+
     print(
         json.dumps(
             {
@@ -287,6 +321,7 @@ def main() -> int:
                 "feedAgeMinutes": round(feed_age_minutes),
                 "version": payload.get("version", "unknown"),
                 "dataProtected": True,
+                "customerJourney": customer_journey,
             }
         )
     )

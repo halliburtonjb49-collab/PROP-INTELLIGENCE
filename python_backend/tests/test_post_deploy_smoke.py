@@ -24,6 +24,41 @@ class _Response:
         return self._body
 
 
+def test_customer_journey_checks_capabilities_and_scoreboard(monkeypatch) -> None:
+    calls: list[str] = []
+
+    def fake_request(url):
+        calls.append(url)
+        if url.endswith("/api/scoreboard"):
+            body = json.dumps({"games": []}).encode()
+        else:
+            body = json.dumps(
+                {
+                    "status": "ok",
+                    "checks": {
+                        "inventory": True,
+                        "playerSearch": True,
+                        "categoryFilter": True,
+                        "gameTimes": True,
+                        "playerPhotos": True,
+                    },
+                    "samplePlayer": "Sample Player",
+                    "sampleCategory": "POINTS",
+                }
+            ).encode()
+        return _Response(body), body, 125.0
+
+    monkeypatch.setattr(post_deploy_smoke, "request", fake_request)
+
+    result = post_deploy_smoke.verify_customer_journey()
+
+    assert result["checks"]["playerSearch"] is True
+    assert result["samplePlayer"] == "Sample Player"
+    assert result["sampleCategory"] == "POINTS"
+    assert calls[0].endswith("/api/operations/customer-journey-readiness")
+    assert calls[-1].endswith("/api/scoreboard")
+
+
 def _bad_gateway(url: str) -> urllib.error.HTTPError:
     return urllib.error.HTTPError(url, 502, "Bad Gateway", {}, None)
 

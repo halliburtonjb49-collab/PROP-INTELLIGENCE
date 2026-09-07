@@ -3515,6 +3515,62 @@ def props_readiness(response: Response) -> dict[str, object]:
 	}
 
 
+@app.get("/api/operations/customer-journey-readiness")
+def customer_journey_readiness(response: Response) -> dict[str, object]:
+	"""Validate customer-facing catalog capabilities without exposing rows."""
+	started_at = time.perf_counter()
+	prop_list = _cached_prop_catalog()
+	usable = [
+		prop for prop in prop_list
+		if str(getattr(prop, "player", "") or "").strip()
+		and str(
+			getattr(prop, "category", "")
+			or getattr(prop, "market", "")
+			or ""
+		).strip()
+	]
+	sample = usable[0] if usable else None
+	player = str(getattr(sample, "player", "") or "").strip()
+	category = str(
+		getattr(sample, "category", "")
+		or getattr(sample, "market", "")
+		or ""
+	).strip()
+	checks = {
+		"inventory": bool(usable),
+		"playerSearch": bool(player) and any(
+			_matches_prop_search(player, prop) for prop in prop_list
+		),
+		"categoryFilter": bool(category) and any(
+			str(getattr(prop, "category", "") or "").strip().lower()
+			== category.lower()
+			for prop in prop_list
+		),
+		"gameTimes": any(
+			str(
+				getattr(prop, "startTimeUtc", "")
+				or getattr(prop, "gameStartTime", "")
+				or ""
+			).strip()
+			for prop in prop_list
+		),
+		"playerPhotos": any(
+			str(getattr(prop, "imagePath", "") or "").strip()
+			for prop in prop_list
+		),
+	}
+	response.headers["Cache-Control"] = "private, no-store, max-age=0"
+	return {
+		"status": "ok" if all(checks.values()) else "degraded",
+		"checks": checks,
+		"samplePlayer": player or None,
+		"sampleCategory": category or None,
+		"responseMs": round((time.perf_counter() - started_at) * 1000),
+		"dataProtected": True,
+		"version": APP_VERSION,
+	}
+
+
 def _provider_category_coverage(
 	props: list[PropResponse],
 	*,
