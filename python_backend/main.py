@@ -4006,6 +4006,9 @@ def props(
 				if verdict_filter == "ACTIONABLE":
 					if not actionable:
 						return False
+				elif verdict_filter == "WAIT":
+					if decision not in {"WAIT", "LEAN", "SHOP"}:
+						return False
 				elif decision != verdict_filter:
 					return False
 			return True
@@ -4029,6 +4032,8 @@ def props(
 			prop_verdict = prop.verdict if isinstance(prop.verdict, dict) else {}
 			if verdict_filter == "ACTIONABLE":
 				return bool(prop_verdict.get("actionable"))
+			if verdict_filter == "WAIT":
+				return str(prop_verdict.get("decision") or "").upper() in {"WAIT", "LEAN", "SHOP"}
 			return str(prop_verdict.get("decision") or "").upper() == verdict_filter
 
 		# Build the expensive date/staleness/search/entitlement base once. The

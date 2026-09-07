@@ -158,6 +158,12 @@ List<PropData> filterAndSortBoardProps(
             verdict == 'ALL' ||
             (verdict == 'ACTIONABLE'
                 ? item.prop.verdict.actionable
+                : verdict == 'WAIT'
+                ? const {
+                    'WAIT',
+                    'LEAN',
+                    'SHOP',
+                  }.contains(item.prop.verdict.decision)
                 : item.prop.verdict.decision == verdict);
         // A prop can be legitimate live inventory while PI is still waiting
         // for a lineup, projection, or another verification input. Keep it on

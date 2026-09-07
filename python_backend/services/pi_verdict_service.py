@@ -110,6 +110,11 @@ SHOP_LINE_GAIN = 0.5
 # how a confident model loses money slowly.
 MINIMUM_EXPECTED_VALUE_PERCENT = 1.0
 
+# Top PI Picks is a quality shortlist, not a promise to fill five slots. A
+# positive edge with less confidence remains useful research, but it belongs
+# in WAIT / MONITOR until the evidence is strong enough to publish as a pick.
+TOP_PICK_CONFIDENCE_FLOOR = 65
+
 _UNSETTLED_LINEUPS = frozenset({"", "unknown", "unconfirmed", "projected", "expected"})
 _DOUBTFUL_INJURIES = frozenset({"questionable", "doubtful", "day-to-day", "probable"})
 
@@ -131,7 +136,7 @@ class Verdict:
 
     @property
     def is_actionable(self) -> bool:
-        return self.decision in {PLAY_NOW, SHOP, LEAN}
+        return self.decision == PLAY_NOW
 
 
 def _float(value: object) -> float | None:
@@ -261,6 +266,30 @@ def compute_verdict(prop: object) -> Verdict:
             confidence=confidence,
             reasons=("no_side",),
         )
+    projection = _float(getattr(prop, "projection", None))
+    line = _float(getattr(prop, "line", None))
+    projection_conflicts = (
+        projection is not None
+        and line is not None
+        and (
+            (side == "OVER" and projection <= line)
+            or (side == "UNDER" and projection >= line)
+        )
+    )
+    if projection_conflicts:
+        return Verdict(
+            decision=PASS,
+            side=side,
+            headline="NOT QUALIFIED",
+            reason=(
+                f"The probability signal points {side.title()}, but the "
+                f"projection ({projection:g}) does not clear the posted line "
+                f"({line:g}) in that direction. PI will not publish a "
+                "conflicting signal as a Top Pick."
+            ),
+            confidence=confidence,
+            reasons=("projection_direction_conflict",),
+        )
     if probability < lean_bar and probability >= LEAN_PROBABILITY:
         return Verdict(
             decision=LEAN,
@@ -314,6 +343,23 @@ def compute_verdict(prop: object) -> Verdict:
             ),
             confidence=confidence,
             reasons=("no_edge_over_market",),
+        )
+
+    if confidence < TOP_PICK_CONFIDENCE_FLOOR:
+        return Verdict(
+            decision=WAIT,
+            side=side,
+            headline=f"WAIT ON {side}",
+            reason=(
+                f"The direction has {probability * 100:.0f}% probability support, "
+                f"but PI confidence is {confidence}% "
+                f"and Top Picks requires at least {TOP_PICK_CONFIDENCE_FLOOR}%. "
+                "Keep it in Wait / Monitor instead of forcing a pick."
+            ),
+            confidence=confidence,
+            reasons=("below_top_pick_confidence",),
+            maximum_playable_line=_maximum_playable_line(prop, side),
+            recheck="When confidence or supporting evidence improves",
         )
 
     maximum_line = _maximum_playable_line(prop, side)

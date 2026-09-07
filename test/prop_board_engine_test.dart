@@ -69,45 +69,48 @@ void main() {
     expect(normalizePropSport('americanfootball_cfl'), 'CFL');
   });
 
-  test('filters by site, sport and search while retaining research inventory', () {
-    final matching = _prop(
-      'matching',
-      player: 'Alyssa Thomas',
-      sport: 'basketball_wnba',
-      sportsbook: 'PrizePicks',
-      market: 'Other',
-      marketName: 'Rebounds',
-    );
-    final wrongSite = _prop(
-      'wrong-site',
-      player: 'Alyssa Thomas',
-      sport: 'WNBA',
-      sportsbook: 'Underdog',
-      market: 'Rebounds',
-    );
-    final unsafe = _prop(
-      'unsafe',
-      player: 'Alyssa Thomas',
-      sport: 'WNBA',
-      sportsbook: 'PrizePicks',
-      market: 'Rebounds',
-      selectable: false,
-    );
+  test(
+    'filters by site, sport and search while retaining research inventory',
+    () {
+      final matching = _prop(
+        'matching',
+        player: 'Alyssa Thomas',
+        sport: 'basketball_wnba',
+        sportsbook: 'PrizePicks',
+        market: 'Other',
+        marketName: 'Rebounds',
+      );
+      final wrongSite = _prop(
+        'wrong-site',
+        player: 'Alyssa Thomas',
+        sport: 'WNBA',
+        sportsbook: 'Underdog',
+        market: 'Rebounds',
+      );
+      final unsafe = _prop(
+        'unsafe',
+        player: 'Alyssa Thomas',
+        sport: 'WNBA',
+        sportsbook: 'PrizePicks',
+        market: 'Rebounds',
+        selectable: false,
+      );
 
-    final result = _query(
-      [wrongSite, unsafe, matching],
-      sport: 'WNBA',
-      site: 'Prize Picks',
-      search: 'rebounds',
-    );
+      final result = _query(
+        [wrongSite, unsafe, matching],
+        sport: 'WNBA',
+        site: 'Prize Picks',
+        search: 'rebounds',
+      );
 
-    expect(result.map((prop) => prop.id), ['matching', 'unsafe']);
-    expect(result.last.isSelectable, isFalse);
-  });
+      expect(result.map((prop) => prop.id), ['matching', 'unsafe']);
+      expect(result.last.isSelectable, isFalse);
+    },
+  );
 
   test('actionable filter uses the backend verdict contract', () {
     final play = _prop('play', decision: 'PLAY_NOW', actionable: true);
-    final shop = _prop('shop', decision: 'SHOP', actionable: true);
+    final shop = _prop('shop', decision: 'SHOP');
     final wait = _prop('wait', decision: 'WAIT');
 
     expect(
@@ -116,8 +119,20 @@ void main() {
         shop,
         play,
       ], verdict: 'ACTIONABLE').map((prop) => prop.id).toSet(),
-      {'play', 'shop'},
+      {'play'},
     );
+  });
+
+  test('wait monitor includes borderline and price-shopping candidates', () {
+    final result = _query([
+      _prop('play', decision: 'PLAY_NOW', actionable: true),
+      _prop('wait', decision: 'WAIT'),
+      _prop('lean', decision: 'LEAN'),
+      _prop('shop', decision: 'SHOP'),
+      _prop('pass', decision: 'PASS'),
+    ], verdict: 'WAIT');
+
+    expect(result.map((prop) => prop.id).toSet(), {'wait', 'lean', 'shop'});
   });
 
   test('verdict sorting follows the board action hierarchy', () {

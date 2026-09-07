@@ -36,6 +36,72 @@ import 'prop_trust_widgets.dart';
 import 'recommendation_explainability_block.dart';
 import 'tablet_prop_table.dart';
 
+@visibleForTesting
+int topPickVisibleCount(int available) => available.clamp(0, 5);
+
+class _TopPickQualificationSummary extends StatelessWidget {
+  const _TopPickQualificationSummary({
+    required this.qualifiedCount,
+    required this.excludedCount,
+  });
+
+  final int qualifiedCount;
+  final int excludedCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final pickWord = qualifiedCount == 1 ? 'pick' : 'picks';
+    final excludedMessage = excludedCount == 0
+        ? 'Every displayed candidate cleared PI\'s edge, confidence, freshness, and availability checks.'
+        : '$excludedCount additional ${excludedCount == 1 ? 'candidate' : 'candidates'} did not meet PI\'s minimum edge and confidence requirements. Review them in WAIT / MONITOR or ALL PROPS.';
+    return Container(
+      key: const ValueKey('top-picks-quality-summary'),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: app_colors.AppColors.gold.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: app_colors.AppColors.goldShadow),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.verified_rounded,
+            color: app_colors.AppColors.gold,
+            size: 22,
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$qualifiedCount qualified $pickWord today',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  excludedMessage,
+                  style: const TextStyle(
+                    color: app_colors.AppColors.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Keeps decision cards wide enough for verdict text, metrics, and pick actions.
 @visibleForTesting
 int propGridColumnCount(double availableWidth) {
@@ -4642,6 +4708,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             final props = _boardCacheGroups
                 .map((group) => group.representative)
                 .toList(growable: false);
+            final topPicksMode =
+                widget.verdictFilter.trim().toUpperCase() == 'ACTIONABLE';
             _warmVisiblePlayerPhotos(props.take(_visiblePropStep));
             _favoritePropIds.retainAll(props.map((prop) => prop.id).toSet());
             if (props.isEmpty) {
@@ -4669,6 +4737,60 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 search: widget.searchQuery,
                 minConfidence: widget.minConfidence,
               );
+              if (topPicksMode) {
+                final allCount =
+                    _currentPage?.verdictCounts['ALL'] ??
+                    _apiService.lastVerdictCounts['ALL'] ??
+                    0;
+                return Column(
+                  children: [
+                    _TopPickQualificationSummary(
+                      qualifiedCount: 0,
+                      excludedCount: allCount,
+                    ),
+                    const SizedBox(height: 18),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 34,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF09141E),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: app_colors.AppColors.border),
+                      ),
+                      child: const Column(
+                        children: [
+                          Icon(
+                            Icons.shield_outlined,
+                            color: app_colors.AppColors.gold,
+                            size: 34,
+                          ),
+                          SizedBox(height: 12),
+                          Text(
+                            'NO QUALIFIED TOP PICKS RIGHT NOW',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'PI will not force a pick. Borderline candidates remain in WAIT / MONITOR and every available market remains in ALL PROPS.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: app_colors.AppColors.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              }
               if (!hasFilters && _automaticRetryCount < 3) {
                 _scheduleAutomaticRetry();
               }
@@ -4798,11 +4920,15 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 } else {
                   groups.addAll(_boardCacheGroups);
                 }
-                final visibleCount = _visiblePropLimit.clamp(0, groups.length);
+                final maximumVisible = topPicksMode
+                    ? topPickVisibleCount(groups.length)
+                    : _visiblePropLimit;
+                final visibleCount = maximumVisible.clamp(0, groups.length);
                 final visibleGroups = groups.take(visibleCount).toList();
                 final hasMore =
-                    visibleCount < groups.length ||
-                    _preparedProps.length < _matchingPropCount;
+                    !topPicksMode &&
+                    (visibleCount < groups.length ||
+                        _preparedProps.length < _matchingPropCount);
 
                 if (widget.siteFirstLayout &&
                     useTabletPropTable(MediaQuery.sizeOf(context).width)) {
@@ -4986,6 +5112,18 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (topPicksMode) ...[
+                      _TopPickQualificationSummary(
+                        qualifiedCount: _matchingPropCount.clamp(0, 5),
+                        excludedCount:
+                            ((_currentPage?.verdictCounts['ALL'] ??
+                                        _apiService.lastVerdictCounts['ALL'] ??
+                                        _matchingPropCount) -
+                                    _matchingPropCount)
+                                .clamp(0, 999999),
+                      ),
+                      SizedBox(height: cardSpacing),
+                    ],
                     // On a phone the cards are a single column, so nothing is
                     // gained by forcing every one to the same 410px and much is
                     // lost: a collapsed card is far shorter than that, and the

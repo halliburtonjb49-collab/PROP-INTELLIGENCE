@@ -50,6 +50,12 @@ class _FailingPropsApi extends ApiService {
 }
 
 void main() {
+  test('Top PI Picks displays no more than five qualified props', () {
+    expect(topPickVisibleCount(0), 0);
+    expect(topPickVisibleCount(2), 2);
+    expect(topPickVisibleCount(12), 5);
+  });
+
   test('filtered player search does not report a sport-wide outage', () {
     expect(
       shouldShowSportSeasonEmptyState(

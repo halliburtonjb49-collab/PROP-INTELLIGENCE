@@ -125,8 +125,8 @@ def test_a_better_price_elsewhere_is_a_shop():
 
     assert verdict.decision == SHOP
     assert verdict.better_price_at == "Underdog"
-    # Still worth taking -- just not here.
-    assert verdict.is_actionable
+    # Still worth monitoring -- but Top Picks only contains executable plays.
+    assert not verdict.is_actionable
 
 
 def test_a_trivial_price_difference_is_not_worth_a_trip():
@@ -179,7 +179,7 @@ def test_a_modest_edge_is_a_lean_rather_than_a_play():
     verdict = compute_verdict(_prop(uncertaintyAdjustedProbability=0.555))
 
     assert verdict.decision == LEAN
-    assert verdict.is_actionable
+    assert not verdict.is_actionable
     assert "modest" in verdict.reason
 
 
@@ -196,7 +196,7 @@ def test_a_qualified_direction_below_the_price_is_a_lean_with_a_warning():
                                     bestOverOdds=1.73))
 
     assert verdict.decision == LEAN
-    assert verdict.is_actionable
+    assert not verdict.is_actionable
     assert verdict.reasons == ("directional_lean_price_not_cleared",)
     assert "price needs" in verdict.reason
     assert "posted price is not backed" in verdict.reason
@@ -336,7 +336,7 @@ def test_a_lean_is_a_real_edge_that_falls_short_of_a_play():
     )
 
     assert verdict.decision == LEAN
-    assert verdict.is_actionable
+    assert not verdict.is_actionable
 
 
 def test_a_released_side_still_earns_a_full_play():
@@ -383,7 +383,7 @@ def test_a_confident_model_at_a_bad_price_is_shown_with_the_warning():
     )
 
     assert verdict.decision == LEAN
-    assert verdict.is_actionable
+    assert not verdict.is_actionable
     assert "priced_out" in verdict.reasons
     # The reader is told exactly what is wrong with it.
     assert "-4.0%" in verdict.reason
@@ -399,7 +399,7 @@ def test_a_bad_price_demotes_conviction_rather_than_erasing_it():
             _prop(uncertaintyAdjustedProbability=probability, evPercentage=-1.0)
         )
         assert verdict.decision != PLAY_NOW, probability
-        assert verdict.is_actionable, probability
+        assert not verdict.is_actionable, probability
 
 
 def test_a_prop_with_no_price_is_judged_on_the_model_alone():
@@ -461,7 +461,7 @@ def test_a_strong_direction_at_an_expensive_price_populates_lean_not_play_now():
     )
 
     assert verdict.decision == LEAN
-    assert verdict.is_actionable
+    assert not verdict.is_actionable
     assert verdict.headline == "LEAN OVER"
     assert "85%" in verdict.reason
     assert "90%" in verdict.reason
@@ -586,7 +586,7 @@ def test_an_edge_at_or_below_the_price_is_not_playable():
     assert verdict.is_actionable is False
 
 
-def test_a_thin_but_real_edge_stays_on_the_playable_board():
+def test_a_thin_but_real_edge_stays_visible_but_out_of_top_picks():
     """Inventory the tidier threshold would have thrown away.
 
     Half a point to two points over the price returns +6.4% [+1.2, +11.5]
@@ -596,8 +596,28 @@ def test_a_thin_but_real_edge_stays_on_the_playable_board():
 
     verdict = compute_verdict(_prop(uncertaintyAdjustedProbability=0.535))
 
-    assert verdict.is_actionable
+    assert not verdict.is_actionable
     assert verdict.decision != PLAY_NOW
+
+
+def test_low_confidence_positive_edge_moves_to_wait_monitor():
+    verdict = compute_verdict(_prop(confidence=59))
+
+    assert verdict.decision == WAIT
+    assert not verdict.is_actionable
+    assert verdict.reasons == ("below_top_pick_confidence",)
+    assert "requires at least 65%" in verdict.reason
+
+
+def test_projection_direction_conflict_is_not_qualified():
+    verdict = compute_verdict(
+        _prop(recommendedSide="UNDER", projection=5.8, line=5.5)
+    )
+
+    assert verdict.decision == PASS
+    assert not verdict.is_actionable
+    assert verdict.headline == "NOT QUALIFIED"
+    assert verdict.reasons == ("projection_direction_conflict",)
 
 
 def test_a_generous_price_keeps_a_lower_probability_playable():

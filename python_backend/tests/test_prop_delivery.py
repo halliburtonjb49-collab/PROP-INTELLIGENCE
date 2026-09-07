@@ -218,13 +218,13 @@ def test_verdict_filter_is_applied_before_pagination(monkeypatch) -> None:
     assert response.json()["filters"]["verdict"] == "LEAN"
 
 
-def test_playable_filter_returns_every_actionable_verdict(monkeypatch) -> None:
+def test_top_picks_filter_returns_only_fully_qualified_verdicts(monkeypatch) -> None:
     rows = []
     for decision, actionable in (
         ("PASS", False),
         ("WAIT", False),
-        ("LEAN", True),
-        ("SHOP", True),
+        ("LEAN", False),
+        ("SHOP", False),
         ("PLAY_NOW", True),
     ):
         prop = FakeProp(decision.lower(), decision, "MLB", "FANDUEL", "HITS")
@@ -238,11 +238,11 @@ def test_playable_filter_returns_every_actionable_verdict(monkeypatch) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json()["count"] == 3
-    assert len(response.json()["props"]) == 2
+    assert response.json()["count"] == 1
+    assert len(response.json()["props"]) == 1
     assert all(row["verdict"]["actionable"] for row in response.json()["props"])
     assert response.json()["verdictCounts"] == {
-        "ACTIONABLE": 3,
+        "ACTIONABLE": 1,
         "ALL": 5,
         "LEAN": 1,
         "PASS": 1,
@@ -251,12 +251,12 @@ def test_playable_filter_returns_every_actionable_verdict(monkeypatch) -> None:
         "WAIT": 1,
     }
     assert response.json()["totalCategoryCounts"] == {"HITS": 5}
-    assert response.json()["playableCategoryCounts"] == {"HITS": 3}
+    assert response.json()["playableCategoryCounts"] == {"HITS": 1}
     assert response.json()["totalSportCategoryCounts"] == {
         "MLB": {"HITS": 5}
     }
     assert response.json()["playableSportCategoryCounts"] == {
-        "MLB": {"HITS": 3}
+        "MLB": {"HITS": 1}
     }
 
 def test_prop_id_stays_stable_when_site_line_changes() -> None:
