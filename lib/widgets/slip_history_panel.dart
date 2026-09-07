@@ -60,6 +60,47 @@ List<SavedSlip> limitHistoryForCore(
       .toList();
 }
 
+@visibleForTesting
+List<SavedSlip> sortSlipsNewestFirst(Iterable<SavedSlip> slips) {
+  final sorted = slips.toList(growable: false);
+  sorted.sort((left, right) {
+    final leftDate = left.createdAt;
+    final rightDate = right.createdAt;
+    if (leftDate == null && rightDate == null) {
+      return right.id.compareTo(left.id);
+    }
+    if (leftDate == null) return 1;
+    if (rightDate == null) return -1;
+    final byDate = rightDate.compareTo(leftDate);
+    return byDate != 0 ? byDate : right.id.compareTo(left.id);
+  });
+  return sorted;
+}
+
+class SlipDateSection {
+  const SlipDateSection({required this.day, required this.slips});
+
+  final DateTime? day;
+  final List<SavedSlip> slips;
+}
+
+@visibleForTesting
+List<SlipDateSection> groupSlipsByLocalDay(Iterable<SavedSlip> slips) {
+  final sections = <SlipDateSection>[];
+  for (final slip in sortSlipsNewestFirst(slips)) {
+    final local = slip.createdAt?.toLocal();
+    final day = local == null
+        ? null
+        : DateTime(local.year, local.month, local.day);
+    if (sections.isEmpty || sections.last.day != day) {
+      sections.add(SlipDateSection(day: day, slips: [slip]));
+    } else {
+      sections.last.slips.add(slip);
+    }
+  }
+  return sections;
+}
+
 class SlipHistoryPanel extends StatefulWidget {
   const SlipHistoryPanel({
     super.key,
@@ -864,6 +905,7 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel>
                       snapshot.hasError
                   ? _lastGoodSlips
                   : snapshot.data ?? const <SavedSlip>[];
+              final dateSections = groupSlipsByLocalDay(slips);
               final totals = _buildTotals(slips);
               final now = DateTime.now();
               final todaySlips = _historySummarySlips
@@ -907,27 +949,39 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel>
                             (constraints.maxWidth - ((columns - 1) * 12)) /
                             columns;
                         return SingleChildScrollView(
-                          child: Wrap(
-                            spacing: 12,
-                            runSpacing: 12,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              for (final slip in slips)
-                                SizedBox(
-                                  width: cardWidth,
-                                  child: _SavedSlipCard(
-                                    slip: slip,
-                                    liveStats: _hasEnhancedLiveTracking
-                                        ? _liveStats[slip.id] ?? const {}
-                                        : const {},
-                                    onWon: () => _changeStatus(slip, 'won'),
-                                    onLost: () => _changeStatus(slip, 'lost'),
-                                    onUnlock: () => _unlockSlip(slip),
-                                    isUpdating: _updatingSlipIds.contains(
-                                      slip.id,
-                                    ),
-                                    showDetails: _showInsights,
-                                  ),
+                              for (final section in dateSections) ...[
+                                _SlipDateHeader(day: section.day),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 12,
+                                  runSpacing: 12,
+                                  children: [
+                                    for (final slip in section.slips)
+                                      SizedBox(
+                                        width: cardWidth,
+                                        child: _SavedSlipCard(
+                                          slip: slip,
+                                          liveStats: _hasEnhancedLiveTracking
+                                              ? _liveStats[slip.id] ?? const {}
+                                              : const {},
+                                          onWon: () =>
+                                              _changeStatus(slip, 'won'),
+                                          onLost: () =>
+                                              _changeStatus(slip, 'lost'),
+                                          onUnlock: () => _unlockSlip(slip),
+                                          isUpdating: _updatingSlipIds.contains(
+                                            slip.id,
+                                          ),
+                                          showDetails: _showInsights,
+                                        ),
+                                      ),
+                                  ],
                                 ),
+                                const SizedBox(height: 16),
+                              ],
                             ],
                           ),
                         );
@@ -1789,6 +1843,61 @@ class _CompactSlipLegRow extends StatelessWidget {
   }
 }
 
+String _ticketDateTimeLabel(BuildContext context, DateTime? value) {
+  if (value == null) return 'DATE UNAVAILABLE';
+  final local = value.toLocal();
+  final date = MaterialLocalizations.of(context).formatMediumDate(local);
+  final time = TimeOfDay.fromDateTime(local).format(context);
+  return 'SAVED $date • $time'.toUpperCase();
+}
+
+class _SlipDateHeader extends StatelessWidget {
+  const _SlipDateHeader({required this.day});
+
+  final DateTime? day;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final label = day == null
+        ? 'DATE UNAVAILABLE'
+        : day == today
+        ? 'TODAY'
+        : day == today.subtract(const Duration(days: 1))
+        ? 'YESTERDAY'
+        : MaterialLocalizations.of(context).formatFullDate(day!);
+    return Container(
+      key: ValueKey('slip-date-section-${day?.toIso8601String() ?? 'unknown'}'),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      decoration: BoxDecoration(
+        color: brand_colors.AppColors.gold.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: brand_colors.AppColors.goldShadow),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.calendar_month_rounded,
+            size: 15,
+            color: brand_colors.AppColors.gold,
+          ),
+          const SizedBox(width: 7),
+          Text(
+            label.toUpperCase(),
+            style: const TextStyle(
+              color: brand_colors.AppColors.gold,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SavedSlipCard extends StatelessWidget {
   final SavedSlip slip;
   final Map<String, dynamic> liveStats;
@@ -1868,14 +1977,30 @@ class _SavedSlipCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      '${slip.legs.length} PICKS',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${slip.legs.length} PICKS',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            _ticketDateTimeLabel(context, slip.createdAt),
+                            key: ValueKey('slip-date-${slip.id}'),
+                            style: const TextStyle(
+                              color: brand_colors.AppColors.textMuted,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const Spacer(),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
