@@ -2326,7 +2326,10 @@ class _MainDashboardState extends State<MainDashboard> {
             key: ValueKey('site-first-category-${entry.key}'),
             onTap: () => setState(() {
               _selectedCategory = entry.key;
-              _siteDiscoveryExpanded = false;
+              // Category browsing is an explicit working mode. Keep the rail
+              // available while the board refreshes so another market can be
+              // selected without reopening it after every choice.
+              _siteDiscoveryExpanded = true;
               _verdictFilter = 'ALL';
               _latestProps = const [];
               _lastUpdated = null;
@@ -2465,7 +2468,7 @@ class _MainDashboardState extends State<MainDashboard> {
                           setState(() {
                             _selectedSiteSport = '';
                             _selectedCategory = 'ALL';
-                            _siteDiscoveryExpanded = false;
+                            _siteDiscoveryExpanded = true;
                             _latestProps = const [];
                             _lastUpdated = null;
                           });
@@ -2500,7 +2503,7 @@ class _MainDashboardState extends State<MainDashboard> {
                                 setState(() {
                                   _selectedSiteSport = sport;
                                   _selectedCategory = 'ALL';
-                                  _siteDiscoveryExpanded = false;
+                                  _siteDiscoveryExpanded = true;
                                   _verdictFilter = 'ALL';
                                   _latestProps = const [];
                                   _lastUpdated = null;
@@ -2529,7 +2532,7 @@ class _MainDashboardState extends State<MainDashboard> {
                                   setState(() {
                                     _selectedSiteSport = sport;
                                     _selectedCategory = entry.key;
-                                    _siteDiscoveryExpanded = false;
+                                    _siteDiscoveryExpanded = true;
                                     _verdictFilter = 'ALL';
                                     _latestProps = const [];
                                     _lastUpdated = null;

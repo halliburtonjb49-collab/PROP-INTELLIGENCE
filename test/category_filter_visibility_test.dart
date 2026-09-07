@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/main.dart';
 
@@ -55,6 +57,28 @@ void main() {
         selectedSportTotalCategoryCounts: const {'TOTAL BASES': 9, 'HITS': 21},
       ),
       const {'TOTAL BASES': 9, 'HITS': 21},
+    );
+  });
+
+  test('category choices keep discovery controls expanded', () {
+    final source = File('lib/widgets/main_dashboard.dart').readAsStringSync();
+    final categorySection = source.substring(
+      source.indexOf('Widget categoryCard('),
+      source.indexOf('Widget step('),
+    );
+
+    expect(
+      RegExp(
+        r'_selectedCategory\s*=\s*(?:entry\.key|\x27ALL\x27);\s*'
+        r'_siteDiscoveryExpanded\s*=\s*false;',
+      ).hasMatch(categorySection),
+      isFalse,
+    );
+    expect(
+      RegExp(
+        r'_siteDiscoveryExpanded\s*=\s*true;',
+      ).allMatches(categorySection).length,
+      4,
     );
   });
 
