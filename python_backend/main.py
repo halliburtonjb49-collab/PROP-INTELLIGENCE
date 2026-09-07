@@ -222,6 +222,7 @@ from services.sync_certification_service import sync_certification
 from services.result_reconciliation_service import reconcile_user_slips
 from services.prediction_automation_service import prediction_calibration_report
 from services.runtime_readiness_service import runtime_readiness
+from services.model_learning_readiness_service import model_learning_readiness
 from services.sync_service import run_global_sync_pipeline
 from services.prop_recommendation_service import (
 	build_prop_recommendation,
@@ -3568,6 +3569,7 @@ def customer_journey_readiness(response: Response) -> dict[str, object]:
 		"responseMs": round((time.perf_counter() - started_at) * 1000),
 		"dataProtected": True,
 		"version": APP_VERSION,
+		"modelLearning": model_learning_readiness(),
 	}
 
 

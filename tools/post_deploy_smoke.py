@@ -185,6 +185,7 @@ def verify_customer_journey() -> dict[str, object]:
     )
     payload = json.loads(body)
     checks = payload.get("checks")
+    model_learning = payload.get("modelLearning")
     if (
         response.status != 200
         or payload.get("status") != "ok"
@@ -192,6 +193,10 @@ def verify_customer_journey() -> dict[str, object]:
         or not all(checks.values())
     ):
         raise RuntimeError(f"Customer journey readiness failed: {checks}")
+    if not isinstance(model_learning, dict) or model_learning.get("status") not in {
+        "ready", "warming"
+    }:
+        raise RuntimeError(f"Model learning readiness failed: {model_learning}")
 
     scoreboard_response, scoreboard_body, scoreboard_ms = request(
         f"{API_URL}/api/scoreboard"
@@ -208,6 +213,7 @@ def verify_customer_journey() -> dict[str, object]:
         "checks": checks,
         "samplePlayer": payload.get("samplePlayer"),
         "sampleCategory": payload.get("sampleCategory"),
+        "modelLearning": model_learning,
     }
 
 

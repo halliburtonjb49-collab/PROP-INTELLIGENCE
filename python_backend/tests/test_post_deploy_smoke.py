@@ -44,6 +44,10 @@ def test_customer_journey_checks_capabilities_and_scoreboard(monkeypatch) -> Non
                     },
                     "samplePlayer": "Sample Player",
                     "sampleCategory": "POINTS",
+                    "modelLearning": {
+                        "status": "ready",
+                        "checks": {"captureObserved": True},
+                    },
                 }
             ).encode()
         return _Response(body), body, 125.0
@@ -55,6 +59,7 @@ def test_customer_journey_checks_capabilities_and_scoreboard(monkeypatch) -> Non
     assert result["checks"]["playerSearch"] is True
     assert result["samplePlayer"] == "Sample Player"
     assert result["sampleCategory"] == "POINTS"
+    assert result["modelLearning"]["status"] == "ready"
     assert calls[0].endswith("/api/operations/customer-journey-readiness")
     assert calls[-1].endswith("/api/scoreboard")
 

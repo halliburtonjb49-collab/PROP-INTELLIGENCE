@@ -76,6 +76,11 @@ def test_customer_journey_readiness_checks_capabilities_without_exposing_props(
     row = FakeProp("journey-1", "Sample Player", "MLB", "PRIZEPICKS", "HITS")
     row.imagePath = "https://images.example.com/player.png"
     monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [row])
+    monkeypatch.setattr(
+        main,
+        "model_learning_readiness",
+        lambda: {"status": "ready", "checks": {"captureObserved": True}},
+    )
 
     response = TestClient(main.app).get(
         "/api/operations/customer-journey-readiness"
@@ -86,6 +91,7 @@ def test_customer_journey_readiness_checks_capabilities_without_exposing_props(
     assert payload["status"] == "ok"
     assert all(payload["checks"].values())
     assert payload["dataProtected"] is True
+    assert payload["modelLearning"]["status"] == "ready"
     assert "props" not in payload
     assert response.headers["cache-control"] == "private, no-store, max-age=0"
 
