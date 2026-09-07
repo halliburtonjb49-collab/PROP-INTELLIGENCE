@@ -102,12 +102,14 @@
   window.addEventListener('appinstalled', hide);
 
   if ('serviceWorker' in navigator && !isDevelopmentHost) {
-    let refreshingForNewWorker = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (refreshingForNewWorker) return;
-      refreshingForNewWorker = true;
       hideUpdate();
-      reloadCurrentRelease();
+      // The first navigation after a deployment already receives the latest
+      // network shell. Reloading merely because its preloaded worker claimed
+      // the page starts Flutter twice and turns a fast launch into a long
+      // branded-loader pause. Only an explicit UPDATE NOW request needs to
+      // replace the currently running release immediately.
+      if (forcingReleaseRefresh) reloadCurrentRelease();
     });
     window.addEventListener('load', async () => {
       try {

@@ -44,12 +44,20 @@ void main() {
   test('engagement telemetry tries the direct API before gateway fallback', () {
     final api = File('lib/services/api_service.dart').readAsStringSync();
     final methodStart = api.indexOf('Future<void> recordEngagement');
-    final methodEnd = api.indexOf('Future<Map<String, dynamic>> fetchPropSentiment');
+    final methodEnd = api.indexOf(
+      'Future<Map<String, dynamic>> fetchPropSentiment',
+    );
     final method = api.substring(methodStart, methodEnd);
 
     expect(method, contains('for (final candidate in _candidateBaseUrls)'));
-    expect(method, contains("Uri.parse('\$candidate/api/intelligence/engagement')"));
-    expect(method, isNot(contains("Uri.parse('\$baseUrl/api/intelligence/engagement')")));
+    expect(
+      method,
+      contains("Uri.parse('\$candidate/api/intelligence/engagement')"),
+    );
+    expect(
+      method,
+      isNot(contains("Uri.parse('\$baseUrl/api/intelligence/engagement')")),
+    );
   });
 
   test('production keeps exactly one versioned workspace service worker', () {
@@ -85,6 +93,15 @@ void main() {
       isNot(contains("const cleanupKey = 'pi-mobile-direct-release'")),
     );
     expect(pwa, contains('reloadCurrentRelease();'));
+    final controllerChange = pwa.substring(
+      pwa.indexOf("addEventListener('controllerchange'"),
+      pwa.indexOf("window.addEventListener('load'"),
+    );
+    expect(
+      controllerChange,
+      contains('if (forcingReleaseRefresh) reloadCurrentRelease();'),
+    );
+    expect(controllerChange, isNot(contains('refreshingForNewWorker')));
   });
 
   test('legacy root worker never navigates or unregisters active clients', () {

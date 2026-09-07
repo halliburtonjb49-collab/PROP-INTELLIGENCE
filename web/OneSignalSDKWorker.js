@@ -30,8 +30,9 @@ self.addEventListener('install', (event) => {
         .then((cache) => cache.addAll(PI_APP_SHELL));
       // Chrome, especially an installed iOS/Android PWA, can leave a newly
       // deployed worker waiting behind the previous app shell indefinitely.
-      // Activate this release immediately; pwa_install.js already listens for
-      // controllerchange and reloads with the current release identifier.
+      // Activate this release immediately. The current navigation continues
+      // uninterrupted; pwa_install.js reloads only when a customer explicitly
+      // chooses UPDATE NOW.
       await self.skipWaiting();
     })(),
   );
