@@ -236,6 +236,22 @@ void main() {
       lessThanOrEqualTo(tester.getRect(card).bottom),
     );
 
+    await tester.tap(research);
+    await tester.pumpAndSettle();
+    final close = find.byKey(
+      const ValueKey('close-pi-intelligence-shared-path-prop'),
+    );
+    final signal = find.byKey(
+      const ValueKey('research-signal-badge-shared-path-prop'),
+    );
+    expect(close, findsOneWidget);
+    expect(signal, findsOneWidget);
+    expect(
+      tester.getRect(signal).right,
+      lessThanOrEqualTo(tester.getRect(close).left),
+      reason: 'the close control must not cover the PI signal badge',
+    );
+
     await tester.pumpWidget(const SizedBox.shrink());
     coordinator.dispose();
     refresh.dispose();

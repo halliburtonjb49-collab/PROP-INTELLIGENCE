@@ -966,6 +966,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 message: badgeExplanation,
                 triggerMode: TooltipTriggerMode.tap,
                 child: Container(
+                  key: researchOverlay
+                      ? ValueKey('research-signal-badge-${prop.id}')
+                      : null,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 9,
                     vertical: 7,
@@ -1022,6 +1025,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                   ),
                 ),
               ),
+              if (researchOverlay) const SizedBox(width: 48),
             ],
           ),
           const SizedBox(height: 10),
