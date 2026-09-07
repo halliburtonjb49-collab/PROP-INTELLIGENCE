@@ -44,6 +44,20 @@ class _IntermittentScoreboardService extends ScoreboardService {
   }
 }
 
+class _RecoveringScoreboardService extends ScoreboardService {
+  _RecoveringScoreboardService() : super(baseUrl: 'https://example.invalid');
+
+  var fetches = 0;
+
+  @override
+  Future<List<ScoreboardGame>> fetchGames({required DateTime date}) async {
+    fetches += 1;
+    return fetches == 1
+        ? const []
+        : [_IntermittentScoreboardService.verifiedGame];
+  }
+}
+
 void main() {
   test('concurrent scoreboard consumers share one HTTP request', () async {
     var requests = 0;
@@ -80,11 +94,31 @@ void main() {
     expect(controller.games, [_IntermittentScoreboardService.verifiedGame]);
   });
 
+  test('empty first launch retries automatically and recovers', () async {
+    final service = _RecoveringScoreboardService();
+    final controller = ScoreboardController(
+      service: service,
+      startupRetryDelays: const [Duration(milliseconds: 1)],
+    );
+    addTearDown(controller.dispose);
+
+    await controller.load();
+    expect(controller.games, isEmpty);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+
+    expect(service.fetches, 2);
+    expect(controller.games, [_IntermittentScoreboardService.verifiedGame]);
+    expect(controller.errorMessage, isNull);
+  });
+
   testWidgets('empty scoreboard exposes a working refresh action', (
     tester,
   ) async {
     final service = _EmptyScoreboardService();
-    final controller = ScoreboardController(service: service);
+    final controller = ScoreboardController(
+      service: service,
+      startupRetryDelays: const [],
+    );
     addTearDown(controller.dispose);
     await controller.load();
 

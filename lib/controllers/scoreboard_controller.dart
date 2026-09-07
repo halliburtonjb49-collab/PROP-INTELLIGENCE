@@ -8,11 +8,22 @@ import '../services/scoreboard_service.dart';
 import '../services/live_update_service.dart';
 
 class ScoreboardController extends ChangeNotifier {
-  ScoreboardController({required ScoreboardService service})
-    : _service = service,
-      _games = service.cachedGames(DateTime.now());
+  ScoreboardController({
+    required ScoreboardService service,
+    List<Duration> startupRetryDelays = const [
+      Duration(seconds: 2),
+      Duration(seconds: 5),
+      Duration(seconds: 10),
+    ],
+    // Named public injection keeps retry timing deterministic in tests while
+    // the stored schedule remains private to the controller.
+    // ignore: prefer_initializing_formals
+  }) : _startupRetryDelays = startupRetryDelays,
+       _service = service,
+       _games = service.cachedGames(DateTime.now());
 
   final ScoreboardService _service;
+  final List<Duration> _startupRetryDelays;
 
   List<ScoreboardGame> _games;
   bool _isLoading = false;
@@ -20,6 +31,8 @@ class ScoreboardController extends ChangeNotifier {
   String? _errorMessage;
   DateTime _selectedDate = DateTime.now();
   Timer? _refreshTimer;
+  Timer? _startupRetryTimer;
+  int _startupRetryAttempt = 0;
   late final LiveUpdateService _liveUpdates = LiveUpdateService(
     channels: const {'scoreboard'},
   );
@@ -31,9 +44,18 @@ class ScoreboardController extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   DateTime get selectedDate => _selectedDate;
 
-  Future<void> load({bool silent = false}) async {
+  Future<void> load({
+    bool silent = false,
+    bool automaticRecovery = false,
+  }) async {
     if (_isLoading || _isRefreshing) {
       return;
+    }
+
+    if (!automaticRecovery) {
+      _startupRetryTimer?.cancel();
+      _startupRetryTimer = null;
+      _startupRetryAttempt = 0;
     }
 
     if (silent) {
@@ -54,6 +76,11 @@ class ScoreboardController extends ChangeNotifier {
       if (incoming.isNotEmpty || !silent || _games.isEmpty) {
         _games = incoming;
       }
+      if (incoming.isNotEmpty) {
+        _startupRetryTimer?.cancel();
+        _startupRetryTimer = null;
+        _startupRetryAttempt = 0;
+      }
     } catch (error) {
       if (silent) {
         _errorMessage = null;
@@ -64,7 +91,28 @@ class ScoreboardController extends ChangeNotifier {
       _isLoading = false;
       _isRefreshing = false;
       notifyListeners();
+      if (_games.isEmpty) _scheduleStartupRecovery();
     }
+  }
+
+  void _scheduleStartupRecovery() {
+    if (_startupRetryTimer != null ||
+        _startupRetryAttempt >= _startupRetryDelays.length) {
+      return;
+    }
+    final now = DateTime.now();
+    final isToday =
+        _selectedDate.year == now.year &&
+        _selectedDate.month == now.month &&
+        _selectedDate.day == now.day;
+    if (!isToday) return;
+
+    final delay = _startupRetryDelays[_startupRetryAttempt];
+    _startupRetryTimer = Timer(delay, () {
+      _startupRetryTimer = null;
+      _startupRetryAttempt += 1;
+      load(silent: true, automaticRecovery: true);
+    });
   }
 
   Future<List<ScoreboardGame>> _fetchGamesWithRetry() async {
@@ -179,6 +227,7 @@ class ScoreboardController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _startupRetryTimer?.cancel();
     stopLiveRefresh();
     unawaited(_liveSubscription?.cancel());
     unawaited(_liveUpdates.dispose());

@@ -314,7 +314,8 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final cacheSize = (size * pixelRatio * 2.0).round().clamp(128, 512);
     final isNetwork =
         imagePath.startsWith('http://') || imagePath.startsWith('https://');
-    if (!isNetwork) {
+    final isWebEndpoint = kIsWeb && imagePath.startsWith('/');
+    if (!isNetwork && !isWebEndpoint) {
       return Image.asset(
         imagePath,
         fit: BoxFit.cover,
@@ -346,12 +347,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     }
 
     if (kIsWeb) {
-      final proxiedWebPath = resolvePlayerImagePath(
-        prop.imagePath,
-        useApiProxyForRemoteImages: true,
-        identityKey: playerIdentity,
-      );
-
       Widget webImage(String url, {String? retryUrl}) {
         return Image.network(
           key: ValueKey(photoKey(url)),
@@ -393,14 +388,10 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         );
       }
 
-      // The canonical identity in the URL and cache key prevents one player,
-      // provider refresh, or stale browser response from replacing another.
-      // Browser-native image rendering avoids the opaque black WebKit texture
-      // Flutter can produce for otherwise valid cross-origin JPEGs.
-      return webImage(
-        proxiedWebPath.isEmpty ? imagePath : proxiedWebPath,
-        retryUrl: imagePath,
-      );
+      // Supported sports CDNs are browser-cacheable and avoid a Render hop.
+      // Keep the same-origin proxy as a compatibility fallback for browsers
+      // that reject or cannot decode the direct response.
+      return webImage(imagePath, retryUrl: retryImagePath);
     }
 
     return CachedNetworkImage(
@@ -456,15 +447,11 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         prop.imagePath,
         identityKey: identity,
       );
-      final url = kIsWeb
-          ? resolvePlayerImagePath(
-              sourceUrl,
-              useApiProxyForRemoteImages: true,
-              identityKey: identity,
-            )
-          : sourceUrl;
+      final url = sourceUrl;
       if (url.isNotEmpty && _warmedPlayerPhotoUrls.add(url)) pending.add(url);
-      if (pending.length >= 24) break;
+      // Do not let speculative images for off-screen cards compete with the
+      // scoreboard and the first visible row during an ALL-props launch.
+      if (pending.length >= 8) break;
     }
     if (pending.isEmpty) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
