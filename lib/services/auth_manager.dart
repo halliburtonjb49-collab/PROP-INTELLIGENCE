@@ -11,6 +11,7 @@ import 'api_service.dart';
 
 const Set<String> _ownerEmails = {
   'propsintell@gmail.com',
+  'propsintell@icloud.com',
   'halliburtonjb49@gmail.com',
 };
 const Set<String> _ownerUserIds = {

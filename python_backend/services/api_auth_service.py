@@ -15,6 +15,7 @@ from config import HTTP_TIMEOUT_SECONDS
 
 _DEFAULT_OWNER_EMAILS = {
     "propsintell@gmail.com",
+    "propsintell@icloud.com",
     "halliburtonjb49@gmail.com",
 }
 _DEFAULT_OWNER_USER_IDS = {

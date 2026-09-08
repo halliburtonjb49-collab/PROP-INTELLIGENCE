@@ -24,6 +24,23 @@ def test_verified_owner_email_has_admin_api_access(monkeypatch):
     assert api_auth_service.require_admin(authorization="Bearer valid-token") == "owner-id"
 
 
+def test_verified_apple_owner_email_has_full_owner_access(monkeypatch):
+    monkeypatch.setattr(
+        api_auth_service,
+        "_supabase_user",
+        lambda _token: {
+            "id": "apple-owner-id",
+            "email": "PropsIntell@iCloud.com",
+            "app_metadata": {},
+            "user_metadata": {},
+        },
+    )
+
+    assert api_auth_service.require_owner(
+        authorization="Bearer valid-token"
+    ) == "apple-owner-id"
+
+
 def test_verified_owner_user_id_has_owner_access(monkeypatch):
     owner_id = "7fdb460c-dcaa-42ac-89c1-e9950b9b9c55"
     monkeypatch.setattr(

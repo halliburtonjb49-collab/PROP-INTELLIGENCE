@@ -14,6 +14,13 @@ void main() {
     );
   });
 
+  test('verified Apple owner email resolves to owner without payment', () {
+    expect(
+      resolveAccountRole(email: 'PropsIntell@iCloud.com ', role: 'user'),
+      'owner',
+    );
+  });
+
   test(
     'verified owner user ID resolves to owner regardless of email or role',
     () {
