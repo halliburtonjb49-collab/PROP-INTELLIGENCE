@@ -1,4 +1,8 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_service.dart';
@@ -279,13 +283,20 @@ class SportsAppAuthService {
     }
 
     try {
+      if (provider == OAuthProvider.apple &&
+          !kIsWeb &&
+          (defaultTargetPlatform == TargetPlatform.iOS ||
+              defaultTargetPlatform == TargetPlatform.macOS)) {
+        return await _signInWithNativeApple(client);
+      }
+
       final launched = await client.auth.signInWithOAuth(
         provider,
         redirectTo: _redirectUrlOrNull,
-        authScreenLaunchMode: !kIsWeb &&
-                defaultTargetPlatform == TargetPlatform.iOS
-            ? LaunchMode.inAppBrowserView
-            : !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+        authScreenLaunchMode:
+            !kIsWeb &&
+                (defaultTargetPlatform == TargetPlatform.iOS ||
+                    defaultTargetPlatform == TargetPlatform.android)
             ? LaunchMode.externalApplication
             : LaunchMode.platformDefault,
         scopes: provider == OAuthProvider.apple ? 'email name' : null,
@@ -303,6 +314,61 @@ class SportsAppAuthService {
       return AuthActionResult(
         success: false,
         message: _friendlyAuthMessage(e, isRegistering: false),
+      );
+    }
+  }
+
+  Future<AuthActionResult> _signInWithNativeApple(SupabaseClient client) async {
+    try {
+      final rawNonce = client.auth.generateRawNonce();
+      final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: const [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: hashedNonce,
+      );
+      final identityToken = credential.identityToken;
+      if (identityToken == null || identityToken.isEmpty) {
+        return const AuthActionResult(
+          success: false,
+          message:
+              'Apple sign in did not return a secure identity token. Please try again.',
+        );
+      }
+
+      await client.auth.signInWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: identityToken,
+        nonce: rawNonce,
+      );
+
+      final displayName = [credential.givenName, credential.familyName]
+          .whereType<String>()
+          .map((part) => part.trim())
+          .where((part) => part.isNotEmpty)
+          .join(' ');
+      if (displayName.isNotEmpty) {
+        await client.auth.updateUser(
+          UserAttributes(data: {'full_name': displayName}),
+        );
+      }
+
+      return const AuthActionResult(
+        success: true,
+        message: 'Signed in securely with Apple.',
+      );
+    } on SignInWithAppleAuthorizationException catch (error) {
+      if (error.code == AuthorizationErrorCode.canceled) {
+        return const AuthActionResult(
+          success: false,
+          message: 'Apple sign in was canceled.',
+        );
+      }
+      return AuthActionResult(
+        success: false,
+        message: 'Apple sign in failed: ${error.message}',
       );
     }
   }

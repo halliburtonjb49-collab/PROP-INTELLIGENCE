@@ -181,10 +181,22 @@ Future<void> main() async {
     anonKey: kSupabaseAnonPublicApiKey,
   );
 
-  // Restore the authenticated session before any protected workspace widget
-  // can issue its first prop request. Initializing after the first frame left
-  // fast mobile browsers with an authenticated shell but no bearer token.
-  await SupabaseService.initialize();
+  // A damaged keychain entry or transient platform-channel failure must never
+  // prevent iOS/iPadOS from rendering a usable login screen.
+  final authInitialization = SupabaseService.initialize();
+  try {
+    await authInitialization.timeout(const Duration(seconds: 8));
+  } catch (error) {
+    _startupLog('Supabase initialization failed: $error');
+    EngagementTracker.instance.recordError(error);
+    // Future.timeout does not cancel the underlying initialization. If a slow
+    // platform channel eventually recovers, attach auth without a relaunch.
+    unawaited(
+      authInitialization
+          .then((_) => AuthManager.instance.attach())
+          .catchError((Object _) {}),
+    );
+  }
   AuthManager.instance.attach();
 
   await _configureDesktopWindow();

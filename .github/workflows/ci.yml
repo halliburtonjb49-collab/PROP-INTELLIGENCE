@@ -96,3 +96,27 @@ jobs:
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 14
+
+  ios:
+    name: iOS release compile
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Compile unsigned iPhone and iPad release
+        run: >
+          flutter build ios --release --no-codesign
+          --dart-define=API_BASE_URL=https://api.propsintell.com
+          --dart-define=SUPABASE_URL=https://ci-placeholder.supabase.co
+          --dart-define=SUPABASE_ANON_KEY=ci-placeholder
+          --dart-define=REVENUECAT_IOS_PUBLIC_API_KEY=ci-placeholder
+          --dart-define=AUTH_EMAIL_REDIRECT_URL=com.propintelligence.app://login-callback/
+          --dart-define=MOBILE_AUTH_REDIRECT_URL=com.propintelligence.app://login-callback/
+          --dart-define=ALLOW_PUBLIC_SIGNUP=false
+          --dart-define=PI_SYNC_MANAGER_ENABLED=true
+          --dart-define=PI_PROP_REVISION_FEED_ENABLED=true

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -1166,6 +1167,24 @@ class _CorporateLoginScreenState extends State<CorporateLoginScreen> {
               onPressed: _isLoading
                   ? null
                   : () => _handleSocialSignIn(OAuthProvider.google),
+            ),
+            const SizedBox(height: 10),
+            IgnorePointer(
+              ignoring: _isLoading,
+              child: Opacity(
+                opacity: _isLoading ? 0.5 : 1,
+                child: SizedBox(
+                  width: double.infinity,
+                  height: dense ? 48 : 52,
+                  child: SignInWithAppleButton(
+                    key: const ValueKey('apple-sign-in-action'),
+                    text: 'Continue with Apple',
+                    style: SignInWithAppleButtonStyle.black,
+                    borderRadius: const BorderRadius.all(Radius.circular(7)),
+                    onPressed: () => _handleSocialSignIn(OAuthProvider.apple),
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 13),
             Wrap(

@@ -17,14 +17,24 @@ void main() {
     'short laptop': const Size(1280, 720),
     'mobile': const Size(390, 844),
     'narrow phone': const Size(320, 700),
+    'iPad Air 11-inch portrait': const Size(820, 1180),
+    'iPad Air 11-inch landscape': const Size(1180, 820),
   }.entries) {
     testWidgets('login has no clipping on ${viewport.key}', (tester) async {
       await _pumpLogin(tester, viewport.value);
 
       expect(find.text('WELCOME BACK'), findsOneWidget);
       expect(find.byKey(const ValueKey('login-email-field')), findsOneWidget);
-      expect(find.byKey(const ValueKey('login-password-field')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('login-password-field')),
+        findsOneWidget,
+      );
       expect(find.byKey(const ValueKey('login-submit-action')), findsOneWidget);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('apple-sign-in-action')),
+      );
+      await tester.pump();
+      expect(find.text('Continue with Apple'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
@@ -35,9 +45,16 @@ void main() {
     await _pumpLogin(tester, const Size(1440, 900));
 
     expect(find.textContaining('THE PI PWA'), findsOneWidget);
-    expect(find.textContaining('INSTALL DIRECTLY FROM THE WEB'), findsOneWidget);
-    expect(find.textContaining('RECEIVE IMPROVEMENTS AUTOMATICALLY'), findsOneWidget);
+    expect(
+      find.textContaining('INSTALL DIRECTLY FROM THE WEB'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('RECEIVE IMPROVEMENTS AUTOMATICALLY'),
+      findsOneWidget,
+    );
     expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Continue with Apple'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -61,11 +78,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('mobile-info-menu')));
     await tester.pumpAndSettle();
 
-    for (final label in <String>[
-      'TERMS',
-      'PRIVACY',
-      'CONTACT',
-    ]) {
+    for (final label in <String>['TERMS', 'PRIVACY', 'CONTACT']) {
       expect(find.text(label), findsWidgets);
     }
     expect(find.textContaining('INSTALL DIRECTLY FROM THE WEB'), findsWidgets);
@@ -104,13 +117,13 @@ void main() {
     tester,
   ) async {
     tester.platformDispatcher.textScaleFactorTestValue = 2;
-    addTearDown(
-      tester.platformDispatcher.clearTextScaleFactorTestValue,
-    );
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     await _pumpLogin(tester, const Size(1280, 720));
 
     expect(find.byKey(const ValueKey('login-submit-action')), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const ValueKey('login-submit-action')));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('login-submit-action')),
+    );
     await tester.pump();
     expect(tester.takeException(), isNull);
   });
