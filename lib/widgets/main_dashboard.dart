@@ -242,6 +242,7 @@ class _MainDashboardState extends State<MainDashboard> {
   List<PropData> _siteInventoryProps = const [];
   Map<String, Map<String, int>> _siteSportCategoryCounts = const {};
   Map<String, Map<String, int>> _siteTotalSportCategoryCounts = const {};
+  Map<String, Map<String, int>> _allSportTotalCategoryCounts = const {};
   Map<String, dynamic> _providerCoverage = const {};
   // The board is served from the durable snapshot: real lines, but
   // possibly hours old and otherwise indistinguishable from current ones.
@@ -937,6 +938,13 @@ class _MainDashboardState extends State<MainDashboard> {
       _categoryCounts = categoryCounts;
       _totalCategoryCounts =
           page?.totalCategoryCounts ?? _apiService.lastTotalCategoryCounts;
+      final totalSportCounts =
+          page?.totalSportCategoryCounts ??
+          _apiService.lastTotalSportCategoryCounts;
+      _allSportTotalCategoryCounts = {
+        for (final entry in totalSportCounts.entries)
+          _normalizeSport(entry.key): Map<String, int>.from(entry.value),
+      };
       _verdictCounts = page?.verdictCounts ?? _apiService.lastVerdictCounts;
       _providerCoverage =
           page?.providerCoverage ?? _apiService.lastProviderCoverage;
@@ -1135,7 +1143,13 @@ class _MainDashboardState extends State<MainDashboard> {
           .where((a) => a.message.isNotEmpty)
           .toList();
       setState(() {
-        _propAlerts = parsed;
+        // The alerts endpoint can legitimately be quiet while the board has
+        // already received qualified live signals. Keep both surfaces in
+        // sync instead of presenting "No Props Loaded" beside a populated
+        // board.
+        _propAlerts = parsed.isNotEmpty
+            ? parsed
+            : _fallbackPropAlertsFromProps(fallbackProps);
       });
     } catch (_) {
       if (!mounted || _propAlerts.isNotEmpty) {
@@ -1297,12 +1311,18 @@ class _MainDashboardState extends State<MainDashboard> {
   List<String> get _currentCategories {
     final dynamicCounts = categoryFacetCountsForMenu(
       selectedSite: _selectedSite,
-      selectedSiteSport: _selectedSiteSport,
+      selectedSiteSport: _activeCategorySport,
       categoryCounts: _categoryCounts,
       totalCategoryCounts: _totalCategoryCounts,
       selectedSportTotalCategoryCounts: _selectedSportTotalCategoryCounts,
     );
     return visibleCategoryFilters(dynamicCounts);
+  }
+
+  String get _activeCategorySport {
+    if (_selectedSiteSport.isNotEmpty) return _selectedSiteSport;
+    final sport = _normalizeSport(widget.sportFilter);
+    return sport == 'ALL' ? '' : sport;
   }
 
   Map<String, int> get _selectedSportCategoryCounts {
@@ -1325,13 +1345,21 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Map<String, int> get _selectedSportTotalCategoryCounts {
-    if (_selectedSite == 'ALL' || _selectedSiteSport.isEmpty) {
+    final sport = _activeCategorySport;
+    if (sport.isEmpty) {
       return _totalCategoryCounts.isNotEmpty
           ? _totalCategoryCounts
           : _categoryCounts;
     }
-    return _siteTotalSportCategoryCounts[_selectedSiteSport] ??
-        _selectedSportCategoryCounts;
+    if (_selectedSite != 'ALL') {
+      final siteCounts = _siteTotalSportCategoryCounts[sport];
+      if (siteCounts != null && siteCounts.isNotEmpty) return siteCounts;
+    }
+    final allSiteCounts = _allSportTotalCategoryCounts[sport];
+    if (allSiteCounts != null && allSiteCounts.isNotEmpty) {
+      return allSiteCounts;
+    }
+    return _selectedSportCategoryCounts;
   }
 
   String get _effectiveSelectedCategory {
@@ -3150,63 +3178,100 @@ class _MainDashboardState extends State<MainDashboard> {
     onClearAll: _clearBoardFilters,
   );
   Future<void> _showBoardFilterOptions() async {
-    final selected = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => SimpleDialog(
-        backgroundColor: app_colors.AppColors.sidebar,
-        title: const Text(
-          'Filter Options',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
+    Widget choices(BuildContext overlayContext) => RadioGroup<String>(
+      groupValue: _sortBy,
+      onChanged: (value) => Navigator.pop(overlayContext, value),
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          RadioGroup<String>(
-            groupValue: _sortBy,
-            onChanged: (value) => Navigator.pop(dialogContext, value),
-            child: const Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                RadioListTile<String>(
-                  value: 'verdict',
-                  activeColor: app_colors.AppColors.gold,
-                  title: Text(
-                    'PI Verdict (plays first)',
-                    style: TextStyle(color: Colors.white, fontSize: 11),
-                  ),
-                ),
-                RadioListTile<String>(
-                  value: 'source',
-                  activeColor: app_colors.AppColors.gold,
-                  title: Text(
-                    'Board order',
-                    style: TextStyle(color: Colors.white, fontSize: 11),
-                  ),
-                ),
-                RadioListTile<String>(
-                  value: 'edge',
-                  activeColor: app_colors.AppColors.gold,
-                  title: Text(
-                    'Highest edge',
-                    style: TextStyle(color: Colors.white, fontSize: 11),
-                  ),
-                ),
-                RadioListTile<String>(
-                  value: 'trust',
-                  activeColor: app_colors.AppColors.gold,
-                  title: Text(
-                    'Highest PI Trust',
-                    style: TextStyle(color: Colors.white, fontSize: 11),
-                  ),
-                ),
-              ],
+          RadioListTile<String>(
+            value: 'verdict',
+            activeColor: app_colors.AppColors.gold,
+            title: Text(
+              'PI Verdict (plays first)',
+              style: TextStyle(color: Colors.white, fontSize: 11),
+            ),
+          ),
+          RadioListTile<String>(
+            value: 'source',
+            activeColor: app_colors.AppColors.gold,
+            title: Text(
+              'Board order',
+              style: TextStyle(color: Colors.white, fontSize: 11),
+            ),
+          ),
+          RadioListTile<String>(
+            value: 'edge',
+            activeColor: app_colors.AppColors.gold,
+            title: Text(
+              'Highest edge',
+              style: TextStyle(color: Colors.white, fontSize: 11),
+            ),
+          ),
+          RadioListTile<String>(
+            value: 'trust',
+            activeColor: app_colors.AppColors.gold,
+            title: Text(
+              'Highest PI Trust',
+              style: TextStyle(color: Colors.white, fontSize: 11),
             ),
           ),
         ],
       ),
     );
+    final mobile = MediaQuery.sizeOf(context).width < 700;
+    final selected = mobile
+        ? await showModalBottomSheet<String>(
+            context: context,
+            backgroundColor: app_colors.AppColors.sidebar,
+            isScrollControlled: true,
+            showDragHandle: true,
+            builder: (sheetContext) => SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'SORT PROP BOARD',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Close filters',
+                          onPressed: () => Navigator.pop(sheetContext),
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                    choices(sheetContext),
+                  ],
+                ),
+              ),
+            ),
+          )
+        : await showDialog<String>(
+            context: context,
+            builder: (dialogContext) => SimpleDialog(
+              backgroundColor: app_colors.AppColors.sidebar,
+              title: const Text(
+                'Filter Options',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              children: [choices(dialogContext)],
+            ),
+          );
     if (selected != null && mounted) {
       setState(() => _sortBy = selected);
     }
@@ -3265,6 +3330,15 @@ class _MainDashboardState extends State<MainDashboard> {
     var pendingCategory = categories.contains(_effectiveSelectedCategory)
         ? _effectiveSelectedCategory
         : 'ALL';
+    final categorySport = _activeCategorySport;
+    final availableSports =
+        _allSportTotalCategoryCounts.keys
+            .where((sport) => sport.isNotEmpty && sport != 'ALL')
+            .toList()
+          ..sort();
+    if (availableSports.isEmpty) {
+      availableSports.addAll(const ['MLB', 'NFL', 'WNBA', 'NBA', 'NCAAF']);
+    }
 
     await showModalBottomSheet<void>(
       context: context,
@@ -3283,13 +3357,24 @@ class _MainDashboardState extends State<MainDashboard> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  'PROP CATEGORY & SITE',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'PROP CATEGORY & SITE',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close categories',
+                      onPressed: () => Navigator.pop(sheetContext),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 const Text(
@@ -3318,50 +3403,94 @@ class _MainDashboardState extends State<MainDashboard> {
                   },
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: pendingCategory,
-                  dropdownColor: app_colors.AppColors.sidebar,
-                  decoration: const InputDecoration(labelText: 'CATEGORY'),
-                  items: [
-                    for (final category in categories)
-                      DropdownMenuItem(
-                        value: category,
-                        child: Text(
-                          category == 'ALL' ? 'ALL CATEGORIES' : category,
-                        ),
+                if (categorySport.isEmpty) ...[
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'SELECT A SPORT TO VIEW ITS CATEGORIES',
+                      style: TextStyle(
+                        color: app_colors.AppColors.gold,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
                       ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setSheetState(() => pendingCategory = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 18),
-                FilledButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _selectedSite = pendingSite;
-                      _selectedSiteSport =
-                          pendingSite == 'ALL' ||
-                              widget.sportFilter.trim().toUpperCase() == 'ALL'
-                          ? ''
-                          : _normalizeSport(widget.sportFilter);
-                      _selectedCategory = pendingCategory;
-                      _verdictFilter = 'ALL';
-                      _latestProps = const [];
-                      _lastUpdated = null;
-                    });
-                    Navigator.pop(sheetContext);
-                  },
-                  icon: const Icon(Icons.grid_view_rounded),
-                  label: const Text('SHOW ALL MATCHING PROPS'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: app_colors.AppColors.gold,
-                    foregroundColor: app_colors.AppColors.bgBase,
-                    minimumSize: const Size.fromHeight(48),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final sport in availableSports)
+                        OutlinedButton(
+                          key: ValueKey('category-picker-sport-$sport'),
+                          onPressed: () {
+                            setState(() {
+                              _selectedSite = pendingSite;
+                              _selectedSiteSport = '';
+                              _selectedCategory = 'ALL';
+                            });
+                            Navigator.pop(sheetContext);
+                            widget.onSelectSport?.call(sport);
+                          },
+                          child: Text(sport),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Markets stay separated by sport so baseball, football, and basketball categories are never mixed together.',
+                    style: TextStyle(
+                      color: app_colors.AppColors.textMuted,
+                      fontSize: 10,
+                      height: 1.35,
+                    ),
+                  ),
+                ] else ...[
+                  DropdownButtonFormField<String>(
+                    initialValue: pendingCategory,
+                    dropdownColor: app_colors.AppColors.sidebar,
+                    decoration: InputDecoration(
+                      labelText: '$categorySport CATEGORY',
+                    ),
+                    items: [
+                      for (final category in categories)
+                        DropdownMenuItem(
+                          value: category,
+                          child: Text(
+                            category == 'ALL'
+                                ? 'ALL $categorySport CATEGORIES'
+                                : category,
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setSheetState(() => pendingCategory = value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 18),
+                  FilledButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _selectedSite = pendingSite;
+                        _selectedSiteSport = categorySport;
+                        _selectedCategory = pendingCategory;
+                        _verdictFilter = 'ALL';
+                        _latestProps = const [];
+                        _lastUpdated = null;
+                      });
+                      Navigator.pop(sheetContext);
+                    },
+                    icon: const Icon(Icons.grid_view_rounded),
+                    label: const Text('SHOW ALL MATCHING PROPS'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: app_colors.AppColors.gold,
+                      foregroundColor: app_colors.AppColors.bgBase,
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

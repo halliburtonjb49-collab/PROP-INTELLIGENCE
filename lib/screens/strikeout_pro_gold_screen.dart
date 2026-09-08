@@ -309,11 +309,24 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                 sliver: SliverLayoutBuilder(
                   builder: (context, constraints) {
                     final width = constraints.crossAxisExtent;
-                    final columns = width >= 1050
-                        ? 3
-                        : width >= 650
-                        ? 2
-                        : 1;
+                    if (width < 650) {
+                      // Match the main mobile board: cards size themselves to
+                      // their content instead of stretching into a tall fixed
+                      // grid cell. The fixed extent left large blank bands and
+                      // made Pro Gold look like a different product.
+                      return SliverList.separated(
+                        itemCount: section.value.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final prop = section.value[index];
+                          return KeyedSubtree(
+                            key: ValueKey('strikeout-card-${prop.id}'),
+                            child: _card(prop),
+                          );
+                        },
+                      );
+                    }
+                    final columns = width >= 1050 ? 3 : 2;
                     return SliverGrid(
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: columns,
@@ -323,11 +336,7 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
                         // room for game time plus both full-width research
                         // actions. A shorter fixed extent clipped those rows on
                         // some desktop widths and exposed the legacy card.
-                        mainAxisExtent: width >= 1050
-                            ? 410
-                            : width >= 650
-                            ? 424
-                            : 444,
+                        mainAxisExtent: width >= 1050 ? 410 : 424,
                       ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final prop = section.value[index];
@@ -785,7 +794,11 @@ class _StrikeoutProGoldScreenState extends State<StrikeoutProGoldScreen> {
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
           child: Column(
             children: [
-              Expanded(
+              // Use the same intrinsic 116px identity row as the production
+              // prop card. Expanded stretched this row to consume every spare
+              // pixel in Pro Gold's old fixed-height grid.
+              SizedBox(
+                height: 116,
                 child: Row(
                   children: [
                     SizedBox(

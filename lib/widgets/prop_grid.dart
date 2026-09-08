@@ -250,7 +250,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   VoidCallback? _syncListener;
   PropPage? _currentPage;
   PropPageStatus _syncStatus = PropPageStatus.idle;
-  bool _isQueryTransition = false;
+  bool _isStructuralQueryTransition = false;
 
   bool get _usesSyncManager =>
       syncManagerPathEnabled(override: widget.syncManagerEnabledOverride) &&
@@ -3803,20 +3803,27 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       _seasonStatusFuture = null;
       _seasonStatusSport = '';
       _seasonNotificationEnabled = false;
-      _startQueryLoad();
+      final structuralTransition =
+          oldWidget.sportFilter != widget.sportFilter ||
+          oldWidget.displaySportFilter != widget.displaySportFilter ||
+          oldWidget.selectedSite != widget.selectedSite;
+      _startQueryLoad(preserveVisible: !structuralTransition);
     }
   }
 
   /// Shows any page already downloaded during this app session immediately.
   /// Navigation must never blank the board while the same view is refreshed.
-  void _startQueryLoad() {
+  void _startQueryLoad({bool preserveVisible = false}) {
     final requestKey = _queryKey;
     final cached = _sessionViewCache[requestKey];
     // Never restore an empty response as a valid board snapshot. Provider
     // markets are transient, so revisiting a sport must perform a fresh sync
     // instead of getting trapped on an earlier zero-result query.
     if (cached == null || cached.isEmpty) {
-      if (_preparedProps.isEmpty) {
+      if (_preparedProps.isEmpty || !preserveVisible) {
+        _isStructuralQueryTransition =
+            !preserveVisible && _preparedProps.isNotEmpty;
+        _preparedProps = const [];
         _propsFuture = _loadProps();
         return;
       }
@@ -3829,7 +3836,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       ];
       _propsFuture = Future<List<PropData>>.value(visibleSnapshot);
       _syncStatus = PropPageStatus.checking;
-      _isQueryTransition = true;
+      _isStructuralQueryTransition = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || requestKey != _queryKey) return;
         unawaited(_refreshFirstPageFromNetwork(requestKey));
@@ -3838,6 +3845,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     }
 
     final activeCached = activePropsInChronologicalOrder(cached);
+    _isStructuralQueryTransition = false;
     _preparedProps = prepareBoardProps(activeCached);
     _propsFuture = Future<List<PropData>>.value(activeCached);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -3978,6 +3986,12 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     final liveProps = outcome.props;
     if (liveProps.isNotEmpty) {
       _automaticRetryCount = 0;
+    } else {
+      // A provider can return a successful-but-empty page while its protected
+      // session or market snapshot is still warming. Do not require the user
+      // to press Refresh: perform one forced retry that bypasses the shared
+      // repository's cached empty page.
+      _scheduleAutomaticRetry();
     }
     if (!mounted || requestKey != _queryKey) return const [];
     final props = activePropsInChronologicalOrder(liveProps);
@@ -4006,6 +4020,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   Future<List<PropData>> _fetchPropsPage({
     int offset = 0,
     bool includeReliability = false,
+    bool forceRefresh = false,
   }) {
     if (_usesSyncManager) {
       final query = _pageQuery(
@@ -4014,7 +4029,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       );
       if (offset == 0) _bindSyncSubscription(query);
       return widget.syncCoordinator!
-          .load(query, force: offset > 0)
+          .load(query, force: forceRefresh || offset > 0)
           .then((page) {
             if (offset == 0 && query.key == _pageQuery().key) {
               _currentPage = page;
@@ -4097,7 +4112,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     }
     _currentPage = page.copyWith(rows: stableOrder);
     setState(() {
-      _isQueryTransition = false;
+      _isStructuralQueryTransition = false;
       _syncStatus = state.status;
       _preparedProps = prepareBoardProps(stableOrder);
       _propsFuture = Future.value(stableOrder);
@@ -4180,7 +4195,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   }) async {
     try {
       final fresh = activePropsInChronologicalOrder(
-        await (pending ?? _fetchPropsPage()),
+        await (pending ?? _fetchPropsPage(forceRefresh: true)),
       );
       if (!mounted || requestKey != _queryKey) return;
       // Keeping the last page through an empty response protects the
@@ -4194,7 +4209,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       }
       _rememberCurrentView(requestKey, fresh);
       if (_matchesVisibleSnapshot(fresh)) {
-        setState(() => _isQueryTransition = false);
+        setState(() => _isStructuralQueryTransition = false);
         _notifyPropsLoaded(fresh);
         if (fresh.isNotEmpty) {
           EngagementTracker.instance.recordLaunchMilestone(
@@ -4205,7 +4220,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         return;
       }
       setState(() {
-        _isQueryTransition = false;
+        _isStructuralQueryTransition = false;
         _preparedProps = prepareBoardProps(fresh);
         _propsFuture = Future.value(fresh);
       });
@@ -4437,7 +4452,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     if (!mounted) return;
     try {
       final requestKey = _queryKey;
-      final props = activePropsInChronologicalOrder(await _fetchPropsPage());
+      final props = activePropsInChronologicalOrder(
+        await _fetchPropsPage(forceRefresh: true),
+      );
       if (!mounted || requestKey != _queryKey) return;
       if (props.isEmpty && !_isNarrowedQuery) {
         throw StateError('The live prop feed is temporarily empty.');
@@ -4643,6 +4660,14 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
           future: _propsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
+              if (_isStructuralQueryTransition) {
+                return _PropQueryTransition(
+                  sport: widget.displaySportFilter.isEmpty
+                      ? widget.sportFilter
+                      : widget.displaySportFilter,
+                  site: widget.selectedSite,
+                );
+              }
               return const PropLoadingSkeleton();
             }
 
@@ -4681,9 +4706,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             final allPrepared = _preparedProps.isNotEmpty
                 ? _preparedProps
                 : prepareBoardProps(snapshot.data ?? []);
-            final selectedSport = _isQueryTransition
-                ? 'ALL'
-                : widget.displaySportFilter.isEmpty
+            final selectedSport = widget.displaySportFilter.isEmpty
                 ? widget.sportFilter
                 : widget.displaySportFilter;
             final normalizedSport = normalizePropSport(selectedSport);
@@ -4700,7 +4723,6 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             final boardCacheKey = [
               preparedSignature,
               allPrepared.length,
-              _isQueryTransition,
               selectedSport,
               widget.selectedSite,
               widget.selectedCategory,
@@ -4720,13 +4742,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 filterAndSortBoardProps(
                   allPrepared,
                   selectedSport: selectedSport,
-                  selectedSite: _isQueryTransition
-                      ? 'ALL'
-                      : widget.selectedSite,
-                  searchQuery: _isQueryTransition ? '' : widget.searchQuery,
-                  verdictFilter: _isQueryTransition
-                      ? 'ALL'
-                      : widget.verdictFilter,
+                  selectedSite: widget.selectedSite,
+                  searchQuery: widget.searchQuery,
+                  verdictFilter: widget.verdictFilter,
                   sortBy: widget.sortBy,
                   pinnedPropIds: _favoritePropIds,
                 ),
@@ -5567,6 +5585,67 @@ class _SeasonStatusPanel extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PropQueryTransition extends StatelessWidget {
+  const _PropQueryTransition({required this.sport, required this.site});
+
+  final String sport;
+  final String site;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedSport = sport.trim().toUpperCase();
+    final normalizedSite = site.trim().toUpperCase();
+    final label = [
+      if (normalizedSport.isNotEmpty && normalizedSport != 'ALL')
+        normalizedSport,
+      if (normalizedSite.isNotEmpty && normalizedSite != 'ALL') normalizedSite,
+    ].join(' • ');
+    return Semantics(
+      liveRegion: true,
+      label: 'Loading ${label.isEmpty ? 'current' : label} props',
+      child: Container(
+        key: const ValueKey('prop-query-transition'),
+        width: double.infinity,
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 26),
+        decoration: BoxDecoration(
+          color: const Color(0xFF091722),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: app_colors.AppColors.border),
+        ),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.sync_rounded,
+              color: app_colors.AppColors.gold,
+              size: 24,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'LOADING ${label.isEmpty ? 'CURRENT' : label} PROPS',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Keeping this sport separate while its verified markets load.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: app_colors.AppColors.textMuted,
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -323,7 +323,7 @@ void main() {
     refresh.dispose();
   });
 
-  testWidgets('filter refresh keeps cards visible until replacement arrives', (
+  testWidgets('sport refresh never displays players under the wrong sport', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -364,9 +364,10 @@ void main() {
     await tester.pump();
     expect(
       find.byKey(const ValueKey('phone-prop-card-nba-transition')),
-      findsOneWidget,
-      reason: 'the last complete page stays painted during the new request',
+      findsNothing,
+      reason: 'the previous sport must not leak into the selected sport',
     );
+    expect(find.byKey(const ValueKey('prop-query-transition')), findsOneWidget);
 
     api.mlbResponse.complete([
       api.prop('mlb-transition', 'Filter Transition Test MLB Player', 'MLB'),
@@ -382,6 +383,115 @@ void main() {
     );
 
     await tester.pumpWidget(const SizedBox.shrink());
+    refresh.dispose();
+  });
+
+  testWidgets('empty first sync retries the network without manual refresh', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 900);
+    addTearDown(tester.view.reset);
+    final refresh = ValueNotifier<int>(0);
+    var calls = 0;
+    late final PropSyncCoordinator coordinator;
+    final repository = PropRepository(
+      loader: (query) async {
+        calls += 1;
+        final rows = calls == 1
+            ? const <PropData>[]
+            : [
+                PropData.fromJson({
+                  'id': 'startup-recovery-prop',
+                  'event_id': 'startup-recovery-event',
+                  'player_id': 'startup-recovery-player',
+                  'player_name': 'Startup Recovery Player',
+                  'sport': 'NBA',
+                  'matchup': 'A @ B',
+                  'sportsbook': 'PRIZEPICKS',
+                  'market_type': 'Points',
+                  'line': 20.5,
+                  'pick': 'OVER',
+                  'edge': 4,
+                  'image_path': '',
+                  'display_time': '7:30 PM',
+                  'start_time_utc': DateTime.now()
+                      .add(const Duration(hours: 2))
+                      .toUtc()
+                      .toIso8601String(),
+                  'game_status': 'scheduled',
+                }),
+              ];
+        return PropPage(
+          query: query,
+          rows: rows,
+          catalogCount: rows.length,
+          totalCount: rows.length,
+          facetCount: rows.length,
+          categoryCounts: const {'Points': 1},
+          totalCategoryCounts: const {'Points': 1},
+          playableCategoryCounts: const {'Points': 1},
+          sportCounts: const {'NBA': 1},
+          sportsbookCounts: const {'PRIZEPICKS': 1},
+          verdictCounts: const {},
+          sportCategoryCounts: const {
+            'NBA': {'Points': 1},
+          },
+          totalSportCategoryCounts: const {
+            'NBA': {'Points': 1},
+          },
+          playableSportCategoryCounts: const {
+            'NBA': {'Points': 1},
+          },
+          providerCoverage: const {},
+          providerReliability: const {},
+          feedSource: 'mock',
+          feedIsRecovery: false,
+          receivedAt: DateTime.utc(2026, 9, 8),
+        );
+      },
+    );
+    coordinator = PropSyncCoordinator(
+      repository: repository,
+      initialScope: 'startup-recovery-scope',
+      reconcileInterval: const Duration(days: 1),
+    );
+    PropPage? delivered;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PropGrid(
+            selections: const [],
+            onSelect: (_, _) {},
+            sportFilter: 'NBA',
+            displaySportFilter: 'NBA',
+            selectedSite: 'ALL',
+            selectedCategory: 'ALL',
+            selectedSide: 'ALL',
+            selectedTier: 'ALL',
+            minConfidence: 0,
+            sortBy: 'confidence',
+            searchQuery: 'Startup Recovery',
+            refreshListenable: refresh,
+            syncCoordinator: coordinator,
+            syncManagerEnabledOverride: true,
+            siteFirstLayout: true,
+            onPropPageLoaded: (page) => delivered = page,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(calls, 1);
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump();
+    expect(calls, 2);
+    expect(delivered?.rows.single.id, 'startup-recovery-prop');
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    coordinator.dispose();
     refresh.dispose();
   });
 }

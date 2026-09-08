@@ -919,7 +919,68 @@ class _SlipHistoryPanelState extends State<SlipHistoryPanel>
                   .toList(growable: false);
               final todayTotals = _buildTotals(todaySlips);
               if (slips.isEmpty) {
-                return const Center(child: Text('No slips in this view.'));
+                return Center(
+                  child: Container(
+                    key: const ValueKey('slip-watcher-empty-state'),
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    margin: const EdgeInsets.all(18),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 30,
+                    ),
+                    decoration: BoxDecoration(
+                      color: brand_colors.AppColors.panel,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: brand_colors.AppColors.goldShadow,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _isHistory
+                              ? Icons.history_rounded
+                              : Icons.receipt_long_outlined,
+                          color: brand_colors.AppColors.gold,
+                          size: 34,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _isHistory
+                              ? 'NO SETTLED SLIPS YET'
+                              : 'NO ACTIVE SLIPS YET',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Text(
+                          _isHistory
+                              ? 'Completed tickets will appear here by date with their final win, loss, push, or void result.'
+                              : 'Choose an Over or Under on the Props board, then save the ticket to track its live result here.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: brand_colors.AppColors.textMuted,
+                            fontSize: 11,
+                            height: 1.4,
+                          ),
+                        ),
+                        if (!_isHistory && widget.onClose != null) ...[
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            onPressed: widget.onClose,
+                            icon: const Icon(Icons.arrow_back_rounded),
+                            label: const Text('BROWSE PROPS'),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
               }
               return Column(
                 children: [

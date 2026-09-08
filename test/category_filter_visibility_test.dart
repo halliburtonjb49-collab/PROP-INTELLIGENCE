@@ -4,6 +4,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/main.dart';
 
 void main() {
+  test('active sport category facets do not mix football and baseball', () {
+    final counts = categoryFacetCountsForMenu(
+      selectedSite: 'PRIZEPICKS',
+      selectedSiteSport: 'MLB',
+      categoryCounts: const {'HITS': 12, 'PASSING YARDS': 20},
+      totalCategoryCounts: const {'HITS': 12, 'PASSING YARDS': 20},
+      selectedSportTotalCategoryCounts: const {'HITS': 12, 'TOTAL BASES': 8},
+    );
+
+    expect(visibleCategoryFilters(counts), ['ALL', 'HITS', 'TOTAL BASES']);
+    expect(counts, isNot(contains('PASSING YARDS')));
+  });
+
   test('category filters contain only positive live categories', () {
     expect(
       visibleCategoryFilters({
