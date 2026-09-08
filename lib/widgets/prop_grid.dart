@@ -5318,7 +5318,7 @@ class _SportSeasonStatus {
           : imminent
           ? '$normalized MARKETS CURRENTLY UNAVAILABLE'
           : continuous
-          ? '$normalized EVENTS COMING SOON'
+          ? '$normalized NO CURRENT PLAYER-PROP MARKETS'
           : '$normalized PRESEASON - MARKETS OPENING SOON',
       message: soccerWithoutPlayerMarkets
           ? 'Games are scheduled, but supported feeds have not posted player-prop markets for the selected league, including Bundesliga when applicable. PI will keep checking automatically.'
