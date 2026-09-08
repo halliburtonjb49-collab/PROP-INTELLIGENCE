@@ -3720,7 +3720,23 @@ class _MainDashboardState extends State<MainDashboard> {
                           const SizedBox(height: 10),*/
                                     if (!tabletBoard) ...[
                                       if (isPhoneBoard)
-                                        _buildPhoneResultsSummary()
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            _buildPhoneResultsSummary(),
+                                            const SizedBox(height: 8),
+                                            // The compact phone path does not
+                                            // render VerdictFilterBar, whose
+                                            // trailing control owns category
+                                            // access on larger screens.
+                                            Align(
+                                              alignment: Alignment.centerRight,
+                                              child:
+                                                  _buildCategoryPickerButton(),
+                                            ),
+                                          ],
+                                        )
                                       else
                                         _buildDecisionAndSummary(
                                           showVerdict:

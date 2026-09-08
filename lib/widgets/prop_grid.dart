@@ -250,6 +250,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
   VoidCallback? _syncListener;
   PropPage? _currentPage;
   PropPageStatus _syncStatus = PropPageStatus.idle;
+  bool _isQueryTransition = false;
 
   bool get _usesSyncManager =>
       syncManagerPathEnabled(override: widget.syncManagerEnabledOverride) &&
@@ -3815,8 +3816,24 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     // markets are transient, so revisiting a sport must perform a fresh sync
     // instead of getting trapped on an earlier zero-result query.
     if (cached == null || cached.isEmpty) {
-      _preparedProps = const [];
-      _propsFuture = _loadProps();
+      if (_preparedProps.isEmpty) {
+        _propsFuture = _loadProps();
+        return;
+      }
+
+      // Keep the last complete page painted until the replacement page is
+      // ready. The request-key check in the refresh path prevents a slower
+      // response for an older filter from taking over the current screen.
+      final visibleSnapshot = [
+        for (final prepared in _preparedProps) prepared.prop,
+      ];
+      _propsFuture = Future<List<PropData>>.value(visibleSnapshot);
+      _syncStatus = PropPageStatus.checking;
+      _isQueryTransition = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || requestKey != _queryKey) return;
+        unawaited(_refreshFirstPageFromNetwork(requestKey));
+      });
       return;
     }
 
@@ -4080,6 +4097,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
     }
     _currentPage = page.copyWith(rows: stableOrder);
     setState(() {
+      _isQueryTransition = false;
       _syncStatus = state.status;
       _preparedProps = prepareBoardProps(stableOrder);
       _propsFuture = Future.value(stableOrder);
@@ -4176,6 +4194,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
       }
       _rememberCurrentView(requestKey, fresh);
       if (_matchesVisibleSnapshot(fresh)) {
+        setState(() => _isQueryTransition = false);
         _notifyPropsLoaded(fresh);
         if (fresh.isNotEmpty) {
           EngagementTracker.instance.recordLaunchMilestone(
@@ -4186,6 +4205,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
         return;
       }
       setState(() {
+        _isQueryTransition = false;
         _preparedProps = prepareBoardProps(fresh);
         _propsFuture = Future.value(fresh);
       });
@@ -4661,7 +4681,9 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             final allPrepared = _preparedProps.isNotEmpty
                 ? _preparedProps
                 : prepareBoardProps(snapshot.data ?? []);
-            final selectedSport = widget.displaySportFilter.isEmpty
+            final selectedSport = _isQueryTransition
+                ? 'ALL'
+                : widget.displaySportFilter.isEmpty
                 ? widget.sportFilter
                 : widget.displaySportFilter;
             final normalizedSport = normalizePropSport(selectedSport);
@@ -4678,6 +4700,7 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
             final boardCacheKey = [
               preparedSignature,
               allPrepared.length,
+              _isQueryTransition,
               selectedSport,
               widget.selectedSite,
               widget.selectedCategory,
@@ -4697,9 +4720,13 @@ class _PropGridState extends State<PropGrid> with WidgetsBindingObserver {
                 filterAndSortBoardProps(
                   allPrepared,
                   selectedSport: selectedSport,
-                  selectedSite: widget.selectedSite,
-                  searchQuery: widget.searchQuery,
-                  verdictFilter: widget.verdictFilter,
+                  selectedSite: _isQueryTransition
+                      ? 'ALL'
+                      : widget.selectedSite,
+                  searchQuery: _isQueryTransition ? '' : widget.searchQuery,
+                  verdictFilter: _isQueryTransition
+                      ? 'ALL'
+                      : widget.verdictFilter,
                   sortBy: widget.sortBy,
                   pinnedPropIds: _favoritePropIds,
                 ),

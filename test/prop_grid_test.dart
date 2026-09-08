@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/models/prop_data.dart';
@@ -46,6 +48,64 @@ class _FailingPropsApi extends ApiService {
     requestedInitialReliability = includeReliability;
     requestedLimit = limit;
     return Future<List<PropData>>.error(StateError('test feed unavailable'));
+  }
+}
+
+class _FilterTransitionApi extends ApiService {
+  final Completer<List<PropData>> mlbResponse = Completer<List<PropData>>();
+
+  PropData prop(String id, String player, String sport) => PropData.fromJson({
+    'id': id,
+    'event_id': 'event-$id',
+    'player_id': 'player-$id',
+    'player_name': player,
+    'sport': sport,
+    'matchup': 'A @ B',
+    'sportsbook': 'PRIZEPICKS',
+    'market_type': 'Points',
+    'line': 20.5,
+    'pick': 'OVER',
+    'edge': 4,
+    'image_path': '',
+    'display_time': '7:30 PM',
+    'start_time_utc': DateTime.utc(2030, 9, 8, 19, 30).toIso8601String(),
+    'game_status': 'scheduled',
+  });
+
+  @override
+  Future<List<PropData>> loadCachedProps({
+    String? accessScope,
+    String selectedSide = 'All',
+    String selectedTier = 'All',
+    String selectedSportsbook = 'All',
+    String selectedSport = 'All',
+    String selectedCategory = 'All',
+    String search = '',
+    int minConfidence = 0,
+    String sortBy = 'confidence',
+    String verdictFilter = 'All',
+  }) async => const [];
+
+  @override
+  Future<List<PropData>> fetchProps({
+    String selectedSide = 'All',
+    String selectedTier = 'All',
+    String selectedSportsbook = 'All',
+    String selectedSport = 'All',
+    String selectedCategory = 'All',
+    String search = '',
+    int minConfidence = 0,
+    String sortBy = 'confidence',
+    String verdictFilter = 'All',
+    int limit = 75,
+    int offset = 0,
+    bool includeReliability = true,
+    bool trackBoardLoad = false,
+  }) {
+    if (selectedSport == 'MLB') return mlbResponse.future;
+    return Future.value([
+      prop('nba-transition', 'Filter Transition Test WNBA Player', 'WNBA'),
+    ]);
   }
 }
 
@@ -260,6 +320,68 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
     coordinator.dispose();
+    refresh.dispose();
+  });
+
+  testWidgets('filter refresh keeps cards visible until replacement arrives', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 900);
+    addTearDown(tester.view.reset);
+    final api = _FilterTransitionApi();
+    final refresh = ValueNotifier<int>(0);
+
+    Widget board(String sport) => MaterialApp(
+      home: Scaffold(
+        body: PropGrid(
+          selections: const [],
+          onSelect: (_, _) {},
+          sportFilter: sport,
+          displaySportFilter: sport,
+          selectedSite: 'ALL',
+          selectedCategory: 'ALL',
+          selectedSide: 'ALL',
+          selectedTier: 'ALL',
+          minConfidence: 0,
+          sortBy: 'confidence',
+          searchQuery: '',
+          refreshListenable: refresh,
+          apiService: api,
+          siteFirstLayout: true,
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(board('WNBA'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('phone-prop-card-nba-transition')),
+      findsOneWidget,
+    );
+
+    await tester.pumpWidget(board('MLB'));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('phone-prop-card-nba-transition')),
+      findsOneWidget,
+      reason: 'the last complete page stays painted during the new request',
+    );
+
+    api.mlbResponse.complete([
+      api.prop('mlb-transition', 'Filter Transition Test MLB Player', 'MLB'),
+    ]);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('phone-prop-card-nba-transition')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('phone-prop-card-mlb-transition')),
+      findsOneWidget,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
     refresh.dispose();
   });
 }
