@@ -61,6 +61,14 @@ Pass the correct public keys with `--dart-define`. Never embed a RevenueCat
 secret key in a client build. Android release builds also require a private
 upload keystore configured outside source control.
 
+### Automatic production releases
+
+Every push to `main` deploys the web client and Python API and triggers the
+Codemagic Default Workflow for iOS, Android, and web. Codemagic is configured
+to cancel outdated queued builds and publish the newly numbered iOS archive to
+App Store Connect/TestFlight. Feature branches and pull requests do not publish
+mobile releases.
+
 ## Validation
 
 ```powershell
