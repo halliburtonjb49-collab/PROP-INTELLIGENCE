@@ -24,6 +24,7 @@ import '../services/api_service.dart';
 import '../services/board_filter_memory.dart';
 import '../services/app_sound_service.dart';
 import '../services/prop_chat_service.dart';
+import '../services/prop_alert_inbox.dart';
 import '../services/auth_manager.dart';
 import '../services/engagement_tracker.dart';
 import '../services/injury_alert_service.dart';
@@ -228,6 +229,8 @@ class _MainDashboardState extends State<MainDashboard> {
   String _selectedSiteSport = '';
   String _selectedCategory = 'ALL';
   bool _siteDiscoveryExpanded = false;
+  bool _categoryPanelExpanded = false;
+  String _categoryPanelSport = '';
   String _selectedSide = 'All';
   final String _selectedTier = 'All';
   int _minConfidence = 0;
@@ -300,6 +303,7 @@ class _MainDashboardState extends State<MainDashboard> {
       unawaited(_loadInjuryAlerts());
       _injuryAlertPollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
         unawaited(_loadInjuryAlerts(notifyNew: true));
+        unawaited(_loadPropAlerts());
       });
     }
     if (widget.selectedPage == AppPage.evScanner) {
@@ -387,6 +391,11 @@ class _MainDashboardState extends State<MainDashboard> {
     if (oldWidget.selectedPage != widget.selectedPage &&
         widget.selectedPage == AppPage.evScanner) {
       unawaited(_loadEvScannerProps());
+    }
+    if (oldWidget.selectedPage != widget.selectedPage &&
+        widget.selectedPage == AppPage.propAlerts) {
+      PropAlertInbox.markRead();
+      unawaited(_apiService.markAlertDeliveriesRead());
     }
   }
 
@@ -996,7 +1005,7 @@ class _MainDashboardState extends State<MainDashboard> {
         ? facetTotal
         : propCount;
     unawaited(widget.onPropsRefreshed(props));
-    unawaited(_loadPropAlerts(fallbackProps: props));
+    unawaited(_loadPropAlerts());
   }
 
   void _handlePropPageLoaded(PropPage page) {
@@ -1010,69 +1019,49 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   PropAlertData _parsePropAlert(Map<String, dynamic> value) {
-    final edgeRaw = value['edge'];
+    final snapshot = value['snapshot'] is Map
+        ? Map<String, dynamic>.from(value['snapshot'] as Map)
+        : const <String, dynamic>{};
+    final edgeRaw =
+        snapshot['edge'] ??
+        snapshot['piTrust'] ??
+        snapshot['piTrustScore'] ??
+        snapshot['confidence'];
     final edge = edgeRaw is num
         ? edgeRaw.toInt()
         : int.tryParse('$edgeRaw') ?? 0;
+    final player = snapshot['player']?.toString().trim() ?? '';
+    final market =
+        (snapshot['market'] ?? snapshot['category'])?.toString().trim() ?? '';
+    final suppliedMessage = snapshot['message']?.toString().trim() ?? '';
+    final deliveredAt = DateTime.tryParse(
+      value['deliveredAt']?.toString() ?? '',
+    )?.toLocal();
     return PropAlertData(
-      sport: value['sport']?.toString() ?? 'ALL',
-      title: value['title']?.toString() ?? 'Prop Alert',
-      message: value['message']?.toString() ?? '',
+      sport: snapshot['sport']?.toString() ?? 'ALL',
+      title: value['name']?.toString() ?? 'Prop Alert',
+      message: suppliedMessage.isNotEmpty
+          ? suppliedMessage
+          : [
+              if (player.isNotEmpty) player,
+              if (market.isNotEmpty) market,
+              'matched your saved alert conditions.',
+            ].join(' '),
       edge: edge,
-      book: value['book']?.toString() ?? 'All Books',
-      time: value['time']?.toString() ?? 'now',
+      book:
+          (snapshot['sportsbook'] ?? snapshot['book'])?.toString() ??
+          'All Books',
+      time: deliveredAt == null
+          ? 'Triggered'
+          : '${deliveredAt.month}/${deliveredAt.day} '
+                '${deliveredAt.hour == 0
+                    ? 12
+                    : deliveredAt.hour > 12
+                    ? deliveredAt.hour - 12
+                    : deliveredAt.hour}:'
+                '${deliveredAt.minute.toString().padLeft(2, '0')} '
+                '${deliveredAt.hour >= 12 ? 'PM' : 'AM'}',
     );
-  }
-
-  List<PropAlertData> _fallbackPropAlertsFromProps(List<PropData> props) {
-    if (props.isEmpty) {
-      // Empty state is UI state, not an alert. Counting this placeholder as a
-      // real alert produced the misleading "1 alerts" screen on mobile.
-      return const [];
-    }
-
-    final sortedByEdge = [...props]
-      ..sort((a, b) => b.piTrustScore.compareTo(a.piTrustScore));
-    final top = sortedByEdge.first;
-    final topTrust = top.piTrustScore;
-    final bySport = <String, int>{};
-    for (final prop in props) {
-      final sport = _normalizeSport(prop.sport);
-      bySport[sport] = (bySport[sport] ?? 0) + 1;
-    }
-    final topSport =
-        (bySport.entries.toList()..sort((a, b) => b.value - a.value)).first;
-    final hot = props.where((p) => p.piTrustScore >= 90).length;
-
-    return [
-      PropAlertData(
-        sport: _normalizeSport(top.sport),
-        title: 'Best Edge Alert',
-        message:
-            '${top.player} has PI Trust $topTrust/100 on ${_propMarket(top)}.',
-        edge: topTrust,
-        book: top.sportsbook,
-        time: 'now',
-      ),
-      PropAlertData(
-        sport: topSport.key,
-        title: 'Most Active Sport',
-        message:
-            '${topSport.key} has ${topSport.value} props visible right now.',
-        edge: topTrust,
-        book: 'All Books',
-        time: 'now',
-      ),
-      if (hot > 0)
-        PropAlertData(
-          sport: 'ALL',
-          title: 'High Edge Cluster',
-          message: '$hot props have PI Trust of 90+ right now.',
-          edge: 90,
-          book: 'All Books',
-          time: 'now',
-        ),
-    ];
   }
 
   Future<void> _loadInjuryAlerts({bool notifyNew = false}) async {
@@ -1100,6 +1089,10 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Future<void> _handleInjuryAlertEvent(dynamic raw) async {
+    if (raw is Map && raw['type']?.toString() == 'alert.triggered') {
+      await _loadPropAlerts();
+      return;
+    }
     final alert = parseInjuryAlertEvent(raw);
     if (!mounted || alert == null) return;
     final eventId = alert['eventId']?.toString() ?? '';
@@ -1130,11 +1123,9 @@ class _MainDashboardState extends State<MainDashboard> {
       );
   }
 
-  Future<void> _loadPropAlerts({
-    List<PropData> fallbackProps = const [],
-  }) async {
+  Future<void> _loadPropAlerts() async {
     try {
-      final alerts = await _apiService.fetchPropAlerts();
+      final alerts = await _apiService.fetchAlertDeliveries();
       if (!mounted) {
         return;
       }
@@ -1142,22 +1133,17 @@ class _MainDashboardState extends State<MainDashboard> {
           .map(_parsePropAlert)
           .where((a) => a.message.isNotEmpty)
           .toList();
-      setState(() {
-        // The alerts endpoint can legitimately be quiet while the board has
-        // already received qualified live signals. Keep both surfaces in
-        // sync instead of presenting "No Props Loaded" beside a populated
-        // board.
-        _propAlerts = parsed.isNotEmpty
-            ? parsed
-            : _fallbackPropAlertsFromProps(fallbackProps);
-      });
-    } catch (_) {
-      if (!mounted || _propAlerts.isNotEmpty) {
-        return;
+      setState(() => _propAlerts = parsed);
+      if (widget.selectedPage == AppPage.propAlerts) {
+        PropAlertInbox.markRead();
+        unawaited(_apiService.markAlertDeliveriesRead());
+      } else {
+        PropAlertInbox.updateUnread(
+          alerts.where((alert) => alert['readAt'] == null).length,
+        );
       }
-      setState(() {
-        _propAlerts = _fallbackPropAlertsFromProps(fallbackProps);
-      });
+    } catch (_) {
+      // Preserve the last verified inbox. A network failure is not a new alert.
     }
   }
 
@@ -1785,15 +1771,13 @@ class _MainDashboardState extends State<MainDashboard> {
   // ignore: unused_element
   Future<void> _showPropAlertsOverlay(List<PropData> visibleProps) async {
     if (_propAlerts.isEmpty) {
-      await _loadPropAlerts(fallbackProps: visibleProps);
+      await _loadPropAlerts();
     }
     if (!mounted) {
       return;
     }
 
-    final alerts = _propAlerts.isNotEmpty
-        ? _propAlerts
-        : _fallbackPropAlertsFromProps(visibleProps);
+    final alerts = _propAlerts;
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 700;
 
@@ -3279,16 +3263,25 @@ class _MainDashboardState extends State<MainDashboard> {
 
   /// Optional rating filters for narrowing the complete prop inventory.
   Widget _buildVerdictFilter() {
-    return VerdictFilterBar(
-      selected: _verdictFilter,
-      countFor: (value) => resolveVerdictFilterCount(_verdictCounts, value),
-      shouldWrap: shouldWrapVerdictFilters,
-      onSelected: (value) {
-        EngagementTracker.instance.recordProduct('VERDICT_FILTER');
-        setState(() => _verdictFilter = value);
-      },
-      onShowGuide: () => ProductOnboarding.showDecisionGuide(context),
-      trailing: _buildCategoryPickerButton(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        VerdictFilterBar(
+          selected: _verdictFilter,
+          countFor: (value) => resolveVerdictFilterCount(_verdictCounts, value),
+          shouldWrap: shouldWrapVerdictFilters,
+          onSelected: (value) {
+            EngagementTracker.instance.recordProduct('VERDICT_FILTER');
+            setState(() => _verdictFilter = value);
+          },
+          onShowGuide: () => ProductOnboarding.showDecisionGuide(context),
+          trailing: _buildCategoryPickerButton(),
+        ),
+        if (_categoryPanelExpanded) ...[
+          const SizedBox(height: 8),
+          _buildInlineCategoryPanel(),
+        ],
+      ],
     );
   }
 
@@ -3296,7 +3289,25 @@ class _MainDashboardState extends State<MainDashboard> {
     padding: const EdgeInsets.only(right: 7),
     child: OutlinedButton.icon(
       key: const ValueKey('category-site-picker-button'),
-      onPressed: _showCategoryAndSitePicker,
+      onPressed: () {
+        final sports = _categoryPanelSports;
+        setState(() {
+          _categoryPanelExpanded = !_categoryPanelExpanded;
+          if (_categoryPanelExpanded && _categoryPanelSport.isEmpty) {
+            final activeSport = _selectedSiteSport.isNotEmpty
+                ? _selectedSiteSport
+                : widget.sportFilter.trim().toUpperCase();
+            _categoryPanelSport =
+                activeSport.isNotEmpty &&
+                    activeSport != 'ALL' &&
+                    sports.contains(activeSport)
+                ? activeSport
+                : sports.isEmpty
+                ? ''
+                : sports.first;
+          }
+        });
+      },
       icon: const Icon(Icons.tune_rounded, size: 14),
       label: const Text(
         'CATEGORIES',
@@ -3312,6 +3323,206 @@ class _MainDashboardState extends State<MainDashboard> {
       ),
     ),
   );
+
+  List<String> get _categoryPanelSports {
+    final sports = <String>{};
+    for (final sport in _apiService.lastTotalSportCategoryCounts.keys) {
+      final normalized = _normalizeSport(sport);
+      if (normalized.isNotEmpty && normalized != 'ALL') sports.add(normalized);
+    }
+    for (final sport in _siteTotalSportCategoryCounts.keys) {
+      final normalized = _normalizeSport(sport);
+      if (normalized.isNotEmpty && normalized != 'ALL') sports.add(normalized);
+    }
+    for (final prop in [..._siteInventoryProps, ..._latestProps]) {
+      final normalized = _normalizeSport(prop.sport);
+      if (normalized.isNotEmpty && normalized != 'ALL') sports.add(normalized);
+    }
+    final ordered = sports.toList()
+      ..sort((left, right) {
+        const priority = [
+          'MLB',
+          'NFL',
+          'NBA',
+          'WNBA',
+          'NHL',
+          'SOCCER',
+          'NCAAF',
+          'NCAAB',
+          'CFL',
+          'UFC',
+          'TENNIS',
+          'PGA',
+        ];
+        final leftIndex = priority.indexOf(left);
+        final rightIndex = priority.indexOf(right);
+        if (leftIndex < 0 && rightIndex < 0) return left.compareTo(right);
+        if (leftIndex < 0) return 1;
+        if (rightIndex < 0) return -1;
+        return leftIndex.compareTo(rightIndex);
+      });
+    return ordered;
+  }
+
+  Map<String, int> _categoryPanelCountsForSport(String sport) {
+    Map<String, int>? findSport(Map<String, Map<String, int>> source) {
+      for (final entry in source.entries) {
+        if (_normalizeSport(entry.key) == sport) return entry.value;
+      }
+      return null;
+    }
+
+    final serverCounts = findSport(
+      _selectedSite == 'ALL'
+          ? _apiService.lastTotalSportCategoryCounts
+          : _siteTotalSportCategoryCounts,
+    );
+    if (serverCounts != null && serverCounts.isNotEmpty) {
+      return serverCounts;
+    }
+    final counts = <String, int>{};
+    for (final prop in [..._siteInventoryProps, ..._latestProps]) {
+      if (_normalizeSport(prop.sport) != sport) continue;
+      final category = _marketCategory(prop);
+      if (category.isNotEmpty) {
+        counts[category] = (counts[category] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }
+
+  void _selectInlineCategorySport(String sport) {
+    setState(() {
+      _categoryPanelSport = sport;
+      _selectedCategory = 'ALL';
+      _selectedSide = 'All';
+      _verdictFilter = 'ALL';
+      _marketQuickFilter = 'ALL';
+      _latestProps = const [];
+      _lastUpdated = null;
+      if (_selectedSite != 'ALL') _selectedSiteSport = sport;
+    });
+    if (_selectedSite == 'ALL') {
+      widget.onSelectSport?.call(sport);
+    } else {
+      unawaited(_loadSelectedSiteSportCategoryCatalog(sport));
+    }
+  }
+
+  Widget _buildInlineCategoryPanel() {
+    final sports = _categoryPanelSports;
+    final activeSport = sports.contains(_categoryPanelSport)
+        ? _categoryPanelSport
+        : sports.isEmpty
+        ? ''
+        : sports.first;
+    final categories = activeSport.isEmpty
+        ? const <String>[]
+        : visibleCategoryFilters(_categoryPanelCountsForSport(activeSport));
+    return Container(
+      key: const ValueKey('inline-category-panel'),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 9),
+      decoration: BoxDecoration(
+        color: app_colors.AppColors.gunmetal.withValues(alpha: .72),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: app_colors.AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'SELECT SPORT',
+            style: TextStyle(
+              color: app_colors.AppColors.gold,
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .5,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Scrollbar(
+            controller: _sportHorizontalController,
+            thumbVisibility: true,
+            scrollbarOrientation: ScrollbarOrientation.bottom,
+            child: SingleChildScrollView(
+              controller: _sportHorizontalController,
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  for (final sport in sports) ...[
+                    ChoiceChip(
+                      key: ValueKey('inline-category-sport-$sport'),
+                      selected: activeSport == sport,
+                      label: Text(sport),
+                      onSelected: (_) => _selectInlineCategorySport(sport),
+                    ),
+                    const SizedBox(width: 7),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            activeSport.isEmpty ? 'CATEGORIES' : '$activeSport CATEGORIES',
+            style: const TextStyle(
+              color: app_colors.AppColors.gold,
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .5,
+            ),
+          ),
+          const SizedBox(height: 6),
+          if (categories.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Category inventory is updating.',
+                style: TextStyle(
+                  color: app_colors.AppColors.textMuted,
+                  fontSize: 10,
+                ),
+              ),
+            )
+          else
+            Scrollbar(
+              controller: _categoryHorizontalController,
+              thumbVisibility: true,
+              scrollbarOrientation: ScrollbarOrientation.bottom,
+              child: SingleChildScrollView(
+                controller: _categoryHorizontalController,
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    for (final category in categories) ...[
+                      ChoiceChip(
+                        key: ValueKey(
+                          'inline-category-${activeSport}_$category',
+                        ),
+                        selected: _effectiveSelectedCategory == category,
+                        label: Text(
+                          category == 'ALL' ? 'ALL $activeSport' : category,
+                        ),
+                        onSelected: (_) => setState(() {
+                          _selectedCategory = category;
+                          _verdictFilter = 'ALL';
+                          _latestProps = const [];
+                          _lastUpdated = null;
+                        }),
+                      ),
+                      const SizedBox(width: 7),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _showCategoryAndSitePicker() async {
     const sites = <String>[
@@ -3685,9 +3896,7 @@ class _MainDashboardState extends State<MainDashboard> {
     final isPhoneBoard = usePhoneBoardLayout(boardViewportWidth);
     final sectionGap = boardSectionGap(boardViewportWidth);
     final tabletBoard = ResponsiveBreakpoints.isTablet(boardViewportWidth);
-    final alertsForPage = _propAlerts.isNotEmpty
-        ? _propAlerts
-        : _fallbackPropAlertsFromProps(_latestProps);
+    final alertsForPage = _propAlerts;
     return Container(
       color: app_colors.AppColors.background,
       child: Column(

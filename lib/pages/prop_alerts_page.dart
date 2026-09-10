@@ -83,10 +83,14 @@ class PropAlertsPage extends StatelessWidget {
               ),
               child: const Column(
                 children: [
-                  Icon(Icons.sync_rounded, color: AppColors.gold, size: 34),
+                  Icon(
+                    Icons.notifications_none_rounded,
+                    color: AppColors.gold,
+                    size: 34,
+                  ),
                   SizedBox(height: 12),
                   Text(
-                    'SYNCING PROP ALERTS',
+                    'NO NEW PROP ALERTS',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -96,7 +100,7 @@ class PropAlertsPage extends StatelessWidget {
                   ),
                   SizedBox(height: 7),
                   Text(
-                    'No live alerts right now. Real alerts will appear automatically when a qualifying prop signal is detected.',
+                    'Alerts appear here only when one of your saved alert rules is actually triggered. The gold bell dot stays hidden until a new delivery arrives.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Color(0xFFC9D4DF),

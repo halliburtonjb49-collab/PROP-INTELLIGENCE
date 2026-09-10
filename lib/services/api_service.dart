@@ -1066,6 +1066,16 @@ class ApiService {
         .toList(growable: false);
   }
 
+  Future<void> markAlertDeliveriesRead() async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/intelligence/alerts/deliveries/read'),
+      headers: await _authenticatedHeaders(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Unable to mark alerts read: ${response.body}');
+    }
+  }
+
   Future<Map<String, dynamic>> saveCompoundAlert(
     Map<String, dynamic> rule,
   ) async {

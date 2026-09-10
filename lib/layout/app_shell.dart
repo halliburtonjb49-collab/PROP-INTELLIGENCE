@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../navigation/app_navigation.dart';
 import '../services/app_sound_service.dart';
 import '../services/auth_manager.dart';
+import '../services/prop_alert_inbox.dart';
 import '../theme/app_colors.dart';
 import 'responsive_breakpoints.dart';
 
@@ -1410,29 +1411,36 @@ class _PhoneAppHeader extends StatelessWidget {
             ),
           ),
         ),
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            IconButton(
-              tooltip: 'Open notifications',
-              onPressed: onNotifications,
-              icon: const Icon(Icons.notifications_none_rounded),
-              color: piSilver,
-              visualDensity: VisualDensity.compact,
-            ),
-            Positioned(
-              right: 8,
-              top: 7,
-              child: Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  color: accentColor,
-                  shape: BoxShape.circle,
-                ),
+        ValueListenableBuilder<int>(
+          valueListenable: PropAlertInbox.unreadCount,
+          builder: (context, unread, _) => Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                tooltip: unread > 0
+                    ? 'Open notifications, $unread unread'
+                    : 'Open notifications',
+                onPressed: onNotifications,
+                icon: const Icon(Icons.notifications_none_rounded),
+                color: piSilver,
+                visualDensity: VisualDensity.compact,
               ),
-            ),
-          ],
+              if (unread > 0)
+                Positioned(
+                  right: 8,
+                  top: 7,
+                  child: Container(
+                    key: const ValueKey('phone-alert-unread-dot'),
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: accentColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
         ValueListenableBuilder<AuthSessionState>(
           valueListenable: AuthManager.instance.sessionState,
@@ -1602,35 +1610,42 @@ class _TabletAppHeader extends StatelessWidget {
                     ),
                   ),
                 ),
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    IconButton(
-                      tooltip: 'Open notifications',
-                      onPressed: onNotifications,
-                      icon: const Icon(
-                        Icons.notifications_none_rounded,
-                        size: 29,
+                ValueListenableBuilder<int>(
+                  valueListenable: PropAlertInbox.unreadCount,
+                  builder: (context, unread, _) => Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      IconButton(
+                        tooltip: unread > 0
+                            ? 'Open notifications, $unread unread'
+                            : 'Open notifications',
+                        onPressed: onNotifications,
+                        icon: const Icon(
+                          Icons.notifications_none_rounded,
+                          size: 29,
+                        ),
+                        color: piSilver,
                       ),
-                      color: piSilver,
-                    ),
-                    Positioned(
-                      right: 8,
-                      top: 6,
-                      child: Container(
-                        width: 9,
-                        height: 9,
-                        decoration: BoxDecoration(
-                          color: accentColor,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.background,
-                            width: 1.2,
+                      if (unread > 0)
+                        Positioned(
+                          right: 8,
+                          top: 6,
+                          child: Container(
+                            key: const ValueKey('tablet-alert-unread-dot'),
+                            width: 9,
+                            height: 9,
+                            decoration: BoxDecoration(
+                              color: accentColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppColors.background,
+                                width: 1.2,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(width: 5),
                 ValueListenableBuilder<AuthSessionState>(

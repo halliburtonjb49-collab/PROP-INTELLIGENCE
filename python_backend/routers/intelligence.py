@@ -16,7 +16,7 @@ from services.prediction_tracking_service import (
 )
 from services.baseline_projection_service import MODEL_VERSION
 from services.api_auth_service import require_pro, require_user_id
-from services.compound_alert_service import create_alert, delete_alert, evaluate_user_alerts, list_alerts, list_deliveries
+from services.compound_alert_service import create_alert, delete_alert, evaluate_user_alerts, list_alerts, list_deliveries, mark_deliveries_read
 from routers.realtime import hub as realtime_hub
 from services.engagement_service import (
     product_observability, record_engagement, sentiment_rollup,
@@ -213,6 +213,11 @@ def get_compound_alerts(user_id: str = Depends(require_user_id)) -> dict[str, ob
 def get_alert_deliveries(limit: int = 50, user_id: str = Depends(require_user_id)) -> dict[str, object]:
     deliveries = list_deliveries(user_id, max(1, min(limit, 100)))
     return {"count": len(deliveries), "deliveries": deliveries}
+
+
+@router.post("/alerts/deliveries/read")
+def read_alert_deliveries(user_id: str = Depends(require_user_id)) -> dict[str, object]:
+    return {"updated": mark_deliveries_read(user_id)}
 
 
 @router.delete("/alerts/{alert_id}")

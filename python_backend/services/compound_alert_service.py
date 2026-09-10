@@ -138,3 +138,18 @@ def list_deliveries(user_id: str, limit: int = 50) -> list[dict[str, object]]:
         return [{"id": str(row[0]), "alertId": str(row[1]), "name": row[2], "snapshot": row[3],
                  "deliveredAt": row[4].isoformat(), "readAt": row[5].isoformat() if row[5] else None}
                 for row in cursor.fetchall()]
+
+
+def mark_deliveries_read(user_id: str) -> int:
+    """Persist that the signed-in member opened their alert inbox."""
+    if not database_is_configured():
+        return 0
+    with get_database_pool().connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """update alert_deliveries set read_at=coalesce(read_at, now())
+               where user_id=%s and read_at is null""",
+            (user_id,),
+        )
+        updated = cursor.rowcount
+        connection.commit()
+    return int(updated)

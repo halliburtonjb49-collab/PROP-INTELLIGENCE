@@ -1,5 +1,7 @@
 from datetime import date, datetime, timezone
 
+import pytest
+
 import main
 
 
@@ -205,3 +207,71 @@ def test_provider_scoreboard_uses_espn_team_logo_catalog() -> None:
 
     assert game["away_logo"] == "https://cdn.example/bos.png"
     assert game["home_logo"] == "https://cdn.example/nyy.png"
+
+
+def test_scoreboard_rejects_cross_league_team_logos() -> None:
+    main._espn_team_logo_catalog._cache = {
+        "NFL": {
+            "sanfrancisco49ers": "https://a.espncdn.com/i/teamlogos/nfl/500/sf.png",
+            "losangelesrams": "https://a.espncdn.com/i/teamlogos/nfl/500/lar.png",
+        }
+    }
+    game = main._normalize_scoreboard_game(
+        {
+            "away_team": "San Francisco 49ers",
+            "home_team": "Los Angeles Rams",
+            "away_logo": "https://a.espncdn.com/i/teamlogos/mlb/500/tb.png",
+            "home_logo": "https://a.espncdn.com/i/teamlogos/mlb/500/atl.png",
+            "status": "UPCOMING",
+        },
+        "NFL",
+        datetime(2026, 9, 10, tzinfo=timezone.utc),
+    )
+
+    assert game["away_logo"].endswith("/nfl/500/sf.png")
+    assert game["home_logo"].endswith("/nfl/500/lar.png")
+
+
+def test_scoreboard_uses_initials_instead_of_wrong_sport_logo() -> None:
+    main._espn_team_logo_catalog._cache = {"NFL": {}}
+    game = main._normalize_scoreboard_game(
+        {
+            "away_team": "San Francisco 49ers",
+            "home_team": "Los Angeles Rams",
+            "away_logo": "https://a.espncdn.com/i/teamlogos/mlb/500/tb.png",
+            "home_logo": "https://a.espncdn.com/i/teamlogos/mlb/500/atl.png",
+            "status": "UPCOMING",
+        },
+        "NFL",
+        datetime(2026, 9, 10, tzinfo=timezone.utc),
+    )
+
+    assert game["away_logo"] == ""
+    assert game["home_logo"] == ""
+
+
+@pytest.mark.parametrize(
+    ("league", "valid_marker", "wrong_marker"),
+    [
+        ("NBA", "nba", "nfl"),
+        ("WNBA", "wnba", "mlb"),
+        ("MLB", "mlb", "nhl"),
+        ("NFL", "nfl", "nba"),
+        ("CFL", "cfl", "mlb"),
+        ("NHL", "nhl", "nfl"),
+        ("NCAAF", "ncaa", "nfl"),
+        ("NCAAB", "ncaa", "nba"),
+        ("EPL", "soccer", "mlb"),
+        ("MLS", "soccer", "nba"),
+    ],
+)
+def test_scoreboard_logo_validation_covers_every_supported_sport(
+    league: str,
+    valid_marker: str,
+    wrong_marker: str,
+) -> None:
+    valid = f"https://a.espncdn.com/i/teamlogos/{valid_marker}/500/team.png"
+    wrong = f"https://a.espncdn.com/i/teamlogos/{wrong_marker}/500/team.png"
+
+    assert main._scoreboard_logo_for_league(valid, league) == valid
+    assert main._scoreboard_logo_for_league(wrong, league) == ""

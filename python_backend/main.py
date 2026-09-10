@@ -2168,6 +2168,44 @@ def _stable_espn_team_logo(league: str, team_name: str) -> str:
 	return f"https://a.espncdn.com/i/teamlogos/mlb/500/{slug}.png" if slug else ""
 
 
+_SCOREBOARD_LOGO_LEAGUE_MARKERS = {
+	"NBA": "/teamlogos/nba/",
+	"WNBA": "/teamlogos/wnba/",
+	"MLB": "/teamlogos/mlb/",
+	"NFL": "/teamlogos/nfl/",
+	"NFL PRESEASON": "/teamlogos/nfl/",
+	"NHL": "/teamlogos/nhl/",
+	"CFL": "/teamlogos/cfl/",
+	"NCAAF": "/teamlogos/ncaa/",
+	"NCAAB": "/teamlogos/ncaa/",
+	"EPL": "/teamlogos/soccer/",
+	"MLS": "/teamlogos/soccer/",
+}
+
+
+def _scoreboard_logo_for_league(value: object, league: str) -> str:
+	"""Reject a recognizable pro-league logo assigned to another league.
+
+	Team abbreviations overlap heavily across sports (for example TB, ATL and
+	SF). A stale/provider logo must therefore never be trusted solely because
+	the team name matched. Returning an initials badge is safer than displaying
+	a baseball crest for an NFL team.
+	"""
+	logo = str(value or "").strip()
+	if not logo:
+		return ""
+	normalized = logo.lower()
+	expected_marker = _SCOREBOARD_LOGO_LEAGUE_MARKERS.get(league)
+	recognized_markers = set(_SCOREBOARD_LOGO_LEAGUE_MARKERS.values())
+	# ESPN's team-logo URLs expose the sport family in the path. Validate every
+	# supported family, including the shared NCAA and soccer catalogs.
+	if "/teamlogos/" in normalized or any(
+		marker in normalized for marker in recognized_markers
+	):
+		return logo if expected_marker and expected_marker in normalized else ""
+	return logo
+
+
 def _espn_team_logo_catalog(league: str) -> dict[str, str]:
 	cache = getattr(_espn_team_logo_catalog, "_cache", None)
 	if not isinstance(cache, dict):
@@ -2553,16 +2591,16 @@ def _normalize_scoreboard_game(
 	start_time = _parse_start_time(start_time_utc)
 	completed = bool(event.get("completed"))
 	logo_catalog = _espn_team_logo_catalog(league)
-	away_logo = (
-		str(event.get("away_logo") or "").strip()
-		or logo_catalog.get(_scoreboard_team_key(away_team), "")
-		or _stable_espn_team_logo(league, away_team)
-	)
-	home_logo = (
-		str(event.get("home_logo") or "").strip()
-		or logo_catalog.get(_scoreboard_team_key(home_team), "")
-		or _stable_espn_team_logo(league, home_team)
-	)
+	away_logo = _scoreboard_logo_for_league(
+		event.get("away_logo"), league
+	) or _scoreboard_logo_for_league(
+		logo_catalog.get(_scoreboard_team_key(away_team), ""), league
+	) or _stable_espn_team_logo(league, away_team)
+	home_logo = _scoreboard_logo_for_league(
+		event.get("home_logo"), league
+	) or _scoreboard_logo_for_league(
+		logo_catalog.get(_scoreboard_team_key(home_team), ""), league
+	) or _stable_espn_team_logo(league, home_team)
 
 	explicit_status = str(event.get("status") or "").strip().upper()
 	if explicit_status in {"LIVE", "FINAL", "UPCOMING"}:
@@ -5600,7 +5638,7 @@ def scoreboard(
 			) from exc
 
 	now = datetime.now(timezone.utc)
-	cache_key = f"scoreboard:v4:{target_date.isoformat()}"
+	cache_key = f"scoreboard:v5:{target_date.isoformat()}"
 	cached_scoreboard = get_distributed_json(cache_key)
 	if isinstance(cached_scoreboard, dict):
 		cached_games = cached_scoreboard.get("games")
