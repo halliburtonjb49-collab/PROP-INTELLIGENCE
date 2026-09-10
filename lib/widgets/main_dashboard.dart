@@ -229,7 +229,9 @@ class _MainDashboardState extends State<MainDashboard> {
   String _selectedSiteSport = '';
   String _selectedCategory = 'ALL';
   bool _siteDiscoveryExpanded = false;
-  bool _categoryPanelExpanded = false;
+  // Keep category discovery visible by default. Hiding the sport/category
+  // rails behind a small control made the feature appear broken in browsers.
+  bool _categoryPanelExpanded = true;
   String _categoryPanelSport = '';
   String _selectedSide = 'All';
   final String _selectedTier = 'All';
@@ -3309,9 +3311,9 @@ class _MainDashboardState extends State<MainDashboard> {
         });
       },
       icon: const Icon(Icons.tune_rounded, size: 14),
-      label: const Text(
-        'CATEGORIES',
-        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
+      label: Text(
+        _categoryPanelExpanded ? 'HIDE CATEGORIES' : 'CATEGORIES',
+        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
       ),
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(0, 32),

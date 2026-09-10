@@ -92,14 +92,19 @@ class ScoreboardGame {
       return DateTime.tryParse(value.toString());
     }
 
+    final sport = (json['sport'] ?? json['sport_key'] ?? json['league'] ?? '')
+        .toString()
+        .toUpperCase();
+    final league =
+        (json['league'] ?? json['league_name'] ?? json['sport'] ?? '')
+            .toString()
+            .toUpperCase();
+    final logoLeague = league.isNotEmpty ? league : sport;
+
     return ScoreboardGame(
       id: (json['id'] ?? json['game_id'] ?? json['event_id'] ?? '').toString(),
-      sport: (json['sport'] ?? json['sport_key'] ?? json['league'] ?? '')
-          .toString()
-          .toUpperCase(),
-      league: (json['league'] ?? json['league_name'] ?? json['sport'] ?? '')
-          .toString()
-          .toUpperCase(),
+      sport: sport,
+      league: league,
       awayTeam:
           (json['away_team'] ??
                   json['awayTeam'] ??
@@ -122,8 +127,14 @@ class ScoreboardGame {
                   json['period'] ??
                   '')
               .toString(),
-      awayLogo: (json['away_logo'] ?? json['away_team_logo'] ?? '').toString(),
-      homeLogo: (json['home_logo'] ?? json['home_team_logo'] ?? '').toString(),
+      awayLogo: scoreboardLogoForLeague(
+        json['away_logo'] ?? json['away_team_logo'],
+        logoLeague,
+      ),
+      homeLogo: scoreboardLogoForLeague(
+        json['home_logo'] ?? json['home_team_logo'],
+        logoLeague,
+      ),
       displayTime: (json['display_time'] ?? json['displayTime'] ?? '')
           .toString(),
       startTime: parseDate(
@@ -163,4 +174,32 @@ class ScoreboardGame {
       weightClass: (json['weight_class'] ?? json['division'] ?? '').toString(),
     );
   }
+}
+
+/// Rejects a cached or provider logo that visibly belongs to another sport.
+/// The scoreboard can then paint team initials until its fresh league-correct
+/// logo arrives instead of showing an MLB badge on an NFL matchup.
+String scoreboardLogoForLeague(Object? value, String league) {
+  final logo = value?.toString().trim() ?? '';
+  if (logo.isEmpty) return '';
+
+  final normalizedLeague = league.trim().toUpperCase();
+  final lowerLogo = logo.toLowerCase();
+  final espnMarker = switch (normalizedLeague) {
+    'MLB' => '/mlb/',
+    'NFL' => '/nfl/',
+    'NBA' => '/nba/',
+    'WNBA' => '/wnba/',
+    'NHL' => '/nhl/',
+    'NCAAF' || 'NCAAB' => '/ncaa/',
+    'EPL' || 'MLS' || 'SOCCER' => '/soccer/',
+    _ => '',
+  };
+
+  if (lowerLogo.contains('espncdn.com/i/teamlogos/') &&
+      espnMarker.isNotEmpty &&
+      !lowerLogo.contains(espnMarker)) {
+    return '';
+  }
+  return logo;
 }
