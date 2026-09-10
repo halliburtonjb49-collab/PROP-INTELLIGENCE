@@ -1420,7 +1420,10 @@ class _PhoneAppHeader extends StatelessWidget {
                 tooltip: unread > 0
                     ? 'Open notifications, $unread unread'
                     : 'Open notifications',
-                onPressed: onNotifications,
+                onPressed: () {
+                  PropAlertInbox.markRead();
+                  onNotifications();
+                },
                 icon: const Icon(Icons.notifications_none_rounded),
                 color: piSilver,
                 visualDensity: VisualDensity.compact,
@@ -1619,7 +1622,10 @@ class _TabletAppHeader extends StatelessWidget {
                         tooltip: unread > 0
                             ? 'Open notifications, $unread unread'
                             : 'Open notifications',
-                        onPressed: onNotifications,
+                        onPressed: () {
+                          PropAlertInbox.markRead();
+                          onNotifications();
+                        },
                         icon: const Icon(
                           Icons.notifications_none_rounded,
                           size: 29,
