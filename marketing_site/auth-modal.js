@@ -76,7 +76,12 @@
       auth: {persistSession: true, autoRefreshToken: true, detectSessionInUrl: true}
     });
     const {data: {session}} = await client.auth.getSession();
-    if (session && ['/login', '/signup'].includes(window.location.pathname)) {
+    // Supabase falls back to the configured Site URL when a requested OAuth
+    // redirect is not yet present in its allow-list. Treat every authentication
+    // landing path, including `/`, as a completed sign-in when a real session
+    // exists so mobile users cannot be stranded back on the marketing page.
+    const authenticatedLandingPaths = ['/', '/login', '/signup', '/auth/callback'];
+    if (session && authenticatedLandingPaths.includes(window.location.pathname)) {
       window.location.replace('/workspace');
       return;
     }
@@ -145,7 +150,7 @@
       clearStatus();
       const {error} = await client.auth.signInWithOAuth({
         provider: 'google',
-        options: {redirectTo: window.location.origin + '/workspace'},
+        options: {redirectTo: window.location.origin + '/auth/callback'},
       });
       if (error) showStatus(error.message, 'error');
     });
