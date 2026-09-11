@@ -22,17 +22,12 @@ from services.historical_ingestion_service import (
     run_gridiron_ice_backfill,
     run_nflverse_season_backfill,
 )
-from services.projection_backtest_service import record_projection_grade
 from services.selectability_projection_service import (
     record_projection as record_selectability_projection,
 )
 from services.prediction_automation_service import (
     capture_prediction_closing_lines,
     snapshot_live_predictions,
-)
-from services.prop_learning_service import (
-    grade_learning_results,
-    snapshot_all_props_for_learning,
 )
 from services.memory_telemetry_service import record_memory_checkpoint
 from services.compound_alert_service import evaluate_all_alerts
@@ -280,6 +275,19 @@ def _live_history_seed_enabled() -> bool:
 def _live_gridiron_topup_enabled() -> bool:
     """Keep optional historical maintenance out of the live prop worker."""
     return os.getenv("LIVE_GRIDIRON_TOPUP_ENABLED", "false").strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+
+
+def _live_learning_enabled() -> bool:
+    """Keep historical grading and learning snapshots off the live worker.
+
+    These stages replay large database histories and rebuild the complete prop
+    catalog. They have their own ``prop-intelligence-learning`` cron; running
+    them again after every live refresh retained multiple catalogs and pushed
+    the 2 GB synchronization worker into an OOM restart loop.
+    """
+    return os.getenv("LIVE_SYNC_LEARNING_ENABLED", "false").strip().lower() in {
         "1", "true", "yes", "on",
     }
 
@@ -1195,7 +1203,11 @@ def run_global_sync_pipeline(
     # Graded on the same long cooldown as the history top-up: replaying
     # every stored game is expensive and its answer does not change
     # between syncs minutes apart.
-    if _grade_due():
+    if _live_learning_enabled() and _grade_due():
+        # Legacy opt-in only. Production learning belongs to the isolated cron.
+        from services.projection_backtest_service import record_projection_grade
+        from services.prop_learning_service import grade_learning_results
+
         report_post_processing("historical_grading")
         try:
             record_historical_access()
@@ -1238,15 +1250,21 @@ def run_global_sync_pipeline(
     # Closed-loop learning includes all live candidate props, not just
     # recommendation finalists. Keeping this after grading avoids creating
     # training labels for props the board has not had a chance to resolve.
-    report_post_processing("prop_learning_snapshot")
-    try:
-        learning_snapshot = snapshot_all_props_for_learning()
-        results.append({"sport": "prop_learning_snapshots", "events": 0,
-                        "props": int(learning_snapshot.get("created", 0))})
-    except Exception as exc:
-        logger.warning("prop learning snapshot failed error=%s", exc)
-        results.append({
-            "sport": "prop_learning_snapshots", "events": 0, "props": 0,
-            "error": str(exc),
-        })
+    if _live_learning_enabled():
+        report_post_processing("prop_learning_snapshot")
+        try:
+            from services.prop_learning_service import snapshot_all_props_for_learning
+
+            learning_snapshot = snapshot_all_props_for_learning()
+            results.append({"sport": "prop_learning_snapshots", "events": 0,
+                            "props": int(learning_snapshot.get("created", 0))})
+        except Exception as exc:
+            logger.warning("prop learning snapshot failed error=%s", exc)
+            results.append({
+                "sport": "prop_learning_snapshots", "events": 0, "props": 0,
+                "error": str(exc),
+            })
+    # The published board is still referenced by the caller for the cheap
+    # closing-line pass. Release every other stage-local container now.
+    gc.collect()
     return results
