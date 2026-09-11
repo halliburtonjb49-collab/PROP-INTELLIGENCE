@@ -187,21 +187,38 @@ List<PropData> mergeOwnerTopPicksForRefresh({
 
 @visibleForTesting
 List<PropData> selectOwnerTopFiveWithPrizePicks(List<PropData> ranked) {
-  if (ranked.length <= 5 || ranked.take(5).any(_isPrizePicksOwnerProp)) {
-    return ranked.take(5).toList(growable: false);
+  // This is a player shortlist, not a line shortlist. A player may have
+  // multiple markets, sides, providers, and alternate lines in the catalog;
+  // only their strongest ranked prop may consume a Top 5 position.
+  final uniquePlayers = <PropData>[];
+  final seenPlayers = <String>{};
+  for (final prop in ranked) {
+    final playerKey = [
+      prop.sport.trim().toUpperCase(),
+      prop.player.trim().toUpperCase().replaceAll(RegExp(r'\s+'), ' '),
+    ].join('|');
+    if (playerKey.endsWith('|') || !seenPlayers.add(playerKey)) continue;
+    uniquePlayers.add(prop);
+  }
+
+  if (uniquePlayers.length <= 5 ||
+      uniquePlayers.take(5).any(_isPrizePicksOwnerProp)) {
+    return uniquePlayers.take(5).toList(growable: false);
   }
   PropData? prizePicks;
-  for (final prop in ranked.skip(5)) {
+  for (final prop in uniquePlayers.skip(5)) {
     if (_isPrizePicksOwnerProp(prop)) {
       prizePicks = prop;
       break;
     }
   }
-  if (prizePicks == null) return ranked.take(5).toList(growable: false);
+  if (prizePicks == null) {
+    return uniquePlayers.take(5).toList(growable: false);
+  }
 
   // Keep the four strongest overall signals and guarantee that the best
   // available PrizePicks line is represented in the owner shortlist.
-  return <PropData>[...ranked.take(4), prizePicks];
+  return <PropData>[...uniquePlayers.take(4), prizePicks];
 }
 
 bool _isPrizePicksOwnerProp(PropData prop) {

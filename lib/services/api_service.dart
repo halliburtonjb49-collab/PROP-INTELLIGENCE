@@ -764,21 +764,32 @@ class ApiService {
     String metric, {
     int limit = 50,
   }) async {
-    final response = await http.get(
-      Uri.parse(
-        '$baseUrl/api/operations/control-panel/detail/$metric?limit=$limit',
-      ),
-      headers: await _authenticatedHeaders(),
+    final uri = Uri.parse(
+      '$baseUrl/api/operations/control-panel/detail/$metric?limit=$limit',
     );
-    if (response.statusCode != 200) {
+    http.Response? response;
+    // Owner drilldowns are support tools and should survive a rolling deploy
+    // or one transient gateway miss. Retry only retryable upstream failures;
+    // authorization and application errors remain immediate and visible.
+    for (var attempt = 0; attempt < 3; attempt++) {
+      response = await http
+          .get(uri, headers: await _authenticatedHeaders())
+          .timeout(const Duration(seconds: 15));
+      if (!{502, 503, 504}.contains(response.statusCode)) break;
+      if (attempt < 2) {
+        await Future<void>.delayed(Duration(milliseconds: 250 * (attempt + 1)));
+      }
+    }
+    final completed = response!;
+    if (completed.statusCode != 200) {
       return {
         'metric': metric,
         'supported': true,
-        'reason': 'http_${response.statusCode}',
+        'reason': 'http_${completed.statusCode}',
         'rows': const [],
       };
     }
-    return jsonDecode(response.body) as Map<String, dynamic>;
+    return jsonDecode(completed.body) as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> fetchLaunchControlPanel() async {

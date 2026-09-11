@@ -13,6 +13,7 @@ system-of-record view used to support members.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Callable, Mapping
 
 from database.postgres import database_is_configured, get_database_pool
@@ -263,6 +264,37 @@ def available_details() -> list[str]:
     return sorted(DETAILS)
 
 
+def _supabase_account_detail(key: str, limit: int) -> list[dict[str, object]] | None:
+    """Read canonical accounts without depending on cross-schema SQL access."""
+
+    rows = supabase_account_rows(limit)
+    if rows is None:
+        return None
+    if key == "newSignups":
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        recent: list[dict[str, object]] = []
+        for row in rows:
+            raw = row.get("signedUpAt")
+            try:
+                created = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+                if created.tzinfo is None:
+                    created = created.replace(tzinfo=timezone.utc)
+            except (TypeError, ValueError):
+                continue
+            if created >= cutoff:
+                recent.append(row)
+        return recent
+    if key == "coreMembers":
+        return [row for row in rows if str(row.get("member") or "").lower() == "core"]
+    if key == "proMembers":
+        return [
+            row for row in rows
+            if str(row.get("member") or "").lower()
+            in {"pro", "edge", "gold", "pro_gold", "pro-gold", "pro_founder"}
+        ]
+    return rows
+
+
 def operations_detail(
     metric: str,
     *,
@@ -276,18 +308,10 @@ def operations_detail(
     bounded = max(1, min(requested, MAXIMUM_LIMIT))
     if key == "members":
         bounded = MAXIMUM_LIMIT
-    if key in {"members", "newSignups", "coreMembers", "proMembers"} and not database_is_configured():
+    if key in {"members", "newSignups", "coreMembers", "proMembers"}:
         try:
-            rows = supabase_account_rows(bounded)
+            rows = _supabase_account_detail(key, bounded)
             if rows is not None:
-                if key == "coreMembers":
-                    rows = [row for row in rows if str(row.get("member") or "").lower() == "core"]
-                elif key == "proMembers":
-                    rows = [
-                        row for row in rows
-                        if str(row.get("member") or "").lower()
-                        in {"pro", "edge", "gold", "pro_gold", "pro-gold", "pro_founder"}
-                    ]
                 return {
                     "metric": key,
                     "supported": True,

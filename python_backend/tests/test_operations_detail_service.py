@@ -48,6 +48,7 @@ class _Connection:
 
 def _patch_db(monkeypatch, cursor):
     monkeypatch.setattr(detail, "database_is_configured", lambda: True)
+    monkeypatch.setattr(detail, "supabase_account_rows", lambda _limit: None)
     monkeypatch.setattr(
         detail, "get_database_pool", lambda: _Pool(_Connection(cursor))
     )
@@ -166,7 +167,35 @@ def test_a_database_failure_leaves_the_tile_working(monkeypatch) -> None:
 
 def test_no_database_returns_an_explicit_reason(monkeypatch) -> None:
     monkeypatch.setattr(detail, "database_is_configured", lambda: False)
+    monkeypatch.setattr(detail, "supabase_account_rows", lambda _limit: None)
     result = operations_detail("newSignups")
 
     assert result["reason"] == "database_not_configured"
     assert result["rows"] == []
+
+
+def test_member_drilldown_prefers_canonical_supabase_admin_rows(monkeypatch) -> None:
+    monkeypatch.setattr(detail, "database_is_configured", lambda: True)
+    monkeypatch.setattr(
+        detail,
+        "supabase_account_rows",
+        lambda _limit: [
+            {
+                "name": "Jordan",
+                "email": "jordan@example.com",
+                "userId": "auth-user-1",
+                "member": "pro",
+                "signedUpAt": "2026-09-11T12:00:00Z",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        detail,
+        "get_database_pool",
+        lambda: pytest.fail("account drilldown unnecessarily queried PostgreSQL"),
+    )
+
+    result = operations_detail("members")
+
+    assert result["rows"][0]["userId"] == "auth-user-1"
+    assert result["rows"][0]["email"] == "jordan@example.com"
