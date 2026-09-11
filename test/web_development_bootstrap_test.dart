@@ -97,6 +97,12 @@ void main() {
     expect(index, isNot(contains('Update needs one browser refresh.')));
     expect(index, contains("searchParams.get('recoveryAttempt')"));
     expect(index, contains('recoveryAttempt + 1'));
+    expect(index, contains("querySelector('flutter-view, flt-glass-pane')"));
+    expect(index, contains('new MutationObserver(detectMountedFlutterWorkspace)'));
+    expect(
+      index,
+      contains('piFirstFrameRendered || detectMountedFlutterWorkspace()'),
+    );
     final controllerChange = pwa.substring(
       pwa.indexOf("addEventListener('controllerchange'"),
       pwa.indexOf("window.addEventListener('load'"),

@@ -209,19 +209,40 @@
   </div>
   <script>
     let piFirstFrameRendered = false;
-    window.addEventListener('flutter-first-frame', () => {
+    let piFlutterMountObserver = null;
+    const revealFlutterWorkspace = () => {
+      if (piFirstFrameRendered) return;
       piFirstFrameRendered = true;
+      if (piFlutterMountObserver) piFlutterMountObserver.disconnect();
       const shell = document.getElementById('pi-launch-shell');
       if (!shell) return;
       shell.classList.add('is-ready');
       window.setTimeout(() => shell.remove(), 220);
-    }, { once: true });
+    };
+    const detectMountedFlutterWorkspace = () => {
+      // Recent Flutter releases mount a <flutter-view>; older renderers use
+      // <flt-glass-pane>. On iOS WebKit the Dart application can mount and
+      // issue API requests before the browser delivers flutter-first-frame.
+      // Detecting the real app host prevents the HTML splash from covering a
+      // running login/dashboard and triggering destructive recovery reloads.
+      if (!document.querySelector('flutter-view, flt-glass-pane')) return false;
+      revealFlutterWorkspace();
+      return true;
+    };
+    window.addEventListener('flutter-first-frame', revealFlutterWorkspace, {
+      once: true,
+    });
+    piFlutterMountObserver = new MutationObserver(detectMountedFlutterWorkspace);
+    piFlutterMountObserver.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
 
     // One production release briefly registered two workers for the same
     // scope. Recover affected browsers automatically instead of leaving a
     // customer on this launch screen indefinitely.
     window.setTimeout(async () => {
-      if (piFirstFrameRendered) return;
+      if (piFirstFrameRendered || detectMountedFlutterWorkspace()) return;
       const status = document.getElementById('pi-launch-status');
       const currentUrl = new URL(window.location.href);
       const recoveryAttempt = Math.max(
