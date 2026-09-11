@@ -252,7 +252,6 @@ class PropIntelligenceApp extends StatefulWidget {
 class _PropIntelligenceAppState extends State<PropIntelligenceApp> {
   String? _oneSignalUserId;
   String? _oneSignalSubscriptionId;
-  bool _oneSignalConfirmationShown = false;
 
   @override
   void initState() {
@@ -264,7 +263,6 @@ class _PropIntelligenceAppState extends State<PropIntelligenceApp> {
       OneSignalService.instance.observeRegistration((subscriptionId) {
         _oneSignalSubscriptionId = subscriptionId;
         unawaited(_registerPropChatPushSubscription());
-        unawaited(_showOneSignalRegistrationConfirmation());
       });
       _syncOneSignalIdentity();
     });
@@ -275,34 +273,6 @@ class _PropIntelligenceAppState extends State<PropIntelligenceApp> {
     if (!session.ready) return;
     EngagementTracker.instance.recordAuthenticationReady(
       authenticated: session.authenticated,
-    );
-  }
-
-  Future<void> _showOneSignalRegistrationConfirmation() async {
-    if (kIsWeb || _oneSignalConfirmationShown || !mounted) return;
-    final context = _oneSignalNavigatorKey.currentContext;
-    if (context == null) return;
-
-    _oneSignalConfirmationShown = true;
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Your OneSignal SDK integration is complete!'),
-        content: const Text(
-          'You can now send Push Notifications & In-App Messages through '
-          'OneSignal. Tap below to enable push notifications.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              unawaited(OneSignalService.instance.requestPermission());
-            },
-            child: const Text('Got it'),
-          ),
-        ],
-      ),
     );
   }
 

@@ -124,6 +124,34 @@ void main() {
     repository.dispose();
   });
 
+  test('obsolete account completion cannot unshare the new account request', () async {
+    final oldCompletion = Completer<PropPage>();
+    final newCompletion = Completer<PropPage>();
+    var newAccountCalls = 0;
+    final repository = PropRepository(
+      loader: (query) {
+        if (query.accessScope == 'user-1|premium') return oldCompletion.future;
+        newAccountCalls++;
+        return newCompletion.future;
+      },
+    )..setScope('user-1|premium');
+
+    final oldQuery = _query();
+    final oldRequest = repository.load(oldQuery);
+    repository.setScope('user-2|free');
+    final newQuery = _query(scope: 'user-2|free');
+    final newRequest = repository.load(newQuery);
+
+    oldCompletion.complete(_page(oldQuery, 'old'));
+    await expectLater(oldRequest, throwsA(isA<ObsoletePropRequest>()));
+    final sharedNewRequest = repository.load(newQuery);
+    expect(newAccountCalls, 1);
+
+    newCompletion.complete(_page(newQuery, 'new'));
+    expect(identical(await newRequest, await sharedNewRequest), isTrue);
+    repository.dispose();
+  });
+
   test(
     'refresh keeps the saved page visible and bounds memory cache',
     () async {

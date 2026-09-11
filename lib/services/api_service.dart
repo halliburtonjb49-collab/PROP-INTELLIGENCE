@@ -1466,9 +1466,20 @@ class ApiService {
           continue;
         }
 
-        final propsResponse = await http
-            .get(Uri.parse('$candidate/api/props'))
+        final propsUri = Uri.parse('$candidate/api/props').replace(
+          queryParameters: const {'limit': '1', 'includeReliability': 'false'},
+        );
+        var propsResponse = await http
+            .get(propsUri, headers: await _authenticatedHeaders())
             .timeout(const Duration(seconds: 8));
+        if (propsResponse.statusCode == 401) {
+          propsResponse = await http
+              .get(
+                propsUri,
+                headers: await _authenticatedHeaders(forceRefresh: true),
+              )
+              .timeout(const Duration(seconds: 8));
+        }
         if (propsResponse.statusCode != 200) {
           continue;
         }

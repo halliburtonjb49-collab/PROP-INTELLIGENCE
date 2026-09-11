@@ -113,7 +113,20 @@ class PropRepository {
       final cachedPage = cached(query);
       if (cachedPage != null) return SynchronousFuture(cachedPage);
     }
-    return _inFlight.putIfAbsent(query.key, () => _performLoad(query));
+    final existing = _inFlight[query.key];
+    if (existing != null) return existing;
+    late final Future<PropPage> request;
+    request = _performLoad(query).whenComplete(() {
+      // A scope change can start a new request with the same filter key while
+      // the obsolete account's request is still unwinding. Only the request
+      // that owns this slot may clear it; otherwise the old completion makes
+      // duplicate requests possible for the newly signed-in account.
+      if (identical(_inFlight[query.key], request)) {
+        _inFlight.remove(query.key);
+      }
+    });
+    _inFlight[query.key] = request;
+    return request;
   }
 
   Future<PropPage> _performLoad(PropQuery query) async {
@@ -165,8 +178,6 @@ class PropRepository {
         );
       }
       rethrow;
-    } finally {
-      _inFlight.remove(query.key);
     }
   }
 

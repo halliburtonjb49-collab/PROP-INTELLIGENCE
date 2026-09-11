@@ -89,6 +89,16 @@ void main() {
     expect(paywall, contains('PRIVACY POLICY'));
   });
 
+  test('native launch does not expose the OneSignal SDK sample dialog', () {
+    final source = File('lib/main.dart').readAsStringSync();
+
+    expect(
+      source,
+      isNot(contains('Your OneSignal SDK integration is complete!')),
+    );
+    expect(source, isNot(contains('_showOneSignalRegistrationConfirmation')));
+  });
+
   test('customer-facing source has no unfinished-product labels', () {
     final sources = Directory('lib')
         .listSync(recursive: true)

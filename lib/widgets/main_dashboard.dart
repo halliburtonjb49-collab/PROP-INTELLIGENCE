@@ -271,6 +271,7 @@ class _MainDashboardState extends State<MainDashboard> {
   Timer? _injuryAlertPollTimer;
   List<Map<String, dynamic>> _injuryAlerts = const [];
   final Set<String> _seenInjuryAlertIds = <String>{};
+  int _propAlertLoadGeneration = 0;
 
   Set<String> get _providersUnavailableForBoard {
     final rows = (_providerReliability['providers'] as List? ?? const [])
@@ -396,6 +397,10 @@ class _MainDashboardState extends State<MainDashboard> {
     }
     if (oldWidget.selectedPage != widget.selectedPage &&
         widget.selectedPage == AppPage.propAlerts) {
+      // Invalidate any older inbox request before clearing the badge. Without
+      // this guard, a response that began on the previous page can restore a
+      // stale unread count after the user has opened the inbox.
+      _propAlertLoadGeneration += 1;
       PropAlertInbox.markRead();
       unawaited(_apiService.markAlertDeliveriesRead());
     }
@@ -1126,9 +1131,10 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Future<void> _loadPropAlerts() async {
+    final loadGeneration = ++_propAlertLoadGeneration;
     try {
       final alerts = await _apiService.fetchAlertDeliveries();
-      if (!mounted) {
+      if (!mounted || loadGeneration != _propAlertLoadGeneration) {
         return;
       }
       final parsed = alerts
