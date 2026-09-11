@@ -246,3 +246,48 @@ def test_readiness_retries_one_cold_cache_performance_sample(monkeypatch) -> Non
     assert payload["responseMs"] == 800
     assert props_ms == 800
     assert delays == [post_deploy_smoke.DEPLOYMENT_POLL_SECONDS]
+
+
+def test_release_gate_allows_feed_stale_only_when_billing_is_ready(monkeypatch) -> None:
+    body = json.dumps(
+        {
+            "releaseReady": False,
+            "acceptanceStatus": "critical",
+            "billingReady": True,
+            "criticalIssueCount": 1,
+            "criticalIssueCodes": ["feed_stale"],
+        }
+    ).encode()
+
+    monkeypatch.setattr(
+        post_deploy_smoke,
+        "request",
+        lambda url: (_Response(body), body, 1.0),
+    )
+
+    post_deploy_smoke.verify_release_gate()
+
+
+def test_release_gate_rejects_other_critical_issues(monkeypatch) -> None:
+    body = json.dumps(
+        {
+            "releaseReady": False,
+            "acceptanceStatus": "critical",
+            "billingReady": True,
+            "criticalIssueCount": 2,
+            "criticalIssueCodes": ["feed_stale", "products_unconfigured"],
+        }
+    ).encode()
+
+    monkeypatch.setattr(
+        post_deploy_smoke,
+        "request",
+        lambda url: (_Response(body), body, 1.0),
+    )
+
+    try:
+        post_deploy_smoke.verify_release_gate()
+    except RuntimeError as exc:
+        assert "Promotion blocked by production certification" in str(exc)
+    else:
+        raise AssertionError("non-feed-stale critical issues must fail the gate")
