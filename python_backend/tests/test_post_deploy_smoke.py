@@ -292,6 +292,31 @@ def test_release_gate_rejects_other_critical_issues(monkeypatch) -> None:
         raise AssertionError("non-feed-stale critical issues must fail the gate")
 
 
+def test_release_gate_rejects_duplicate_feed_stale_issues(monkeypatch) -> None:
+    body = json.dumps(
+        {
+            "releaseReady": False,
+            "acceptanceStatus": "critical",
+            "billingReady": True,
+            "criticalIssueCount": 2,
+            "criticalIssueCodes": ["feed_stale", "feed_stale"],
+        }
+    ).encode()
+
+    monkeypatch.setattr(
+        post_deploy_smoke,
+        "request",
+        lambda url: (_Response(body), body, 1.0),
+    )
+
+    try:
+        post_deploy_smoke.verify_release_gate()
+    except RuntimeError as exc:
+        assert "Promotion blocked by production certification" in str(exc)
+    else:
+        raise AssertionError("duplicate feed_stale issues must fail the gate")
+
+
 def test_release_gate_reports_unavailable_before_parsing_body(monkeypatch) -> None:
     monkeypatch.setattr(
         post_deploy_smoke,

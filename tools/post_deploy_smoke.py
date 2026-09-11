@@ -221,8 +221,12 @@ def _release_gate_has_only_feed_stale_issue(payload: dict[str, object]) -> bool:
     codes = payload.get("criticalIssueCodes")
     if not isinstance(codes, list) or not codes:
         return False
-    normalized = {str(code).strip().lower() for code in codes}
-    return normalized == {"feed_stale"} and payload.get("billingReady") is True
+    normalized = [str(code).strip().lower() for code in codes]
+    return (
+        len(normalized) == 1
+        and normalized[0] == "feed_stale"
+        and payload.get("billingReady") is True
+    )
 
 
 def verify_release_gate() -> None:
