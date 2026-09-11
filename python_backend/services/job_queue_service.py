@@ -10,7 +10,12 @@ from typing import Any
 
 from redis import Redis
 from rq import Queue, Retry, Worker, worker_registration
-from rq.registry import FailedJobRegistry, StartedJobRegistry
+from rq.registry import (
+    DeferredJobRegistry,
+    FailedJobRegistry,
+    ScheduledJobRegistry,
+    StartedJobRegistry,
+)
 
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
 QUEUE_NAME = os.getenv("BACKGROUND_QUEUE_NAME", "prop-intelligence")
@@ -144,11 +149,59 @@ def announce_active_release() -> bool:
         return False
     try:
         connection = Redis.from_url(REDIS_URL, decode_responses=True, socket_timeout=2)
-        connection.set(ACTIVE_RELEASE_KEY, current_release())
+        release = current_release()
+        connection.set(ACTIVE_RELEASE_KEY, release)
+        _remove_superseded_pending_jobs(connection, release)
         return True
     except Exception as exc:
         LOGGER.warning("Unable to announce active release error=%s", exc)
         return False
+
+
+def _remove_superseded_pending_jobs(connection: Redis, release: str) -> int:
+    """Cancel queued retries that belong to an older deployment.
+
+    Checking the release inside the worker prevents stale work from executing,
+    but RQ otherwise leaves scheduled retries visible and eligible until their
+    next attempt. Removing them when a release becomes active prevents those
+    retries from consuming a worker slot or reviving a memory-heavy sync.
+    """
+
+    queue = Queue(QUEUE_NAME, connection=connection)
+    pending: list[Any] = list(queue.get_jobs())
+    for registry_type in (ScheduledJobRegistry, DeferredJobRegistry):
+        registry = registry_type(queue.name, connection=connection)
+        for job_id in registry.get_job_ids():
+            job = queue.fetch_job(job_id)
+            if job is not None:
+                pending.append(job)
+
+    removed = 0
+    seen: set[str] = set()
+    for job in pending:
+        job_id = str(getattr(job, "id", "") or "")
+        if not job_id or job_id in seen:
+            continue
+        seen.add(job_id)
+        expected = str((getattr(job, "meta", None) or {}).get("release") or "").strip()
+        if expected and expected != release:
+            try:
+                job.cancel()
+                job.delete()
+                removed += 1
+                LOGGER.info(
+                    "Removed superseded queued job id=%s release=%s active=%s",
+                    job_id,
+                    expected,
+                    release,
+                )
+            except Exception as exc:
+                LOGGER.warning(
+                    "Unable to remove superseded queued job id=%s error=%s",
+                    job_id,
+                    exc,
+                )
+    return removed
 
 
 def job_matches_active_release(job: Any | None) -> bool:

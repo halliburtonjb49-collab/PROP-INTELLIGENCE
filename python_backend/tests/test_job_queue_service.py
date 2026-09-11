@@ -1,6 +1,56 @@
 from services import job_queue_service as queue_service
 
 
+def test_superseded_pending_jobs_are_removed(monkeypatch) -> None:
+    class Job:
+        def __init__(self, job_id, release):
+            self.id = job_id
+            self.meta = {"release": release}
+            self.cancelled = False
+            self.deleted = False
+
+        def cancel(self):
+            self.cancelled = True
+
+        def delete(self):
+            self.deleted = True
+
+    old_queued = Job("old-queued", "old-release")
+    active = Job("active", "new-release")
+    old_retry = Job("old-retry", "old-release")
+
+    class Queue:
+        def __init__(self, *_args, **_kwargs):
+            self.name = queue_service.QUEUE_NAME
+
+        def get_jobs(self):
+            return [old_queued, active]
+
+        def fetch_job(self, job_id):
+            return old_retry if job_id == old_retry.id else None
+
+    class Registry:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def get_job_ids(self):
+            return [old_retry.id]
+
+    monkeypatch.setattr(queue_service, "Queue", Queue)
+    monkeypatch.setattr(queue_service, "ScheduledJobRegistry", Registry)
+    monkeypatch.setattr(queue_service, "DeferredJobRegistry", Registry)
+
+    removed = queue_service._remove_superseded_pending_jobs(
+        object(),
+        "new-release",
+    )
+
+    assert removed == 2
+    assert old_queued.cancelled and old_queued.deleted
+    assert old_retry.cancelled and old_retry.deleted
+    assert not active.cancelled and not active.deleted
+
+
 def test_job_release_fence_rejects_superseded_job(monkeypatch) -> None:
     class Connection:
         def get(self, _key):
