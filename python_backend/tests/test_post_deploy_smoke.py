@@ -375,3 +375,18 @@ def test_release_gate_reports_unavailable_before_parsing_body(monkeypatch) -> No
         assert str(exc) == "Production release gate is unavailable"
     else:
         raise AssertionError("non-200 release gate responses must fail")
+
+
+def test_release_gate_reports_malformed_json_on_200_response(monkeypatch) -> None:
+    monkeypatch.setattr(
+        post_deploy_smoke,
+        "request",
+        lambda url: (_Response(b"not-json", status=200), b"not-json", 1.0),
+    )
+
+    try:
+        post_deploy_smoke.verify_release_gate()
+    except RuntimeError as exc:
+        assert str(exc) == "Production release gate returned malformed JSON"
+    else:
+        raise AssertionError("malformed release gate payload must fail")
