@@ -61,6 +61,7 @@ void main() {
   });
 
   test('production keeps exactly one versioned workspace service worker', () {
+    final index = File('web/index.html').readAsStringSync();
     final buildScript = File('vercel_build.sh').readAsStringSync();
     final bootstrap = File('web/flutter_bootstrap.js').readAsStringSync();
     final worker = File('web/OneSignalSDKWorker.js').readAsStringSync();
@@ -93,6 +94,9 @@ void main() {
       isNot(contains("const cleanupKey = 'pi-mobile-direct-release'")),
     );
     expect(pwa, contains('reloadCurrentRelease();'));
+    expect(index, isNot(contains('Update needs one browser refresh.')));
+    expect(index, contains("searchParams.get('recoveryAttempt')"));
+    expect(index, contains('recoveryAttempt + 1'));
     final controllerChange = pwa.substring(
       pwa.indexOf("addEventListener('controllerchange'"),
       pwa.indexOf("window.addEventListener('load'"),

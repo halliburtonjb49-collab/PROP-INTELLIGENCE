@@ -222,13 +222,49 @@
     // customer on this launch screen indefinitely.
     window.setTimeout(async () => {
       if (piFirstFrameRendered) return;
-      const recoveryKey = 'pi-worker-recovery-__PI_BUILD_VERSION__';
       const status = document.getElementById('pi-launch-status');
-      if (window.sessionStorage.getItem(recoveryKey) === 'done') {
-        if (status) status.textContent = 'Update needs one browser refresh.';
+      const currentUrl = new URL(window.location.href);
+      const recoveryAttempt = Math.max(
+        0,
+        Number.parseInt(currentUrl.searchParams.get('recoveryAttempt') || '0', 10) || 0,
+      );
+      // Mobile Safari and Chrome can keep the former worker as controller for
+      // one navigation after unregistering it. The old one-shot session flag
+      // stopped here and required the customer to refresh manually. Allow a
+      // bounded second clean navigation, with a unique URL, so the replacement
+      // worker and release-addressed bootstrap can take control automatically.
+      if (recoveryAttempt >= 2) {
+        if (currentUrl.searchParams.get('recoveryFinal') === '1') {
+          if (status) status.textContent = 'Unable to finish the update. Tap to retry.';
+          const content = document.getElementById('pi-launch-content');
+          if (content) {
+            content.style.cursor = 'pointer';
+            content.setAttribute('role', 'button');
+            content.setAttribute('tabindex', '0');
+            const retry = () => {
+              const retryUrl = new URL(window.location.href);
+              retryUrl.searchParams.delete('recoveryAttempt');
+              retryUrl.searchParams.delete('recoveryFinal');
+              retryUrl.searchParams.set('retry', Date.now().toString());
+              window.location.replace(retryUrl.toString());
+            };
+            content.addEventListener('click', retry, { once: true });
+            content.addEventListener('keydown', (event) => {
+              if (event.key === 'Enter' || event.key === ' ') retry();
+            }, { once: true });
+          }
+          return;
+        }
+        if (status) status.textContent = 'Retrying the live workspace...';
+        window.setTimeout(() => {
+          const retryUrl = new URL(window.location.href);
+          retryUrl.searchParams.set('release', '__PI_BUILD_VERSION__');
+          retryUrl.searchParams.set('recoveryFinal', '1');
+          retryUrl.searchParams.set('retry', Date.now().toString());
+          window.location.replace(retryUrl.toString());
+        }, 1200);
         return;
       }
-      window.sessionStorage.setItem(recoveryKey, 'done');
       if (status) status.textContent = 'Finishing the latest update...';
       try {
         if ('serviceWorker' in navigator) {
@@ -245,7 +281,8 @@
       } finally {
         const url = new URL(window.location.href);
         url.searchParams.set('release', '__PI_BUILD_VERSION__');
-        url.searchParams.set('recovered', '1');
+        url.searchParams.set('recoveryAttempt', String(recoveryAttempt + 1));
+        url.searchParams.set('retry', Date.now().toString());
         window.location.replace(url.toString());
       }
     }, 20000);
