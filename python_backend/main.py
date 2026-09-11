@@ -763,15 +763,9 @@ def _cached_prop_catalog_singleflight() -> list[PropResponse]:
 			props = _recompute_runtime_verdicts(
 				[PropResponse.model_validate(row) for row in shared]
 			)
-			# A live request must never block on a Postgres write. Persist the
-			# durable recovery snapshot off the request thread; it is
-			# best-effort already (save_catalog_snapshot swallows its own
-			# errors) so losing the return value here changes nothing.
-			Thread(
-				target=_persist_catalog_snapshot_background,
-				args=(props,),
-				daemon=True,
-			).start()
+			# The worker persists the snapshot when it publishes this catalog.
+			# Re-serializing every model during API hydration briefly doubles a
+			# 20k+ row catalog and can push a healthy instance over 2 GB.
 			_publish_prop_catalog_summary(props)
 			with _prop_catalog_lock:
 				_prop_catalog.update(
@@ -1601,7 +1595,7 @@ def _reconcile_catalog_snapshot() -> bool:
 
 async def _ensure_props_available() -> None:
 	"""Check startup freshness without running provider work in the API."""
-	props = await asyncio.to_thread(get_props)
+	props = await asyncio.to_thread(_cached_prop_catalog)
 	if not _prop_cache_needs_refresh(props):
 		logging.info("Startup prop check ready props=%s", len(props))
 		# Snapshot persistence belongs to the worker publication path. Dumping
@@ -1666,7 +1660,7 @@ async def _maintain_prop_freshness() -> None:
 	while True:
 		await asyncio.sleep(check_seconds)
 		try:
-			props = await asyncio.to_thread(get_props)
+			props = await asyncio.to_thread(_cached_prop_catalog)
 			await asyncio.to_thread(alert_prop_health, props)
 			await asyncio.to_thread(alert_model_learning)
 			if not _prop_cache_needs_refresh(props):

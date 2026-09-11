@@ -19,7 +19,7 @@ def test_startup_readiness_prewarms_saved_catalog(monkeypatch):
 
 def test_startup_recovery_skips_sync_when_props_exist(monkeypatch):
     fresh = SimpleNamespace(lastUpdatedUtc=datetime.now(timezone.utc).isoformat())
-    monkeypatch.setattr(main, "get_props", lambda: [fresh])
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [fresh])
     called = False
 
     def unexpected_sync():
@@ -35,7 +35,7 @@ def test_startup_recovery_skips_sync_when_props_exist(monkeypatch):
 
 def test_startup_does_not_duplicate_catalog_for_snapshot_reconciliation(monkeypatch):
     fresh = SimpleNamespace(lastUpdatedUtc=datetime.now(timezone.utc).isoformat())
-    monkeypatch.setattr(main, "get_props", lambda: [fresh])
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [fresh])
     monkeypatch.setattr(
         main,
         "_reconcile_catalog_snapshot",
@@ -48,7 +48,7 @@ def test_startup_does_not_duplicate_catalog_for_snapshot_reconciliation(monkeypa
 
 
 def test_startup_recovery_queues_empty_cache_without_running_sync(monkeypatch):
-    monkeypatch.setattr(main, "get_props", lambda: [])
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [])
     queued = []
     monkeypatch.setattr(
         main,
@@ -68,7 +68,7 @@ def test_startup_recovery_queues_stale_cache_without_blocking(monkeypatch):
             datetime.now(timezone.utc) - timedelta(hours=2)
         ).isoformat()
     )
-    monkeypatch.setattr(main, "get_props", lambda: [stale])
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [stale])
     monkeypatch.setenv("PROP_FEED_STALE_MINUTES", "45")
     queued = []
     monkeypatch.setattr(
@@ -85,7 +85,7 @@ def test_startup_recovery_queues_stale_cache_without_blocking(monkeypatch):
 
 def test_startup_recovery_preserves_catalog_without_an_active_worker(monkeypatch):
     props = []
-    monkeypatch.setattr(main, "get_props", lambda: props)
+    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: props)
     monkeypatch.setattr(main, "_enqueue_prop_refresh", lambda: {"id": "queued"})
     monkeypatch.setattr(main, "job_queue_health", lambda: {"workers": 0})
     ran_sync = []
