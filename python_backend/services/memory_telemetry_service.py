@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 LOGGER = logging.getLogger(__name__)
+_memory_alert_sent = False
 
 
 def _linux_memory_value(label: str) -> int | None:
@@ -50,6 +51,7 @@ def process_memory_snapshot(stage: str) -> dict[str, object]:
 
 
 def record_memory_checkpoint(stage: str) -> dict[str, object]:
+    global _memory_alert_sent
     snapshot = process_memory_snapshot(stage)
     LOGGER.info(
         "memory_checkpoint stage=%s rss_mb=%s peak_rss_mb=%s gc=%s",
@@ -58,4 +60,21 @@ def record_memory_checkpoint(stage: str) -> dict[str, object]:
         snapshot["peakRssMb"],
         snapshot["gcCounts"],
     )
+    limit_mb = max(1, int(os.getenv("PROCESS_MEMORY_LIMIT_MB", "2048")))
+    rss_mb = snapshot.get("rssMb")
+    if (
+        isinstance(rss_mb, (int, float))
+        and rss_mb >= limit_mb * 0.75
+        and not _memory_alert_sent
+    ):
+        _memory_alert_sent = True
+        try:
+            from services.operations_notification_service import notify_operations_alert
+            notify_operations_alert(
+                kind="worker_memory_high",
+                summary=f"Worker memory reached {rss_mb:.0f} MB",
+                details={"stage": stage, "rssMb": rss_mb, "limitMb": limit_mb},
+            )
+        except Exception:
+            LOGGER.exception("Unable to send worker memory alert")
     return snapshot

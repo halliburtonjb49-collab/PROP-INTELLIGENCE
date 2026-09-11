@@ -130,6 +130,7 @@ from services.prop_delivery_metrics_service import (
 )
 from services.job_queue_service import (
 	acquire_global_sync_lock,
+	announce_active_release,
 	enqueue as enqueue_background_job,
 	health as job_queue_health,
 	job_status as background_job_status,
@@ -301,6 +302,7 @@ async def _warm_prop_catalog_before_ready() -> int:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+	announce_active_release()
 	seed_default_prop_builder_presets()
 	initialize_prop_builder_history()
 	storage = slip_storage_health()
@@ -318,10 +320,9 @@ async def lifespan(_: FastAPI):
 		"Legacy ticket import result=%s",
 		migrate_legacy_sqlite_slips(),
 	)
-	# Hydrate the saved catalog before Render marks this instance ready. A cold
-	# request otherwise becomes the thread that decodes and validates 10k+ rows,
-	# leaving a signed-in customer on skeleton cards for several seconds.
-	await _warm_prop_catalog_before_ready()
+	# Readiness must stay independent from catalog size. The first prop request
+	# reads the worker's last-known-good Redis publication while refreshes remain
+	# queued; the web process never rebuilds the provider catalog at startup.
 	startup_sync_task = asyncio.create_task(_ensure_props_available())
 	freshness_watchdog_task = asyncio.create_task(_maintain_prop_freshness())
 	discord_bridge.set_message_handler(
@@ -796,6 +797,11 @@ def _cached_prop_catalog_singleflight() -> list[PropResponse]:
 			return filter_owner_quarantined_props(props)
 		except Exception:
 			logging.exception("Durable prop catalog snapshot was invalid")
+	if os.getenv("PROCESS_ROLE", "development").strip().lower() == "api":
+		logging.error(
+			"No worker-published prop catalog is available; API local rebuild disabled"
+		)
+		return []
 	return filter_owner_quarantined_props(
 		_rebuild_prop_catalog_from_local(fallback_version=shared_version)
 	)
@@ -1595,9 +1601,18 @@ def _reconcile_catalog_snapshot() -> bool:
 
 async def _ensure_props_available() -> None:
 	"""Check startup freshness without running provider work in the API."""
-	props = await asyncio.to_thread(_cached_prop_catalog)
-	if not _prop_cache_needs_refresh(props):
-		logging.info("Startup prop check ready props=%s", len(props))
+	summary = get_distributed_json(_PROP_CATALOG_SUMMARY_KEY)
+	count = int(summary.get("count") or 0) if isinstance(summary, dict) else 0
+	latest = (
+		str(summary.get("lastDataUpdatedAt") or "")
+		if isinstance(summary, dict) else ""
+	)
+	if count > 0 and not _is_stale_timestamp(
+		latest,
+		datetime.now(timezone.utc),
+		max(5, int(os.getenv("PROP_FEED_REFRESH_AFTER_MINUTES", "30"))),
+	):
+		logging.info("Startup prop summary ready props=%s", count)
 		# Snapshot persistence belongs to the worker publication path. Dumping
 		# the entire catalog here duplicates tens of thousands of Pydantic
 		# objects in the traffic-serving process and can exceed its memory limit.
@@ -1614,14 +1629,14 @@ async def _ensure_props_available() -> None:
 		logging.warning(
 			"Startup prop cache is empty or stale; worker refresh is already "
 			"queued or unavailable props=%s",
-			len(props),
+			count,
 		)
 	else:
 		logging.warning(
 			"Startup prop cache is empty or stale; queued worker refresh "
 			"job=%s props=%s",
 			queued.get("id"),
-			len(props),
+			count,
 		)
 
 
@@ -1660,10 +1675,17 @@ async def _maintain_prop_freshness() -> None:
 	while True:
 		await asyncio.sleep(check_seconds)
 		try:
-			props = await asyncio.to_thread(_cached_prop_catalog)
-			await asyncio.to_thread(alert_prop_health, props)
-			await asyncio.to_thread(alert_model_learning)
-			if not _prop_cache_needs_refresh(props):
+			summary = get_distributed_json(_PROP_CATALOG_SUMMARY_KEY)
+			count = int(summary.get("count") or 0) if isinstance(summary, dict) else 0
+			latest = (
+				str(summary.get("lastDataUpdatedAt") or "")
+				if isinstance(summary, dict) else ""
+			)
+			if count > 0 and not _is_stale_timestamp(
+				latest,
+				datetime.now(timezone.utc),
+				max(5, int(os.getenv("PROP_FEED_REFRESH_AFTER_MINUTES", "30"))),
+			):
 				continue
 			queued = _enqueue_prop_refresh()
 			if queued is None:
@@ -1674,7 +1696,7 @@ async def _maintain_prop_freshness() -> None:
 				logging.info(
 					"Prop freshness refresh queued job=%s props=%s",
 					queued.get("id"),
-					len(props),
+					count,
 				)
 		except asyncio.CancelledError:
 			raise
@@ -2323,25 +2345,31 @@ def _espn_scoreboard_games_for_sport(
 	elif league == "NCAAB":
 		params["groups"] = 50
 
-	try:
-		response = requests.get(
-			f"https://site.api.espn.com/apis/site/v2/sports/{path}/scoreboard",
-			params=params,
-			headers={
-				"Accept": "application/json",
-				"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1",
-			},
-			# A slow or unsupported league must not hold the full multi-sport
-			# board hostage. Other leagues load in parallel and provider
-			# fallbacks remain available.
-			timeout=min(4, HTTP_TIMEOUT_SECONDS),
-		)
-		response.raise_for_status()
-		payload = response.json()
-	except (requests.RequestException, ValueError):
+	payload: object = None
+	for host in ("site.api.espn.com", "site.web.api.espn.com"):
+		try:
+			response = requests.get(
+				f"https://{host}/apis/site/v2/sports/{path}/scoreboard",
+				params=params,
+				headers={
+					"Accept": "application/json",
+					"Accept-Language": "en-US,en;q=0.9",
+					"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1",
+				},
+				timeout=min(4, HTTP_TIMEOUT_SECONDS),
+			)
+			response.raise_for_status()
+			payload = response.json()
+			break
+		except (requests.RequestException, ValueError) as exc:
+			logging.warning(
+				"ESPN scoreboard host failed league=%s host=%s error=%s",
+				league, host, type(exc).__name__,
+			)
+	if not isinstance(payload, dict):
 		return []
 
-	events = payload.get("events") if isinstance(payload, dict) else None
+	events = payload.get("events")
 	if not isinstance(events, list):
 		return []
 

@@ -79,6 +79,10 @@ def run_live_api_sync() -> dict[str, object] | None:
     if not api_base_url:
         return None
     payload = _request_json_with_retry("POST", f"{api_base_url}/api/sync")
+    if os.getenv("PREGAME_SYNC_ENQUEUE_ONLY", "false").strip().lower() in {
+        "1", "true", "yes", "on",
+    }:
+        return payload
     if _full_sync_complete(payload):
         return payload
 
@@ -278,6 +282,12 @@ def main() -> int:
     except Exception as exc:
         logging.exception("Pregame odds sync failed")
         errors.append({"stage": "odds-sync", "error": str(exc)})
+    if os.getenv("PREGAME_SYNC_ENQUEUE_ONLY", "false").strip().lower() in {
+        "1", "true", "yes", "on",
+    }:
+        result = finish_pipeline_run(identifier, started, metrics=metrics, errors=errors)
+        print(json.dumps(result, indent=2, default=str))
+        return 0 if result["status"] == "SUCCEEDED" else 1
     try:
         metrics["grading"] = grade_completed_predictions()
     except Exception as exc:

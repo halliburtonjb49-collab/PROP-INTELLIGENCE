@@ -5,12 +5,18 @@ from __future__ import annotations
 import gzip
 import json
 import logging
+import time
 from datetime import datetime, timezone
+from threading import Lock
 
 from database.postgres import database_is_configured, get_database_pool
 
 LOGGER = logging.getLogger(__name__)
 _SNAPSHOT_KEY = "live-props"
+_snapshot_cache_lock = Lock()
+_snapshot_cache: dict[str, object] = {"loadedAt": 0.0, "rows": None}
+_metadata_cache: dict[str, object] = {"loadedAt": 0.0, "value": None}
+_SNAPSHOT_CACHE_SECONDS = 60
 
 # The outcome of the last persist attempt. This write is best-effort and
 # swallows its own errors, which meant a snapshot could stop updating for
@@ -93,6 +99,9 @@ def save_catalog_snapshot(rows: list[dict[str, object]]) -> bool:
                 (datetime.now(timezone.utc) - started).total_seconds() * 1000
             ),
         )
+        with _snapshot_cache_lock:
+            _snapshot_cache.update(loadedAt=time.monotonic(), rows=rows)
+            _metadata_cache.update(loadedAt=0.0, value=None)
         return True
     except Exception as exc:
         # The message, not just the type. A bare "OperationalError" is what
@@ -115,6 +124,12 @@ def save_catalog_snapshot(rows: list[dict[str, object]]) -> bool:
 
 def load_catalog_snapshot() -> list[dict[str, object]]:
     """Load the last complete catalog without making startup depend on it."""
+    now = time.monotonic()
+    with _snapshot_cache_lock:
+        cached = _snapshot_cache.get("rows")
+        loaded_at = float(_snapshot_cache.get("loadedAt") or 0.0)
+        if isinstance(cached, list) and now - loaded_at < _SNAPSHOT_CACHE_SECONDS:
+            return cached
     if not database_is_configured():
         return []
     try:
@@ -126,7 +141,11 @@ def load_catalog_snapshot() -> list[dict[str, object]]:
                     (_SNAPSHOT_KEY,),
                 )
                 row = cursor.fetchone()
-        return _decode_payload(row[0]) if row else []
+        rows = _decode_payload(row[0]) if row else []
+        if rows:
+            with _snapshot_cache_lock:
+                _snapshot_cache.update(loadedAt=now, rows=rows)
+        return rows
     except Exception as exc:
         # The table may not exist on the first deployment; the live/Redis path
         # will seed it without turning startup into a failure.
@@ -141,6 +160,12 @@ def catalog_snapshot_metadata() -> dict[str, object]:
     of transfer and a gzip decompress for a question two columns can settle.
     """
 
+    now = time.monotonic()
+    with _snapshot_cache_lock:
+        cached = _metadata_cache.get("value")
+        loaded_at = float(_metadata_cache.get("loadedAt") or 0.0)
+        if isinstance(cached, dict) and now - loaded_at < _SNAPSHOT_CACHE_SECONDS:
+            return dict(cached)
     if not database_is_configured():
         return {"exists": False, "reason": "database_not_configured"}
     try:
@@ -157,12 +182,15 @@ def catalog_snapshot_metadata() -> dict[str, object]:
     if not row:
         return {"exists": False, "reason": "no_snapshot"}
     count, data_updated_at, updated_at = row
-    return {
+    result = {
         "exists": True,
         "propCount": int(count or 0),
         "dataUpdatedAt": data_updated_at.isoformat() if data_updated_at else None,
         "writtenAt": updated_at.isoformat() if updated_at else None,
     }
+    with _snapshot_cache_lock:
+        _metadata_cache.update(loadedAt=now, value=result)
+    return result
 
 
 def snapshot_is_behind(rows: list[object]) -> bool:

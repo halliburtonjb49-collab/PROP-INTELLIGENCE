@@ -56,6 +56,30 @@ def test_historical_cron_fails_when_any_mlb_chunk_failed() -> None:
     assert sync_historical_daily._coordinator_exit_code([], 1) == 1
 
 
+def test_pregame_enqueue_only_does_not_poll_status(monkeypatch) -> None:
+    monkeypatch.setenv("API_BASE_URL", "https://api.example.test")
+    monkeypatch.setenv("PREGAME_SYNC_ENQUEUE_ONLY", "true")
+    calls = []
+
+    def request(method, url, **_kwargs):
+        calls.append((method, url))
+
+        class Response:
+            status_code = 200
+
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {"status": "queued", "queuedJobId": "job-1"}
+
+        return Response()
+
+    monkeypatch.setattr(sync_pregame.requests, "request", request)
+    assert sync_pregame.run_live_api_sync()["status"] == "queued"
+    assert calls == [("POST", "https://api.example.test/api/sync")]
+
+
 def test_pregame_sync_retries_transient_deploy_gateway_errors(
     monkeypatch,
 ) -> None:

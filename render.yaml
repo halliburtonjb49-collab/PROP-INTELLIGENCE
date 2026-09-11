@@ -16,13 +16,15 @@ services:
     buildCommand: pip install -r requirements.txt
     preDeployCommand: python python_backend/scripts/apply_supabase_migrations.py
     startCommand: uvicorn main:app --app-dir python_backend --host 0.0.0.0 --port $PORT
-    healthCheckPath: /ready
+    healthCheckPath: /health
     maxShutdownDelaySeconds: 60
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.10
       - key: PI_PROP_REVISION_FEED_ENABLED
         value: "true"
+      - key: PROCESS_ROLE
+        value: api
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_SSLMODE
@@ -220,6 +222,10 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.10
+      - key: PROCESS_ROLE
+        value: worker
+      - key: PROCESS_MEMORY_LIMIT_MB
+        value: 2048
       - key: REDIS_URL
         fromService:
           type: keyvalue
@@ -332,7 +338,14 @@ services:
     buildCommand: pip install -r python_backend/requirements.txt
     startCommand: python python_backend/scripts/reconcile_identity_media.py
     envVars:
-      - fromGroup: pi-prop-intelligence-production
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSLMODE
+        value: require
+      - key: PROCESS_ROLE
+        value: identity-media-reconcile
 
   - type: cron
     name: prop-intelligence-pregame-sync
@@ -343,6 +356,8 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.10
+      - key: PREGAME_SYNC_ENQUEUE_ONLY
+        value: "true"
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_SSLMODE
@@ -395,6 +410,28 @@ services:
         value: 2000
       - key: PIPELINE_ALERT_WEBHOOK_URL
         sync: false
+
+  - type: cron
+    name: prop-intelligence-production-monitor
+    runtime: python
+    plan: starter
+    schedule: "*/5 * * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python python_backend/scripts/monitor_production_health.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: API_BASE_URL
+        value: https://api.propsintell.com
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: prop-intelligence-redis
+          property: connectionString
+      - key: PIPELINE_ALERT_WEBHOOK_URL
+        sync: false
+      - key: FEED_STALE_ALERT_MINUTES
+        value: 45
 
   - type: cron
     name: prop-intelligence-mlb-headshot-sync

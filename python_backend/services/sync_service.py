@@ -278,7 +278,7 @@ def _live_history_seed_enabled() -> bool:
 
 def _live_gridiron_topup_enabled() -> bool:
     """Keep optional historical maintenance out of the live prop worker."""
-    return os.getenv("LIVE_GRIDIRON_TOPUP_ENABLED", "true").strip().lower() in {
+    return os.getenv("LIVE_GRIDIRON_TOPUP_ENABLED", "false").strip().lower() in {
         "1", "true", "yes", "on",
     }
 

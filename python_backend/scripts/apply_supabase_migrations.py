@@ -79,6 +79,7 @@ MIGRATIONS = (
     "supabase_prop_chat_owner_announcements_rpc.sql",
     "supabase_prop_chat_runtime_grants.sql",
     "supabase_owner_email_aliases.sql",
+    "supabase_runtime_performance_indexes.sql",
 )
 
 

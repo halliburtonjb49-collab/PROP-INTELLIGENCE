@@ -481,10 +481,16 @@ def health() -> dict[str, object]:
     if client is None:
         return {"configured": False, "available": False, "mode": "local"}
     try:
+        memory = client.info("memory")
+        used = int(memory.get("used_memory") or 0)
+        maximum = int(memory.get("maxmemory") or 0)
         return {
             "configured": True,
             "available": bool(client.ping()),
             "mode": "redis",
+            "usedMemoryBytes": used,
+            "maxMemoryBytes": maximum,
+            "memoryUtilization": round(used / maximum, 4) if maximum else None,
         }
     except Exception as exc:
         return {

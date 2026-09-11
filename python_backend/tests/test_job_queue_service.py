@@ -1,6 +1,34 @@
 from services import job_queue_service as queue_service
 
 
+def test_job_release_fence_rejects_superseded_job(monkeypatch) -> None:
+    class Connection:
+        def get(self, _key):
+            return b"new-release"
+
+    class Job:
+        id = "old-job"
+        meta = {"release": "old-release"}
+        connection = Connection()
+
+    monkeypatch.setattr(queue_service, "REDIS_URL", "redis://configured")
+    assert queue_service.job_matches_active_release(Job()) is False
+
+
+def test_job_release_fence_accepts_active_job(monkeypatch) -> None:
+    class Connection:
+        def get(self, _key):
+            return b"active-release"
+
+    class Job:
+        id = "current-job"
+        meta = {"release": "active-release"}
+        connection = Connection()
+
+    monkeypatch.setattr(queue_service, "REDIS_URL", "redis://configured")
+    assert queue_service.job_matches_active_release(Job()) is True
+
+
 class _FakeLockRedis:
     value = None
 

@@ -14,6 +14,7 @@ from rq.registry import FailedJobRegistry, StartedJobRegistry
 
 REDIS_URL = os.getenv("REDIS_URL", "").strip()
 QUEUE_NAME = os.getenv("BACKGROUND_QUEUE_NAME", "prop-intelligence")
+ACTIVE_RELEASE_KEY = "release:prop-intelligence:active"
 LOGGER = logging.getLogger(__name__)
 SYNC_LOCK_KEY = "lock:prop-intelligence:global-sync"
 SYNC_LOCK_TTL_SECONDS = max(
@@ -133,6 +134,40 @@ def _rq_safe_job_id(job_id: str | None) -> str | None:
     return job_id.replace(":", "-")
 
 
+def current_release() -> str:
+    return os.getenv("RENDER_GIT_COMMIT", os.getenv("APP_VERSION", "development")).strip()
+
+
+def announce_active_release() -> bool:
+    """Publish the release allowed to execute queued production work."""
+    if not REDIS_URL:
+        return False
+    try:
+        connection = Redis.from_url(REDIS_URL, decode_responses=True, socket_timeout=2)
+        connection.set(ACTIVE_RELEASE_KEY, current_release())
+        return True
+    except Exception as exc:
+        LOGGER.warning("Unable to announce active release error=%s", exc)
+        return False
+
+
+def job_matches_active_release(job: Any | None) -> bool:
+    """Fence retries created by a superseded deployment."""
+    if job is None or not REDIS_URL:
+        return True
+    expected = str((getattr(job, "meta", None) or {}).get("release") or "").strip()
+    if not expected:
+        return False
+    try:
+        active = job.connection.get(ACTIVE_RELEASE_KEY)
+        if isinstance(active, bytes):
+            active = active.decode("utf-8")
+        return bool(active) and expected == str(active)
+    except Exception as exc:
+        LOGGER.warning("Unable to verify queued job release id=%s error=%s", job.id, exc)
+        return False
+
+
 def enqueue(
     function_name: str,
     *,
@@ -154,6 +189,7 @@ def enqueue(
             result_ttl=86400,
             failure_ttl=604800,
             retry=Retry(max=3, interval=[30, 120, 300]),
+            meta={"release": current_release()},
         )
         return {"id": job.id, "status": job.get_status(), "queue": QUEUE_NAME}
     except Exception as exc:

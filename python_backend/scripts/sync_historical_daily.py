@@ -1,6 +1,7 @@
 """Memory-bounded coordinator for the daily historical-data cron."""
 
 import argparse
+import gc
 import json
 import os
 import subprocess
@@ -62,6 +63,7 @@ def main() -> int:
                     "error": last_error,
                 }
             )
+        gc.collect()
         chunk_start = chunk_end + timedelta(days=1)
 
     other_command = [

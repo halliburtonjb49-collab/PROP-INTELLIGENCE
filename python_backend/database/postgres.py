@@ -51,10 +51,17 @@ class ProfilingCursor(Cursor):
 def database_performance_snapshot() -> dict[str, object]:
     with _slow_query_lock:
         rows = list(_slow_queries)
+    pool_stats: dict[str, object] = {}
+    if _pool is not None:
+        try:
+            pool_stats = dict(_pool.get_stats())
+        except Exception:
+            pool_stats = {"available": False}
     return {
         "thresholdMs": _slow_query_ms,
         "slowQueryCount": len(rows),
         "recentSlowQueries": rows[-10:],
+        "pool": pool_stats,
     }
 
 
@@ -85,7 +92,7 @@ def get_database_pool() -> ConnectionPool:
                 kwargs={
                     "sslmode": DATABASE_SSLMODE,
                     "connect_timeout": 10,
-                    "application_name": "prop-intelligence-api",
+                    "application_name": f"prop-intelligence-{os.getenv('PROCESS_ROLE', 'app')}",
                     "cursor_factory": ProfilingCursor,
                 },
             )

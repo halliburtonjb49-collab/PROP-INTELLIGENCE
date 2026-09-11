@@ -69,8 +69,15 @@ def run_prop_sync() -> None:
     from rq import get_current_job
 
     import main
+    from services.job_queue_service import job_matches_active_release
 
     current_job = get_current_job()
+    if not job_matches_active_release(current_job):
+        LOGGER.warning(
+            "Skipping prop sync from superseded release job_id=%s",
+            getattr(current_job, "id", None),
+        )
+        return
     main.run_queued_prop_sync(current_job.id if current_job is not None else None)
     # The sync's final catalog refresh already streams the durable snapshot and
     # shared Redis catalog. Re-serializing the entire catalog here retained a
