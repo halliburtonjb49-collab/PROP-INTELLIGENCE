@@ -563,3 +563,52 @@ def test_an_empty_catalog_is_never_reported_as_live(monkeypatch):
     main._rebuild_prop_catalog_from_local(persist_snapshot=False)
 
     assert main._catalog_feed_state()["source"] == "unavailable"
+
+
+def test_api_hydration_does_not_repeat_worker_verdict_or_image_compute(monkeypatch):
+    row = {"id": "p1"}
+    hydrated = object()
+    monkeypatch.setenv("PROCESS_ROLE", "api")
+    monkeypatch.setattr(
+        main.PropResponse, "model_validate", staticmethod(lambda value: hydrated)
+    )
+    monkeypatch.setattr(
+        main,
+        "_recompute_runtime_verdicts",
+        lambda _props: pytest.fail("API repeated worker catalog compute"),
+    )
+
+    assert main._hydrate_published_catalog([row]) == [hydrated]
+
+
+def test_failed_replacement_preserves_last_good_in_memory_catalog(monkeypatch):
+    cached = [SimpleNamespace(id="still-visible")]
+    main._prop_catalog.update(
+        loadedAt=main.time.monotonic(),
+        versionCheckedAt=0.0,
+        version="old-good",
+        props=cached,
+        source=main._CATALOG_SOURCE_SHARED,
+    )
+    monkeypatch.setattr(
+        main,
+        "get_distributed_json",
+        lambda key: "new-bad" if key == main._PROP_CATALOG_VERSION_KEY else None,
+    )
+    monkeypatch.setattr(main, "get_distributed_compressed_json", lambda _key: [{}])
+    monkeypatch.setattr(
+        main, "_hydrate_published_catalog", lambda _rows: (_ for _ in ()).throw(ValueError("bad"))
+    )
+    monkeypatch.setattr(main, "load_catalog_snapshot", lambda: [])
+    monkeypatch.setattr(main, "filter_owner_quarantined_props", lambda props: props)
+
+    try:
+        assert main._cached_prop_catalog() is cached
+    finally:
+        main._prop_catalog.update(
+            loadedAt=0.0,
+            versionCheckedAt=0.0,
+            version=None,
+            props=[],
+            source=main._CATALOG_SOURCE_EMPTY,
+        )

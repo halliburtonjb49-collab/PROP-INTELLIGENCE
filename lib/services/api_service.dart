@@ -29,6 +29,33 @@ String? preferredAuthenticatedToken({
   return current == null || current.isEmpty ? null : current;
 }
 
+/// True when a JWT is already expired or too close to expiry to safely begin
+/// a protected mobile request. Opaque test/development tokens are left alone.
+@visibleForTesting
+bool authenticatedJwtNeedsRefresh(
+  String token, {
+  DateTime? now,
+  Duration safetyWindow = const Duration(seconds: 45),
+}) {
+  final parts = token.split('.');
+  if (parts.length != 3) return false;
+  try {
+    final payload = jsonDecode(
+      utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+    );
+    if (payload is! Map || payload['exp'] is! num) return false;
+    final expiresAt = DateTime.fromMillisecondsSinceEpoch(
+      (payload['exp'] as num).toInt() * 1000,
+      isUtc: true,
+    );
+    return !expiresAt.isAfter(
+      (now ?? DateTime.now()).toUtc().add(safetyWindow),
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
 @visibleForTesting
 Map<String, dynamic> savedSlipPayload(Map<String, dynamic> response) {
   final nested = response['slip'];
@@ -420,6 +447,14 @@ class ApiService {
       persistedWebsiteToken: SupabaseService.persistedAccessToken,
     );
     var refreshStillRequired = forceRefresh;
+    if (token != null && authenticatedJwtNeedsRefresh(token)) {
+      // A persisted Supabase token can exist before the SDK has reconstructed
+      // its session. Do not knowingly send that expired token and consume the
+      // board's only fast request with a 401; restore from the refresh token
+      // before the first network call instead.
+      token = null;
+      refreshStillRequired = true;
+    }
     // Marketing login and Flutter share the canonical Supabase web token.
     // Send that token immediately on the first protected request instead of
     // making mobile browsers wait for the SDK to reconstruct its session.
@@ -489,6 +524,9 @@ class ApiService {
     }
     if (token == null || token.isEmpty) {
       throw StateError('Sign in before accessing private ticket data.');
+    }
+    if (authenticatedJwtNeedsRefresh(token)) {
+      throw StateError('Your session is still refreshing. Please try again.');
     }
     return {
       if (json) 'Content-Type': 'application/json',

@@ -725,6 +725,21 @@ def _recompute_runtime_verdicts(
 	return props
 
 
+def _hydrate_published_catalog(rows: list[object]) -> list[PropResponse]:
+	"""Hydrate a worker-published catalog without repeating worker compute.
+
+	The worker has already normalized identities, resolved media, calculated
+	verdicts, and atomically published a complete snapshot. Repeating those
+	operations for all 20k+ rows during an API cold start blocked every first
+	request and could exhaust the API instance. Development/worker processes
+	retain the recomputation path so formula changes remain testable locally.
+	"""
+	props = [PropResponse.model_validate(row) for row in rows]
+	if os.getenv("PROCESS_ROLE", "development").strip().lower() == "api":
+		return props
+	return _recompute_runtime_verdicts(props)
+
+
 def _cached_prop_catalog() -> list[PropResponse]:
 	# Only the cache lookup/hydration is serialized; callers release this lock
 	# before filtering or building their response. This prevents concurrent
@@ -762,9 +777,7 @@ def _cached_prop_catalog_singleflight() -> list[PropResponse]:
 		shared = get_distributed_json(_PROP_CATALOG_KEY)
 	if isinstance(shared, list) and shared:
 		try:
-			props = _recompute_runtime_verdicts(
-				[PropResponse.model_validate(row) for row in shared]
-			)
+			props = _hydrate_published_catalog(shared)
 			# The worker persists the snapshot when it publishes this catalog.
 			# Re-serializing every model during API hydration briefly doubles a
 			# 20k+ row catalog and can push a healthy instance over 2 GB.
@@ -779,14 +792,13 @@ def _cached_prop_catalog_singleflight() -> list[PropResponse]:
 				)
 			return filter_owner_quarantined_props(props)
 		except Exception:
-			delete_distributed_cache(_PROP_CATALOG_COMPRESSED_KEY)
-			delete_distributed_cache(_PROP_CATALOG_KEY)
+			# A single API process failing to hydrate must never delete the
+			# authoritative worker publication for every other healthy instance.
+			logging.exception("Worker-published prop catalog could not be hydrated")
 	durable = load_catalog_snapshot()
 	if durable:
 		try:
-			props = _recompute_runtime_verdicts(
-				[PropResponse.model_validate(row) for row in durable]
-			)
+			props = _hydrate_published_catalog(durable)
 			with _prop_catalog_lock:
 				_prop_catalog.update(
 					loadedAt=now,
@@ -798,6 +810,15 @@ def _cached_prop_catalog_singleflight() -> list[PropResponse]:
 			return filter_owner_quarantined_props(props)
 		except Exception:
 			logging.exception("Durable prop catalog snapshot was invalid")
+	# If a replacement revision or the durable store is temporarily malformed,
+	# preserve the already-served in-memory catalog. A bad refresh must not turn
+	# a usable board into zero inventory.
+	if isinstance(cached, list) and cached:
+		logging.error(
+			"Catalog refresh failed; preserving %s last-known-good in-memory props",
+			len(cached),
+		)
+		return filter_owner_quarantined_props(cached)
 	if os.getenv("PROCESS_ROLE", "development").strip().lower() == "api":
 		logging.error(
 			"No worker-published prop catalog is available; API local rebuild disabled"
