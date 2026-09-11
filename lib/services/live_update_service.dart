@@ -45,6 +45,7 @@ class LiveUpdateService {
       _channel = channel;
       channel.stream.listen(
         (event) {
+          if (!identical(_channel, channel)) return;
           _attempt = 0;
           if (event.toString().contains('authentication.required')) {
             final token =
@@ -56,18 +57,20 @@ class LiveUpdateService {
           }
           _events.add(event);
         },
-        onError: _handleDisconnect,
-        onDone: _handleDisconnect,
+        onError: (Object error) => _handleDisconnect(channel, error),
+        onDone: () => _handleDisconnect(channel),
         cancelOnError: true,
       );
     } catch (error) {
-      _handleDisconnect(error);
+      _handleDisconnect(null, error);
     }
   }
 
-  void _handleDisconnect([Object? error]) {
-    _channel?.sink.close();
+  void _handleDisconnect(WebSocketChannel? owner, [Object? error]) {
+    if (owner != null && !identical(_channel, owner)) return;
+    final channel = _channel;
     _channel = null;
+    unawaited(channel?.sink.close());
     if (error != null && !_events.isClosed) _events.addError(error);
     if (_closed || _paused || _reconnectTimer != null) return;
     final exponent = _attempt > 5 ? 5 : _attempt;
@@ -84,7 +87,9 @@ class LiveUpdateService {
     _paused = true;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
-    await _channel?.sink.close();
+    final channel = _channel;
+    _channel = null;
+    await channel?.sink.close();
   }
 
   void resume() {

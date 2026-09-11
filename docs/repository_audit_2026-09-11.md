@@ -56,7 +56,7 @@
 | focused post-fix Flutter regression run | exit 0; 30 passed |
 | `flutter analyze` (post-fix) | exit 0; no issues; 5.2 s analyzer time |
 | `python -m pytest python_backend/tests -q` (post-fix) | exit 0; 1,221 passed; 11.77 s |
-| `flutter test` (post-fix) | exit 0; 453 passed; about 51 s |
+| `flutter test` (post-fix) | exit 0; 454 passed; about 51 s |
 
 The release web build used safe non-secret placeholder Supabase values and the
 configured production API URL. It proves compilation, not authenticated
@@ -133,6 +133,17 @@ authenticated staging browser session.
 - Fix: all Flutter/Python native commands now run through a checked wrapper.
 - Test: `PI_VERIFY_CI_SELF_TEST=1` runs a child command that exits 17; the
   verifier exits 1 as required.
+
+### P1 — realtime could remain disconnected after background/resume
+
+- Reproduction: pause while a socket is active, resume before its delayed
+  close callback completes, and allow the old callback to run after a
+  replacement socket is installed.
+- Root cause: pause did not release `_channel` synchronously and disconnect
+  callbacks did not verify which socket they owned.
+- Fix: clear ownership before awaiting close, bind callbacks to their socket,
+  and ignore events or disconnects from obsolete sockets.
+- Test: `live_update_lifecycle_test.dart` guards the ownership and pause order.
 
 ## Existing protections inspected and retained
 
