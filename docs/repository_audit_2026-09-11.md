@@ -143,7 +143,8 @@ authenticated staging browser session.
   callbacks did not verify which socket they owned.
 - Fix: clear ownership before awaiting close, bind callbacks to their socket,
   and ignore events or disconnects from obsolete sockets.
-- Test: `live_update_lifecycle_test.dart` guards the ownership and pause order.
+- Test: `live_update_lifecycle_test.dart` executes a delayed old-socket close
+  across pause/resume and proves the replacement still delivers an event.
 
 ## Existing protections inspected and retained
 

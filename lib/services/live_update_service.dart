@@ -6,16 +6,44 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'api_service.dart';
 import 'supabase_service.dart';
 
+@visibleForTesting
+abstract interface class LiveSocket {
+  Stream<dynamic> get stream;
+  void add(dynamic event);
+  Future<void> close();
+}
+
+class _WebSocketLiveSocket implements LiveSocket {
+  _WebSocketLiveSocket(Uri uri) : _channel = WebSocketChannel.connect(uri);
+
+  final WebSocketChannel _channel;
+
+  @override
+  Stream<dynamic> get stream => _channel.stream;
+
+  @override
+  void add(dynamic event) => _channel.sink.add(event);
+
+  @override
+  Future<void> close() async => _channel.sink.close();
+}
+
+typedef LiveSocketConnector = LiveSocket Function(Uri uri);
+
 class LiveUpdateService {
   LiveUpdateService({
     this.channels = const {'props'},
     this.protocolVersion = 1,
-  });
+    LiveSocketConnector? connector,
+  }) : _connector = connector ?? _WebSocketLiveSocket.new,
+       _connectorWasInjected = connector != null;
 
   final Set<String> channels;
   final int protocolVersion;
+  final LiveSocketConnector _connector;
+  final bool _connectorWasInjected;
   final StreamController<dynamic> _events = StreamController.broadcast();
-  WebSocketChannel? _channel;
+  LiveSocket? _channel;
   Timer? _reconnectTimer;
   bool _closed = false;
   bool _paused = false;
@@ -25,7 +53,9 @@ class LiveUpdateService {
 
   void connect() {
     if (_closed || _paused || _channel != null) return;
-    if (kDebugMode && !SupabaseService.isConfigured) return;
+    if (kDebugMode && !SupabaseService.isConfigured && !_connectorWasInjected) {
+      return;
+    }
     final configuredBase = ApiService.baseUrl.trim();
     if (configuredBase.isEmpty) return;
     final httpBase = Uri.tryParse(configuredBase);
@@ -41,7 +71,7 @@ class LiveUpdateService {
       },
     );
     try {
-      final channel = WebSocketChannel.connect(uri);
+      final channel = _connector(uri);
       _channel = channel;
       channel.stream.listen(
         (event) {
@@ -51,7 +81,7 @@ class LiveUpdateService {
             final token =
                 SupabaseService.client?.auth.currentSession?.accessToken;
             if (token != null) {
-              channel.sink.add('{"type":"authenticate","token":"$token"}');
+              channel.add('{"type":"authenticate","token":"$token"}');
             }
             return;
           }
@@ -66,11 +96,11 @@ class LiveUpdateService {
     }
   }
 
-  void _handleDisconnect(WebSocketChannel? owner, [Object? error]) {
+  void _handleDisconnect(LiveSocket? owner, [Object? error]) {
     if (owner != null && !identical(_channel, owner)) return;
     final channel = _channel;
     _channel = null;
-    unawaited(channel?.sink.close());
+    unawaited(channel?.close());
     if (error != null && !_events.isClosed) _events.addError(error);
     if (_closed || _paused || _reconnectTimer != null) return;
     final exponent = _attempt > 5 ? 5 : _attempt;
@@ -89,7 +119,7 @@ class LiveUpdateService {
     _reconnectTimer = null;
     final channel = _channel;
     _channel = null;
-    await channel?.sink.close();
+    await channel?.close();
   }
 
   void resume() {
@@ -105,7 +135,7 @@ class LiveUpdateService {
   Future<void> dispose() async {
     _closed = true;
     _reconnectTimer?.cancel();
-    await _channel?.sink.close();
+    await _channel?.close();
     await _events.close();
   }
 }

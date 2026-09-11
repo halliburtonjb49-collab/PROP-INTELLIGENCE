@@ -30,7 +30,7 @@ Status values: **not reviewed**, **inspected**, **tested**, **fixed**, or
 | Authentication/session roles | `auth_manager.dart`, `supabase_service.dart`, API auth headers | tested | Role/tier and Apple configuration tests pass. Clean-device Apple/reviewer login blocked on physical devices. |
 | Prop HTTP client | `lib/services/api_service.dart::_fetchPropPage` | fixed | Protected health probe now authenticates and refreshes a 401 token. Bounded first-page behavior inspected. |
 | Prop repository/cache scope | `lib/services/prop_repository.dart` | fixed | Old-account completion can no longer remove the new account's shared request; regression passes. |
-| Client sync/realtime | `prop_sync_coordinator.dart`, `live_update_service.dart` | fixed | Protocol v2 receives current manifest on `connection.ready`; socket ownership is now safe across pause/resume and late callbacks. |
+| Client sync/realtime | `prop_sync_coordinator.dart`, `live_update_service.dart` | fixed | Protocol v2 receives current manifest on `connection.ready`; an executable delayed-close test proves the replacement socket survives pause/resume. |
 | Prop board rendering | `lib/widgets/prop_grid.dart` | tested | Cache/live race, empty/error states, ordering, stale request guards, and responsive widget tests pass. Authenticated first-card timing blocked. |
 | Sport/site/category filters | `main_dashboard.dart`, category identity helpers | tested | Categories stay open, scroll horizontally, use sport-specific total facets, and do not collapse after selection. |
 | Player search | API server search + Flutter search controls | tested | Search/clear and readiness checks pass; authenticated production journey blocked. |
