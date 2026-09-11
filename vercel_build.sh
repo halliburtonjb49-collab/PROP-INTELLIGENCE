@@ -105,6 +105,7 @@ flutter build web --release \
 sed -i "s/__PI_BUILD_VERSION__/${APP_VERSION}/g" build/web/OneSignalSDKWorker.js
 sed -i "s/__PI_BUILD_VERSION__/${APP_VERSION}/g" build/web/index.html
 sed -i "s/__PI_BUILD_VERSION__/${APP_VERSION}/g" build/web/pwa_install.js
+sed -i "s/__PI_BUILD_VERSION__/${APP_VERSION}/g" build/web/web_vitals.js
 
 # Assemble the complete customer experience into one immutable Vercel output.
 # Marketing owns the root while Flutter remains scoped to /workspace. Keeping

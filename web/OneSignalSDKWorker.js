@@ -74,6 +74,17 @@ async function cacheFirstReleaseAsset(request) {
   return response;
 }
 
+async function networkFirstReleaseAsset(request) {
+  const cache = await caches.open(PI_CACHE);
+  try {
+    const response = await fetch(request, {cache: 'no-store'});
+    if (response.ok) await cache.put(request, response.clone());
+    return response;
+  } catch (_) {
+    return (await cache.match(request)) || Response.error();
+  }
+}
+
 async function navigationResponse(request) {
   const cache = await caches.open(PI_CACHE);
   try {
@@ -104,6 +115,18 @@ self.addEventListener('fetch', (event) => {
     // this worker's release. Reusing it avoids downloading and compiling the
     // 5.5 MB Flutter program plus CanvasKit on every login. A new release gets
     // a new cache and preloads its runtime before this worker activates.
-    event.respondWith(cacheFirstReleaseAsset(request));
+    // Bootstrap/configuration files choose which compiled application runs.
+    // Serving one of these from an older worker can combine new HTML with an
+    // old Flutter bundle, which is exactly how mobile users kept seeing the
+    // pre-fix category controls. Always validate release-critical files with
+    // the network; immutable images/fonts remain cache-first.
+    const releaseCritical = /\/(?:flutter_bootstrap|main\.dart)\.js$/.test(
+      url.pathname,
+    ) || url.pathname.endsWith('/manifest.json');
+    event.respondWith(
+      releaseCritical
+        ? networkFirstReleaseAsset(request)
+        : cacheFirstReleaseAsset(request),
+    );
   }
 });

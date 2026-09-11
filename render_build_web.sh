@@ -43,6 +43,11 @@ flutter build web --release \
   --dart-define="TURNSTILE_BASE_URL=${TURNSTILE_BASE_URL:-https://pipropsintell.com/workspace/}" \
   --dart-define="REVENUECAT_PUBLIC_API_KEY=${REVENUECAT_PUBLIC_API_KEY:-}"
 
+sed -i "s/__PI_BUILD_VERSION__/${APP_VERSION}/g" build/web/OneSignalSDKWorker.js
+sed -i "s/__PI_BUILD_VERSION__/${APP_VERSION}/g" build/web/index.html
+sed -i "s/__PI_BUILD_VERSION__/${APP_VERSION}/g" build/web/pwa_install.js
+sed -i "s/__PI_BUILD_VERSION__/${APP_VERSION}/g" build/web/web_vitals.js
+
 if grep -Eqi 'localhost|127\.0\.0\.1' build/web/main.dart.js; then
   echo "Production bundle contains a local backend address." >&2
   exit 1

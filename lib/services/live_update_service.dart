@@ -53,6 +53,16 @@ class LiveUpdateService {
 
   void connect() {
     if (_closed || _paused || _channel != null) return;
+    // The production API currently exposes low-rate HTTP reconciliation, but
+    // no WebSocket route. Repeatedly connecting to the missing route generated
+    // a 404 loop from every mounted panel and competed with the first prop
+    // request on mobile. Keep injected sockets available to tests and make the
+    // production socket an explicit build-time opt-in when the route exists.
+    const productionSocketEnabled = bool.fromEnvironment(
+      'PI_REALTIME_SOCKET_ENABLED',
+      defaultValue: false,
+    );
+    if (!_connectorWasInjected && !productionSocketEnabled) return;
     if (kDebugMode && !SupabaseService.isConfigured && !_connectorWasInjected) {
       return;
     }

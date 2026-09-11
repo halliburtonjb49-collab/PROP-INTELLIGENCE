@@ -280,7 +280,43 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <script src="flutter_bootstrap.js?v=__PI_BUILD_VERSION__" async></script>
+  <script>
+    // A worker remains the controller until the next navigation even after it
+    // is unregistered. When the HTML release changes, clear the old app shell
+    // and perform exactly one release-addressed navigation before Flutter is
+    // allowed to start. This prevents a new index from launching an old
+    // main.dart.js on Safari/Chrome mobile.
+    (async () => {
+      const release = '__PI_BUILD_VERSION__';
+      const releaseKey = 'pi-active-web-release';
+      const previous = window.localStorage.getItem(releaseKey);
+      if (previous !== release && !window.location.search.includes(`release=${release}`)) {
+        window.localStorage.setItem(releaseKey, release);
+        try {
+          if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map((registration) => registration.unregister()));
+          }
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys
+              .filter((key) => key.startsWith('pi-app-shell-') || key.startsWith('flutter-'))
+              .map((key) => caches.delete(key)));
+          }
+        } finally {
+          const url = new URL(window.location.href);
+          url.searchParams.set('release', release);
+          window.location.replace(url.toString());
+        }
+        return;
+      }
+      window.localStorage.setItem(releaseKey, release);
+      const bootstrap = document.createElement('script');
+      bootstrap.src = `flutter_bootstrap.js?v=${release}`;
+      bootstrap.async = true;
+      document.body.appendChild(bootstrap);
+    })();
+  </script>
   <script src="pwa_install.js?v=__PI_BUILD_VERSION__" defer></script>
 </body>
 </html>
