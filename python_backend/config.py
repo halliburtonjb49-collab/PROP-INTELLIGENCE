@@ -24,6 +24,12 @@ API_SPORTS_BASEBALL_KEY = os.getenv(
 WNBA_LEAGUE_ID = os.getenv("WNBA_LEAGUE_ID", "").strip()
 SPORTSDATAIO_API_KEY = os.getenv("SPORTSDATAIO_API_KEY", "").strip()
 BALLDONTLIE_API_KEY = os.getenv("BALLDONTLIE_API_KEY", "").strip()
+BALLDONTLIE_ENABLED = os.getenv("BALLDONTLIE_ENABLED", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 SPORTRADAR_WNBA_API_KEY = os.getenv("SPORTRADAR_WNBA_API_KEY", "").strip()
 SPORTRADAR_API_KEY = os.getenv(
     "SPORTRADAR_API_KEY", SPORTRADAR_WNBA_API_KEY,

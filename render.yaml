@@ -52,6 +52,8 @@ services:
         sync: false
       - key: BALLDONTLIE_API_KEY
         sync: false
+      - key: BALLDONTLIE_ENABLED
+        value: "false"
       - key: SPORTRADAR_WNBA_API_KEY
         sync: false
       - key: SPORTRADAR_API_KEY
@@ -247,6 +249,8 @@ services:
         sync: false
       - key: BALLDONTLIE_API_KEY
         sync: false
+      - key: BALLDONTLIE_ENABLED
+        value: "false"
       - key: SPORTRADAR_WNBA_API_KEY
         sync: false
       - key: SPORTRADAR_API_KEY
@@ -372,6 +376,8 @@ services:
         sync: false
       - key: BALLDONTLIE_API_KEY
         sync: false
+      - key: BALLDONTLIE_ENABLED
+        value: "false"
       - key: SPORTRADAR_WNBA_API_KEY
         sync: false
       - key: SPORTRADAR_API_KEY
@@ -402,6 +408,8 @@ services:
         sync: false
       - key: BALLDONTLIE_API_KEY
         sync: false
+      - key: BALLDONTLIE_ENABLED
+        value: "false"
       - key: PROP_LEARNING_DB_ATTEMPTS
         value: 4
       - key: PROP_LEARNING_RETRY_SECONDS

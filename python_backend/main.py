@@ -26,6 +26,7 @@ from threading import Event, Lock, Thread
 
 from config import (
 	BALLDONTLIE_API_KEY,
+	BALLDONTLIE_ENABLED,
 	CORS_ALLOWED_ORIGINS,
 	HTTP_TIMEOUT_SECONDS,
 	LIVE_ODDS_SYNC_MIN_SECONDS,
@@ -3115,7 +3116,8 @@ def health() -> dict[str, object]:
 		"providers": {
 			"sportradarMultiSportConfigured": bool(SPORTRADAR_API_KEY),
 			"sportradarWnbaConfigured": bool(SPORTRADAR_WNBA_API_KEY),
-			"ballDontLieConfigured": bool(BALLDONTLIE_API_KEY),
+			"ballDontLieConfigured": bool(BALLDONTLIE_ENABLED and BALLDONTLIE_API_KEY),
+			"ballDontLieEnabled": BALLDONTLIE_ENABLED,
 		},
 	}
 

@@ -484,3 +484,22 @@ def test_global_pipeline_reuses_catalog_callback_board(monkeypatch) -> None:
     assert projected == [refreshed_board]
     assert len(alerted) == len(refreshed_board)
     assert any(row["sport"] == "compound_alerts" for row in results)
+
+
+def test_balldontlie_sync_is_disabled_without_network_calls(monkeypatch) -> None:
+    monkeypatch.setattr(sync_service, "BALLDONTLIE_ENABLED", False)
+    monkeypatch.setattr(sync_service, "BALLDONTLIE_API_KEY", "unused-key")
+    monkeypatch.setattr(
+        sync_service,
+        "fetch_bdl_matches",
+        lambda _league: (_ for _ in ()).throw(AssertionError("network called")),
+    )
+
+    result = sync_service.sync_balldontlie_soccer()
+
+    assert result == {
+        "sport": "balldontlie_soccer",
+        "events": 0,
+        "props": 0,
+        "skipped": "disabled",
+    }

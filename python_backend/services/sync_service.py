@@ -39,6 +39,7 @@ from services.compound_alert_service import evaluate_all_alerts
 from services.prop_service import get_props
 from services.pregame_context_ingestion_service import sync_pregame_context
 from config import (
+    BALLDONTLIE_ENABLED,
     BALLDONTLIE_API_KEY,
     ODDS_EVENT_HORIZON_DAYS,
     ODDS_MINIMUM_EVENTS_PER_SPORT,
@@ -853,6 +854,13 @@ def sync_sportsgameodds() -> dict[str, object]:
 def sync_balldontlie_soccer() -> dict[str, object]:
     """Sync real player-prop lines for soccer leagues that the Odds API
     coverage lane has not been returning events for."""
+    if not BALLDONTLIE_ENABLED:
+        return {
+            "sport": "balldontlie_soccer",
+            "events": 0,
+            "props": 0,
+            "skipped": "disabled",
+        }
     if not BALLDONTLIE_API_KEY:
         return {
             "sport": "balldontlie_soccer",
