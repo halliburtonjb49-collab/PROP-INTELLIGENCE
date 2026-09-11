@@ -219,10 +219,13 @@ def verify_customer_journey() -> dict[str, object]:
 
 def _release_gate_has_only_feed_stale_issue(payload: dict[str, object]) -> bool:
     codes = payload.get("criticalIssueCodes")
+    critical_count = payload.get("criticalIssueCount")
     if not isinstance(codes, list) or not codes:
         return False
     normalized = [str(code).strip().lower() for code in codes]
     return (
+        critical_count == 1
+        and
         len(normalized) == 1
         and normalized[0] == "feed_stale"
         and payload.get("billingReady") is True
