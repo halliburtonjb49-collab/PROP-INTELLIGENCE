@@ -344,7 +344,7 @@ services:
     # Run from the backend package root so imports such as ``services.*`` are
     # resolvable. Running this script from the repository root failed every
     # thirty minutes with ModuleNotFoundError before doing any reconciliation.
-    startCommand: cd python_backend && python scripts/reconcile_identity_media.py
+    startCommand: cd python_backend && python -m scripts.reconcile_identity_media
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.10

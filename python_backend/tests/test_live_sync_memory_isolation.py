@@ -26,6 +26,6 @@ def test_identity_reconcile_runs_from_backend_import_root() -> None:
     blueprint = Path("render.yaml").read_text(encoding="utf-8")
 
     assert (
-        "startCommand: cd python_backend && python "
-        "scripts/reconcile_identity_media.py"
+        "startCommand: cd python_backend && python -m "
+        "scripts.reconcile_identity_media"
     ) in blueprint
