@@ -34,6 +34,10 @@ void main() {
               onSelectQuickFilter: (value) => selectedQuickFilter = value,
               playablePropCount: 24,
               bestPiScore: 86,
+              categoryPanel: const SizedBox(
+                key: ValueKey('tablet-category-panel'),
+                height: 48,
+              ),
             ),
           ),
         ),
@@ -46,10 +50,27 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const ValueKey('tablet-search-field')), findsOneWidget);
+    expect(find.byKey(const ValueKey('tablet-category-panel')), findsOneWidget);
     expect(find.byKey(const ValueKey('tablet-filter-button')), findsOneWidget);
     expect(find.text('PLAYABLE PROPS'), findsOneWidget);
     expect(find.text('BEST PI SCORE'), findsOneWidget);
     expect(find.text('86'), findsOneWidget);
+    expect(
+      tester
+          .getTopLeft(find.byKey(const ValueKey('tablet-provider-selector')))
+          .dy,
+      lessThan(
+        tester.getTopLeft(find.byKey(const ValueKey('tablet-sport-NFL'))).dy,
+      ),
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('tablet-sport-NFL'))).dy,
+      lessThan(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('tablet-category-panel')))
+            .dy,
+      ),
+    );
 
     await tester.tap(find.byKey(const ValueKey('tablet-sport-NFL')));
     await tester.pump();

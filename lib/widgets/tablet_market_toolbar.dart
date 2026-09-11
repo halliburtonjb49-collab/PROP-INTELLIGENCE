@@ -21,6 +21,7 @@ class TabletMarketToolbar extends StatelessWidget {
     required this.onSelectQuickFilter,
     required this.playablePropCount,
     required this.bestPiScore,
+    this.categoryPanel,
   });
 
   final String selectedSport;
@@ -35,6 +36,7 @@ class TabletMarketToolbar extends StatelessWidget {
   final ValueChanged<String> onSelectQuickFilter;
   final int playablePropCount;
   final int bestPiScore;
+  final Widget? categoryPanel;
 
   static const List<String> sports = <String>[
     'ALL',
@@ -73,19 +75,23 @@ class TabletMarketToolbar extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _ProviderSelector(
+                site: selectedSite,
+                propCount: sitePropCount,
+                onPressed: onChangeSite,
+              ),
+              SizedBox(height: compact ? 9 : 11),
               _SportTabs(
                 selectedSport: selectedSport,
                 onSelectSport: onSelectSport,
                 compact: compact,
               ),
+              if (categoryPanel != null) ...[
+                SizedBox(height: compact ? 9 : 11),
+                categoryPanel!,
+              ],
               SizedBox(height: compact ? 9 : 11),
-              if (compact) ...[
-                _ProviderSelector(
-                  site: selectedSite,
-                  propCount: sitePropCount,
-                  onPressed: onChangeSite,
-                ),
-                const SizedBox(height: 9),
+              if (compact)
                 Row(
                   children: [
                     Expanded(
@@ -97,21 +103,11 @@ class TabletMarketToolbar extends StatelessWidget {
                     const SizedBox(width: 9),
                     _FilterButton(compact: true, onPressed: onOpenFilters),
                   ],
-                ),
-              ] else
+                )
+              else
                 Row(
                   children: [
                     Expanded(
-                      flex: 8,
-                      child: _ProviderSelector(
-                        site: selectedSite,
-                        propCount: sitePropCount,
-                        onPressed: onChangeSite,
-                      ),
-                    ),
-                    const SizedBox(width: 11),
-                    Expanded(
-                      flex: 11,
                       child: _SearchField(
                         controller: searchController,
                         onChanged: onSearchChanged,

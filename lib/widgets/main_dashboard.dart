@@ -1881,6 +1881,8 @@ class _MainDashboardState extends State<MainDashboard> {
       // next required choices (sport, then market category) are visible
       // instead of dropping the user straight into an unfiltered feed.
       _siteDiscoveryExpanded = true;
+      _categoryPanelExpanded = true;
+      _categoryPanelSport = '';
       _selectedSiteSport = '';
       _selectedCategory = 'ALL';
       _verdictFilter = 'ALL';
@@ -1962,6 +1964,8 @@ class _MainDashboardState extends State<MainDashboard> {
   void _selectPhoneSport(String sport) {
     setState(() {
       _selectedSiteSport = sport == 'ALL' ? '' : sport;
+      _categoryPanelExpanded = true;
+      _categoryPanelSport = sport == 'ALL' ? '' : sport;
       _selectedCategory = 'ALL';
       _selectedSide = 'All';
       _verdictFilter = 'ALL';
@@ -2000,44 +2004,6 @@ class _MainDashboardState extends State<MainDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          height: 46,
-          child: ListView.separated(
-            key: const ValueKey('phone-sport-tabs'),
-            scrollDirection: Axis.horizontal,
-            itemCount: sports.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 7),
-            itemBuilder: (context, index) {
-              final sport = sports[index];
-              final selected =
-                  selectedSport == sport ||
-                  (sport == 'ALL' && selectedSport.isEmpty);
-              return ChoiceChip(
-                key: ValueKey('phone-sport-$sport'),
-                selected: selected,
-                showCheckmark: false,
-                label: Text(sport),
-                onSelected: (_) => _selectPhoneSport(sport),
-                labelStyle: TextStyle(
-                  color: selected
-                      ? app_colors.AppColors.bgBase
-                      : app_colors.AppColors.silver,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                ),
-                selectedColor: app_colors.AppColors.gold,
-                backgroundColor: const Color(0xFF0A1823),
-                side: BorderSide(
-                  color: selected
-                      ? app_colors.AppColors.gold
-                      : app_colors.AppColors.border,
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 13),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 10),
         Material(
           color: const Color(0xFF091722),
           shape: RoundedRectangleBorder(
@@ -2088,6 +2054,59 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
           ),
         ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 52,
+          child: Scrollbar(
+            controller: _sportHorizontalController,
+            thumbVisibility: true,
+            scrollbarOrientation: ScrollbarOrientation.bottom,
+            child: ListView.separated(
+              controller: _sportHorizontalController,
+              key: const ValueKey('phone-sport-tabs'),
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(bottom: 6),
+              itemCount: sports.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 7),
+              itemBuilder: (context, index) {
+                final sport = sports[index];
+                final selected =
+                    selectedSport == sport ||
+                    (sport == 'ALL' && selectedSport.isEmpty);
+                return ChoiceChip(
+                  key: ValueKey('phone-sport-$sport'),
+                  selected: selected,
+                  showCheckmark: false,
+                  label: Text(sport),
+                  onSelected: (_) => _selectPhoneSport(sport),
+                  labelStyle: TextStyle(
+                    color: selected
+                        ? app_colors.AppColors.bgBase
+                        : app_colors.AppColors.silver,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                  selectedColor: app_colors.AppColors.gold,
+                  backgroundColor: const Color(0xFF0A1823),
+                  side: BorderSide(
+                    color: selected
+                        ? app_colors.AppColors.gold
+                        : app_colors.AppColors.border,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 13),
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (selectedSport.isNotEmpty && selectedSport != 'ALL') ...[
+          _buildInlineCategoryPanel(showSportSelector: false),
+          const SizedBox(height: 10),
+        ] else
+          const _CategorySportPrompt(
+            key: ValueKey('phone-category-sport-prompt'),
+          ),
         const SizedBox(height: 10),
         Row(
           children: [
@@ -3052,12 +3071,19 @@ class _MainDashboardState extends State<MainDashboard> {
   void _selectTabletSport(String sport) {
     final normalized = sport.trim().toUpperCase();
     if (_selectedSite == 'ALL') {
+      setState(() {
+        _categoryPanelExpanded = true;
+        _categoryPanelSport = normalized == 'ALL' ? '' : normalized;
+        _selectedCategory = 'ALL';
+      });
       widget.onSelectSport?.call(normalized);
       return;
     }
 
     setState(() {
       _selectedSiteSport = normalized == 'ALL' ? '' : normalized;
+      _categoryPanelExpanded = true;
+      _categoryPanelSport = normalized == 'ALL' ? '' : normalized;
       _selectedCategory = 'ALL';
       _selectedSide = 'All';
       _verdictFilter = 'ALL';
@@ -3118,6 +3144,11 @@ class _MainDashboardState extends State<MainDashboard> {
     onSelectQuickFilter: _selectTabletQuickFilter,
     playablePropCount: _tabletPlayablePropCount,
     bestPiScore: _tabletBestPiScore,
+    categoryPanel: _tabletSelectedSport == 'ALL'
+        ? const _CategorySportPrompt(
+            key: ValueKey('tablet-category-sport-prompt'),
+          )
+        : _buildInlineCategoryPanel(showSportSelector: false),
   );
 
   List<String> _activeBoardFilterLabels() {
@@ -3417,10 +3448,15 @@ class _MainDashboardState extends State<MainDashboard> {
     }
   }
 
-  Widget _buildInlineCategoryPanel() {
+  Widget _buildInlineCategoryPanel({bool showSportSelector = true}) {
     final sports = _categoryPanelSports;
-    final activeSport = sports.contains(_categoryPanelSport)
+    final preferredSport = _categoryPanelSport.isNotEmpty
         ? _categoryPanelSport
+        : _selectedSiteSport.isNotEmpty
+        ? _selectedSiteSport
+        : _normalizeSport(widget.sportFilter);
+    final activeSport = sports.contains(preferredSport)
+        ? preferredSport
         : sports.isEmpty
         ? ''
         : sports.first;
@@ -3439,40 +3475,42 @@ class _MainDashboardState extends State<MainDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'SELECT SPORT',
-            style: TextStyle(
-              color: app_colors.AppColors.gold,
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
-              letterSpacing: .5,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Scrollbar(
-            controller: _sportHorizontalController,
-            thumbVisibility: true,
-            scrollbarOrientation: ScrollbarOrientation.bottom,
-            child: SingleChildScrollView(
-              controller: _sportHorizontalController,
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: [
-                  for (final sport in sports) ...[
-                    ChoiceChip(
-                      key: ValueKey('inline-category-sport-$sport'),
-                      selected: activeSport == sport,
-                      label: Text(sport),
-                      onSelected: (_) => _selectInlineCategorySport(sport),
-                    ),
-                    const SizedBox(width: 7),
-                  ],
-                ],
+          if (showSportSelector) ...[
+            const Text(
+              'SELECT SPORT',
+              style: TextStyle(
+                color: app_colors.AppColors.gold,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .5,
               ),
             ),
-          ),
-          const SizedBox(height: 8),
+            const SizedBox(height: 6),
+            Scrollbar(
+              controller: _sportHorizontalController,
+              thumbVisibility: true,
+              scrollbarOrientation: ScrollbarOrientation.bottom,
+              child: SingleChildScrollView(
+                controller: _sportHorizontalController,
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    for (final sport in sports) ...[
+                      ChoiceChip(
+                        key: ValueKey('inline-category-sport-$sport'),
+                        selected: activeSport == sport,
+                        label: Text(sport),
+                        onSelected: (_) => _selectInlineCategorySport(sport),
+                      ),
+                      const SizedBox(width: 7),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           Text(
             activeSport.isEmpty ? 'CATEGORIES' : '$activeSport CATEGORIES',
             style: const TextStyle(
@@ -4066,23 +4104,7 @@ class _MainDashboardState extends State<MainDashboard> {
                           const SizedBox(height: 10),*/
                                     if (!tabletBoard) ...[
                                       if (isPhoneBoard)
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.stretch,
-                                          children: [
-                                            _buildPhoneResultsSummary(),
-                                            const SizedBox(height: 8),
-                                            // The compact phone path does not
-                                            // render VerdictFilterBar, whose
-                                            // trailing control owns category
-                                            // access on larger screens.
-                                            Align(
-                                              alignment: Alignment.centerRight,
-                                              child:
-                                                  _buildCategoryPickerButton(),
-                                            ),
-                                          ],
-                                        )
+                                        _buildPhoneResultsSummary()
                                       else
                                         _buildDecisionAndSummary(
                                           showVerdict:
@@ -4200,6 +4222,30 @@ class _MainDashboardState extends State<MainDashboard> {
       ),
     );
   }
+}
+
+class _CategorySportPrompt extends StatelessWidget {
+  const _CategorySportPrompt({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+    decoration: BoxDecoration(
+      color: app_colors.AppColors.gunmetal.withValues(alpha: .72),
+      borderRadius: BorderRadius.circular(11),
+      border: Border.all(color: app_colors.AppColors.border),
+    ),
+    child: const Text(
+      'SELECT A SPORT TO VIEW ALL AVAILABLE CATEGORIES',
+      style: TextStyle(
+        color: app_colors.AppColors.gold,
+        fontSize: 9,
+        fontWeight: FontWeight.w900,
+        letterSpacing: .4,
+      ),
+    ),
+  );
 }
 
 class _PhoneQuickFilterButton extends StatelessWidget {
