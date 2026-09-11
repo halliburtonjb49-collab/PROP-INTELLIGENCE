@@ -185,29 +185,17 @@ def configured_sync_sports() -> list[str]:
     configured = os.getenv("PROP_SYNC_SPORTS", "").strip()
     candidates = configured.split(",") if configured else DEFAULT_SYNC_SPORTS
     normalized = [value.strip() for value in candidates if value.strip()]
-    retired_configured = any(
-        value in {"aussierules_afl", "rugbyleague_nrl"}
-        or value.startswith("cricket_")
+    # Ignore retired values retained by an old Render override. Do not silently
+    # replace them with three high-volume leagues: doing so expanded a seven-
+    # sport production configuration to ten sports, grew the catalog beyond
+    # 26,000 rows, and repeatedly exhausted the 2 GB worker and API processes.
+    # New leagues must be added explicitly after their memory budget is proven.
+    normalized = [
+        value
         for value in normalized
-    )
-    if retired_configured:
-        normalized = [
-            value
-            for value in normalized
-            if value not in {"aussierules_afl", "rugbyleague_nrl"}
-            and not value.startswith("cricket_")
-        ]
-        # Render environment variables intentionally override repository
-        # defaults and can outlive the code that introduced them. Migrate the
-        # retired production leagues as a group so an old override cannot keep
-        # the replacement feeds disabled after a deploy.
-        normalized.extend(
-            (
-                "americanfootball_ncaaf",
-                "basketball_ncaab",
-                "americanfootball_cfl",
-            )
-        )
+        if value not in {"aussierules_afl", "rugbyleague_nrl"}
+        and not value.startswith("cricket_")
+    ]
     return list(dict.fromkeys(normalized))
 
 
@@ -316,7 +304,7 @@ def _mark_coverage_synced(now: float | None = None) -> None:
         _last_coverage_sync_monotonic = time.monotonic() if now is None else now
 
 
-_DEFAULT_DISABLED_SGO_LEAGUES: set[str] = set()
+_DEFAULT_DISABLED_SGO_LEAGUES: set[str] = {"NCAAF", "NCAAB", "CFL"}
 
 # SportsGameOdds is a supplemental feed, so keep its catalog aligned with the
 # sports customers can actually select.  The provider mapping contains the
@@ -967,6 +955,16 @@ def run_global_sync_pipeline(
     ] | None = None,
     on_post_processing_progress: Callable[[str], None] | None = None,
 ) -> list[dict[str, object]]:
+    # These leagues were unintentionally injected by migration code despite
+    # not being in the production product configuration. Remove their retained
+    # cache rows before loading/enriching the next board; otherwise each sync
+    # starts with the same oversized 26k-row catalog that caused the worker to
+    # exceed 2 GB even after new fetching was disabled.
+    cache.prune_sports([
+        "americanfootball_ncaaf",
+        "basketball_ncaab",
+        "americanfootball_cfl",
+    ])
     sports, off_season_sports = partition_seasonal_sync_sports(
         configured_sync_sports()
     )

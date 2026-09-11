@@ -33,6 +33,20 @@ def test_startup_recovery_skips_sync_when_props_exist(monkeypatch):
     assert called is False
 
 
+def test_startup_does_not_duplicate_catalog_for_snapshot_reconciliation(monkeypatch):
+    fresh = SimpleNamespace(lastUpdatedUtc=datetime.now(timezone.utc).isoformat())
+    monkeypatch.setattr(main, "get_props", lambda: [fresh])
+    monkeypatch.setattr(
+        main,
+        "_reconcile_catalog_snapshot",
+        lambda: (_ for _ in ()).throw(
+            AssertionError("the API process must not serialize the full catalog")
+        ),
+    )
+
+    asyncio.run(main._ensure_props_available())
+
+
 def test_startup_recovery_queues_empty_cache_without_running_sync(monkeypatch):
     monkeypatch.setattr(main, "get_props", lambda: [])
     queued = []

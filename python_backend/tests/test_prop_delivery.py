@@ -731,7 +731,7 @@ def test_older_saved_catalog_remains_visible_while_recovery_runs(monkeypatch) ->
     assert payload["staleFallback"]["ageLimitBypassedDuringRecovery"] is True
 
 
-def test_recent_saved_catalog_stays_hidden_without_active_recovery(monkeypatch) -> None:
+def test_recent_saved_catalog_remains_visible_without_active_recovery(monkeypatch) -> None:
     from datetime import datetime, timedelta, timezone
 
     stale = FakeProp("stale-idle", "One", "MLB", "FANDUEL", "HITS")
@@ -743,8 +743,10 @@ def test_recent_saved_catalog_stays_hidden_without_active_recovery(monkeypatch) 
 
     payload = TestClient(main.app).get("/api/props").json()
 
-    assert payload["props"] == []
-    assert payload["staleFallback"]["active"] is False
+    assert [row["id"] for row in payload["props"]] == ["stale-idle"]
+    assert payload["props"][0]["dataStale"] is True
+    assert payload["staleFallback"]["active"] is True
+    assert payload["staleFallback"]["reason"] == "last_known_good"
 
 
 def test_prop_feed_reports_recommendation_coverage(monkeypatch) -> None:

@@ -1604,10 +1604,9 @@ async def _ensure_props_available() -> None:
 	props = await asyncio.to_thread(get_props)
 	if not _prop_cache_needs_refresh(props):
 		logging.info("Startup prop check ready props=%s", len(props))
-		# Returning here without this left the durable snapshot untouched
-		# whenever the local cache happened to be fresh, which is the
-		# common case and the reason it could rot for hours.
-		await asyncio.to_thread(_reconcile_catalog_snapshot)
+		# Snapshot persistence belongs to the worker publication path. Dumping
+		# the entire catalog here duplicates tens of thousands of Pydantic
+		# objects in the traffic-serving process and can exceed its memory limit.
 		return
 	queued = _enqueue_prop_refresh()
 	queue_state = await asyncio.to_thread(job_queue_health)
@@ -1670,9 +1669,6 @@ async def _maintain_prop_freshness() -> None:
 			props = await asyncio.to_thread(get_props)
 			await asyncio.to_thread(alert_prop_health, props)
 			await asyncio.to_thread(alert_model_learning)
-			# Runs whether or not a refresh is due, so a snapshot that has
-			# fallen behind is repaired without waiting for a restart.
-			await asyncio.to_thread(_reconcile_catalog_snapshot)
 			if not _prop_cache_needs_refresh(props):
 				continue
 			queued = _enqueue_prop_refresh()
@@ -3841,11 +3837,16 @@ def props(
 			recovery_active = str(sync_state.get("status") or "").lower() in {
 				"queued", "running"
 			}
+		# A valid last-known-good catalog is more useful than a false empty board.
+		# Previously these rows were only served while the sync worker happened to
+		# report `running`. Between worker runs the exact same catalog became an
+		# empty 200 response, which is why a fresh login could show zero props and
+		# a later manual refresh would suddenly recover. Keep the snapshot visible
+		# (explicitly marked stale below) until an atomic fresh replacement lands.
 		serve_stale_fallback = (
 			not includeStale
 			and not catalog_has_fresh_row
 			and bool(prop_list)
-			and recovery_active
 		)
 		catalog_updated_at = max(
 			(prop.lastUpdatedUtc for prop in prop_list),
@@ -4383,7 +4384,11 @@ def props(
 			"hasMore": offset + len(page) < total_count,
 			"staleFallback": {
 				"active": serve_stale_fallback,
-				"reason": "recovery_running" if serve_stale_fallback else None,
+				"reason": (
+					"recovery_running" if serve_stale_fallback and recovery_active
+					else "last_known_good" if serve_stale_fallback
+					else None
+				),
 				"normalFreshnessMinutes": stale_after_minutes,
 				"maximumAgeMinutes": stale_fallback_minutes,
 				"ageLimitBypassedDuringRecovery": (

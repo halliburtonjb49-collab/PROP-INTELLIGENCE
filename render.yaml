@@ -115,7 +115,7 @@ services:
       - key: LIVE_ODDS_SYNC_MIN_SECONDS
         value: 120
       - key: PROP_SYNC_EVENT_WORKERS
-        value: 3
+        value: 1
       - key: PREGAME_PROVIDER_WORKERS
         value: 3
       - key: MLB_BOXSCORE_WORKERS
@@ -133,7 +133,7 @@ services:
       - key: SPORTSGAMEODDS_EVENTS_PER_LEAGUE
         value: 3
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES
-        value: ""
+        value: NCAAF,NCAAB,CFL
       - key: RAW_PROP_STREAM
         value: prop-intelligence:raw-feeds
       - key: RAW_PROP_STREAM_MAXLEN
@@ -168,7 +168,7 @@ services:
       - key: PREFERRED_BOOKMAKERS
         value: prizepicks,underdog,draftkings,pick6,fanduel,betr_us_dfs
       - key: PROP_SYNC_SPORTS
-        value: baseball_mlb,basketball_wnba,basketball_nba,americanfootball_nfl,icehockey_nhl,soccer_epl,soccer_usa_mls,soccer_france_ligue_one,soccer_germany_bundesliga,soccer_italy_serie_a,soccer_spain_la_liga,aussierules_afl,rugbyleague_nrl
+        value: baseball_mlb,basketball_wnba,basketball_nba,americanfootball_nfl,icehockey_nhl,soccer_epl,soccer_usa_mls,soccer_france_ligue_one,soccer_germany_bundesliga,soccer_italy_serie_a,soccer_spain_la_liga
       - key: ADMIN_API_KEY
         sync: false
       - key: OWNER_EMAILS
@@ -254,7 +254,7 @@ services:
       - key: PROP_CACHE_DB_PATH
         value: /tmp/prop_intelligence_cache.db
       - key: PROP_SYNC_EVENT_WORKERS
-        value: 3
+        value: 1
       - key: PREGAME_PROVIDER_WORKERS
         value: 3
       - key: MLB_BOXSCORE_WORKERS
@@ -272,7 +272,7 @@ services:
       - key: SPORTSGAMEODDS_EVENTS_PER_LEAGUE
         value: 3
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES
-        value: ""
+        value: NCAAF,NCAAB,CFL
       # Render cron is the primary photo scheduler. The worker also checks this
       # threshold after prop syncs and queues a separate deduplicated refresh
       # if the cron was paused or missed.
@@ -289,7 +289,7 @@ services:
       - key: ODDS_REGIONS
         value: us,us2,us_dfs
       - key: PROP_SYNC_SPORTS
-        value: baseball_mlb,basketball_wnba,basketball_nba,americanfootball_nfl,icehockey_nhl,soccer_epl,soccer_usa_mls,soccer_france_ligue_one,soccer_germany_bundesliga,soccer_italy_serie_a,soccer_spain_la_liga,aussierules_afl,rugbyleague_nrl
+        value: baseball_mlb,basketball_wnba,basketball_nba,americanfootball_nfl,icehockey_nhl,soccer_epl,soccer_usa_mls,soccer_france_ligue_one,soccer_germany_bundesliga,soccer_italy_serie_a,soccer_spain_la_liga
 
   - type: cron
     name: prop-intelligence-historical-sync

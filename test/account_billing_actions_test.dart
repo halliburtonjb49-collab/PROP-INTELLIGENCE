@@ -35,10 +35,10 @@ void main() {
     );
   });
 
-  test('Pro users manage their subscription without an upgrade prompt', () {
+  test('Pro users can still locate products and manage their subscription', () {
     expect(
       shouldShowPlanSelector(tier: SubscriptionTier.edge, role: 'user'),
-      isFalse,
+      isTrue,
     );
     expect(
       shouldShowSubscriptionManagement(

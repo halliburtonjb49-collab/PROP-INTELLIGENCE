@@ -16,9 +16,7 @@ import '../theme/app_colors.dart' as brand_colors;
 bool shouldShowPlanSelector({
   required SubscriptionTier tier,
   required String role,
-}) =>
-    tier != SubscriptionTier.edge ||
-    const {'owner', 'admin', 'tester'}.contains(role.trim().toLowerCase());
+}) => true;
 
 @visibleForTesting
 bool shouldShowSubscriptionManagement({
@@ -1029,8 +1027,8 @@ class _SignedInView extends StatelessWidget {
                 icon: const Icon(Icons.workspace_premium_outlined, size: 15),
                 label: Text(
                   subscriptionTier == SubscriptionTier.free
-                      ? 'CHOOSE PLAN'
-                      : 'VIEW PLANS',
+                      ? 'CHOOSE SUBSCRIPTION PLAN'
+                      : 'VIEW SUBSCRIPTION PLANS',
                 ),
               ),
             if (onManageSubscription != null)

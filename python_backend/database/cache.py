@@ -283,6 +283,24 @@ class PropCache:
                 tuple(params),
             )
 
+    def prune_sports(self, sports: list[str]) -> None:
+        """Remove explicitly disabled sports before constructing a new board."""
+        normalized = list(dict.fromkeys(sport.strip() for sport in sports if sport.strip()))
+        if not normalized:
+            return
+        placeholders = ",".join(["?"] * len(normalized))
+        with self.connect() as connection:
+            connection.execute(
+                f"""DELETE FROM props WHERE game_id IN (
+                    SELECT id FROM games WHERE sport IN ({placeholders})
+                )""",
+                tuple(normalized),
+            )
+            connection.execute(
+                f"DELETE FROM games WHERE sport IN ({placeholders})",
+                tuple(normalized),
+            )
+
     def prune_provider_events(
         self,
         *,

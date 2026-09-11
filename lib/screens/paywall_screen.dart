@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/auth_manager.dart';
 import '../services/billing_service.dart';
@@ -58,6 +59,21 @@ class BrandedPaywallModalSheet extends StatelessWidget {
   final String heading;
   final String supportingText;
   final bool scrollable;
+
+  static final Uri _termsUri = Uri.parse('https://pipropsintell.com/terms');
+  static final Uri _privacyUri = Uri.parse('https://pipropsintell.com/privacy');
+
+  Future<void> _openPublishedLegal(
+    BuildContext context,
+    Uri uri,
+    String title,
+    List<LegalSection> fallback,
+  ) async {
+    final opened = await launchUrl(uri, mode: LaunchMode.platformDefault);
+    if (!opened && context.mounted) {
+      await _showLegal(context, title, fallback);
+    }
+  }
 
   Future<void> _showLegal(
     BuildContext context,
@@ -261,7 +277,7 @@ class BrandedPaywallModalSheet extends StatelessWidget {
             ),
           ),
           const Text(
-            'Monthly plans include a 3-day free trial. Founding Pro is limited to the first 100 members.',
+            'Monthly subscriptions renew every 1 month. Annual subscriptions renew every 1 year. Monthly plans include a 3-day free trial; annual plans include a 7-day free trial. Founding Pro is limited to the first 100 members.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white70, fontSize: 11),
           ),
@@ -275,16 +291,18 @@ class BrandedPaywallModalSheet extends StatelessWidget {
             spacing: 8,
             children: [
               TextButton(
-                onPressed: () => _showLegal(
+                onPressed: () => _openPublishedLegal(
                   context,
+                  _termsUri,
                   'TERMS OF USE',
                   termsSections,
                 ),
                 child: const Text('TERMS OF USE'),
               ),
               TextButton(
-                onPressed: () => _showLegal(
+                onPressed: () => _openPublishedLegal(
                   context,
+                  _privacyUri,
                   'PRIVACY POLICY',
                   privacySections,
                 ),
