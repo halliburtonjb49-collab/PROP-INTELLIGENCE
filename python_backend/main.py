@@ -94,7 +94,7 @@ from services.line_movement_recorder import (
 from services.operations_notification_service import alert_channel_health
 from services.prop_group_service import assign_prop_groups
 from services.prop_service import get_props
-from services.formatters import resolve_player_image
+from services.formatters import market_to_category, resolve_player_image
 from services.owner_action_service import filter_owner_quarantined_props
 from services.provider_reliability_service import build_provider_reliability
 from services.pi_verdict_service import compute_verdict, verdict_payload
@@ -735,6 +735,20 @@ def _hydrate_published_catalog(rows: list[object]) -> list[PropResponse]:
 	retain the recomputation path so formula changes remain testable locally.
 	"""
 	props = [PropResponse.model_validate(row) for row in rows]
+	# Published snapshots can outlive the release that normalized them. Repair
+	# category labels from the canonical market identity while hydrating so an
+	# old bad category cannot hide live HITS, DOUBLES, TOTAL BASES, etc. from the
+	# category rail until the next provider synchronization.
+	for prop in props:
+		canonical_category = market_to_category(
+			str(
+				getattr(prop, "marketKey", "")
+				or getattr(prop, "market", "")
+				or ""
+			)
+		).strip().upper()
+		if canonical_category and hasattr(prop, "category"):
+			prop.category = canonical_category
 	if os.getenv("PROCESS_ROLE", "development").strip().lower() == "api":
 		return props
 	return _recompute_runtime_verdicts(props)

@@ -82,6 +82,7 @@ flutter pub get
 
 echo "Building Flutter web..."
 flutter build web --release \
+  --wasm \
   -O4 \
   --no-source-maps \
   --no-wasm-dry-run \

@@ -1345,15 +1345,36 @@ class _MainDashboardState extends State<MainDashboard> {
           ? _totalCategoryCounts
           : _categoryCounts;
     }
+    final derivedFromVisibleRows = <String, int>{};
+    for (final prop in _latestProps) {
+      if (_normalizeSport(prop.sport) != sport) continue;
+      final category = _marketCategory(prop).trim().toUpperCase();
+      if (category.isEmpty || category == 'OTHER' || category == 'UNKNOWN') {
+        continue;
+      }
+      derivedFromVisibleRows[category] =
+          (derivedFromVisibleRows[category] ?? 0) + 1;
+    }
+
+    Map<String, int> mergeVisible(Map<String, int> source) => {
+      ...source,
+      for (final entry in derivedFromVisibleRows.entries)
+        entry.key: (source[entry.key] ?? 0) > entry.value
+            ? source[entry.key]!
+            : entry.value,
+    };
+
     if (_selectedSite != 'ALL') {
       final siteCounts = _siteTotalSportCategoryCounts[sport];
-      if (siteCounts != null && siteCounts.isNotEmpty) return siteCounts;
+      if (siteCounts != null && siteCounts.isNotEmpty) {
+        return mergeVisible(siteCounts);
+      }
     }
     final allSiteCounts = _allSportTotalCategoryCounts[sport];
     if (allSiteCounts != null && allSiteCounts.isNotEmpty) {
-      return allSiteCounts;
+      return mergeVisible(allSiteCounts);
     }
-    return _selectedSportCategoryCounts;
+    return mergeVisible(_selectedSportCategoryCounts);
   }
 
   String get _effectiveSelectedCategory {
@@ -3870,7 +3891,9 @@ class _MainDashboardState extends State<MainDashboard> {
           const SizedBox(width: 7),
           Expanded(
             child: Text(
-              '$matchingCount PLAYABLE PROPS',
+              loadedCount < matchingCount
+                  ? '$loadedCount SHOWN OF $matchingCount MATCHING PROPS'
+                  : '$matchingCount MATCHING PROPS',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 10,

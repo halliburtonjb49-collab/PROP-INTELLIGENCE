@@ -75,6 +75,26 @@ void main() {
     expect(find.byKey(const ValueKey('prop-loading-progress')), findsWidgets);
   });
 
+  testWidgets('phone loading state is compact and does not flash branding', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: PropLoadingSkeleton())),
+    );
+
+    expect(find.byKey(const ValueKey('compact-prop-loading')), findsOneWidget);
+    expect(find.text('INITIALIZING PROP ENGINE'), findsNothing);
+    expect(
+      tester.getSize(find.byType(PropLoadingSkeleton)).height,
+      lessThan(160),
+    );
+  });
+
   testWidgets('load error presents a working retry action', (tester) async {
     var retried = false;
     await tester.pumpWidget(

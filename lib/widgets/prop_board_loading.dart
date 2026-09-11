@@ -85,6 +85,48 @@ class _PropLoadingSkeletonState extends State<PropLoadingSkeleton>
   @override
   Widget build(BuildContext context) {
     final stage = _stages[(_elapsed.elapsed.inSeconds ~/ 2) % _stages.length];
+    if (MediaQuery.sizeOf(context).width < 600) {
+      return Semantics(
+        liveRegion: true,
+        label: 'Loading live props. $stage',
+        child: Container(
+          key: const ValueKey('compact-prop-loading'),
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF071722),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const LinearProgressIndicator(
+                minHeight: 3,
+                color: AppColors.gold,
+                backgroundColor: AppColors.border,
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'LOADING LIVE PROPS',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                loadProgressMessage(_elapsed.elapsed),
+                key: const ValueKey('prop-loading-progress'),
+                style: const TextStyle(color: Color(0xFFB8C4CF), fontSize: 11),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Semantics(
       liveRegion: true,
       label: 'Prop Intelligence is loading. $stage',

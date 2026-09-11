@@ -274,6 +274,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
 
   Timer? _retryTimer;
   Timer? _liveRefreshTimer;
+  final ScrollController _ownerViewScrollController = ScrollController();
   int _consecutiveFailures = 0;
   String _selectedWindow = 'today';
   DateTimeRange? _customRange;
@@ -335,6 +336,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   void dispose() {
     _retryTimer?.cancel();
     _liveRefreshTimer?.cancel();
+    _ownerViewScrollController.dispose();
     super.dispose();
   }
 
@@ -2971,38 +2973,45 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         icon: Icons.inventory_2_outlined,
       ),
     ];
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: views
-            .map(
-              (view) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: OutlinedButton.icon(
-                  key: ValueKey('owner-view-${view.metric}'),
-                  onPressed: () => _openDetail(view.metric, view.label),
-                  icon: Icon(view.icon, size: 15),
-                  label: Text(
-                    view.metric == 'activeUsers'
-                        ? '${view.label} ${_liveActiveUserTotal()}'
-                        : view.label,
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.gold,
-                    minimumSize: const Size(118, 44),
-                    side: BorderSide(
-                      color: AppColors.gold.withValues(alpha: .55),
+    return Scrollbar(
+      controller: _ownerViewScrollController,
+      thumbVisibility: true,
+      scrollbarOrientation: ScrollbarOrientation.bottom,
+      child: SingleChildScrollView(
+        controller: _ownerViewScrollController,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(
+          children: views
+              .map(
+                (view) => Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: OutlinedButton.icon(
+                    key: ValueKey('owner-view-${view.metric}'),
+                    onPressed: () => _openDetail(view.metric, view.label),
+                    icon: Icon(view.icon, size: 15),
+                    label: Text(
+                      view.metric == 'activeUsers'
+                          ? '${view.label} ${_liveActiveUserTotal()}'
+                          : view.label,
                     ),
-                    textStyle: const TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: .7,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.gold,
+                      minimumSize: const Size(118, 44),
+                      side: BorderSide(
+                        color: AppColors.gold.withValues(alpha: .55),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: .7,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            )
-            .toList(growable: false),
+              )
+              .toList(growable: false),
+        ),
       ),
     );
   }
@@ -3295,6 +3304,29 @@ class _DetailSheet extends StatelessWidget {
                   header,
                   const SizedBox(height: 40),
                   const CircularProgressIndicator(color: AppColors.gold),
+                ],
+              );
+            }
+
+            if (snapshot.hasError) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  header,
+                  const SizedBox(height: 24),
+                  const Icon(
+                    Icons.cloud_off_outlined,
+                    color: AppColors.gold,
+                    size: 28,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'The command-center request failed: ${snapshot.error}',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               );
             }

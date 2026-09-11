@@ -8,6 +8,11 @@ _flutter.loader.load({
   // CanvasKit keeps PI's compact typography, thin borders, and sports imagery
   // consistently sharp across browser zoom levels and high-DPI displays.
   config: {
-    renderer: 'canvaskit',
+    // CanvasKit keeps a large WASM heap and duplicate raster surfaces alive.
+    // On iOS Safari that pushed long, image-heavy boards into the browser's
+    // "A problem repeatedly occurred" reload. SkWasm is Flutter's current
+    // web renderer and is materially lighter for this scrolling application.
+    renderer: 'skwasm',
+    forceSingleThreadedSkwasm: true,
   },
 });

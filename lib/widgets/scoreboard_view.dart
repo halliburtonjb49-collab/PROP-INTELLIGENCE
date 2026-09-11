@@ -356,48 +356,17 @@ class _LiveScoreboardTickerGridWidgetState
                   ],
                 ),
               const SizedBox(height: 11),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
+              if (compact) ...[
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final tab in tabs) _tabButton(tab, liveCount),
+                    ],
+                  ),
+                ),
+                Row(
                   children: [
-                    for (final tab in tabs)
-                      InkWell(
-                        onTap: () {
-                          setState(() => _selectedTab = tab);
-                          if (tab == 'THIS WEEK' && _weekGames.isEmpty) {
-                            unawaited(_loadWeek());
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.fromLTRB(13, 8, 13, 9),
-                          decoration: BoxDecoration(
-                            color: _selectedTab == tab
-                                ? _gold.withValues(alpha: .09)
-                                : Colors.transparent,
-                            border: Border(
-                              bottom: BorderSide(
-                                color: _selectedTab == tab
-                                    ? _gold
-                                    : Colors.transparent,
-                                width: 2,
-                              ),
-                            ),
-                          ),
-                          child: Text(
-                            tab == 'LIVE NOW'
-                                ? 'LIVE NOW  $liveCount'
-                                : tab == 'THIS WEEK' && _weekLoading
-                                ? 'THIS WEEK  ...'
-                                : tab,
-                            style: TextStyle(
-                              color: _selectedTab == tab ? _gold : _silver,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (!compact) const SizedBox(width: 20),
                     const Text(
                       'Auto Refresh',
                       style: TextStyle(color: _silver, fontSize: 9),
@@ -422,13 +391,74 @@ class _LiveScoreboardTickerGridWidgetState
                     ),
                   ],
                 ),
-              ),
+              ] else
+                Row(
+                  children: [
+                    for (final tab in tabs) _tabButton(tab, liveCount),
+                    const Spacer(),
+                    const Text(
+                      'Auto Refresh',
+                      style: TextStyle(color: _silver, fontSize: 9),
+                    ),
+                    const SizedBox(width: 5),
+                    Transform.scale(
+                      scale: .72,
+                      child: Switch(
+                        value: _autoRefresh,
+                        activeThumbColor: _gold,
+                        activeTrackColor: const Color(0xFF1976D2),
+                        onChanged: _toggleAutoRefresh,
+                      ),
+                    ),
+                    const Text(
+                      '● Live',
+                      style: TextStyle(
+                        color: _green,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         );
       },
     );
   }
+
+  Widget _tabButton(String tab, int liveCount) => InkWell(
+    onTap: () {
+      setState(() => _selectedTab = tab);
+      if (tab == 'THIS WEEK' && _weekGames.isEmpty) unawaited(_loadWeek());
+    },
+    child: Container(
+      padding: const EdgeInsets.fromLTRB(13, 8, 13, 9),
+      decoration: BoxDecoration(
+        color: _selectedTab == tab
+            ? _gold.withValues(alpha: .09)
+            : Colors.transparent,
+        border: Border(
+          bottom: BorderSide(
+            color: _selectedTab == tab ? _gold : Colors.transparent,
+            width: 2,
+          ),
+        ),
+      ),
+      child: Text(
+        tab == 'LIVE NOW'
+            ? 'LIVE NOW  $liveCount'
+            : tab == 'THIS WEEK' && _weekLoading
+            ? 'THIS WEEK  ...'
+            : tab,
+        style: TextStyle(
+          color: _selectedTab == tab ? _gold : _silver,
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    ),
+  );
 
   Widget _outlineButton({
     required IconData icon,
@@ -522,6 +552,17 @@ class _LiveScoreboardTickerGridWidgetState
       'NHL',
       'SOCCER',
     ];
+    final discovered = <String>{};
+    for (final game in _controller.games) {
+      final league = game.league.trim().toUpperCase();
+      final sport = game.sport.trim().toUpperCase();
+      discovered.add(league.isNotEmpty ? league : sport);
+    }
+    final sports = <String>[
+      ...preferred,
+      ...discovered.where((sport) => !preferred.contains(sport)).toList()
+        ..sort(),
+    ];
     int countFor(String sport) => sport == 'ALL SPORTS'
         ? _controller.games.length
         : _controller.games.where((game) {
@@ -540,10 +581,10 @@ class _LiveScoreboardTickerGridWidgetState
       height: 48,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: preferred.length,
+        itemCount: sports.length,
         separatorBuilder: (_, _) => const SizedBox(width: 6),
         itemBuilder: (context, index) {
-          final sport = preferred[index];
+          final sport = sports[index];
           final selected = sport == _selectedSport;
           return OutlinedButton(
             onPressed: () => setState(() => _selectedSport = sport),
@@ -748,24 +789,100 @@ class _LiveScoreboardTickerGridWidgetState
             'UPCOMING GAMES',
             games.length,
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: _panel,
-              borderRadius: BorderRadius.circular(9),
-              border: Border.all(color: _borderSoft),
-            ),
-            child: Column(
-              children: [
-                _upcomingHeader(),
-                for (var index = 0; index < games.length; index++)
-                  _upcomingRow(games[index], index),
-              ],
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) => constraints.maxWidth < 600
+                ? Column(
+                    children: [
+                      for (final game in games) _upcomingPhoneCard(game),
+                    ],
+                  )
+                : Container(
+                    decoration: BoxDecoration(
+                      color: _panel,
+                      borderRadius: BorderRadius.circular(9),
+                      border: Border.all(color: _borderSoft),
+                    ),
+                    child: Column(
+                      children: [
+                        _upcomingHeader(),
+                        for (var index = 0; index < games.length; index++)
+                          _upcomingRow(games[index], index),
+                      ],
+                    ),
+                  ),
           ),
         ],
       ),
     );
   }
+
+  Widget _upcomingPhoneCard(ScoreboardGame game) => Container(
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.all(11),
+    decoration: BoxDecoration(
+      color: _panel,
+      borderRadius: BorderRadius.circular(9),
+      border: Border.all(color: _borderSoft),
+    ),
+    child: Column(
+      children: [
+        Row(
+          children: [
+            Text(
+              _gameTime(game),
+              style: const TextStyle(
+                color: _gold,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              game.league,
+              style: const TextStyle(color: _silver, fontSize: 9),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        _phoneTeamRow(game.awayLogo, _awayLabel(game)),
+        const SizedBox(height: 7),
+        _phoneTeamRow(game.homeLogo, _homeLabel(game)),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                game.detail.isEmpty ? 'Upcoming' : game.detail,
+                maxLines: 2,
+                style: const TextStyle(color: _silver, fontSize: 9),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _watchIcon(game),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  Widget _phoneTeamRow(String? logo, String team) => Row(
+    children: [
+      _teamLogo(logo, team, 28),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Text(
+          team,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: _white,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    ],
+  );
 
   Widget _upcomingHeader() {
     return const Padding(

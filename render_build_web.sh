@@ -29,7 +29,7 @@ APP_VERSION="${RENDER_GIT_COMMIT:-${APP_VERSION:-unknown}}"
 flutter config --no-analytics
 flutter clean
 flutter pub get
-flutter build web --release \
+flutter build web --release --wasm \
   --dart-define="API_BASE_URL=${API_BASE_URL}" \
   --dart-define="APP_VERSION=${APP_VERSION}" \
   --dart-define="SUPABASE_URL=${SUPABASE_URL}" \

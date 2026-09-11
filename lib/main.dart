@@ -141,6 +141,12 @@ Future<void> main() async {
   _startupLog('main() entered');
   WidgetsFlutterBinding.ensureInitialized();
   _startupLog('WidgetsFlutterBinding initialized');
+  // Bound decoded-image memory. Long prop and scoreboard sessions otherwise
+  // retain hundreds of headshots/logos and can make iOS Safari terminate the
+  // entire Flutter page instead of merely evicting off-screen images.
+  PaintingBinding.instance.imageCache
+    ..maximumSize = 120
+    ..maximumSizeBytes = 48 << 20;
   EngagementTracker.instance.beginLaunch();
 
   FlutterError.onError = (FlutterErrorDetails details) {

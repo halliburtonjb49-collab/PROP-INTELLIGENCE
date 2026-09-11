@@ -581,6 +581,30 @@ def test_api_hydration_does_not_repeat_worker_verdict_or_image_compute(monkeypat
     assert main._hydrate_published_catalog([row]) == [hydrated]
 
 
+def test_api_hydration_repairs_stale_category_from_market(monkeypatch):
+    monkeypatch.setenv("PROCESS_ROLE", "api")
+
+    hydrated = main._hydrate_published_catalog(
+        [
+            {
+                "id": "stale-category",
+                "player": "Test Hitter",
+                "sport": "MLB",
+                "matchup": "Away @ Home",
+                "sportsbook": "Test Book",
+                "market": "Hits",
+                "marketKey": "batter_hits",
+                "category": "Pitcher Strikeouts",
+                "line": 0.5,
+                "pick": "Over 0.5",
+                "edge": 0.1,
+            }
+        ]
+    )
+
+    assert hydrated[0].category == "HITS"
+
+
 def test_failed_replacement_preserves_last_good_in_memory_catalog(monkeypatch):
     cached = [SimpleNamespace(id="still-visible")]
     main._prop_catalog.update(

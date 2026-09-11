@@ -1375,7 +1375,7 @@ class ApiService {
     // Candidate URLs already provide independent recovery paths. Retrying
     // every candidate twice made a mobile board exceed its own loading
     // deadline before the direct API fallback could run.
-    const maxAttempts = 1;
+    const maxAttempts = 2;
     // Bound the customer-visible attempt; the board performs recovery in the
     // background instead of blocking navigation behind another full request.
     final requestTimeout = isSpecialtySport
@@ -1402,7 +1402,7 @@ class ApiService {
         lastError = error;
       }
       if (attempt < maxAttempts) {
-        await Future<void>.delayed(const Duration(milliseconds: 250));
+        await Future<void>.delayed(Duration(milliseconds: 200 * attempt));
       }
     }
     throw Exception(lastError ?? 'Unable to download the props page.');
