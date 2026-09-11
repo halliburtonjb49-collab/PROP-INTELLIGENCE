@@ -1,6 +1,30 @@
 from services import job_queue_service as queue_service
 
 
+def test_announce_active_release_uses_binary_safe_redis(monkeypatch) -> None:
+    captured = {}
+
+    class Connection:
+        def set(self, key, value):
+            captured["set"] = (key, value)
+
+    class Redis:
+        @staticmethod
+        def from_url(url, **kwargs):
+            captured["url"] = url
+            captured["kwargs"] = kwargs
+            return Connection()
+
+    monkeypatch.setattr(queue_service, "REDIS_URL", "redis://configured")
+    monkeypatch.setattr(queue_service, "Redis", Redis)
+    monkeypatch.setattr(queue_service, "current_release", lambda: "new-release")
+    monkeypatch.setattr(queue_service, "_remove_superseded_pending_jobs", lambda *_: 0)
+
+    assert queue_service.announce_active_release() is True
+    assert captured["set"] == (queue_service.ACTIVE_RELEASE_KEY, "new-release")
+    assert "decode_responses" not in captured["kwargs"]
+
+
 def test_superseded_pending_jobs_are_removed(monkeypatch) -> None:
     class Job:
         def __init__(self, job_id, release):

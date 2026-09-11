@@ -148,7 +148,10 @@ def announce_active_release() -> bool:
     if not REDIS_URL:
         return False
     try:
-        connection = Redis.from_url(REDIS_URL, decode_responses=True, socket_timeout=2)
+        # RQ job hashes contain pickled/compressed binary payloads. Enabling
+        # decode_responses makes Redis attempt to UTF-8 decode those fields
+        # while the registries hydrate jobs, which aborts release activation.
+        connection = Redis.from_url(REDIS_URL, socket_timeout=2)
         release = current_release()
         connection.set(ACTIVE_RELEASE_KEY, release)
         _remove_superseded_pending_jobs(connection, release)
