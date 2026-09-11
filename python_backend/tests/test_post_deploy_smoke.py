@@ -15,10 +15,9 @@ SPEC.loader.exec_module(post_deploy_smoke)
 
 
 class _Response:
-    status = 200
-
-    def __init__(self, body: bytes = b"ok") -> None:
+    def __init__(self, body: bytes = b"ok", status: int = 200) -> None:
         self._body = body
+        self.status = status
 
     def read(self) -> bytes:
         return self._body
@@ -291,3 +290,18 @@ def test_release_gate_rejects_other_critical_issues(monkeypatch) -> None:
         assert "Promotion blocked by production certification" in str(exc)
     else:
         raise AssertionError("non-feed-stale critical issues must fail the gate")
+
+
+def test_release_gate_reports_unavailable_before_parsing_body(monkeypatch) -> None:
+    monkeypatch.setattr(
+        post_deploy_smoke,
+        "request",
+        lambda url: (_Response(b"not-json", status=503), b"not-json", 1.0),
+    )
+
+    try:
+        post_deploy_smoke.verify_release_gate()
+    except RuntimeError as exc:
+        assert str(exc) == "Production release gate is unavailable"
+    else:
+        raise AssertionError("non-200 release gate responses must fail")

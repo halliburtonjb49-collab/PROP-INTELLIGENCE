@@ -227,9 +227,12 @@ def _release_gate_has_only_feed_stale_issue(payload: dict[str, object]) -> bool:
 
 def verify_release_gate() -> None:
     gate, gate_body, _ = request(f"{API_URL}/api/operations/release-gate")
-    gate_payload = json.loads(gate_body)
     if gate.status != 200:
         raise RuntimeError("Production release gate is unavailable")
+    try:
+        gate_payload = json.loads(gate_body)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Production release gate returned malformed JSON") from exc
     if gate_payload.get("releaseReady") is True:
         return
     if _release_gate_has_only_feed_stale_issue(gate_payload):
