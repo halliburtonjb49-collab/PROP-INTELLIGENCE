@@ -8,6 +8,7 @@
 - Starting worktree: clean
 - Audit branch: `codex/repository-wide-prop-audit`
 - Audited code/fix commit: `63e73e9` (`fix prop startup and release state races`)
+- Realtime fix/test commits: `9fe1cd9`, `7b231d4`
 - Final tracked state at handoff: the code/fix commit plus this report-only
   documentation commit; worktree clean.
 - No push, deployment, hosting-plan change, production migration, production

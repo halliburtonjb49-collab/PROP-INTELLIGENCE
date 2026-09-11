@@ -3,7 +3,8 @@
 Last updated: 2026-09-11  
 Branch: `codex/repository-wide-prop-audit`  
 Starting commit: `50be1559aa64f499ebd3769f8dc4bb0ebf0edfbc`  
-Current audit commits: `63e73e9`, `12048c4`
+Current audit commits: `63e73e9`, `12048c4`, `01107fe`, `9fe1cd9`,
+`7b231d4`
 
 This is a continuation ledger, not a claim that the application is bug-free or
 production-verified. Detailed evidence is in
