@@ -139,6 +139,13 @@ def test_gridiron_history_is_due_on_a_cold_process() -> None:
     assert sync_service._gridiron_ingest_due(now=1000.0) is True
 
 
+def test_live_gridiron_topup_can_be_disabled_for_memory_isolation(monkeypatch) -> None:
+    from services import sync_service
+
+    monkeypatch.setenv("LIVE_GRIDIRON_TOPUP_ENABLED", "false")
+    assert sync_service._live_gridiron_topup_enabled() is False
+
+
 def test_it_is_not_repeated_between_nearby_syncs() -> None:
     # A day of box scores does not change between syncs minutes apart.
     from services import sync_service

@@ -134,6 +134,8 @@ services:
         value: 3
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES
         value: NCAAF,NCAAB,CFL
+      - key: LIVE_GRIDIRON_TOPUP_ENABLED
+        value: "false"
       - key: RAW_PROP_STREAM
         value: prop-intelligence:raw-feeds
       - key: RAW_PROP_STREAM_MAXLEN
@@ -273,6 +275,11 @@ services:
         value: 3
       - key: SPORTSGAMEODDS_DISABLED_LEAGUES
         value: NCAAF,NCAAB,CFL
+      # Historical NFL/NHL maintenance has its own cron/admin path. Keeping it
+      # out of the live worker prevents a failed ESPN backfill from consuming
+      # the same 2 GB process that must publish props.
+      - key: LIVE_GRIDIRON_TOPUP_ENABLED
+        value: "false"
       # Render cron is the primary photo scheduler. The worker also checks this
       # threshold after prop syncs and queues a separate deduplicated refresh
       # if the cron was paused or missed.

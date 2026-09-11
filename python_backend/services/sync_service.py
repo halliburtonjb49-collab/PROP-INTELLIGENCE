@@ -276,6 +276,13 @@ def _live_history_seed_enabled() -> bool:
     }
 
 
+def _live_gridiron_topup_enabled() -> bool:
+    """Keep optional historical maintenance out of the live prop worker."""
+    return os.getenv("LIVE_GRIDIRON_TOPUP_ENABLED", "true").strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+
+
 def _gridiron_backfill_window(*, cold_process: bool) -> int:
     if cold_process and _live_history_seed_enabled():
         return max(1, int(os.getenv("GRIDIRON_SEED_DAYS", "240")))
@@ -1091,7 +1098,7 @@ def run_global_sync_pipeline(
     report_post_processing("supplemental_soccer")
     results.append(sync_balldontlie_soccer())
     report_post_processing("historical_backfill")
-    if _gridiron_ingest_due():
+    if _live_gridiron_topup_enabled() and _gridiron_ingest_due():
         try:
             # The first run after a deploy reaches back far enough to seed a
             # history that does not exist yet; later runs only top it up.
