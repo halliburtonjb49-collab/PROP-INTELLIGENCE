@@ -1275,19 +1275,31 @@ class _LiveScoreboardTickerGridWidgetState
       // and lets the browser cache the logo before later scoreboard visits.
       useApiProxyForRemoteImages: false,
     );
+    final proxyFallback = resolvePlayerImageFallbackPath(logo);
+    Widget webLogo(String url, {bool nativeFallback = false}) => Image.network(
+      url,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.medium,
+      gaplessPlayback: true,
+      webHtmlElementStrategy: nativeFallback
+          ? WebHtmlElementStrategy.prefer
+          : WebHtmlElementStrategy.never,
+      loadingBuilder: (_, child, progress) =>
+          progress == null ? child : fallback,
+      errorBuilder: (_, _, _) {
+        if (!nativeFallback &&
+            proxyFallback.isNotEmpty &&
+            proxyFallback != url) {
+          return webLogo(proxyFallback, nativeFallback: true);
+        }
+        return fallback;
+      },
+    );
     return SizedBox(
       width: size,
       height: size,
       child: kIsWeb
-          ? Image.network(
-              resolvedLogo,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.high,
-              webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-              loadingBuilder: (_, child, progress) =>
-                  progress == null ? child : fallback,
-              errorBuilder: (_, _, _) => fallback,
-            )
+          ? webLogo(resolvedLogo)
           : CachedNetworkImage(
               imageUrl: resolvedLogo,
               fit: BoxFit.contain,

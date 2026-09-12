@@ -839,24 +839,38 @@ class _GameRibbonCard extends StatelessWidget {
                       useApiProxyForRemoteImages: false,
                     );
                     if (kIsWeb) {
-                      return Image.network(
-                        resolvedLogo,
+                      final proxyFallback = resolvePlayerImageFallbackPath(
+                        logo,
+                      );
+                      Widget webLogo(
+                        String logoUrl, {
+                        bool nativeFallback = false,
+                      }) => Image.network(
+                        logoUrl,
                         fit: BoxFit.contain,
-                        filterQuality: FilterQuality.high,
-                        webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+                        filterQuality: FilterQuality.medium,
+                        gaplessPlayback: true,
+                        webHtmlElementStrategy: nativeFallback
+                            ? WebHtmlElementStrategy.prefer
+                            : WebHtmlElementStrategy.never,
                         loadingBuilder: (_, child, progress) =>
                             progress == null ? child : _teamBadge(name),
-                        errorBuilder: (_, error, stackTrace) {
+                        errorBuilder: (_, _, _) {
+                          if (!nativeFallback &&
+                              proxyFallback.isNotEmpty &&
+                              proxyFallback != logoUrl) {
+                            return webLogo(proxyFallback, nativeFallback: true);
+                          }
                           EngagementTracker.instance.recordOperational(
                             'MEDIA_FAILURE',
-                            endpoint: resolvedLogo,
-                            provider:
-                                Uri.tryParse(resolvedLogo)?.host ?? 'unknown',
+                            endpoint: logoUrl,
+                            provider: Uri.tryParse(logoUrl)?.host ?? 'unknown',
                             mediaType: 'team_logo',
                           );
                           return _teamBadge(name);
                         },
                       );
+                      return webLogo(resolvedLogo);
                     }
                     return CachedNetworkImage(
                       imageUrl: resolvedLogo,

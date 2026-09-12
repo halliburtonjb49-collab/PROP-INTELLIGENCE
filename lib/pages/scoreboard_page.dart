@@ -802,19 +802,32 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
       // by serial proxy requests through the API service.
       useApiProxyForRemoteImages: false,
     );
+    final proxyFallback = resolvePlayerImageFallbackPath(url);
+    Widget webLogo(String logoUrl, {bool nativeFallback = false}) =>
+        Image.network(
+          logoUrl,
+          width: 34,
+          height: 34,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.medium,
+          gaplessPlayback: true,
+          webHtmlElementStrategy: nativeFallback
+              ? WebHtmlElementStrategy.prefer
+              : WebHtmlElementStrategy.never,
+          loadingBuilder: (_, child, progress) =>
+              progress == null ? child : _teamInitialLogo(team),
+          errorBuilder: (_, _, _) {
+            if (!nativeFallback &&
+                proxyFallback.isNotEmpty &&
+                proxyFallback != logoUrl) {
+              return webLogo(proxyFallback, nativeFallback: true);
+            }
+            return _teamInitialLogo(team);
+          },
+        );
     return ClipOval(
       child: kIsWeb
-          ? Image.network(
-              resolvedUrl,
-              width: 34,
-              height: 34,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.high,
-              webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-              loadingBuilder: (_, child, progress) =>
-                  progress == null ? child : _teamInitialLogo(team),
-              errorBuilder: (_, _, _) => _teamInitialLogo(team),
-            )
+          ? webLogo(resolvedUrl)
           : CachedNetworkImage(
               imageUrl: resolvedUrl,
               width: 34,
