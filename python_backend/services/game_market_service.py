@@ -570,6 +570,21 @@ def get_game_markets(
         raise
 
 
+def peek_game_markets(sport: str) -> dict[str, object] | None:
+    """Return the latest in-process market snapshot without an upstream call."""
+    normalized_sport = sport.strip().upper()
+    with _cache_lock:
+        cached = _cache.get(normalized_sport)
+    if cached is None:
+        return None
+    return {
+        "sport": normalized_sport,
+        "updatedAt": cached[0].isoformat(),
+        "cached": True,
+        "events": cached[1],
+    }
+
+
 def game_market_health() -> dict[str, object]:
     with _metrics_lock:
         snapshot = dict(_metrics)

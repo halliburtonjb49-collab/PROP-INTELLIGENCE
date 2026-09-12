@@ -56,5 +56,6 @@ void main() {
     expect(game.homeMoneyline, 120);
     expect(game.awayMoneylineBook, 'DraftKings');
     expect(game.homeMoneylineBook, 'FanDuel');
+    expect(game.moneylineAvailable, isTrue);
   });
 }

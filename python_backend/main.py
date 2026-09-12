@@ -203,7 +203,11 @@ from services.odds_service import (
 	quota_snapshot,
 )
 from providers.sportsgameodds import usage_snapshot as sportsgameodds_usage
-from services.game_market_service import get_game_markets, game_market_health
+from services.game_market_service import (
+	game_market_health,
+	get_game_markets,
+	peek_game_markets,
+)
 from services.slip_service import (
 	capture_closing_lines_from_props,
 	slip_storage_health,
@@ -2264,6 +2268,18 @@ def _scoreboard_logo_for_league(value: object, league: str) -> str:
 	return logo
 
 
+def _espn_team_logo_or_stable_id(team: dict[str, object], league: str) -> str:
+	logo = _espn_team_logo(team)
+	if logo:
+		return logo
+	team_id = str(team.get("id") or "").strip()
+	marker = _SCOREBOARD_LOGO_LEAGUE_MARKERS.get(league, "")
+	family = marker.strip("/").split("/")[-1] if marker else ""
+	if not team_id or not family:
+		return ""
+	return f"https://a.espncdn.com/i/teamlogos/{family}/500/{team_id}.png"
+
+
 def _espn_team_logo_catalog(league: str) -> dict[str, str]:
 	cache = getattr(_espn_team_logo_catalog, "_cache", None)
 	if not isinstance(cache, dict):
@@ -2328,7 +2344,7 @@ def _espn_team_logo_catalog(league: str) -> dict[str, str]:
 			team = entry.get("team") if isinstance(entry, dict) else None
 			if not isinstance(team, dict):
 				continue
-			logo = _espn_team_logo(team)
+			logo = _espn_team_logo_or_stable_id(team, league)
 			if not logo:
 				continue
 			aliases = {
@@ -2347,7 +2363,7 @@ def _espn_team_logo_catalog(league: str) -> dict[str, str]:
 		if isinstance(node, dict):
 			team = node.get("team")
 			if isinstance(team, dict):
-				logo = _espn_team_logo(team)
+				logo = _espn_team_logo_or_stable_id(team, league)
 				if logo:
 					aliases = {
 						team.get("displayName"),
@@ -2703,6 +2719,7 @@ def _normalize_scoreboard_game(
 		"broadcast": str(
 			event.get("broadcast") or event.get("network") or ""
 		).strip(),
+		"moneyline_available": bool(event.get("moneyline_available")),
 		"source": str(event.get("source") or "PROVIDER").strip(),
 		"startTimeUtc": start_time_utc,
 		"displayTime": display_time,
@@ -2801,7 +2818,7 @@ def _scoreboard_games_for_sport(
 	]
 	market_events: list[dict[str, object]] = []
 	try:
-		market_payload = get_game_markets(league, cache_seconds=300)
+		market_payload = peek_game_markets(league) or {}
 		market_rows = market_payload.get("events")
 		if isinstance(market_rows, list):
 			market_events = [
@@ -2874,7 +2891,10 @@ def _scoreboard_games_for_sport(
 			events = []
 
 	if espn_games:
-		events = []
+		try:
+			events = fetch_events(sport_key)
+		except Exception:
+			events = []
 	for market_event in market_events:
 		events.append({
 			"id": market_event.get("id"),
@@ -2921,6 +2941,7 @@ def _scoreboard_games_for_sport(
 		if identity in existing_matchups:
 			continue
 		merged = dict(raw_event)
+		merged["moneyline_available"] = True
 		if event_id in score_by_id:
 			merged.update(score_by_id[event_id])
 		seen_ids.add(event_id)
@@ -2979,6 +3000,7 @@ def _scoreboard_games_for_sport(
 			"away_moneyline_book", "home_moneyline_book",
 		):
 			game[key] = market.get(key)
+		game["moneyline_available"] = True
 
 	return games
 
@@ -5795,7 +5817,7 @@ def scoreboard(
 			) from exc
 
 	now = datetime.now(timezone.utc)
-	cache_key = f"scoreboard:v6:{target_date.isoformat()}"
+	cache_key = f"scoreboard:v7:{target_date.isoformat()}"
 	cached_scoreboard = get_distributed_json(cache_key)
 	if isinstance(cached_scoreboard, dict):
 		cached_games = cached_scoreboard.get("games")

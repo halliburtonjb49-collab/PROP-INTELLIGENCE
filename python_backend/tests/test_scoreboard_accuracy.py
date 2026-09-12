@@ -11,6 +11,12 @@ def test_scoreboard_requests_both_ncaa_leagues() -> None:
     assert ("CFL", "americanfootball_cfl") in main.SCOREBOARD_SPORT_KEYS
 
 
+def test_scoreboard_builds_verified_espn_logo_from_team_id() -> None:
+    assert main._espn_team_logo_or_stable_id({"id": "79"}, "CFL") == (
+        "https://a.espncdn.com/i/teamlogos/cfl/500/79.png"
+    )
+
+
 def test_scoreboard_merges_complete_moneyline_slate_with_espn(monkeypatch) -> None:
     target = date(2026, 9, 12)
     main._espn_team_logo_catalog._cache = {"NCAAF": {}}
@@ -34,7 +40,7 @@ def test_scoreboard_merges_complete_moneyline_slate_with_espn(monkeypatch) -> No
     )
     monkeypatch.setattr(
         main,
-        "get_game_markets",
+        "peek_game_markets",
         lambda *_args, **_kwargs: {
             "events": [
                 {
@@ -68,6 +74,7 @@ def test_scoreboard_merges_complete_moneyline_slate_with_espn(monkeypatch) -> No
             ]
         },
     )
+    monkeypatch.setattr(main, "fetch_events", lambda *_args, **_kwargs: [])
 
     games = main._scoreboard_games_for_sport(
         league="NCAAF",

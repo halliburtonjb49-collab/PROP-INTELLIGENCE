@@ -838,7 +838,7 @@ class _LiveScoreboardTickerGridWidgetState
             ),
             const Spacer(),
             Text(
-              game.league,
+              '${game.league}${game.moneylineAvailable ? ' • MONEYLINE' : ''}',
               style: const TextStyle(color: _silver, fontSize: 9),
             ),
           ],
@@ -1055,7 +1055,9 @@ class _LiveScoreboardTickerGridWidgetState
           ),
           Expanded(
             child: Text(
-              game.detail.isEmpty ? 'Upcoming' : game.detail,
+              game.detail.isEmpty
+                  ? (game.moneylineAvailable ? 'MONEYLINE' : 'Upcoming')
+                  : game.detail,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: _gold, fontSize: 8),

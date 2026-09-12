@@ -554,6 +554,17 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
                     fontSize: 8,
                   ),
                 ),
+                if (!isLive && !isFinal && game.moneylineAvailable) ...[
+                  const SizedBox(width: 8),
+                  const Text(
+                    'MONEYLINE',
+                    style: TextStyle(
+                      color: brand_colors.AppColors.gold,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
                 const Spacer(),
                 const Text(
                   'VIEW GAME',

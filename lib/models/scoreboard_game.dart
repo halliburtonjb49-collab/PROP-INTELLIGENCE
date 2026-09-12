@@ -19,6 +19,7 @@ class ScoreboardGame {
     this.homeMoneyline,
     this.awayMoneylineBook,
     this.homeMoneylineBook,
+    this.moneylineAvailable = false,
     this.fighterOne,
     this.fighterTwo,
     this.fighterOneImage,
@@ -49,6 +50,7 @@ class ScoreboardGame {
   final int? homeMoneyline;
   final String? awayMoneylineBook;
   final String? homeMoneylineBook;
+  final bool moneylineAvailable;
   final String? fighterOne;
   final String? fighterTwo;
   final String? fighterOneImage;
@@ -167,6 +169,11 @@ class ScoreboardGame {
       homeMoneylineBook:
           (json['home_moneyline_book'] ?? json['homeMoneylineBook'] ?? '')
               .toString(),
+      moneylineAvailable:
+          json['moneyline_available'] == true ||
+          json['moneylineAvailable'] == true ||
+          json['away_moneyline'] != null ||
+          json['home_moneyline'] != null,
       fighterOne:
           (json['fighter_one'] ?? json['fighter1'] ?? json['red_corner'] ?? '')
               .toString(),
