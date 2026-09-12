@@ -29,9 +29,24 @@ void main() {
       expect(service, contains(host));
       expect(pwa, contains(host));
     }
-    expect(service, contains('if (!enabled) return developmentResult();'));
+    expect(service, contains('if (!enabled) return unsupportedResult();'));
     expect(service, contains('if (enabled)'));
     expect(pwa, contains("!isDevelopmentHost"));
+  });
+
+  test('OneSignal loads only in browsers with a complete Web Push API', () {
+    final service = File('web/onesignal-service.js').readAsStringSync();
+    final index = File('web/index.html').readAsStringSync();
+
+    expect(service, contains('"PushManager" in window'));
+    expect(service, contains('hasBrokenLegacySafariApi'));
+    expect(service, contains('typeof legacySafariPermission !== "function"'));
+    expect(service, contains('function loadSdk()'));
+    expect(service, contains('OneSignalSDK.page.js'));
+    expect(
+      index,
+      isNot(contains('cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js')),
+    );
   });
 
   test('OneSignal uses the production web application identity', () {

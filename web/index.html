@@ -87,9 +87,9 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/Icon-192.png"/>
 
   <title>PROP INTELLIGENCE</title>
-  <!-- OneSignal Website SDK stable release 160608 (v16 loader). -->
-  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js"
-          defer></script>
+  <!-- The local integration loads OneSignal only when this browser exposes a
+       complete Web Push implementation. This avoids Safari/WebKit SDK errors
+       in ordinary tabs where push is unavailable. -->
   <script src="onesignal-service.js" defer></script>
   <script src="web_vitals.js?v=__PI_BUILD_VERSION__" defer></script>
   <style>

@@ -2,12 +2,33 @@
 window.PropIntelligenceOneSignal = (() => {
   const appId = "b7d55e15-969b-40c2-b7d4-62e6c201e7d9";
   const developmentHosts = new Set(["localhost", "127.0.0.1", "::1"]);
-  const enabled = !developmentHosts.has(window.location.hostname);
+  const supportsWebPush = "Notification" in window
+    && "serviceWorker" in navigator
+    && "PushManager" in window;
+  const legacySafariPermission = window.safari?.pushNotification?.permission;
+  const hasBrokenLegacySafariApi = legacySafariPermission !== undefined
+    && typeof legacySafariPermission !== "function";
+  const enabled = !developmentHosts.has(window.location.hostname)
+    && supportsWebPush
+    && !hasBrokenLegacySafariApi;
 
-  const developmentResult = () => Promise.resolve({
+  const unsupportedResult = () => Promise.resolve({
     supported: false,
-    reason: "development-host"
+    reason: developmentHosts.has(window.location.hostname)
+      ? "development-host"
+      : "unsupported-browser"
   });
+
+  function loadSdk() {
+    const script = document.createElement("script");
+    script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
+    script.defer = true;
+    script.dataset.piOneSignal = "true";
+    script.addEventListener("error", () => {
+      console.warn("OneSignal SDK could not be loaded in this browser.");
+    }, { once: true });
+    document.head.appendChild(script);
+  }
 
   async function initialize(OneSignal) {
     await OneSignal.init({
@@ -29,7 +50,7 @@ window.PropIntelligenceOneSignal = (() => {
   }
 
   function withOneSignal(action) {
-    if (!enabled) return developmentResult();
+    if (!enabled) return unsupportedResult();
     return new Promise((resolve, reject) => {
       window.OneSignalDeferred = window.OneSignalDeferred || [];
       window.OneSignalDeferred.push(async (OneSignal) => {
@@ -45,6 +66,7 @@ window.PropIntelligenceOneSignal = (() => {
   if (enabled) {
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(initialize);
+    loadSdk();
   }
   return Object.freeze({
     appId,
