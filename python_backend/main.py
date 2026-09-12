@@ -2233,7 +2233,37 @@ _ESPN_TEAM_LOGO_IDS: dict[str, dict[str, str]] = {
 	},
 	"NCAAF": {
 		"appalachianstatemountaineers": "2026",
+		"alabamastatehornets": "2011",
+		"arkansasstateredwolves": "2032",
+		"baylorbears": "239",
+		"cincinnatibearcats": "2132",
+		"georgiatechyellowjackets": "59",
+		"lindenwoodlions": "2815",
+		"missouristatebears": "2623",
+		"monmouthhawks": "2405",
+		"northerncoloradobears": "2458",
+		"oregonstatebeavers": "204",
+		"prairieviewampanthers": "2504",
+		"sacredheartpioneers": "2529",
+		"smumustangs": "2567",
+		"southalabamajaguars": "6",
+		"southcarolinagamecocks": "2579",
+		"tcuhornedfrogs": "2628",
+		"tennesseevolunteers": "2633",
+		"texassoutherntigers": "2640",
+		"texastechredraiders": "2641",
+		"towsontigers": "119",
+		"troytrojans": "2653",
+		"tulanegreenwave": "2655",
+		"ucdavisaggies": "302",
 		"umassminutemen": "113",
+		"utepminers": "2638",
+		"westgeorgiawolves": "2698",
+		"westerncarolinacatamounts": "2717",
+		"westernillinoisleathernecks": "2710",
+		"westernmichiganbroncos": "2711",
+		"wisconsinbadgers": "275",
+		"wyomingcowboys": "2751",
 		"southernuniversityjaguars": "2582",
 		"samhoustonstatebearkats": "2534",
 		"southernmississippigoldeneagles": "2572",
@@ -5855,7 +5885,7 @@ def scoreboard(
 			) from exc
 
 	now = datetime.now(timezone.utc)
-	cache_key = f"scoreboard:v8:{target_date.isoformat()}"
+	cache_key = f"scoreboard:v9:{target_date.isoformat()}"
 	cached_scoreboard = get_distributed_json(cache_key)
 	if isinstance(cached_scoreboard, dict):
 		cached_games = cached_scoreboard.get("games")

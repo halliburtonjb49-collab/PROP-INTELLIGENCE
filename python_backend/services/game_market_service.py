@@ -87,7 +87,11 @@ def _publish_shared_snapshot(
         set_json(
             _shared_cache_key(sport),
             {"sport": sport, "updatedAt": updated_at.isoformat(), "events": events},
-            ttl_seconds=15 * 60,
+            # The scoreboard must be able to serve the last successful market
+            # slate even when a provider refresh is delayed. Fresh API reads
+            # still honor cache_seconds; peek_game_markets intentionally uses
+            # this longer-lived snapshot as the non-blocking fallback.
+            ttl_seconds=24 * 60 * 60,
         )
     except Exception:
         pass
