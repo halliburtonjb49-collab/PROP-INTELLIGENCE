@@ -2223,11 +2223,38 @@ _ESPN_MLB_LOGO_SLUGS = {
 }
 
 
+_ESPN_TEAM_LOGO_IDS: dict[str, dict[str, str]] = {
+	"MLS": {
+		"newyorkredbulls": "190",
+		"columbuscrewsc": "183",
+		"losangelesfc": "18966",
+		"cfmontreal": "9720",
+		"houstondynamo": "6077",
+	},
+	"NCAAF": {
+		"appalachianstatemountaineers": "2026",
+		"umassminutemen": "113",
+		"southernuniversityjaguars": "2582",
+		"samhoustonstatebearkats": "2534",
+		"southernmississippigoldeneagles": "2572",
+		"gramblingstatetigers": "2755",
+		"sanjosestatespartans": "23",
+	},
+}
+
+
 def _stable_espn_team_logo(league: str, team_name: str) -> str:
-	if league != "MLB":
-		return ""
-	slug = _ESPN_MLB_LOGO_SLUGS.get(_scoreboard_team_key(team_name), "")
-	return f"https://a.espncdn.com/i/teamlogos/mlb/500/{slug}.png" if slug else ""
+	team_key = _scoreboard_team_key(team_name)
+	if league == "MLB":
+		slug = _ESPN_MLB_LOGO_SLUGS.get(team_key, "")
+		return f"https://a.espncdn.com/i/teamlogos/mlb/500/{slug}.png" if slug else ""
+	team_id = _ESPN_TEAM_LOGO_IDS.get(league, {}).get(team_key, "")
+	marker = _SCOREBOARD_LOGO_LEAGUE_MARKERS.get(league, "")
+	family = marker.strip("/").split("/")[-1] if marker else ""
+	return (
+		f"https://a.espncdn.com/i/teamlogos/{family}/500/{team_id}.png"
+		if team_id and family else ""
+	)
 
 
 _SCOREBOARD_LOGO_LEAGUE_MARKERS = {
@@ -2475,8 +2502,14 @@ def _espn_scoreboard_games_for_sport(
 			if isinstance(home_team_value, dict)
 			else str(home_team_value or "")
 		)
-		away_logo = _espn_team_logo(away_team_value)
-		home_logo = _espn_team_logo(home_team_value)
+		away_logo = (
+			_espn_team_logo_or_stable_id(away_team_value, league)
+			if isinstance(away_team_value, dict) else ""
+		)
+		home_logo = (
+			_espn_team_logo_or_stable_id(home_team_value, league)
+			if isinstance(home_team_value, dict) else ""
+		)
 
 		status = competition.get("status")
 		status_type = status.get("type") if isinstance(status, dict) else None

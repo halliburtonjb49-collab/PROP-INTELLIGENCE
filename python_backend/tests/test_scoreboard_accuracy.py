@@ -17,6 +17,30 @@ def test_scoreboard_builds_verified_espn_logo_from_team_id() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("league", "team", "team_id"),
+    [
+        ("MLS", "New York Red Bulls", "190"),
+        ("MLS", "Los Angeles FC", "18966"),
+        ("NCAAF", "Appalachian State Mountaineers", "2026"),
+        ("NCAAF", "UMass Minutemen", "113"),
+        ("NCAAF", "Southern University Jaguars", "2582"),
+        ("NCAAF", "Sam Houston State Bearkats", "2534"),
+        ("NCAAF", "Southern Mississippi Golden Eagles", "2572"),
+        ("NCAAF", "Grambling State Tigers", "2755"),
+        ("NCAAF", "San Jose State Spartans", "23"),
+    ],
+)
+def test_scoreboard_resolves_provider_alias_to_official_espn_logo(
+    league: str,
+    team: str,
+    team_id: str,
+) -> None:
+    assert main._stable_espn_team_logo(league, team).endswith(
+        f"/{team_id}.png"
+    )
+
+
 def test_scoreboard_merges_complete_moneyline_slate_with_espn(monkeypatch) -> None:
     target = date(2026, 9, 12)
     main._espn_team_logo_catalog._cache = {"NCAAF": {}}
