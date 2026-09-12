@@ -1876,6 +1876,7 @@ SCOREBOARD_SPORT_KEYS: list[tuple[str, str]] = [
 	("WNBA", "basketball_wnba"),
 	("MLB", "baseball_mlb"),
 	("NFL", "americanfootball_nfl"),
+	("CFL", "americanfootball_cfl"),
 	("NCAAF", "americanfootball_ncaaf"),
 	("NCAAB", "basketball_ncaab"),
 	("NHL", "icehockey_nhl"),
@@ -2798,6 +2799,51 @@ def _scoreboard_games_for_sport(
 		*espn_games,
 		*api_sports_baseball_games,
 	]
+	market_events: list[dict[str, object]] = []
+	try:
+		market_payload = get_game_markets(league, cache_seconds=300)
+		market_rows = market_payload.get("events")
+		if isinstance(market_rows, list):
+			market_events = [
+				row for row in market_rows
+				if isinstance(row, dict)
+				and _local_event_date(row.get("commenceTime")) == target_date
+			]
+	except Exception:
+		# Scores and schedules remain useful if a sportsbook feed is unavailable.
+		market_events = []
+
+	market_by_matchup: dict[str, dict[str, object]] = {}
+	for market_event in market_events:
+		away_team = str(market_event.get("awayTeam") or "").strip()
+		home_team = str(market_event.get("homeTeam") or "").strip()
+		if not away_team or not home_team:
+			continue
+		best: dict[str, tuple[int, str]] = {}
+		for book in market_event.get("bookmakers") or []:
+			if not isinstance(book, dict):
+				continue
+			markets = book.get("markets")
+			if not isinstance(markets, dict):
+				continue
+			for outcome in markets.get("h2h") or []:
+				if not isinstance(outcome, dict):
+					continue
+				team = str(outcome.get("name") or "").strip()
+				try:
+					price = int(float(str(outcome.get("price"))))
+				except (TypeError, ValueError):
+					continue
+				candidate = (price, str(book.get("title") or "Sportsbook"))
+				if team and (team not in best or price > best[team][0]):
+					best[team] = candidate
+		market_by_matchup[_scoreboard_identity(away_team, home_team)] = {
+			"event": market_event,
+			"away_moneyline": best.get(away_team, (None, ""))[0],
+			"home_moneyline": best.get(home_team, (None, ""))[0],
+			"away_moneyline_book": best.get(away_team, (None, ""))[1],
+			"home_moneyline_book": best.get(home_team, (None, ""))[1],
+		}
 	if target_date == now.astimezone(_scoreboard_timezone()).date():
 		for live_game in supplemental_games:
 			if live_game.get("status") != "LIVE":
@@ -2806,11 +2852,11 @@ def _scoreboard_games_for_sport(
 			if identity and str(live_game.get("detail") or "").strip():
 				live_detail_map[identity] = str(live_game.get("detail") or "").strip()
 
-	# ESPN already supplies scheduled times, scores, and live/final state in a
-	# single request. When it has the slate, avoid two additional provider
-	# round-trips (events + scores) for every sport.
+	# ESPN supplies authoritative scores and logos, while the sportsbook feed
+	# supplies the complete market slate. Merge both: ESPN alone often returns
+	# only featured college games and previously hid valid moneyline matchups.
 	if espn_games:
-		return [
+		games = [
 			_normalize_scoreboard_game(
 				event,
 				league,
@@ -2821,16 +2867,33 @@ def _scoreboard_games_for_sport(
 			for event in espn_games
 			if _event_on_date(event, target_date=target_date)
 		]
+	else:
+		try:
+			events = fetch_events(sport_key)
+		except Exception:
+			events = []
 
-	try:
-		events = fetch_events(sport_key)
-	except Exception:
+	if espn_games:
 		events = []
+	for market_event in market_events:
+		events.append({
+			"id": market_event.get("id"),
+			"away_team": market_event.get("awayTeam"),
+			"home_team": market_event.get("homeTeam"),
+			"away_logo": market_event.get("awayTeamLogo"),
+			"home_logo": market_event.get("homeTeamLogo"),
+			"commence_time": market_event.get("commenceTime"),
+			"status": "UPCOMING",
+			"source": "MONEYLINE",
+		})
 
-	try:
-		scores = fetch_scores(sport_key, days_from=3)
-	except Exception:
+	if espn_games:
 		scores = []
+	else:
+		try:
+			scores = fetch_scores(sport_key, days_from=3)
+		except Exception:
+			scores = []
 
 	score_by_id = {
 		_event_identity(score): score
@@ -2841,6 +2904,10 @@ def _scoreboard_games_for_sport(
 	}
 
 	seen_ids: set[str] = set()
+	existing_matchups = {
+		_scoreboard_identity(game.get("away_team"), game.get("home_team"))
+		for game in games
+	}
 	for raw_event in events:
 		if not isinstance(raw_event, dict):
 			continue
@@ -2848,19 +2915,24 @@ def _scoreboard_games_for_sport(
 			continue
 
 		event_id = _event_identity(raw_event)
+		identity = _scoreboard_identity(
+			raw_event.get("away_team"), raw_event.get("home_team")
+		)
+		if identity in existing_matchups:
+			continue
 		merged = dict(raw_event)
 		if event_id in score_by_id:
 			merged.update(score_by_id[event_id])
 		seen_ids.add(event_id)
-		games.append(
-			_normalize_scoreboard_game(
-				merged,
-				league,
-				now,
-				live_detail_map=live_detail_map,
-				shared_time_map=shared_time_map,
-			)
+		normalized_game = _normalize_scoreboard_game(
+			merged,
+			league,
+			now,
+			live_detail_map=live_detail_map,
+			shared_time_map=shared_time_map,
 		)
+		games.append(normalized_game)
+		existing_matchups.add(identity)
 
 	for event_id, score_event in score_by_id.items():
 		if event_id in seen_ids:
@@ -2875,13 +2947,6 @@ def _scoreboard_games_for_sport(
 			)
 		)
 
-	existing_matchups = {
-		_scoreboard_identity(
-			game.get("away_team"),
-			game.get("home_team"),
-		)
-		for game in games
-	}
 	for supplemental_event in supplemental_games:
 		identity = str(supplemental_event.get("identity") or "").strip()
 		if not identity or identity in existing_matchups:
@@ -2901,6 +2966,19 @@ def _scoreboard_games_for_sport(
 			)
 		)
 		existing_matchups.add(identity)
+
+	for game in games:
+		identity = _scoreboard_identity(
+			game.get("away_team"), game.get("home_team")
+		)
+		market = market_by_matchup.get(identity)
+		if market is None:
+			continue
+		for key in (
+			"away_moneyline", "home_moneyline",
+			"away_moneyline_book", "home_moneyline_book",
+		):
+			game[key] = market.get(key)
 
 	return games
 
@@ -5717,7 +5795,7 @@ def scoreboard(
 			) from exc
 
 	now = datetime.now(timezone.utc)
-	cache_key = f"scoreboard:v5:{target_date.isoformat()}"
+	cache_key = f"scoreboard:v6:{target_date.isoformat()}"
 	cached_scoreboard = get_distributed_json(cache_key)
 	if isinstance(cached_scoreboard, dict):
 		cached_games = cached_scoreboard.get("games")

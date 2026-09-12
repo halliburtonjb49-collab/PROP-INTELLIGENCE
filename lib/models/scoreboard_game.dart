@@ -15,6 +15,10 @@ class ScoreboardGame {
     this.startTime,
     this.venue,
     this.broadcast,
+    this.awayMoneyline,
+    this.homeMoneyline,
+    this.awayMoneylineBook,
+    this.homeMoneylineBook,
     this.fighterOne,
     this.fighterTwo,
     this.fighterOneImage,
@@ -41,6 +45,10 @@ class ScoreboardGame {
   final DateTime? startTime;
   final String? venue;
   final String? broadcast;
+  final int? awayMoneyline;
+  final int? homeMoneyline;
+  final String? awayMoneylineBook;
+  final String? homeMoneylineBook;
   final String? fighterOne;
   final String? fighterTwo;
   final String? fighterOneImage;
@@ -147,6 +155,18 @@ class ScoreboardGame {
       venue: json['venue']?.toString(),
       broadcast: (json['broadcast'] ?? json['network'] ?? json['channel'] ?? '')
           .toString(),
+      awayMoneyline: parseScore(
+        json['away_moneyline'] ?? json['awayMoneyline'],
+      ),
+      homeMoneyline: parseScore(
+        json['home_moneyline'] ?? json['homeMoneyline'],
+      ),
+      awayMoneylineBook:
+          (json['away_moneyline_book'] ?? json['awayMoneylineBook'] ?? '')
+              .toString(),
+      homeMoneylineBook:
+          (json['home_moneyline_book'] ?? json['homeMoneylineBook'] ?? '')
+              .toString(),
       fighterOne:
           (json['fighter_one'] ?? json['fighter1'] ?? json['red_corner'] ?? '')
               .toString(),

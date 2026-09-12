@@ -8,6 +8,81 @@ import main
 def test_scoreboard_requests_both_ncaa_leagues() -> None:
     assert ("NCAAF", "americanfootball_ncaaf") in main.SCOREBOARD_SPORT_KEYS
     assert ("NCAAB", "basketball_ncaab") in main.SCOREBOARD_SPORT_KEYS
+    assert ("CFL", "americanfootball_cfl") in main.SCOREBOARD_SPORT_KEYS
+
+
+def test_scoreboard_merges_complete_moneyline_slate_with_espn(monkeypatch) -> None:
+    target = date(2026, 9, 12)
+    main._espn_team_logo_catalog._cache = {"NCAAF": {}}
+    monkeypatch.setattr(
+        main,
+        "_espn_scoreboard_games_for_sport",
+        lambda *_args: [
+            {
+                "id": "espn-1",
+                "identity": main._scoreboard_identity("Away One", "Home One"),
+                "away_team": "Away One",
+                "home_team": "Home One",
+                "away_logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/1.png",
+                "home_logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2.png",
+                "commence_time": "2026-09-12T18:00:00Z",
+                "status": "UPCOMING",
+                "scores": [],
+                "source": "ESPN",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        main,
+        "get_game_markets",
+        lambda *_args, **_kwargs: {
+            "events": [
+                {
+                    "id": "market-1",
+                    "awayTeam": "Away One",
+                    "homeTeam": "Home One",
+                    "awayTeamLogo": "",
+                    "homeTeamLogo": "",
+                    "commenceTime": "2026-09-12T18:00:00Z",
+                    "bookmakers": [
+                        {
+                            "title": "DraftKings",
+                            "markets": {
+                                "h2h": [
+                                    {"name": "Away One", "price": 125},
+                                    {"name": "Home One", "price": -140},
+                                ]
+                            },
+                        }
+                    ],
+                },
+                {
+                    "id": "market-2",
+                    "awayTeam": "Away Two",
+                    "homeTeam": "Home Two",
+                    "awayTeamLogo": "https://a.espncdn.com/i/teamlogos/ncaa/500/3.png",
+                    "homeTeamLogo": "https://a.espncdn.com/i/teamlogos/ncaa/500/4.png",
+                    "commenceTime": "2026-09-12T20:00:00Z",
+                    "bookmakers": [],
+                },
+            ]
+        },
+    )
+
+    games = main._scoreboard_games_for_sport(
+        league="NCAAF",
+        sport_key="americanfootball_ncaaf",
+        target_date=target,
+        now=datetime(2026, 9, 12, 16, 0, tzinfo=timezone.utc),
+    )
+
+    assert len(games) == 2
+    first = next(game for game in games if game["home_team"] == "Home One")
+    assert first["away_moneyline"] == 125
+    assert first["home_moneyline"] == -140
+    assert first["away_logo"].endswith("/ncaa/500/1.png")
+    second = next(game for game in games if game["home_team"] == "Home Two")
+    assert second["away_logo"].endswith("/ncaa/500/3.png")
 
 
 def test_scoreboard_keeps_healthy_leagues_when_one_provider_fails(monkeypatch) -> None:

@@ -422,6 +422,8 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
           size: 18,
         );
       case 'NFL':
+      case 'CFL':
+      case 'NCAAF':
         return const Icon(
           Icons.sports_football,
           color: brand_colors.AppColors.gold,
@@ -433,6 +435,20 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
           color: brand_colors.AppColors.gold,
           size: 18,
         );
+      case 'NCAAB':
+        return const Icon(
+          Icons.sports_basketball,
+          color: brand_colors.AppColors.gold,
+          size: 18,
+        );
+      case 'NHL':
+        return const Icon(
+          Icons.sports_hockey,
+          color: brand_colors.AppColors.gold,
+          size: 18,
+        );
+      case 'EPL':
+      case 'MLS':
       case 'SOCCER':
         return const Icon(
           Icons.sports_soccer,
@@ -513,12 +529,16 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
               team: game.awayTeam,
               score: game.awayScore,
               logo: game.awayLogo,
+              moneyline: game.awayMoneyline,
+              moneylineBook: game.awayMoneylineBook,
             ),
             const SizedBox(height: 11),
             _teamScoreRow(
               team: game.homeTeam,
               score: game.homeScore,
               logo: game.homeLogo,
+              moneyline: game.homeMoneyline,
+              moneylineBook: game.homeMoneylineBook,
             ),
             const Spacer(),
             Row(
@@ -822,7 +842,14 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     required String team,
     required int? score,
     required String? logo,
+    required int? moneyline,
+    required String? moneylineBook,
   }) {
+    final line = moneyline == null
+        ? ''
+        : moneyline > 0
+        ? '+$moneyline'
+        : '$moneyline';
     return Row(
       children: [
         _teamLogo(imageUrl: logo, team: team),
@@ -839,13 +866,29 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
             ),
           ),
         ),
-        Text(
-          score?.toString() ?? '-',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-          ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              score?.toString() ?? (line.isEmpty ? '-' : line),
+              style: TextStyle(
+                color: score == null && line.isNotEmpty
+                    ? brand_colors.AppColors.gold
+                    : Colors.white,
+                fontSize: score == null ? 14 : 22,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            if (score == null && line.isNotEmpty)
+              Text(
+                'ML${(moneylineBook ?? '').isEmpty ? '' : ' • ${moneylineBook!.toUpperCase()}'}',
+                style: const TextStyle(
+                  color: brand_colors.AppColors.textSecondary,
+                  fontSize: 7,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+          ],
         ),
       ],
     );

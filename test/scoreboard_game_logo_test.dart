@@ -38,4 +38,23 @@ void main() {
       'https://cdn.example.com/49ers.png',
     );
   });
+
+  test('scoreboard parses each team moneyline and sportsbook', () {
+    final game = ScoreboardGame.fromJson(const {
+      'id': 'ncaaf-1',
+      'sport': 'NCAAF',
+      'league': 'NCAAF',
+      'away_team': 'LSU Tigers',
+      'home_team': 'Auburn Tigers',
+      'away_moneyline': -135,
+      'home_moneyline': 120,
+      'away_moneyline_book': 'DraftKings',
+      'home_moneyline_book': 'FanDuel',
+    });
+
+    expect(game.awayMoneyline, -135);
+    expect(game.homeMoneyline, 120);
+    expect(game.awayMoneylineBook, 'DraftKings');
+    expect(game.homeMoneylineBook, 'FanDuel');
+  });
 }

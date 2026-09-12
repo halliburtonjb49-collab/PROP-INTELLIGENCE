@@ -844,9 +844,19 @@ class _LiveScoreboardTickerGridWidgetState
           ],
         ),
         const SizedBox(height: 10),
-        _phoneTeamRow(game.awayLogo, _awayLabel(game)),
+        _phoneTeamRow(
+          game.awayLogo,
+          _awayLabel(game),
+          game.awayMoneyline,
+          game.awayMoneylineBook,
+        ),
         const SizedBox(height: 7),
-        _phoneTeamRow(game.homeLogo, _homeLabel(game)),
+        _phoneTeamRow(
+          game.homeLogo,
+          _homeLabel(game),
+          game.homeMoneyline,
+          game.homeMoneylineBook,
+        ),
         const SizedBox(height: 10),
         Row(
           children: [
@@ -865,7 +875,12 @@ class _LiveScoreboardTickerGridWidgetState
     ),
   );
 
-  Widget _phoneTeamRow(String? logo, String team) => Row(
+  Widget _phoneTeamRow(
+    String? logo,
+    String team,
+    int? moneyline,
+    String? book,
+  ) => Row(
     children: [
       _teamLogo(logo, team, 28),
       const SizedBox(width: 8),
@@ -881,6 +896,17 @@ class _LiveScoreboardTickerGridWidgetState
           ),
         ),
       ),
+      if (moneyline != null) ...[
+        const SizedBox(width: 8),
+        Text(
+          '${moneyline > 0 ? '+' : ''}$moneyline ML',
+          style: const TextStyle(
+            color: _gold,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
     ],
   );
 
@@ -982,6 +1008,15 @@ class _LiveScoreboardTickerGridWidgetState
                     ),
                   ),
                 ),
+                if (game.awayMoneyline != null)
+                  Text(
+                    ' ${game.awayMoneyline! > 0 ? '+' : ''}${game.awayMoneyline}',
+                    style: const TextStyle(
+                      color: _gold,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 6),
                   child: Text('@', style: TextStyle(color: _muted)),
@@ -1000,6 +1035,15 @@ class _LiveScoreboardTickerGridWidgetState
                     ),
                   ),
                 ),
+                if (game.homeMoneyline != null)
+                  Text(
+                    ' ${game.homeMoneyline! > 0 ? '+' : ''}${game.homeMoneyline}',
+                    style: const TextStyle(
+                      color: _gold,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
               ],
             ),
           ),
