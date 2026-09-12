@@ -117,9 +117,11 @@ def test_scoreboard_merges_complete_moneyline_slate_with_espn(monkeypatch) -> No
     first = next(game for game in games if game["home_team"] == "Home One")
     assert first["away_moneyline"] == 125
     assert first["home_moneyline"] == -140
+    assert first["moneyline_available"] is True
     assert first["away_logo"].endswith("/ncaa/500/1.png")
     second = next(game for game in games if game["home_team"] == "Home Two")
     assert second["away_logo"].endswith("/ncaa/500/3.png")
+    assert second["moneyline_available"] is False
 
 
 def test_scoreboard_keeps_healthy_leagues_when_one_provider_fails(monkeypatch) -> None:

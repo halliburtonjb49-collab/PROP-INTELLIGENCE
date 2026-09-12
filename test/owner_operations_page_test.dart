@@ -9,6 +9,37 @@ import 'package:prop_intelligence/pages/owner_operations_page.dart';
 import 'package:prop_intelligence/services/api_service.dart';
 import 'package:prop_intelligence/widgets/owner_user_account_controls.dart';
 
+void mainPipelineHealthTests() {
+  test(
+    'pipeline health cannot be green while core services are unavailable',
+    () {
+      expect(
+        ownerPipelineHealthIsHealthy({
+          'api': {'status': 'ok'},
+          'redis': {'available': false},
+          'workers': {'available': true, 'workers': 0},
+          'propFreshness': {'healthy': false},
+          'scoreboardLatency': {'status': 'ok'},
+        }, const []),
+        isFalse,
+      );
+    },
+  );
+
+  test('pipeline health is green only when every core service is healthy', () {
+    expect(
+      ownerPipelineHealthIsHealthy({
+        'api': {'status': 'ok'},
+        'redis': {'available': true},
+        'workers': {'available': true, 'workers': 2},
+        'propFreshness': {'healthy': true},
+        'scoreboardLatency': {'status': 'ok'},
+      }, const []),
+      isTrue,
+    );
+  });
+}
+
 PropData _ownerPick(String sport, int index) => PropData(
   id: '$sport-$index',
   eventId: 'event-$index',
@@ -604,6 +635,7 @@ class _PrimaryFailureOperationsApi extends _FakeOperationsApi {
 }
 
 void main() {
+  mainPipelineHealthTests();
   test('owner reliability panel exposes authentication launch timing', () {
     final source = File(
       'lib/pages/owner_operations_page.dart',

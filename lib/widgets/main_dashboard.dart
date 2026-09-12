@@ -165,6 +165,16 @@ bool wholeBoardSportsBelong({
   return sportsWithInventory >= 2;
 }
 
+const customerPropSports = <String>[
+  'MLB',
+  'NFL',
+  'NBA',
+  'WNBA',
+  'NHL',
+  'SOCCER',
+  'NCAAF',
+];
+
 class MainDashboard extends StatefulWidget {
   final List<SlipSelection> selections;
   final void Function(PropData prop, PickSide side) onSelect;
@@ -3385,7 +3395,11 @@ class _MainDashboardState extends State<MainDashboard> {
   );
 
   List<String> get _categoryPanelSports {
-    final sports = <String>{};
+    // Product sports must remain discoverable even when an upstream provider
+    // temporarily publishes zero rows. Building this rail only from the last
+    // facet response made NCAAF vanish completely during a provider gap and
+    // prevented the customer from seeing its honest empty/recovery state.
+    final sports = <String>{...customerPropSports};
     for (final sport in _apiService.lastTotalSportCategoryCounts.keys) {
       final normalized = _normalizeSport(sport);
       if (normalized.isNotEmpty && normalized != 'ALL') sports.add(normalized);

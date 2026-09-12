@@ -978,13 +978,12 @@ def run_global_sync_pipeline(
     ] | None = None,
     on_post_processing_progress: Callable[[str], None] | None = None,
 ) -> list[dict[str, object]]:
-    # These leagues were unintentionally injected by migration code despite
-    # not being in the production product configuration. Remove their retained
-    # cache rows before loading/enriching the next board; otherwise each sync
-    # starts with the same oversized 26k-row catalog that caused the worker to
-    # exceed 2 GB even after new fetching was disabled.
+    # NCAAB and CFL are not part of the current player-prop product catalog.
+    # NCAAF is: pruning it here after every successful fetch made college
+    # football disappear from the customer board even while the scoreboard
+    # and moneyline surfaces correctly advertised NCAAF. Keep NCAAF on the
+    # low-concurrency coverage lane and only remove unsupported retained rows.
     cache.prune_sports([
-        "americanfootball_ncaaf",
         "basketball_ncaab",
         "americanfootball_cfl",
     ])

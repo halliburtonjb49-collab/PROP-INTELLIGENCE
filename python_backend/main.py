@@ -2782,7 +2782,20 @@ def _normalize_scoreboard_game(
 		"broadcast": str(
 			event.get("broadcast") or event.get("network") or ""
 		).strip(),
-		"moneyline_available": bool(event.get("moneyline_available")),
+		"away_moneyline": event.get("away_moneyline"),
+		"home_moneyline": event.get("home_moneyline"),
+		"away_moneyline_book": str(
+			event.get("away_moneyline_book") or ""
+		).strip(),
+		"home_moneyline_book": str(
+			event.get("home_moneyline_book") or ""
+		).strip(),
+		# Do not label a schedule-only row as a moneyline game. The previous
+		# unconditional marker produced MONEYLINE badges with two blank prices.
+		"moneyline_available": (
+			event.get("away_moneyline") is not None
+			and event.get("home_moneyline") is not None
+		),
 		"source": str(event.get("source") or "PROVIDER").strip(),
 		"startTimeUtc": start_time_utc,
 		"displayTime": display_time,
@@ -3009,7 +3022,6 @@ def _scoreboard_games_for_sport(
 		if identity in existing_matchups:
 			continue
 		merged = dict(raw_event)
-		merged["moneyline_available"] = True
 		if event_id in score_by_id:
 			merged.update(score_by_id[event_id])
 		seen_ids.add(event_id)
@@ -3068,7 +3080,10 @@ def _scoreboard_games_for_sport(
 			"away_moneyline_book", "home_moneyline_book",
 		):
 			game[key] = market.get(key)
-		game["moneyline_available"] = True
+		game["moneyline_available"] = (
+			market.get("away_moneyline") is not None
+			and market.get("home_moneyline") is not None
+		)
 
 	return games
 

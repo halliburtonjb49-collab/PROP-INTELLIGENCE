@@ -49,6 +49,12 @@ class _LiveScoreboardTickerGridWidgetState
   String _selectedTab = 'ALL GAMES';
   String _selectedSport = 'ALL SPORTS';
   bool _autoRefresh = true;
+  // A full college-football Saturday can contain well over 100 games. Eagerly
+  // constructing every card, network image and nested grid caused iOS WebKit
+  // to terminate the page. Keep the complete slate in the controller while
+  // materializing it in bounded customer-controlled batches.
+  static const int _gameBatchSize = 24;
+  int _visibleGameLimit = _gameBatchSize;
   List<ScoreboardGame> _weekGames = const [];
   bool _weekLoading = false;
 
@@ -429,7 +435,10 @@ class _LiveScoreboardTickerGridWidgetState
 
   Widget _tabButton(String tab, int liveCount) => InkWell(
     onTap: () {
-      setState(() => _selectedTab = tab);
+      setState(() {
+        _selectedTab = tab;
+        _visibleGameLimit = _gameBatchSize;
+      });
       if (tab == 'THIS WEEK' && _weekGames.isEmpty) unawaited(_loadWeek());
     },
     child: Container(
@@ -570,8 +579,8 @@ class _LiveScoreboardTickerGridWidgetState
                 game.league.toUpperCase() == sport;
           }).length;
     IconData iconFor(String sport) => switch (sport) {
-      'NBA' || 'WNBA' => Icons.sports_basketball,
-      'NFL' => Icons.sports_football,
+      'NBA' || 'WNBA' || 'NCAAB' => Icons.sports_basketball,
+      'NFL' || 'NCAAF' || 'CFL' => Icons.sports_football,
       'MLB' => Icons.sports_baseball,
       'NHL' => Icons.sports_hockey,
       'SOCCER' => Icons.sports_soccer,
@@ -587,7 +596,10 @@ class _LiveScoreboardTickerGridWidgetState
           final sport = sports[index];
           final selected = sport == _selectedSport;
           return OutlinedButton(
-            onPressed: () => setState(() => _selectedSport = sport),
+            onPressed: () => setState(() {
+              _selectedSport = sport;
+              _visibleGameLimit = _gameBatchSize;
+            }),
             style: OutlinedButton.styleFrom(
               foregroundColor: selected ? _gold : _white,
               backgroundColor: selected ? _gold.withValues(alpha: .09) : _panel,
@@ -650,6 +662,7 @@ class _LiveScoreboardTickerGridWidgetState
   }
 
   Widget _buildLiveSection(List<ScoreboardGame> games) {
+    final displayed = games.take(_visibleGameLimit).toList(growable: false);
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: Column(
@@ -668,17 +681,18 @@ class _LiveScoreboardTickerGridWidgetState
               return GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: games.length,
+                itemCount: displayed.length,
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: columns,
                   crossAxisSpacing: 9,
                   mainAxisSpacing: 9,
                   mainAxisExtent: 160,
                 ),
-                itemBuilder: (context, index) => _liveCard(games[index]),
+                itemBuilder: (context, index) => _liveCard(displayed[index]),
               );
             },
           ),
+          if (displayed.length < games.length) _showMoreGames(games.length),
         ],
       ),
     );
@@ -779,6 +793,7 @@ class _LiveScoreboardTickerGridWidgetState
   }
 
   Widget _buildUpcomingSection(List<ScoreboardGame> games) {
+    final displayed = games.take(_visibleGameLimit).toList(growable: false);
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
       child: Column(
@@ -793,7 +808,7 @@ class _LiveScoreboardTickerGridWidgetState
             builder: (context, constraints) => constraints.maxWidth < 600
                 ? Column(
                     children: [
-                      for (final game in games) _upcomingPhoneCard(game),
+                      for (final game in displayed) _upcomingPhoneCard(game),
                     ],
                   )
                 : Container(
@@ -805,12 +820,13 @@ class _LiveScoreboardTickerGridWidgetState
                     child: Column(
                       children: [
                         _upcomingHeader(),
-                        for (var index = 0; index < games.length; index++)
-                          _upcomingRow(games[index], index),
+                        for (var index = 0; index < displayed.length; index++)
+                          _upcomingRow(displayed[index], index),
                       ],
                     ),
                   ),
           ),
+          if (displayed.length < games.length) _showMoreGames(games.length),
         ],
       ),
     );
@@ -1092,6 +1108,7 @@ class _LiveScoreboardTickerGridWidgetState
   }
 
   Widget _buildFinalSection(List<ScoreboardGame> games) {
+    final displayed = games.take(_visibleGameLimit).toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1106,20 +1123,39 @@ class _LiveScoreboardTickerGridWidgetState
             return GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: games.length,
+              itemCount: displayed.length,
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: columns,
                 crossAxisSpacing: 9,
                 mainAxisSpacing: 9,
                 mainAxisExtent: 125,
               ),
-              itemBuilder: (context, index) => _finalCard(games[index]),
+              itemBuilder: (context, index) => _finalCard(displayed[index]),
             );
           },
         ),
+        if (displayed.length < games.length) _showMoreGames(games.length),
       ],
     );
   }
+
+  Widget _showMoreGames(int total) => Padding(
+    padding: const EdgeInsets.only(top: 10),
+    child: SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () => setState(() {
+          _visibleGameLimit = (_visibleGameLimit + _gameBatchSize)
+              .clamp(0, total)
+              .toInt();
+        }),
+        icon: const Icon(Icons.expand_more_rounded, size: 18),
+        label: Text(
+          'SHOW MORE GAMES (${total - _visibleGameLimit.clamp(0, total)} remaining)',
+        ),
+      ),
+    ),
+  );
 
   Widget _finalCard(ScoreboardGame game) {
     final awayScore = game.awayScore ?? 0;

@@ -2,6 +2,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prop_intelligence/widgets/main_dashboard.dart';
 
 void main() {
+  test('NCAAF remains discoverable during an empty provider snapshot', () {
+    expect(customerPropSports, contains('NCAAF'));
+  });
   test('phone widths get sport tabs the sidebar cannot provide', () {
     // Below the shell's 1000px breakpoint the rail is a drawer behind the
     // menu button, so the board otherwise shows one sport's categories as

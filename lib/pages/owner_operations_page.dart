@@ -15,6 +15,25 @@ import '../widgets/owner_user_account_controls.dart';
 import '../widgets/provider_availability_dashboard.dart';
 import '../widgets/provider_reliability_banner.dart';
 
+bool ownerPipelineHealthIsHealthy(
+  Map<String, dynamic> control,
+  Iterable<Map> activeFailures,
+) {
+  if (activeFailures.isNotEmpty) return false;
+  Map section(String key) => control[key] as Map? ?? const {};
+  final api = section('api');
+  final redis = section('redis');
+  final workers = section('workers');
+  final freshness = section('propFreshness');
+  final scoreboard = section('scoreboardLatency');
+  return api['status'] == 'ok' &&
+      redis['available'] == true &&
+      workers['available'] == true &&
+      (workers['workers'] as num? ?? 0) > 0 &&
+      freshness['healthy'] == true &&
+      scoreboard['status'] == 'ok';
+}
+
 class OwnerOperationsPage extends StatefulWidget {
   const OwnerOperationsPage({super.key, this.apiService});
 
@@ -908,6 +927,10 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     final failures = (_map('pipelines')['activeFailures'] as List? ?? const [])
         .whereType<Map>()
         .toList(growable: false);
+    final pipelineHealthy = ownerPipelineHealthIsHealthy(
+      Map<String, dynamic>.from(_control ?? const <String, dynamic>{}),
+      failures,
+    );
     return ColoredBox(
       color: AppColors.background,
       child: RefreshIndicator(
@@ -1096,15 +1119,22 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
               'Recent ingestion, refresh, and grading failures',
             ),
             const SizedBox(height: 10),
-            if (failures.isEmpty)
+            if (pipelineHealthy)
               _notice(
                 Icons.account_tree_outlined,
                 'Pipelines are healthy',
                 'No active pipeline failures were reported.',
                 const Color(0xFF8CFFB2),
               )
-            else
+            else if (failures.isNotEmpty)
               ...failures.map(_pipelineCard),
+            if (!pipelineHealthy && failures.isEmpty)
+              _notice(
+                Icons.warning_amber_rounded,
+                'Pipeline health is incomplete',
+                'No job failure was reported, but one or more required API, Redis, worker, freshness, or scoreboard checks are unavailable or unhealthy.',
+                const Color(0xFFFFC857),
+              ),
             const SizedBox(height: 22),
             _sectionTitle(
               'USER FEEDBACK INBOX',
