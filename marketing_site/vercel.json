@@ -61,7 +61,7 @@
     },
     {
       "source": "/auth/callback",
-      "destination": "https://prop-intelligence.vercel.app/"
+      "destination": "/"
     }
   ],
   "redirects": [

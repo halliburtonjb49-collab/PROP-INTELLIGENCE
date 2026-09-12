@@ -348,7 +348,10 @@
       const release = '__PI_BUILD_VERSION__';
       const releaseKey = 'pi-active-web-release';
       const previous = window.localStorage.getItem(releaseKey);
-      if (previous !== release && !window.location.search.includes(`release=${release}`)) {
+      // A first-time visitor has no stale application worker to retire. Do not
+      // force that user through a second 5+ MB Flutter download immediately
+      // after OAuth. Only perform release recovery for an older known bundle.
+      if (previous && previous !== release && !window.location.search.includes(`release=${release}`)) {
         window.localStorage.setItem(releaseKey, release);
         try {
           if ('serviceWorker' in navigator) {

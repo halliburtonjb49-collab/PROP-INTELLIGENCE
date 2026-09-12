@@ -38,7 +38,7 @@
     },
     {
       "source": "/auth/callback",
-      "destination": "/workspace/index.html"
+      "destination": "/index.html"
     }
   ],
   "redirects": [
