@@ -1270,7 +1270,10 @@ class _LiveScoreboardTickerGridWidgetState
     if (logo.isEmpty) return fallback;
     final resolvedLogo = resolvePlayerImagePath(
       logo,
-      useApiProxyForRemoteImages: kIsWeb,
+      // Web scoreboard logos render as native HTML images below. Loading the
+      // approved sports CDN directly avoids one Render proxy request per team
+      // and lets the browser cache the logo before later scoreboard visits.
+      useApiProxyForRemoteImages: false,
     );
     return SizedBox(
       width: size,

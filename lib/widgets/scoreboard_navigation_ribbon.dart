@@ -833,7 +833,10 @@ class _GameRibbonCard extends StatelessWidget {
                   builder: (context) {
                     final resolvedLogo = resolvePlayerImagePath(
                       logo,
-                      useApiProxyForRemoteImages: kIsWeb,
+                      // This is rendered as a native HTML image on web, so the
+                      // approved CDN can be used directly without a slow API
+                      // proxy hop for every team logo.
+                      useApiProxyForRemoteImages: false,
                     );
                     if (kIsWeb) {
                       return Image.network(

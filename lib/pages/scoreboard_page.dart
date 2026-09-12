@@ -797,7 +797,10 @@ class _ScoreboardPageState extends State<ScoreboardPage> {
     }
     final resolvedUrl = resolvePlayerImagePath(
       url,
-      useApiProxyForRemoteImages: kIsWeb,
+      // Native HTML images can use the approved team-logo CDN directly. This
+      // preserves browser caching and prevents delayed logo population caused
+      // by serial proxy requests through the API service.
+      useApiProxyForRemoteImages: false,
     );
     return ClipOval(
       child: kIsWeb
