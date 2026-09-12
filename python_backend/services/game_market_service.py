@@ -51,6 +51,48 @@ _metrics: dict[str, object] = {
 }
 
 
+def _shared_cache_key(sport: str) -> str:
+    return f"game-markets:v2:{sport}"
+
+
+def _read_shared_snapshot(sport: str) -> tuple[datetime, list[dict[str, object]]] | None:
+    try:
+        from services.distributed_cache_service import get_json
+
+        payload = get_json(_shared_cache_key(sport))
+    except Exception:
+        return None
+    if not isinstance(payload, dict) or not isinstance(payload.get("events"), list):
+        return None
+    try:
+        updated_at = datetime.fromisoformat(
+            str(payload.get("updatedAt") or "").replace("Z", "+00:00")
+        )
+    except ValueError:
+        return None
+    if updated_at.tzinfo is None:
+        updated_at = updated_at.replace(tzinfo=timezone.utc)
+    events = [row for row in payload["events"] if isinstance(row, dict)]
+    return updated_at, events
+
+
+def _publish_shared_snapshot(
+    sport: str,
+    updated_at: datetime,
+    events: list[dict[str, object]],
+) -> None:
+    try:
+        from services.distributed_cache_service import set_json
+
+        set_json(
+            _shared_cache_key(sport),
+            {"sport": sport, "updatedAt": updated_at.isoformat(), "events": events},
+            ttl_seconds=15 * 60,
+        )
+    except Exception:
+        pass
+
+
 def _as_number(value: object) -> float | int | None:
     if isinstance(value, (int, float)):
         return value
@@ -516,6 +558,11 @@ def get_game_markets(
         _metrics["requests"] = int(_metrics["requests"]) + 1
     with _cache_lock:
         cached = _cache.get(normalized_sport)
+    if cached is None:
+        cached = _read_shared_snapshot(normalized_sport)
+        if cached is not None:
+            with _cache_lock:
+                _cache[normalized_sport] = cached
     if not force and cached and now - cached[0] <= timedelta(seconds=cache_seconds):
         with _metrics_lock:
             _metrics["cacheHits"] = int(_metrics["cacheHits"]) + 1
@@ -553,6 +600,7 @@ def get_game_markets(
             })
         with _cache_lock:
             _cache[normalized_sport] = (now, events)
+        _publish_shared_snapshot(normalized_sport, now, events)
         return {"sport": normalized_sport, "updatedAt": now.isoformat(), "cached": False, "events": events}
     except Exception:
         with _metrics_lock:
@@ -575,6 +623,11 @@ def peek_game_markets(sport: str) -> dict[str, object] | None:
     normalized_sport = sport.strip().upper()
     with _cache_lock:
         cached = _cache.get(normalized_sport)
+    if cached is None:
+        cached = _read_shared_snapshot(normalized_sport)
+        if cached is not None:
+            with _cache_lock:
+                _cache[normalized_sport] = cached
     if cached is None:
         return None
     return {

@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import pytest
 
 from services import game_market_service
@@ -70,6 +72,24 @@ def test_game_markets_reuse_cache_and_report_health():
     assert result["cached"] is True
     assert len(calls) == 1
     assert game_market_service.game_market_health()["successRate"] > 0
+
+
+def test_game_markets_reuse_shared_snapshot_without_calling_provider(monkeypatch):
+    game_market_service._cache.clear()
+    shared_events = [{"id": "shared-game", "sport": "MLB"}]
+    monkeypatch.setattr(
+        game_market_service,
+        "_read_shared_snapshot",
+        lambda sport: (datetime.now(timezone.utc), shared_events),
+    )
+
+    def unexpected_fetcher(**_kwargs):
+        raise AssertionError("provider must not be called when Redis has a fresh snapshot")
+
+    result = game_market_service.get_game_markets("MLB", fetcher=unexpected_fetcher)
+
+    assert result["cached"] is True
+    assert result["events"] == shared_events
 
 
 def test_game_markets_reject_unknown_sport():
