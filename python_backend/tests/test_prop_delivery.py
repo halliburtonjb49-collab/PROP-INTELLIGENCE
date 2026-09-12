@@ -1078,17 +1078,24 @@ def test_prop_feed_monitor_uses_shared_catalog_after_restart(monkeypatch) -> Non
     assert health["lastTotalCount"] == 4738
 
 
-def test_prop_feed_monitor_falls_back_to_catalog_when_summary_is_missing(
+def test_prop_feed_monitor_falls_back_to_snapshot_metadata_when_summary_is_missing(
     monkeypatch,
 ) -> None:
-    """Redis summary loss must not make an available protected feed look empty."""
+    """Redis summary loss must not hydrate the complete catalog in the API."""
 
     from datetime import datetime, timezone
 
-    prop = FakeProp("fallback", "One", "MLB", "FANDUEL", "HITS")
-    prop.lastUpdatedUtc = datetime.now(timezone.utc).isoformat()
+    updated_at = datetime.now(timezone.utc).isoformat()
     monkeypatch.setattr(main, "get_distributed_json", lambda _key: None)
-    monkeypatch.setattr(main, "_cached_prop_catalog", lambda: [prop])
+    monkeypatch.setattr(
+        main,
+        "catalog_snapshot_metadata",
+        lambda: {
+            "exists": True,
+            "propCount": 23783,
+            "dataUpdatedAt": updated_at,
+        },
+    )
     monkeypatch.setattr(main, "_prop_metrics", {
         "requests": 0,
         "errors": 0,
@@ -1107,7 +1114,7 @@ def test_prop_feed_monitor_falls_back_to_catalog_when_summary_is_missing(
     assert response.headers["cache-control"] == "private, no-store, max-age=0"
     assert health["status"] == "ok"
     assert health["latestEmpty"] is False
-    assert health["lastTotalCount"] == 1
+    assert health["lastTotalCount"] == 23783
 
 
 def test_edge_ranking_uses_no_vig_probability_not_stat_units(monkeypatch) -> None:

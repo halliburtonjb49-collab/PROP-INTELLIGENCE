@@ -144,6 +144,7 @@ from services.injury_impact_alert_service import (
 )
 from services.prop_catalog_snapshot_service import (
 	load_catalog_snapshot,
+	catalog_snapshot_metadata,
 	catalog_snapshot_status,
 	save_catalog_snapshot,
 	snapshot_is_behind,
@@ -1018,6 +1019,12 @@ def _prop_catalog_summary(
 ) -> dict[str, object]:
 	return {
 		"count": len(props),
+		"sportCounts": dict(sorted(Counter(
+			str(prop.sport or "other").strip().upper() for prop in props
+		).items())),
+		"sportsbookCounts": dict(sorted(Counter(
+			str(prop.sportsbook or "other").strip().upper() for prop in props
+		).items())),
 		"lastDataUpdatedAt": max(
 			(str(prop.lastUpdatedUtc or "") for prop in props),
 			default="",
@@ -3285,10 +3292,16 @@ def prop_feed_health(response: Response) -> dict[str, object]:
 			get_distributed_json(_PROP_CATALOG_VERSION_KEY)
 		)
 	if not isinstance(shared_summary, dict) or int(shared_summary.get("count") or 0) <= 0:
-		try:
-			shared_summary = _prop_catalog_summary(_cached_prop_catalog())
-		except Exception as exc:
-			logging.warning("Prop feed health catalog fallback failed error=%s", exc)
+		# An operations probe must never deserialize the 20k+ row catalog in
+		# the traffic-serving process. Use the stored snapshot's tiny metadata
+		# record when Redis is between publications; customers keep receiving
+		# the last successful catalog without a health check risking an OOM.
+		snapshot = catalog_snapshot_metadata()
+		if snapshot.get("exists") is True:
+			shared_summary = {
+				"count": int(snapshot.get("propCount") or 0),
+				"lastDataUpdatedAt": snapshot.get("dataUpdatedAt"),
+			}
 	if isinstance(shared_summary, dict) and int(shared_summary.get("count") or 0) > 0:
 		metrics["lastTotalCount"] = int(shared_summary["count"])
 		metrics["lastDataUpdatedAt"] = shared_summary.get("lastDataUpdatedAt")
