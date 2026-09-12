@@ -818,6 +818,16 @@ void main() {
       findsOneWidget,
     );
     await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('owner-ncaaf-moneyline-top-five')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('NCAA FOOTBALL MONEYLINE TOP 5'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('owner-ncaaf-moneyline-top-five')),
+      findsOneWidget,
+    );
+    await tester.scrollUntilVisible(
       find.byKey(const ValueKey('owner-user-account-controls')),
       300,
       scrollable: find.byType(Scrollable).first,

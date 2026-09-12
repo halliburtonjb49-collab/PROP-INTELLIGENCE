@@ -916,6 +916,13 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
             ),
             const SizedBox(height: 22),
             _sectionTitle(
+              'NCAA FOOTBALL MONEYLINE TOP 5',
+              'Dedicated NCAAF team-moneyline shortlist ranked by fresh no-vig market probability and best available price',
+            ),
+            const SizedBox(height: 10),
+            _ncaafMoneylineSpotlight(),
+            const SizedBox(height: 22),
+            _sectionTitle(
               'OWNER TOP 5 PICKS BY SPORT',
               'Live, owner-only research shortlist ranked by PI Trust and edge for content preparation',
             ),
@@ -1357,6 +1364,49 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     return ranked.take(5).toList(growable: false);
   }
 
+  Widget _ncaafMoneylineSpotlight() {
+    final picks = _ownerMoneylines['NCAAF'] ?? const <_OwnerMoneylinePick>[];
+    if (_loading && picks.isEmpty) {
+      return const _OwnerTopPicksLoading(
+        key: ValueKey('owner-ncaaf-moneyline-top-five'),
+      );
+    }
+    if (picks.isEmpty) {
+      return KeyedSubtree(
+        key: const ValueKey('owner-ncaaf-moneyline-top-five'),
+        child: _notice(
+          Icons.sports_football_rounded,
+          'NO VERIFIED NCAAF MONEYLINES RIGHT NOW',
+          'No upcoming NCAA football game currently has fresh two-sided moneyline coverage. This checks again automatically every 30 seconds.',
+          AppColors.gold,
+        ),
+      );
+    }
+    return Column(
+      key: const ValueKey('owner-ncaaf-moneyline-top-five'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var index = 0; index < picks.length; index++) ...[
+          _OwnerMoneylineCard(
+            rank: index + 1,
+            pick: picks[index],
+            sport: 'NCAAF',
+          ),
+          if (index + 1 < picks.length) const SizedBox(height: 8),
+        ],
+        const SizedBox(height: 8),
+        const Text(
+          'TEAM MONEYLINES — NOT PLAYER PROPS. VERIFY THE LIVE PRICE WITH THE NAMED SPORTSBOOK.',
+          style: TextStyle(
+            color: AppColors.textMuted,
+            fontSize: 8,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _ownerMoneylinePanel() {
     if (_loading && _ownerMoneylines.isEmpty) {
       return const _OwnerTopPicksLoading();
@@ -1418,7 +1468,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
           const SizedBox(height: 8),
         ],
         for (final sport in _ownerMoneylineSports)
-          if (_ownerMoneylines[sport]?.isNotEmpty == true) ...[
+          if (sport != 'NCAAF' &&
+              _ownerMoneylines[sport]?.isNotEmpty == true) ...[
             Text(
               '$sport | TOP ${_ownerMoneylines[sport]!.length}',
               style: const TextStyle(
@@ -3031,7 +3082,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
 /// Rendered from the columns the backend declares rather than a fixed layout,
 /// so a new tile detail needs no matching change here.
 class _OwnerTopPicksLoading extends StatelessWidget {
-  const _OwnerTopPicksLoading();
+  const _OwnerTopPicksLoading({super.key});
 
   @override
   Widget build(BuildContext context) => Container(
