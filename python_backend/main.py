@@ -1019,12 +1019,14 @@ def _prop_catalog_summary(
 ) -> dict[str, object]:
 	return {
 		"count": len(props),
-		"sportCounts": dict(sorted(Counter(
-			str(prop.sport or "other").strip().upper() for prop in props
-		).items())),
-		"sportsbookCounts": dict(sorted(Counter(
-			str(prop.sportsbook or "other").strip().upper() for prop in props
-		).items())),
+        "sportCounts": dict(sorted(Counter(
+            str(getattr(prop, "sport", None) or "other").strip().upper()
+            for prop in props
+        ).items())),
+        "sportsbookCounts": dict(sorted(Counter(
+            str(getattr(prop, "sportsbook", None) or "other").strip().upper()
+            for prop in props
+        ).items())),
 		"lastDataUpdatedAt": max(
 			(str(prop.lastUpdatedUtc or "") for prop in props),
 			default="",
