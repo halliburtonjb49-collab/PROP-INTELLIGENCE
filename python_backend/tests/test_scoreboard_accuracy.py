@@ -74,7 +74,13 @@ def test_scoreboard_merges_complete_moneyline_slate_with_espn(monkeypatch) -> No
             ]
         },
     )
-    monkeypatch.setattr(main, "fetch_events", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        main,
+        "fetch_events",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("shared moneyline snapshot must avoid duplicate schedule fetch")
+        ),
+    )
 
     games = main._scoreboard_games_for_sport(
         league="NCAAF",

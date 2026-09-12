@@ -2872,6 +2872,7 @@ def _scoreboard_games_for_sport(
 	# ESPN supplies authoritative scores and logos, while the sportsbook feed
 	# supplies the complete market slate. Merge both: ESPN alone often returns
 	# only featured college games and previously hid valid moneyline matchups.
+	events: list[dict[str, object]] = []
 	if espn_games:
 		games = [
 			_normalize_scoreboard_game(
@@ -2884,13 +2885,17 @@ def _scoreboard_games_for_sport(
 			for event in espn_games
 			if _event_on_date(event, target_date=target_date)
 		]
-	else:
+	elif not market_events:
 		try:
 			events = fetch_events(sport_key)
 		except Exception:
 			events = []
 
-	if espn_games:
+	# A normalized market snapshot already contains the complete sportsbook
+	# schedule. Do not make a second upstream schedule request during every
+	# scoreboard rebuild; that duplicate fan-out was enough to exhaust a small
+	# API instance and return 502s on cache expiry.
+	if espn_games and not market_events:
 		try:
 			events = fetch_events(sport_key)
 		except Exception:
@@ -5848,9 +5853,7 @@ def scoreboard(
 			logging.exception("Scoreboard provider failed for %s", league)
 			return []
 
-	with ThreadPoolExecutor(
-		max_workers=len(SCOREBOARD_SPORT_KEYS)
-	) as executor:
+	with ThreadPoolExecutor(max_workers=4) as executor:
 		for sport_games in executor.map(
 			load_sport,
 			SCOREBOARD_SPORT_KEYS,
