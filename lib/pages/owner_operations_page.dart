@@ -42,6 +42,17 @@ class _OwnerMoneylinePick {
   final String sportsbook;
   final int bookCount;
   final bool stale;
+
+  String get teamLogo {
+    final normalizedTeam = team.trim().toLowerCase();
+    if (normalizedTeam == event.homeTeam.trim().toLowerCase()) {
+      return event.homeTeamLogo;
+    }
+    if (normalizedTeam == event.awayTeam.trim().toLowerCase()) {
+      return event.awayTeamLogo;
+    }
+    return '';
+  }
 }
 
 class _OwnerMoneylineCard extends StatelessWidget {
@@ -72,22 +83,58 @@ class _OwnerMoneylineCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppColors.gold.withValues(alpha: .14),
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.gold),
-            ),
-            child: Text(
-              '#$rank',
-              style: const TextStyle(
-                color: AppColors.gold,
-                fontWeight: FontWeight.w900,
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.gold.withValues(alpha: .10),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.gold),
+                ),
+                child: pick.teamLogo.isEmpty
+                    ? const Icon(
+                        Icons.sports_football_rounded,
+                        color: AppColors.gold,
+                        size: 24,
+                      )
+                    : Image.network(
+                        pick.teamLogo,
+                        fit: BoxFit.contain,
+                        cacheWidth: 96,
+                        semanticLabel: '${pick.team} logo',
+                        errorBuilder: (_, _, _) => const Icon(
+                          Icons.sports_football_rounded,
+                          color: AppColors.gold,
+                          size: 24,
+                        ),
+                      ),
               ),
-            ),
+              Positioned(
+                right: -5,
+                bottom: -4,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: AppColors.gold,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '$rank',
+                    style: const TextStyle(
+                      color: AppColors.background,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 12),
           Expanded(
