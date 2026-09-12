@@ -81,6 +81,9 @@ void main() {
     expect(worker, contains('`\${PI_ROOT}/canvaskit/canvaskit.wasm`'));
     expect(worker, contains('cacheFirstReleaseAsset(request)'));
     expect(bootstrap, isNot(contains('serviceWorkerSettings')));
+    expect(bootstrap, isNot(contains("renderer: 'skwasm'")));
+    expect(bootstrap, contains('forceSingleThreadedSkwasm: true'));
+    expect(bootstrap, contains("Flutter workspace failed to start:"));
     expect(pwa, contains("getRegistration('/workspace/')"));
     expect(pwa, contains("serviceWorker.register("));
     expect(
@@ -98,7 +101,10 @@ void main() {
     expect(index, contains("searchParams.get('recoveryAttempt')"));
     expect(index, contains('recoveryAttempt + 1'));
     expect(index, contains("querySelector('flutter-view, flt-glass-pane')"));
-    expect(index, contains('new MutationObserver(detectMountedFlutterWorkspace)'));
+    expect(
+      index,
+      contains('new MutationObserver(detectMountedFlutterWorkspace)'),
+    );
     expect(
       index,
       contains('piFirstFrameRendered || detectMountedFlutterWorkspace()'),
