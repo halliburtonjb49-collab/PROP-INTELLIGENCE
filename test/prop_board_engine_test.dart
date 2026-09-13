@@ -16,6 +16,7 @@ PropData _prop(
   bool selectable = true,
   int confidence = 50,
   int piTrustScore = 0,
+  String imagePath = '',
 }) {
   return PropData.fromJson({
     'id': id,
@@ -29,6 +30,7 @@ PropData _prop(
     'startTimeUtc': startTimeUtc,
     'confidence': confidence,
     'piTrustScore': piTrustScore,
+    'player_image': imagePath,
     'selectable': selectable,
     'verdict': {
       'decision': decision,
@@ -198,6 +200,39 @@ void main() {
       'tomorrow-high-trust',
     ]);
   });
+
+  test('props with player photos lead equivalent cards', () {
+    final result = _query([
+      _prop('no-photo', player: 'Alpha', piTrustScore: 99),
+      _prop(
+        'with-photo',
+        player: 'Zulu',
+        piTrustScore: 10,
+        imagePath: 'https://images.example/player.png',
+      ),
+    ], sortBy: 'trust');
+
+    expect(result.map((prop) => prop.id), ['with-photo', 'no-photo']);
+  });
+
+  test(
+    'photo preference never moves a later event ahead of an earlier one',
+    () {
+      final result = _query([
+        _prop(
+          'later-photo',
+          startTimeUtc: '2099-07-21T20:00:00Z',
+          imagePath: 'https://images.example/player.png',
+        ),
+        _prop('earlier-no-photo', startTimeUtc: '2099-07-20T20:00:00Z'),
+      ]);
+
+      expect(result.map((prop) => prop.id), [
+        'earlier-no-photo',
+        'later-photo',
+      ]);
+    },
+  );
 
   test('selected props remain chronological across different start times', () {
     final result = _query(

@@ -3985,153 +3985,136 @@ class _MainDashboardState extends State<MainDashboard> {
       child: Column(
         children: [
           Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              reverseDuration: const Duration(milliseconds: 160),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.012, 0),
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: child,
-                ),
-              ),
-              child: KeyedSubtree(
-                key: ValueKey(widget.selectedPage),
-                child: Semantics(
-                  key: const ValueKey('secondary-page-workspace'),
-                  container: true,
-                  label: '${appPageTitle(widget.selectedPage)} workspace',
-                  child: FocusTraversalGroup(
-                    child: ClipRect(
-                      child: widget.selectedPage == AppPage.searchPlayers
-                          ? SearchPlayersPage(props: _latestProps)
-                          : widget.selectedPage == AppPage.gameMarkets
-                          ? GameMarketsScreen(
-                              onAddToSlip: widget.onAddGameMarket,
-                            )
-                          : widget.selectedPage == AppPage.evScanner
-                          ? _buildEvScanner()
-                          : widget.selectedPage == AppPage.scoreboard
-                          ? LiveScoreboardTickerGridWidget(
-                              controller: widget.scoreboardController,
-                            )
-                          : widget.selectedPage == AppPage.scoreboardWatchlist
-                          ? LiveScoreboardTickerGridWidget(
-                              controller: widget.scoreboardController,
-                              watchedOnly: true,
-                            )
-                          : widget.selectedPage == AppPage.propAlerts
-                          ? PropAlertsPage(
-                              alerts: alertsForPage,
-                              onClose: () =>
-                                  widget.onSelectPage?.call(AppPage.board),
-                            )
-                          : widget.selectedPage == AppPage.briefing
-                          ? const BriefingPage()
-                          : widget.selectedPage == AppPage.trackRecord
-                          ? const TrackRecordPage()
-                          : widget.selectedPage == AppPage.analytics
-                          ? AnalyticsAdminWorkspace(
-                              selectedSport: widget.sportFilter,
-                            )
-                          : widget.selectedPage == AppPage.lineMovement
-                          ? LineMovementPage(
-                              selectedSport: widget.sportFilter,
-                              hasProAccess: AuthManager
-                                  .instance
-                                  .sessionState
-                                  .value
-                                  .hasEdgeAccess,
-                            )
-                          : widget.selectedPage == AppPage.injuryImpact
-                          ? InjuryImpactPage(
-                              props: _latestProps,
-                              alerts: _injuryAlerts,
-                            )
-                          : widget.selectedPage == AppPage.dataAdmin
-                          ? AnalyticsAdminWorkspace(
-                              selectedSport: widget.sportFilter,
-                              startInDataAdmin: true,
-                            )
-                          : widget.selectedPage == AppPage.ownerOperations
-                          ? const OwnerOperationsPage()
-                          : widget.selectedPage == AppPage.intelligenceLab
-                          ? IntelligenceLabPage(
-                              selections: widget.selections,
-                              onRemove: widget.onRemoveLabSelection,
-                              onClear: widget.onClearLabSelections,
-                            )
-                          : widget.selectedPage == AppPage.refereeTracker
-                          ? const RefereeTrackerPage()
-                          : widget.selectedPage == AppPage.propChat
-                          ? PropChatPage(
-                              onPopOut: widget.onFloatChat,
-                              onShowBubble: widget.onShowChatBubble,
-                              isBubbleVisible: widget.isChatBubbleVisible,
-                              sharedAnalysis: {
-                                'kind': widget.selections.length == 1
-                                    ? 'prop'
-                                    : 'slip',
-                                'title': widget.selections.length == 1
-                                    ? 'Prop analysis'
-                                    : '${widget.selections.length}-leg slip',
-                                'legs': widget.selections
-                                    .map(
-                                      (selection) => {
-                                        'player': selection.prop.player,
-                                        'market': selection.prop.propType,
-                                        'side': selection.sideLabel,
-                                        'line': selection.prop.line,
-                                        'odds': selection.odds,
-                                      },
-                                    )
-                                    .toList(growable: false),
-                              },
-                            )
-                          : Scrollbar(
-                              controller: _boardVerticalController,
-                              thumbVisibility: false,
-                              trackVisibility: false,
-                              interactive: false,
-                              thickness: boardScrollbarThickness(
-                                boardViewportWidth,
-                              ),
-                              radius: const Radius.circular(8),
-                              scrollbarOrientation: ScrollbarOrientation.right,
-                              child: SingleChildScrollView(
-                                controller: _boardVerticalController,
-                                primary: false,
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                padding: boardContentPadding(
-                                  boardViewportWidth,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (boardViewportWidth >= 1200) ...[
-                                      _buildDesktopMarketOverview(),
-                                      SizedBox(height: sectionGap + 4),
-                                    ],
-                                    if (tabletBoard)
-                                      _buildTabletMarketToolbar()
-                                    else
-                                      LayoutBuilder(
-                                        builder: (context, constraints) =>
-                                            _buildSiteFirstMarketBoard(
-                                              constraints.maxWidth,
-                                            ),
-                                      ),
-                                    SizedBox(height: sectionGap),
-                                    if (!isPhoneBoard) ...[
-                                      _buildProviderReliabilityBanner(),
-                                      SizedBox(height: sectionGap),
-                                    ],
-                                    /*Text(
+            // Primary navigation must be an immediate replacement. The old
+            // cross-fade kept the scoreboard and prop board visible together
+            // for up to 220ms; repainting both large trees caused the flash
+            // seen on Safari and mobile Chrome and recreated photo widgets.
+            child: Semantics(
+              key: const ValueKey('secondary-page-workspace'),
+              container: true,
+              label: '${appPageTitle(widget.selectedPage)} workspace',
+              child: FocusTraversalGroup(
+                child: ClipRect(
+                  child: widget.selectedPage == AppPage.searchPlayers
+                      ? SearchPlayersPage(props: _latestProps)
+                      : widget.selectedPage == AppPage.gameMarkets
+                      ? GameMarketsScreen(onAddToSlip: widget.onAddGameMarket)
+                      : widget.selectedPage == AppPage.evScanner
+                      ? _buildEvScanner()
+                      : widget.selectedPage == AppPage.scoreboard
+                      ? LiveScoreboardTickerGridWidget(
+                          controller: widget.scoreboardController,
+                        )
+                      : widget.selectedPage == AppPage.scoreboardWatchlist
+                      ? LiveScoreboardTickerGridWidget(
+                          controller: widget.scoreboardController,
+                          watchedOnly: true,
+                        )
+                      : widget.selectedPage == AppPage.propAlerts
+                      ? PropAlertsPage(
+                          alerts: alertsForPage,
+                          onClose: () =>
+                              widget.onSelectPage?.call(AppPage.board),
+                        )
+                      : widget.selectedPage == AppPage.briefing
+                      ? const BriefingPage()
+                      : widget.selectedPage == AppPage.trackRecord
+                      ? const TrackRecordPage()
+                      : widget.selectedPage == AppPage.analytics
+                      ? AnalyticsAdminWorkspace(
+                          selectedSport: widget.sportFilter,
+                        )
+                      : widget.selectedPage == AppPage.lineMovement
+                      ? LineMovementPage(
+                          selectedSport: widget.sportFilter,
+                          hasProAccess: AuthManager
+                              .instance
+                              .sessionState
+                              .value
+                              .hasEdgeAccess,
+                        )
+                      : widget.selectedPage == AppPage.injuryImpact
+                      ? InjuryImpactPage(
+                          props: _latestProps,
+                          alerts: _injuryAlerts,
+                        )
+                      : widget.selectedPage == AppPage.dataAdmin
+                      ? AnalyticsAdminWorkspace(
+                          selectedSport: widget.sportFilter,
+                          startInDataAdmin: true,
+                        )
+                      : widget.selectedPage == AppPage.ownerOperations
+                      ? const OwnerOperationsPage()
+                      : widget.selectedPage == AppPage.intelligenceLab
+                      ? IntelligenceLabPage(
+                          selections: widget.selections,
+                          onRemove: widget.onRemoveLabSelection,
+                          onClear: widget.onClearLabSelections,
+                        )
+                      : widget.selectedPage == AppPage.refereeTracker
+                      ? const RefereeTrackerPage()
+                      : widget.selectedPage == AppPage.propChat
+                      ? PropChatPage(
+                          onPopOut: widget.onFloatChat,
+                          onShowBubble: widget.onShowChatBubble,
+                          isBubbleVisible: widget.isChatBubbleVisible,
+                          sharedAnalysis: {
+                            'kind': widget.selections.length == 1
+                                ? 'prop'
+                                : 'slip',
+                            'title': widget.selections.length == 1
+                                ? 'Prop analysis'
+                                : '${widget.selections.length}-leg slip',
+                            'legs': widget.selections
+                                .map(
+                                  (selection) => {
+                                    'player': selection.prop.player,
+                                    'market': selection.prop.propType,
+                                    'side': selection.sideLabel,
+                                    'line': selection.prop.line,
+                                    'odds': selection.odds,
+                                  },
+                                )
+                                .toList(growable: false),
+                          },
+                        )
+                      : Scrollbar(
+                          controller: _boardVerticalController,
+                          thumbVisibility: false,
+                          trackVisibility: false,
+                          interactive: false,
+                          thickness: boardScrollbarThickness(
+                            boardViewportWidth,
+                          ),
+                          radius: const Radius.circular(8),
+                          scrollbarOrientation: ScrollbarOrientation.right,
+                          child: SingleChildScrollView(
+                            controller: _boardVerticalController,
+                            primary: false,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: boardContentPadding(boardViewportWidth),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (boardViewportWidth >= 1200) ...[
+                                  _buildDesktopMarketOverview(),
+                                  SizedBox(height: sectionGap + 4),
+                                ],
+                                if (tabletBoard)
+                                  _buildTabletMarketToolbar()
+                                else
+                                  LayoutBuilder(
+                                    builder: (context, constraints) =>
+                                        _buildSiteFirstMarketBoard(
+                                          constraints.maxWidth,
+                                        ),
+                                  ),
+                                SizedBox(height: sectionGap),
+                                if (!isPhoneBoard) ...[
+                                  _buildProviderReliabilityBanner(),
+                                  SizedBox(height: sectionGap),
+                                ],
+                                /*Text(
                             '${visibleProps.length} visible props • $_propCount total loaded',
                             style: const TextStyle(
                               color: app_colors.AppColors.textMuted,
@@ -4139,118 +4122,110 @@ class _MainDashboardState extends State<MainDashboard> {
                             ),
                           ),
                           const SizedBox(height: 10),*/
-                                    if (!tabletBoard) ...[
-                                      if (isPhoneBoard)
-                                        _buildPhoneResultsSummary()
-                                      else
-                                        _buildDecisionAndSummary(
-                                          showVerdict:
-                                              canShowSystemRecommendation(
-                                                hasEdgeAccess: AuthManager
-                                                    .instance
-                                                    .sessionState
-                                                    .value
-                                                    .hasEdgeAccess,
-                                              ),
-                                        ),
-                                      SizedBox(height: sectionGap),
-                                    ],
-                                    if (_activeBoardFilterLabels()
-                                        .isNotEmpty) ...[
-                                      _buildActiveBoardFilters(),
-                                      SizedBox(height: sectionGap),
-                                    ],
-                                    if (_selectedSite != 'ALL' &&
-                                        _selectedSiteSport.isEmpty &&
-                                        (_selectedSide == 'Over' ||
-                                            _selectedSide == 'Under'))
-                                      Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 20,
-                                          vertical: 28,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: app_colors.AppColors.panel,
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          border: Border.all(
-                                            color: app_colors.AppColors.gold
-                                                .withValues(alpha: .65),
-                                          ),
-                                        ),
-                                        child: Column(
-                                          children: [
-                                            const Icon(
-                                              Icons.sports_rounded,
-                                              color: app_colors.AppColors.gold,
-                                              size: 30,
-                                            ),
-                                            const SizedBox(height: 10),
-                                            Text(
-                                              'CHOOSE A SPORT FOR ${_selectedSide.toUpperCase()} PROPS',
-                                              textAlign: TextAlign.center,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w900,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            const Text(
-                                              'Over and Under markets are organized by sport so results stay focused and easy to compare.',
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                color: app_colors
-                                                    .AppColors
-                                                    .textMuted,
-                                                fontSize: 10,
-                                                height: 1.4,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      )
-                                    else
-                                      PropGrid(
-                                        selections: widget.selections,
-                                        onSelect: (prop, side) {
-                                          widget.onSelect(prop, side);
-                                        },
-                                        onPropFocused: _showPlayerPropsOverlay,
-                                        refreshListenable:
-                                            widget.refreshRequestNotifier,
-                                        onStartupLog: widget.onStartupLog,
-                                        sportFilter: _selectedSite == 'ALL'
-                                            ? widget.sportFilter
-                                            : _selectedSiteSport.isEmpty
-                                            ? widget.sportFilter
-                                            : _selectedSiteSport,
-                                        displaySportFilter:
-                                            _selectedSite == 'ALL'
-                                            ? widget.sportFilter
-                                            : _selectedSiteSport,
-                                        searchQuery: _searchQuery,
-                                        selectedSite: _selectedSite,
-                                        selectedCategory:
-                                            _effectiveSelectedCategory,
-                                        selectedSide: _selectedSide,
-                                        selectedTier: _selectedTier,
-                                        minConfidence: _minConfidence,
-                                        sortBy: _sortBy,
-                                        verdictFilter: _verdictFilter,
-                                        siteFirstLayout: true,
-                                        onPropsLoaded: _handlePropsLoaded,
-                                        onPropPageLoaded: _handlePropPageLoaded,
-                                        syncCoordinator: _propSyncCoordinator,
+                                if (!tabletBoard) ...[
+                                  if (isPhoneBoard)
+                                    _buildPhoneResultsSummary()
+                                  else
+                                    _buildDecisionAndSummary(
+                                      showVerdict: canShowSystemRecommendation(
+                                        hasEdgeAccess: AuthManager
+                                            .instance
+                                            .sessionState
+                                            .value
+                                            .hasEdgeAccess,
                                       ),
-                                  ],
-                                ),
-                              ),
+                                    ),
+                                  SizedBox(height: sectionGap),
+                                ],
+                                if (_activeBoardFilterLabels().isNotEmpty) ...[
+                                  _buildActiveBoardFilters(),
+                                  SizedBox(height: sectionGap),
+                                ],
+                                if (_selectedSite != 'ALL' &&
+                                    _selectedSiteSport.isEmpty &&
+                                    (_selectedSide == 'Over' ||
+                                        _selectedSide == 'Under'))
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 28,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: app_colors.AppColors.panel,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: app_colors.AppColors.gold
+                                            .withValues(alpha: .65),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        const Icon(
+                                          Icons.sports_rounded,
+                                          color: app_colors.AppColors.gold,
+                                          size: 30,
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          'CHOOSE A SPORT FOR ${_selectedSide.toUpperCase()} PROPS',
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        const Text(
+                                          'Over and Under markets are organized by sport so results stay focused and easy to compare.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color:
+                                                app_colors.AppColors.textMuted,
+                                            fontSize: 10,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                else
+                                  PropGrid(
+                                    selections: widget.selections,
+                                    onSelect: (prop, side) {
+                                      widget.onSelect(prop, side);
+                                    },
+                                    onPropFocused: _showPlayerPropsOverlay,
+                                    refreshListenable:
+                                        widget.refreshRequestNotifier,
+                                    onStartupLog: widget.onStartupLog,
+                                    sportFilter: _selectedSite == 'ALL'
+                                        ? widget.sportFilter
+                                        : _selectedSiteSport.isEmpty
+                                        ? widget.sportFilter
+                                        : _selectedSiteSport,
+                                    displaySportFilter: _selectedSite == 'ALL'
+                                        ? widget.sportFilter
+                                        : _selectedSiteSport,
+                                    searchQuery: _searchQuery,
+                                    selectedSite: _selectedSite,
+                                    selectedCategory:
+                                        _effectiveSelectedCategory,
+                                    selectedSide: _selectedSide,
+                                    selectedTier: _selectedTier,
+                                    minConfidence: _minConfidence,
+                                    sortBy: _sortBy,
+                                    verdictFilter: _verdictFilter,
+                                    siteFirstLayout: true,
+                                    onPropsLoaded: _handlePropsLoaded,
+                                    onPropPageLoaded: _handlePropPageLoaded,
+                                    syncCoordinator: _propSyncCoordinator,
+                                  ),
+                              ],
                             ),
-                    ),
-                  ),
+                          ),
+                        ),
                 ),
               ),
             ),

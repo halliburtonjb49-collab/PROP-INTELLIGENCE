@@ -7,6 +7,7 @@ class PreparedBoardProp {
     required this.normalizedSite,
     required this.searchText,
     required this.scheduledStart,
+    required this.hasPlayerImage,
   });
 
   final PropData prop;
@@ -21,6 +22,12 @@ class PreparedBoardProp {
   /// every rebuild, which is what made favouriting a prop or switching books
   /// stall the screen.
   final DateTime? scheduledStart;
+
+  /// Whether the live feed supplied a usable player image.
+  ///
+  /// Image coverage varies by league and provider. Keeping this precomputed
+  /// avoids repeatedly inspecting the URL while sorting a large board.
+  final bool hasPlayerImage;
 }
 
 String normalizePropSite(String value) {
@@ -113,6 +120,7 @@ List<PreparedBoardProp> prepareBoardProps(Iterable<PropData> props) {
           searchText: '${prop.player} ${prop.matchup} ${prop.sport} $market'
               .toLowerCase(),
           scheduledStart: propScheduledStart(prop),
+          hasPlayerImage: prop.imagePath.trim().isNotEmpty,
         );
       })
       .toList(growable: false);
@@ -189,6 +197,13 @@ List<PropData> filterAndSortBoardProps(
     final leftPinned = pinnedPropIds.contains(left.id);
     final rightPinned = pinnedPropIds.contains(right.id);
     if (leftPinned != rightPinned) return leftPinned ? -1 : 1;
+
+    // Prefer complete cards within the same game-time group. Do not move a
+    // later event ahead of an earlier one merely because its feed includes a
+    // headshot, and never displace a member's pinned selection.
+    if (leftPrepared.hasPlayerImage != rightPrepared.hasPlayerImage) {
+      return leftPrepared.hasPlayerImage ? -1 : 1;
+    }
 
     var rank = 0;
     switch (sortBy.trim().toLowerCase()) {
