@@ -1,6 +1,22 @@
 from services import launch_control_service, scoreboard_metrics_service
 
 
+def test_launch_control_panel_serves_shared_snapshot_without_rebuilding(monkeypatch) -> None:
+    expected = {"generatedAt": "cached", "api": {"status": "ok"}}
+    monkeypatch.setattr(
+        launch_control_service,
+        "get_distributed_json",
+        lambda key: expected,
+    )
+    monkeypatch.setattr(
+        launch_control_service,
+        "production_acceptance_snapshot",
+        lambda: (_ for _ in ()).throw(AssertionError("must not rebuild")),
+    )
+
+    assert launch_control_service.launch_control_snapshot() == expected
+
+
 def test_launch_control_panel_consolidates_secret_safe_signals(monkeypatch) -> None:
     monkeypatch.setattr(
         launch_control_service,

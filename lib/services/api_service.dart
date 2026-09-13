@@ -1170,16 +1170,25 @@ class ApiService {
 
   Future<void> recordEngagement(List<Map<String, dynamic>> events) async {
     if (events.isEmpty) return;
-    final headers = await _authenticatedHeaders(json: true);
     final body = jsonEncode({'events': events});
     Object? lastFailure;
     for (final candidate in _candidateBaseUrls) {
       try {
-        final response = await http.post(
+        var response = await http.post(
           Uri.parse('$candidate/api/intelligence/engagement'),
-          headers: headers,
+          headers: await _authenticatedHeaders(json: true),
           body: body,
         );
+        if (response.statusCode == 401) {
+          response = await http.post(
+            Uri.parse('$candidate/api/intelligence/engagement'),
+            headers: await _authenticatedHeaders(
+              json: true,
+              forceRefresh: true,
+            ),
+            body: body,
+          );
+        }
         if (response.statusCode != 200) {
           lastFailure = 'HTTP ${response.statusCode}';
           continue;

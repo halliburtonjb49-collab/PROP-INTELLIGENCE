@@ -9,7 +9,11 @@ from config import DB_PATH, PREFERRED_BOOKMAKERS
 from database.cache import PropCache
 from database.postgres import database_is_configured, get_database_pool
 from services.acceptance_service import production_acceptance_snapshot
-from services.distributed_cache_service import health as cache_health
+from services.distributed_cache_service import (
+    get_json as get_distributed_json,
+    health as cache_health,
+    set_json as set_distributed_json,
+)
 from services.game_market_service import game_market_health
 from services.job_queue_service import health as queue_health
 from services.pipeline_run_service import recent_pipeline_runs, summarize_pipeline_health
@@ -38,6 +42,8 @@ from services.strikeout_quality_service import (
 
 FAILED_PAYMENT_EVENTS = ("BILLING_ISSUE", "SUBSCRIPTION_PAUSED")
 _prop_cache = PropCache(DB_PATH)
+_LAUNCH_CONTROL_CACHE_KEY = "operations:launch-control:v2"
+_LAUNCH_CONTROL_CACHE_TTL_SECONDS = 90
 
 
 def _safe_int(value: object, default: int = 0) -> int:
@@ -329,6 +335,10 @@ def _database_counts() -> dict[str, object]:
 
 
 def launch_control_snapshot() -> dict[str, object]:
+    cached = get_distributed_json(_LAUNCH_CONTROL_CACHE_KEY)
+    if isinstance(cached, dict):
+        return cached
+
     acceptance = production_acceptance_snapshot()
     runs = recent_pipeline_runs(25)
     pipeline_health = summarize_pipeline_health(runs)
@@ -522,7 +532,7 @@ def launch_control_snapshot() -> dict[str, object]:
             "funnels": {},
             "reliability": {},
         }
-    return {
+    snapshot = {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "api": {
             "status": "ok",
@@ -574,3 +584,13 @@ def launch_control_snapshot() -> dict[str, object]:
         "syncDiagnostics": ticket_sync_diagnostic_summary(),
         **database_counts,
     }
+    # This report performs multiple database summaries and data-certification
+    # passes. The owner page refreshes every 30 seconds, so rebuilding it for
+    # every browser request caused timeouts and misleading empty cards. Redis
+    # keeps all API instances on one recent, secret-safe snapshot.
+    set_distributed_json(
+        _LAUNCH_CONTROL_CACHE_KEY,
+        snapshot,
+        ttl_seconds=_LAUNCH_CONTROL_CACHE_TTL_SECONDS,
+    )
+    return snapshot

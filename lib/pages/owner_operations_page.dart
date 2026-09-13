@@ -335,6 +335,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   Map<String, dynamic> _strikeoutControlsDraft = const {};
   bool _savingStrikeoutControls = false;
   bool _loading = true;
+  bool _refreshInFlight = false;
   String? _error;
   DateTime? _lastChecked;
 
@@ -411,18 +412,23 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
     final delay =
         _retryBackoff[_consecutiveFailures.clamp(0, _retryBackoff.length - 1)];
     _retryTimer = Timer(delay, () {
-      if (mounted) unawaited(_refresh());
+      if (mounted) unawaited(_refresh(showLoading: false));
     });
   }
 
   Future<Map<String, dynamic>> _optionalSnapshot(
-    Future<Map<String, dynamic>> request,
+    Future<Map<String, dynamic>> Function() request,
   ) async {
-    try {
-      return await request;
-    } catch (_) {
-      return const {};
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await request();
+      } catch (_) {
+        if (attempt == 0) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+      }
     }
+    return const {};
   }
 
   Future<void> _hydrateDailyPicksFromDevice() async {
@@ -467,6 +473,8 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
   }
 
   Future<void> _refresh({bool showLoading = true}) async {
+    if (_refreshInFlight) return;
+    _refreshInFlight = true;
     if (mounted && showLoading) {
       setState(() {
         _loading = true;
@@ -552,26 +560,26 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         }),
       );
       final results = await Future.wait([
-        _optionalSnapshot(_api.fetchLaunchControlPanel()),
-        _optionalSnapshot(_api.fetchBillingCertification()),
+        _optionalSnapshot(() => _api.fetchLaunchControlPanel()),
+        _optionalSnapshot(() => _api.fetchBillingCertification()),
         _optionalSnapshot(
-          _api.fetchOwnerCommandCenter(
+          () => _api.fetchOwnerCommandCenter(
             window: _selectedWindow,
             start: _customRange?.start,
             end: _customRange?.end.add(const Duration(days: 1)),
           ),
         ),
         _optionalSnapshot(
-          _api.fetchOwnerModelAudit(
+          () => _api.fetchOwnerModelAudit(
             window: _selectedWindow,
             start: _customRange?.start,
             end: _customRange?.end.add(const Duration(days: 1)),
           ),
         ),
-        _optionalSnapshot(_api.fetchOwnerGradingReview()),
-        _optionalSnapshot(_api.fetchProviderAvailability()),
-        _optionalSnapshot(_api.fetchProviderRecovery()),
-        _optionalSnapshot(_api.fetchIdentityRegistry()),
+        _optionalSnapshot(() => _api.fetchOwnerGradingReview()),
+        _optionalSnapshot(() => _api.fetchProviderAvailability()),
+        _optionalSnapshot(() => _api.fetchProviderRecovery()),
+        _optionalSnapshot(() => _api.fetchIdentityRegistry()),
       ]);
       final topPicks = await topPicksRequest;
       final moneylineFeeds = await moneylineRequest;
@@ -588,14 +596,17 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
       }
       if (!mounted) return;
       setState(() {
-        _control = results[0];
-        _billing = results[1];
-        _commandCenter = results[2];
-        _modelAudit = results[3];
-        _review = results[4];
-        _providerAvailability = results[5];
-        _providerRecovery = results[6];
-        _identityRegistry = results[7];
+        // A transient timeout must not erase a previously verified panel.
+        // Empty optional results remain in their loading/retrying state on
+        // first load and retain the last good snapshot on later refreshes.
+        if (results[0].isNotEmpty) _control = results[0];
+        if (results[1].isNotEmpty) _billing = results[1];
+        if (results[2].isNotEmpty) _commandCenter = results[2];
+        if (results[3].isNotEmpty) _modelAudit = results[3];
+        if (results[4].isNotEmpty) _review = results[4];
+        if (results[5].isNotEmpty) _providerAvailability = results[5];
+        if (results[6].isNotEmpty) _providerRecovery = results[6];
+        if (results[7].isNotEmpty) _identityRegistry = results[7];
         _providerReliability = _api.lastProviderReliability;
         _ownerTopPicks = rankedTopPicks;
         _cachedOwnerTopPicks = rankedTopPicks;
@@ -614,8 +625,14 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         );
         _lastChecked = DateTime.now();
       });
-      _consecutiveFailures = 0;
-      _retryTimer?.cancel();
+      final hasMissingSnapshots = results.any((result) => result.isEmpty);
+      if (hasMissingSnapshots) {
+        _consecutiveFailures += 1;
+        _scheduleRetry();
+      } else {
+        _consecutiveFailures = 0;
+        _retryTimer?.cancel();
+      }
     } catch (error) {
       if (mounted) {
         setState(() => _error = error.toString());
@@ -623,6 +640,7 @@ class _OwnerOperationsPageState extends State<OwnerOperationsPage> {
         _scheduleRetry();
       }
     } finally {
+      _refreshInFlight = false;
       if (mounted && showLoading) setState(() => _loading = false);
     }
   }

@@ -645,6 +645,14 @@ void main() {
     expect(source, contains('LOGIN-TO-FIRST-PROP BY DEVICE'));
     expect(source, contains('Target under 4 seconds'));
   });
+  test('owner diagnostics retry without erasing verified snapshots', () {
+    final source = File(
+      'lib/pages/owner_operations_page.dart',
+    ).readAsStringSync();
+    expect(source, contains('if (results[0].isNotEmpty) _control = results[0]'));
+    expect(source, contains('results.any((result) => result.isEmpty)'));
+    expect(source, contains('_refresh(showLoading: false)'));
+  });
   test(
     'owner research retains a real board pick when action gating is off',
     () {
