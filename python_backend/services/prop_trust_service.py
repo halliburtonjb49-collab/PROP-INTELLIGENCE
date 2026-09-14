@@ -103,18 +103,40 @@ def build_prop_trust(row: object, *, now_utc: datetime | None = None) -> dict[st
         freshness_ratio = min(freshness_ratio, .15)
     factors.append(_factor("freshness", "Last refresh", freshness_ratio, 20, freshness_detail))
 
+    source_provider = str(
+        _value(row, "sourceProvider", "source_provider", default="") or ""
+    ).strip()
+    sportsbook = str(_value(row, "sportsbook", default="") or "").strip()
     source_count = int(_number(_value(row, "marketBookCount", "market_book_count")) or 0)
-    if source_count <= 0 and str(_value(row, "sourceProvider", "source_provider", default="") or "").strip():
+    if source_count <= 0 and source_provider:
         source_count = 1
-    source_ratio = min(1.0, source_count / 4)
+    # Pick'em operators publish proprietary lines, so a valid direct feed often
+    # has exactly one possible publisher. Requiring four books made otherwise
+    # complete, fresh and well-calibrated props top out around 86 forever. A
+    # named operator plus a named upstream provider earns a dependable direct-
+    # source floor; genuine multi-book confirmation still earns the remainder.
+    direct_source = bool(sportsbook and source_provider)
+    if source_count >= 3:
+        source_ratio = 1.0
+    elif source_count == 2:
+        source_ratio = .9
+    elif source_count == 1:
+        source_ratio = .75 if direct_source else .5
+    else:
+        source_ratio = 0.0
+    source_detail = (
+        f"Direct {sportsbook} line supplied by {source_provider}."
+        if source_count == 1 and direct_source
+        else f"{source_count} independent market source{'s' if source_count != 1 else ''} confirm this prop."
+    )
     factors.append(_factor(
         "sources",
-        "Confirming sources",
+        "Source confidence",
         source_ratio,
         15,
-        f"{source_count} independent market source{'s' if source_count != 1 else ''} confirm this prop.",
+        source_detail,
     ))
-    if source_count < 2:
+    if source_count < 2 and not direct_source:
         warnings.append("Only one source currently confirms this line.")
 
     opening = _number(_value(row, "openingLine", "opening_line"))

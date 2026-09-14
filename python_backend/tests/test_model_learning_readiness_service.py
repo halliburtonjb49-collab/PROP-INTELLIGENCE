@@ -5,7 +5,13 @@ from services import model_learning_readiness_service as service
 
 
 class _Cursor:
-    def __init__(self, *, run_status: str = "SUCCEEDED"):
+    def __init__(
+        self,
+        *,
+        run_status: str = "SUCCEEDED",
+        completed_run_status: str | None = None,
+    ):
+        completed = completed_run_status or run_status
         self.results = iter(
             [
                 (True, True),
@@ -17,6 +23,7 @@ class _Cursor:
                     True,
                 ),
                 (datetime(2026, 9, 6, 19, tzinfo=timezone.utc), run_status),
+                (completed,),
             ]
         )
 
@@ -73,6 +80,23 @@ def test_learning_readiness_reports_warming_after_failed_learning_run(monkeypatc
 
     assert result["status"] == "warming"
     assert result["checks"]["latestLearningRunSucceeded"] is False
+
+
+def test_active_learning_run_keeps_last_completed_success_healthy(monkeypatch):
+    monkeypatch.setattr(service, "database_is_configured", lambda: True)
+    monkeypatch.setattr(
+        service,
+        "get_database_pool",
+        lambda: _Pool(
+            _Cursor(run_status="RUNNING", completed_run_status="SUCCEEDED")
+        ),
+    )
+
+    result = service.model_learning_readiness()
+
+    assert result["status"] == "ready"
+    assert result["checks"]["latestLearningRunSucceeded"] is True
+    assert result["latestLearningRunStatus"] == "RUNNING"
 
 
 def test_learning_readiness_blocks_without_database(monkeypatch):

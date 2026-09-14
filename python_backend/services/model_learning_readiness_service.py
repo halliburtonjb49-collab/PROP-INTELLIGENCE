@@ -45,6 +45,7 @@ def model_learning_readiness() -> dict[str, object]:
             )
             latest_snapshot, latest_graded, captured, graded, valid = cursor.fetchone()
             latest_learning_run = None
+            latest_learning_status = None
             learning_succeeded = False
             if runs_exist:
                 cursor.execute(
@@ -56,7 +57,17 @@ def model_learning_readiness() -> dict[str, object]:
                 run = cursor.fetchone()
                 if run:
                     latest_learning_run, run_status = run
-                    learning_succeeded = str(run_status) == "SUCCEEDED"
+                    latest_learning_status = str(run_status)
+                cursor.execute(
+                    """select status
+                         from public.pipeline_runs
+                        where pipeline = 'prop-learning'
+                          and finished_at is not null
+                        order by finished_at desc limit 1"""
+                )
+                completed_run = cursor.fetchone()
+                if completed_run:
+                    learning_succeeded = str(completed_run[0]) == "SUCCEEDED"
     except Exception:
         return {
             "status": "blocked",
@@ -83,4 +94,5 @@ def model_learning_readiness() -> dict[str, object]:
         "latestLearningRunAt": (
             latest_learning_run.isoformat() if latest_learning_run else None
         ),
+        "latestLearningRunStatus": latest_learning_status,
     }

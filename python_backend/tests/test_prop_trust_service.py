@@ -48,6 +48,26 @@ def test_trust_score_fails_closed_for_stale_unverified_single_source_prop() -> N
     assert any("stale" in warning.lower() for warning in trust["warnings"])
 
 
+def test_direct_prop_site_line_is_not_permanently_capped_below_ninety() -> None:
+    now = datetime(2026, 8, 8, 18, tzinfo=timezone.utc)
+    row = _row(now)
+    row.update({
+        "marketBookCount": 1,
+        "sourceProvider": "sportsgameodds",
+        "sportsbook": "PrizePicks",
+        "projectionSampleSize": 2500,
+        "openingLine": 24.5,
+    })
+
+    trust = build_prop_trust(row, now_utc=now)
+
+    assert trust["score"] >= 90
+    source = next(factor for factor in trust["factors"] if factor["key"] == "sources")
+    assert source["status"] == "FAIR"
+    assert "Direct PrizePicks line" in source["detail"]
+    assert not any("Only one source" in warning for warning in trust["warnings"])
+
+
 def test_research_capsule_uses_only_available_evidence() -> None:
     now = datetime(2026, 8, 8, 18, tzinfo=timezone.utc)
     row = _row(now)
