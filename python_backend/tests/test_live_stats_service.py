@@ -10,6 +10,87 @@ from services.live_stats_service import (
 )
 
 
+def test_espn_live_nfl_snapshot_returns_current_rushing_yards(monkeypatch) -> None:
+    from services import live_stats_service as service
+
+    scoreboard = {
+        "events": [
+            {
+                "id": "401772900",
+                "name": "Miami Dolphins at Las Vegas Raiders",
+                "status": {
+                    "period": 3,
+                    "displayClock": "6:42",
+                    "type": {"state": "in", "completed": False, "detail": "6:42 - 3rd Quarter"},
+                },
+            }
+        ]
+    }
+    summary = {
+        "boxscore": {
+            "players": [
+                {
+                    "team": {"id": "15"},
+                    "statistics": [
+                        {
+                            "name": "rushing",
+                            "keys": ["rushingAttempts", "rushingYards", "rushingTouchdowns"],
+                            "athletes": [
+                                {
+                                    "athlete": {"id": "1", "displayName": "De'Von Achane"},
+                                    "stats": ["12", "74", "1"],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+
+    def fake_json(**kwargs):
+        return summary if kwargs["url"].endswith("/summary") else scoreboard
+
+    monkeypatch.setattr(service, "_cached_json", fake_json)
+    snapshot = service._espn_live_boxscore_snapshot(
+        sport="NFL",
+        player_name="De'Von Achane",
+        prop_type="Player Rush Yds",
+        event_id="provider-event-123",
+        matchup="Miami Dolphins @ Las Vegas Raiders",
+        game_start_time="2026-09-13T20:25:00Z",
+    )
+
+    assert snapshot.value == 74.0
+    assert snapshot.completed is False
+    assert snapshot.status == "Live"
+    assert snapshot.source == "espn"
+    assert snapshot.game_detail == "Q3 • 6:42"
+
+
+def test_live_nfl_uses_espn_when_sportsdata_is_not_configured(monkeypatch) -> None:
+    from services import live_stats_service as service
+
+    monkeypatch.setattr(service, "SPORTSDATAIO_KEY", "")
+    monkeypatch.setattr(
+        service,
+        "_espn_live_boxscore_snapshot",
+        lambda **_kwargs: service.LiveStatSnapshot(81.0, False, "Live", "espn", "Q4 • 9:10"),
+    )
+
+    snapshot = service.get_live_player_stat_snapshot(
+        player_name="Test Runner",
+        team="",
+        prop_type="Player Rush Yds",
+        sport="NFL",
+        matchup="Away @ Home",
+        game_start_time="2026-09-13T20:25:00Z",
+    )
+
+    assert snapshot.value == 81.0
+    assert snapshot.source == "espn"
+
+
 def test_espn_completed_boxscore_grades_wnba_pra_by_matchup() -> None:
     snapshot = _espn_snapshot_from_logs(
         logs=[{

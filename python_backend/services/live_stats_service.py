@@ -9,6 +9,7 @@ from typing import Any
 
 import requests
 from dotenv import load_dotenv
+from providers.espn_box_score_statistics import parse_event_summary
 from providers.espn_basketball_statistics import EspnBasketballStatisticsProvider
 from services.mlb_official_stats_service import (
     market_is_known as mlb_market_is_known,
@@ -28,6 +29,7 @@ HTTP_TIMEOUT_SECONDS = 12
 _live_cache: dict[str, dict[str, Any]] = {}
 _espn_logs_cache: dict[str, dict[str, Any]] = {}
 _mlb_statsapi_cache: dict[str, dict[str, Any]] = {}
+_espn_boxscore_cache: dict[str, dict[str, Any]] = {}
 
 SPORT_CONFIG = {
     "NBA": {
@@ -234,6 +236,18 @@ def get_live_player_stat_snapshot(
         if fallback.value is not None:
             return fallback
 
+    if sport_key in {"NFL", "NHL"}:
+        fallback = _espn_live_boxscore_snapshot(
+            sport=sport_key,
+            player_name=player_name,
+            prop_type=prop_type,
+            event_id=event_id,
+            matchup=matchup,
+            game_start_time=game_start_time,
+        )
+        if fallback.value is not None:
+            return fallback
+
     if sport_key == "MLB":
         fallback = _mlb_statsapi_snapshot(
             player_name=player_name,
@@ -246,6 +260,152 @@ def get_live_player_stat_snapshot(
             return fallback
 
     return LiveStatSnapshot(None, False, "no_authoritative_boxscore")
+
+
+_ESPN_LIVE_PATHS = {
+    "NFL": "football/nfl",
+    "NHL": "hockey/nhl",
+}
+
+_ESPN_LIVE_MARKETS = {
+    "pass yards": ("passing_yards",),
+    "pass yds": ("passing_yards",),
+    "passing yards": ("passing_yards",),
+    "passing touchdowns": ("passing_touchdowns",),
+    "pass touchdowns": ("passing_touchdowns",),
+    "pass tds": ("passing_touchdowns",),
+    "passing interceptions": ("interceptions_thrown",),
+    "pass interceptions": ("interceptions_thrown",),
+    "pass completions": ("completions",),
+    "passing completions": ("completions",),
+    "pass attempts": ("pass_attempts",),
+    "passing attempts": ("pass_attempts",),
+    "rush yards": ("rushing_yards",),
+    "rush yds": ("rushing_yards",),
+    "rushing yards": ("rushing_yards",),
+    "rush attempts": ("carries",),
+    "rushing attempts": ("carries",),
+    "receiving yards": ("receiving_yards",),
+    "reception yards": ("receiving_yards",),
+    "reception yds": ("receiving_yards",),
+    "receptions": ("receptions",),
+    "rush reception yards": ("rushing_yards", "receiving_yards"),
+    "rush receiving yards": ("rushing_yards", "receiving_yards"),
+    "rushing receiving yards": ("rushing_yards", "receiving_yards"),
+    "receiving touchdowns": ("receiving_touchdowns",),
+    "reception touchdowns": ("receiving_touchdowns",),
+    "reception tds": ("receiving_touchdowns",),
+    "rushing touchdowns": ("rushing_touchdowns",),
+    "rush touchdowns": ("rushing_touchdowns",),
+    "rush tds": ("rushing_touchdowns",),
+    "goals": ("goals",),
+    "assists": ("assists",),
+    "points": ("points",),
+    "shots on goal": ("shots_on_goal",),
+    "player shots on goal": ("shots_on_goal",),
+    "blocked shots": ("blocked_shots",),
+    "goalie saves": ("saves",),
+    "total saves": ("saves",),
+    "saves": ("saves",),
+}
+
+
+def _espn_live_boxscore_snapshot(
+    *, sport: str, player_name: str, prop_type: str, event_id: str,
+    matchup: str, game_start_time: str,
+) -> LiveStatSnapshot:
+    """Return live NFL/NHL progress from ESPN when the paid feed is absent.
+
+    Prop-provider event identifiers are often unrelated to ESPN identifiers,
+    so the saved matchup and game date are the primary event identity. We only
+    accept one matching event and one matching athlete to avoid borrowing a
+    stat from another game.
+    """
+    sport_key = str(sport).strip().upper()
+    path = _ESPN_LIVE_PATHS.get(sport_key)
+    market_keys = _ESPN_LIVE_MARKETS.get(_normalize_live_stat_market(prop_type))
+    if path is None or market_keys is None:
+        return LiveStatSnapshot(None, False, "unsupported_market")
+    try:
+        target_date = datetime.fromisoformat(
+            str(game_start_time).replace("Z", "+00:00")
+        ).date()
+    except (TypeError, ValueError):
+        return LiveStatSnapshot(None, False, "invalid_game_date")
+
+    base = "https://site.api.espn.com/apis/site/v2/sports"
+    scoreboard = _cached_json(
+        cache=_espn_boxscore_cache,
+        key=f"espn-live:{sport_key}:{target_date.isoformat()}:scoreboard",
+        url=f"{base}/{path}/scoreboard",
+        params={"dates": target_date.strftime("%Y%m%d"), "limit": 100},
+    )
+    wanted_matchup = _normalize_matchup_identity(matchup)
+    candidates: list[dict[str, Any]] = []
+    for event in scoreboard.get("events", []):
+        if not isinstance(event, dict):
+            continue
+        espn_id = str(event.get("id") or "").strip()
+        event_matchup = _normalize_matchup_identity(
+            event.get("name") or event.get("shortName") or ""
+        )
+        id_matches = bool(event_id and espn_id == str(event_id).strip())
+        matchup_matches = bool(
+            wanted_matchup and event_matchup and wanted_matchup == event_matchup
+        )
+        if id_matches or matchup_matches:
+            candidates.append(event)
+    if len(candidates) != 1:
+        return LiveStatSnapshot(None, False, "espn_event_not_found")
+
+    event = candidates[0]
+    espn_id = str(event.get("id") or "").strip()
+    summary = _cached_json(
+        cache=_espn_boxscore_cache,
+        key=f"espn-live:{sport_key}:{espn_id}:summary",
+        url=f"{base}/{path}/summary",
+        params={"event": espn_id},
+    )
+    wanted_player = normalize_name(player_name)
+    rows = [
+        row for row in parse_event_summary(summary, sport=sport_key)
+        if normalize_name(row.get("player_name", "")) == wanted_player
+    ]
+    if len(rows) != 1:
+        return LiveStatSnapshot(None, False, "espn_player_not_found")
+    stats = rows[0].get("stats")
+    if not isinstance(stats, dict):
+        return LiveStatSnapshot(None, False, "missing_live_stat")
+    values = [stats.get(key) for key in market_keys]
+    if any(value is None for value in values):
+        return LiveStatSnapshot(None, False, "missing_live_stat")
+    try:
+        value = sum(float(value) for value in values)
+    except (TypeError, ValueError):
+        return LiveStatSnapshot(None, False, "missing_live_stat")
+
+    status = event.get("status")
+    status_type = status.get("type") if isinstance(status, dict) else {}
+    completed = bool(
+        isinstance(status_type, dict) and status_type.get("completed") is True
+    )
+    state = str(status_type.get("state") or "") if isinstance(status_type, dict) else ""
+    status_label = "Final" if completed else "Live" if state == "in" else "Scheduled"
+    game_detail = ""
+    if not completed and state == "in" and isinstance(status, dict):
+        period = status.get("period")
+        clock = str(status.get("displayClock") or "").strip()
+        period_label = ""
+        try:
+            period_number = int(period or 0)
+            if sport_key == "NFL" and period_number:
+                period_label = f"Q{period_number}" if period_number <= 4 else "OT"
+            elif sport_key == "NHL" and period_number:
+                period_label = f"P{period_number}" if period_number <= 3 else "OT"
+        except (TypeError, ValueError):
+            pass
+        game_detail = " • ".join(part for part in (period_label, clock) if part)
+    return LiveStatSnapshot(value, completed, status_label, "espn", game_detail)
 
 
 def _cached_json(

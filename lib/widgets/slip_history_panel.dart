@@ -1807,7 +1807,7 @@ class _CompactSlipLegRow extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      live.current?.floor().toString() ?? '0',
+                      live.current?.floor().toString() ?? '--',
                       style: TextStyle(
                         color: statusColor,
                         fontSize: 9,
