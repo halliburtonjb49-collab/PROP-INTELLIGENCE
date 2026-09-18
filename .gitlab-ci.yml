@@ -10,7 +10,7 @@ python-tests:
   stage: test
   image: python:3.12-slim
   script:
-    - pip install -r requirements.txt
+    - pip install -r requirements.txt pytest
     - pytest -q python_backend/tests/test_prop_delivery.py python_backend/tests/test_slip_storage_health.py
 
 .railway-deploy:
