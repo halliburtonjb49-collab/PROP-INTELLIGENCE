@@ -20,7 +20,10 @@ python-tests:
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
-    - railway up --ci --project "$RAILWAY_PROJECT_ID" --environment "$RAILWAY_ENVIRONMENT" --service "$RAILWAY_SERVICE"
+    - mkdir -p .railway-upload
+    - cp requirements.txt requirements-historical.txt .railway-upload/
+    - cp -R python_backend .railway-upload/
+    - railway up .railway-upload --path-as-root --ci --project "$RAILWAY_PROJECT_ID" --environment "$RAILWAY_ENVIRONMENT" --service "$RAILWAY_SERVICE"
 
 deploy-api:
   extends: .railway-deploy
