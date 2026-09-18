@@ -15,10 +15,9 @@ SPEC.loader.exec_module(post_deploy_smoke)
 
 
 class _Response:
-    status = 200
-
-    def __init__(self, body: bytes = b"ok") -> None:
+    def __init__(self, body: bytes = b"ok", status: int = 200) -> None:
         self._body = body
+        self.status = status
 
     def read(self) -> bytes:
         return self._body
@@ -246,3 +245,148 @@ def test_readiness_retries_one_cold_cache_performance_sample(monkeypatch) -> Non
     assert payload["responseMs"] == 800
     assert props_ms == 800
     assert delays == [post_deploy_smoke.DEPLOYMENT_POLL_SECONDS]
+
+
+def test_release_gate_allows_feed_stale_only_when_billing_is_ready(monkeypatch) -> None:
+    body = json.dumps(
+        {
+            "releaseReady": False,
+            "acceptanceStatus": "critical",
+            "billingReady": True,
+            "criticalIssueCount": 1,
+            "criticalIssueCodes": ["feed_stale"],
+        }
+    ).encode()
+
+    monkeypatch.setattr(
+        post_deploy_smoke,
+        "request",
+        lambda url: (_Response(body), body, 1.0),
+    )
+
+    post_deploy_smoke.verify_release_gate()
+
+
+def test_release_gate_allows_normalized_feed_stale_code(monkeypatch) -> None:
+    body = json.dumps(
+        {
+            "releaseReady": False,
+            "acceptanceStatus": "critical",
+            "billingReady": True,
+            "criticalIssueCount": 1,
+            "criticalIssueCodes": [" FEED_STALE "],
+        }
+    ).encode()
+
+    monkeypatch.setattr(
+        post_deploy_smoke,
+        "request",
+        lambda url: (_Response(body), body, 1.0),
+    )
+
+    post_deploy_smoke.verify_release_gate()
+
+
+def test_release_gate_rejects_other_critical_issues(monkeypatch) -> None:
+    body = json.dumps(
+        {
+            "releaseReady": False,
+            "acceptanceStatus": "critical",
+            "billingReady": True,
+            "criticalIssueCount": 2,
+            "criticalIssueCodes": ["feed_stale", "products_unconfigured"],
+        }
+    ).encode()
+
+    monkeypatch.setattr(
+        post_deploy_smoke,
+        "request",
+        lambda url: (_Response(body), body, 1.0),
+    )
+
+    try:
+        post_deploy_smoke.verify_release_gate()
+    except RuntimeError as exc:
+        assert "Promotion blocked by production certification" in str(exc)
+    else:
+        raise AssertionError("non-feed-stale critical issues must fail the gate")
+
+
+def test_release_gate_rejects_duplicate_feed_stale_issues(monkeypatch) -> None:
+    body = json.dumps(
+        {
+            "releaseReady": False,
+            "acceptanceStatus": "critical",
+            "billingReady": True,
+            "criticalIssueCount": 2,
+            "criticalIssueCodes": ["feed_stale", "feed_stale"],
+        }
+    ).encode()
+
+    monkeypatch.setattr(
+        post_deploy_smoke,
+        "request",
+        lambda url: (_Response(body), body, 1.0),
+    )
+
+    try:
+        post_deploy_smoke.verify_release_gate()
+    except RuntimeError as exc:
+        assert "Promotion blocked by production certification" in str(exc)
+    else:
+        raise AssertionError("duplicate feed_stale issues must fail the gate")
+
+
+def test_release_gate_rejects_feed_stale_when_critical_count_is_not_one(monkeypatch) -> None:
+    body = json.dumps(
+        {
+            "releaseReady": False,
+            "acceptanceStatus": "critical",
+            "billingReady": True,
+            "criticalIssueCount": 2,
+            "criticalIssueCodes": ["feed_stale"],
+        }
+    ).encode()
+
+    monkeypatch.setattr(
+        post_deploy_smoke,
+        "request",
+        lambda url: (_Response(body), body, 1.0),
+    )
+
+    try:
+        post_deploy_smoke.verify_release_gate()
+    except RuntimeError as exc:
+        assert "Promotion blocked by production certification" in str(exc)
+    else:
+        raise AssertionError("feed_stale bypass requires exactly one critical issue")
+
+
+def test_release_gate_reports_unavailable_before_parsing_body(monkeypatch) -> None:
+    monkeypatch.setattr(
+        post_deploy_smoke,
+        "request",
+        lambda url: (_Response(b"not-json", status=503), b"not-json", 1.0),
+    )
+
+    try:
+        post_deploy_smoke.verify_release_gate()
+    except RuntimeError as exc:
+        assert str(exc) == "Production release gate is unavailable"
+    else:
+        raise AssertionError("non-200 release gate responses must fail")
+
+
+def test_release_gate_reports_malformed_json_on_200_response(monkeypatch) -> None:
+    monkeypatch.setattr(
+        post_deploy_smoke,
+        "request",
+        lambda url: (_Response(b"not-json", status=200), b"not-json", 1.0),
+    )
+
+    try:
+        post_deploy_smoke.verify_release_gate()
+    except RuntimeError as exc:
+        assert str(exc) == "Production release gate returned malformed JSON"
+    else:
+        raise AssertionError("malformed release gate payload must fail")
