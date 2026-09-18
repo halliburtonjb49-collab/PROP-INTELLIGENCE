@@ -293,7 +293,7 @@ class AuthManager {
   DateTime? _recentVerifiedPurchaseExpiresAt;
   static const String _apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://api.propsintell.com',
+    defaultValue: 'https://prop-intelligence-api-production.up.railway.app',
   );
 
   SupabaseClient? get _client => SupabaseService.client;

@@ -337,7 +337,7 @@ class ApiService {
   );
   static const String _configuredBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://api.propsintell.com',
+    defaultValue: 'https://prop-intelligence-api-production.up.railway.app',
   );
   static String? _resolvedBaseUrl;
   static Future<String?>? _sessionRefresh;
@@ -1232,7 +1232,7 @@ class ApiService {
       // refresh retry then consume the board's full loading deadline before
       // this healthy API origin is attempted. The API explicitly permits the
       // branded web origins and Authorization header through CORS.
-      'https://api.propsintell.com',
+      'https://prop-intelligence-api-production.up.railway.app',
       configured,
       // Retain the same-origin gateway as a final recovery path for temporary
       // direct-origin or preflight failures.
