@@ -140,7 +140,10 @@ def _rq_safe_job_id(job_id: str | None) -> str | None:
 
 
 def current_release() -> str:
-    return os.getenv("RENDER_GIT_COMMIT", os.getenv("APP_VERSION", "development")).strip()
+    return os.getenv(
+        "RAILWAY_GIT_COMMIT_SHA",
+        os.getenv("RENDER_GIT_COMMIT", os.getenv("APP_VERSION", "development")),
+    ).strip()
 
 
 def announce_active_release() -> bool:

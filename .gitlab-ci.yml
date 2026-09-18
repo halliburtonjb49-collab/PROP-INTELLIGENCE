@@ -1,0 +1,33 @@
+stages:
+  - test
+  - deploy
+
+variables:
+  RAILWAY_PROJECT_ID: "3e7a9231-55e6-4be8-abe0-f73c413eab2f"
+  RAILWAY_ENVIRONMENT: "production"
+
+python-tests:
+  stage: test
+  image: python:3.12-slim
+  script:
+    - pip install -r requirements.txt
+    - pytest -q python_backend/tests/test_prop_delivery.py python_backend/tests/test_slip_storage_health.py
+
+.railway-deploy:
+  stage: deploy
+  image: ghcr.io/railwayapp/cli:latest
+  needs: [python-tests]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - railway up --ci --project "$RAILWAY_PROJECT_ID" --environment "$RAILWAY_ENVIRONMENT" --service "$RAILWAY_SERVICE"
+
+deploy-api:
+  extends: .railway-deploy
+  variables:
+    RAILWAY_SERVICE: "prop-intelligence-api"
+
+deploy-worker:
+  extends: .railway-deploy
+  variables:
+    RAILWAY_SERVICE: "prop-intelligence-worker"

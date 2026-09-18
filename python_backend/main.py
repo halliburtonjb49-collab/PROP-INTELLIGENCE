@@ -352,7 +352,10 @@ app = FastAPI(
 	lifespan=lifespan,
 )
 
-APP_VERSION = os.getenv("RENDER_GIT_COMMIT", os.getenv("APP_VERSION", "development"))
+APP_VERSION = os.getenv(
+	"RAILWAY_GIT_COMMIT_SHA",
+	os.getenv("RENDER_GIT_COMMIT", os.getenv("APP_VERSION", "development")),
+)
 _prop_catalog_lock = Lock()
 _prop_catalog_load_lock = Lock()
 # Ordered from freshest to most degraded.

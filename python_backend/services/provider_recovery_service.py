@@ -189,7 +189,10 @@ def request_provider_recovery(
             },
         }
 
-    version = os.getenv("RENDER_GIT_COMMIT", os.getenv("APP_VERSION", "development"))
+    version = os.getenv(
+        "RAILWAY_GIT_COMMIT_SHA",
+        os.getenv("RENDER_GIT_COMMIT", os.getenv("APP_VERSION", "development")),
+    )
     bucket = int(time.time() // _RECOVERY_BUCKET_SECONDS)
     job_id = f"prop-freshness:{version[:12]}:{bucket}"
     job = enqueue("jobs.run_prop_sync", job_id=job_id)
