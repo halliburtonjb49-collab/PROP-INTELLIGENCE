@@ -7,7 +7,7 @@
 
   const token = () => {
     try {
-      const raw = localStorage.getItem('sb-doncoxjilytojmnpukxi-auth-token');
+      const raw = localStorage.getItem('sb-qmpbqylptlqnuhurqnfv-auth-token');
       return raw ? JSON.parse(raw).access_token || '' : '';
     } catch (_) { return ''; }
   };

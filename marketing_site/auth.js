@@ -1,6 +1,6 @@
 (() => {
-  const SUPABASE_URL = 'https://doncoxjilytojmnpukxi.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_ou8SpZL5IQKN1wBlMEIcUg_QlLWEx5X';
+  const SUPABASE_URL = 'https://qmpbqylptlqnuhurqnfv.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFtcGJxeWxwdGxxbnVodXJxbmZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NTQ2MzEsImV4cCI6MjEwNTIzMDYzMX0.EJHs-sn5gbjzwjAW0Hfv-U0e7eq2Wohmaeai60PygaY';
   const TURNSTILE_KEY = '0x4AAAAAAEBHmcYfqXksAdir';
   const isSignup = window.location.pathname.replace(/\/$/, '').endsWith('/signup');
   const form = document.getElementById('auth-form');

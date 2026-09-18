@@ -6,15 +6,15 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://api.propsintell.com/api/:path*"
+      "destination": "https://prop-intelligence-api-production.up.railway.app/api/:path*"
     },
     {
       "source": "/player-images/:path*",
-      "destination": "https://api.propsintell.com/player-images/:path*"
+      "destination": "https://prop-intelligence-api-production.up.railway.app/player-images/:path*"
     },
     {
       "source": "/player-image-proxy",
-      "destination": "https://api.propsintell.com/player-image-proxy"
+      "destination": "https://prop-intelligence-api-production.up.railway.app/player-image-proxy"
     },
     {
       "source": "/login",
@@ -141,7 +141,7 @@
   ],
   "env": {
     "API_BASE_URL": "https://api.propsintell.com",
-    "SUPABASE_URL": "https://doncoxjilytojmnpukxi.supabase.co",
+    "SUPABASE_URL": "https://qmpbqylptlqnuhurqnfv.supabase.co",
     "AUTH_EMAIL_REDIRECT_URL": "https://pipropsintell.com/workspace",
     "ALLOW_PUBLIC_SIGNUP": "true"
   }

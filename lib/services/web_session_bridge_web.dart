@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:web/web.dart' as web;
 
-const _sessionKey = 'sb-doncoxjilytojmnpukxi-auth-token';
+const _sessionKey = 'sb-qmpbqylptlqnuhurqnfv-auth-token';
 
 Map<String, dynamic>? _persistedSession() {
   final raw = web.window.localStorage.getItem(_sessionKey);

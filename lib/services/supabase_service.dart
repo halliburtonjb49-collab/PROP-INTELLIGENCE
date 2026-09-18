@@ -94,7 +94,7 @@ class SupabaseService {
           // Match supabase-js on pipropsintell.com. Marketing login, Google
           // OAuth, Flutter session restoration, sign-out, and protected prop
           // requests must all read and update one canonical session.
-          persistSessionKey: 'sb-doncoxjilytojmnpukxi-auth-token',
+          persistSessionKey: 'sb-qmpbqylptlqnuhurqnfv-auth-token',
         ),
       ),
     );

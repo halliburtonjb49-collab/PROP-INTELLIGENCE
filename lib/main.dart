@@ -75,7 +75,7 @@ final ValueNotifier<int> boardRefreshRequestNotifier = ValueNotifier<int>(0);
 
 const String kSupabaseProjectUrl = String.fromEnvironment(
   'SUPABASE_URL',
-  defaultValue: 'https://doncoxjilytojmnpukxi.supabase.co',
+  defaultValue: 'https://qmpbqylptlqnuhurqnfv.supabase.co',
 );
 const String kSupabaseAnonPublicApiKey = String.fromEnvironment(
   'SUPABASE_ANON_KEY',

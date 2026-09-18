@@ -23,7 +23,7 @@ flutter --version
 
 # Set defaults from vercel.json if not provided
 : "${API_BASE_URL:=https://pipropsintell.com}"
-: "${SUPABASE_URL:=https://doncoxjilytojmnpukxi.supabase.co}"
+: "${SUPABASE_URL:=https://qmpbqylptlqnuhurqnfv.supabase.co}"
 : "${AUTH_EMAIL_REDIRECT_URL:=https://pipropsintell.com/workspace}"
 : "${ALLOW_PUBLIC_SIGNUP:=true}"
 : "${TURNSTILE_SITE_KEY:=}"
